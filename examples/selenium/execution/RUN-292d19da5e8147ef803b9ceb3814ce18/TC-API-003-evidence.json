@@ -1,0 +1,23 @@
+{
+  "case_id": "TC-API-003",
+  "status_code": 200,
+  "response_sha256": "831eac8b8f741c5e100e78d974ed97431c4886db3368d37b76ba94ab682e0666",
+  "response_bytes": 12178103,
+  "elapsed_seconds": 1.576622,
+  "tree_sha": "e55a8a1f46c51c0437a0323c725def92f2f679f4",
+  "truncated": false,
+  "assertions": [
+    {
+      "name": "HTTP 状态码",
+      "passed": true
+    },
+    {
+      "name": "JSON 响应结构",
+      "passed": true
+    },
+    {
+      "name": "目录包含 web/web-form.html",
+      "passed": true
+    }
+  ]
+}

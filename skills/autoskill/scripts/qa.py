@@ -1,0 +1,316 @@
+#!/usr/bin/env python3
+"""QA canonical store, independent API executor and export adapters."""
+import argparse
+import collections
+import copy
+import datetime as dt
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import sys
+from urllib.parse import urlsplit, unquote
+import uuid
+
+ROOT = Path(__file__).resolve().parents[1]
+VERSION = '1.0.0'
+STATES = ['Pass', 'Fail', 'Blocked', 'Not Run']
+FILES = {'ui': 'functional-cases.json', 'api': 'api-cases.json'}
+COMMON = [('schema_version','格式版本'),('id','用例编号'),('kind','用例类型'),('revision','用例修订'),('lifecycle','生命周期'),('module','所属模块'),('requirement_ids','关联需求'),('title','用例标题'),('priority','优先级'),('preconditions','前置条件'),('steps','测试步骤'),('test_data','测试数据'),('expected','预期结果'),('source','来源'),('risk','执行风险'),('tags','标签'),('extensions','扩展字段')]
+API_COLS = [('api_source','接口来源'),('source_ref','来源定位'),('method','请求方式'),('path','接口地址'),('headers','Headers'),('params','Query 参数'),('json','请求体'),('assertions','预期断言')]
+RESULT_COLS = [('status','测试状态'),('actual','实际结果'),('reason','失败或阻塞原因'),('evidence','证据'),('run_id','运行编号'),('case_revision','执行用例修订'),('started_at','执行时间'),('actual_assertions','实际断言')]
+
+def now(): return dt.datetime.now(dt.timezone.utc).isoformat()
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8'))
+def write(p, obj):
+    p=Path(p); p.parent.mkdir(parents=True, exist_ok=True)
+    tmp=p.with_name(p.name+'.tmp')
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2)+'\n', encoding='utf-8'); tmp.replace(p)
+def load_cases(p): return [c for k in FILES for c in read(p/'testcases'/FILES[k])]
+def load_results(p):
+    return [r for kind in FILES for r in read(p/'execution'/f'{kind}-results.json')]
+def safe_file(p, rel):
+    q=Path(rel)
+    if q.is_absolute() or '..' in q.parts: raise ValueError('证据必须使用无 .. 的相对路径')
+    dest=(p/q).resolve()
+    if not dest.is_relative_to(p.resolve()): raise ValueError('证据路径越界')
+    return dest
+
+def validate(p):
+    import jsonschema
+    errors=[]
+    project=read(p/'project.json')
+    if project.get('schema_version')!=VERSION: errors.append('不支持的项目 schema_version')
+    reqs=read(p/'analysis/requirements.json'); req_ids=set()
+    for r in reqs:
+        if not all(isinstance(r.get(x),str) and r[x].strip() for x in ['id','module','title','source']): errors.append('需求必填字段缺失')
+        if r.get('id') in req_ids: errors.append('需求 ID 重复')
+        req_ids.add(r.get('id'))
+    schema=read(ROOT/'references/case.schema.json'); cases=load_cases(p); byid={}
+    for kind, filename in FILES.items():
+        for c in read(p/'testcases'/filename):
+            cid=c.get('id','?')
+            for e in jsonschema.Draft202012Validator(schema).iter_errors(c): errors.append(f'{cid}: {e.message}')
+            if c.get('kind')!=kind: errors.append(f'{cid}: 存储文件与 kind 不匹配')
+            if cid in byid: errors.append(f'{cid}: 用例 ID 重复')
+            byid[cid]=c
+            for rid in c.get('requirement_ids',[]):
+                if rid not in req_ids: errors.append(f'{cid}: 未知需求 {rid}')
+            if kind=='api':
+                a=c.get('assertions',{})
+                if not a.get('json_equals') and 'schema' not in a and a.get('status',0)<400:
+                    errors.append(f'{cid}: 成功响应缺少业务或结构断言')
+                if 'schema' in a:
+                    try: jsonschema.Draft202012Validator.check_schema(a['schema'])
+                    except jsonschema.SchemaError: errors.append(f'{cid}: 响应 schema 非法')
+                for ptr in a.get('json_equals',{}):
+                    if ptr and not ptr.startswith('/'): errors.append(f'{cid}: 非法 JSON Pointer')
+    seen=set()
+    result_schema=read(ROOT/'references/result.schema.json')
+    for kind in FILES:
+        for r in read(p/'execution'/f'{kind}-results.json'):
+            for e in jsonschema.Draft202012Validator(result_schema).iter_errors(r): errors.append('结果: '+e.message)
+            cid=r.get('case_id'); c=byid.get(cid)
+            if not c: errors.append(f'{cid}: 结果关联未知用例'); continue
+            if c.get('kind')!=kind: errors.append(f'{cid}: 结果通道不匹配')
+            if cid in seen: errors.append(f'{cid}: 重复当前结果')
+            seen.add(cid)
+            if r.get('case_revision')!=c.get('revision'): errors.append(f'{cid}: 旧版本结果，先归档后再执行')
+            if not isinstance(r.get('run_id'),str) or not r['run_id']: errors.append(f'{cid}: 缺少 run_id')
+            status=r.get('status')
+            if status not in STATES: errors.append(f'{cid}: 非法状态')
+            if status in ['Pass','Fail']:
+                checks=r.get('assertions',[])
+                valid=bool(checks) and all(isinstance(a,dict) and isinstance(a.get('passed'),bool) and a.get('name') for a in checks)
+                if not r.get('actual') or not r.get('evidence') or not valid: errors.append(f'{cid}: 缺少实际结果、断言或证据')
+                elif status=='Pass' and not all(a['passed'] for a in checks): errors.append(f'{cid}: Pass 包含失败断言')
+                elif status=='Fail' and all(a['passed'] for a in checks): errors.append(f'{cid}: Fail 没有失败断言')
+                for rel in r.get('evidence',[]):
+                    try:
+                        if not safe_file(p,rel).is_file(): errors.append(f'{cid}: 证据不存在 {rel}')
+                    except (ValueError,TypeError): errors.append(f'{cid}: 非法证据路径')
+            if status=='Blocked' and not r.get('reason'): errors.append(f'{cid}: Blocked 缺少原因')
+    return errors
+
+def require_valid(p):
+    errors=validate(p)
+    if errors: raise ValueError('\n'.join(errors))
+
+def init(p):
+    if p.exists(): raise ValueError('目标已存在，拒绝覆盖；请选择新项目目录')
+    for sub in ['input','analysis','testcases','testcase-skill','knowledge','execution/screenshots','execution/logs','execution/history','output','versions','staging']: (p/sub).mkdir(parents=True,exist_ok=True)
+    write(p/'project.json',{'id':'PRJ-'+uuid.uuid4().hex[:12],'schema_version':VERSION,'created_at':now()})
+    write(p/'qa-config.json',{'mode':'review','execution_authorized':False,'base_url':'','allowed_origins':[],'approvals':[],'timeout_seconds':20,'cleanup_status':'未执行；未创建数据'})
+    for sub in ['analysis/requirements.json','analysis/api-inventory.json','testcases/functional-cases.json','testcases/api-cases.json','execution/ui-results.json','execution/api-results.json']: write(p/sub,[])
+    (p/'testcase-skill/SKILL.md').write_text('# 项目测试规范\n\n待需求分析后补充业务规则、适用场景、来源及待确认项。主控须主动读取。\n',encoding='utf-8')
+    for k in ['business-rules','user-roles','data-dictionary','test-accounts','test-data-rules','historical-defects']:
+        (p/'knowledge'/f'{k}.md').write_text(f'# {k}\n\n待补充；未提供不代表不存在。凭据仅存环境变量名称。\n',encoding='utf-8')
+    print(f'项目已创建: {p}')
+
+def coverage(p):
+    cases=[c for c in load_cases(p) if c['lifecycle']=='active']; rows=[]
+    for r in read(p/'analysis/requirements.json'):
+        ids=[c['id'] for c in cases if r['id'] in c['requirement_ids']]
+        rows.append({'requirement_id':r['id'],'module':r['module'],'title':r['title'],'case_ids':ids,'covered':bool(ids)})
+    obj={'requirements':len(rows),'covered':sum(r['covered'] for r in rows),'ratio':sum(r['covered'] for r in rows)/len(rows) if rows else None,'rows':rows}
+    write(p/'analysis/coverage.json',obj); return obj
+
+def resolved(v):
+    if isinstance(v,str):
+        m=re.fullmatch(r'\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}',v)
+        if m:
+            if m[1] not in os.environ: raise ValueError('缺少凭据环境变量 '+m[1])
+            return os.environ[m[1]]
+        if '${ENV:' in v: raise ValueError('环境变量引用必须是完整字符串')
+    if isinstance(v,dict): return {k:resolved(x) for k,x in v.items()}
+    if isinstance(v,list): return [resolved(x) for x in v]
+    return v
+
+def pointer(v, ptr):
+    if ptr=='': return v
+    for token in ptr[1:].split('/'):
+        token=token.replace('~1','/').replace('~0','~')
+        if isinstance(v,list):
+            if not re.fullmatch(r'0|[1-9][0-9]*',token): raise KeyError(token)
+            v=v[int(token)]
+        elif isinstance(v,dict): v=v[token]
+        else: raise KeyError(token)
+    return v
+
+def request_url(config, case):
+    base=config['base_url']; b=urlsplit(base)
+    if b.scheme not in ['http','https'] or not b.hostname or b.username or b.password or b.path not in ['', '/'] or b.query or b.fragment: raise ValueError('base_url 必须是 HTTP(S) origin')
+    origin=f'{b.scheme}://{b.netloc}'
+    if origin not in config.get('allowed_origins',[]): raise ValueError('origin 未授权')
+    path=case['path']; decoded=path
+    for _ in range(3): decoded=unquote(decoded)
+    if not path.startswith('/') or decoded.startswith('//') or '\\' in decoded or any(x in ['.','..'] for x in decoded.split('/')) or urlsplit(path).netloc or urlsplit(path).scheme or '?' in path or '#' in path: raise ValueError('拒绝不安全或含 query 的接口路径；query 请用 params')
+    return origin+path
+
+def archive_channel(p, kind):
+    old=read(p/'execution'/f'{kind}-results.json')
+    if not old: return
+    target=p/'execution/history'/('ARCHIVE-'+uuid.uuid4().hex)
+    target.mkdir(parents=True)
+    for r in old:
+        for rel in r.get('evidence',[]):
+            src=safe_file(p,rel)
+            if src.is_file():
+                dest=target/rel; dest.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(src,dest)
+    write(target/f'{kind}-results.json',old)
+
+def run_api(p):
+    import httpx
+    import jsonschema
+    require_valid(p)
+    cfg=read(p/'qa-config.json'); run='RUN-'+uuid.uuid4().hex
+    archive_channel(p,'api'); results=[]
+    # Each case is independently gated. Never follow redirects or retry writes.
+    with httpx.Client(timeout=float(cfg.get('timeout_seconds',20)),follow_redirects=False,trust_env=False) as client:
+        for c in read(p/'testcases/api-cases.json'):
+            if c['lifecycle']!='active': continue
+            r={'case_id':c['id'],'case_revision':c['revision'],'run_id':run,'started_at':now(),'status':'Blocked','actual':'','assertions':[],'evidence':[],'reason':''}
+            try:
+                if cfg.get('mode') not in ['review','auto'] or cfg.get('execution_authorized') is not True: raise ValueError('未获得执行授权')
+                if c['api_source']=='inferred': raise ValueError('推导接口尚未确认')
+                risk=c['risk']
+                if c['method'] not in ['GET','HEAD','OPTIONS'] and risk=='read': risk='write'
+                if risk!='read' and risk not in cfg.get('approvals',[]): raise ValueError('缺少专门风险授权: '+risk)
+                url=request_url(cfg,c)
+                kwargs={k:resolved(c[k]) for k in ['headers','params','json'] if k in c}
+                try: response=client.request(c['method'],url,**kwargs)
+                except httpx.HTTPError as e: raise ValueError('网络执行受阻: '+type(e).__name__) from None
+                checks=[{'name':'HTTP 状态码','passed':response.status_code==c['assertions']['status']}]
+                a=c['assertions']
+                if a.get('json_equals') or 'schema' in a:
+                    try:
+                        body=response.json()
+                        for ptr,want in a.get('json_equals',{}).items():
+                            try:
+                                got=pointer(body,ptr)
+                                passed=json.dumps(got,sort_keys=True,ensure_ascii=False)==json.dumps(resolved(want),sort_keys=True,ensure_ascii=False)
+                            except (KeyError,IndexError,TypeError,ValueError): passed=False
+                            checks.append({'name':'JSON 字段断言 '+ptr,'passed':passed})
+                        if 'schema' in a:
+                            checks.append({'name':'JSON Schema','passed':not list(jsonschema.Draft202012Validator(a['schema']).iter_errors(body))})
+                    except ValueError: checks.append({'name':'响应是有效 JSON','passed':False})
+                r.update(status='Pass' if all(x['passed'] for x in checks) else 'Fail',actual=f'HTTP {response.status_code}; {response.elapsed.total_seconds():.3f}s; 响应正文未持久化',assertions=checks,reason='' if all(x['passed'] for x in checks) else '实际响应不符合预期断言')
+                # Randomized filenames avoid untrusted IDs being used as filesystem paths.
+                rel=f'execution/logs/{run}-{uuid.uuid4().hex[:12]}.json'
+                evidence={'case_id':c['id'],'case_revision':c['revision'],'run_id':run,'http_status':response.status_code,'elapsed_seconds':response.elapsed.total_seconds(),'assertions':checks,'timestamp':now()}
+                write(p/rel,evidence); r['evidence']=[rel]
+            except ValueError as e: r['reason']=str(e)
+            results.append(r)
+    write(p/'execution/api-results.json',results)
+    require_valid(p)
+    print(json.dumps(dict(collections.Counter(r['status'] for r in results)),ensure_ascii=False))
+    return results
+
+def merged(p):
+    rs={r['case_id']:r for r in load_results(p)}
+    return [dict(c,actual_assertions=rs.get(c['id'],{}).get('assertions',[]),**{k:v for k,v in rs.get(c['id'],{'status':'Not Run'}).items() if k not in c}) for c in load_cases(p)]
+
+def summary(rows): return {s:sum(c.get('status','Not Run')==s for c in rows if c['lifecycle']=='active') for s in STATES}
+
+def cell_text(v):
+    if v is None:return ''
+    if isinstance(v,dict): s=json.dumps(v,ensure_ascii=False)
+    elif isinstance(v,list): s='\n'.join(str(x) if isinstance(x,str) else json.dumps(x,ensure_ascii=False) for x in v)
+    else: s=str(v)
+    s=re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]','',s)
+    return s[:32000]+'\n[内容过长，请查看权威源 JSON]' if len(s)>32000 else s
+
+def export(p):
+    from openpyxl import Workbook,load_workbook
+    from openpyxl.styles import Alignment,Font,PatternFill
+    require_valid(p); cov=coverage(p); rows=merged(p); artifacts=[]; mappings={}
+    def sheet(wb,name,cols,data):
+        ws=wb.create_sheet(name); ws.append([label for key,label in cols]); ws.freeze_panes='A2'
+        for obj in data:
+            ws.append([cell_text(obj.get(key,'')) for key,label in cols])
+            for cell in ws[ws.max_row]: cell.data_type='s'
+        ws.auto_filter.ref=ws.dimensions
+        for i,(key,label) in enumerate(cols,1):
+            ws.column_dimensions[ws.cell(1,i).column_letter].width=46 if key in ['steps','expected','actual','extensions','json','assertions'] else 24
+        for cell in ws[1]: cell.font=Font(color='FFFFFF',bold=True); cell.fill=PatternFill('solid',fgColor='214A66')
+        for row in ws.iter_rows(min_row=2):
+            for cell in row: cell.alignment=Alignment(vertical='top',wrap_text=True)
+            if 'status' in [x[0] for x in cols]:
+                idx=[x[0] for x in cols].index('status'); value=row[idx].value
+                color={'Pass':'E2F0D9','Fail':'FCE4D6','Blocked':'FFF2CC','Not Run':'E7E6E6'}.get(value,'FFFFFF'); row[idx].fill=PatternFill('solid',fgColor=color)
+        return ws
+    for kind,title in [('ui','功能测试用例'),('api','接口测试用例')]:
+        selected=[r for r in rows if r['kind']==kind]
+        wb=Workbook(); wb.remove(wb.active); cols=COMMON+(API_COLS if kind=='api' else [])+RESULT_COLS
+        sheet(wb,'测试用例',cols,selected)
+        sheet(wb,'需求覆盖',[('requirement_id','需求编号'),('module','模块'),('title','需求'),('case_ids','关联用例'),('covered','已关联用例')],cov['rows'])
+        sheet(wb,'执行统计',[('status','状态'),('count','数量')],[{'status':s,'count':n} for s,n in summary(selected).items()])
+        f=p/'output'/f'{title}.xlsx'; wb.save(f)
+        check=load_workbook(f,read_only=True)
+        if check['测试用例'].max_row!=len(selected)+1: raise ValueError('导出用例数量不一致')
+        check.close(); artifacts.append('output/'+f.name); mappings[kind]=dict(cols)
+    wb=Workbook();wb.remove(wb.active)
+    sheet(wb,'需求追踪矩阵',[('requirement_id','需求编号'),('module','模块'),('title','需求'),('case_ids','关联用例'),('covered','已关联用例')],cov['rows'])
+    wb.save(p/'analysis/traceability-matrix.xlsx');artifacts.append('analysis/traceability-matrix.xlsx')
+    sources=['project.json','analysis/requirements.json','testcases/functional-cases.json','testcases/api-cases.json','execution/ui-results.json','execution/api-results.json']
+    write(p/'output/export-manifest.json',{'schema_version':VERSION,'mapping_version':VERSION,'generated_at':now(),'source_sha256':{x:hashlib.sha256((p/x).read_bytes()).hexdigest() for x in sources},'artifacts':artifacts,'columns':mappings,'limitations':['Excel 单元格长度受限，JSON 为权威源','敏感凭据不得写入源 JSON；导出前由操作者核查']})
+    print('Excel 和导出清单已生成')
+
+def report(p):
+    require_valid(p); cov=coverage(p); rows=merged(p); stats=summary(rows)
+    def md(s):return str(s).replace('|','\\|').replace('\n',' ')
+    text=['# 测试执行报告','',f'生成时间：{now()}','',f'用例格式版本：{VERSION}', '', '需求关联覆盖：'+(f"{cov['covered']}/{cov['requirements']}" if cov['requirements'] else '无需求，无法计算；不是 100%'), '需求关联不代表场景充分或测试通过。', '', '| 状态 | 数量 |','| --- | --- |']
+    text += [f'| {s} | {stats[s]} |' for s in STATES]
+    text += ['', '| 用例 | 修订 | 状态 | 实际结果/原因 | 证据 |','| --- | --- | --- | --- | --- |']
+    text += ['| '+' | '.join(md(x) for x in [r['id'],r['revision'],r.get('status','Not Run'),r.get('reason') or r.get('actual','尚未执行'),', '.join(r.get('evidence',[]))])+' |' for r in rows if r['lifecycle']=='active']
+    text += ['', '## 未覆盖需求']+[f"- {r['requirement_id']}：{r['title']}" for r in cov['rows'] if not r['covered']]
+    if all(r['covered'] for r in cov['rows']):text.append('无已登记的未关联需求。文档遗漏与场景充分性仍需分析核对。')
+    text += ['', '## 缺陷与限制','逐项失败见上表；没有实际执行证据的用例不得视为通过。','本引擎不自动实施项目数据初始化与清理；业务场景需项目适配。', '', '## 测试数据清理',read(p/'qa-config.json').get('cleanup_status','未提供清理状态')]
+    (p/'output/测试执行报告.md').write_text('\n'.join(text)+'\n',encoding='utf-8'); print('报告已生成')
+
+def import_openapi(p,f):
+    doc=read(f)
+    if not ('openapi' in doc or doc.get('swagger')=='2.0'):raise ValueError('不是 OpenAPI/Swagger 文档')
+    source=p/'input'/('openapi-'+hashlib.sha256(Path(f).read_bytes()).hexdigest()[:12]+'.json')
+    if source.resolve()!=Path(f).resolve():shutil.copy2(f,source)
+    inv=[]
+    for path,item in doc.get('paths',{}).items():
+        for method,op in item.items():
+            if method.upper() not in ['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS']:continue
+            inv.append({'method':method.upper(),'path':path,'api_source':'openapi','source_ref':str(source.relative_to(p))+'#/paths/'+path.replace('~','~0').replace('/','~1')+'/'+method,'operation':op,'path_parameters':item.get('parameters',[]),'document_security':doc.get('security',[]),'servers':doc.get('servers',[]),'unresolved_refs_possible':True})
+    write(p/'analysis/api-inventory.json',inv);print(f'导入 {len(inv)} 个接口；引用需分析阶段解析')
+
+def search(p,query):
+    for f in sorted((p/'knowledge').rglob('*')):
+        if f.is_file() and f.suffix in ['.md','.json','.csv','.txt']:
+            for i,line in enumerate(f.read_text(encoding='utf-8').splitlines(),1):
+                if query.casefold() in line.casefold():print(f'{f.relative_to(p)}:{i}: {line}')
+
+def main():
+    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('command',choices=['init','doctor','validate','coverage','run-api','export','report','import-openapi','search']);ap.add_argument('project',nargs='?');ap.add_argument('extra',nargs='?');a=ap.parse_args()
+    if a.command=='doctor':
+        print(json.dumps({'python':sys.version.split()[0],**{x:importlib.util.find_spec(x) is not None for x in ['httpx','jsonschema','openpyxl']},'agent_browser_cli':shutil.which('agent-browser') is not None},ensure_ascii=False));return 0
+    if not a.project:ap.error('需要项目目录')
+    p=Path(a.project).resolve()
+    if a.command=='init':init(p)
+    elif a.command=='validate':require_valid(p);print('校验通过')
+    elif a.command=='coverage':
+        require_valid(p);cov=coverage(p);print(json.dumps(cov,ensure_ascii=False));return 0 if cov['requirements'] and cov['covered']==cov['requirements'] else 2
+    elif a.command=='run-api':
+        results=run_api(p);return 2 if any(r['status']!='Pass' for r in results) else 0
+    elif a.command=='export':export(p)
+    elif a.command=='report':report(p)
+    elif a.command=='search':
+        if not a.extra:ap.error('需要关键词')
+        search(p,a.extra)
+    elif a.command=='import-openapi':
+        if not a.extra:ap.error('需要 OpenAPI JSON 路径')
+        import_openapi(p,Path(a.extra))
+    return 0
+
+if __name__=='__main__':
+    try:sys.exit(main())
+    except (ValueError,KeyError,OSError,ImportError,TypeError) as e:print('错误: '+str(e),file=sys.stderr);sys.exit(1)

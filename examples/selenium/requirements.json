@@ -1,0 +1,146 @@
+[
+  {
+    "id": "REQ-UI-001",
+    "module": "INDEX",
+    "title": "索引生成表单入口",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/index.html"
+  },
+  {
+    "id": "REQ-UI-002",
+    "module": "FORM",
+    "title": "表单页面基础呈现",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-003",
+    "module": "TEXT",
+    "title": "普通文本录入",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-004",
+    "module": "TEXT",
+    "title": "Unicode 与特殊字符保留",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-005",
+    "module": "PASSWORD",
+    "title": "合成密码遮蔽",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-006",
+    "module": "TEXTAREA",
+    "title": "多行文本保留",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-007",
+    "module": "DISABLED",
+    "title": "禁用输入不可编辑",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-008",
+    "module": "READONLY",
+    "title": "只读输入值不可更改",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-009",
+    "module": "SELECT",
+    "title": "下拉默认值与切换",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-010",
+    "module": "DATALIST",
+    "title": "建议值选择",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-011",
+    "module": "FILE",
+    "title": "选择合成本地文件",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-012",
+    "module": "CHECK",
+    "title": "默认选中的复选框可取消",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-013",
+    "module": "CHECK",
+    "title": "默认未选中的复选框可勾选",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-014",
+    "module": "RADIO",
+    "title": "同组单选互斥",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-015",
+    "module": "COLOR",
+    "title": "颜色默认值与更新",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-016",
+    "module": "DATE",
+    "title": "日期文本输入",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-017",
+    "module": "RANGE",
+    "title": "滑块下边界",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-018",
+    "module": "RANGE",
+    "title": "滑块上边界",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-019",
+    "module": "SUBMIT",
+    "title": "GET 提交及成功反馈",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-UI-020",
+    "module": "RETURN",
+    "title": "返回索引导航",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/web-form.html"
+  },
+  {
+    "id": "REQ-API-001",
+    "module": "目录依赖API",
+    "title": "递归获取页面目录",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/index.html；https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28"
+  },
+  {
+    "id": "REQ-API-002",
+    "module": "目录依赖API",
+    "title": "省略 recursive 返回非递归树",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/index.html；https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28"
+  },
+  {
+    "id": "REQ-API-003",
+    "module": "目录依赖API",
+    "title": "recursive=false 仍启用递归",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/index.html；https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28"
+  },
+  {
+    "id": "REQ-API-004",
+    "module": "目录依赖API",
+    "title": "无效树引用返回未找到",
+    "source": "https://github.com/SeleniumHQ/selenium/blob/trunk/common/src/web/index.html；https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28"
+  }
+]

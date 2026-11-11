@@ -1,0 +1,114 @@
+[
+  {
+    "run_id": "RUN-292d19da5e8147ef803b9ceb3814ce18",
+    "case_id": "TC-API-001",
+    "case_revision": 1,
+    "case_content_sha256": "8983d29f5ff6eac513c3674e1d36d1773c43c146b624b3e7d35d624e83d2fd91",
+    "started_at": "2026-11-11T09:51:25.339226+00:00",
+    "status": "Pass",
+    "actual": "HTTP 200; 12178103 bytes",
+    "reason": "",
+    "assertions": [
+      {
+        "name": "HTTP 状态码",
+        "passed": true
+      },
+      {
+        "name": "JSON 响应结构",
+        "passed": true
+      },
+      {
+        "name": "目录包含 web/index.html",
+        "passed": true
+      },
+      {
+        "name": "目录包含 web/web-form.html",
+        "passed": true
+      },
+      {
+        "name": "目录包含 web/submitted-form.html",
+        "passed": true
+      }
+    ],
+    "evidence": [
+      "RUN-292d19da5e8147ef803b9ceb3814ce18/TC-API-001-evidence.json"
+    ]
+  },
+  {
+    "run_id": "RUN-292d19da5e8147ef803b9ceb3814ce18",
+    "case_id": "TC-API-002",
+    "case_revision": 1,
+    "case_content_sha256": "b76709bd531bc46e6aa79e31832af94d711d1cc299d2f07950ba2aac1a21a029",
+    "started_at": "2026-11-11T09:51:35.473288+00:00",
+    "status": "Pass",
+    "actual": "HTTP 200; 1249 bytes",
+    "reason": "",
+    "assertions": [
+      {
+        "name": "HTTP 状态码",
+        "passed": true
+      },
+      {
+        "name": "JSON 响应结构",
+        "passed": true
+      },
+      {
+        "name": "非递归树不含嵌套路径",
+        "passed": true
+      }
+    ],
+    "evidence": [
+      "RUN-292d19da5e8147ef803b9ceb3814ce18/TC-API-002-evidence.json"
+    ]
+  },
+  {
+    "run_id": "RUN-292d19da5e8147ef803b9ceb3814ce18",
+    "case_id": "TC-API-003",
+    "case_revision": 1,
+    "case_content_sha256": "ad3aff40d652cf577d698c543c8ac8694351a6294bfeafc99ee83233685c1d8b",
+    "started_at": "2026-11-11T09:51:36.086039+00:00",
+    "status": "Pass",
+    "actual": "HTTP 200; 12178103 bytes",
+    "reason": "",
+    "assertions": [
+      {
+        "name": "HTTP 状态码",
+        "passed": true
+      },
+      {
+        "name": "JSON 响应结构",
+        "passed": true
+      },
+      {
+        "name": "目录包含 web/web-form.html",
+        "passed": true
+      }
+    ],
+    "evidence": [
+      "RUN-292d19da5e8147ef803b9ceb3814ce18/TC-API-003-evidence.json"
+    ]
+  },
+  {
+    "run_id": "RUN-292d19da5e8147ef803b9ceb3814ce18",
+    "case_id": "TC-API-004",
+    "case_revision": 1,
+    "case_content_sha256": "e643f2b4446a15c682a5766e7cf51b0e3eca6c2500793d373b1664ea72198dca",
+    "started_at": "2026-11-11T09:51:39.710494+00:00",
+    "status": "Pass",
+    "actual": "HTTP 404; 110 bytes",
+    "reason": "",
+    "assertions": [
+      {
+        "name": "HTTP 状态码",
+        "passed": true
+      },
+      {
+        "name": "JSON 响应结构",
+        "passed": true
+      }
+    ],
+    "evidence": [
+      "RUN-292d19da5e8147ef803b9ceb3814ce18/TC-API-004-evidence.json"
+    ]
+  }
+]

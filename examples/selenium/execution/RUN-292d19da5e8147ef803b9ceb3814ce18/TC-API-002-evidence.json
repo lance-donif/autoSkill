@@ -1,0 +1,23 @@
+{
+  "case_id": "TC-API-002",
+  "status_code": 200,
+  "response_sha256": "1efdc76df8e60bdf59bd75bf916e414958a4eb550b155a0e7ca7e73938a5d7ab",
+  "response_bytes": 1249,
+  "elapsed_seconds": 0.588681,
+  "tree_sha": "e55a8a1f46c51c0437a0323c725def92f2f679f4",
+  "truncated": false,
+  "assertions": [
+    {
+      "name": "HTTP 状态码",
+      "passed": true
+    },
+    {
+      "name": "JSON 响应结构",
+      "passed": true
+    },
+    {
+      "name": "非递归树不含嵌套路径",
+      "passed": true
+    }
+  ]
+}
