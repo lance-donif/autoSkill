@@ -39,60 +39,102 @@ def safe_file(p, rel):
     if not dest.is_relative_to(p.resolve()): raise ValueError('证据路径越界')
     return dest
 
-def validate(p):
+def meaningful_schema(value):
+    """Reject annotations, booleans true and unconstrained union branches."""
+    if value is False: return True
+    if not isinstance(value,dict) or not value: return False
+    for key in ('anyOf','oneOf'):
+        if key in value and (not value[key] or not all(meaningful_schema(v) for v in value[key])): return False
+    constraints={'const','enum','required','minProperties','maxProperties','minItems','maxItems','contains','minLength','maxLength','pattern','minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf','not'}
+    if any(key in value and value[key] not in ([],{}) for key in constraints): return True
+    if value.get('additionalProperties') is False: return True
+    if 'type' in value and value['type'] not in ('object', ['object']): return True
+    if any(meaningful_schema(v) for v in value.get('allOf',[])): return True
+    if any(key in value for key in ('anyOf','oneOf')): return True
+    return False
+
+def valid_pointer(ptr):
+    return isinstance(ptr,str) and (ptr=='' or (ptr.startswith('/') and re.search(r'~(?![01])',ptr) is None))
+
+def credential_errors(value, location='data'):
+    sensitive={'authorization','proxyauthorization','cookie','setcookie','password','passwd','secret','clientsecret','apikey','accesstoken','refreshtoken','token','credential'}
+    errors=[]
+    if isinstance(value,dict):
+        for key,item in value.items():
+            normalized=re.sub(r'[^a-z0-9]','',key.lower())
+            target=location+'.'+key
+            if normalized in sensitive and item not in ('',None):
+                if not isinstance(item,str) or not re.fullmatch(r'\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}',item): errors.append(target+': 敏感字段必须使用完整环境变量引用')
+            errors.extend(credential_errors(item,target))
+    elif isinstance(value,list):
+        for i,item in enumerate(value): errors.extend(credential_errors(item,f'{location}[{i}]'))
+    return errors
+
+def validate(p, check_results=True):
     import jsonschema
     errors=[]
-    project=read(p/'project.json')
-    if project.get('schema_version')!=VERSION: errors.append('不支持的项目 schema_version')
-    reqs=read(p/'analysis/requirements.json'); req_ids=set()
+    try:
+        project=read(p/'project.json')
+        reqs=read(p/'analysis/requirements.json')
+        case_lists={kind:read(p/'testcases'/filename) for kind,filename in FILES.items()}
+        result_lists={kind:read(p/'execution'/f'{kind}-results.json') for kind in FILES} if check_results else {}
+    except (ValueError,OSError) as e: return ['项目 JSON 文件无法读取: '+type(e).__name__]
+    if not isinstance(project,dict): errors.append('project.json 必须是对象')
+    elif project.get('schema_version')!=VERSION: errors.append('不支持的项目 schema_version')
+    for label,items in [('requirements',reqs),*case_lists.items(),*[(k+' results',v) for k,v in result_lists.items()]]:
+        if not isinstance(items,list): errors.append(label+': 必须是数组')
+        elif any(not isinstance(item,dict) for item in items): errors.append(label+': 数组元素必须是对象')
+    if errors: return errors
+    req_ids=set()
     for r in reqs:
-        if not all(isinstance(r.get(x),str) and r[x].strip() for x in ['id','module','title','source']): errors.append('需求必填字段缺失')
-        if r.get('id') in req_ids: errors.append('需求 ID 重复')
-        req_ids.add(r.get('id'))
-    schema=read(ROOT/'references/case.schema.json'); cases=load_cases(p); byid={}
-    for kind, filename in FILES.items():
-        for c in read(p/'testcases'/filename):
-            cid=c.get('id','?')
-            for e in jsonschema.Draft202012Validator(schema).iter_errors(c): errors.append(f'{cid}: {e.message}')
-            if c.get('kind')!=kind: errors.append(f'{cid}: 存储文件与 kind 不匹配')
+        if not all(isinstance(r.get(x),str) and r[x].strip() for x in ['id','module','title','source']): errors.append('需求必填字段缺失'); continue
+        if r['id'] in req_ids: errors.append('需求 ID 重复')
+        req_ids.add(r['id'])
+    schema=read(ROOT/'references/case.schema.json'); byid={}
+    for kind,items in case_lists.items():
+        for c in items:
+            schema_errors=list(jsonschema.Draft202012Validator(schema).iter_errors(c))
+            if schema_errors:
+                errors.extend('用例结构错误: '+e.json_path+' / '+e.validator for e in schema_errors); continue
+            cid=c['id'];errors.extend(credential_errors(c,cid))
+            if c['kind']!=kind: errors.append(f'{cid}: 存储文件与 kind 不匹配')
             if cid in byid: errors.append(f'{cid}: 用例 ID 重复')
             byid[cid]=c
-            for rid in c.get('requirement_ids',[]):
+            for rid in c['requirement_ids']:
                 if rid not in req_ids: errors.append(f'{cid}: 未知需求 {rid}')
             if kind=='api':
-                a=c.get('assertions',{})
-                if not a.get('json_equals') and 'schema' not in a and a.get('status',0)<400:
-                    errors.append(f'{cid}: 成功响应缺少业务或结构断言')
+                a=c['assertions']
+                if not a.get('json_equals') and not meaningful_schema(a.get('schema')) and a['status']<400: errors.append(f'{cid}: 成功响应缺少有效业务或结构断言')
                 if 'schema' in a:
                     try: jsonschema.Draft202012Validator.check_schema(a['schema'])
                     except jsonschema.SchemaError: errors.append(f'{cid}: 响应 schema 非法')
+                    if not meaningful_schema(a['schema']): errors.append(f'{cid}: 响应 schema 没有有效约束')
                 for ptr in a.get('json_equals',{}):
-                    if ptr and not ptr.startswith('/'): errors.append(f'{cid}: 非法 JSON Pointer')
-    seen=set()
-    result_schema=read(ROOT/'references/result.schema.json')
-    for kind in FILES:
-        for r in read(p/'execution'/f'{kind}-results.json'):
-            for e in jsonschema.Draft202012Validator(result_schema).iter_errors(r): errors.append('结果: '+e.message)
-            cid=r.get('case_id'); c=byid.get(cid)
-            if not c: errors.append(f'{cid}: 结果关联未知用例'); continue
-            if c.get('kind')!=kind: errors.append(f'{cid}: 结果通道不匹配')
+                    if not valid_pointer(ptr): errors.append(f'{cid}: 非法 JSON Pointer')
+    seen=set(); result_schema=read(ROOT/'references/result.schema.json')
+    for kind,items in result_lists.items():
+        for r in items:
+            schema_errors=list(jsonschema.Draft202012Validator(result_schema).iter_errors(r))
+            if schema_errors:
+                errors.extend('结果结构错误: '+e.json_path+' / '+e.validator for e in schema_errors); continue
+            errors.extend(credential_errors(r,'result'))
+            cid=r['case_id'];c=byid.get(cid)
+            if not c: errors.append(f'{cid}: 结果关联未知用例');continue
+            if c['kind']!=kind: errors.append(f'{cid}: 结果通道不匹配')
             if cid in seen: errors.append(f'{cid}: 重复当前结果')
             seen.add(cid)
-            if r.get('case_revision')!=c.get('revision'): errors.append(f'{cid}: 旧版本结果，先归档后再执行')
-            if not isinstance(r.get('run_id'),str) or not r['run_id']: errors.append(f'{cid}: 缺少 run_id')
-            status=r.get('status')
-            if status not in STATES: errors.append(f'{cid}: 非法状态')
+            if r['case_revision']!=c['revision']: errors.append(f'{cid}: 旧版本结果，先归档后再执行')
+            status=r['status']
             if status in ['Pass','Fail']:
-                checks=r.get('assertions',[])
-                valid=bool(checks) and all(isinstance(a,dict) and isinstance(a.get('passed'),bool) and a.get('name') for a in checks)
-                if not r.get('actual') or not r.get('evidence') or not valid: errors.append(f'{cid}: 缺少实际结果、断言或证据')
+                checks=r['assertions']
+                if not r['actual'] or not r['evidence'] or not checks: errors.append(f'{cid}: 缺少实际结果、断言或证据')
                 elif status=='Pass' and not all(a['passed'] for a in checks): errors.append(f'{cid}: Pass 包含失败断言')
                 elif status=='Fail' and all(a['passed'] for a in checks): errors.append(f'{cid}: Fail 没有失败断言')
-                for rel in r.get('evidence',[]):
+                for rel in r['evidence']:
                     try:
-                        if not safe_file(p,rel).is_file(): errors.append(f'{cid}: 证据不存在 {rel}')
+                        if not safe_file(p,rel).is_file(): errors.append(f'{cid}: 证据不存在')
                     except (ValueError,TypeError): errors.append(f'{cid}: 非法证据路径')
-            if status=='Blocked' and not r.get('reason'): errors.append(f'{cid}: Blocked 缺少原因')
+            if status=='Blocked' and not r['reason']: errors.append(f'{cid}: Blocked 缺少原因')
     return errors
 
 def require_valid(p):
@@ -130,6 +172,7 @@ def resolved(v):
     return v
 
 def pointer(v, ptr):
+    if not valid_pointer(ptr): raise ValueError('非法 JSON Pointer')
     if ptr=='': return v
     for token in ptr[1:].split('/'):
         token=token.replace('~1','/').replace('~0','~')
