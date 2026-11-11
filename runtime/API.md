@@ -21,3 +21,5 @@
 ```
 
 只有已授权且匹配的活动用例才能创建任务。UI脚本模式要求用例已经有extensions.automation，缺少动作必须先由AI生成或人工补充并校验。AI调度调用官方DSH SDK，不从“任务已入队”推断模型或测试已成功。调度宿主必须保持运行。
+
+仪表盘追加接口：POST /api/examples/import（内置用例导入，默认未授权）；POST /api/projects/:id/generate（AI生成指定数量与类型，校验后存储项目Skill）；POST /api/runs/:id/explain（只读AI解读，独立保存每次解读，不改变原测试结果）。生成数量、结构、ID或期间数据版本不一致时阻止覆盖。调度发生记录与推进时间在同一SQLite事务提交；宿主中断也保留Queued/Running收据并在重启后标Blocked。

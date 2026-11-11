@@ -31,9 +31,10 @@ class ServiceTests(unittest.TestCase):
    m=Manager(tmp);now=datetime.datetime.now(UTC)
    with patch.object(m,'request_ok'):
     t=m.create_task({'title':'one','project_id':'demo','engine':'script','kind':'ui','rule':{'kind':'at','at':(now+datetime.timedelta(seconds=10)).isoformat()}})
-   with patch.object(m,'queue') as queue:
+   with patch.object(m,'request_ok'),patch.object(m.pool,'submit') as queue:
     self.assertEqual(m.tick(now+datetime.timedelta(seconds=11)),1)
     self.assertEqual(m.tick(now+datetime.timedelta(seconds=12)),0);queue.assert_called_once()
+    self.assertEqual(m.runs()[0]['status'],'Queued')
    m.close();n=Manager(tmp);self.assertFalse(n.tasks()[0]['enabled']);n.close()
  def test_schedule_is_persisted_and_paused(self):
   with tempfile.TemporaryDirectory() as tmp:

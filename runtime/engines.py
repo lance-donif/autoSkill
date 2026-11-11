@@ -18,6 +18,22 @@ def locator(page,step):
     if 'role' in step:return page.get_by_role(step['role'],name=step.get('name'),exact=True)
     raise ValueError('动作缺少 selector、placeholder 或 role 定位')
 
+def validate_automation(automation):
+    import jsonschema
+    schema=core.read(ROOT/'runtime/automation.schema.json')
+    errors=list(jsonschema.Draft202012Validator(schema).iter_errors(automation))
+    if errors:raise ValueError('UI自动化动作不符合白名单契约')
+    for item in [*automation['actions'],*automation['assertions']]:
+        if item.get('action')=='reload':continue
+        if not any(key in item for key in ('selector','placeholder','role')):raise ValueError('UI动作或断言缺少定位器')
+        op=item.get('action')
+        if op in ('fill','select') and 'value' not in item:raise ValueError('输入动作缺少value')
+        if op=='press' and 'key' not in item:raise ValueError('键盘动作缺少key')
+        check=item.get('assertion')
+        if check in ('count','text','value','attribute') and 'expected' not in item:raise ValueError('断言缺少expected')
+        if check=='count' and (not isinstance(item['expected'],int) or isinstance(item['expected'],bool) or item['expected']<0):raise ValueError('count断言需要非负整数')
+        if check=='attribute' and 'attribute' not in item:raise ValueError('attribute断言缺少属性名')
+
 def prepare_run(project,target,kind,case_ids=None):
     core.require_valid(project,check_results=False)
     cfg=core.read(project/'qa-config.json')
@@ -52,6 +68,7 @@ def run_ui(snapshot,executable=None):
                     if case['risk']!='read' and case['risk'] not in cfg.get('approvals',[]):raise ValueError('缺少专门风险授权')
                     automation=case.get('extensions',{}).get('automation')
                     if not isinstance(automation,dict) or not automation.get('assertions'):raise ValueError('用例尚无可执行的自动化动作及断言')
+                    validate_automation(automation)
                     safe_origin(automation['start_url'],allowed)
                     context=browser.new_context()
                     def route(request):
@@ -105,6 +122,13 @@ def run_ui(snapshot,executable=None):
         finally:
             if browser:browser.close()
     core.write(snapshot/'execution/ui-results.json',results);core.require_valid(snapshot);return results
+
+def invoke_ai(snapshot,request,timeout=1800):
+    file=snapshot/('ai-'+request.get('mode','execute')+'-'+uuid.uuid4().hex+'-request.json');core.write(file,request)
+    command=[shutil.which('node') or 'node',str(ROOT/'plugin/ai-worker.mjs'),str(file)]
+    try:result=subprocess.run(command,cwd=str(snapshot),env=os.environ.copy(),capture_output=True,text=True,timeout=int(timeout))
+    except (subprocess.TimeoutExpired,OSError) as e:raise ValueError('DSH AI 执行器受阻: '+type(e).__name__) from None
+    if result.returncode:raise ValueError('DSH AI 未成功完成；请检查SDK、模型配置与审批通道')
 
 def run_ai(snapshot,kind,config):
     request={'project':str(snapshot.resolve()),'kind':kind,'results':str((snapshot/'execution'/f'{kind}-results.json').resolve()),'skill':str((snapshot/'case-skills'/kind/'SKILL.md').resolve()),'agentBrowserSkill':str(ROOT/'skills/agent-browser/SKILL.md'),'profile':config.get('ai_profile','sdk'),'coreScript':str(ROOT/'skills/autoskill/scripts/qa.py')}

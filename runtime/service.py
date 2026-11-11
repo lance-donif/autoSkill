@@ -81,7 +81,8 @@ class Manager:
         selected=[c for c in engines.core.load_cases(p) if c['kind']==spec['kind'] and c['lifecycle']=='active' and (not spec.get('case_ids') or c['id'] in spec['case_ids'])]
         if not selected:raise ValueError('没有匹配的活动用例')
         if spec.get('case_ids') and set(spec['case_ids'])!={c['id'] for c in selected}:raise ValueError('选择的用例不存在或类型不匹配')
-        if spec['engine']=='script' and spec['kind']=='ui' and any(not c.get('extensions',{}).get('automation') for c in selected):raise ValueError('部分UI用例还没有脚本动作；请先由AI生成并校验自动化动作')
+        if spec['engine']=='script' and spec['kind']=='ui':
+            for case in selected:engines.validate_automation(case.get('extensions',{}).get('automation'))
         return p
     def run(self,id):
         if not re.fullmatch(r'run-[0-9a-f]{32}',id):raise ValueError('运行ID无效')
@@ -104,6 +105,62 @@ class Manager:
             run.update(status=status,results=rows,reason='')
         except Exception as e:run.update(status='Blocked',reason=str(e) if isinstance(e,ValueError) else type(e).__name__)
         run['finished_at']=engines.stamp();self.put_run(run)
+    def update_cases(self,id,cases):
+        with self.lock:return engines.core.save_cases(self.project(id),cases)
+    def generate(self,id,requirements,kind,count):
+        p=self.project(id)
+        if kind not in ('ui','api') or not 1<=count<=200:raise ValueError('用例类型或数量无效')
+        run={'id':'run-'+uuid.uuid4().hex,'project_id':id,'engine':'ai','kind':'generate','generation_kind':kind,'status':'Queued','created_at':engines.stamp(),'results':[]}
+        self.put_run(run);self.pool.submit(self.generate_work,run['id'],requirements,kind,count);return run
+    def generate_work(self,id,requirements,kind,count):
+        import shutil
+        run=self.run(id);run.update(status='Running',started_at=engines.stamp());self.put_run(run)
+        try:
+            p=self.project(run['project_id']);snapshot=self.root/'runs'/id/'project';snapshot.mkdir(parents=True)
+            authority=['analysis/requirements.json',*[f'testcases/{f}' for f in engines.core.FILES.values()]]
+            baseline={rel:(p/rel).read_bytes() for rel in authority}
+            for rel in ['project.json','qa-config.json',*authority]:
+                target=snapshot/rel;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p/rel,target)
+            (snapshot/'input').mkdir();(snapshot/'output').mkdir();(snapshot/'input/requirements.md').write_text(requirements)
+            request={'mode':'generate','project':str(snapshot),'kind':kind,'count':count,'mainSkill':str(engines.ROOT/'skills/autoskill/SKILL.md'),'caseSchema':str(engines.ROOT/'skills/autoskill/references/case.schema.json'),'requirementsFile':str(snapshot/'input/requirements.md'),'generatedFile':str(snapshot/'output/generated-cases.json')}
+            engines.invoke_ai(snapshot,request)
+            generated=engines.core.read(snapshot/'output/generated-cases.json')
+            if not isinstance(generated,dict) or not isinstance(generated.get('cases'),list) or not isinstance(generated.get('requirements'),list):raise ValueError('AI生成文件结构不符合契约')
+            if len(generated['cases'])!=count or any(not isinstance(c,dict) or c.get('kind')!=kind for c in generated['cases']):raise ValueError('AI没有生成要求数量及类型的用例')
+            if kind=='ui':
+                for case in generated['cases']:engines.validate_automation(case.get('extensions',{}).get('automation'))
+            old=engines.core.load_cases(p);existing={c['id'] for c in old}
+            if any(c.get('id') in existing for c in generated['cases']):raise ValueError('AI生成ID与已有用例冲突，未覆盖原数据')
+            reqs=engines.core.read(p/'analysis/requirements.json');known={r['id']:r for r in reqs}
+            for req in generated['requirements']:
+                if not isinstance(req,dict) or not isinstance(req.get('id'),str):raise ValueError('AI需求格式错误')
+                if req['id'] in known and req!=known[req['id']]:raise ValueError('AI生成需求与现有ID冲突')
+                if req['id'] not in known:reqs.append(req);known[req['id']]=req
+            engines.core.write(snapshot/'analysis/requirements.json',reqs)
+            engines.core.save_cases(snapshot,old+generated['cases'])
+            with self.lock:
+                if any((p/rel).read_bytes()!=value for rel,value in baseline.items()):raise ValueError('AI生成期间权威用例已变化，结果保留待审阅，未覆盖')
+                original=engines.core.read(p/'analysis/requirements.json');engines.core.write(p/'analysis/requirements.json',reqs)
+                try:engines.core.save_cases(p,old+generated['cases'])
+                except Exception:engines.core.write(p/'analysis/requirements.json',original);raise
+            run.update(status='Generated',reason=f'已生成并校验{count}条{kind}用例，项目Skill已同步')
+        except Exception as error:run.update(status='Blocked',reason=str(error) if isinstance(error,ValueError) else type(error).__name__)
+        run['finished_at']=engines.stamp();self.put_run(run)
+    def explain(self,id):
+        run=self.run(id);snapshot=self.root/'runs'/id/'project'
+        if not snapshot.is_dir():raise ValueError('运行尚无可解读的快照')
+        analysis_id='analysis-'+uuid.uuid4().hex;relative='output/explanations/'+analysis_id+'.md'
+        (snapshot/'output/explanations').mkdir(parents=True,exist_ok=True)
+        run['ai_explanation_status']='Queued';run['ai_explanation_path']=relative;self.put_run(run)
+        def work():
+            try:
+                engines.invoke_ai(snapshot,{'mode':'explain','project':str(snapshot),'analysisId':analysis_id,'explanationFile':str(snapshot/relative)})
+                if not (snapshot/relative).is_file():raise ValueError('AI未保存解读文件')
+                outcome='Complete'
+            except Exception:outcome='Blocked'
+            with self.lock:
+                current=self.run(id);current['ai_explanation_status']=outcome;self.put_run(current)
+        self.pool.submit(work);return {'status':'Queued'}
     def create_task(self,spec):
         self.request_ok(spec)
         due=next_due(spec['rule'],datetime.datetime.now(UTC));task={'id':'task-'+uuid.uuid4().hex,**spec,'created_at':engines.stamp()}
@@ -121,7 +178,7 @@ class Manager:
             db.execute('UPDATE tasks SET enabled=?, next_due=? WHERE id=?',(int(enabled),due,id))
         return {'id':id,'enabled':enabled}
     def tick(self,now=None):
-        now=now or datetime.datetime.now(UTC);claimed=[]
+        now=now or datetime.datetime.now(UTC);dispatch=[];claimed=0
         with self.lock,self.db() as db:
             db.execute('BEGIN IMMEDIATE')
             for row in db.execute('SELECT * FROM tasks WHERE enabled=1 AND next_due<=?',(now.isoformat(),)).fetchall():
@@ -129,12 +186,15 @@ class Manager:
                 active=any(r.get('task_id')==task['id'] and r['status'] in ('Queued','Running') for r in self.runs())
                 successor=next_due(rule,now,due) if rule['kind']!='at' else due
                 db.execute('UPDATE tasks SET enabled=?,next_due=? WHERE id=?',(int(rule['kind']!='at'),successor.isoformat(),task['id']))
-                if not active:claimed.append(task)
-        for task in claimed:
-            try:self.queue({k:task[k] for k in ('project_id','engine','kind','case_ids') if k in task},task['id'])
-            except ValueError as e:
-                self.put_run({'id':'run-'+uuid.uuid4().hex,'project_id':task['project_id'],'engine':task['engine'],'kind':task['kind'],'task_id':task['id'],'created_at':engines.stamp(),'finished_at':engines.stamp(),'status':'Blocked','reason':str(e),'results':[]})
-        return len(claimed)
+                if active:continue
+                claimed+=1;spec={k:task[k] for k in ('project_id','engine','kind','case_ids') if k in task}
+                run={'id':'run-'+uuid.uuid4().hex,**spec,'task_id':task['id'],'created_at':engines.stamp(),'status':'Queued','results':[]}
+                try:self.request_ok(spec);dispatch.append(run['id'])
+                except ValueError as error:run.update(status='Blocked',reason=str(error),finished_at=engines.stamp())
+                # Claim and durable run receipt commit together; crashes cannot erase the occurrence.
+                db.execute('INSERT INTO runs VALUES (?,?)',(run['id'],json.dumps(run,ensure_ascii=False)))
+        for id in dispatch:self.pool.submit(self.work,id)
+        return claimed
     def loop(self):
         while not self.stop.wait(1):
             try:self.tick()
@@ -155,6 +215,10 @@ class ProjectRequest(BaseModel):
     cases:list[dict]
 class CaseUpdate(BaseModel):cases:list[dict]
 class Toggle(BaseModel):enabled:bool
+class Generation(BaseModel):
+    requirements:str=Field(min_length=5,max_length=50000)
+    kind:str
+    count:int=Field(default=20,ge=1,le=200)
 
 
 def create_app(root,port=8787,ui_executable=None,start_worker=True):
@@ -178,7 +242,7 @@ def create_app(root,port=8787,ui_executable=None,start_worker=True):
     @app.exception_handler(ValueError)
     async def value_error(request,error):return JSONResponse({'detail':str(error)},status_code=400)
     @app.get('/api/status')
-    def status():return {'name':'autoSkill','schema_version':engines.core.VERSION,'projects':len(manager.projects()),'runs':len(manager.runs()),'tasks':len(manager.tasks()),'ai_runtime':'需要用户配置DSH SDK与模型','script_runtime':'UI: Playwright / API: HTTP'}
+    def status():return {'name':'autoSkill','schema_version':engines.core.VERSION,'projects':len(manager.projects()),'runs':len(manager.runs()),'tasks':len(manager.tasks()),'ai_runtime':'需要用户配置DSH SDK与模型','script_runtime':'UI: Playwright / API: HTTP','instance_id':__import__('os').environ.get('AUTOSKILL_INSTANCE_ID')}
     @app.get('/api/projects')
     def projects():return manager.projects()
     @app.post('/api/projects')
@@ -186,7 +250,14 @@ def create_app(root,port=8787,ui_executable=None,start_worker=True):
     @app.get('/api/projects/{id}/cases')
     def cases(id:str):return engines.core.load_cases(manager.project(id))
     @app.put('/api/projects/{id}/cases')
-    def update_cases(id:str,req:CaseUpdate):return engines.core.save_cases(manager.project(id),req.cases)
+    def update_cases(id:str,req:CaseUpdate):return manager.update_cases(id,req.cases)
+    @app.post('/api/projects/{id}/generate')
+    def generate(id:str,req:Generation):return manager.generate(id,req.requirements,req.kind,req.count)
+    @app.post('/api/examples/import')
+    def example(req:dict):
+        if req.get('example')!='selenium':raise ValueError('不支持的示例')
+        id='selenium-demo-'+uuid.uuid4().hex[:5];source=engines.ROOT/'examples/selenium'
+        return manager.create_project(id,engines.core.read(source/'requirements.json'),engines.core.read(source/'ui-cases.json')+engines.core.read(source/'api-cases.json'))
     @app.get('/api/projects/{id}/config')
     def config(id:str):return engines.core.read(manager.project(id)/'qa-config.json')
     @app.put('/api/projects/{id}/config')
@@ -207,6 +278,8 @@ def create_app(root,port=8787,ui_executable=None,start_worker=True):
     def replay(id:str,req:dict):
         old=manager.run(id)
         return manager.queue({'project_id':old['project_id'],'engine':req.get('engine',old['engine']),'kind':old['kind'],'case_ids':old.get('case_ids',[])})
+    @app.post('/api/runs/{id}/explain')
+    def explain(id:str):return manager.explain(id)
     @app.get('/api/runs/{id}/artifact/{path:path}')
     def artifact(id:str,path:str):
         manager.run(id)
