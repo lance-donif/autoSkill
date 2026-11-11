@@ -40,6 +40,9 @@ def copy_app(destination):
 def build(assets, output):
     if output.exists() or output.is_relative_to(ROOT) or assets.is_relative_to(output):
         raise ValueError('Use a new output directory outside the source and assets')
+    agent_metadata = json.loads((assets / 'node_modules/agent-browser/package.json').read_text())
+    if agent_metadata.get('version') != '0.42.0':
+        raise ValueError('Agent Browser guide/runtime must match the pinned 0.42.0 version')
     metadata = json.loads((assets / 'download-sources.json').read_text())
     expected = next(line.split()[0] for line in metadata['node_checksums'].splitlines() if line.split()[-1] == metadata['node_file'])
     if sha(assets / 'node.zip') != expected:
@@ -81,10 +84,10 @@ def build(assets, output):
     bin_dir.mkdir()
     (bin_dir / 'agent-browser.cmd').write_text('@echo off\r\n"%~dp0..\\..\\node\\node.exe" "%~dp0..\\..\\app\\scripts\\agent-browser-offline.mjs" %*\r\nexit /b %errorlevel%\r\n')
     guide = skill / 'references/agent-browser-core.offline'
-    shutil.copytree(agent / 'skill-data/core', guide)
+    shutil.copytree(agent / 'skill-data/core', guide, dirs_exist_ok=True)
     copy_app(vendor / 'app')
     # App root has its own main Skill copy for schema discovery; copy the local guide there too.
-    shutil.copytree(guide, vendor / 'app/skills/autoskill/references/agent-browser-core.offline')
+    shutil.copytree(guide, vendor / 'app/skills/autoskill/references/agent-browser-core.offline', dirs_exist_ok=True)
     # App uses the enclosing vendor dependencies. It must not recursively embed runtimes.
     binaries = ['python/python.exe', 'node/node.exe', 'chrome/chrome-win64/chrome.exe',
                 'node_modules/agent-browser/bin/agent-browser-win32-x64.exe']
