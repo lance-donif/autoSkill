@@ -43,7 +43,10 @@
       "minLength": 1
     },
     "schema_version": {
-      "const": "1.0.0"
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
     },
     "kind": {
       "enum": [
@@ -118,7 +121,8 @@
       "enum": [
         "openapi",
         "browser",
-        "inferred"
+        "inferred",
+        "source-and-official-docs"
       ]
     },
     "source_ref": {

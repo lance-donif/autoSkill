@@ -16,7 +16,8 @@ from urllib.parse import urlsplit, unquote
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '1.0.0'
+VERSION = '1.1.0'
+SUPPORTED_VERSIONS = ('1.0.0','1.1.0')
 STATES = ['Pass', 'Fail', 'Blocked', 'Not Run']
 FILES = {'ui': 'functional-cases.json', 'api': 'api-cases.json'}
 COMMON = [('schema_version','格式版本'),('id','用例编号'),('kind','用例类型'),('revision','用例修订'),('lifecycle','生命周期'),('module','所属模块'),('requirement_ids','关联需求'),('title','用例标题'),('priority','优先级'),('preconditions','前置条件'),('steps','测试步骤'),('test_data','测试数据'),('expected','预期结果'),('source','来源'),('risk','执行风险'),('tags','标签'),('extensions','扩展字段')]
@@ -80,7 +81,7 @@ def validate(p, check_results=True):
         result_lists={kind:read(p/'execution'/f'{kind}-results.json') for kind in FILES} if check_results else {}
     except (ValueError,OSError) as e: return ['项目 JSON 文件无法读取: '+type(e).__name__]
     if not isinstance(project,dict): errors.append('project.json 必须是对象')
-    elif project.get('schema_version')!=VERSION: errors.append('不支持的项目 schema_version')
+    elif project.get('schema_version') not in SUPPORTED_VERSIONS: errors.append('不支持的项目 schema_version')
     for label,items in [('requirements',reqs),*case_lists.items(),*[(k+' results',v) for k,v in result_lists.items()]]:
         if not isinstance(items,list): errors.append(label+': 必须是数组')
         elif any(not isinstance(item,dict) for item in items): errors.append(label+': 数组元素必须是对象')
@@ -232,7 +233,9 @@ def run_api(p):
                 except httpx.HTTPError as e: raise ValueError('网络执行受阻: '+type(e).__name__) from None
                 checks=[{'name':'HTTP 状态码','passed':response.status_code==c['assertions']['status']}]
                 a=c['assertions']
-                if a.get('json_equals') or 'schema' in a:
+                extras=c.get('extensions',{}).get('extra_assertions',{})
+                blocked_reason=None
+                if a.get('json_equals') or 'schema' in a or extras:
                     try:
                         body=response.json()
                         for ptr,want in a.get('json_equals',{}).items():
@@ -243,7 +246,14 @@ def run_api(p):
                             checks.append({'name':'JSON 字段断言 '+ptr,'passed':passed})
                         if 'schema' in a:
                             checks.append({'name':'JSON Schema','passed':not list(jsonschema.Draft202012Validator(a['schema']).iter_errors(body))})
+                        if extras:
+                            paths={item.get('path') for item in body.get('tree',[]) if isinstance(item,dict)} if isinstance(body,dict) else set()
+                            for wanted in extras.get('required_paths',[]):
+                                if wanted not in paths and isinstance(body,dict) and body.get('truncated') is True:blocked_reason='目录响应截断，不能确认完整路径'
+                                checks.append({'name':'目录包含 '+wanted,'passed':wanted in paths})
+                            if extras.get('no_nested_paths'):checks.append({'name':'非递归目录没有嵌套路径','passed':not any('/' in x for x in paths if isinstance(x,str))})
                     except ValueError: checks.append({'name':'响应是有效 JSON','passed':False})
+                if blocked_reason:raise ValueError(blocked_reason)
                 r.update(status='Pass' if all(x['passed'] for x in checks) else 'Fail',actual=f'HTTP {response.status_code}; {response.elapsed.total_seconds():.3f}s; 响应正文未持久化',assertions=checks,reason='' if all(x['passed'] for x in checks) else '实际响应不符合预期断言')
                 # Randomized filenames avoid untrusted IDs being used as filesystem paths.
                 rel=f'execution/logs/{run}-{uuid.uuid4().hex[:12]}.json'
@@ -342,7 +352,7 @@ def sync_skills(p):
     project_name=re.sub(r'[^a-z0-9-]+','-',str(project['id']).lower()).strip('-')[:40] or 'project'
     for kind,filename in FILES.items():
         folder=p/'case-skills'/kind;folder.mkdir(parents=True,exist_ok=True)
-        count=len(read(p/'testcases'/filename))
+        count=sum(c['lifecycle']=='active' for c in read(p/'testcases'/filename))
         text=f"""---
 name: {project_name}-{kind}-cases
 description: 执行本项目的 {count} 条 {kind.upper()} 用例，读取标准JSON并保存真实断言、证据和内容哈希。

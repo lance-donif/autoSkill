@@ -49,10 +49,14 @@ UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行�
 
 ## 已知限制
 
-- 原 autoSkill 数据格式为1.0.0；Selenium 示例为1.1.0，新增准确的源码/官方文档来源枚举。不得直接把示例接口 JSON 输入只接受1.0.0的旧引擎；使用示例专用执行器，或先显式升级转换器。
+- 主引擎当前写入1.1.0，同时接受1.0.0旧定义；已支持源码/官方文档确认来源及目录附加断言。旧的执行结果缺少内容哈希时必须归档重跑，不能冒认通过。
 - 已修复初测6项问题，并新增9项针对性回归；总计20项引擎测试通过。历史问题与修复说明见 reports/qa-master-test-report.md。
 - 引擎测试通过不等于真实浏览器全流程通过；完整UI验收状态见执行报告。
 - Selenium 真实浏览器本轮不可达，UI全部 Blocked；4条第三方依赖接口真实执行通过。具体证据与范围见 reports/selenium-execution-summary.md。
 - 仅使用专用测试环境与合成数据；不要提交账号密码、Cookie、Token、原始 HAR 或其他秘密。
 
 代码和报告保留当前状态，本次提交没有把已知缺陷标记为已修复。
+
+## 双执行通道
+
+共享runtime提供script/UI（Playwright）、script/API（HTTP）与ai（官方DSH SDK）通道。脚本模式不调用模型；自然语言用例需先形成extensions.automation动作和断言才可脚本执行。官方Agent Browser发现Skill已随仓库附带（Apache-2.0），CLI和浏览器运行时需单独安装。AI SDK需匹配用户DSH安装版本和模型配置。

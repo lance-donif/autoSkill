@@ -27,7 +27,7 @@ class Tests(unittest.TestCase):
     def test_real_assertions_export_and_no_response_secret(self):
         self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass');self.assertFalse(qa.validate(self.p))
         qa.export(self.p);qa.report(self.p)
-        manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],'1.0.0')
+        manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],qa.VERSION)
         for f in (self.p/'execution/logs').glob('*.json'):self.assertNotIn('must-never-be-saved',f.read_text())
         self.assertEqual(qa.coverage(self.p)['ratio'],1)
     def test_no_authorization_means_no_request(self):
