@@ -6,3 +6,9 @@ __pycache__/
 !.env.example
 qa-workspace/
 *.har
+node_modules/
+.autoskill/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.tgz

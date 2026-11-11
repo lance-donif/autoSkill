@@ -1,0 +1,7 @@
+# Skill provider and the dashboard lifecycle are installed together.
+# The Web preset already supplies skills/tool-skill and the client slot services.
+- insert:
+    - id: autoskill
+      name: dsh-plugin-autoskill
+      config:
+        port: 8787

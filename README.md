@@ -1,5 +1,7 @@
 # autoSkill
 
+支持 **Skill** 与 **DeepSeek Harness 插件** 两种形式。插件版提供仪表盘、用例库、执行记录、定时任务和运行配置页；脚本模式无需AI，AI模式通过官方DSH SDK。完整安装说明见 [plugin/INSTALL.md](plugin/INSTALL.md)。
+
 AI 自动化测试 Skill 原型：根据需求生成 UI/API 用例，统一存储并导出，结合真实浏览器和独立 HTTP 执行器保存测试结果。
 
 ## 当前内容
@@ -41,7 +43,7 @@ python skills/autoskill/scripts/qa.py init qa-workspace/demo
 python skills/selenium-api-cases/scripts/run_api.py qa-workspace/selenium-api
 ```
 
-UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行；仓库没有内置浏览器运行时，也没有安装 Vercel 官方 Agent Browser。`qa-master/skills/agent-browser/` 是适配说明，不是官方工具本体。
+UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行；浏览器运行时需单独安装；仓库附带官方Agent Browser Skill（含许可证），npm可选依赖提供官方CLI。`skills/autoskill/skills/agent-browser/` 保留测试适配契约。
 
 ## 导入 Skill
 
@@ -60,3 +62,14 @@ UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行�
 ## 双执行通道
 
 共享runtime提供script/UI（Playwright）、script/API（HTTP）与ai（官方DSH SDK）通道。脚本模式不调用模型；自然语言用例需先形成extensions.automation动作和断言才可脚本执行。官方Agent Browser发现Skill已随仓库附带（Apache-2.0），CLI和浏览器运行时需单独安装。AI SDK需匹配用户DSH安装版本和模型配置。
+
+## 插件开发与预览
+
+```bash
+npm run build
+npm test
+npm run doctor
+npm run dashboard
+```
+
+DSH插件的宿主入口为plugin/index.mjs，客户端入口构建为lib/client.js。实际安装使用官方Plugins管理器的本地file: Bundle方式；请先阅读安装说明和兼容边界。插件面板当前限定同机访问回环后台，远程Web部署还需认证传输桥。
