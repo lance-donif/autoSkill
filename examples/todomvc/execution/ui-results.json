@@ -1,0 +1,282 @@
+[
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-001",
+    "case_revision": 1,
+    "case_content_sha256": "b1e2275ff5a4f63f5c616dae578f36f7d20f7ee0d47775e1c1a6b9f71da18676",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-002",
+    "case_revision": 1,
+    "case_content_sha256": "e3c042f29198e7762206b318d92123a732b62b93df267e7f45109cc87a6fa2db",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-003",
+    "case_revision": 1,
+    "case_content_sha256": "83cfd1b7a1bee27eaa269dab868d6cde36614fc7745b5231af785f5b12341f86",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-004",
+    "case_revision": 1,
+    "case_content_sha256": "e1a99efdf6f244249dd1cb57867d00222889181b0e50dcb267090a39d5fdc1d3",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-005",
+    "case_revision": 1,
+    "case_content_sha256": "68a91894862e350f5a789174a01b494ced54167ee9884714f822f343c3dcb5de",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-006",
+    "case_revision": 1,
+    "case_content_sha256": "94db8f82bcf7eff587042588c299f4c979c57d0b365897bd8d09d0fa36fb4aa5",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-007",
+    "case_revision": 1,
+    "case_content_sha256": "5d90a74acbf3f524a01f8a0900f2e911a737747a6eba464bfd68fc1681baeb66",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-008",
+    "case_revision": 1,
+    "case_content_sha256": "858500997afe4b57215e6e1b16322c6bb20aff7748835b2a51bbc4bfaac13120",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-009",
+    "case_revision": 1,
+    "case_content_sha256": "35865f35121d993ddd4fc868572270e1efba1e3e45280a1cc7aad8f089f557d7",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-010",
+    "case_revision": 1,
+    "case_content_sha256": "e92b7932632d370fd6f1062596876ce67012ba6fe606fd59ae34240fe9f47b38",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-011",
+    "case_revision": 1,
+    "case_content_sha256": "e8258872682dd1ed2ed350e1db7b1ad86aa45c03b080b43fdbfa36eefce3c51b",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-012",
+    "case_revision": 1,
+    "case_content_sha256": "fb43a87f7b2e11a2ff72143b4a682affc3144a6f427a91a425a11b19ac45da11",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-013",
+    "case_revision": 1,
+    "case_content_sha256": "e458b55038d9053ed6871820d1b38a6b645199b3f88b397e51e0d66e4dc7065a",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-014",
+    "case_revision": 1,
+    "case_content_sha256": "fbca5efa633df27042d8100b7286fab45ceace17ad4be9541243fcf382bfd382",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-015",
+    "case_revision": 1,
+    "case_content_sha256": "705d073bc6d61968213f50d4baf74e0306633f054ee10254f9f5568caf24dc3a",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-016",
+    "case_revision": 1,
+    "case_content_sha256": "d5f77abae57ccefa2c9ad3147ed712f1f8942710ed3acedf3e5754654d3c61de",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-017",
+    "case_revision": 1,
+    "case_content_sha256": "ebc6558a878cb5a14edbaa8ceb89938f46e7facd183fb3f5e99e3da60b271037",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-018",
+    "case_revision": 1,
+    "case_content_sha256": "e0630ede872e74c4d12fa250e45372fe356c677fa41ce83275ba90ace42fb0de",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-019",
+    "case_revision": 1,
+    "case_content_sha256": "fa03d658a61751686a1eac2b4033522fb7c67d5e82118407032fbdf39ac1ebeb",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  },
+  {
+    "run_id": "preflight-blocked-20261111",
+    "case_id": "TC-TODO-UI-020",
+    "case_revision": 1,
+    "case_content_sha256": "60d0be7098018b0a5f376a2e797bcee7e3b327dca8d49a79d43f9aa6a9ec35fe",
+    "started_at": "2026-11-11T10:52:21.872165+00:00",
+    "status": "Blocked",
+    "actual": "未执行用例步骤；共同浏览器前置环境不可用",
+    "reason": "见browser-preflight.md，只有前置验证尝试，未逐条操作页面",
+    "assertions": [],
+    "evidence": [
+      "execution/browser-preflight.md"
+    ]
+  }
+]

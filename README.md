@@ -73,3 +73,7 @@ npm run dashboard
 ```
 
 DSH插件的宿主入口为plugin/index.mjs，客户端入口构建为lib/client.js。实际安装使用官方Plugins管理器的本地file: Bundle方式；请先阅读安装说明和兼容边界。插件面板当前限定同机访问回环后台，远程Web部署还需认证传输桥。
+
+## 可脚本复跑的开源待办示例
+
+`examples/todomvc/` 附带未经业务修改、逐文件核对Git blob的官方TodoMVC、20条UI动作/断言和4条本地控制台API用例，以及两个项目样例Skill。详情见 [示例说明](examples/todomvc/README.md)。测试结果诚实保留当前浏览器受阻状态，不把生成与格式校验当成真实页面通过。

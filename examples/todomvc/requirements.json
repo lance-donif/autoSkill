@@ -1,0 +1,146 @@
+[
+  {
+    "id": "REQ-TODO-001",
+    "module": "TodoMVC",
+    "title": "空列表展示",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-002",
+    "module": "TodoMVC",
+    "title": "新增一条任务",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-003",
+    "module": "TodoMVC",
+    "title": "连续新增与顺序",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-004",
+    "module": "TodoMVC",
+    "title": "拒绝仅空白的任务",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-005",
+    "module": "TodoMVC",
+    "title": "新任务裁剪首尾空白",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-006",
+    "module": "TodoMVC",
+    "title": "特殊字符按纯文本显示",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-007",
+    "module": "TodoMVC",
+    "title": "提交后清空输入",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-008",
+    "module": "TodoMVC",
+    "title": "Unicode任务录入",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-009",
+    "module": "TodoMVC",
+    "title": "任务标记完成",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-010",
+    "module": "TodoMVC",
+    "title": "完成状态可恢复",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-011",
+    "module": "TodoMVC",
+    "title": "回车保存编辑",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-012",
+    "module": "TodoMVC",
+    "title": "Escape取消编辑",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-013",
+    "module": "TodoMVC",
+    "title": "失焦保存编辑",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-014",
+    "module": "TodoMVC",
+    "title": "编辑后裁剪空白",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-015",
+    "module": "TodoMVC",
+    "title": "Active仅展示未完成",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-016",
+    "module": "TodoMVC",
+    "title": "Completed仅展示完成",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-017",
+    "module": "TodoMVC",
+    "title": "All恢复显示全部",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-018",
+    "module": "TodoMVC",
+    "title": "剩余数量复数展示",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-019",
+    "module": "TodoMVC",
+    "title": "刷新后持久化任务和状态",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-TODO-020",
+    "module": "TodoMVC",
+    "title": "筛选状态刷新后保留",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
+  },
+  {
+    "id": "REQ-CONTROL-001",
+    "module": "autoSkill本地控制台API",
+    "title": "autoSkill服务身份",
+    "source": "runtime/service.py 中已实现的GET接口；测试不是TodoMVC业务API"
+  },
+  {
+    "id": "REQ-CONTROL-002",
+    "module": "autoSkill本地控制台API",
+    "title": "项目列表结构",
+    "source": "runtime/service.py 中已实现的GET接口；测试不是TodoMVC业务API"
+  },
+  {
+    "id": "REQ-CONTROL-003",
+    "module": "autoSkill本地控制台API",
+    "title": "运行列表结构",
+    "source": "runtime/service.py 中已实现的GET接口；测试不是TodoMVC业务API"
+  },
+  {
+    "id": "REQ-CONTROL-004",
+    "module": "autoSkill本地控制台API",
+    "title": "定时任务列表结构",
+    "source": "runtime/service.py 中已实现的GET接口；测试不是TodoMVC业务API"
+  }
+]

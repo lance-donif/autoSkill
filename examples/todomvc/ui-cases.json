@@ -1,0 +1,1358 @@
+[
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-001",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-001"
+    ],
+    "module": "TodoMVC",
+    "title": "空列表展示",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"visible\", \"selector\": \"h1\"}；{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 0}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "read",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [],
+        "assertions": [
+          {
+            "assertion": "visible",
+            "selector": "h1"
+          },
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 0
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-002",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-002"
+    ],
+    "module": "TodoMVC",
+    "title": "新增一条任务",
+    "priority": "P0",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill A\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 1
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "autoSkill A"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-003",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-003"
+    ],
+    "module": "TodoMVC",
+    "title": "连续新增与顺序",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill B\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 2}；{\"assertion\": \"text\", \"selector\": \".todo-list li:first-child label\", \"expected\": \"autoSkill A\"}；{\"assertion\": \"text\", \"selector\": \".todo-list li:last-child label\", \"expected\": \"autoSkill B\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill B"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 2
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-list li:first-child label",
+            "expected": "autoSkill A"
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-list li:last-child label",
+            "expected": "autoSkill B"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-004",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-004"
+    ],
+    "module": "TodoMVC",
+    "title": "拒绝仅空白的任务",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"   \"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 0}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "   "
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 0
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-005",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-005"
+    ],
+    "module": "TodoMVC",
+    "title": "新任务裁剪首尾空白",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"   autoSkill A   \"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill A\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "   autoSkill A   "
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "autoSkill A"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-006",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-006"
+    ],
+    "module": "TodoMVC",
+    "title": "特殊字符按纯文本显示",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"<b>QA & test</b>\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"<b>QA & test</b>\"}；{\"assertion\": \"count\", \"selector\": \".todo-list li b\", \"expected\": 0}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "<b>QA & test</b>"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "<b>QA & test</b>"
+          },
+          {
+            "assertion": "count",
+            "selector": ".todo-list li b",
+            "expected": 0
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-007",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-007"
+    ],
+    "module": "TodoMVC",
+    "title": "提交后清空输入",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"value\", \"selector\": \".new-todo\", \"expected\": \"\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "value",
+            "selector": ".new-todo",
+            "expected": ""
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-008",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-008"
+    ],
+    "module": "TodoMVC",
+    "title": "Unicode任务录入",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"待办测试 ✨\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"待办测试 ✨\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "待办测试 ✨"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "待办测试 ✨"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-009",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-009"
+    ],
+    "module": "TodoMVC",
+    "title": "任务标记完成",
+    "priority": "P0",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"check\", \"selector\": \".todo-list .toggle\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li.completed\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-count\", \"expected\": \"0 items left\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "check",
+            "selector": ".todo-list .toggle"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li.completed",
+            "expected": 1
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-count",
+            "expected": "0 items left"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-010",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-010"
+    ],
+    "module": "TodoMVC",
+    "title": "完成状态可恢复",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"check\", \"selector\": \".todo-list .toggle\"}",
+      "{\"action\": \"uncheck\", \"selector\": \".todo-list .toggle\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li.completed\", \"expected\": 0}；{\"assertion\": \"text\", \"selector\": \".todo-count\", \"expected\": \"1 item left\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "check",
+            "selector": ".todo-list .toggle"
+          },
+          {
+            "action": "uncheck",
+            "selector": ".todo-list .toggle"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li.completed",
+            "expected": 0
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-count",
+            "expected": "1 item left"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-011",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-011"
+    ],
+    "module": "TodoMVC",
+    "title": "回车保存编辑",
+    "priority": "P0",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"dblclick\", \"selector\": \".todo-list li label\"}",
+      "{\"action\": \"fill\", \"selector\": \".todo-list li .edit\", \"value\": \"autoSkill edited\"}",
+      "{\"action\": \"press\", \"selector\": \".todo-list li .edit\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill edited\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "dblclick",
+            "selector": ".todo-list li label"
+          },
+          {
+            "action": "fill",
+            "selector": ".todo-list li .edit",
+            "value": "autoSkill edited"
+          },
+          {
+            "action": "press",
+            "selector": ".todo-list li .edit",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "autoSkill edited"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-012",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-012"
+    ],
+    "module": "TodoMVC",
+    "title": "Escape取消编辑",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"dblclick\", \"selector\": \".todo-list li label\"}",
+      "{\"action\": \"fill\", \"selector\": \".todo-list li .edit\", \"value\": \"discard this draft\"}",
+      "{\"action\": \"press\", \"selector\": \".todo-list li .edit\", \"key\": \"Escape\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill A\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "dblclick",
+            "selector": ".todo-list li label"
+          },
+          {
+            "action": "fill",
+            "selector": ".todo-list li .edit",
+            "value": "discard this draft"
+          },
+          {
+            "action": "press",
+            "selector": ".todo-list li .edit",
+            "key": "Escape"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "autoSkill A"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-013",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-013"
+    ],
+    "module": "TodoMVC",
+    "title": "失焦保存编辑",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"dblclick\", \"selector\": \".todo-list li label\"}",
+      "{\"action\": \"fill\", \"selector\": \".todo-list li .edit\", \"value\": \"saved on blur\"}",
+      "{\"action\": \"click\", \"selector\": \"h1\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"saved on blur\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "dblclick",
+            "selector": ".todo-list li label"
+          },
+          {
+            "action": "fill",
+            "selector": ".todo-list li .edit",
+            "value": "saved on blur"
+          },
+          {
+            "action": "click",
+            "selector": "h1"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "saved on blur"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-014",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-014"
+    ],
+    "module": "TodoMVC",
+    "title": "编辑后裁剪空白",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"dblclick\", \"selector\": \".todo-list li label\"}",
+      "{\"action\": \"fill\", \"selector\": \".todo-list li .edit\", \"value\": \"  trimmed  \"}",
+      "{\"action\": \"press\", \"selector\": \".todo-list li .edit\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"trimmed\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "dblclick",
+            "selector": ".todo-list li label"
+          },
+          {
+            "action": "fill",
+            "selector": ".todo-list li .edit",
+            "value": "  trimmed  "
+          },
+          {
+            "action": "press",
+            "selector": ".todo-list li .edit",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "trimmed"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-015",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-015"
+    ],
+    "module": "TodoMVC",
+    "title": "Active仅展示未完成",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill B\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"check\", \"selector\": \".todo-list li:first-child .toggle\"}",
+      "{\"action\": \"click\", \"selector\": \".filters a[href=\\\"#/active\\\"]\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill B\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill B"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "check",
+            "selector": ".todo-list li:first-child .toggle"
+          },
+          {
+            "action": "click",
+            "selector": ".filters a[href=\"#/active\"]"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 1
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "autoSkill B"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-016",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-016"
+    ],
+    "module": "TodoMVC",
+    "title": "Completed仅展示完成",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill B\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"check\", \"selector\": \".todo-list li:first-child .toggle\"}",
+      "{\"action\": \"click\", \"selector\": \".filters a[href=\\\"#/completed\\\"]\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill A\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill B"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "check",
+            "selector": ".todo-list li:first-child .toggle"
+          },
+          {
+            "action": "click",
+            "selector": ".filters a[href=\"#/completed\"]"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 1
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "autoSkill A"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-017",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-017"
+    ],
+    "module": "TodoMVC",
+    "title": "All恢复显示全部",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill B\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"check\", \"selector\": \".todo-list li:first-child .toggle\"}",
+      "{\"action\": \"click\", \"selector\": \".filters a[href=\\\"#/completed\\\"]\"}",
+      "{\"action\": \"click\", \"selector\": \".filters a[href=\\\"#/\\\"]\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 2}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill B"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "check",
+            "selector": ".todo-list li:first-child .toggle"
+          },
+          {
+            "action": "click",
+            "selector": ".filters a[href=\"#/completed\"]"
+          },
+          {
+            "action": "click",
+            "selector": ".filters a[href=\"#/\"]"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 2
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-018",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-018"
+    ],
+    "module": "TodoMVC",
+    "title": "剩余数量复数展示",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill B\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"text\", \"selector\": \".todo-count\", \"expected\": \"2 items left\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill B"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "text",
+            "selector": ".todo-count",
+            "expected": "2 items left"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-019",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-019"
+    ],
+    "module": "TodoMVC",
+    "title": "刷新后持久化任务和状态",
+    "priority": "P0",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill B\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"check\", \"selector\": \".todo-list li:first-child .toggle\"}",
+      "{\"action\": \"reload\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 2}；{\"assertion\": \"count\", \"selector\": \".todo-list li.completed\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-count\", \"expected\": \"1 item left\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill B"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "check",
+            "selector": ".todo-list li:first-child .toggle"
+          },
+          {
+            "action": "reload"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 2
+          },
+          {
+            "assertion": "count",
+            "selector": ".todo-list li.completed",
+            "expected": 1
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-count",
+            "expected": "1 item left"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  },
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-TODO-UI-020",
+    "kind": "ui",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-TODO-020"
+    ],
+    "module": "TodoMVC",
+    "title": "筛选状态刷新后保留",
+    "priority": "P1",
+    "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
+    "steps": [
+      "打开本地官方TodoMVC页面",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill A\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"fill\", \"selector\": \".new-todo\", \"value\": \"autoSkill B\"}",
+      "{\"action\": \"press\", \"selector\": \".new-todo\", \"key\": \"Enter\"}",
+      "{\"action\": \"check\", \"selector\": \".todo-list li:first-child .toggle\"}",
+      "{\"action\": \"click\", \"selector\": \".filters a[href=\\\"#/active\\\"]\"}",
+      "{\"action\": \"reload\"}",
+      "逐项校验预期断言"
+    ],
+    "test_data": "合成autoSkill任务；无个人数据",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill B\"}；{\"assertion\": \"attribute\", \"selector\": \".filters a[href=\\\"#/active\\\"]\", \"expected\": \"selected\", \"attribute\": \"class\"}",
+    "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
+    "risk": "write",
+    "tags": [
+      "todomvc",
+      "script-ready",
+      "local-open-source"
+    ],
+    "extensions": {
+      "automation": {
+        "start_url": "http://127.0.0.1:8765/",
+        "actions": [
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill A"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "fill",
+            "selector": ".new-todo",
+            "value": "autoSkill B"
+          },
+          {
+            "action": "press",
+            "selector": ".new-todo",
+            "key": "Enter"
+          },
+          {
+            "action": "check",
+            "selector": ".todo-list li:first-child .toggle"
+          },
+          {
+            "action": "click",
+            "selector": ".filters a[href=\"#/active\"]"
+          },
+          {
+            "action": "reload"
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 1
+          },
+          {
+            "assertion": "text",
+            "selector": ".todo-list li label",
+            "expected": "autoSkill B"
+          },
+          {
+            "assertion": "attribute",
+            "selector": ".filters a[href=\"#/active\"]",
+            "expected": "selected",
+            "attribute": "class"
+          }
+        ]
+      },
+      "source_subtree": "fa45eeebb0e99339ebd77269bb4596fc5a2f047f"
+    }
+  }
+]

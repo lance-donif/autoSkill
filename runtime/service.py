@@ -255,8 +255,9 @@ def create_app(root,port=8787,ui_executable=None,start_worker=True):
     def generate(id:str,req:Generation):return manager.generate(id,req.requirements,req.kind,req.count)
     @app.post('/api/examples/import')
     def example(req:dict):
-        if req.get('example')!='selenium':raise ValueError('不支持的示例')
-        id='selenium-demo-'+uuid.uuid4().hex[:5];source=engines.ROOT/'examples/selenium'
+        name=req.get('example')
+        if name not in ('selenium','todomvc'):raise ValueError('不支持的示例')
+        id=name+'-demo-'+uuid.uuid4().hex[:5];source=engines.ROOT/'examples'/name
         return manager.create_project(id,engines.core.read(source/'requirements.json'),engines.core.read(source/'ui-cases.json')+engines.core.read(source/'api-cases.json'))
     @app.get('/api/projects/{id}/config')
     def config(id:str):return engines.core.read(manager.project(id)/'qa-config.json')
