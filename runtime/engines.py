@@ -56,7 +56,7 @@ def run_ui(snapshot,executable=None):
     allowed=cfg.get('allowed_origins',[]);run_id='RUN-'+uuid.uuid4().hex
     with sync_playwright() as driver:
         browser=None;launch_error=None
-        try:browser=driver.chromium.launch(headless=True,**({'executable_path':executable} if executable else {}))
+        try:browser=driver.chromium.launch(headless=True,args=['--disable-background-networking','--disable-component-update','--disable-domain-reliability','--disable-sync','--disable-breakpad','--disable-crash-reporter','--no-pings','--metrics-recording-only','--no-default-browser-check'],**({'executable_path':executable} if executable else {}))
         except Exception as e:launch_error=type(e).__name__ # Never log browser launch args or inherited secrets.
         try:
             for case in cases:
@@ -70,7 +70,7 @@ def run_ui(snapshot,executable=None):
                     if not isinstance(automation,dict) or not automation.get('assertions'):raise ValueError('用例尚无可执行的自动化动作及断言')
                     validate_automation(automation)
                     safe_origin(automation['start_url'],allowed)
-                    context=browser.new_context()
+                    context=browser.new_context(service_workers='block')
                     def route(request):
                         try:safe_origin(request.request.url,allowed);request.continue_()
                         except ValueError:request.abort()

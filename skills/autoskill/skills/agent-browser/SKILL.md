@@ -8,6 +8,6 @@ description: autoSkill 内部浏览器适配模块，执行功能测试并采集
 可用时捕获 Fetch/XHR、请求详情、Console、HAR、截图和时间。浏览器工具不支持网络导出时记录限制，不伪造 HAR。捕获 API 标来源 browser，记录关联用例和证据；不能因此宣布接口测试通过。
 结果按 contracts 写 execution/ui-results.json，逐条断言和相对证据路径。缺环境/账号/工具标 Blocked，未尝试为 Not Run。敏感原始 HAR 只在隔离临时目录处理，脱敏后保存；Cookie/Token 不进报告。适配器不能自动清除图片中的秘密，保存前检查画面。
 
-## 官方Skill已随仓库附带
+## 内网完整包
 
-主动读取 `../../../agent-browser/SKILL.md`（顶层skills/agent-browser），这是固定来源版本的官方发现入口，附Apache-2.0许可证。CLI与浏览器仍为独立运行依赖；安装后按官方入口执行skills get core获取匹配版本指南。本适配层保留测试证据与用例结果契约，不替代官方说明。
+优先直接读取主Skill的 `references/agent-browser-core.offline/SKILL.md` 及其本地 references。官方发现入口仍保留来源与许可证，但内网运行不得执行 `skills get`、`install`、`upgrade` 或 `npx`。只使用完整包内的离线包装器和随附浏览器；缺失时标Blocked，不下载。命令参数以本地指南核对，测试origin白名单必须随每次会话提供。

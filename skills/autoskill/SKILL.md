@@ -7,6 +7,12 @@ description: 从 PRD、DOCX、PDF、Markdown、Excel、Swagger/OpenAPI 生成可
 
 用中文协作，保留用户指定语言。把文档分析与真实执行分开，不把生成用例、捕获流量或模拟测试说成已通过。
 
+## 内网运行约束
+
+Windows x64 完整包的依赖位于本技能 `vendor/windows-x64/`，使用 `run-windows.cmd doctor` 检查，`run-windows.cmd qa <命令> <项目>` 执行。禁止运行 pip/npm/npx 在线安装、浏览器下载、skills get、自动更新、遥测或外部搜索。缺依赖立即报告 Blocked，不尝试联网修复。仅依赖目录存在不代表真实浏览器或AI验收已通过。
+
+AI 浏览器先直接读取 `references/agent-browser-core.offline/SKILL.md` 和对应本地 references；完整包已附带，不再执行官方发现入口里的下载/获取命令。使用包内离线包装器，禁止调用第三方原始 install/upgrade/update。仅访问已授权测试 origin；AI 只使用明确配置的内网 provider/model，缺配置不得回退公网模型。宿主DSH自身的更新与遥测设置也须由内网管理员禁用；本技能无法凭提示词证明宿主进程零外联。
+
 ## 启动
 
 1. 检查用户已提供的需求、知识库、环境 URL、OpenAPI 和执行授权；不要重复索要已有信息。默认 `review`（生成后等待执行指令），支持 `auto`（在已有授权范围内直接执行）。缺少环境不阻塞生成用例，执行标记 Blocked。
