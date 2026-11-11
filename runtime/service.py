@@ -2,7 +2,7 @@
 import argparse,contextlib,datetime,json,re,sqlite3,threading,uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
 from urllib.parse import urlsplit
 from fastapi import FastAPI,HTTPException,Request
 from fastapi.responses import FileResponse,JSONResponse
@@ -23,12 +23,15 @@ def next_due(rule,now,previous=None):
             return previous+datetime.timedelta(seconds=seconds*periods)
         return now+datetime.timedelta(seconds=seconds)
     if kind=='at':
+        if not isinstance(rule.get('at'),str):raise ValueError('一次任务缺少时间')
         value=datetime.datetime.fromisoformat(rule['at'].replace('Z','+00:00'))
         if value.tzinfo is None or value<=now:raise ValueError('一次任务必须是带时区的未来时间')
         return value.astimezone(UTC)
     if kind=='daily':
-        zone=ZoneInfo(rule.get('timezone','Asia/Shanghai'));value=rule.get('time','')
-        if not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d',value):raise ValueError('时间格式应为HH:mm')
+        try:zone=ZoneInfo(rule.get('timezone','Asia/Shanghai'))
+        except (ZoneInfoNotFoundError,ValueError,TypeError):raise ValueError('无效的IANA时区') from None
+        value=rule.get('time','')
+        if not isinstance(value,str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d',value):raise ValueError('时间格式应为HH:mm')
         hour,minute=map(int,value.split(':'));date=now.astimezone(zone).date()
         for offset in range(4):
             candidate=datetime.datetime.combine(date+datetime.timedelta(days=offset),datetime.time(hour,minute),zone)
@@ -103,6 +106,8 @@ class Manager:
             rows=engines.execute(project,self.root/'runs'/id/'project',run['kind'],run['engine'],run.get('case_ids'),self.ui_executable)
             status='Fail' if any(r['status']=='Fail' for r in rows) else ('Blocked' if any(r['status']!='Pass' for r in rows) else 'Pass')
             run.update(status=status,results=rows,reason='')
+            summary=self.root/'runs'/id/'project/ai-execute-turn-summary.json'
+            if run['engine']=='ai' and summary.is_file():run['ai_reply_path']=engines.core.read(summary).get('replyArtifact')
         except Exception as e:run.update(status='Blocked',reason=str(e) if isinstance(e,ValueError) else type(e).__name__)
         run['finished_at']=engines.stamp();self.put_run(run)
     def update_cases(self,id,cases):
@@ -138,12 +143,16 @@ class Manager:
                 if req['id'] not in known:reqs.append(req);known[req['id']]=req
             engines.core.write(snapshot/'analysis/requirements.json',reqs)
             engines.core.save_cases(snapshot,old+generated['cases'])
+            for channel in ('ui','api'):engines.core.write(snapshot/'execution'/f'{channel}-results.json',[])
+            engines.core.export(snapshot);engines.core.report(snapshot)
             with self.lock:
                 if any((p/rel).read_bytes()!=value for rel,value in baseline.items()):raise ValueError('AI生成期间权威用例已变化，结果保留待审阅，未覆盖')
                 original=engines.core.read(p/'analysis/requirements.json');engines.core.write(p/'analysis/requirements.json',reqs)
                 try:engines.core.save_cases(p,old+generated['cases'])
                 except Exception:engines.core.write(p/'analysis/requirements.json',original);raise
             run.update(status='Generated',reason=f'已生成并校验{count}条{kind}用例，项目Skill已同步')
+            summary=snapshot/'ai-generate-turn-summary.json'
+            if summary.is_file():run['ai_reply_path']=engines.core.read(summary).get('replyArtifact')
         except Exception as error:run.update(status='Blocked',reason=str(error) if isinstance(error,ValueError) else type(error).__name__)
         run['finished_at']=engines.stamp();self.put_run(run)
     def explain(self,id):
@@ -183,7 +192,7 @@ class Manager:
             db.execute('BEGIN IMMEDIATE')
             for row in db.execute('SELECT * FROM tasks WHERE enabled=1 AND next_due<=?',(now.isoformat(),)).fetchall():
                 task=json.loads(row[1]);due=datetime.datetime.fromisoformat(row[3]);rule=task['rule']
-                active=any(r.get('task_id')==task['id'] and r['status'] in ('Queued','Running') for r in self.runs())
+                active=any(record.get('task_id')==task['id'] and record.get('status') in ('Queued','Running') for record in (json.loads(item[0]) for item in db.execute('SELECT data FROM runs').fetchall()))
                 successor=next_due(rule,now,due) if rule['kind']!='at' else due
                 db.execute('UPDATE tasks SET enabled=?,next_due=? WHERE id=?',(int(rule['kind']!='at'),successor.isoformat(),task['id']))
                 if active:continue

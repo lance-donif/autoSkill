@@ -15,6 +15,10 @@ class ServiceTests(unittest.TestCase):
  def test_invalid_frequency_rejected(self):
   for value in [0,59,True]:
    with self.assertRaises(ValueError):next_due({'kind':'interval','seconds':value},datetime.datetime.now(UTC))
+ def test_invalid_time_rules_fail_with_input_error(self):
+  for rule in [{'kind':'daily','time':'09:00','timezone':'Invalid/Nowhere'},{'kind':'daily','time':None},{'kind':'at'}]:
+   with self.subTest(rule=rule):
+    with self.assertRaises(ValueError):next_due(rule,datetime.datetime.now(UTC))
  def test_stale_running_jobs_become_blocked(self):
   with tempfile.TemporaryDirectory() as tmp:
    m=Manager(tmp);m.put_run({'id':'run-'+'a'*32,'status':'Running'});m.close()
@@ -36,6 +40,16 @@ class ServiceTests(unittest.TestCase):
     self.assertEqual(m.tick(now+datetime.timedelta(seconds=12)),0);queue.assert_called_once()
     self.assertEqual(m.runs()[0]['status'],'Queued')
    m.close();n=Manager(tmp);self.assertFalse(n.tasks()[0]['enabled']);n.close()
+ def test_active_task_is_not_repeated_when_older_than_ui_history_page(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   m=Manager(tmp);now=datetime.datetime.now(UTC)
+   with patch.object(m,'request_ok'):
+    task=m.create_task({'title':'busy','project_id':'demo','engine':'script','kind':'ui','rule':{'kind':'at','at':(now+datetime.timedelta(seconds=10)).isoformat()}})
+   m.put_run({'id':'run-'+'d'*32,'task_id':task['id'],'status':'Running'})
+   for i in range(105):m.put_run({'id':'run-'+format(i,'032x'),'task_id':None,'status':'Pass'})
+   with patch.object(m.pool,'submit') as submit:
+    self.assertEqual(m.tick(now+datetime.timedelta(seconds=11)),0);submit.assert_not_called()
+   m.close()
  def test_schedule_is_persisted_and_paused(self):
   with tempfile.TemporaryDirectory() as tmp:
    m=Manager(tmp)
