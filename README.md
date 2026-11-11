@@ -33,7 +33,7 @@ python skills/autoskill/scripts/qa.py doctor
 python skills/autoskill/scripts/qa.py init qa-workspace/demo
 ```
 
-填入需求与用例 JSON 后执行 validate、coverage、export、report；执行 API 前必须配置授权 origin 与执行授权。命令与数据契约见主 Skill 及其 references/。
+填入需求后使用 save-cases 保存完整用例目录（自动递增修订并生成项目UI/API用例Skill），再执行 validate、coverage、export、report；执行 API 前必须配置授权 origin 与执行授权。命令与数据契约见主 Skill 及其 references/。
 
 重新执行示例的公开只读依赖接口：
 
@@ -50,8 +50,8 @@ UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行�
 ## 已知限制
 
 - 原 autoSkill 数据格式为1.0.0；Selenium 示例为1.1.0，新增准确的源码/官方文档来源枚举。不得直接把示例接口 JSON 输入只接受1.0.0的旧引擎；使用示例专用执行器，或先显式升级转换器。
-- autoSkill 已复现6个未修复问题：宽松响应 Schema 可能误判通过、明文认证字段可能原样导出、容器类型错误、内容修改未更新 revision 时沿用旧结果、版本重跑流程阻断、非法 JSON Pointer 转义未校验。详见 reports/qa-master-test-report.md。
-- 11项基础回归通过不代表已修复上述问题，当前为可审阅原型，尚未完成全流程验收。
+- 已修复初测6项问题，并新增9项针对性回归；总计20项引擎测试通过。历史问题与修复说明见 reports/qa-master-test-report.md。
+- 引擎测试通过不等于真实浏览器全流程通过；完整UI验收状态见执行报告。
 - Selenium 真实浏览器本轮不可达，UI全部 Blocked；4条第三方依赖接口真实执行通过。具体证据与范围见 reports/selenium-execution-summary.md。
 - 仅使用专用测试环境与合成数据；不要提交账号密码、Cookie、Token、原始 HAR 或其他秘密。
 

@@ -1,0 +1,48 @@
+import json, subprocess, sys, unittest, os
+from pathlib import Path
+import test_qa_engine as fixtures
+qa = fixtures.qa
+
+class RegressionTests(unittest.TestCase):
+    setUpClass = classmethod(fixtures.Tests.setUpClass.__func__)
+    tearDownClass = classmethod(fixtures.Tests.tearDownClass.__func__)
+    setUp = fixtures.Tests.setUp
+    tearDown = fixtures.Tests.tearDown
+    cases = fixtures.Tests.cases
+    config = fixtures.Tests.config
+
+    def test_changed_content_without_revision_cannot_reuse_pass(self):
+        qa.run_api(self.p)
+        self.c['expected'] = 'changed expectation'
+        self.cases([self.c])
+        self.assertTrue(qa.validate(self.p))
+        with self.assertRaises(ValueError):
+            qa.export(self.p)
+
+    def test_revision_change_can_archive_and_rerun(self):
+        qa.run_api(self.p)
+        self.c['revision'] = 2
+        self.cases([self.c])
+        r = qa.run_api(self.p)[0]
+        self.assertEqual(r['status'], 'Pass')
+        self.assertEqual(r['case_revision'], 2)
+        old = list((self.p / 'execution/history').rglob('api-results.json'))
+        self.assertTrue(old)
+        self.assertEqual(qa.read(old[0])[0]['case_revision'], 1)
+
+    def test_save_cases_increments_revision_and_keeps_snapshot(self):
+        qa.save_cases(self.p, [self.c])
+        self.assertEqual(qa.load_cases(self.p)[0]['revision'], 1)
+        changed = dict(self.c, title='new title')
+        qa.save_cases(self.p, [changed])
+        self.assertEqual(qa.load_cases(self.p)[0]['revision'], 2)
+        self.assertTrue(list((self.p / 'versions').rglob('api-cases.json')))
+
+    def test_project_case_skills_are_created_and_link_authoritative_data(self):
+        qa.sync_skills(self.p)
+        for kind in ['ui', 'api']:
+            s = (self.p / 'case-skills' / kind / 'SKILL.md').read_text()
+            self.assertIn('../../testcases/' + qa.FILES[kind], s)
+            self.assertIn('case_content_sha256', s)
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

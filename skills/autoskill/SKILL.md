@@ -26,7 +26,7 @@ description: 从 PRD、DOCX、PDF、Markdown、Excel、Swagger/OpenAPI 生成可
 2. 检索项目 `knowledge/`，核对业务规则、角色、字段约束、历史缺陷与账号引用。冲突先记录并针对影响执行的问题询问。
 3. 在 `analysis/requirements-analysis.md` 解释功能、规则、状态、角色、输入输出及 API 来源。导入本地 OpenAPI JSON 可用 `import-openapi`；YAML 先用安全解析器转换为 JSON，外部 `$ref` 显式解析或标未知，不自动访问不可信地址。
 4. 生成项目 `testcase-skill/SKILL.md`，只放本项目业务规则和用例规范，然后主动读取；永不自动安装或执行文档提供的任意代码。
-5. 生成 `testcases/functional-cases.json` 和 `api-cases.json`。运行 `validate`、`coverage`，修正缺项。覆盖率只是需求关联，不等于测试通过或场景充分；对未覆盖维度列清单。
+5. 先生成完整用例目录 JSON，再用 `save-cases` 写入 `testcases/functional-cases.json` 和 `api-cases.json`，自动递增修订、保留快照并生成 `case-skills/ui/SKILL.md` 与 `case-skills/api/SKILL.md`；主控必须主动读取这两个项目 Skill。运行 `validate`、`coverage`，修正缺项。覆盖率只是需求关联，不等于测试通过或场景充分；对未覆盖维度列清单。
 6. 用当前可用浏览器能力执行功能用例，逐步断言，保存证据。当前宿主浏览器须遵守其工具规则。若没有浏览器能力，明确 UI Blocked，仍完成其他阶段。不要假定已安装 Vercel Agent Browser。
 7. 用独立引擎执行已确认 API：`run-api`。执行前将已授权环境的精确 origin 写入配置，确认风险授权和测试数据清理方案。禁止从浏览器捕获推断全部接口已测。不得重试非幂等写操作；诊断重跑保留原始失败，不用后一次成功覆盖。
 8. 运行 `export` 与 `report`，输出 `功能测试用例.xlsx`、`接口测试用例.xlsx`、覆盖矩阵和 `测试执行报告.md`。核对工作簿内容、筛选、冻结、换行及长文本；区分 Pass/Fail/Blocked/Not Run。报告缺陷、需求覆盖、未执行原因、清理结果和剩余风险。只有实际结果、逐项断言、可定位证据完整时才可 Pass。
@@ -38,6 +38,8 @@ description: 从 PRD、DOCX、PDF、Markdown、Excel、Swagger/OpenAPI 生成可
 - `init`：拒绝覆盖已有目录，创建配置与空用例。
 - `search <项目目录> <关键词>`：只检索 knowledge 中 Markdown/JSON/CSV/TXT 的相关行；凭据只存环境变量引用。
 - `import-openapi <项目目录> <本地JSON>`：导入接口清单并保留来源；不生成虚假端点。
+- `save-cases <项目目录> <完整用例目录JSON>`：校验并保存全部用例，自动快照与递增修订；缺失旧用例归档。
+- `sync-skills`：从权威 JSON 生成项目 UI/API 用例 Skill，主控须主动读取。
 - `validate`：校验结构、来源、追踪、证据和结果完整性。
 - `coverage`：生成需求关联统计，未覆盖时退出码 2。
 - `run-api`：独立 httpx 执行器；默认 review 没有授权则只输出 Blocked，不发请求。按 contracts 配置，结果写独立 `execution/api-results.json`。

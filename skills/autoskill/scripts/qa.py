@@ -126,6 +126,7 @@ def validate(p, check_results=True):
             if r['case_revision']!=c['revision']: errors.append(f'{cid}: 旧版本结果，先归档后再执行')
             status=r['status']
             if status in ['Pass','Fail']:
+                if r.get('case_content_sha256')!=case_fingerprint(c): errors.append(f'{cid}: 用例内容已变化或缺少内容哈希，旧结果不能复用')
                 checks=r['assertions']
                 if not r['actual'] or not r['evidence'] or not checks: errors.append(f'{cid}: 缺少实际结果、断言或证据')
                 elif status=='Pass' and not all(a['passed'] for a in checks): errors.append(f'{cid}: Pass 包含失败断言')
@@ -137,8 +138,8 @@ def validate(p, check_results=True):
             if status=='Blocked' and not r['reason']: errors.append(f'{cid}: Blocked 缺少原因')
     return errors
 
-def require_valid(p):
-    errors=validate(p)
+def require_valid(p, check_results=True):
+    errors=validate(p, check_results=check_results)
     if errors: raise ValueError('\n'.join(errors))
 
 def init(p):
@@ -205,17 +206,20 @@ def archive_channel(p, kind):
                 dest=target/rel; dest.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(src,dest)
     write(target/f'{kind}-results.json',old)
 
+def case_fingerprint(case):
+    return hashlib.sha256(json.dumps(case,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
+
 def run_api(p):
     import httpx
     import jsonschema
-    require_valid(p)
+    require_valid(p,check_results=False)
     cfg=read(p/'qa-config.json'); run='RUN-'+uuid.uuid4().hex
     archive_channel(p,'api'); results=[]
     # Each case is independently gated. Never follow redirects or retry writes.
     with httpx.Client(timeout=float(cfg.get('timeout_seconds',20)),follow_redirects=False,trust_env=False) as client:
         for c in read(p/'testcases/api-cases.json'):
             if c['lifecycle']!='active': continue
-            r={'case_id':c['id'],'case_revision':c['revision'],'run_id':run,'started_at':now(),'status':'Blocked','actual':'','assertions':[],'evidence':[],'reason':''}
+            r={'case_id':c['id'],'case_revision':c['revision'],'case_content_sha256':case_fingerprint(c),'run_id':run,'started_at':now(),'status':'Blocked','actual':'','assertions':[],'evidence':[],'reason':''}
             try:
                 if cfg.get('mode') not in ['review','auto'] or cfg.get('execution_authorized') is not True: raise ValueError('未获得执行授权')
                 if c['api_source']=='inferred': raise ValueError('推导接口尚未确认')
@@ -243,7 +247,7 @@ def run_api(p):
                 r.update(status='Pass' if all(x['passed'] for x in checks) else 'Fail',actual=f'HTTP {response.status_code}; {response.elapsed.total_seconds():.3f}s; 响应正文未持久化',assertions=checks,reason='' if all(x['passed'] for x in checks) else '实际响应不符合预期断言')
                 # Randomized filenames avoid untrusted IDs being used as filesystem paths.
                 rel=f'execution/logs/{run}-{uuid.uuid4().hex[:12]}.json'
-                evidence={'case_id':c['id'],'case_revision':c['revision'],'run_id':run,'http_status':response.status_code,'elapsed_seconds':response.elapsed.total_seconds(),'assertions':checks,'timestamp':now()}
+                evidence={'case_id':c['id'],'case_revision':c['revision'],'case_content_sha256':case_fingerprint(c),'run_id':run,'http_status':response.status_code,'elapsed_seconds':response.elapsed.total_seconds(),'assertions':checks,'timestamp':now()}
                 write(p/rel,evidence); r['evidence']=[rel]
             except ValueError as e: r['reason']=str(e)
             results.append(r)
@@ -332,8 +336,69 @@ def search(p,query):
             for i,line in enumerate(f.read_text(encoding='utf-8').splitlines(),1):
                 if query.casefold() in line.casefold():print(f'{f.relative_to(p)}:{i}: {line}')
 
+def sync_skills(p):
+    require_valid(p,check_results=False)
+    project=read(p/'project.json')
+    project_name=re.sub(r'[^a-z0-9-]+','-',str(project['id']).lower()).strip('-')[:40] or 'project'
+    for kind,filename in FILES.items():
+        folder=p/'case-skills'/kind;folder.mkdir(parents=True,exist_ok=True)
+        count=len(read(p/'testcases'/filename))
+        text=f"""---
+name: {project_name}-{kind}-cases
+description: 执行本项目的 {count} 条 {kind.upper()} 用例，读取标准JSON并保存真实断言、证据和内容哈希。
+---
+# {kind.upper()} 项目用例 Skill
+
+主动读取 `../../testcases/{filename}`，这是唯一权威用例定义。还要读取 `../../qa-config.json`、`../../analysis/requirements.json` 和 `../../knowledge/` 的相关规则。不自动安装本项目技能为全局技能。
+
+按用例步骤和预期执行，不用旧报告推断通过。UI 使用真实浏览器；API 使用独立请求。使用宿主已授权环境，不扩大操作范围，凭据只读取环境变量引用。
+
+逐条保存 run_id、case_id、case_revision、case_content_sha256、started_at、status、actual、reason、assertions、evidence 到 `../../execution/{kind}-results.json`。case_content_sha256 用主引擎 case_fingerprint 计算，不能自行猜测。Pass/Fail 必须有断言和实际证据，受阻为 Blocked，未执行为 Not Run。重跑先归档。
+
+若 extensions.automation 存在，脚本执行器可独立读取这些动作和断言；不得自动 eval 或执行用例字符串。没有自动化动作定义时，标记需生成脚本，不能伪造回放。AI 根据真实动作和证据解释或复跑；解释并非重新执行。
+"""
+        (folder/'SKILL.md').write_text(text,encoding='utf-8')
+
+def save_cases(p,incoming):
+    """Replace a complete case catalog with snapshots and automatic revisions."""
+    import jsonschema
+    require_valid(p,check_results=False)
+    if not isinstance(incoming,list) or any(not isinstance(c,dict) for c in incoming): raise ValueError('用例输入必须是对象数组')
+    schema=read(ROOT/'references/case.schema.json')
+    old=load_cases(p);byid={c['id']:c for c in old};proposed=[];seen=set()
+    req_ids={r['id'] for r in read(p/'analysis/requirements.json')}
+    for raw in incoming:
+        c=copy.deepcopy(raw)
+        jsonschema.Draft202012Validator(schema).validate(c)
+        if c['id'] in seen: raise ValueError('重复用例ID')
+        if not set(c['requirement_ids']).issubset(req_ids): raise ValueError('用例关联未知需求')
+        seen.add(c['id']);previous=byid.get(c['id'])
+        if previous:
+            if previous['kind']!=c['kind']: raise ValueError('已有用例不能更改类型')
+            left={k:v for k,v in c.items() if k!='revision'};right={k:v for k,v in previous.items() if k!='revision'}
+            c['revision']=previous['revision']+(left!=right)
+        else:c['revision']=1
+        problems=credential_errors(c,c['id'])
+        if problems:raise ValueError('\n'.join(problems))
+        if c['kind']=='api':
+            a=c['assertions']
+            if ('schema' in a and not meaningful_schema(a['schema'])) or (a['status']<400 and not a.get('json_equals') and not meaningful_schema(a.get('schema'))):raise ValueError('接口用例缺少有效断言')
+            if any(not valid_pointer(ptr) for ptr in a.get('json_equals',{})):raise ValueError('非法 JSON Pointer')
+        proposed.append(c)
+    for c in old:
+        if c['id'] not in seen:
+            archived=copy.deepcopy(c)
+            if archived['lifecycle']!='archived':archived.update(lifecycle='archived',revision=c['revision']+1)
+            proposed.append(archived)
+    snapshot=p/'versions'/('SNAPSHOT-'+uuid.uuid4().hex)
+    for rel in ['project.json','analysis/requirements.json',*[f'testcases/{f}' for f in FILES.values()]]:
+        dest=snapshot/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p/rel,dest)
+    for kind,filename in FILES.items():write(p/'testcases'/filename,[c for c in proposed if c['kind']==kind])
+    sync_skills(p)
+    return proposed
+
 def main():
-    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('command',choices=['init','doctor','validate','coverage','run-api','export','report','import-openapi','search']);ap.add_argument('project',nargs='?');ap.add_argument('extra',nargs='?');a=ap.parse_args()
+    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('command',choices=['init','doctor','validate','coverage','run-api','export','report','import-openapi','search','save-cases','sync-skills']);ap.add_argument('project',nargs='?');ap.add_argument('extra',nargs='?');a=ap.parse_args()
     if a.command=='doctor':
         print(json.dumps({'python':sys.version.split()[0],**{x:importlib.util.find_spec(x) is not None for x in ['httpx','jsonschema','openpyxl']},'agent_browser_cli':shutil.which('agent-browser') is not None},ensure_ascii=False));return 0
     if not a.project:ap.error('需要项目目录')
@@ -346,6 +411,10 @@ def main():
         results=run_api(p);return 2 if any(r['status']!='Pass' for r in results) else 0
     elif a.command=='export':export(p)
     elif a.command=='report':report(p)
+    elif a.command=='save-cases':
+        if not a.extra:ap.error('需要完整用例目录 JSON')
+        save_cases(p,read(Path(a.extra)));print('用例已保存，版本和项目技能已同步')
+    elif a.command=='sync-skills':sync_skills(p);print('UI/API 项目用例 Skill 已生成')
     elif a.command=='search':
         if not a.extra:ap.error('需要关键词')
         search(p,a.extra)

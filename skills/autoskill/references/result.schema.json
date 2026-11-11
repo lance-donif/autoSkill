@@ -70,6 +70,29 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "case_content_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Pass",
+              "Fail"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "case_content_sha256"
+        ]
+      }
+    }
+  ]
 }

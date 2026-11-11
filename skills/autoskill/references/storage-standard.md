@@ -59,3 +59,9 @@ schema_version 使用语义版本；本版仅接受 1.0.0。revision 是业务�
 每份工作簿包含用例表、需求覆盖表、执行统计表，附件使用项目相对路径；转交附件需一起打包。完整 JSON 的结构保留在权威源，Excel 是有长度限制的视图，超过单元格长度时截断并注明查看 JSON。
 生成 output/export-manifest.json：schema_version、mapping_version、generated_at、source_sha256、artifacts、columns；记录未支持映射，默认 JSON extensions 列保留所有扩展。
 CSV、其他测试平台、双向导入属于后续适配器：必须实现同样的 validate → map → export → manifest 流程，不能宣称现已支持所有格式。
+
+## 已实现的存储命令
+
+使用 `save-cases <项目目录> <完整用例目录JSON>` 统一更新用例；自动快照、修订递增、缺失旧用例软归档并生成项目UI/API用例Skill。直接手工编辑仍应递增revision；任何内容变化都会令旧结果哈希失配而禁止导出。
+
+Pass/Fail结果额外必填case_content_sha256：对用例对象用Python json.dumps(ensure_ascii=False, sort_keys=True, separators=(",",":"))产生UTF-8字节后计算SHA-256。用主引擎case_fingerprint函数取得值，跨语言实现必须通过相同样本验证。旧的无哈希结果必须先归档并重跑，不能自动补哈希冒认通过。run-api先检查定义、归档旧结果，再执行并严格校验新结果。
