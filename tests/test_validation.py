@@ -63,5 +63,33 @@ class ValidationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     qa.pointer({}, ptr)
         self.assertEqual(qa.pointer({'a/b': {'~': 0}}, '/a~1b/~0'), 0)
+    def test_auth_header_variants_are_not_exported(self):
+        for key in ['X-Api-Key','X-Auth-Token','client_secret']:
+            with self.subTest(key=key):
+                self.c['headers']={key:'QA_SYNTHETIC_SECRET'};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+
+    def test_external_response_schema_is_rejected_without_request(self):
+        self.c['assertions']={'status':200,'schema':{'type':'object','required':['code'],'properties':{'code':{'$ref':'https://external.invalid/schema'}}}}
+        self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+        with self.assertRaises(ValueError):qa.run_api(self.p)
+
+    def test_save_rejects_bad_schema_before_mutating_cases(self):
+        before=(self.p/'testcases/api-cases.json').read_bytes()
+        self.c['assertions']={'status':200,'schema':{'type':5}}
+        with self.assertRaises(ValueError):qa.save_cases(self.p,[self.c])
+        self.assertEqual((self.p/'testcases/api-cases.json').read_bytes(),before)
+
+    def test_execution_error_cannot_leave_previous_pass_current(self):
+        from unittest.mock import patch
+        import httpx
+        qa.run_api(self.p)
+        fake=httpx.Response(200,json={'code':0})
+        # This transport result has no elapsed timer: force a genuine executor error after request return.
+        with patch.object(httpx.Client,'request',return_value=fake):
+            rows=qa.run_api(self.p)
+        self.assertEqual(rows[0]['status'],'Blocked')
+        self.assertEqual(qa.read(self.p/'execution/api-results.json')[0]['status'],'Blocked')
+        self.assertTrue(list((self.p/'execution/history').rglob('api-results.json')))
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

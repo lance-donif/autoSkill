@@ -54,6 +54,16 @@ def meaningful_schema(value):
     if any(key in value for key in ('anyOf','oneOf')): return True
     return False
 
+def external_schema_refs(value):
+    refs=[]
+    if isinstance(value,dict):
+        for key,item in value.items():
+            if key in ('$ref','$dynamicRef') and isinstance(item,str) and not item.startswith('#'):refs.append(item)
+            refs.extend(external_schema_refs(item))
+    elif isinstance(value,list):
+        for item in value:refs.extend(external_schema_refs(item))
+    return refs
+
 def valid_pointer(ptr):
     return isinstance(ptr,str) and (ptr=='' or (ptr.startswith('/') and re.search(r'~(?![01])',ptr) is None))
 
@@ -64,7 +74,7 @@ def credential_errors(value, location='data'):
         for key,item in value.items():
             normalized=re.sub(r'[^a-z0-9]','',key.lower())
             target=location+'.'+key
-            if normalized in sensitive and item not in ('',None):
+            if (normalized in sensitive or normalized.endswith(('token','secret','apikey','password','cookie'))) and item not in ('',None):
                 if not isinstance(item,str) or not re.fullmatch(r'\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}',item): errors.append(target+': 敏感字段必须使用完整环境变量引用')
             errors.extend(credential_errors(item,target))
     elif isinstance(value,list):
@@ -110,6 +120,7 @@ def validate(p, check_results=True):
                     try: jsonschema.Draft202012Validator.check_schema(a['schema'])
                     except jsonschema.SchemaError: errors.append(f'{cid}: 响应 schema 非法')
                     if not meaningful_schema(a['schema']): errors.append(f'{cid}: 响应 schema 没有有效约束')
+                    if external_schema_refs(a['schema']): errors.append(f'{cid}: 响应Schema必须先显式解析外部引用，禁止运行时自动访问')
                 for ptr in a.get('json_equals',{}):
                     if not valid_pointer(ptr): errors.append(f'{cid}: 非法 JSON Pointer')
     seen=set(); result_schema=read(ROOT/'references/result.schema.json')
@@ -216,6 +227,7 @@ def run_api(p):
     require_valid(p,check_results=False)
     cfg=read(p/'qa-config.json'); run='RUN-'+uuid.uuid4().hex
     archive_channel(p,'api'); results=[]
+    write(p/'execution/api-results.json',[])
     # Each case is independently gated. Never follow redirects or retry writes.
     with httpx.Client(timeout=float(cfg.get('timeout_seconds',20)),follow_redirects=False,trust_env=False) as client:
         for c in read(p/'testcases/api-cases.json'):
@@ -259,16 +271,23 @@ def run_api(p):
                 rel=f'execution/logs/{run}-{uuid.uuid4().hex[:12]}.json'
                 evidence={'case_id':c['id'],'case_revision':c['revision'],'case_content_sha256':case_fingerprint(c),'run_id':run,'http_status':response.status_code,'elapsed_seconds':response.elapsed.total_seconds(),'assertions':checks,'timestamp':now()}
                 write(p/rel,evidence); r['evidence']=[rel]
-            except ValueError as e: r['reason']=str(e)
+            except ValueError as e: r.update(status='Blocked',actual='',reason=str(e),assertions=[],evidence=[])
+            except Exception as e: r.update(status='Blocked',actual='',reason='执行器错误: '+type(e).__name__,assertions=[],evidence=[])
             results.append(r)
+            write(p/'execution/api-results.json',results)
     write(p/'execution/api-results.json',results)
     require_valid(p)
     print(json.dumps(dict(collections.Counter(r['status'] for r in results)),ensure_ascii=False))
     return results
 
 def merged(p):
-    rs={r['case_id']:r for r in load_results(p)}
-    return [dict(c,actual_assertions=rs.get(c['id'],{}).get('assertions',[]),**{k:v for k,v in rs.get(c['id'],{'status':'Not Run'}).items() if k not in c}) for c in load_cases(p)]
+    stored={r['case_id']:r for r in load_results(p)};rows=[]
+    for c in load_cases(p):
+        result=stored.get(c['id'],{'status':'Not Run'})
+        if result.get('status') in ('Pass','Fail') and (result.get('case_revision')!=c['revision'] or result.get('case_content_sha256')!=case_fingerprint(c)):
+            result={'status':'Not Run','reason':'旧执行结果与当前用例版本或内容不一致'}
+        rows.append(dict(c,actual_assertions=result.get('assertions',[]),**{k:v for k,v in result.items() if k not in c}))
+    return rows
 
 def summary(rows): return {s:sum(c.get('status','Not Run')==s for c in rows if c['lifecycle']=='active') for s in STATES}
 
@@ -379,9 +398,11 @@ def save_cases(p,incoming):
     req_ids={r['id'] for r in read(p/'analysis/requirements.json')}
     for raw in incoming:
         c=copy.deepcopy(raw)
-        jsonschema.Draft202012Validator(schema).validate(c)
+        schema_errors=list(jsonschema.Draft202012Validator(schema).iter_errors(c))
+        if schema_errors:raise ValueError('用例Schema不符: '+', '.join(e.json_path for e in schema_errors))
         if c['id'] in seen: raise ValueError('重复用例ID')
         if not set(c['requirement_ids']).issubset(req_ids): raise ValueError('用例关联未知需求')
+        c['schema_version']=VERSION
         seen.add(c['id']);previous=byid.get(c['id'])
         if previous:
             if previous['kind']!=c['kind']: raise ValueError('已有用例不能更改类型')
@@ -392,6 +413,10 @@ def save_cases(p,incoming):
         if problems:raise ValueError('\n'.join(problems))
         if c['kind']=='api':
             a=c['assertions']
+            if 'schema' in a:
+                try:jsonschema.Draft202012Validator.check_schema(a['schema'])
+                except jsonschema.SchemaError:raise ValueError('响应Schema格式错误') from None
+                if external_schema_refs(a['schema']):raise ValueError('响应Schema禁止未解析的外部引用')
             if ('schema' in a and not meaningful_schema(a['schema'])) or (a['status']<400 and not a.get('json_equals') and not meaningful_schema(a.get('schema'))):raise ValueError('接口用例缺少有效断言')
             if any(not valid_pointer(ptr) for ptr in a.get('json_equals',{})):raise ValueError('非法 JSON Pointer')
         proposed.append(c)

@@ -47,6 +47,6 @@ qa-config.json 默认示例：
 ```
 
 ## 强制存储字段
-所有用例还必须包含 schema_version=1.0.0、kind=ui/api、revision>=1、lifecycle=active/archived、tags=[]、extensions={}。所有结果必须有 run_id 和 case_revision；详见 storage-standard.md。输出必须通过 case.schema.json 校验。
+所有用例还必须包含 schema_version=1.1.0（读取兼容1.0.0）、kind=ui/api、revision>=1、lifecycle=active/archived、tags=[]、extensions={}。所有结果必须有 run_id 和 case_revision；详见 storage-standard.md。输出必须通过 case.schema.json 校验。
 
 Pass/Fail结果现在必须有case_content_sha256，并与当前用例内容一致；调用主引擎case_fingerprint，不从旧结果补造。使用save-cases保存完整用例目录，sync-skills生成UI/API项目Skill。

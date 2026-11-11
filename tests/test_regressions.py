@@ -16,6 +16,7 @@ class RegressionTests(unittest.TestCase):
         self.c['expected'] = 'changed expectation'
         self.cases([self.c])
         self.assertTrue(qa.validate(self.p))
+        self.assertEqual(qa.merged(self.p)[0]['status'],'Not Run')
         with self.assertRaises(ValueError):
             qa.export(self.p)
 
@@ -31,12 +32,26 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(qa.read(old[0])[0]['case_revision'], 1)
 
     def test_save_cases_increments_revision_and_keeps_snapshot(self):
+        self.c['schema_version']=qa.VERSION
+        self.cases([self.c])
         qa.save_cases(self.p, [self.c])
         self.assertEqual(qa.load_cases(self.p)[0]['revision'], 1)
         changed = dict(self.c, title='new title')
         qa.save_cases(self.p, [changed])
         self.assertEqual(qa.load_cases(self.p)[0]['revision'], 2)
         self.assertTrue(list((self.p / 'versions').rglob('api-cases.json')))
+
+    def test_legacy_schema_migration_is_explicit_and_invalidates_old_content(self):
+        qa.run_api(self.p)
+        qa.save_cases(self.p,[self.c])
+        saved=qa.load_cases(self.p)[0]
+        self.assertEqual(saved['schema_version'],'1.1.0')
+        self.assertEqual(saved['revision'],2)
+        self.assertTrue(qa.validate(self.p))
+        qa.save_cases(self.p,[self.c])
+        self.assertEqual(qa.load_cases(self.p)[0]['revision'],2)
+        snapshot=list((self.p/'versions').rglob('api-cases.json'))
+        self.assertTrue(any(qa.read(path)[0]['schema_version']=='1.0.0' for path in snapshot))
 
     def test_project_case_skills_are_created_and_link_authoritative_data(self):
         qa.sync_skills(self.p)

@@ -1,4 +1,4 @@
-# 用例存储规范 v1.0.0
+# 用例存储规范 v1.1.0（兼容1.0.0读取）
 
 ## 目录与权威来源
 
@@ -21,7 +21,7 @@
 
 | 内部字段 | 类型/枚举 | 统一导出含义 |
 | --- | --- | --- |
-| schema_version | 1.0.0 | 数据格式版本 |
+| schema_version | 1.1.0（读取兼容1.0.0） | 数据格式版本 |
 | id | 非空字符串，项目内唯一且不可变 | 用例编号 |
 | kind | ui / api | 用例类型 |
 | revision | 正整数，修改递增 | 用例修订 |
@@ -37,7 +37,7 @@
 | risk | read/write/delete/payment/refund/message | 执行风险 |
 | tags | 字符串数组 | 标签 |
 | extensions | JSON 对象 | 扩展数据；导出时保留为 JSON 列 |
-| api_source、source_ref | openapi/browser/inferred；来源定位 | 接口可信来源 |
+| api_source、source_ref | openapi/browser/inferred/source-and-official-docs；来源定位 | 接口可信来源 |
 | method、path | HTTP 方法、相对路径 | 请求方式、接口地址 |
 | headers、params、json | JSON 对象/任意 JSON | Headers、Query、请求体 |
 | assertions | 状态码、JSON Pointer、JSON Schema | 可执行接口预期 |
@@ -48,7 +48,7 @@ JSON 空对象/数组表示确实为空，未知描述在 extensions.open_questi
 
 ## 版本与变更
 
-schema_version 使用语义版本；本版仅接受 1.0.0。revision 是业务用例变更版本，两者互不替代。
+schema_version 使用语义版本；本版写入1.1.0，读取兼容1.0.0。revision 是业务用例变更版本，两者互不替代。
 修改先归档原始用例到项目 versions/ 下有时间戳的快照，再提升 revision；requirements 和 project 同时纳入快照。存储规范不等于自动并发编辑服务，多人编辑需外部版本库或锁。
 迁移先备份、显式转换、校验记录数量/ID/引用、写迁移记录再替换；禁止静默丢弃未知字段。
 
@@ -65,3 +65,5 @@ CSV、其他测试平台、双向导入属于后续适配器：必须实现同�
 使用 `save-cases <项目目录> <完整用例目录JSON>` 统一更新用例；自动快照、修订递增、缺失旧用例软归档并生成项目UI/API用例Skill。直接手工编辑仍应递增revision；任何内容变化都会令旧结果哈希失配而禁止导出。
 
 Pass/Fail结果额外必填case_content_sha256：对用例对象用Python json.dumps(ensure_ascii=False, sort_keys=True, separators=(",",":"))产生UTF-8字节后计算SHA-256。用主引擎case_fingerprint函数取得值，跨语言实现必须通过相同样本验证。旧的无哈希结果必须先归档并重跑，不能自动补哈希冒认通过。run-api先检查定义、归档旧结果，再执行并严格校验新结果。
+
+通过save-cases保存旧格式定义时，会显式升级schema_version至1.1.0并保留快照；版本字段变化同样参与内容哈希，不沿用旧的通过记录。外部响应Schema引用须在分析阶段解析，执行器不会自动访问未知引用。
