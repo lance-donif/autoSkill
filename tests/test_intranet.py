@@ -37,3 +37,20 @@ class IntranetTests(unittest.TestCase):
         self.assertIn('AUTOSKILL_AI_MODEL', source)
         self.assertIn('if(!command||!provider||!model)', source)
         self.assertNotIn("profile:request.profile??'sdk'", source)
+
+    def test_missing_and_modified_bundled_dependency_fails_verification(self):
+        import hashlib, json, tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            file = root / 'binary.exe'
+            file.write_bytes(b'original')
+            (root / 'runtime-manifest.json').write_text(json.dumps({'files': {'binary.exe': hashlib.sha256(b'original').hexdigest()}}))
+            with patch.object(entry, 'VENDOR', root):
+                self.assertEqual(entry.verify_bundle(), 1)
+                file.write_bytes(b'changed')
+                with self.assertRaisesRegex(ValueError, 'changed'):
+                    entry.verify_bundle()
+                file.unlink()
+                with self.assertRaisesRegex(ValueError, 'Missing'):
+                    entry.verify_bundle()

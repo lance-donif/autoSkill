@@ -91,6 +91,9 @@ def build(assets, output):
     for name in binaries:
         if (vendor / name).read_bytes()[:2] != b'MZ':
             raise ValueError('Not a Windows executable: ' + name)
+    runtime_files = {p.relative_to(vendor).as_posix(): sha(p) for p in sorted(vendor.rglob('*')) if p.is_file()}
+    (vendor / 'runtime-manifest.json').write_text(json.dumps({'files': runtime_files}, indent=2))
+    (output / 'requirements-windows.lock').write_text('\n'.join(f"{w['name']}=={w['version']}" for w in wheels) + '\n')
     manifest = {'target': 'Windows x64 / Windows 10+', 'python': '3.12.10',
                 'node': metadata['node_file'], 'browser': metadata['chrome_version'],
                 'agent_browser': '0.42.0', 'dsh_sdk': '0.0.1-rc.1', 'wheels': wheels,
@@ -98,7 +101,6 @@ def build(assets, output):
                 'network_install': False, 'windows_execution_verified': False,
                 'files': {p.relative_to(output).as_posix(): sha(p) for p in sorted(output.rglob('*')) if p.is_file()}}
     (output / 'offline-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
-    (output / 'requirements-windows.lock').write_text('\n'.join(f"{w['name']}=={w['version']}" for w in wheels) + '\n')
     return manifest
 
 

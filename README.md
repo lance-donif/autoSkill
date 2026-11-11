@@ -15,35 +15,19 @@ AI 自动化测试 Skill 原型：根据需求生成 UI/API 用例，统一存�
 | `tests/` | 11项基础回归及6项问题复现探针 |
 | `reports/` | 已知问题、测试报告和真实执行摘要 |
 
-## 本地使用
+## Windows x64 内网使用
 
-要求 Python 3.10+。在隔离环境安装依赖：
+使用依赖已内置的Windows完整包；解压后直接执行，不需要联网初始化：
 
-```bash
-python -m venv .venv
-# Linux/macOS
-. .venv/bin/activate
-# Windows PowerShell 改用 .venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -p 'test_*.py' -v
+```bat
+skills\autoskill\run-windows.cmd verify
+skills\autoskill\run-windows.cmd doctor --ui
+skills\autoskill\run-windows.cmd dashboard
 ```
 
-初始化新项目（目标目录须不存在）：
+核心命令用 `run-windows.cmd qa <命令> <项目目录>`。完整包中有Python、Node、Python库、测试浏览器、Agent Browser和DSH SDK；GitHub源码ZIP不含这些二进制，不能代替完整包。安装与模型配置见 [plugin/INSTALL.md](plugin/INSTALL.md)。
 
-```bash
-python skills/autoskill/scripts/qa.py doctor
-python skills/autoskill/scripts/qa.py init qa-workspace/demo
-```
-
-填入需求后使用 save-cases 保存完整用例目录（自动递增修订并生成项目UI/API用例Skill），再执行 validate、coverage、export、report；执行 API 前必须配置授权 origin 与执行授权。命令与数据契约见主 Skill 及其 references/。
-
-重新执行示例的公开只读依赖接口：
-
-```bash
-python skills/selenium-api-cases/scripts/run_api.py qa-workspace/selenium-api
-```
-
-UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行；浏览器运行时需单独安装；仓库附带官方Agent Browser Skill（含许可证），npm可选依赖提供官方CLI。`skills/autoskill/skills/agent-browser/` 保留测试适配契约。
+先生成用例、save-cases保存、validate与coverage校验，再export/report；实际执行必须配置授权origin。脚本模式无需模型。AI只能使用显式配置的内网provider/model，缺配置不回退默认公网模型。
 
 ## 导入 Skill
 
@@ -52,16 +36,16 @@ UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行�
 ## 已知限制
 
 - 主引擎当前写入1.1.0，同时接受1.0.0旧定义；已支持源码/官方文档确认来源及目录附加断言。旧的执行结果缺少内容哈希时必须归档重跑，不能冒认通过。
-- 已修复初测6项问题，并新增9项针对性回归；本轮累计44项Python与4项Node测试通过（含后续插件与调度测试）。历史问题与修复说明见 reports/qa-master-test-report.md。
+- 已修复初测6项问题，并新增9项针对性回归；内网补充后累计49项Python与5项Node测试通过（含后续插件与调度测试）。历史问题与修复说明见 reports/qa-master-test-report.md。
 - 引擎测试通过不等于真实浏览器全流程通过；完整UI验收状态见执行报告。
 - Selenium 真实浏览器本轮不可达，UI全部 Blocked；4条第三方依赖接口真实执行通过。具体证据与范围见 reports/selenium-execution-summary.md。
 - 仅使用专用测试环境与合成数据；不要提交账号密码、Cookie、Token、原始 HAR 或其他秘密。
 
-代码和报告保留当前状态，本次提交没有把已知缺陷标记为已修复。
+Windows实机启动、断网抓包及DSH模型联调尚未完成，不将自动检查通过等同于这些验收通过。
 
 ## 双执行通道
 
-共享runtime提供script/UI（Playwright）、script/API（HTTP）与ai（官方DSH SDK）通道。脚本模式不调用模型；自然语言用例需先形成extensions.automation动作和断言才可脚本执行。官方Agent Browser发现Skill已随仓库附带（Apache-2.0），CLI和浏览器运行时需单独安装。AI SDK需匹配用户DSH安装版本和模型配置。
+共享runtime提供script/UI（Playwright）、script/API（HTTP）与ai（官方DSH SDK）通道。脚本模式不调用模型；自然语言用例需先形成extensions.automation动作和断言才可脚本执行。官方Agent Browser发现Skill已随仓库附带（Apache-2.0），Windows完整包的CLI和浏览器依赖已放在Skill内部。AI SDK需匹配用户DSH安装版本和模型配置。
 
 ## 插件开发与预览
 
@@ -79,3 +63,7 @@ DSH插件的宿主入口为plugin/index.mjs，客户端入口构建为lib/client
 `examples/todomvc/` 附带未经业务修改、逐文件核对Git blob的官方TodoMVC、20条UI动作/断言和4条本地控制台API用例，以及两个项目样例Skill。详情见 [示例说明](examples/todomvc/README.md)。测试结果诚实保留当前浏览器受阻状态，不把生成与格式校验当成真实页面通过。
 
 本轮功能与验证边界详见 [最终验证报告](reports/final-validation.md)。当前已实现双形式与双执行通道，但真实DSH宿主/模型和浏览器端到端验收仍未完成，不能据自动测试通过宣称所有UI流程已通过。
+
+## Windows x64 内网交付
+
+内网用户使用依赖已内置的Windows完整包，不运行联网初始化命令。入口为 `skills/autoskill/run-windows.cmd`，支持本地校验、依赖检查、核心命令与仪表盘。完整包与源码ZIP不同；具体版本和未完成的Windows实机验收见 `reports/windows-bundle-components.json`，使用步骤见 `plugin/INSTALL.md`。运行入口不下载依赖或在线更新，AI无默认公网模型回退。

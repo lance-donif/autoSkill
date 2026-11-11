@@ -1,56 +1,61 @@
-# autoSkill：Skill 与 DSH 插件两种安装方式
+# autoSkill：Windows x64 内网完整包
 
-## 环境
+## 用户环境不需要联网初始化
 
-Node.js 22+、Python 3.10+。代码已对照 DeepSeek Harness 官方 master 的 SkillRegistry、Client Modules、主面板/侧边栏槽位及 TypeScript SDK 接口实现。当前环境没有配置DSH模型，也无法正常启动浏览器，不能将契约测试视为完整宿主验收。
+使用随交付文件提供的 **Windows x64 完整包**。依赖已直接置于 `skills/autoskill/vendor/windows-x64/`：Python嵌入运行时、Python库、Node运行时、测试浏览器、Agent Browser原生程序、DSH SDK及其依赖。浏览器core指南及references也已在Skill内，无须联网获取。
 
-先在仓库目录准备依赖：
+用户无需安装Python、Node、pip、npm或浏览器，不运行任何在线安装命令。解压后保留目录结构，建议目录 `C:\autoSkill`。支持Windows 10及以上x64；系统本身必须能够运行这些Windows程序。DSH宿主与内网模型服务仍由用户现有环境提供，不捆绑整个DSH应用或模型权重。
 
-```bash
-python -m venv .venv
-# Linux / macOS
-. .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m playwright install chromium
-npm install
-npm run build
-npm test
+仓库源码与完整包有区别：GitHub源码不包含数百MB的运行时二进制；**下载源码ZIP不能替代完整包**。完整包中依赖确实位于Skill内部，不要求用户另找联网机器准备。组件版本、SHA256及依赖清单见完整包中的 `offline-manifest.json`、`requirements-windows.lock` 和仓库 `reports/windows-bundle-components.json`。
+
+## 首次检查与使用
+
+在cmd中执行（路径可自行修改）：
+
+```bat
+C:\autoSkill\skills\autoskill\run-windows.cmd verify
+C:\autoSkill\skills\autoskill\run-windows.cmd doctor --ui
+C:\autoSkill\skills\autoskill\run-windows.cmd dashboard
 ```
 
-Windows PowerShell 激活使用 `.venv\Scripts\Activate.ps1`。如DSH不继承该虚拟环境，启动DSH前设置 `AUTOSKILL_PYTHON` 为虚拟环境Python绝对路径：Windows为 `.venv\Scripts\python.exe`，Linux/macOS为 `.venv/bin/python`。
+`verify`校验随附运行文件的SHA256，`doctor`仅检查本地依赖和浏览器文件，不联网。文件存在不等于浏览器已启动成功。仪表盘地址默认 `http://127.0.0.1:8787`，后台只监听回环地址。
 
-`npm install` 的可选依赖是官方 `agent-browser@0.42.0`。AI浏览器执行需确保DSH后台进程的PATH能找到CLI；可按官方Skill使用 `npm install -g agent-browser@0.42.0` 全局安装，再运行 `agent-browser install` 安装浏览器，并用 `agent-browser skills get core` 加载匹配版本指南。脚本UI执行使用Playwright自己的浏览器，不需要调用AI。
+核心Skill命令示例：
 
-## 方式一：仅安装 Skill
-
-把 `skills/autoskill/` 与 `skills/agent-browser/` 两个完整目录并列放到DSH发现目录 `.dsh/skills/`（项目）或 `~/.dsh/skills/`（用户）。需要Selenium固定用例时，也可复制另外两个顶层Skill目录。
-
-主技能标识为 `autoskill`，显示名为autoSkill。DSH按顶层Skill目录发现技能，主技能会主动读取自己的嵌套能力模块与项目UI/API用例Skill。仅Skill方式不注册仪表盘或调度页面。
-
-## 方式二：安装DSH插件
-
-1. 完成上面的依赖准备和构建。
-2. 在本机DSH Web的 **Plugins** 页面，使用插件管理器安装本仓库目录的本地Bundle：`file:/绝对路径/autoSkill`。该格式来自官方插件管理器支持的本地依赖规范。
-3. 启用 `dsh-plugin-autoskill` Bundle；包的 `dsh.bundle.patch` 指向 `cordis.patch.yml`，插入 `autoskill` 插件。
-4. 插件注册4个随附Skill，并启动本地Python后台。DSH侧边栏增加 **autoSkill 仪表盘** 与 **autoSkill 定时任务**。前端工厂构建产物为 `lib/client.js`。
-5. 默认后台地址为 `http://127.0.0.1:8787`；状态数据默认保存于DSH Home的 `autoskill/`，包括SQLite任务、项目和运行快照。插件配置可设 `port`、`stateRoot`、`python`、`chromium`。
-
-目前面板使用本机回环地址的iframe，要求DSH宿主与浏览器在同一台机器。远程DSH Web部署不能直接用访客机器的127.0.0.1访问服务器后台，需另做经过DSH身份校验的传输桥；此限制不隐藏。
-
-AI引擎另需要与已安装DSH相匹配、提供 `DeepSeekHarness` 的 `@deepseek-ai/dsh-sdk-client`，以及用户已有的provider/model与审批设置。该SDK是可选peer dependency；脚本模式不会导入它。官方源码版本与npm发布版可能不同，不能随意混用；`npm run doctor`检查依赖是否能解析。未配置模型、SDK或审批不可用时任务应受阻，不能自动放宽权限。
-
-插件安装/启用流程会执行宿主代码，应由用户在自己的DSH插件管理器中操作；本仓库不会修改用户现有DSH配置。
-
-## 不依赖DSH的本地预览
-
-```bash
-npm run dashboard
+```bat
+C:\autoSkill\skills\autoskill\run-windows.cmd qa init C:\qa-workspace\demo
+C:\autoSkill\skills\autoskill\run-windows.cmd qa validate C:\qa-workspace\demo
 ```
 
-打开终端输出的本机地址。它使用与插件版相同的后台与页面，便于先检查依赖和数据。单独预览不等于已在真实DSH宿主中通过验收。
+项目数据放在包目录外，避免覆盖或污染交付文件。UI用例的URL、接口地址、账号引用、授权origin必须按内网测试环境配置。
 
-## 正常使用顺序
+## 方式一：仅Skill
 
-创建项目 → 导入JSON或让DSH AI根据需求生成 → 校验并保存项目UI/API用例Skill → 在运行配置中明确授权origin/操作 → 选择AI或脚本引擎 → 立即执行或创建定时任务 → 查看断言、证据、版本、报告与回放。
+把完整包的 `skills/autoskill/`（包括vendor，不能只复制SKILL.md）与 `skills/agent-browser/` 并列放入DSH的 `.dsh/skills/` 或 `~/.dsh/skills/`。主技能名autoskill，显示名autoSkill。仅Skill形式不注册仪表盘或定时任务页面；独立仪表盘启动命令仍可用于本地预览。
 
-AI生成自然语言用例后，UI用例必须有 `extensions.automation` 白名单动作和断言，才能脚本运行。接口用例必须有确认来源、请求与断言。没有可执行定义的用例应先补充，不能把自然语言当作脚本直接eval。脚本可完全不调用模型，但浏览器与HTTP运行时仍必须可用。
+AI需要直接读取Skill内的 `references/agent-browser-core.offline/SKILL.md`；不得执行官方发现入口中的 `skills get` 或外部安装命令。AI操作浏览器使用完整包内离线包装器：它拒绝安装、升级、远程provider和策略覆盖，并读取项目授权origin配置。
+
+## 方式二：DSH插件
+
+DSH必须已在本机可用。在Plugins页面安装完整包的本地Bundle `file:C:/autoSkill`，启用 `dsh-plugin-autoskill`。插件自动优先选择随包Python和浏览器，注册4个顶层Skill，侧边栏增加仪表盘与定时任务页面。包内无强制npm依赖安装步骤。
+
+支持配置port、stateRoot、python、chromium。显式配置优先于随包路径。仪表盘目前要求浏览器与DSH宿主在同一台机器；远程DSH Web访问桥尚未实现。
+
+## AI与脚本模式
+
+脚本模式不加载SDK、不调用模型，只访问获授权的内网测试网站或接口。
+
+AI模式必须显式设置以下环境变量，并由DSH继承：
+
+- `AUTOSKILL_DSH_COMMAND`：已有本地DSH JSON-RPC运行程序的绝对路径。
+- `AUTOSKILL_DSH_ARGS`：对应参数的JSON数组，默认空数组；禁止使用npx等联网启动器。
+- `AUTOSKILL_AI_PROVIDER`：DSH中已配置的内网provider。
+- `AUTOSKILL_AI_MODEL`：该provider中的模型标识。
+
+未设置时任务受阻，不回退到SDK默认的公网provider/model。随附SDK为0.0.1-rc.1的launch/provider/model接口，需要与实际DSH JSON-RPC宿主兼容；本轮没有真实DSH/模型联调。技能不会下载DSH或模型。
+
+## 更新和遥测
+
+autoSkill没有远程更新器、版本检查服务或遥测上传服务；运行入口禁用pip索引查询、浏览器下载、npm更新提示/审计/资助请求，设置DO_NOT_TRACK及OTEL_SDK_DISABLED。Node包管理器和Agent Browser的安装脚本不随完整包交付，PATH中的Agent Browser入口拒绝install/upgrade/update/skills等设置命令。浏览器启动关闭后台联网、组件更新、域可靠性、同步、崩溃上报及ping；脚本浏览器阻止Service Worker并按项目origin拦截请求。
+
+这些设置不能证明任意第三方二进制或用户既有DSH宿主已经实现零外联。需要零外联保证时，应由内网出口策略只允许测试服务和模型服务，并在Windows实机记录进程网络流量验收。技能不能修改或审计用户整个DSH应用；本轮也没有完成Windows断网/抓包验收，报告不得写成通过。更新仅接受管理员手动替换经审核完整包，不在运行时联网更新。
