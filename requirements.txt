@@ -1,3 +1,6 @@
 httpx[socks]
 jsonschema
 openpyxl
+playwright
+fastapi
+uvicorn
