@@ -52,7 +52,7 @@ UI 用例需要宿主真实浏览器能力，按 UI Skill 的20条步骤执行�
 ## 已知限制
 
 - 主引擎当前写入1.1.0，同时接受1.0.0旧定义；已支持源码/官方文档确认来源及目录附加断言。旧的执行结果缺少内容哈希时必须归档重跑，不能冒认通过。
-- 已修复初测6项问题，并新增9项针对性回归；总计20项引擎测试通过。历史问题与修复说明见 reports/qa-master-test-report.md。
+- 已修复初测6项问题，并新增9项针对性回归；本轮累计44项Python与4项Node测试通过（含后续插件与调度测试）。历史问题与修复说明见 reports/qa-master-test-report.md。
 - 引擎测试通过不等于真实浏览器全流程通过；完整UI验收状态见执行报告。
 - Selenium 真实浏览器本轮不可达，UI全部 Blocked；4条第三方依赖接口真实执行通过。具体证据与范围见 reports/selenium-execution-summary.md。
 - 仅使用专用测试环境与合成数据；不要提交账号密码、Cookie、Token、原始 HAR 或其他秘密。
@@ -77,3 +77,5 @@ DSH插件的宿主入口为plugin/index.mjs，客户端入口构建为lib/client
 ## 可脚本复跑的开源待办示例
 
 `examples/todomvc/` 附带未经业务修改、逐文件核对Git blob的官方TodoMVC、20条UI动作/断言和4条本地控制台API用例，以及两个项目样例Skill。详情见 [示例说明](examples/todomvc/README.md)。测试结果诚实保留当前浏览器受阻状态，不把生成与格式校验当成真实页面通过。
+
+本轮功能与验证边界详见 [最终验证报告](reports/final-validation.md)。当前已实现双形式与双执行通道，但真实DSH宿主/模型和浏览器端到端验收仍未完成，不能据自动测试通过宣称所有UI流程已通过。

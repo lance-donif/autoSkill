@@ -19,7 +19,7 @@ npm test
 
 Windows PowerShell 激活使用 `.venv\Scripts\Activate.ps1`。如DSH不继承该虚拟环境，启动DSH前设置 `AUTOSKILL_PYTHON` 为虚拟环境Python绝对路径：Windows为 `.venv\Scripts\python.exe`，Linux/macOS为 `.venv/bin/python`。
 
-`npm install` 的可选依赖是官方 `agent-browser@0.42.0`。AI浏览器执行还需按官方Skill运行 `agent-browser install` 安装浏览器，并用 `agent-browser skills get core` 加载匹配版本指南。脚本UI执行使用Playwright自己的浏览器，不需要调用AI。
+`npm install` 的可选依赖是官方 `agent-browser@0.42.0`。AI浏览器执行需确保DSH后台进程的PATH能找到CLI；可按官方Skill使用 `npm install -g agent-browser@0.42.0` 全局安装，再运行 `agent-browser install` 安装浏览器，并用 `agent-browser skills get core` 加载匹配版本指南。脚本UI执行使用Playwright自己的浏览器，不需要调用AI。
 
 ## 方式一：仅安装 Skill
 
