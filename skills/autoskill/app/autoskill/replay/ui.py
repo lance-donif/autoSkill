@@ -36,7 +36,7 @@ def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     start = time.monotonic()
     while True:
         elapsed = time.monotonic() - start
-        pool = candidates[:1] if elapsed < PRIMARY_GRACE else candidates
+        pool = candidates[:1] if need and elapsed < PRIMARY_GRACE else candidates
         for index, locator in enumerate(pool):
             if driver.count(locator) > locator.get("nth", 0):
                 return locator, index
@@ -92,10 +92,12 @@ def evaluate(driver, step: dict, locator) -> tuple[bool, object]:
 def check(driver, step: dict, timeout: float) -> dict:
     """Poll an assertion until it holds or the timeout passes."""
     name = step.get("name") or ir.describe(step)
-    locator, fallback = choose_locator(driver, step, min(timeout, PRIMARY_GRACE + 0.5), need=False)
     deadline = time.monotonic() + timeout
+    fallback = 0
     while True:
         try:
+            locator, selected = choose_locator(driver, step, 0, need=False)
+            fallback = max(fallback, selected)
             passed, actual = evaluate(driver, step, locator)
         except Exception as error:  # noqa: BLE001  # Engine-specific read failures are retried while the element changes.
             passed, actual = False, "读取失败：" + type(error).__name__
@@ -151,6 +153,8 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
         wanted = op == "wait_visible"
         deadline = time.monotonic() + timeout
         while True:
+            locator, selected = choose_locator(driver, step, 0, need=False)
+            fallback = max(fallback, selected)
             visible = driver.count(locator) > locator.get("nth", 0) and bool(driver.read(locator, "visible"))
             if visible == wanted:
                 break
