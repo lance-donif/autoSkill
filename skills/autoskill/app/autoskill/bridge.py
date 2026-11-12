@@ -34,6 +34,9 @@ def restricted_message(reason: str, why: str) -> str:
     return RESTRICTED.format(reason=reason, why=why, entry=paths.SKILL / "autoskill.cmd")
 
 
+DEFAULT_PORT = 8787
+
+
 def enabled() -> bool:
     """Server side: may this service run commands on behalf of sandboxed callers?"""
     return os.environ.get("AUTOSKILL_BRIDGE_SERVER", "on") != "off"
@@ -50,30 +53,31 @@ def _request(port: int, path: str, body: dict | None, timeout: float) -> dict:
 
 def service() -> tuple[int | None, str]:
     """(port, "") when our own service is reachable and willing; otherwise (None, why not)."""
-    port = None
+    ports = []
     for file in (paths.service_file(), paths.SKILL / "workspace" / ".local" / "service.json"):
         try:
-            port = int(json.loads(file.read_text(encoding="utf-8"))["port"])
-            break
+            ports.append(int(json.loads(file.read_text(encoding="utf-8"))["port"]))
         except (OSError, ValueError, KeyError, TypeError):
             continue
-    if port is None:
-        return None, "没有发现正在运行的 autoSkill 后台服务。"
-    try:
-        status = _request(port, "/api/status", None, 4)
-    except (OSError, ValueError):
-        return None, "autoSkill 后台服务没有响应（可能已经关闭）。"
+    ports.append(DEFAULT_PORT)  # a service started before it learned to announce itself is still found
     same = lambda a, b: os.path.normcase(str(a)) == os.path.normcase(str(b))  # noqa: E731
-    if status.get("name") != "autoSkill" or not same(status.get("skill_path", ""), paths.SKILL):
-        return None, "端口上运行的不是这份 autoSkill 的后台服务。"
-    if "bridge" not in status:
-        return None, "正在运行的 autoSkill 后台服务是旧版本，不能代为执行命令；请重启它（在 DeepSeek Harness 里停用再启用 autoSkill 插件）。"
-    if not same(status.get("workspace", ""), paths.workspace()):
-        return None, (f"正在运行的 autoSkill 后台服务用的是另一个数据目录（{status.get('workspace')}）；"
-                      "去掉自己设置的 AUTOSKILL_WORKSPACE 后重试。")
-    if not status.get("bridge"):
-        return None, "后台服务关闭了代为执行功能（AUTOSKILL_BRIDGE_SERVER=off）。"
-    return port, ""
+    for port in dict.fromkeys(ports):
+        try:
+            status = _request(port, "/api/status", None, 4)
+        except (OSError, ValueError):
+            continue
+        if status.get("name") != "autoSkill" or not same(status.get("skill_path", ""), paths.SKILL):
+            continue  # something else, or another copy of autoSkill
+        if "bridge" not in status:
+            return None, ("正在运行的 autoSkill 后台服务是旧版本，不能代为执行命令；请重启它"
+                          "（在 DeepSeek Harness 里停用再启用 autoSkill 插件，或关掉后重新运行 autoskill.cmd dashboard）。")
+        if not same(status.get("workspace", ""), paths.workspace()):
+            return None, (f"正在运行的 autoSkill 后台服务用的是另一个数据目录（{status.get('workspace')}）；"
+                          "去掉自己设置的 AUTOSKILL_WORKSPACE 后重试。")
+        if not status.get("bridge"):
+            return None, "后台服务关闭了代为执行功能（AUTOSKILL_BRIDGE_SERVER=off）。"
+        return port, ""
+    return None, "没有发现正在运行的 autoSkill 后台服务。"
 
 
 def forward(port: int, argv: list[str], stdin_text: str | None = None) -> dict:

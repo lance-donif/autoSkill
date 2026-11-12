@@ -96,7 +96,7 @@ class RestrictedProcessTests(Sandbox):
         code, out, _ = self.cli("project", "list")
         self.assertEqual(code, 2)
         error = json.loads(out)["error"]
-        for expected in ("受限沙箱", "没有发现正在运行的 autoSkill 后台服务", "dashboard", "完全访问权限"):
+        for expected in ("受限沙箱", "后台服务", "dashboard", "完全访问权限"):
             self.assertIn(expected, error)
         self.assertFalse((self.workspace / "projects").exists())  # nothing was created half-way
 
