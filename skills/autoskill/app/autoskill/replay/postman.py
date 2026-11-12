@@ -1,0 +1,96 @@
+"""Export API cases as a Postman Collection v2.1 plus an Environment.
+
+Requests keep the order they are given in (prerequisites first). `{{name}}`
+variables are the same syntax Postman uses; `${ENV:NAME}` secrets become empty
+environment variables, so no secret value ever leaves the machine.
+"""
+from __future__ import annotations
+
+import json
+import re
+import uuid
+
+SCHEMA = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ENV_REF = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
+AT = ("const at = (o, p) => p === '' ? o : p.slice(1).split('/')"
+      ".reduce((v, k) => v == null ? undefined : v[k.replace(/~1/g, '/').replace(/~0/g, '~')], o);")
+
+
+def _js(value) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _convert(value, secrets_seen: set):
+    """Turn ${ENV:NAME} into {{NAME}} and remember the name."""
+    if isinstance(value, str):
+        secrets_seen.update(ENV_REF.findall(value))
+        return ENV_REF.sub(r"{{\1}}", value)
+    if isinstance(value, dict):
+        return {k: _convert(v, secrets_seen) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_convert(v, secrets_seen) for v in value]
+    return value
+
+
+def test_script(case: dict) -> list[str]:
+    rules = case["assertions"]
+    extract = case.get("extensions", {}).get("extract", {})
+    lines = [f'pm.test("状态码为 {rules["status"]}", () => pm.response.to.have.status({rules["status"]}));']
+    for name, wanted in rules.get("header_contains", {}).items():
+        lines.append(f"pm.test({_js('响应头 ' + name + ' 包含 ' + str(wanted))}, () => "
+                     f"pm.expect((pm.response.headers.get({_js(name)}) || '').toLowerCase()).to.include({_js(str(wanted).lower())}));")
+    for wanted in rules.get("body_contains", []):
+        lines.append(f"pm.test({_js('响应内容包含 ' + wanted[:40])}, () => pm.expect(pm.response.text()).to.include({_js(wanted)}));")
+    if "max_ms" in rules:
+        lines.append(f'pm.test("响应时间不超过 {rules["max_ms"]} ms", () => pm.expect(pm.response.responseTime).to.be.at.most({rules["max_ms"]}));')
+    if rules.get("json_equals") or "schema" in rules or extract:
+        lines += [AT, "let data;", 'pm.test("响应是 JSON", () => { data = pm.response.json(); });']
+        for pointer, wanted in rules.get("json_equals", {}).items():
+            lines.append(f"pm.test({_js('字段 ' + (pointer or '/'))}, () => pm.expect(at(data, {_js(pointer)})).to.eql({_js(wanted)}));")
+        if "schema" in rules:
+            lines.append(f'pm.test("响应结构", () => pm.response.to.have.jsonSchema({_js(rules["schema"])}));')
+        for name, pointer in extract.items():
+            lines.append(f"pm.test({_js('提取变量 ' + name)}, () => {{ const v = at(data, {_js(pointer)}); "
+                         f"pm.expect(v).to.not.equal(undefined); pm.collectionVariables.set({_js(name)}, v); }});")
+    return lines
+
+
+def _item(case: dict, secrets_seen: set) -> dict:
+    path = _convert(case["path"], secrets_seen)
+    params = _convert(case.get("params", {}), secrets_seen)
+    query = [{"key": k, "value": v if isinstance(v, str) else _js(v)} for k, v in params.items()]
+    raw = "{{base_url}}" + path + ("?" + "&".join(f'{q["key"]}={q["value"]}' for q in query) if query else "")
+    request = {
+        "method": case["method"],
+        "header": [{"key": k, "value": v} for k, v in _convert(case.get("headers", {}), secrets_seen).items()],
+        "url": {"raw": raw, "host": ["{{base_url}}"], "path": [part for part in path.split("/") if part], "query": query},
+        "description": case.get("expected", ""),
+    }
+    if "json" in case and case["json"] is not None:
+        if not any(h["key"].lower() == "content-type" for h in request["header"]):
+            request["header"].append({"key": "Content-Type", "value": "application/json"})
+        body = json.dumps(_convert(case["json"], secrets_seen), ensure_ascii=False, indent=2)
+        request["body"] = {"mode": "raw", "raw": body, "options": {"raw": {"language": "json"}}}
+    return {
+        "name": f'{case["id"]} {case["title"]}',
+        "request": request,
+        "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": test_script(case)}}],
+    }
+
+
+def export(name: str, cases: list[dict], base_url: str) -> tuple[dict, dict]:
+    """Return (collection, environment) for the given API cases, in the given order."""
+    secrets_seen: set[str] = set()
+    items = [_item(case, secrets_seen) for case in cases if case.get("kind") == "api"]
+    extracted = sorted({k for case in cases for k in case.get("extensions", {}).get("extract", {})})
+    collection = {
+        "info": {"_postman_id": str(uuid.uuid4()), "name": name, "schema": SCHEMA,
+                 "description": "由 autoSkill 根据录制的接口流量生成。按顺序运行：前面的请求会为后面的请求提供变量。"},
+        "item": items,
+        "variable": [{"key": key, "value": ""} for key in extracted],
+    }
+    values = [{"key": "base_url", "value": base_url.rstrip("/"), "type": "default", "enabled": True}]
+    values += [{"key": key, "value": "", "type": "secret", "enabled": True} for key in sorted(secrets_seen)]
+    environment = {"id": str(uuid.uuid4()), "name": name + " 环境", "values": values,
+                   "_postman_variable_scope": "environment"}
+    return collection, environment

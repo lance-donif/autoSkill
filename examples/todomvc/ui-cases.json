@@ -1189,7 +1189,7 @@
       "REQ-TODO-019"
     ],
     "module": "TodoMVC",
-    "title": "刷新后持久化任务和状态",
+    "title": "刷新后列表清空（原版为内存存储）",
     "priority": "P0",
     "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
     "steps": [
@@ -1203,7 +1203,7 @@
       "逐项校验预期断言"
     ],
     "test_data": "合成autoSkill任务；无个人数据",
-    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 2}；{\"assertion\": \"count\", \"selector\": \".todo-list li.completed\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-count\", \"expected\": \"1 item left\"}",
+    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 0}；{\"assertion\": \"value\", \"selector\": \".new-todo\", \"expected\": \"\"}",
     "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
     "risk": "write",
     "tags": [
@@ -1247,17 +1247,12 @@
           {
             "assertion": "count",
             "selector": ".todo-list li",
-            "expected": 2
+            "expected": 0
           },
           {
-            "assertion": "count",
-            "selector": ".todo-list li.completed",
-            "expected": 1
-          },
-          {
-            "assertion": "text",
-            "selector": ".todo-count",
-            "expected": "1 item left"
+            "assertion": "value",
+            "selector": ".new-todo",
+            "expected": ""
           }
         ]
       },
@@ -1274,7 +1269,7 @@
       "REQ-TODO-020"
     ],
     "module": "TodoMVC",
-    "title": "筛选状态刷新后保留",
+    "title": "刷新后保留筛选路由",
     "priority": "P1",
     "preconditions": "官方原版TodoMVC通过本地8765端口提供；每条用例使用全新浏览器上下文，仅合成任务数据",
     "steps": [
@@ -1289,7 +1284,7 @@
       "逐项校验预期断言"
     ],
     "test_data": "合成autoSkill任务；无个人数据",
-    "expected": "{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 1}；{\"assertion\": \"text\", \"selector\": \".todo-list li label\", \"expected\": \"autoSkill B\"}；{\"assertion\": \"attribute\", \"selector\": \".filters a[href=\\\"#/active\\\"]\", \"expected\": \"selected\", \"attribute\": \"class\"}",
+    "expected": "{\"assertion\": \"attribute\", \"selector\": \".filters a[href=\\\"#/active\\\"]\", \"expected\": \"selected\", \"attribute\": \"class\"}；{\"assertion\": \"count\", \"selector\": \".todo-list li\", \"expected\": 0}",
     "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5",
     "risk": "write",
     "tags": [
@@ -1335,20 +1330,15 @@
         ],
         "assertions": [
           {
-            "assertion": "count",
-            "selector": ".todo-list li",
-            "expected": 1
-          },
-          {
-            "assertion": "text",
-            "selector": ".todo-list li label",
-            "expected": "autoSkill B"
-          },
-          {
             "assertion": "attribute",
             "selector": ".filters a[href=\"#/active\"]",
             "expected": "selected",
             "attribute": "class"
+          },
+          {
+            "assertion": "count",
+            "selector": ".todo-list li",
+            "expected": 0
           }
         ]
       },

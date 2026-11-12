@@ -110,13 +110,13 @@
   {
     "id": "REQ-TODO-019",
     "module": "TodoMVC",
-    "title": "刷新后持久化任务和状态",
+    "title": "刷新后列表清空（原版为内存存储）",
     "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
   },
   {
     "id": "REQ-TODO-020",
     "module": "TodoMVC",
-    "title": "筛选状态刷新后保留",
+    "title": "刷新后保留筛选路由",
     "source": "https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5"
   },
   {

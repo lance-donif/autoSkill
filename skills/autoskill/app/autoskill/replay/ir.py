@@ -1,0 +1,183 @@
+"""The step model every engine replays.
+
+A UI case stores `extensions.automation = {start_url, actions, assertions}`.
+Each step carries a list of locator candidates, best first; the runner uses the
+first one that matches and reports when it had to fall back. The older single
+`selector` / `placeholder` / `role`+`name` fields are still accepted.
+"""
+from __future__ import annotations
+
+from urllib.parse import urljoin, urlsplit
+
+LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css")
+# action -> (needs a target element, required fields)
+ACTIONS = {
+    "goto": (False, ("url",)),
+    "reload": (False, ()),
+    "fill": (True, ("value",)),
+    "type": (True, ("value",)),
+    "click": (True, ()),
+    "dblclick": (True, ()),
+    "hover": (True, ()),
+    "press": (False, ("key",)),
+    "check": (True, ()),
+    "uncheck": (True, ()),
+    "select": (True, ("value",)),
+    "wait_visible": (True, ()),
+    "wait_hidden": (True, ()),
+}
+# assertion -> (needs a target element, required fields)
+ASSERTIONS = {
+    "visible": (True, ()),
+    "hidden": (True, ()),
+    "count": (True, ("expected",)),
+    "text": (True, ("expected",)),
+    "contains": (True, ("expected",)),
+    "value": (True, ("expected",)),
+    "checked": (True, ()),
+    "attribute": (True, ("attribute", "expected")),
+    "url": (False, ("expected",)),
+    "url_contains": (False, ("expected",)),
+    "title": (False, ("expected",)),
+}
+ACTION_NAMES = {
+    "goto": "打开", "reload": "刷新页面", "fill": "输入", "type": "逐字输入", "click": "点击",
+    "dblclick": "双击", "hover": "悬停", "press": "按键", "check": "勾选", "uncheck": "取消勾选",
+    "select": "选择", "wait_visible": "等待出现", "wait_hidden": "等待消失",
+}
+ASSERTION_NAMES = {
+    "visible": "可见", "hidden": "不可见", "count": "数量为", "text": "文本为", "contains": "文本包含",
+    "value": "输入值为", "checked": "勾选状态为", "attribute": "属性", "url": "地址为",
+    "url_contains": "地址包含", "title": "页面标题为",
+}
+LOCATOR_LABELS = {"testid": "测试标识", "label": "标签", "placeholder": "占位提示", "text": "文字", "css": "选择器"}
+
+
+def locators(step: dict) -> list[dict]:
+    """All locator candidates of a step, best first."""
+    found = [dict(item) for item in step.get("locators", [])]
+    if "selector" in step:
+        found.append({"by": "css", "value": step["selector"]})
+    if "placeholder" in step:
+        found.append({"by": "placeholder", "value": step["placeholder"]})
+    if "role" in step:
+        found.append({"by": "role", "role": step["role"], "name": step.get("name")})
+    return found
+
+
+def describe_locator(locator: dict) -> str:
+    kind = locator.get("by")
+    suffix = f' 第{locator["nth"] + 1}个' if isinstance(locator.get("nth"), int) else ""
+    if kind == "role":
+        name = locator.get("name")
+        return (f'{locator.get("role")}「{name}」' if name else str(locator.get("role"))) + suffix
+    return f'{LOCATOR_LABELS.get(kind, kind)} {locator.get("value")}{suffix}'
+
+
+def describe(step: dict) -> str:
+    """One readable line for a step; secrets stay as ${ENV:NAME} references."""
+    target = locators(step)
+    where = describe_locator(target[0]) if target else ""
+    if "action" in step:
+        op = step["action"]
+        text = ACTION_NAMES.get(op, op)
+        if op == "goto":
+            return f'{text} {step.get("url")}'
+        if op in ("fill", "type", "select"):
+            return f'在 {where} {text}「{step.get("value")}」'
+        if op == "press":
+            return f'{text} {step.get("key")}' + (f"（{where}）" if where else "")
+        return f"{text} {where}".strip()
+    op = step.get("assertion")
+    text = ASSERTION_NAMES.get(op, op)
+    if op in ("url", "url_contains", "title"):
+        return f'{text}「{step.get("expected")}」'
+    if op == "attribute":
+        return f'{where} 的属性 {step.get("attribute")} 为「{step.get("expected")}」'
+    if op in ("visible", "hidden"):
+        return f"{where} {text}"
+    if op == "checked":
+        return f'{where} {"已勾选" if step.get("expected", True) else "未勾选"}'
+    return f'{where} {text}「{step.get("expected")}」'
+
+
+def _is_index(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _check_locator(locator: object, where: str) -> None:
+    if not isinstance(locator, dict) or locator.get("by") not in LOCATOR_KINDS:
+        raise ValueError(f"{where}：定位方式必须是 {' / '.join(LOCATOR_KINDS)} 之一")
+    if locator["by"] == "role":
+        if not isinstance(locator.get("role"), str) or not locator["role"]:
+            raise ValueError(f"{where}：role 定位缺少 role")
+    elif not isinstance(locator.get("value"), str) or not locator["value"]:
+        raise ValueError(f"{where}：定位缺少 value")
+    if "nth" in locator and not _is_index(locator["nth"]):
+        raise ValueError(f"{where}：nth 必须是从 0 开始的整数")
+
+
+def _check_step(step: object, table: dict, key: str, where: str) -> None:
+    kind = "动作" if key == "action" else "断言"
+    if not isinstance(step, dict) or step.get(key) not in table:
+        raise ValueError(f"{where}：不支持的{kind}；只接受 {' / '.join(table)}")
+    needs_target, required = table[step[key]]
+    for field in required:
+        if field not in step:
+            raise ValueError(f"{where}（{step[key]}）缺少 {field}")
+    target = locators(step)
+    if needs_target and not target:
+        raise ValueError(f"{where}（{step[key]}）缺少定位")
+    for locator in target:
+        _check_locator(locator, where)
+    if step[key] == "count" and not _is_index(step["expected"]):
+        raise ValueError(f"{where}：count 断言需要非负整数")
+
+
+def validate(automation: object) -> None:
+    """Reject anything outside the whitelist. Steps are data; nothing is ever evaluated."""
+    if not isinstance(automation, dict):
+        raise ValueError("用例没有可回放的自动化步骤")
+    if not isinstance(automation.get("start_url"), str) or not automation["start_url"]:
+        raise ValueError("自动化步骤缺少 start_url")
+    actions, assertions = automation.get("actions", []), automation.get("assertions", [])
+    if not isinstance(actions, list) or not isinstance(assertions, list):
+        raise ValueError("actions 与 assertions 必须是数组")
+    for index, step in enumerate(actions, 1):
+        _check_step(step, ACTIONS, "action", f"第 {index} 步")
+    for index, step in enumerate(assertions, 1):
+        _check_step(step, ASSERTIONS, "assertion", f"第 {index} 条断言")
+
+
+def is_replayable(case: dict) -> bool:
+    if case.get("kind") == "api":
+        return True
+    try:
+        validate(case.get("extensions", {}).get("automation"))
+    except ValueError:
+        return False
+    return True
+
+
+def absolute_url(url: str, base_url: str) -> str:
+    """Cases may store a path; the project's target address makes it absolute."""
+    if urlsplit(url).scheme:
+        return url
+    if not base_url:
+        raise ValueError("用例使用了相对地址，但项目没有设置目标地址")
+    return urljoin(base_url.rstrip("/") + "/", url.lstrip("/"))
+
+
+def origin_of(url: str) -> str:
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}"
+
+
+def check_origin(url: str, allowed: list[str]) -> None:
+    """Raise PermissionError for any address outside the project's authorised origins."""
+    parts = urlsplit(url)
+    if parts.scheme in ("about", "data", "blob"):
+        return
+    if parts.scheme not in ("http", "https") or parts.username or parts.password or origin_of(url) not in allowed:
+        shown = f"{parts.scheme}://{parts.hostname}" + (f":{parts.port}" if parts.port else "") if parts.hostname else parts.scheme + ":"
+        raise PermissionError(f"地址 {shown} 不在项目授权范围内")  # never echo userinfo

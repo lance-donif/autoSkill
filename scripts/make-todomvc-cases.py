@@ -25,8 +25,8 @@ rows=[
 ('Completed仅展示完成',complete_two+[action('click','.filters a[href="#/completed"]')],[assertion('count','.todo-list li',1),assertion('text','.todo-list li label','autoSkill A')]),
 ('All恢复显示全部',complete_two+[action('click','.filters a[href="#/completed"]'),action('click','.filters a[href="#/"]')],[assertion('count','.todo-list li',2)]),
 ('剩余数量复数展示',two,[assertion('text','.todo-count','2 items left')]),
-('刷新后持久化任务和状态',complete_two+[action('reload')],[assertion('count','.todo-list li',2),assertion('count','.todo-list li.completed',1),assertion('text','.todo-count','1 item left')]),
-('筛选状态刷新后保留',complete_two+[action('click','.filters a[href="#/active"]'),action('reload')],[assertion('count','.todo-list li',1),assertion('text','.todo-list li label','autoSkill B'),assertion('attribute','.filters a[href="#/active"]','selected',attribute='class')])]
+('刷新后列表清空（原版为内存存储）',complete_two+[action('reload')],[assertion('count','.todo-list li',0),assertion('value','.new-todo','')]),
+('刷新后保留筛选路由',complete_two+[action('click','.filters a[href="#/active"]'),action('reload')],[assertion('attribute','.filters a[href="#/active"]','selected',attribute='class'),assertion('count','.todo-list li',0)])]
 source='https://github.com/tastejs/todomvc/tree/master/examples/javascript-es5'
 requirements=[];ui=[]
 for i,(title,actions,checks) in enumerate(rows,1):
@@ -36,7 +36,7 @@ api=[]
 for i,(path,title,check) in enumerate([('/api/status','autoSkill服务身份',{'json_equals':{'/name':'autoSkill'}}),('/api/projects','项目列表结构',{'schema':{'type':'array','items':{'type':'object','required':['id','name','cases','authorized']}}}),('/api/runs','运行列表结构',{'schema':{'type':'array','items':{'type':'object','required':['id','status']}}}),('/api/tasks','定时任务列表结构',{'schema':{'type':'array','items':{'type':'object','required':['id','enabled','rule']}}})],1):
  rid=f'REQ-CONTROL-{i:03}';requirements.append({'id':rid,'module':'autoSkill本地控制台API','title':title,'source':'runtime/service.py 中已实现的GET接口；测试不是TodoMVC业务API'})
  api.append({'schema_version':'1.1.0','id':f'TC-CONTROL-API-{i:03}','kind':'api','revision':1,'lifecycle':'active','requirement_ids':[rid],'module':'autoSkill本地控制台API','title':title,'priority':'P1','preconditions':'autoSkill本地8787后台已启动且用户已授权只读接口验证','steps':['独立GET请求'+path,'校验HTTP200及JSON断言'],'test_data':{},'expected':'HTTP200且响应符合结构或身份断言','source':'runtime/service.py:create_app','risk':'read','tags':['local-control-api','script-ready'],'extensions':{},'api_source':'source-and-official-docs','source_ref':'runtime/API.md','method':'GET','path':path,'headers':{},'params':{},'assertions':{'status':200,**check}})
-for name,data in [('ui-cases.json',ui),('api-cases.json',api),('requirements.json',requirements)]: (OUT/name).write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
-lines=['# 本地开源 TodoMVC 测试需求','',f'源项目：{source}','本地site文件与上游Git blob校验值一致，未修改业务代码；许可证和来源清单随附。','', '范围：20条UI用例，包括新增、空白校验、字符转义、状态、编辑、筛选和刷新持久化。每条使用新浏览器上下文，仅合成数据。不包含删除、批量清空、兼容性和全部无障碍验收。','', 'TodoMVC本身是本地存储页面，没有业务CRUD API。附带4条API用例只验证autoSkill控制台自身的公开只读接口，不冒充TodoMVC接口。','', '| 用例 | 功能 |','| --- | --- |']+[f"| {c['id']} | {c['title']} |" for c in ui]
-(OUT/'requirements.md').write_text('\n'.join(lines)+'\n')
+for name,data in [('ui-cases.json',ui),('api-cases.json',api),('requirements.json',requirements)]: (OUT/name).write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
+lines=['# 本地开源 TodoMVC 测试需求','',f'源项目：{source}','本地site文件与上游Git blob校验值一致，未修改业务代码；许可证和来源清单随附。','', '范围：20条UI用例，包括新增、空白校验、字符转义、状态、编辑、筛选和刷新后的行为（原版使用内存存储，刷新即清空）。每条使用新浏览器上下文，仅合成数据。不包含删除、批量清空、兼容性和全部无障碍验收。','', 'TodoMVC本身是本地存储页面，没有业务CRUD API。附带4条API用例只验证autoSkill控制台自身的公开只读接口，不冒充TodoMVC接口。','', '| 用例 | 功能 |','| --- | --- |']+[f"| {c['id']} | {c['title']} |" for c in ui]
+(OUT/'requirements.md').write_text('\n'.join(lines)+'\n',encoding='utf-8',newline='\n')
 print('Built20 executable UI definitions and4 clearly scoped control API definitions')
