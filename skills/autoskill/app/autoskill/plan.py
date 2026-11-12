@@ -90,9 +90,10 @@ def _set_status(sheet, columns, number: int, status: str, note: str | None = Non
     from openpyxl.styles import PatternFill
 
     cell = sheet.cell(number, columns["status"], status)
+    cell.data_type = "s"
     cell.fill = PatternFill("solid", fgColor=FILL[status]) if status in FILL else PatternFill()
     if note is not None:
-        sheet.cell(number, columns["note"], note)
+        sheet.cell(number, columns["note"], note).data_type = "s"
 
 
 def write(project_id: str, file: str) -> dict:
@@ -125,11 +126,13 @@ def write(project_id: str, file: str) -> dict:
         sheet.cell(1, index).font = Font(bold=True)
     for line in sheet.iter_rows(min_row=2):
         for cell in line:
+            cell.data_type = "s"  # designed case content is literal text, including values beginning with "="
             cell.alignment = Alignment(wrap_text=True, vertical="top")
     sheet.freeze_panes = "A2"
     meta = book.create_sheet("信息")
     for pair in (("项目", project_id), ("名称", info["name"]), ("被测地址", info["base_url"])):
         meta.append(pair)
+        meta.cell(meta.max_row, 2).data_type = "s"
     saved = _save(book)
     (folder / "SKILL.md").write_text(SKILL_TEXT.format(file=Path(saved).name, count=len(items), project=f"，项目 {project_id}"), encoding="utf-8")
     return {"skill": str(folder), "excel": saved, "cases": len(items), "project": project_id,
@@ -180,6 +183,7 @@ def sync(quiet: bool = False) -> dict | None:
     try:
         book, sheet, columns = _open()
         latest: dict[str, dict] = {}
+        revisions: dict[str, dict] = {}
         updated = 0
         for number, row in _rows(sheet, columns):
             project_id, _, replay_case = row["replay"].partition("/")
@@ -187,9 +191,13 @@ def sync(quiet: bool = False) -> dict | None:
                 continue
             if project_id not in latest:
                 latest[project_id] = reporting.latest_results(project_id)
+                revisions[project_id] = {case["id"]: case["revision"] for case in projects.cases(project_id)}
             result = latest[project_id].get(replay_case)
             if result and result["status"] in STATUS:
-                _set_status(sheet, columns, number, STATUS[result["status"]], "" if result["status"] == "Pass" else result["reason"])
+                if result["case_revision"] != revisions[project_id].get(replay_case):
+                    _set_status(sheet, columns, number, "未执行", "用例已修改或不再有效，需重新回放")
+                else:
+                    _set_status(sheet, columns, number, STATUS[result["status"]], "" if result["status"] == "Pass" else result["reason"])
                 updated += 1
         if not updated:
             return None if quiet else {"updated": 0, "note": "没有已关联并回放过的用例；录制时加 --plan <用例编号> 关联"}

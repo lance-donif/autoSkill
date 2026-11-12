@@ -108,6 +108,8 @@ def build(project_id: str, out: str | None = None) -> dict:
              ("口径", "每条用例取最近一次回放结果；通过率 = 通过 ÷（通过 + 失败），阻塞与未执行不计入。")]
     for label, value in lines:
         overview.append([label, value])
+        if isinstance(value, str):
+            overview.cell(overview.max_row, 2).data_type = "s"
     overview.column_dimensions["A"].width, overview.column_dimensions["B"].width = 14, 70
     for cell in overview["A"]:
         cell.font = Font(bold=True)
