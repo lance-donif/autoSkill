@@ -14,6 +14,8 @@ import re
 from pathlib import Path
 
 from . import paths
+from .core import store
+from .locking import named_lock
 
 REF = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -67,33 +69,36 @@ def _file() -> Path:
 
 
 def _write(data: dict) -> None:
-    _file().write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    store.write(_file(), data)
 
 
 def _load() -> dict:
-    file = _file()
-    if file.is_file():
-        return json.loads(file.read_text(encoding="utf-8"))
-    data, legacy = {}, paths.local() / "secrets.json"
-    if legacy.is_file():  # an older version sealed each value: carry over what this user can still read, once
-        for name, blob in json.loads(legacy.read_text(encoding="utf-8")).items():
-            # A copied store may contain entries sealed by another user or machine.
-            with contextlib.suppress(ValueError, OSError):
-                data[name] = unseal(blob)
-        _write(data)
-    return data
+    with named_lock("credentials", "store"):
+        file = _file()
+        if file.is_file():
+            return json.loads(file.read_text(encoding="utf-8"))
+        data, legacy = {}, paths.local() / "secrets.json"
+        if legacy.is_file():  # an older version sealed each value: carry over what this user can still read, once
+            for name, blob in json.loads(legacy.read_text(encoding="utf-8")).items():
+                # A copied store may contain entries sealed by another user or machine.
+                with contextlib.suppress(ValueError, OSError):
+                    data[name] = unseal(blob)
+            _write(data)
+        return data
 
 
 def set_secret(name: str, value: str) -> None:
     if not NAME.fullmatch(name):
         raise ValueError("凭据名称只能使用字母、数字和下划线，且不能以数字开头")
-    _write({**_load(), name: value})
+    with named_lock("credentials", "store"):
+        _write({**_load(), name: value})
 
 
 def delete_secret(name: str) -> None:
-    data = _load()
-    if data.pop(name, None) is not None:
-        _write(data)
+    with named_lock("credentials", "store"):
+        data = _load()
+        if data.pop(name, None) is not None:
+            _write(data)
 
 
 def names() -> list[str]:
