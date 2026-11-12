@@ -3,7 +3,7 @@
   "environment": "Windows 11 x64 中文系统，2026-11-12；离线包解压到含中文和空格的路径、精简环境变量下运行",
   "package_mb": "272",
   "chrome": "157",
-  "tests_total": "82",
+  "tests_total": "89",
   "todomvc_cases": "20 / 20",
   "offline_replay": "14 / 14",
   "postman_assertions": "18",
@@ -23,19 +23,19 @@
   ],
   "acceptance": {
     "title": "换一个没有任何背景的 AI，只给它 Skill 目录",
-    "subtitle": "用不了解本项目的小模型（Haiku）试用了三轮：只告诉它 Skill 路径和要测的公开网址 TodoMVC React，其余全靠 SKILL.md。",
+    "subtitle": "用不了解本项目的小模型（Haiku）试用了五轮：只告诉它 Skill 路径和要测的公开网址 TodoMVC React，其余全靠 SKILL.md。",
     "stats": [
       [
-        "3 轮",
-        "三个互不相干的全新 AI 各试用一次"
+        "5 轮",
+        "五个互不相干的全新 AI 各试用一次，全部自行完成"
       ],
       [
         "4 / 4",
         "每轮生成 3 条页面用例 + 1 条接口用例，回放全部通过"
       ],
       [
-        "3 / 3",
-        "每轮都另用 Selenium 独立复核页面用例"
+        "4 轮",
+        "由我们另用 Selenium 等独立重放复核（第 5 轮只核对了文件与运行记录）"
       ],
       [
         "0 次",
