@@ -1,0 +1,46 @@
+{
+  "environment": "DISPLAY and WAYLAND_DISPLAY unset; AUTOSKILL_HEADED test defaults preserved",
+  "before": {
+    "python": {
+      "tests": 138,
+      "pass": 137,
+      "fail": 1,
+      "errors": 0,
+      "skip": 0,
+      "seconds": 217.914
+    },
+    "node": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "after_safe": {
+    "python": {
+      "tests": 138,
+      "pass": 137,
+      "fail": 1,
+      "errors": 0,
+      "skip": 0,
+      "seconds": 186.422
+    },
+    "node": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "unchanged_failure": "test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run: (0,0,0) != (1,0,1) without an accessible display",
+  "safe_review": {
+    "files": 38,
+    "normalized_ast_equivalent": true,
+    "behavior_findings": []
+  },
+  "protected_sha256": {
+    "ruff.toml": "4e6b4a27e57fdc8ca49321c0c34d7539afd037864e196e81d0ddae1e7e0024c7",
+    "biome.json": "cb328d325da450368bdc35fcc4c687cc83ff6ea95de914b3688d2ac7cdc27f27",
+    "tests/test_conventions.py": "c42598ec2aab48361e3b7a5731cc04a3bbcfae959b72371bf5a246832bf095ce"
+  }
+}

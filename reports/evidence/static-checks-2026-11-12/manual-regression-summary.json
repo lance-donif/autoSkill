@@ -1,0 +1,39 @@
+{
+  "environment": "DISPLAY and WAYLAND_DISPLAY unset",
+  "category": "Manual lint fixes and narrowly scoped suppressions after a87e952",
+  "reviewed_files": 48,
+  "review_behavior_findings": [],
+  "python": {
+    "tests": 138,
+    "pass": 137,
+    "fail": 1,
+    "errors": 0,
+    "skip": 0,
+    "seconds": 197.115,
+    "matches_before": true
+  },
+  "node": {
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "skip": 0
+  },
+  "conventions": {
+    "tests": 7,
+    "pass": 7,
+    "fail": 0
+  },
+  "unchanged_failure": "test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run",
+  "transient_record": {
+    "first_full_log": "python-after-manual-first.txt",
+    "extra_failure": "Playwright standalone TargetClosedError while Send and close closes its own page",
+    "unchanged_execution_source_evidence": "tabs-playwright-unchanged-phase2.json",
+    "fresh_target_pass_seconds": 10.214,
+    "final_full_matches_before": true
+  },
+  "protected_sha256": {
+    "ruff.toml": "4e6b4a27e57fdc8ca49321c0c34d7539afd037864e196e81d0ddae1e7e0024c7",
+    "biome.json": "cb328d325da450368bdc35fcc4c687cc83ff6ea95de914b3688d2ac7cdc27f27",
+    "tests/test_conventions.py": "c42598ec2aab48361e3b7a5731cc04a3bbcfae959b72371bf5a246832bf095ce"
+  }
+}
