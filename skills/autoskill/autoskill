@@ -1,0 +1,20 @@
+#!/bin/sh
+# autoSkill entry point for Git Bash and other POSIX shells on Windows.
+# Calls the bundled interpreter directly, so text with & < > | % passes through unchanged.
+here=$(cd "$(dirname "$0")" && pwd)
+py="$here/vendor/windows-x64/python/python.exe"
+if [ -x "$py" ]; then
+  export PYTHONNOUSERSITE=1
+elif [ -n "$AUTOSKILL_DEV_PYTHON" ]; then
+  py="$AUTOSKILL_DEV_PYTHON"
+else
+  echo '{"error": "bundled runtime not found under vendor/windows-x64. Use the complete Windows offline package; nothing is downloaded."}'
+  exit 3
+fi
+if command -v cygpath >/dev/null 2>&1; then
+  PYTHONPATH=$(cygpath -w "$here/app")
+else
+  PYTHONPATH="$here/app"
+fi
+export PYTHONPATH PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1
+exec "$py" -m autoskill "$@"

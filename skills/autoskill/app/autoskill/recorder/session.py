@@ -65,7 +65,7 @@ def _spec(rec: dict, token: str, rich: bool = False) -> dict:
     if token.startswith("@"):
         ref = rec["refs"].get(token[1:])
         if not ref:
-            raise RecordError(f"引用 {token} 已失效；先运行 autoskill browser snapshot -i 再操作")
+            raise RecordError(f"引用 {token} 已失效；先运行 autoskill browser snapshot 再操作")
         box = agent.call(SESSION, ["get", "box", token], check=False)
         return {"ref": {"role": ref.get("role"), "name": ref.get("name"), "box": box}}
     if rich:
@@ -81,7 +81,7 @@ def _spec(rec: dict, token: str, rich: bool = False) -> dict:
 def _target(rec: dict, token: str, rich: bool = False) -> dict:
     found = _describe(_spec(rec, token, rich))
     if not found or not found.get("locators"):
-        raise RecordError(f"页面上找不到 {token}；先运行 autoskill browser snapshot -i 确认元素")
+        raise RecordError(f"页面上找不到 {token}；先运行 autoskill browser snapshot 确认元素")
     return found
 
 
@@ -214,7 +214,7 @@ def browser(argv: list[str]) -> dict:
         raise RecordError(f"录制中不能使用 {command}：安装、升级、远程浏览器、网络与登录态由 autoskill 统一管理")
     config = projects.config(rec["project_id"])
     if command == "snapshot":
-        tree = snapshot(rec, interactive="-i" in rest or not rest)
+        tree = snapshot(rec, interactive="--all" not in rest)
         _save(rec)
         return {"snapshot": tree}
     if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview"):
@@ -266,6 +266,8 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     if kind not in ir.ASSERTIONS:
         raise RecordError("断言类型只能是：" + " ".join(ir.ASSERTIONS))
     needs_target, required = ir.ASSERTIONS[kind]
+    if not needs_target and expected is None:
+        target, expected = None, target  # `check url_contains "/orders"`: the one value is the expectation
     step: dict = {"assertion": kind}
     if needs_target:
         if not target:

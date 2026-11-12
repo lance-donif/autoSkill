@@ -152,6 +152,9 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument("project")
         item.add_argument("--out", help="输出目录，默认项目目录下")
 
+    rep = sub.add_parser("report", help="导出 Excel 用例表与执行报告（每条用例取最近一次回放结果）")
+    rep.add_argument("project")
+    rep.add_argument("--out", help="输出目录")
     packer = sub.add_parser("pack", help="把项目（用例、知识库、登录方式）打成一个分享包")
     packer.add_argument("projects", nargs="*", help="项目标识；省略则打包全部项目")
     packer.add_argument("--out", help="输出文件或目录")
@@ -165,7 +168,9 @@ def parser() -> argparse.ArgumentParser:
     sub.add_parser("demo", help="安装示例项目（示例工单系统）").add_argument("--url", default=demo.DEFAULT_URL)
     dash = sub.add_parser("dashboard", help="启动仪表盘")
     dash.add_argument("--port", type=int, default=8787)
-    sub.add_parser("doctor", help="检查随包运行时是否完整；不联网")
+    doc = sub.add_parser("doctor", help="检查运行时是否齐全；不联网")
+    doc.add_argument("--launch", action="store_true", help="同时真实启动一次浏览器（Playwright 与 Selenium）")
+    sub.add_parser("verify", help="按清单校验随包运行时文件的完整性（SHA-256）")
     return top
 
 
@@ -191,7 +196,66 @@ def export_postman(project_id: str, out: str | None) -> dict:
             "fill_in_before_running": blanks, "note": "凭据值没有导出；在 Postman 环境里填写上面列出的变量后按顺序运行"}
 
 
-def doctor() -> dict:
+def verify() -> dict:
+    """Check every bundled runtime file against the manifest written when the package was built."""
+    import hashlib
+
+    manifest_file = paths.VENDOR / "runtime-manifest.json"
+    if not manifest_file.is_file():
+        raise ValueError("没有找到随包运行时清单；verify 只适用于完整离线包")
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))["files"]
+    missing, changed = [], []
+    for name, expected in manifest.items():
+        file = (paths.VENDOR / name).resolve()
+        if not file.is_relative_to(paths.VENDOR.resolve()) or not file.is_file():
+            missing.append(name)
+            continue
+        digest = hashlib.sha256()
+        with file.open("rb") as stream:
+            for block in iter(lambda: stream.read(1 << 20), b""):
+                digest.update(block)
+        if digest.hexdigest() != expected:
+            changed.append(name)
+    return {"ok": not missing and not changed, "files": len(manifest), "missing": missing[:20], "changed": changed[:20]}
+
+
+def launch_check() -> dict:
+    """Really start the bundled browser on a local page with both engines; file presence proves nothing."""
+    import functools
+    import threading
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    from . import runner
+
+    class Quiet(SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+    site = paths.SKILL / "examples" / "ticket-desk" / "web"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=str(site)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    config = {"base_url": base, "allowed_origins": [base], "timeout_seconds": 20}
+    report = {}
+    try:
+        for engine in runner.ENGINES:
+            try:
+                driver = runner.make_driver(engine, config)
+                try:
+                    driver.reset()
+                    driver.goto(base + "/")
+                    report[engine] = "ok" if "工单" in driver.title() else "页面标题不符：" + driver.title()
+                finally:
+                    driver.close()
+            except Exception as error:
+                report[engine] = "启动失败：" + (str(error) if isinstance(error, ValueError) else type(error).__name__)
+    finally:
+        server.shutdown()
+        server.server_close()
+    return report
+
+
+def doctor(launch: bool = False) -> dict:
     import importlib.util
 
     modules = ("playwright", "selenium", "httpx", "jsonschema", "openpyxl", "fastapi", "uvicorn")
@@ -204,6 +268,9 @@ def doctor() -> dict:
     }
     problems = [name for name, ok in report["modules"].items() if not ok]
     problems += [name for name in ("chrome", "chromedriver", "agent_browser") if not report[name]]
+    if launch and not problems:
+        report["browser_launch"] = launch_check()
+        problems += [f"{engine} 浏览器" for engine, result in report["browser_launch"].items() if result != "ok"]
     report["ok"] = not problems
     if problems:
         report["missing"] = problems
@@ -235,6 +302,10 @@ def dispatch(args) -> tuple[dict, int]:
             secrets.delete_secret(args.name)
             return {"deleted": args.name}, 0
         return {"secrets": secrets.names()}, 0
+    if command == "report":
+        from . import reporting
+
+        return reporting.build(args.project, args.out), 0
     if command == "pack":
         from . import share
 
@@ -252,7 +323,10 @@ def dispatch(args) -> tuple[dict, int]:
         return {"installed": demo.install(args.url),
                 "start_demo_site": "python examples/ticket-desk/server.py --port 8790（在 Skill 目录下）"}, 0
     if command == "doctor":
-        report = doctor()
+        report = doctor(args.launch)
+        return report, 0 if report["ok"] else 1
+    if command == "verify":
+        report = verify()
         return report, 0 if report["ok"] else 1
     if command == "export":
         if action == "postman":
@@ -302,8 +376,14 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
     args = parser().parse_args(argv)
     db.init()
+    real_stdout = sys.stdout
     try:
-        result, code = dispatch(args)
+        if args.command != "dashboard":  # the dashboard is long-running and talks to a person
+            sys.stdout = sys.stderr  # anything a library prints goes to stderr; stdout carries the JSON only
+        try:
+            result, code = dispatch(args)
+        finally:
+            sys.stdout = real_stdout
     except Exception as error:
         from .recorder.agent import AgentError
         from .recorder.session import RecordError
