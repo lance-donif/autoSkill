@@ -12,7 +12,7 @@ import uuid
 
 SCHEMA = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 ENV_REF = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
-AT = ("const at = (o, p) => p === '' ? o : p.slice(1).split('/')"
+AT = ("const __at = (o, p) => p === '' ? o : p.slice(1).split('/')"
       ".reduce((v, k) => v == null ? undefined : v[k.replace(/~1/g, '/').replace(/~0/g, '~')], o);")
 
 
@@ -44,13 +44,13 @@ def test_script(case: dict) -> list[str]:
     if "max_ms" in rules:
         lines.append(f'pm.test("响应时间不超过 {rules["max_ms"]} ms", () => pm.expect(pm.response.responseTime).to.be.at.most({rules["max_ms"]}));')
     if rules.get("json_equals") or "schema" in rules or extract:
-        lines += [AT, "let data;", 'pm.test("响应是 JSON", () => { data = pm.response.json(); });']
+        lines += [AT, "let __body;", 'pm.test("响应是 JSON", () => { __body = pm.response.json(); });']
         for pointer, wanted in rules.get("json_equals", {}).items():
-            lines.append(f"pm.test({_js('字段 ' + (pointer or '/'))}, () => pm.expect(at(data, {_js(pointer)})).to.eql({_js(wanted)}));")
+            lines.append(f"pm.test({_js('字段 ' + (pointer or '/'))}, () => pm.expect(__at(__body, {_js(pointer)})).to.eql({_js(wanted)}));")
         if "schema" in rules:
             lines.append(f'pm.test("响应结构", () => pm.response.to.have.jsonSchema({_js(rules["schema"])}));')
         for name, pointer in extract.items():
-            lines.append(f"pm.test({_js('提取变量 ' + name)}, () => {{ const v = at(data, {_js(pointer)}); "
+            lines.append(f"pm.test({_js('提取变量 ' + name)}, () => {{ const v = __at(__body, {_js(pointer)}); "
                          f"pm.expect(v).to.not.equal(undefined); pm.collectionVariables.set({_js(name)}, v); }});")
     return lines
 
