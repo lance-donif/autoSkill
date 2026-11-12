@@ -13,6 +13,8 @@ from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.oxml.ns import qn
+from pptx.oxml.xmlchemy import OxmlElement
 from pptx.util import Emu, Inches, Pt
 
 W, H = Inches(13.333), Inches(7.5)
@@ -66,6 +68,12 @@ class Deck:
             run = paragraph.add_run()
             run.text = line
             run.font.size, run.font.bold, run.font.name = Pt(size), bold, FONT
+            properties = run._r.get_or_add_rPr()
+            east_asian = properties.find(qn("a:ea"))
+            if east_asian is None:
+                east_asian = OxmlElement("a:ea")
+                properties.find(qn("a:latin")).addnext(east_asian)
+            east_asian.set("typeface", FONT)
             run.font.color.rgb = color
         return box
 
@@ -165,7 +173,7 @@ def build(facts: dict, shots: Path, out: Path) -> Path:
 
     s = d.slide()
     d.heading(s, "核心能力 · 录制", "录一次页面操作，同时得到页面用例和接口用例")
-    d.picture(s, shots / "case-drawer.png", Inches(5.6), Inches(1.75), Inches(7.13), Inches(5.0))
+    d.picture(s, shots / "case-steps.png", Inches(5.6), Inches(1.75), Inches(7.13), Inches(5.0))
     d.points(s, [("每一步都有多个定位方式", "页面小改动时自动换用备选定位，并在结果里提示，不会悄悄通过。"),
                  ("断言当场验证", "写下的期望在真实页面上成立才会被记录，避免录到错误的用例。"),
                  ("接口用例是录出来的", "状态码、关键字段、响应结构自动生成；令牌和上一步返回的编号自动传递。"),
@@ -216,14 +224,14 @@ def build(facts: dict, shots: Path, out: Path) -> Path:
     row = [(f["tests_total"], "项自动化测试全部通过"), (f["todomvc_cases"], "条页面用例在两种引擎上回放通过"),
            (f["offline_replay"], "离线包内完整流程回放结果"), (f["postman_assertions"], "条 Postman 断言用 newman 跑通")]
     for index, (value, label) in enumerate(row):
-        d.stat(s, str(value), label, Inches(0.6) + Inches(3.08) * index, Inches(2.3), Inches(2.9), ACCENT_DARK)
-    d.points(s, [(item["title"], item["body"]) for item in f["evidence_points"]], Inches(0.6), Inches(4.2), Inches(12), gap=Inches(0.9))
+        d.stat(s, str(value), label, Inches(0.6) + Inches(3.08) * index, Inches(2.15), Inches(2.9), ACCENT_DARK)
+    d.points(s, [(item["title"], item["body"]) for item in f["evidence_points"]], Inches(0.6), Inches(3.9), Inches(12), gap=Inches(1.02))
 
     s = d.slide()
     d.heading(s, "独立验收", f["acceptance"]["title"], f["acceptance"]["subtitle"])
     for index, (value, label) in enumerate(f["acceptance"]["stats"]):
-        d.stat(s, str(value), label, Inches(0.6) + Inches(3.08) * index, Inches(2.3), Inches(2.9), ACCENT_DARK)
-    d.points(s, [(item["title"], item["body"]) for item in f["acceptance"]["points"]], Inches(0.6), Inches(4.2), Inches(12), gap=Inches(0.9))
+        d.stat(s, str(value), label, Inches(0.6) + Inches(3.08) * index, Inches(2.15), Inches(2.9), ACCENT_DARK)
+    d.points(s, [(item["title"], item["body"]) for item in f["acceptance"]["points"]], Inches(0.6), Inches(3.9), Inches(12), gap=Inches(1.02))
 
     s = d.slide()
     d.heading(s, "边界与下一步", "已经做到的，和还需要一起推进的")

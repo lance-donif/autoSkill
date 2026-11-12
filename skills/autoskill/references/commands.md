@@ -41,7 +41,7 @@
 
 记录为步骤：`open <地址或路径>` `reload` `click` `dblclick` `hover` `fill <目标> <文字>` `type <目标> <文字>`（逐字输入，不清空）`select <目标> <value>` `check` `uncheck` `press <按键>`。
 
-只查看、不记录：`snapshot`（只列可交互元素）`snapshot --all`（含标题、表格等全部内容） `get text|html|value|url|title|count <目标>` `get attr <目标> <属性>` `is visible|enabled|checked <目标>` `wait <选择器或毫秒>` `screenshot [路径]` `scroll <方向> [像素]`。
+只查看、不记录：`describe <目标>`（列出该元素可用的定位写法，含 testid）`snapshot`（只列可交互元素）`snapshot --all`（含标题、表格等全部内容） `get text|html|value|url|title|count <目标>` `get attr <目标> <属性>` `is visible|enabled|checked <目标>` `wait <选择器或毫秒>` `screenshot [路径]` `scroll <方向> [像素]`。
 
 目标：`@e编号`（来自最近一次 snapshot）或 CSS 选择器。按键名如 `Enter` `Escape` `Tab` `Control+a`。
 

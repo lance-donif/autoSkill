@@ -40,7 +40,7 @@ autoskill run <项目>                                                      # 5 
 
 ## 录制时怎么操作页面
 
-`record start` 和每次操作之后都会返回 `snapshot`：页面上可操作的元素，每个带 `@e编号`。**编号只对最近一次 snapshot 有效**；页面变了就看新返回的 snapshot，或运行 `autoskill browser snapshot`。要对标题、提示文字、表格内容做断言时，用 `autoskill browser snapshot --all` 找到它们的编号。
+`record start` 和每次操作之后都会返回 `snapshot`：页面上可操作的元素，每个带 `@e编号`。**编号只对最近一次 snapshot 有效，每次操作后都可能变**（新增一条数据后会多出新元素）——始终用最近一条命令返回的 snapshot 里的编号；页面变了就看新返回的 snapshot，或运行 `autoskill browser snapshot`。要对标题、提示文字、表格内容做断言时，用 `autoskill browser snapshot --all` 找到它们的编号。
 
 | 目的 | 命令 |
 | --- | --- |
@@ -73,7 +73,7 @@ autoskill check attribute <目标> "期望值" --attribute class
 autoskill check url_contains "/orders/"   # url、title 不需要目标
 ```
 
-`<目标>` 可以是 `@e5`、`testid=名称`、`text=文字`、`label=标签`、`role=button:名称` 或 CSS 选择器。断言现在不成立时命令会报错并告诉你页面实际的值——据此改正期望，不要为了通过而删掉断言。
+`<目标>` 最稳妥的两种写法：`@e编号`（来自 `browser snapshot --all`）和 CSS 选择器（如 `.todo-count`）。也可以写 `testid=名称`、`label=标签`、`role=button:名称`、`text=文字`——其中 `text=` 要求与元素的**完整文字完全一致**，`testid=` 只在元素确实有这个 `data-testid` 时可用。snapshot 不显示 testid；想知道某个元素有哪些可用写法，运行 `autoskill browser describe @e5`，它会列出可直接使用的目标。断言现在不成立时命令会报错并告诉你页面实际的值——据此改正期望，不要为了通过而删掉断言。
 
 期望值应来自需求或业务规则，而不是「页面现在显示什么就写什么」：后者只能当回归基线，发现不了页面本来就有的错误。
 
@@ -101,7 +101,7 @@ autoskill check url_contains "/orders/"   # url、title 不需要目标
 
 - `business`：页面调用了业务接口，已生成对应用例。
 - `static`：页面没有调用业务接口，只读取了静态数据文件（如某个 `.json`）。生成的用例验证文件可访问且结构正常，**不是业务接口测试**。
-- `resource`：页面没有调用任何业务接口（纯前端页面）。生成的是"页面与静态资源可访问"检查——是真实 HTTP 请求、可以回放，但**不是业务接口测试**，向用户汇报时照实说明。
+- `resource`：页面连数据文件都没有请求（只加载了页面本身和脚本、样式）。生成的是"页面与静态资源可访问"检查——是真实 HTTP 请求、可以回放，但**不是业务接口测试**，向用户汇报时照实说明。
 
 ## 回放、导出、分享
 

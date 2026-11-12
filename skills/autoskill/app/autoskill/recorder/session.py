@@ -78,10 +78,24 @@ def _spec(rec: dict, token: str, rich: bool = False) -> dict:
     return {"locator": {"by": "css", "value": token}}
 
 
+def _as_target(locator: dict) -> str:
+    """A locator written the way `check` and `browser` accept it."""
+    if locator["by"] == "css":
+        return locator["value"]
+    if locator["by"] == "role":
+        return f'role={locator["role"]}:{locator.get("name") or ""}'
+    return f'{locator["by"]}={locator["value"]}'
+
+
 def _target(rec: dict, token: str, rich: bool = False) -> dict:
     found = _describe(_spec(rec, token, rich))
     if not found or not found.get("locators"):
-        raise RecordError(f"页面上找不到 {token}；先运行 autoskill browser snapshot 确认元素")
+        hint = "先运行 autoskill browser snapshot --all 找到它的 @编号，或改用 CSS 选择器"
+        if token.startswith("text="):
+            hint = "text= 要求与元素的完整文字完全一致（不是包含）；" + hint
+        elif token.startswith("testid="):
+            hint = "页面上没有 data-testid 为这个值的元素；" + hint
+        raise RecordError(f"页面上找不到 {token}；{hint}")
     return found
 
 
@@ -217,6 +231,13 @@ def browser(argv: list[str]) -> dict:
         tree = snapshot(rec, interactive="--all" not in rest)
         _save(rec)
         return {"snapshot": tree}
+    if command == "describe":
+        if not rest:
+            raise RecordError("describe 需要目标，例如 @e5")
+        found = _target(rec, rest[0], rich=True)
+        return {"element": found.get("tag"), "role": found.get("role"), "name": found.get("name"),
+                "locators": [ir.describe_locator(loc) for loc in found["locators"]],
+                "use_as_target": [_as_target(loc) for loc in found["locators"]]}
     if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview"):
         return {"result": agent.call(SESSION, argv)}
     if command == "open":
@@ -252,7 +273,7 @@ def browser(argv: list[str]) -> dict:
         agent.call(SESSION, send)
         result = _record(rec, step)
     else:
-        raise RecordError(f"录制不支持 {command}；可用：open snapshot click dblclick hover fill type select check uncheck press reload get is wait")
+        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe click dblclick hover fill type select check uncheck press reload get is wait")
     result["snapshot"] = snapshot(rec)
     _save(rec)
     return _after(rec, result)

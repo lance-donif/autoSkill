@@ -5,7 +5,7 @@
 | `当前没有进行中的录制` | 还没 `record start`，或上一次已经 `stop` / `cancel` | `autoskill record start <项目>` |
 | `已有进行中的录制` | 上一次录制没有结束 | `autoskill record status` 看内容；要保留就 `record stop --title …`，否则 `record cancel` |
 | `引用 @eN 已失效` | 页面变了，编号是旧 snapshot 的 | 用上一条命令返回的 snapshot，或 `autoskill browser snapshot` |
-| `页面上找不到 …` | 元素还没出现，或在弹层 / 折叠区里 | `autoskill browser wait <选择器>` 后重新 snapshot；必要时先点开弹层 |
+| `页面上找不到 …` | 元素还没出现、在弹层 / 折叠区里，或目标写法不匹配（`text=` 需完整文字一致，`testid=` 需元素有该属性） | `autoskill browser snapshot --all` 找到 `@编号` 直接用；或 `autoskill browser describe @e5` 看可用写法；元素未出现时先 `autoskill browser wait <选择器>` |
 | `断言现在不成立，没有记录` | 期望值和页面实际不同 | 报错里有页面实际值；确认业务上哪个对，再改期望。不要删断言凑通过 |
 | `地址 … 不在项目授权范围内` | 跳到了项目地址以外 | 确属被测系统的一部分：`autoskill project update <项目> --allow-origin <地址>`；否则不要访问 |
 | 页面打不开、一直空白 | 地址不可达，或页面依赖的其他服务未授权 | `autoskill browser get url` 确认；检查网络与 `--allow-origin` |
