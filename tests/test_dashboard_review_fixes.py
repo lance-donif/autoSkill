@@ -1,6 +1,7 @@
 """Dashboard filtering and saved settings update the real UI against isolated API fixtures."""
 import json
 import mimetypes
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -104,6 +105,7 @@ class DashboardReviewTests(unittest.TestCase):
         for mode in ("", "view=results&"):
             with self.subTest(mode=mode):
                 self.open_history(mode + "projects=review&range=all&status=Pass&offset=50")
+                expect(self.page).not_to_have_url(re.compile(r"[?&]offset="))
                 expect(self.page.locator("#view .table tbody tr")).to_have_count(1)
                 query = parse_qs(urlsplit(self.page.url).fragment.partition("?")[2])
                 self.assertNotIn("offset", query)
