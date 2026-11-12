@@ -514,10 +514,24 @@ def case_fingerprint(case):
     ).hexdigest()
 
 
-def _api_response_checks(c, response, jsonschema):
+def _api_basic_checks(assertions, response):
+    """Judge text, headers and timing without persisting response or credential values."""
     checks = [
-        {"name": "HTTP 状态码", "passed": response.status_code == c["assertions"]["status"]}
+        {"name": "HTTP 状态码", "passed": response.status_code == assertions["status"]}
     ]
+    for name, wanted in assertions.get("header_contains", {}).items():
+        checks.append({"name": "响应头包含预期值 " + name,
+                       "passed": resolved(wanted).lower() in response.headers.get(name, "").lower()})
+    for index, wanted in enumerate(assertions.get("body_contains", []), 1):
+        checks.append({"name": f"响应内容包含预期文本 {index}", "passed": resolved(wanted) in response.text})
+    if "max_ms" in assertions:
+        checks.append({"name": "响应时间不超过预期毫秒数",
+                       "passed": response.elapsed.total_seconds() * 1000 <= assertions["max_ms"]})
+    return checks
+
+
+def _api_response_checks(c, response, jsonschema):
+    checks = _api_basic_checks(c["assertions"], response)
     a = c["assertions"]
     extras = c.get("extensions", {}).get("extra_assertions", {})
     blocked_reason = None
