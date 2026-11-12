@@ -62,7 +62,7 @@ class LinuxPlatformTests(unittest.TestCase):
                 result = platforms.configure()
                 self.assertTrue(result["ok"])
                 self.assertEqual(json.loads((vendor / "runtime-settings.json").read_text()),
-                                 {"chrome": "/usr/bin/chromium", "chromedriver": "/usr/bin/chromedriver"})
+                                 {"chrome": "/usr/bin/chromium", "chromedriver": "/usr/bin/chromedriver", "browser_selection": "detected"})
 
     def test_builder_rejects_x64_binary_for_arm_package(self):
         spec = importlib.util.spec_from_file_location("linux_builder", ROOT / "scripts/build-linux-bundle.py")

@@ -107,7 +107,13 @@ def _first(*candidates: str | Path | None) -> str | None:
     return None
 
 
-def _configured_binary(name: str, variable: str) -> tuple[bool, str | None]:
+def _bundled_chrome_path() -> Path:
+    folder = "chrome-linux-arm64" if runtime_target() == "linux-arm64" else "chrome-linux64"
+    relative = folder + "/chrome" if sys.platform == "linux" else "chrome-win64/chrome.exe"
+    return VENDOR / "chrome" / relative
+
+
+def _configured_binary(name: str, variable: str, *, explicit_only: bool = False) -> tuple[bool, str | None]:
     if os.environ.get(variable):
         return True, _first(os.environ[variable])
     settings = VENDOR / "runtime-settings.json"
@@ -115,7 +121,13 @@ def _configured_binary(name: str, variable: str) -> tuple[bool, str | None]:
         config = json.loads(settings.read_text(encoding="utf-8"))
         if config.get(name):
             candidate = Path(config[name])
-            return True, _first(candidate if candidate.is_absolute() else VENDOR / candidate)
+            candidate = candidate if candidate.is_absolute() else VENDOR / candidate
+            selection = config.get("browser_selection")
+            # Older setup files did not distinguish detection from a user override.
+            detected = selection == "detected" or (selection is None and candidate.resolve() == _bundled_chrome_path().resolve())
+            if explicit_only and detected:
+                return False, None
+            return True, _first(candidate)
     return False, None
 
 
@@ -152,15 +164,13 @@ def system_chrome() -> str | None:
 
 def chrome(bundled: bool = False) -> str | None:
     """The browser to drive. `bundled=True` asks for ours, which is the one that matches the bundled chromedriver."""
-    configured, value = _configured_binary("chrome", "AUTOSKILL_CHROMIUM")
+    prefer_system = not bundled and browser_mode() == "system"
+    configured, value = _configured_binary("chrome", "AUTOSKILL_CHROMIUM", explicit_only=prefer_system)
     if configured:
         return value
-    folder = "chrome-linux-arm64" if runtime_target() == "linux-arm64" else "chrome-linux64"
-    relative = folder + "/chrome" if sys.platform == "linux" else "chrome-win64/chrome.exe"
-    ours = _first(VENDOR / "chrome" / relative)
-    if bundled or browser_mode() == "bundled":
-        return ours or (system_chrome() if sys.platform == "linux" else None)
-    return system_chrome() or ours
+    if prefer_system:
+        return system_chrome() or chrome(bundled=True)
+    return _first(_bundled_chrome_path()) or (system_chrome() if sys.platform == "linux" else None)
 
 
 def browser_info() -> dict:

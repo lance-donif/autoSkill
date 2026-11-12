@@ -74,13 +74,14 @@ def configure(chrome: str | None = None, driver: str | None = None) -> dict:
         return {"ok": False, "platform": info, "problems": problems}
     explicit_chrome = chrome or os.environ.get("AUTOSKILL_CHROMIUM")
     explicit_driver = driver or os.environ.get("AUTOSKILL_CHROMEDRIVER")
+    previous_explicit, _ = paths._configured_binary("chrome", "AUTOSKILL_CHROMIUM", explicit_only=True)
     pairs = [(explicit_chrome or paths.chrome(bundled=True), explicit_driver or paths.chromedriver())]
     if not explicit_chrome and not explicit_driver:
         pairs.extend((shutil.which(name), shutil.which("chromedriver"))
                      for name in ("chromium", "chromium-browser", "google-chrome")
                      if shutil.which(name) and shutil.which("chromedriver"))
     attempted = []
-    for browser, driver_path in pairs:
+    for index, (browser, driver_path) in enumerate(pairs):
         check = browser_pair(browser, driver_path)
         attempted.append(check)
         if not check["ok"]:
@@ -89,7 +90,9 @@ def configure(chrome: str | None = None, driver: str | None = None) -> dict:
             path = Path(value).absolute()
             return path.relative_to(paths.VENDOR).as_posix() if path.is_relative_to(paths.VENDOR) else str(path)
         paths.VENDOR.mkdir(parents=True, exist_ok=True)
-        settings = {"chrome": portable(browser), "chromedriver": portable(driver_path)}
+        explicit = index == 0 and (explicit_chrome or explicit_driver or previous_explicit)
+        settings = {"chrome": portable(browser), "chromedriver": portable(driver_path),
+                    "browser_selection": "explicit" if explicit else "detected"}
         (paths.VENDOR / "runtime-settings.json").write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return {"ok": True, "platform": info, "browser_pair": check,
                 "settings": str(paths.VENDOR / "runtime-settings.json"),
