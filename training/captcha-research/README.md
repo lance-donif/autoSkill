@@ -1,6 +1,6 @@
 # 验证码模型实验：数据与原始基线
 
-本目录是独立实验产物。准备任务未修改产品源码或原始模型。速度任务仅在独立模型分支更新 ONNX 图；静态检查工作树与原功能工作树的模型未改。
+本目录记录独立实验产物。数据准备未修改产品源码或原始模型；已经验证的速度优化已合并 `main`。准确率候选单独冻结和验证，失败候选不进入产品。
 
 原始模型 SHA-256：`be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4`。
 本分支等价图优化模型 SHA-256：`b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662`。
@@ -44,6 +44,7 @@
 - 同 2 线程，process-cold（模块导入/输入准备/初始化/首次推理，不含 Python 启动，OS 缓存未清空）中位 **204.74→196.15ms**；模型初始化 **44.98→44.85ms**，首次推理 **29.49→15.97ms**。
 - ORT 默认线程的中位 **18.72→11.39ms**，块间负载波动更大，只作为本机补充结果。
 - 模型体积 **13055561→13061505 bytes**，此任务优化计算与中间内存，不承诺模型压缩或准确率提高。
+- 内部数值诊断额外探测全部 1,244 个既有中心、邻域及范数极端值，共 5,065 个特征向量，覆盖真实激活的两个校正头；局部/扩展校正的最大绝对浮点差分别为 **0.001139 / 0.000347**。数学恒等式的 FP32 计算顺序不同，不能宣称任意输入都逐位相同；这组内部特征也不计为图片识别准确率。
 
 证据位于 `evidence/distance-evaluation.json`、`evidence/paired-benchmark.json` 和 `evidence/distance-rewrite.json`。纯数学改写不训练、不重新选择字符标签；数据不是目标站验收集，不据此宣称普遍准确率提升。
 
@@ -58,6 +59,7 @@ python training/captcha-research/rewrite_distance.py
 export CAPTCHA_CANDIDATE_MODEL="$CAPTCHA_RESEARCH_DIR/candidates/rbf-distance-matmul.onnx"
 python training/captcha-research/validate_distance.py
 OPENBLAS_NUM_THREADS=1 python training/captcha-research/paired_benchmark.py
+OPENBLAS_NUM_THREADS=1 python training/captcha-research/probe_distance_heads.py
 ```
 
 `validate_distance.py` 不依赖小头训练产物；它加载固定 manifest，核对逐图数值/字符串与分组 exact-match/CER。benchmark 在独立进程内冷导入科学计算库，不同时保留两个互相争抢线程的 ORT session。原始测量值是一次固定实验的证据，复测时间会随宿主机负载变化。
