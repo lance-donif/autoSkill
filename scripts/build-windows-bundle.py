@@ -79,6 +79,23 @@ def smoke_test(package: Path) -> None:
         raise ValueError("Packaged interpreter cannot start the packaged app: " + (done.stderr.strip() or located)[-400:])
 
 
+def plugin_check(output: Path) -> None:
+    """The packaged plugin must find the packaged skill and its bundled Python (needs Node on the build machine)."""
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:
+        return
+    code = ("const m = await import(process.argv[1]); const s = m.runtimeSpec();"
+            "console.log(JSON.stringify({skill: m.SKILL_DIR, python: s.python, bundled: s.bundled}));")
+    url = (output / "plugin" / "index.mjs").resolve().as_uri()
+    env = {k: v for k, v in __import__("os").environ.items() if k != "AUTOSKILL_DEV_PYTHON"}
+    done = subprocess.run([node, "--input-type=module", "-e", code, url], capture_output=True, text=True, env=env, encoding="utf-8")
+    found = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
+    if not found or found.get("python") != found.get("bundled") or not Path(found["skill"]).resolve().is_relative_to(output.resolve()):
+        raise ValueError("Packaged DSH plugin cannot find the packaged runtime: " + (done.stderr.strip() or done.stdout.strip())[-400:])
+
+
 def build(assets: Path, output: Path) -> dict:
     if output.exists():
         raise ValueError("Output folder already exists; choose a new one")
@@ -88,11 +105,13 @@ def build(assets: Path, output: Path) -> dict:
     package = output / "autoskill"
     output.mkdir(parents=True)
     copy_tree(SKILL, package)
-    for extra in ("plugin", "cordis.patch.yml", "package.json"):
-        source = ROOT / extra
-        target = output / "dsh-plugin" / extra
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source, target) if source.is_dir() else shutil.copy2(source, target)
+    # The package root is itself an installable DeepSeek Harness bundle: choose this folder in DSH.
+    shutil.copytree(ROOT / "plugin", output / "plugin")
+    shutil.copy2(ROOT / "cordis.patch.yml", output / "cordis.patch.yml")
+    manifest_json = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    manifest_json["files"] = ["plugin", "autoskill", "cordis.patch.yml"]
+    manifest_json.pop("scripts", None)
+    (output / "package.json").write_text(json.dumps(manifest_json, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
 
     vendor = package / "vendor" / "windows-x64"
     vendor.mkdir(parents=True)
@@ -153,6 +172,7 @@ def build(assets: Path, output: Path) -> dict:
             raise ValueError("Not a Windows executable: " + binary)
 
     smoke_test(package)
+    plugin_check(output)
     files = {p.relative_to(vendor).as_posix(): sha256(p) for p in sorted(vendor.rglob("*")) if p.is_file()}
     (vendor / "runtime-manifest.json").write_text(json.dumps({"files": files}, indent=1), encoding="utf-8")
     manifest = {

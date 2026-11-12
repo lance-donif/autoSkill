@@ -3,10 +3,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
-import { bundledSkills, runtimeSpec, PACKAGE_ROOT, SKILL_DIR } from '../plugin/index.mjs';
+import { bundledSkills, runtimeSpec, findSkillDir, PACKAGE_ROOT, SKILL_DIR } from '../plugin/index.mjs';
 
 test('registers the one autoSkill skill with its directory as resource base', async () => {
   const skills = await bundledSkills();
@@ -55,6 +56,20 @@ test('client registers dashboard and schedules panels pointing at the loopback d
   const frames = records.filter((r) => r.options.name === 'main').map((r) => r.component());
   assert.deepEqual(frames.map((f) => f.props.src), ['http://127.0.0.1:8788/?embed=1#/dashboard', 'http://127.0.0.1:8788/?embed=1#/schedules']);
   assert.throws(() => plugin.apply(ctx, { port: 1 }));
+});
+
+test('the skill is found in both the offline package layout and a source checkout', () => {
+  const root = mkdtempSync(join(tmpdir(), 'autoskill-layout-'));
+  try {
+    mkdirSync(join(root, 'skills', 'autoskill'), { recursive: true });
+    writeFileSync(join(root, 'skills', 'autoskill', 'SKILL.md'), 'x');
+    assert.equal(findSkillDir(root), join(root, 'skills', 'autoskill'));
+    mkdirSync(join(root, 'autoskill'));
+    writeFileSync(join(root, 'autoskill', 'SKILL.md'), 'x');
+    assert.equal(findSkillDir(root), join(root, 'autoskill'));
+    const spec = runtimeSpec({}, join(root, 'autoskill'));
+    assert.equal(spec.bundled, join(root, 'autoskill', 'vendor', 'windows-x64', 'python', 'python.exe'));
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('package manifest points at files that exist', async () => {
