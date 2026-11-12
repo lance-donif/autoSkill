@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from .. import db, paths, projects, secrets
 from ..replay import ir
+from ..replay.tabs import Tabs
 from . import agent
 
 
@@ -21,7 +23,7 @@ DOM_JS = (Path(__file__).resolve().parents[1] / "replay" / "dom.js").read_text(e
 TARGETED = ("click", "dblclick", "hover", "check", "uncheck", "fill", "type", "select")
 READ_ONLY = ("snapshot", "get", "is", "wait", "screenshot", "scroll", "scrollintoview", "focus", "eval")
 DENIED = ("install", "upgrade", "update", "doctor", "skills", "connect", "dashboard", "auth", "state", "cookies",
-          "storage", "network", "close", "record", "flow", "mcp", "chat", "batch", "tab", "pdf", "download", "upload")
+          "storage", "network", "close", "record", "flow", "mcp", "chat", "batch", "pdf", "download", "upload")
 DENIED_FLAGS = ("--provider", "-p", "--proxy", "--cdp", "--auto-connect", "--config", "--executable-path", "--args",
                 "--allowed-domains", "--state", "--profile", "--session", "--headers", "--extension", "--init-script",
                 "--restore", "--capture", "--namespace", "--engine")
@@ -46,6 +48,98 @@ def current(required: bool = True) -> dict | None:
 
 def _save(rec: dict) -> None:
     _file().write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def _observe_tabs(rec: dict, settle: float = 0) -> dict | None:
+    """Map native handles to recording ids; never store a CDP target id in a case."""
+    deadline = time.monotonic() + settle
+    while True:
+        tabs = (agent.call(session_name(), ["tab", "list"]) or {}).get("tabs", [])
+        if not tabs:
+            raise RecordError("所有标签页都已关闭；请取消录制后重新开始")
+        live = [tab["tabId"] for tab in tabs]
+        active = next((tab["tabId"] for tab in tabs if tab.get("active")), live[0])
+        if "tab_map" not in rec:
+            rec.update(tab_map={native: f"t{i + 1}" for i, native in enumerate(live)},
+                       live_tabs=live, active_tab=active, next_tab=len(live) + 1)
+        old_live, old_active = rec["live_tabs"], rec["active_tab"]
+        opened, closed = [t for t in live if t not in old_live], [t for t in old_live if t not in live]
+        if opened or closed or active != old_active or time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+    for native in opened:
+        rec["tab_map"][native] = f"t{rec['next_tab']}"
+        rec["next_tab"] += 1
+    ids = rec["tab_map"]
+    base = projects.config(rec["project_id"])["base_url"]
+    change = {"opened": [{"id": ids[t["tabId"]], "url": relative(Tabs.destination(t.get("url", "")), base)}
+                         for t in tabs if t["tabId"] in opened],
+              "closed": [ids[t] for t in closed], "active": ids[active]}
+    rec.update(live_tabs=live, active_tab=active,
+               tab_info=[{"id": ids[t["tabId"]], "active": t["tabId"] == active,
+                          "url": t.get("url", ""), "title": t.get("title", "")} for t in tabs])
+    return change if opened or closed or active != old_active else None
+
+
+def _sync_tabs(rec: dict) -> None:
+    change = _observe_tabs(rec)
+    if change:
+        _record(rec, {"action": "tab_sync", "tabs": change})
+        snapshot(rec)
+
+
+def _act(rec: dict, argv: list[str]) -> dict | None:
+    active = rec["tab_map"][rec["active_tab"]]
+    try:
+        agent.call(session_name(), argv)
+    except agent.AgentError:
+        # A click can close its own CDP target before the mouse-event reply arrives.
+        # Only accept that specific observed transition; every other action error stays an error.
+        change = _observe_tabs(rec)
+        if not change or active not in change["closed"]:
+            raise
+        return change
+    return None
+
+
+def _tab_command(rec: dict, rest: list[str]) -> dict:
+    if not rest or rest == ["list"]:
+        _save(rec)
+        return {"tabs": rec["tab_info"], "tab": rec["tab_map"][rec["active_tab"]]}
+    op = rest[0]
+    live = {rec["tab_map"][t]: t for t in rec["live_tabs"]}
+    if op == "new" and len(rest) <= 2:
+        config = projects.config(rec["project_id"])
+        url = ir.absolute_url(rest[1], config["base_url"]) if len(rest) == 2 else "about:blank"
+        ir.check_origin(url, config["allowed_origins"])
+        agent.call(session_name(), ["tab", "new", "about:blank"])
+        _observe_tabs(rec)
+        tab = rec["tab_map"][rec["active_tab"]]
+        if url != "about:blank":
+            _open(url, float(config.get("page_load_seconds", 90)))
+        step = {"action": "tab_new", "tab": tab, "url": relative(url, config["base_url"])}
+        change = _observe_tabs(rec)
+        if change:
+            step["tabs"] = change
+    else:
+        closing = op == "close"
+        tab = (rest[1] if len(rest) == 2 else rec["tab_map"][rec["active_tab"]]) if closing else op
+        if (closing and len(rest) > 2) or (not closing and len(rest) != 1) or not re.fullmatch(r"t[1-9][0-9]*", tab):
+            raise RecordError("用法：browser tab list / tab new [地址] / tab t1 / tab close [t1]")
+        if tab not in live:
+            raise RecordError(f"标签页 {tab} 不存在或已关闭；运行 browser tab list 查看当前页面")
+        if closing and len(live) == 1:
+            raise RecordError("不能关闭最后一个标签页；请结束或取消录制")
+        agent.call(session_name(), ["tab", *(["close"] if closing else []), live[tab]])
+        _observe_tabs(rec)
+        step = {"action": "tab_close" if closing else "tab_switch", "tab": tab}
+        if closing:
+            step["active"] = rec["tab_map"][rec["active_tab"]]
+    result = _record(rec, step)
+    rec["refs"] = {}
+    result.update(snapshot=snapshot(rec), tabs=rec["tab_info"])
+    _save(rec)
+    return _after(rec, result)
 
 
 def relative(url: str, base_url: str) -> str:
@@ -254,6 +348,7 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
             state_file.unlink(missing_ok=True)
     rec = {"project_id": project_id, "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
            "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login}
+    _observe_tabs(rec)
     tree = _settled_snapshot(rec)
     _save(rec)
     page = {**page, **_page_state()}  # the app may have moved on (for example to its sign-in page) while drawing
@@ -281,9 +376,11 @@ def _record(rec: dict, step: dict) -> dict:
 
 
 def _after(rec: dict, result: dict) -> dict:
-    """Report where the page is now; leaving the authorised site is refused by the browser fence."""
+    """Report the active page and its stable recording tab id."""
     url = PageProbe().url()
     result["url"] = url
+    if rec.get("active_tab"):
+        result["tab"] = rec["tab_map"][rec["active_tab"]]
     try:
         ir.check_origin(url, projects.config(rec["project_id"])["allowed_origins"])
     except PermissionError as error:
@@ -330,6 +427,10 @@ def browser(argv: list[str]) -> dict:
     if command in DENIED or any(a.split("=")[0] in DENIED_FLAGS for a in argv):
         raise RecordError(f"录制中不能使用 {command}：安装、升级、远程浏览器、网络与登录态由 autoskill 统一管理")
     config = projects.config(rec["project_id"])
+    _sync_tabs(rec)
+    early_change = None
+    if command == "tab":
+        return _tab_command(rec, rest)
     if command == "snapshot":
         tree = snapshot(rec, interactive="--all" not in rest)
         _save(rec)
@@ -352,20 +453,19 @@ def browser(argv: list[str]) -> dict:
         url = ir.absolute_url(rest[0], config["base_url"])
         ir.check_origin(url, config["allowed_origins"])
         _open(url, float(config.get("page_load_seconds", 90)))
-        result = _record(rec, {"action": "goto", "url": relative(url, config["base_url"])})
+        step = {"action": "goto", "url": relative(url, config["base_url"])}
     elif command == "reload":
         agent.call(session_name(), ["reload"], timeout=90, check=False)
         _wait_ready(float(config.get("page_load_seconds", 90)))
-        result = _record(rec, {"action": "reload"})
+        step = {"action": "reload"}
     elif command == "press":
         if not rest:
             raise RecordError("press 需要按键名，例如 Enter")
         focused = _describe({})
-        agent.call(session_name(), ["press", rest[0]])
+        early_change = _act(rec, ["press", rest[0]])
         step = {"action": "press", "key": rest[0]}
         if focused and focused.get("locators"):
             step["locators"] = focused["locators"]
-        result = _record(rec, step)
     elif command in TARGETED:
         if not rest:
             raise RecordError(f"{command} 需要目标，例如 @e3")
@@ -384,10 +484,19 @@ def browser(argv: list[str]) -> dict:
                 raise RecordError(f"{command} 需要内容")
             typed, step["value"] = _secret_value(rec, _plain(rest[1]), bool(found.get("secret")) and command != "select")
             send = [command, rest[0], typed]
-        agent.call(session_name(), send)
-        result = _record(rec, step)
+        early_change = _act(rec, send)
     else:
-        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe click dblclick hover fill type select check uncheck press reload get is wait")
+        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe tab click dblclick hover fill type select check uncheck press reload get is wait")
+    change = _observe_tabs(rec, settle=0.6 if command in ("click", "dblclick", "press") else 0)
+    if early_change:
+        change = {"opened": early_change["opened"] + (change or {}).get("opened", []),
+                  "closed": early_change["closed"] + (change or {}).get("closed", []),
+                  "active": (change or early_change)["active"]}
+    if change:
+        step["tabs"] = change
+        if change.get("opened"):
+            _wait_ready(float(config.get("page_load_seconds", 90)))
+    result = _record(rec, step)
     result["snapshot"] = snapshot(rec)
     _save(rec)
     return _after(rec, result)
@@ -398,6 +507,7 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     from ..replay import ui
 
     rec = current()
+    _sync_tabs(rec)
     if kind not in ir.ASSERTIONS:
         raise RecordError("断言类型只能是：" + " ".join(ir.ASSERTIONS))
     needs_target, required = ir.ASSERTIONS[kind]

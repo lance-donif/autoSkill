@@ -14,6 +14,10 @@ LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css")
 ACTIONS = {
     "goto": (False, ("url",)),
     "reload": (False, ()),
+    "tab_new": (False, ("tab", "url")),
+    "tab_switch": (False, ("tab",)),
+    "tab_close": (False, ("tab", "active")),
+    "tab_sync": (False, ("tabs",)),
     "fill": (True, ("value",)),
     "type": (True, ("value",)),
     "click": (True, ()),
@@ -44,6 +48,7 @@ ACTION_NAMES = {
     "goto": "打开", "reload": "刷新页面", "fill": "输入", "type": "逐字输入", "click": "点击",
     "dblclick": "双击", "hover": "悬停", "press": "按键", "check": "勾选", "uncheck": "取消勾选",
     "select": "选择", "wait_visible": "等待出现", "wait_hidden": "等待消失",
+    "tab_new": "新建标签页", "tab_switch": "切换标签页", "tab_close": "关闭标签页", "tab_sync": "跟随新窗口或关闭返回",
 }
 ASSERTION_NAMES = {
     "visible": "可见", "hidden": "不可见", "count": "数量为", "text": "文本为", "contains": "文本包含",
@@ -81,6 +86,8 @@ def describe(step: dict) -> str:
     if "action" in step:
         op = step["action"]
         text = ACTION_NAMES.get(op, op)
+        if op.startswith("tab_"):
+            return f"{text} {step.get('tab', step.get('tabs', {}).get('active', ''))}".strip()
         if op == "goto":
             return f'{text} {step.get("url")}'
         if op in ("fill", "type", "select"):
@@ -132,6 +139,23 @@ def _check_step(step: object, table: dict, key: str, where: str) -> None:
         _check_locator(locator, where)
     if step[key] == "count" and not _is_index(step["expected"]):
         raise ValueError(f"{where}：count 断言需要非负整数")
+    def tab_id(value):
+        return isinstance(value, str) and value.startswith("t") and value[1:].isascii() and value[1:].isdigit() and int(value[1:]) > 0
+    for field in ("tab", "active"):
+        if field in step and not tab_id(step[field]):
+            raise ValueError(f"{where}：标签页编号必须是 t1、t2 这样的格式")
+    if "tabs" in step:
+        change = step["tabs"]
+        if not isinstance(change, dict) or not tab_id(change.get("active")):
+            raise ValueError(f"{where}：标签页变化缺少有效的 active")
+        for field in ("opened", "closed"):
+            if not isinstance(change.get(field, []), list):
+                raise ValueError(f"{where}：{field} 必须为数组")
+        for item in change.get("opened", []):
+            if not isinstance(item, dict) or not tab_id(item.get("id")) or not isinstance(item.get("url", ""), str):
+                raise ValueError(f"{where}：新标签页格式无效")
+        if not all(tab_id(tab) for tab in change.get("closed", [])):
+            raise ValueError(f"{where}：关闭标签页格式无效")
 
 
 def validate(automation: object) -> None:

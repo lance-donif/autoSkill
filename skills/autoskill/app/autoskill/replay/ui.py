@@ -119,6 +119,13 @@ def navigate(action, *args) -> None:
 def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float) -> bool:
     """Run one action. Returns True when a fallback locator had to be used."""
     op = step["action"]
+    if op.startswith("tab_"):
+        tab_step = dict(step)
+        if op == "tab_new":
+            tab_step["url"] = ir.absolute_url(step["url"], base_url)
+            ir.check_origin(tab_step["url"], allowed)
+        driver.tab_action(tab_step, timeout)
+        return False
     if op == "goto":
         url = ir.absolute_url(step["url"], base_url)
         ir.check_origin(url, allowed)
@@ -158,6 +165,8 @@ def classify(error: Exception) -> tuple[str, str]:
         return (SECRET if "缺少凭据" in str(error) else ENVIRONMENT), str(error)
     name = type(error).__name__
     if "Timeout" in name:
+        if "标签页" in str(error):
+            return TIMEOUT, str(error)
         return TIMEOUT, "操作超时：元素没有在限定时间内变为可操作"
     return ENVIRONMENT, "浏览器执行出错：" + name
 
@@ -197,6 +206,11 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                 if perform(driver, step, base_url, allowed, timeout):
                     row["fallback"] = True
                     outcome["fallbacks"] += 1
+                if step.get("tabs"):
+                    change = {**step["tabs"], "opened": [
+                        {**item, "url": ir.absolute_url(item["url"], base_url)} if item.get("url") else item
+                        for item in step["tabs"].get("opened", [])]}
+                    driver.sync_tabs(change, float(config.get("page_load_seconds", 90)))
                 ir.check_origin(driver.url(), allowed)
                 row["status"] = "done"
             finally:

@@ -1,0 +1,14 @@
+test_invalid_tab_steps_are_rejected_before_replay (test_tabs.TabValidationTests.test_invalid_tab_steps_are_rejected_before_replay) ... ok
+test_popup_hints_remove_credentials_and_login_parameters (test_tabs.TabValidationTests.test_popup_hints_remove_credentials_and_login_parameters) ... ok
+test_delayed_popup_record_replay_and_standalone_exports (test_tabs.TabsTests.test_delayed_popup_record_replay_and_standalone_exports) ... ok
+test_manual_new_background_close_nonreused_ids_and_reset (test_tabs.TabsTests.test_manual_new_background_close_nonreused_ids_and_reset) ... ok
+test_missing_popup_fails_and_does_not_select_existing_tab (test_tabs.TabsTests.test_missing_popup_fails_and_does_not_select_existing_tab) ... ok
+test_script_closes_child_and_returns_result_to_parent (test_tabs.TabsTests.test_script_closes_child_and_returns_result_to_parent) ... ok
+test_simultaneous_popups_matched_by_destination (test_tabs.TabsTests.test_simultaneous_popups_matched_by_destination) ... ok
+test_target_blank_record_replay_and_standalone_exports (test_tabs.TabsTests.test_target_blank_record_replay_and_standalone_exports) ... ok
+test_window_open_record_replay_and_standalone_exports (test_tabs.TabsTests.test_window_open_record_replay_and_standalone_exports) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 48.573s
+
+OK

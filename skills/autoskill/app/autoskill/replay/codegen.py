@@ -6,11 +6,13 @@ browser. Secrets are read from environment variables of the same name.
 from __future__ import annotations
 
 import json
+import inspect
 import re
 from pathlib import Path
 
 from .. import projects, runner
 from . import ir
+from .tabs import Tabs, playwright_tabs, selenium_tabs
 
 SECRET = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
 KEYS = {"Enter": "ENTER", "Escape": "ESCAPE", "Tab": "TAB", "Backspace": "BACKSPACE", "Delete": "DELETE", "Space": "SPACE"}
@@ -62,10 +64,23 @@ def css_for(step: dict) -> tuple[str, int]:
     raise ValueError("这一步没有可用于 Selenium 独立脚本的 CSS 定位：" + ir.describe(step))
 
 
+def tab_step_expr(step: dict) -> str:
+    return "{" + ", ".join(lit(k) + ": " + (url_expr(v) if k == "url" else lit(v))
+                           for k, v in step.items() if k in ("action", "tab", "active", "url")) + "}"
+
+
+def tab_change_expr(change: dict) -> str:
+    opened = ["{" + f"'id': {lit(item['id'])}, 'url': {url_expr(item['url']) if item.get('url') else repr('')}" + "}"
+              for item in change.get("opened", [])]
+    return "{" + f"'active': {lit(change['active'])}, 'closed': {lit(change.get('closed', []))}, 'opened': [" + ", ".join(opened) + "]}"
+
+
 def pw_step(step: dict) -> str:
     target = pw_locator(ir.locators(step)[0]) if ir.locators(step) else None
     if "action" in step:
         op = step["action"]
+        if op.startswith("tab_"):
+            return f"page = tabs.action({tab_step_expr(step)}, TIMEOUT)"
         if op == "goto":
             return f"page.goto({url_expr(step['url'])})"
         if op == "reload":
@@ -114,6 +129,8 @@ def se_step(step: dict) -> str:
     message = json.dumps(ir.describe(step), ensure_ascii=False)  # never expands secrets
     if "action" in step:
         op = step["action"]
+        if op.startswith("tab_"):
+            return f"tabs.action({tab_step_expr(step)}, TIMEOUT)"
         if op == "goto":
             return f"driver.get({url_expr(step['url'])})"
         if op == "reload":
@@ -159,11 +176,13 @@ def se_step(step: dict) -> str:
 
 PW_HEADER = r'''import os
 import re
+import time
 
 from playwright.sync_api import expect, sync_playwright
 
 BASE_URL = os.environ.get("BASE_URL", @@BASE@@).rstrip("/")
 CLASS_L, CLASS_R = r"(^|\s)", r"(\s|$)"
+TIMEOUT = float(os.environ.get("TIMEOUT", "90"))
 '''
 PW_MAIN = '''
 
@@ -173,7 +192,8 @@ def main():
         if os.environ.get("CHROME_BINARY"):
             options["executable_path"] = os.environ["CHROME_BINARY"]
         browser = p.chromium.launch(**options)
-        page = browser.new_page()
+        context = browser.new_context()
+        page = context.new_page()
         try:
 @@CALLS@@
         finally:
@@ -283,9 +303,16 @@ def _function(case: dict, engine: str) -> tuple[str, str]:
     automation = case["extensions"]["automation"]
     name = re.sub(r"[^a-z0-9]+", "_", case["id"].lower()).strip("_")
     arg, opener, emit = ("page", "page.goto", pw_step) if engine == "playwright" else ("driver", "driver.get", se_step)
-    body = [f"def {name}({arg}):", f"    # {case['id']} {case['title']}", f"    {opener}({url_expr(automation['start_url'])})"]
+    factory = "playwright_tabs" if engine == "playwright" else "selenium_tabs"
+    body = [f"def {name}({arg}):", f"    # {case['id']} {case['title']}",
+            f"    tabs = {factory}({arg})", f"    {opener}({url_expr(automation['start_url'])})"]
     for step in [*automation.get("actions", []), *automation.get("assertions", [])]:
         body += [f"    # {ir.describe(step)}", f"    {emit(step)}"]
+        if step.get("tabs"):
+            prefix = "page = " if engine == "playwright" else ""
+            body += [f"    {prefix}tabs.sync({tab_change_expr(step['tabs'])}, TIMEOUT)"]
+    if engine == "playwright":
+        body.append("    return page")
     return name, "\n".join(body)
 
 
@@ -299,9 +326,10 @@ def script(chain: list[dict], base_url: str, engine: str) -> str:
              "可用环境变量：BASE_URL、HEADED=1、CHROME_BINARY" + ("、CHROMEDRIVER、TIMEOUT" if engine == "selenium" else "") + "。"]
     if wanted:
         notes.append("运行前需要设置凭据环境变量：" + "、".join(wanted) + "。")
-    calls = "\n".join(f"{pad}{name}({arg})" for name, _ in functions)
+    calls = "\n".join(f"{pad}{'page = ' if engine == 'playwright' else ''}{name}({arg})" for name, _ in functions)
+    tab_support = inspect.getsource(Tabs) + "\n\n" + inspect.getsource(playwright_tabs if engine == "playwright" else selenium_tabs)
     return ("\n".join(notes) + '\n"""\n' + header.replace("@@BASE@@", json.dumps(base_url)) + "\n\n"
-            + "\n\n\n".join(source for _, source in functions)
+            + tab_support + "\n\n" + "\n\n\n".join(source for _, source in functions)
             + main.replace("@@CALLS@@", calls).replace("@@ID@@", chain[-1]["id"]))
 
 

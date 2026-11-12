@@ -37,6 +37,19 @@
 
 同一时间只能有一个录制。
 
+### 标签页与新窗口
+
+| 命令 | 说明 |
+| --- | --- |
+| `browser tab list`（或 `browser tab`） | 查看标签页的 `id`、`active`、`url`、`title`；列表本身不生成操作步骤 |
+| `browser tab t1` | 切到指定标签页并录入步骤，返回该页 snapshot |
+| `browser tab new [地址]` | 新建并切换到标签页；默认空白页，支持项目相对地址 |
+| `browser tab close [t2]` | 关闭指定页或当前页，并记录关闭后的活动页面；不能关闭最后一页 |
+
+编号是 `t1`、`t2` 这样的录制内稳定标识，关闭后不会复用。链接的 `target="_blank"`、`window.open()`、延迟弹窗和页面自身 `window.close()` 的变化都会记录。读取或断言前发现延迟的新页，也会补记变化；可先 `browser wait 1000` 再 `browser tab list` 确认。
+
+两种回放引擎和独立导出脚本都支持这些步骤。新页丢失或关闭未完成时报错；同时出现多个新页时通过地址匹配，不会猜测无法区分的同地址窗口。新页地址匹配提示不保存内嵌密码、令牌、一次性登录参数或 fragment。更新前录下的跨窗口流程缺少标签页变化，需要重新录制。
+
 ### browser 子命令
 
 记录为步骤：`open <地址或路径>` `reload` `click` `dblclick` `hover` `fill <目标> <文字>` `type <目标> <文字>`（逐字输入，不清空）`select <目标> <value>` `check` `uncheck` `press <按键>`。

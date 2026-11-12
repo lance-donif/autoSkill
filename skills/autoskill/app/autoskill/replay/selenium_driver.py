@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .. import paths
 from . import ir
+from .tabs import selenium_tabs
 
 DOM_JS = (Path(__file__).with_name("dom.js")).read_text(encoding="utf-8")
 FIND = "return (" + DOM_JS + ")().find(arguments[0]);"
@@ -60,6 +61,7 @@ class SeleniumDriver:
     # --- lifecycle ---------------------------------------------------
     def reset(self, state: dict | None = None) -> None:
         """Clean cookies and storage, then optionally seed a saved login state."""
+        self.tabs = selenium_tabs(self.wd)
         cdp = self.wd.execute_cdp_cmd
         self.wd.get("about:blank")
         for identifier in self._seeds.values():
@@ -98,6 +100,12 @@ class SeleniumDriver:
         self.wd.quit()
 
     # --- page --------------------------------------------------------
+    def tab_action(self, step: dict, timeout: float) -> None:
+        self.tabs.action(step, timeout)
+
+    def sync_tabs(self, change: dict, timeout: float) -> None:
+        self.tabs.sync(change, timeout)
+
     def goto(self, url: str) -> None:
         self.wd.get(url)
         seeded = self._seeds.pop(ir.origin_of(url), None)

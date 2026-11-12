@@ -1,0 +1,94 @@
+[
+  {
+    "mode": "recording",
+    "selector": "#blank",
+    "active_url": "http://127.0.0.1:40495/child",
+    "tabs": {
+      "tabs": [
+        {
+          "active": false,
+          "label": null,
+          "tabId": "t1",
+          "targetId": "5EB15EBF62D32A2CD91E494F4BF2BD85",
+          "title": "127.0.0.1:40495",
+          "type": "page",
+          "url": "http://127.0.0.1:40495/"
+        },
+        {
+          "active": true,
+          "label": null,
+          "tabId": "t2",
+          "targetId": "FD8F96586CC7D4BD70F5F302263775F3",
+          "title": "127.0.0.1:40495/child",
+          "type": "page",
+          "url": "http://127.0.0.1:40495/child"
+        }
+      ]
+    },
+    "switch_command_error": "录制中不能使用 tab：安装、升级、远程浏览器、网络与登录态由 autoskill 统一管理"
+  },
+  {
+    "mode": "recording",
+    "selector": "#popup",
+    "active_url": "http://127.0.0.1:40495/child",
+    "tabs": {
+      "tabs": [
+        {
+          "active": false,
+          "label": null,
+          "tabId": "t1",
+          "targetId": "CAE767A491AED1F950B04FC526590B6A",
+          "title": "127.0.0.1:40495",
+          "type": "page",
+          "url": "http://127.0.0.1:40495/"
+        },
+        {
+          "active": true,
+          "label": null,
+          "tabId": "t2",
+          "targetId": "09CCE04ED4AA9FF6C7088D900765EBF2",
+          "title": "127.0.0.1:40495/child",
+          "type": "page",
+          "url": "http://127.0.0.1:40495/child"
+        }
+      ]
+    },
+    "switch_command_error": "录制中不能使用 tab：安装、升级、远程浏览器、网络与登录态由 autoskill 统一管理"
+  },
+  {
+    "mode": "replay",
+    "engine": "playwright",
+    "selector": "#blank",
+    "active_url": "http://127.0.0.1:40495/",
+    "open_pages": 2,
+    "status": "Fail",
+    "reason": "地址包含「/child」（实际：http://127.0.0.1:40495/）"
+  },
+  {
+    "mode": "replay",
+    "engine": "playwright",
+    "selector": "#popup",
+    "active_url": "http://127.0.0.1:40495/",
+    "open_pages": 2,
+    "status": "Fail",
+    "reason": "地址包含「/child」（实际：http://127.0.0.1:40495/）"
+  },
+  {
+    "mode": "replay",
+    "engine": "selenium",
+    "selector": "#blank",
+    "active_url": "http://127.0.0.1:40495/",
+    "open_pages": 2,
+    "status": "Fail",
+    "reason": "地址包含「/child」（实际：http://127.0.0.1:40495/）"
+  },
+  {
+    "mode": "replay",
+    "engine": "selenium",
+    "selector": "#popup",
+    "active_url": "http://127.0.0.1:40495/",
+    "open_pages": 2,
+    "status": "Fail",
+    "reason": "地址包含「/child」（实际：http://127.0.0.1:40495/）"
+  }
+]

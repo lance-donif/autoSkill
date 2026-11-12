@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .. import paths
 from . import ir
+from .tabs import playwright_tabs
 
 
 class PlaywrightDriver:
@@ -41,6 +42,7 @@ class PlaywrightDriver:
         )
         self.context.set_default_timeout(self.timeout_ms)
         self.page = self.context.new_page()
+        self.tabs = playwright_tabs(self.page)
         self.blocked = []
 
     def storage_state(self) -> dict:
@@ -55,6 +57,12 @@ class PlaywrightDriver:
             self._pw.stop()
 
     # --- page --------------------------------------------------------
+    def tab_action(self, step: dict, timeout: float) -> None:
+        self.page = self.tabs.action(step, timeout)
+
+    def sync_tabs(self, change: dict, timeout: float) -> None:
+        self.page = self.tabs.sync(change, timeout)
+
     def goto(self, url: str) -> None:
         self.page.goto(url, wait_until="domcontentloaded", timeout=self.load_ms)
 

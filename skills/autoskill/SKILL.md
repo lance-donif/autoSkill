@@ -66,11 +66,15 @@ autoskill run <项目>                                                      # 5 
 | 勾选 / 取消 | `browser check @e3`、`browser uncheck @e3` |
 | 按键（作用于当前焦点） | `browser press Enter` |
 | 跳转 / 刷新 | `browser open /orders`、`browser reload` |
+| 查看 / 切换标签页 | `browser tab list`、`browser tab t1`（编号以列表为准） |
+| 新建 / 关闭标签页 | `browser tab new /orders`、`browser tab close`（当前页）、`browser tab close t2`（指定页） |
 | 只是查看，不记录 | `browser snapshot`（可操作元素）、`browser snapshot --all`（含标题、文字、表格）、`browser get text @e3`、`browser get url`、`browser wait 800` |
 | 录错了一步 | `autoskill record undo`（只撤销记录，页面不会回退） |
 | 放弃这次录制 | `autoskill record cancel` |
 
 目标也可以直接写 CSS 选择器，例如 `browser click ".todo-list li .toggle"`。
+
+**链接打开新标签页或新窗口时**，会自动跟到新页面，返回 `tab` 编号和该页的 snapshot；打开、切换和关闭返回都会录入用例，Playwright、Selenium 和导出的独立脚本都按记录执行。要返回旧页面，用 `browser tab list` 查看后再 `browser tab t1`；每次切换后都使用新返回的元素编号。标签页编号在一次录制内不复用；关闭最后一页请用 `record stop` 或 `record cancel`。新页没有打开或已关闭会明确报错，不会拿另一个页面代替。
 
 **密码等敏感内容不要直接写在命令里。** 先 `autoskill secret set 名称 值`，输入时写 `secret:名称`，例如 `browser fill @e3 secret:ORDER_PASSWORD`。用例里只会保存名称。
 
