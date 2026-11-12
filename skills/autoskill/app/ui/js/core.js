@@ -51,6 +51,7 @@ const ICONS = {
   table: 'M4 6h16v12H4zM4 10h16M4 14h16M10 6v12',
   globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
   api: 'M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14',
+  sliders: 'M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4M14 4v4M6 10v4M12 16v4',
 };
 export function icon(name, cls = 'icon-svg') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.7/schema.json",
+  "files": {
+    "includes": ["skills/autoskill/app/ui/**", "plugin/**", "tests/*.mjs"]
+  },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUndeclaredVariables": "error"
+      },
+      "suspicious": {
+        "noConsole": "error",
+        "noVar": "error",
+        "noDoubleEquals": "error",
+        "noEmptyBlockStatements": "error",
+        "useAwait": "error"
+      },
+      "style": {
+        "useConst": "error",
+        "noParameterAssign": "error",
+        "noUselessElse": "error",
+        "useCollapsedElseIf": "error",
+        "noYodaExpression": "error",
+        "useNodejsImportProtocol": "error",
+        "useDefaultParameterLast": "error",
+        "noDescendingSpecificity": "error",
+        "useTemplate": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": { "maxAllowedComplexity": 20 }
+        },
+        "useOptionalChain": "error",
+        "useArrowFunction": "error",
+        "noForEach": "error",
+        "noImportantStyles": "error"
+      },
+      "performance": { "noDelete": "error", "noAccumulatingSpread": "error" }
+    }
+  }
+}

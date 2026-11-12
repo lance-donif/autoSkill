@@ -178,6 +178,9 @@ def parser() -> argparse.ArgumentParser:
     doc = sub.add_parser("doctor", help="检查运行时是否齐全；不联网")
     doc.add_argument("--launch", action="store_true", help="同时真实启动一次浏览器（Playwright 与 Selenium）")
     sub.add_parser("verify", help="按清单校验随包运行时文件的完整性（SHA-256）")
+    prefs = sub.add_parser("settings", help="本机设置：用哪个浏览器；不带参数时显示当前设置")
+    prefs.add_argument("--browser", choices=("system", "bundled"),
+                       help="system：优先用本机 Chrome，随包浏览器备用（默认）；bundled：只用随包浏览器")
     plan = sub.add_parser("plan", help="用例表（用例 Skill）：write / show / mark / sync").add_subparsers(dest="action", required=True)
     writer = plan.add_parser("write", help="把根据需求文档设计的用例写成 Excel 用例表")
     writer.add_argument("project")
@@ -348,6 +351,10 @@ def dispatch(args) -> tuple[dict, int]:
             if not phrase:
                 raise ValueError("--include-secrets 需要口令：加 --passphrase，或设置环境变量 AUTOSKILL_PASSPHRASE")
         return share.pack(args.projects or None, args.out, phrase), 0
+    if command == "settings":
+        if args.browser:
+            paths.save_settings(browser=args.browser)
+        return {"browser": paths.browser_info()}, 0
     if command == "plan":
         from . import plan
 

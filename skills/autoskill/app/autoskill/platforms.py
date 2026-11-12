@@ -74,7 +74,7 @@ def configure(chrome: str | None = None, driver: str | None = None) -> dict:
         return {"ok": False, "platform": info, "problems": problems}
     explicit_chrome = chrome or os.environ.get("AUTOSKILL_CHROMIUM")
     explicit_driver = driver or os.environ.get("AUTOSKILL_CHROMEDRIVER")
-    pairs = [(explicit_chrome or paths.chrome(), explicit_driver or paths.chromedriver())]
+    pairs = [(explicit_chrome or paths.chrome(bundled=True), explicit_driver or paths.chromedriver())]
     if not explicit_chrome and not explicit_driver:
         for name in ("chromium", "chromium-browser", "google-chrome"):
             if shutil.which(name) and shutil.which("chromedriver"):

@@ -38,7 +38,7 @@ class LinuxPlatformTests(unittest.TestCase):
             native.parent.mkdir(parents=True)
             native.write_bytes(b"arm fixture")
             native.chmod(0o755)
-            with patch.object(paths, "VENDOR", vendor), patch.object(paths, "runtime_target", return_value="linux-arm64"), patch.dict(os.environ, {}, clear=True):
+            with patch.object(paths, "VENDOR", vendor), patch.object(paths, "runtime_target", return_value="linux-arm64"), patch.dict(os.environ, {"AUTOSKILL_BROWSER": "bundled"}, clear=True):
                 self.assertEqual(paths.chrome(), str(native))
                 with patch.dict(os.environ, {"AUTOSKILL_CHROMIUM": str(vendor / "missing")}):
                     self.assertIsNone(paths.chrome())

@@ -362,12 +362,16 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
     agent.call(session_name(), ["close"], check=False, timeout=30)
     try:
-        launch = agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")))
-        try:
-            agent.call(session_name(), ["open", "about:blank"], launch=launch, timeout=90)
-        except agent.AgentError as error:
-            agent.call(session_name(), ["close"], check=False, timeout=30)
-            raise RecordError(agent.launch_problem(error)) from None
+        browsers = list(dict.fromkeys(b for b in (paths.chrome(), paths.chrome(bundled=True)) if b)) or [None]
+        for index, browser in enumerate(browsers):  # the user's own Chrome first, ours when it will not start
+            launch = agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")), browser)
+            try:
+                agent.call(session_name(), ["open", "about:blank"], launch=launch, timeout=90)
+                break
+            except agent.AgentError as error:
+                agent.call(session_name(), ["close"], check=False, timeout=30)
+                if index == len(browsers) - 1:
+                    raise RecordError(agent.launch_problem(error)) from None
         _fit_window()
         agent.call(session_name(), ["network", "har", "start"])
         try:

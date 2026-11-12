@@ -1,5 +1,5 @@
 // Shared interface pieces: overlays, menus, empty states, the run launcher.
-import { h, icon, api, attempt, toast, go, ENGINE } from './core.js';
+import { h, icon, api, attempt, toast, go } from './core.js';
 
 const layer = () => document.getElementById('layer');
 let closeCurrent = null;
@@ -137,27 +137,11 @@ export async function startRun(items, button, engine = preferredEngine()) {
   return result;
 }
 
-/** A "run" button with an engine chooser beside it. */
+/** A "run" button. How it replays (engine, window, browser) is set once, in the toolbar's replay settings. */
 export function runButton(label, getItems, { small = false, primary = true } = {}) {
-  const size = small ? ' sm' : '';
   const main = h('button', {
-    class: `btn${primary ? ' primary' : ''}${size}`,
+    class: `btn${primary ? ' primary' : ''}${small ? ' sm' : ''}`,
     onClick: () => { const items = getItems(); if (items.length) startRun(items, main); },
   }, icon('play'), label);
-  const chooser = h('button', {
-    class: `btn${size} icon`, 'aria-label': '回放选项', title: '回放选项：引擎、是否显示浏览器窗口',
-  }, icon('chevron'));
-  const pop = menuButton(chooser, (menu, close) => {
-    menu.append(h('div', { class: 'menu-title' }, '页面用例的回放引擎（接口用例始终走 HTTP）'));
-    for (const engine of ['playwright', 'selenium']) {
-      menu.append(menuItem(ENGINE[engine], {
-        checked: preferredEngine() === engine,
-        onPick: () => { setEngine(engine); close(); },
-      }));
-    }
-    menu.append(h('div', { class: 'menu-sep' }), menuItem('显示浏览器窗口（最大化）', {
-      checked: preferredHeaded(), onPick: () => { setHeaded(!preferredHeaded()); close(); },
-    }), h('div', { class: 'menu-title' }, '默认显示；取消勾选后在后台运行、不显示窗口'));
-  }, true);
-  return h('div', { class: 'row', style: 'gap:4px' }, main, pop);
+  return main;
 }

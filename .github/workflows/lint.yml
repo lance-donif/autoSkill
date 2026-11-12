@@ -1,0 +1,28 @@
+name: Static checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ruff (Python)
+        run: pipx run ruff==0.17.4 check .
+      - name: Biome (JavaScript and CSS)
+        if: always()
+        env:
+          npm_config_offline: 'false'
+        run: npx --yes @biomejs/biome@2.6.7 lint
+      - name: Project conventions
+        if: always()
+        run: python -m unittest discover -s tests -p test_conventions.py
