@@ -5,7 +5,7 @@ description: 录一次，到处回放的自动化测试。操作网页时自动�
 
 # autoSkill
 
-你通过一个命令行工具完成全部工作。它自带浏览器和全部依赖，**不联网安装任何东西**。
+你通过一个命令行工具完成全部工作。Windows 离线包自带浏览器和全部依赖；Linux 需由维护者按 `docs/Linux-DSH.md` 预先部署。运行命令时**不联网安装任何东西**。
 
 ## 怎么调用
 
@@ -147,7 +147,7 @@ autoskill dashboard                           # 仪表盘（给人看；会一�
 
 ## 边界
 
-- 只访问项目授权的地址，其他地址在浏览器层面就连不上。页面还依赖别的内网服务时：`autoskill project update <项目> --allow-origin http://10.0.0.9:9000`。
+- 浏览器与接口执行不限制站点：导航、刷新、跨站跳转和资源请求走正常网络，不需要 `--allow-origin`。旧的 `allowed_origins` 仅保留兼容，不再控制访问。
 - 内网自签名证书：`autoskill project update <项目> --insecure-tls on`。
 - 页面很慢：打开页面最多等 90 秒，单步找元素最多等 20 秒；分别用 `--page-load <秒>` 和 `--timeout <秒>` 调整。
 - 删除、支付、退款、发送真实消息这类操作默认不允许回放；确认用户同意后：`autoskill project update <项目> --approve delete`。

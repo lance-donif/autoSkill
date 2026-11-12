@@ -1,0 +1,23 @@
+{
+ "bundled_runtime": true,
+ "chrome": "/workspace/autoSkill/skills/autoskill/vendor/linux-x64/chrome/chrome-linux64/chrome",
+ "chromedriver": "/workspace/autoSkill/skills/autoskill/vendor/linux-x64/chromedriver/chromedriver-linux64/chromedriver",
+ "agent_browser": "/workspace/autoSkill/skills/autoskill/vendor/linux-x64/agent-browser/agent-browser",
+ "python": "3.12.14",
+ "modules": {
+  "playwright": true,
+  "selenium": true,
+  "httpx": true,
+  "jsonschema": true,
+  "openpyxl": true,
+  "fastapi": true,
+  "uvicorn": true
+ },
+ "workspace": "/workspace/autoSkill/skills/autoskill/workspace",
+ "network": "不联网、不下载、不检查更新",
+ "browser_launch": {
+  "playwright": "ok",
+  "selenium": "ok"
+ },
+ "ok": true
+}

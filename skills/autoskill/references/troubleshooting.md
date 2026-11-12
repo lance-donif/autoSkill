@@ -15,8 +15,8 @@
 | `引用 @eN 已失效` | 页面变了，编号是旧 snapshot 的 | 用上一条命令返回的 snapshot，或 `autoskill browser snapshot` |
 | `页面上找不到 …` | 元素还没出现、在弹层 / 折叠区里，或目标写法不匹配（`text=` 需完整文字一致，`testid=` 需元素有该属性） | `autoskill browser snapshot --all` 找到 `@编号` 直接用；或 `autoskill browser describe @e5` 看可用写法；元素未出现时先 `autoskill browser wait <选择器>` |
 | `断言现在不成立，没有记录` | 期望值和页面实际不同 | 报错里有页面实际值；确认业务上哪个对，再改期望。不要删断言凑通过 |
-| `地址 … 不在项目授权范围内` | 跳到了项目地址以外 | 确属被测系统的一部分：`autoskill project update <项目> --allow-origin <地址>`；否则不要访问 |
-| 页面打不开、一直空白 | 地址不可达，或页面依赖的其他服务未授权 | `autoskill browser get url` 确认；检查网络与 `--allow-origin` |
+| 旧版本报 `地址 … 不在项目授权范围内` 或代理围栏错误 | 旧进程仍在限制站点 | 更新后重启插件/仪表盘并取消旧录制、重新开始；新版本不再限制站点 |
+| 页面打不开、一直空白 | 地址、证书或系统网络有问题 | `autoskill browser get url` 确认；检查系统网络与证书。autoSkill 不再注入代理围栏 |
 | 证书错误 | 内网自签名证书 | `autoskill project update <项目> --insecure-tls on` |
 | `缺少凭据 XXX` | 用例引用的凭据本机没有 | `autoskill secret set XXX <值>`（值向用户要） |
 | `自动登录没有成功，录制未开始` | 登录用例失败：密码变了、页面改了、需要验证码 | `autoskill login <项目> --force` 看具体失败原因；页面改了就用 `--as-login` 重新录一次登录 |

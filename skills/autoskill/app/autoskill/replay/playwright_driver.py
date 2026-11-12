@@ -18,7 +18,7 @@ class PlaywrightDriver:
         self.timeout_ms = int(float(config.get("timeout_seconds", 20)) * 1000)
         self.load_ms = int(float(config.get("page_load_seconds", 90)) * 1000)
         self._pw = sync_playwright().start()
-        options = {"headless": headless, "args": [*paths.QUIET_CHROME_ARGS, *paths.fence_args(self.allowed)]}
+        options = {"headless": headless, "args": paths.QUIET_CHROME_ARGS}
         if paths.chrome():
             options["executable_path"] = paths.chrome()
         try:
@@ -36,22 +36,12 @@ class PlaywrightDriver:
         if self.context:
             self.context.close()
         self.context = self.browser.new_context(
-            service_workers="block", storage_state=state, viewport={"width": 1366, "height": 860},
+            storage_state=state, viewport={"width": 1366, "height": 860},
             ignore_https_errors=bool(self.config.get("ignore_https_errors")),
         )
         self.context.set_default_timeout(self.timeout_ms)
-        self.context.route("**/*", self._gate)
         self.page = self.context.new_page()
         self.blocked = []
-
-    def _gate(self, route) -> None:
-        try:
-            ir.check_origin(route.request.url, self.allowed)
-        except PermissionError:
-            self.blocked.append(ir.origin_of(route.request.url))
-            route.abort()
-        else:
-            route.continue_()
 
     def storage_state(self) -> dict:
         return self.context.storage_state()

@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parents[2]
 APP = SKILL / "app"
-VENDOR = SKILL / "vendor" / "windows-x64"
+VENDOR = SKILL / "vendor" / ("linux-x64" if sys.platform == "linux" else "windows-x64")
 
 # Applied to every child process: no installers, no update checks, no telemetry.
 OFFLINE_ENV = {
@@ -98,19 +99,20 @@ def _first(*candidates: str | Path | None) -> str | None:
 
 
 def chrome() -> str | None:
-    return _first(os.environ.get("AUTOSKILL_CHROMIUM"), VENDOR / "chrome" / "chrome-win64" / "chrome.exe")
+    relative = "chrome-linux64/chrome" if sys.platform == "linux" else "chrome-win64/chrome.exe"
+    return _first(os.environ.get("AUTOSKILL_CHROMIUM"), VENDOR / "chrome" / relative)
 
 
 def chromedriver() -> str | None:
     return _first(
         os.environ.get("AUTOSKILL_CHROMEDRIVER"),
-        VENDOR / "chromedriver" / "chromedriver-win64" / "chromedriver.exe",
+        VENDOR / "chromedriver" / ("chromedriver-linux64/chromedriver" if sys.platform == "linux" else "chromedriver-win64/chromedriver.exe"),
     )
 
 
 def agent_browser() -> str | None:
     """The native binary, never the npm shim: the shim can install or upgrade."""
-    bundled = _first(os.environ.get("AUTOSKILL_AGENT_BROWSER"), VENDOR / "agent-browser" / "agent-browser.exe")
+    bundled = _first(os.environ.get("AUTOSKILL_AGENT_BROWSER"), VENDOR / "agent-browser" / ("agent-browser" if sys.platform == "linux" else "agent-browser.exe"))
     if bundled:
         return bundled
     shim = shutil.which("agent-browser")
@@ -134,19 +136,15 @@ def child_env(extra: dict | None = None) -> dict:
     return env
 
 
-def fence_args(allowed_origins: list[str]) -> list[str]:
-    """Chrome switches that make every host outside the allow-list unreachable.
+def configure_http_environment() -> None:
+    """Accept the bracketed IPv6 NO_PROXY entries supplied by DSH.
 
-    All traffic is sent to a proxy that does not exist; only the authorised
-    hosts bypass it. This also stops the browser's own background requests.
+    httpx 0.28 expects bare IPv6 addresses here; [::1] produces an invalid URL
+    pattern. Both spellings refer to the same host, so normalize without changing bypass scope.
     """
-    from urllib.parse import urlsplit
-
-    hosts = []
-    for origin in allowed_origins:
-        parts = urlsplit(origin)
-        if parts.hostname:
-            port = parts.port or (443 if parts.scheme == "https" else 80)
-            host = f"[{parts.hostname}]" if ":" in parts.hostname else parts.hostname
-            hosts.append(f"{host}:{port}")
-    return ["--proxy-server=http://127.0.0.1:9", "--proxy-bypass-list=" + ";".join(["<-loopback>", *hosts])]
+    current = os.environ.get("no_proxy") or os.environ.get("NO_PROXY") or ""
+    entries = [part.strip() for part in current.split(",") if part.strip()]
+    normalized = [part[1:-1] if part.startswith("[") and part.endswith("]") else part for part in entries]
+    # Local fixtures and the local dashboard must still work with an offline/invalid system proxy.
+    bypass = ",".join(dict.fromkeys([*normalized, "localhost", "127.0.0.1", "::1"]))
+    os.environ["NO_PROXY"] = os.environ["no_proxy"] = bypass

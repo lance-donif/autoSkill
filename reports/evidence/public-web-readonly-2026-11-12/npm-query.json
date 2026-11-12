@@ -1,0 +1,6 @@
+{
+ "recorded": 7,
+ "step": "打开 https://registry.npmjs.org/-/v1/search?text=%40deepseek-ai%2Fdsh&size=3",
+ "snapshot": "- checkbox \"Pretty-print\" [checked=false, ref=e971]",
+ "url": "https://registry.npmjs.org/-/v1/search?text=%40deepseek-ai%2Fdsh&size=3"
+}

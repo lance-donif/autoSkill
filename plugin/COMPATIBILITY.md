@@ -20,7 +20,15 @@
 
 ## 已验证
 
-`tests/plugin.test.mjs`（6 项）：技能注册信息、仪表盘启动参数（argv 方式、离线开关、不经过 shell）、缺少运行时时如实报告、客户端面板注册与地址、清单指向的文件存在。
+`tests/plugin.test.mjs`（7 项）：技能注册信息、仪表盘启动参数（argv 方式、离线开关、不经过 shell）、缺少运行时时如实报告、Linux 本地 venv、客户端面板注册与地址、清单指向的文件存在。
+
+## Linux DSH Web（2026-11-12）
+
+在当前 Linux x64 安装官方 npm `@deepseek-ai/dsh@0.2.2-rc.1`，用 `link:/workspace/autoSkill` 安装插件，真实宿主启动仪表盘；在真实 Web 页面点击两个侧栏入口，确认 iframe 内仪表盘和定时任务页面显示正常。已选择 `/workspace/autoSkill` 工作区。
+
+命令通过宿主启动的后台服务完成 `project list`、`record start`，受控登录页返回 `needs_login`。这是明确设置 `AUTOSKILL_BRIDGE=on` 的命令行验证，不是 DSH 智能体或默认沙箱验证。随后已配置并选中 HappyCoding 的 `deepseek-v4.1-flash`，但真实 DSH 连接检查被环境代理 CONNECT 403 拒绝，没有执行技能任务。
+
+Linux 源码部署说明：[docs/Linux-DSH.md](../docs/Linux-DSH.md)。证据：[reports/evidence/linux-dsh/](../reports/evidence/linux-dsh/)。当前工作区已移除站点白名单和代理围栏，原报告中的网络拦截结论属于旧版本。百度实测受当前环境系统代理 403 阻断，不能声称通过。
 
 ## 真实宿主中的情况（2026-11-12，DSH 桌面版）
 
@@ -38,4 +46,4 @@ DSH 以 `link:` 方式安装本地目录并调用了插件入口：安装阶段�
 
 以下没有由开发侧逐项实测：面板在 DSH 界面内的显示细节、智能体在 DSH 沙箱内对技能的调用（见上一节）、热更新、其他 DSH 版本的兼容性。
 
-仪表盘面板要求浏览器与 DSH 宿主在同一台机器；远程访问 DSH Web 时面板无法显示。
+仪表盘面板使用浏览器本机的回环地址；远程访问 DSH Web 时，还需将仪表盘端口（默认 8787）转发到浏览器所在机器的相同端口。

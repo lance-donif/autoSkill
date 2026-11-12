@@ -1,0 +1,13 @@
+{
+  "mode": "auto",
+  "execution_authorized": true,
+  "base_url": "https://github.com",
+  "allowed_origins": [
+    "https://github.com"
+  ],
+  "approvals": [
+    "write"
+  ],
+  "timeout_seconds": 20,
+  "cleanup_status": "未执行；未创建数据"
+}

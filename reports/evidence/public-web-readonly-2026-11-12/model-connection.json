@@ -1,0 +1,15 @@
+{
+  "provider": "happycoding",
+  "base_url": "https://happycoding.xyz/v1",
+  "protocol": "openai-completions",
+  "model": "deepseek-v4.1-flash",
+  "selected_in_dsh": true,
+  "credential_saved": true,
+  "credential_in_repository": false,
+  "connected": false,
+  "error": {
+    "code": "AUTH",
+    "message": "Connection error.: Proxy response (403) !== 200 when HTTP Tunneling (UND_ERR_ABORTED)"
+  },
+  "note": "UI AUTH error is caused by environment proxy CONNECT 403; key validity unverified."
+}

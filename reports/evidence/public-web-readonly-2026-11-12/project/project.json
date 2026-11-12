@@ -1,0 +1,8 @@
+{
+  "id": "public-web-readonly",
+  "schema_version": "1.1.0",
+  "created_at": "2026-11-12T10:55:36.398073+00:00",
+  "name": "公网只读复验 GitHub",
+  "category": "",
+  "start_url": "https://github.com/deepseek-ai/deepseek-harness"
+}

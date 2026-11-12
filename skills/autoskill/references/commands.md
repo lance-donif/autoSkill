@@ -6,10 +6,10 @@
 
 | 命令 | 说明 |
 | --- | --- |
-| `project create --name 名称 --url 地址 [--category 分类] [--id 标识]` | 新建项目。地址即授权范围；标识默认由名称或主机名生成 |
+| `project create --name 名称 --url 地址 [--category 分类] [--id 标识]` | 新建项目。地址用于确定起始页面；不限制后续访问站点；标识默认由名称或主机名生成 |
 | `project list` | 全部项目及用例数、缺少的凭据 |
 | `project show <项目>` | 单个项目的设置 |
-| `project update <项目> [--name] [--category] [--allow-origin 地址]… [--approve 操作]… [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置。`--approve` 可取 `write` `delete` `payment` `refund` `message`，给出的列表会替换原有列表（默认只有 `write`） |
+| `project update <项目> [--name] [--category] [--allow-origin 地址]… [--approve 操作]… [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置。`--allow-origin` 仅兼容旧配置，不再限制网络。`--approve` 可取 `write` `delete` `payment` `refund` `message`，给出的列表会替换原有列表（默认只有 `write`） |
 | `context <项目>` | 登录方式、已保存的登录态、缺少的凭据、用例清单、知识库、建议的下一步 |
 | `cases <项目>` | 用例清单 |
 

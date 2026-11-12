@@ -1,0 +1,15 @@
+✔ registers the one autoSkill skill with its directory as resource base (11.591089ms)
+✔ dashboard is started by argv with offline switches, never through a shell (1.333681ms)
+✔ without a provisioned runtime the plugin reports it instead of looking for one online (0.58856ms)
+✔ Linux source deployment uses its local venv and keeps paths with spaces as argv (0.641308ms)
+✔ client registers dashboard and schedules panels pointing at the loopback dashboard (5.244362ms)
+✔ the skill is found in both the offline package layout and a source checkout (0.901242ms)
+✔ package manifest points at files that exist (1.322044ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.601564

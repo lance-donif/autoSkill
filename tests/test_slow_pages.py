@@ -216,6 +216,30 @@ class RecordingStartTests(unittest.TestCase):
         started = session.start("slow", url="/?d=0")
         self.assertIn("已丢弃", started["notes"][0])
 
+    def test_recording_can_navigate_reload_and_compile_another_origin(self):
+        other, origin = serve()
+        try:
+            session.start("slow", url="/?d=0")
+            opened = session.browser(["open", origin + "/?d=0"])
+            self.assertIn('button "Go"', opened["snapshot"])
+            reloaded = session.browser(["reload"])
+            self.assertIn('button "Go"', reloaded["snapshot"])
+            session.check("url_contains", None, origin)
+            result = session.stop("跨站导航与刷新")
+            self.assertEqual(result["ui_case"]["assertions"], 1)
+            case = next(c for c in projects.cases("slow") if c["kind"] == "ui")
+            for engine in ("playwright", "selenium"):
+                driver = (PlaywrightLoadBudgetTests if engine == "playwright" else SeleniumLoadBudgetTests).make_driver(projects.config("slow"))
+                try:
+                    driver.reset()
+                    outcome = ui.run_case(driver, case, projects.config("slow"), Path(self.tmp.name), engine + ".png")
+                    self.assertEqual(outcome["status"], "Pass", outcome["reason"])
+                finally:
+                    driver.close()
+        finally:
+            other.shutdown()
+            other.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

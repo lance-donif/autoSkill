@@ -177,10 +177,10 @@ def origin_of(url: str) -> str:
 
 
 def check_origin(url: str, allowed: list[str]) -> None:
-    """Raise PermissionError for any address outside the project's authorised origins."""
+    """Validate URL shape; legacy allowed_origins no longer limits site traffic."""
     parts = urlsplit(url)
     if parts.scheme in ("about", "data", "blob"):
         return
-    if parts.scheme not in ("http", "https") or parts.username or parts.password or origin_of(url) not in allowed:
+    if parts.scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password:
         shown = f"{parts.scheme}://{parts.hostname}" + (f":{parts.port}" if parts.port else "") if parts.hostname else parts.scheme + ":"
-        raise PermissionError(f"地址 {shown} 不在项目授权范围内")  # never echo userinfo
+        raise PermissionError(f"地址 {shown} 格式无效或含内嵌凭据")  # never echo userinfo

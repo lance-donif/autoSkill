@@ -31,16 +31,27 @@ test('dashboard is started by argv with offline switches, never through a shell'
   assert.ok(spec.env.AUTOSKILL_WORKSPACE.endsWith('ws'));
 });
 
-test('without a bundled runtime the plugin reports it instead of looking for one online', () => {
+test('without a provisioned runtime the plugin reports it instead of looking for one online', () => {
   const before = process.env.AUTOSKILL_DEV_PYTHON;
   delete process.env.AUTOSKILL_DEV_PYTHON;
   try {
-    const spec = runtimeSpec();
-    const bundled = existsSync(join(SKILL_DIR, 'vendor', 'windows-x64', 'python', 'python.exe'));
-    assert.equal(spec.python === null, !bundled);
+    const root = mkdtempSync(join(tmpdir(), 'autoskill-no-runtime-'));
+    try { assert.equal(runtimeSpec({}, join(root, 'skills', 'autoskill')).python, null); }
+    finally { rmSync(root, { recursive: true, force: true }); }
   } finally {
     if (before !== undefined) process.env.AUTOSKILL_DEV_PYTHON = before;
   }
+});
+
+test('Linux source deployment uses its local venv and keeps paths with spaces as argv', { skip: process.platform !== 'linux' }, () => {
+  const root = mkdtempSync(join(tmpdir(), 'autoskill linux-'));
+  try {
+    mkdirSync(join(root, '.venv', 'bin'), { recursive: true });
+    writeFileSync(join(root, '.venv', 'bin', 'python'), '');
+    const spec = runtimeSpec({}, join(root, 'skills', 'autoskill'));
+    assert.equal(spec.python, join(root, 'skills', 'autoskill', '..', '..', '.venv', 'bin', 'python'));
+    assert.equal(spec.env.PYTHONPATH, join(root, 'skills', 'autoskill', 'app'));
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('client registers dashboard and schedules panels pointing at the loopback dashboard', async () => {

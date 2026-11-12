@@ -1,4 +1,5 @@
-import copy, importlib.util, json, tempfile, threading, unittest
+import copy, importlib.util, json, tempfile, threading, unittest, os
+from unittest.mock import patch
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 spec=importlib.util.spec_from_file_location('qa',str(Path(__file__).resolve().parents[1]/'skills/autoskill/scripts/qa.py'))
@@ -30,6 +31,26 @@ class Tests(unittest.TestCase):
         manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],qa.VERSION)
         for f in (self.p/'execution/logs').glob('*.json'):self.assertNotIn('must-never-be-saved',f.read_text(encoding='utf-8'))
         self.assertEqual(qa.coverage(self.p)['ratio'],1)
+    def test_http_clients_use_configured_proxy_for_public_targets(self):
+        from autoskill.replay import api
+        env={'HTTP_PROXY':self.origin,'http_proxy':self.origin,'NO_PROXY':'','no_proxy':''}
+        with patch.dict(os.environ,env):
+            with api.new_client(self.cfg) as client:
+                response=client.get('http://unresolvable.invalid/ok')
+                self.assertEqual(response.json()['code'],0)
+            self.cfg.update(base_url='http://unresolvable.invalid',allowed_origins=[])
+            self.config(self.cfg)
+            self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass')
+    def test_http_clients_accept_dsh_bracketed_ipv6_no_proxy(self):
+        from autoskill.replay import api
+        with patch.dict(os.environ,{'NO_PROXY':'localhost,127.0.0.1,::1,[::1]','no_proxy':'localhost,127.0.0.1,::1,[::1]'}):
+            with api.new_client(self.cfg) as client:
+                self.assertEqual(client.get(self.origin+'/ok').status_code,200)
+            self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass')
+        with patch.dict(os.environ,{'HTTP_PROXY':'http://127.0.0.1:9','http_proxy':'http://127.0.0.1:9','NO_PROXY':'','no_proxy':''}):
+            with api.new_client(self.cfg) as client:
+                self.assertEqual(client.get(self.origin+'/ok').status_code,200)
+            self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass')
     def test_no_authorization_means_no_request(self):
         self.cfg['execution_authorized']=False;self.config(self.cfg);n=Handler.count
         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
@@ -52,7 +73,7 @@ class Tests(unittest.TestCase):
             with self.subTest(bad=bad):
                 c=dict(self.c,path=bad)
                 with self.assertRaises(ValueError):qa.request_url(self.cfg,c)
-        with self.assertRaises(ValueError):qa.request_url(dict(self.cfg,allowed_origins=[]),self.c)
+        self.assertEqual(qa.request_url(dict(self.cfg,allowed_origins=[]),self.c),qa.request_url(self.cfg,self.c))
     def test_excel_formula_is_text(self):
         from openpyxl import load_workbook
         self.c['title']='=1+1';self.cases([self.c]);qa.export(self.p)

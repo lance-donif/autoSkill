@@ -97,3 +97,5 @@ python scripts/build-windows-bundle.py --assets <目录> --output <新目录> --
 ```
 
 完整离线包约 272 MB，超过 Git 单文件限制，作为 GitHub Release 附件发布，不进入仓库历史。
+
+Linux 源码部署与 DSH Web 接入见 [Linux-DSH.md](docs/Linux-DSH.md)。站点白名单与浏览器代理围栏已按使用者要求移除，旧配置不再限制网络访问。

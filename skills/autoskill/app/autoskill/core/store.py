@@ -455,8 +455,6 @@ def request_url(config, case):
     ):
         raise ValueError("base_url 必须是 HTTP(S) origin")
     origin = f"{b.scheme}://{b.netloc}"
-    if origin not in config.get("allowed_origins", []):
-        raise ValueError("origin 未授权")
     path = case["path"]
     decoded = path
     for _ in range(3):
@@ -500,6 +498,9 @@ def case_fingerprint(case):
 def run_api(p):
     import httpx
     import jsonschema
+    from .. import paths
+
+    paths.configure_http_environment()
 
     require_valid(p, check_results=False)
     cfg = read(p / "qa-config.json")
@@ -509,7 +510,7 @@ def run_api(p):
     write(p / "execution/api-results.json", [])
     # Each case is independently gated. Never follow redirects or retry writes.
     with httpx.Client(
-        timeout=float(cfg.get("timeout_seconds", 20)), follow_redirects=False, trust_env=False
+        timeout=float(cfg.get("timeout_seconds", 20)), follow_redirects=False, trust_env=True
     ) as client:
         for c in read(p / "testcases/api-cases.json"):
             if c["lifecycle"] != "active":

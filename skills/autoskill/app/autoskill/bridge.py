@@ -130,7 +130,9 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
         extra["AUTOSKILL_HEADED"] = "1"
     if msys_root:
         extra["AUTOSKILL_MSYS_ROOT"] = msys_root
-    folder = paths.local() / "agent-io"
+    # The recorder sweeps agent-io. POSIX permits unlinking our still-open output files,
+    # so sharing that folder loses the command result as soon as a browser is launched.
+    folder = paths.local() / "bridge-io"
     folder.mkdir(parents=True, exist_ok=True)
     token = uuid.uuid4().hex
     out_path, err_path, in_path = folder / f"b{token}.out", folder / f"b{token}.err", folder / f"b{token}.in"

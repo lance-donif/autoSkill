@@ -1,14 +1,16 @@
 #!/bin/sh
-# autoSkill entry point for Git Bash and other POSIX shells on Windows.
+# autoSkill entry point for Linux and Git Bash.
 # Calls the bundled interpreter directly, so text with & < > | % passes through unchanged.
 here=$(cd "$(dirname "$0")" && pwd)
 py="$here/vendor/windows-x64/python/python.exe"
-if [ -x "$py" ]; then
+if [ "$(uname -s)" = Linux ] && [ -x "$here/../../.venv/bin/python" ]; then
+  py="$here/../../.venv/bin/python"
+elif [ -x "$py" ]; then
   export PYTHONNOUSERSITE=1
 elif [ -n "$AUTOSKILL_DEV_PYTHON" ]; then
   py="$AUTOSKILL_DEV_PYTHON"
 else
-  echo '{"error": "bundled runtime not found under vendor/windows-x64. Use the complete Windows offline package; nothing is downloaded."}'
+  echo '{"error": "runtime not found. Linux: follow docs/Linux-DSH.md; Windows: use the complete offline package. Nothing is downloaded."}'
   exit 3
 fi
 if command -v cygpath >/dev/null 2>&1; then

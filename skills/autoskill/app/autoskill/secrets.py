@@ -1,7 +1,8 @@
 """Machine-local secret store. Values never enter cases, logs, reports or share packs.
 
 On Windows values are encrypted with DPAPI, so only the same Windows user on the
-same machine can read them. Cases refer to a secret by name: ${ENV:NAME}. A
+same machine can read them. Linux uses Fernet with a local key file (0600).
+Cases refer to a secret by name: ${ENV:NAME}. A
 process environment variable of that name is the fallback.
 """
 from __future__ import annotations
@@ -19,8 +20,23 @@ NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 def _protect(data: bytes, decrypt: bool = False) -> bytes:
-    if os.name != "nt":  # development fallback only; the product targets Windows
-        return base64.b64decode(data) if decrypt else base64.b64encode(data)
+    if os.name != "nt":
+        from cryptography.fernet import Fernet, InvalidToken
+
+        key_file = paths.local() / "encryption.key"
+        if not key_file.exists() and not decrypt:
+            try:
+                fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                pass
+            else:
+                with os.fdopen(fd, "wb") as file:
+                    file.write(Fernet.generate_key())
+        try:
+            cipher = Fernet(key_file.read_bytes())
+            return cipher.decrypt(data) if decrypt else cipher.encrypt(data)
+        except (InvalidToken, FileNotFoundError) as error:
+            raise ValueError("本机密钥库无法读取：缺少 Linux 本地密钥、密文损坏或来自其他平台；请重新设置凭据") from error
     import ctypes
     from ctypes import wintypes
 

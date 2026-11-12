@@ -1,0 +1,103 @@
+[
+  {
+    "schema_version": "1.1.0",
+    "id": "TC-API-001",
+    "kind": "api",
+    "revision": 1,
+    "lifecycle": "active",
+    "requirement_ids": [
+      "REQ-RECORDED"
+    ],
+    "module": "页面与资源",
+    "title": "读取静态数据 /manifest.json",
+    "priority": "P1",
+    "preconditions": "无",
+    "steps": [
+      "GET /manifest.json"
+    ],
+    "test_data": "仅合成数据；凭据以 ${ENV:名称} 引用",
+    "expected": "HTTP 200，并满足录制到的字段与结构",
+    "source": "autoskill record",
+    "risk": "read",
+    "tags": [],
+    "extensions": {
+      "traffic": "static"
+    },
+    "api_source": "browser",
+    "source_ref": "autoskill record",
+    "method": "GET",
+    "path": "/manifest.json",
+    "assertions": {
+      "status": 200,
+      "schema": {
+        "type": "object",
+        "required": [
+          "display",
+          "icons",
+          "name",
+          "prefer_related_applications",
+          "related_applications",
+          "short_name",
+          "start_url"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "short_name": {
+            "type": "string"
+          },
+          "start_url": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          },
+          "icons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "sizes",
+                "src"
+              ],
+              "properties": {
+                "sizes": {
+                  "type": "string"
+                },
+                "src": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "prefer_related_applications": {
+            "type": "boolean"
+          },
+          "related_applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "platform",
+                "url"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "platform": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,31 @@
+{
+ "run_id": "run-4905e4166b75",
+ "status": "Blocked",
+ "status_text": "阻塞",
+ "engine": "playwright",
+ "total": 2,
+ "passed": 1,
+ "failed": 0,
+ "blocked": 1,
+ "reason": "",
+ "results": [
+  {
+   "case_id": "TC-UI-001",
+   "title": "公网只读：GitHub 搜索刷新与跨站 npm 查询",
+   "kind": "ui",
+   "status": "Pass",
+   "prerequisite": false,
+   "ms": 2613,
+   "detail": "4 个步骤完成，5 条断言通过"
+  },
+  {
+   "case_id": "TC-API-001",
+   "title": "读取静态数据 /manifest.json",
+   "kind": "api",
+   "status": "Blocked",
+   "prerequisite": false,
+   "ms": 3,
+   "detail": "无法连接目标服务：ConnectError"
+  }
+ ]
+}

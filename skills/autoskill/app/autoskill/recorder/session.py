@@ -85,7 +85,7 @@ def _wait_ready(budget: float, problem: str = "") -> dict:
         if page["state"] == "complete":
             break
         if page["url"].startswith("chrome-error:"):
-            raise RecordError("目标页面打不开（地址不可达、域名或证书有问题，或不在项目授权范围内）" + (f"：{problem}" if problem else ""))
+            raise RecordError("目标页面打不开（地址不可达、域名或证书有问题）" + (f"：{problem}" if problem else ""))
         if time.monotonic() - started >= budget:
             if not page["url"].startswith(WEB):
                 raise RecordError(f"浏览器在 {budget:.0f} 秒内没有打开目标页面" + (f"：{problem}" if problem else ""))

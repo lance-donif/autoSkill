@@ -80,6 +80,24 @@ class Sandbox(unittest.TestCase):
 
 
 class RestrictedProcessTests(Sandbox):
+    @unittest.skipUnless(paths.agent_browser() and paths.chrome(), "browser runtime required")
+    def test_recording_through_service_keeps_its_output_files(self):
+        from test_replay_ui import serve
+
+        site, origin = serve()
+        try:
+            self.start_service()
+            code, out, err = self.cli("project", "create", "--name", "bridge recording", "--url", origin, "--id", "bridge-recording")
+            self.assertEqual(code, 0, out + err)
+            code, out, err = self.cli("record", "start", "bridge-recording")
+            self.assertEqual(code, 0, out + err)
+            self.assertIn("snapshot", json.loads(out))
+            code, out, err = self.cli("record", "cancel")
+            self.assertEqual(code, 0, out + err)
+        finally:
+            site.shutdown()
+            site.server_close()
+
     def blocked_workspace(self) -> str:
         blocked = Path(self.tmp.name) / "blocked"
         blocked.write_text("", encoding="ascii")

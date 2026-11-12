@@ -10,7 +10,7 @@ import json
 import re
 import time
 
-from .. import secrets
+from .. import paths, secrets
 from ..core import store
 from . import ir
 
@@ -118,10 +118,11 @@ def _checks(case: dict, response, parsed, elapsed_ms: int) -> list[dict]:
 
 
 def new_client(config: dict, state: dict | None = None):
-    """An HTTP client that keeps cookies for the run; system proxies are ignored."""
+    """Keep run cookies and use the system's proxy, NO_PROXY and CA configuration."""
     import httpx
 
-    client = httpx.Client(timeout=float(config.get("timeout_seconds", 20)), follow_redirects=False, trust_env=False,
+    paths.configure_http_environment()
+    client = httpx.Client(timeout=float(config.get("timeout_seconds", 20)), follow_redirects=False, trust_env=True,
                           verify=not config.get("ignore_https_errors"))
     for cookie in (state or {}).get("cookies", []):
         client.cookies.set(cookie["name"], cookie["value"], domain=cookie.get("domain", "").lstrip("."), path=cookie.get("path", "/"))

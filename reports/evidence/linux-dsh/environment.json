@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-12",
+  "base_commit": "f6343a7afff3fae980942bb980030ec0418b7d38",
+  "worktree_modified": true,
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "dsh": "0.2.2-rc.1",
+  "node": "v24.22.1",
+  "chromium": "156.0.8078.79",
+  "agent_browser": "0.42.0",
+  "dsh_workspace": "/workspace/autoSkill",
+  "model_configured": true,
+  "real_dsh_agent_sandbox_verified": false,
+  "baidu_result": "environment proxy CONNECT 403; curl also fails; not passed",
+  "model_connection_verified": false
+}

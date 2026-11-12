@@ -16,6 +16,10 @@ from autoskill.replay import ir, ui  # noqa: E402
 
 
 class Quiet(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        super().end_headers()
+
     def log_message(self, *args):
         pass
 
@@ -95,10 +99,10 @@ class BrowserReplayMixin:
         result = self.run_variant(lambda a: a["actions"].append({"action": "click", "selector": "#nope"}))
         self.assertEqual((result["status"], result["category"]), ("Fail", ui.LOCATOR))
 
-    def test_unauthorised_address_is_blocked_before_any_action(self):
+    def test_other_origin_can_be_navigated_and_replayed(self):
         result = self.run_variant(lambda a: a.update(start_url=self.other_base + "/"))
-        self.assertEqual((result["status"], result["category"]), ("Blocked", ui.BLOCKED_ORIGIN))
-        self.assertEqual(result["screenshots"], [])
+        self.assertEqual(result["status"], "Pass", result["reason"])
+        self.assertTrue(result["screenshots"])
 
     def test_fallback_locator_is_used_and_reported(self):
         def edit(automation):
@@ -109,10 +113,13 @@ class BrowserReplayMixin:
         result = self.run_variant(edit)
         self.assertEqual((result["status"], result["fallbacks"]), ("Pass", 1))
 
-    def test_page_cannot_reach_hosts_outside_the_allow_list(self):
+    def test_page_can_fetch_and_reload_outside_the_legacy_allow_list(self):
         self.driver.reset()
         self.driver.goto(self.base + "/")
-        self.assertEqual(self.fetch_from_page(self.other_base + "/index.html"), "blocked")
+        self.assertEqual(self.fetch_from_page(self.other_base + "/index.html"), "reached 200")
+        self.driver.goto(self.other_base + "/index.html")
+        self.driver.reload()
+        self.assertIn(self.other_base, self.driver.url())
 
 
 class PlaywrightReplayTests(BrowserReplayMixin, unittest.TestCase):

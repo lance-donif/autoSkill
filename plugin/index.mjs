@@ -39,12 +39,15 @@ export async function bundledSkills(skillDir = SKILL_DIR) {
     resourceBase: { kind: 'directory', path: dirname(path) } }];
 }
 
-/** How to start the dashboard: the bundled Python, never a shell, never a download. */
+/** Bundled Windows Python or the explicitly provisioned Linux venv; never download at startup. */
 export function runtimeSpec(config = {}, skillDir = SKILL_DIR) {
   const port = config.port ?? 8787;
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('autoSkill port must be 1024-65535');
   const bundled = join(skillDir, 'vendor', 'windows-x64', 'python', 'python.exe');
-  const python = config.python ?? (existsSync(bundled) ? bundled : process.env.AUTOSKILL_DEV_PYTHON ?? null);
+  const linux = join(skillDir, '..', '..', '.venv', 'bin', 'python');
+  const python = config.python ?? (process.platform === 'linux'
+    ? process.env.AUTOSKILL_DEV_PYTHON ?? (existsSync(linux) ? linux : null)
+    : existsSync(bundled) ? bundled : process.env.AUTOSKILL_DEV_PYTHON ?? null);
   const env = { PYTHONPATH: join(skillDir, 'app'), PYTHONUTF8: '1', PYTHONDONTWRITEBYTECODE: '1',
     DO_NOT_TRACK: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', PIP_NO_INDEX: '1', SE_OFFLINE: 'true', SE_AVOID_STATS: 'true' };
   if (python === bundled) env.PYTHONNOUSERSITE = '1';
@@ -58,10 +61,10 @@ export async function apply(ctx, config = {}) {
   const spec = runtimeSpec(config);
   if (!spec.python) {
     throw new Error('autoSkill：所选目录里没有运行时，仪表盘无法启动（缺少 ' + spec.bundled + '）。'
-      + '请选择完整离线包解压出来的目录（里面有 package.json 和 autoskill 文件夹）；从 GitHub 下载的源码目录不含运行时。');
+      + 'Windows 请选择完整离线包；Linux 源码部署请先按 docs/Linux-DSH.md 创建 .venv 并安装运行依赖。');
   }
   const instance = randomUUID();
-  const child = spawn(spec.python, spec.args, { cwd: spec.cwd, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'],
+  const child = spawn(spec.python, spec.args, { cwd: spec.cwd, windowsHide: true, stdio: ['ignore', 'ignore', 'inherit'],
     env: { ...process.env, ...spec.env, AUTOSKILL_INSTANCE_ID: instance } });
   let exited = false;
   child.on('error', () => { exited = true; });

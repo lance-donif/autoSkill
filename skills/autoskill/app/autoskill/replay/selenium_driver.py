@@ -1,8 +1,7 @@
 """Selenium driver for the shared UI replay loop.
 
 Chrome and chromedriver are always given by explicit path, so Selenium Manager
-never runs and nothing is downloaded. WebDriver cannot intercept requests, so
-the allow-list is enforced by Chrome itself (see paths.fence_args).
+never runs and nothing is downloaded. Site traffic uses the browser's normal network.
 """
 from __future__ import annotations
 
@@ -48,7 +47,7 @@ class SeleniumDriver:
         options.binary_location = chrome
         options.page_load_strategy = "eager"
         _bypass_proxy_for_loopback()
-        for arg in [*paths.QUIET_CHROME_ARGS, *paths.fence_args(self.allowed), "--window-size=1366,860"]:
+        for arg in [*paths.QUIET_CHROME_ARGS, "--window-size=1366,860"]:
             options.add_argument(arg)
         if headless:
             options.add_argument("--headless=new")

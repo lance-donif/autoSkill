@@ -106,8 +106,8 @@ def launch_problem(error: Exception) -> str:
 
 
 def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False) -> list[str]:
-    """Flags for the command that starts the browser: bundled Chrome, fenced network, optional login state."""
-    flags = ["--args", ",".join([*paths.QUIET_CHROME_ARGS, *paths.fence_args(allowed_origins)])]
+    """Start the browser without a proxy fence, with optional login state."""
+    flags = ["--args", ",".join(paths.QUIET_CHROME_ARGS)]
     if paths.chrome():
         flags = ["--executable-path", paths.chrome(), *flags]
     if state_file:
