@@ -1,0 +1,103 @@
+{
+  "frozen_unix": 1794500673.513747,
+  "predictions_loaded_before_freeze": false,
+  "immutable_files": {
+    "plan.json": "3eac9e7152353d91718cd14ccea45c8732ba3f67bbf446cc01cefcc54c7f4220",
+    "manifest.jsonl": "c964fe23c182a4e77b9fa7b7a7b436107794a4e391305d9a2d7dffedc7027b9b",
+    "external-manifest.jsonl": "d96d6fd451cf83140313660f5a2136b16089f7454e5e7c565bd0aadec5998bcb",
+    "evaluation-order.json": "99b735a73328f24c438b401d373efb984999e4b9e3d2793edac69138f1a8b2e0",
+    "labels.json": "22aecded2808783ee27846ce952282bc9db80c69f8e89189c54891415a81c938",
+    "generate_blind.py": "a867913b3babc467bfc250b0abcb4e0ac3ede07f7dbbe6984c8a113f072a7f03",
+    "validate_dataset.py": "a92d7e5500a36e7930301eac93d39bd2f9d090685821126dbb6375c0f078dcad",
+    "evaluate_blind.py": "19610ee7e9f5c3fc90c84dcb42e297854bda5996665fa7934a47943f4fa9e464",
+    "evaluation-protocol.json": "f050ea60f5d00630909efb77c2bdc940a108829171bdc0d1dd1629d8c41c25e5",
+    "exclusions/ctc-font-inventory.json": "18b4de7958956b4ac773c4e2f30af22112a7b9cc2f6b9a4458861bd90a590ee0",
+    "exclusions/original-1920.jsonl": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+    "exclusions/apache-12.jsonl": "0541138b83ada3b1b17ea952fed45310a81f465a2742266827545ce86f9b8ce9",
+    "exclusions/blind-round1-480.jsonl": "6b19d207406d405690f887cf9fadf2ea985c47a6922096e05b932507cdc5e304",
+    "exclusions/ctc-train-dev-1600.jsonl": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c"
+  },
+  "source_manifests": [
+    {
+      "source": "/workspace/autoSkill-release/captcha-research/datasets/manifest.jsonl",
+      "snapshot": "exclusions/original-1920.jsonl",
+      "sha256": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+      "records": 1920,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v2-2026-11-12/exclusions/original-1920.jsonl"
+    },
+    {
+      "source": "/workspace/autoSkill-release/captcha-research/datasets/public-apache-manifest.jsonl",
+      "snapshot": "exclusions/apache-12.jsonl",
+      "sha256": "0541138b83ada3b1b17ea952fed45310a81f465a2742266827545ce86f9b8ce9",
+      "records": 12,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v2-2026-11-12/exclusions/apache-12.jsonl"
+    },
+    {
+      "source": "/workspace/autoSkill-release/captcha-blind-validation-2026-11-12/manifest.jsonl",
+      "snapshot": "exclusions/blind-round1-480.jsonl",
+      "sha256": "6b19d207406d405690f887cf9fadf2ea985c47a6922096e05b932507cdc5e304",
+      "records": 480,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v2-2026-11-12/exclusions/blind-round1-480.jsonl"
+    },
+    {
+      "source": "/workspace/autoSkill-release/captcha-research/residual-v2/data/manifest.jsonl",
+      "snapshot": "exclusions/ctc-train-dev-1600.jsonl",
+      "sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+      "records": 1600,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v2-2026-11-12/exclusions/ctc-train-dev-1600.jsonl"
+    }
+  ],
+  "excluded_existing_records": 4012,
+  "new_samples": 480,
+  "label_overlap": 0,
+  "pixel_overlap": 0,
+  "seed_overlap": 0,
+  "variant_seed_overlap": 0,
+  "font_sha256_overlap": 0,
+  "font_family_overlap": 0,
+  "duplicate_label_redraws": 0,
+  "pillow_version": "11.3.0",
+  "fonts": [
+    {
+      "path": "/usr/share/texmf/fonts/opentype/public/lm/lmroman10-regular.otf",
+      "sha256": "1aa18cfefa58132c52ce5de70db1fd1154201c19cd2b2cdaffba4906a33e6852",
+      "copy": "fonts/lmroman10-regular.otf",
+      "family": "Latin Modern Roman",
+      "style": "10 Regular"
+    },
+    {
+      "path": "/usr/share/texmf/fonts/opentype/public/lm/lmsans10-regular.otf",
+      "sha256": "d431b786b9b603662718e79cfe9b441f47a8b0b3e854dde89d5acb3ed7cfd682",
+      "copy": "fonts/lmsans10-regular.otf",
+      "family": "Latin Modern Sans",
+      "style": "10 Regular"
+    },
+    {
+      "path": "/usr/share/texmf/fonts/opentype/public/lm/lmmono10-regular.otf",
+      "sha256": "22deb6d3be3ffcb40b33f0e010afb256c677d97c2a2bdee1f5740cdc97751558",
+      "copy": "fonts/lmmono10-regular.otf",
+      "family": "Latin Modern Mono",
+      "style": "10 Regular"
+    },
+    {
+      "path": "/usr/share/fonts/opentype/urw-base35/URWGothic-Book.otf",
+      "sha256": "04318316cee29950805110c9c8949eea189ef5575132881f4d4d7e03e5299903",
+      "copy": "fonts/URWGothic-Book.otf",
+      "family": "URW Gothic",
+      "style": "Book"
+    }
+  ],
+  "groups": {
+    "plain": 120,
+    "pale": 120,
+    "through-line": 120,
+    "first-symbol-touching": 120
+  },
+  "touching_symbols": {
+    "hook": 40,
+    "loop": 40,
+    "slash": 40
+  },
+  "each_noise_image_verified_to_overlap_first_glyph": true,
+  "model_policy": "Original/speed baseline paths/hashes fixed in evaluation-protocol. New candidate path/hash is not supplied or inspected during dataset generation. Require a separate candidate freeze before the single product-solve evaluation; no model execution is authorized in preparation phase."
+}
