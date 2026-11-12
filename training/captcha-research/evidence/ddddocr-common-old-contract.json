@@ -1,0 +1,457 @@
+{
+  "method": "ONNX protobuf/tensor structure and AST literal inspection only; axes are statically derived, not observed from a run",
+  "model": {
+    "filename": "common_old.onnx",
+    "bytes": 13606051,
+    "sha256": "b8f2ad9cbc1f2e3922a6cb9459e30824e7e2467f3fb4fd61420640e34ea0bf68",
+    "external_local_path": "/workspace/autoSkill-release/captcha-specialist-research/wheel-1.6.1/ddddocr/common_old.onnx"
+  },
+  "input": {
+    "name": "input1",
+    "dtype": "FLOAT",
+    "shape": [
+      1,
+      1,
+      64,
+      "image_width"
+    ]
+  },
+  "output": {
+    "name": "387",
+    "dtype": "FLOAT",
+    "declared_shape_stale": [
+      1,
+      "seqlen"
+    ],
+    "graph_derived_shape": [
+      "T",
+      1,
+      8210
+    ],
+    "time_axis": 0,
+    "batch_axis": 1,
+    "class_axis": 2,
+    "values": "raw logits; no Softmax or LogSoftmax",
+    "runtime_shape_validated": false
+  },
+  "output_axes_derivation": [
+    "CNN output N,C,H,T -> Transpose perm[3,0,1,2] -> Reshape[0,0,-1] gives T,N,F",
+    "bidirectional DynamicQuantizeLSTM gives T,2,N,512",
+    "Transpose perm[0,2,1,3] -> Reshape[0,0,-1] gives T,N,1024",
+    "Reshape[T*N,1024] -> quantized linear weights[1024,8210] + bias[8210]",
+    "final Reshape[shape366[0],shape366[1],-1] gives T,N,8210"
+  ],
+  "charset": {
+    "relative_path": "sources/ddddocr/charset-old.json",
+    "sha256": "2c097552127cb5476189e653c0d2ccfd6b6c87425c57f81a01b5770207c33360",
+    "bytes": 49040,
+    "entries": 8210,
+    "unique_entries": 8210,
+    "blank_indices": [
+      0
+    ],
+    "duplicate_ascii62": {},
+    "ascii62_indices": {
+      "0": 6749,
+      "1": 4410,
+      "2": 78,
+      "3": 7721,
+      "4": 5806,
+      "5": 6977,
+      "6": 5961,
+      "7": 409,
+      "8": 6979,
+      "9": 2879,
+      "a": 7198,
+      "b": 1066,
+      "c": 1107,
+      "d": 5726,
+      "e": 6257,
+      "f": 1638,
+      "g": 8119,
+      "h": 8196,
+      "i": 2041,
+      "j": 6185,
+      "k": 3072,
+      "l": 2089,
+      "m": 4617,
+      "n": 4050,
+      "o": 6939,
+      "p": 5027,
+      "q": 7405,
+      "r": 806,
+      "s": 3466,
+      "t": 7723,
+      "u": 2663,
+      "v": 1769,
+      "w": 7136,
+      "x": 6736,
+      "y": 6612,
+      "z": 4730,
+      "A": 4771,
+      "B": 2203,
+      "C": 761,
+      "D": 687,
+      "E": 2525,
+      "F": 357,
+      "G": 4488,
+      "H": 5554,
+      "I": 1614,
+      "J": 1583,
+      "K": 4666,
+      "L": 6672,
+      "M": 747,
+      "N": 6216,
+      "O": 5418,
+      "P": 3930,
+      "Q": 6601,
+      "R": 7262,
+      "S": 6386,
+      "T": 5046,
+      "U": 7284,
+      "V": 5734,
+      "W": 4810,
+      "X": 5225,
+      "Y": 821,
+      "Z": 3963
+    },
+    "sequence_identical_in_versions": [
+      "1.4.11",
+      "1.5.6",
+      "1.6.1"
+    ]
+  },
+  "paired_legacy_preprocessing": {
+    "wrapper_version": "1.5.6",
+    "member_path": "ddddocr/__init__.py",
+    "line_range": [
+      2598,
+      2691
+    ],
+    "resize": "PIL original image resize to (int(W*(64/H)),64) using ANTIALIAS/LANCZOS, then convert('L')",
+    "normalization": "float32 grayscale /255; (x-0.5)/0.5; final tensor float32",
+    "range": [
+      -1,
+      1
+    ],
+    "png_fix": "Not applied to builtin models in 1.4.11/1.5.6; 1.6.1 applies optional RGBA background fix before resize",
+    "new_wrapper_drift": "1.6.1 same model SHA but only /255 -> [0,1]",
+    "normalization_quality_evaluated": false
+  },
+  "quantized_convolutions": [
+    {
+      "node": "Conv_0_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "391_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        24,
+        1,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_3_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "394_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        24,
+        24,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_6_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "397_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        24,
+        24,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_8_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "400_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        24,
+        24,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_11_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "403_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        24,
+        24,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_13_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "406_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        96,
+        24,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_16_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "409_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        48,
+        96,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_17_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "412_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        192,
+        48,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_20_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "415_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        48,
+        192,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_22_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "418_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        192,
+        48,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_25_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "421_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        48,
+        192,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_27_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "424_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        192,
+        48,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_30_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "427_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        48,
+        192,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_32_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "430_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        192,
+        48,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_35_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "433_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        64,
+        192,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_36_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "436_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        256,
+        64,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_39_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "439_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        64,
+        256,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_41_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "442_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        256,
+        64,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_44_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "445_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        64,
+        256,
+        1,
+        1
+      ]
+    },
+    {
+      "node": "Conv_46_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "448_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        256,
+        64,
+        3,
+        3
+      ]
+    },
+    {
+      "node": "Conv_49_quant",
+      "activation_producer": "DynamicQuantizeLinear",
+      "activation_dtype": "UINT8",
+      "weight_name": "451_quantized",
+      "weight_dtype": "UINT8",
+      "weight_shape": [
+        64,
+        256,
+        1,
+        1
+      ]
+    }
+  ],
+  "lstm_weights": [
+    {
+      "name": "359_quantized",
+      "dtype": "INT8",
+      "shape": [
+        2,
+        512,
+        2048
+      ]
+    },
+    {
+      "name": "360_quantized",
+      "dtype": "INT8",
+      "shape": [
+        2,
+        512,
+        2048
+      ]
+    },
+    {
+      "name": "359_zero_point",
+      "dtype": "INT8",
+      "shape": [
+        2
+      ]
+    },
+    {
+      "name": "360_zero_point",
+      "dtype": "INT8",
+      "shape": [
+        2
+      ]
+    }
+  ],
+  "conversion_constraints": [
+    "Keep original source assets immutable",
+    "Do not slice to ASCII63 logits before argmax and claim equivalent full8210 expert behavior",
+    "PIL LANCZOS resize then integer grayscale is not identical to standard ONNX Resize linear/cubic",
+    "Production 3x48x320 input already loses original 1x64 dynamic-width information",
+    "Source-supported ARM kernels are not an ARM, UOS or Windows test pass"
+  ]
+}

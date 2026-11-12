@@ -1,0 +1,441 @@
+{
+  "research_date": "2026-11-12",
+  "scope": "Text CAPTCHA pretrained source research only; no browser access, image/label dataset access, ddddocr import/install, ORT run or production model change",
+  "external_research_root": "/workspace/autoSkill-release/captcha-specialist-research",
+  "archives": [
+    {
+      "version": "1.4.11",
+      "filename": "ddddocr-1.4.11-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/7a/df/163bac993532034d9bce70353b6e870c7abecd2b1cd1cee5232aef75a4fe/ddddocr-1.4.11-py3-none-any.whl",
+      "bytes": 75865550,
+      "sha256": "e75d369c0d2132352b7d91d1ba968c02a7425d16b004a66616e87da1b5a0556c",
+      "uploaded_at": "2024-01-10T06:22:39.241872Z",
+      "metadata_url": "https://pypi.org/pypi/ddddocr/1.4.11/json",
+      "requires_python": "<3.12",
+      "local_external_path": "/workspace/autoSkill-release/captcha-specialist-research/downloads/ddddocr-1.4.11-py3-none-any.whl",
+      "wheel_member_names": [
+        "ddddocr/__init__.py",
+        "ddddocr/common.onnx",
+        "ddddocr/common_det.onnx",
+        "ddddocr/common_old.onnx",
+        "ddddocr-1.4.11.dist-info/LICENSE",
+        "ddddocr-1.4.11.dist-info/METADATA",
+        "ddddocr-1.4.11.dist-info/WHEEL",
+        "ddddocr-1.4.11.dist-info/top_level.txt",
+        "ddddocr-1.4.11.dist-info/RECORD"
+      ],
+      "license_related_members": [
+        "ddddocr-1.4.11.dist-info/LICENSE"
+      ]
+    },
+    {
+      "version": "1.5.6",
+      "filename": "ddddocr-1.5.6-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/54/74/418c1c0be49463799f9eeb307a8aa4013ff5fca5e0387f0ef2762fcdb4e2/ddddocr-1.5.6-py3-none-any.whl",
+      "bytes": 75868010,
+      "sha256": "f13865b00e42de5c2507c1889ba73c2bacd218a49d15b928c2a5c82667062ac5",
+      "uploaded_at": "2024-10-15T09:21:41.061455Z",
+      "metadata_url": "https://pypi.org/pypi/ddddocr/1.5.6/json",
+      "requires_python": "<3.13",
+      "local_external_path": "/workspace/autoSkill-release/captcha-specialist-research/downloads/ddddocr-1.5.6-py3-none-any.whl",
+      "wheel_member_names": [
+        "ddddocr/__init__.py",
+        "ddddocr/common.onnx",
+        "ddddocr/common_det.onnx",
+        "ddddocr/common_old.onnx",
+        "ddddocr-1.5.6.dist-info/LICENSE",
+        "ddddocr-1.5.6.dist-info/METADATA",
+        "ddddocr-1.5.6.dist-info/WHEEL",
+        "ddddocr-1.5.6.dist-info/top_level.txt",
+        "ddddocr-1.5.6.dist-info/RECORD"
+      ],
+      "license_related_members": [
+        "ddddocr-1.5.6.dist-info/LICENSE"
+      ]
+    },
+    {
+      "version": "1.6.1",
+      "filename": "ddddocr-1.6.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/0e/48/cbaed3981b8d8d51141b9b4779b811f4728e65d952a1e3e2e5e929539183/ddddocr-1.6.1-py3-none-any.whl",
+      "bytes": 75983593,
+      "sha256": "c7c70f4ae2d0335440ae8b272eea48c9f6888ecef46785fe2311f0c97a133935",
+      "uploaded_at": "2026-03-11T10:48:23.702665Z",
+      "metadata_url": "https://pypi.org/pypi/ddddocr/1.6.1/json",
+      "requires_python": ">=3.10",
+      "local_external_path": "/workspace/autoSkill-release/captcha-specialist-research/downloads/ddddocr-1.6.1-py3-none-any.whl",
+      "wheel_member_names": [
+        "ddddocr/README.md",
+        "ddddocr/__init__.py",
+        "ddddocr/__main__.py",
+        "ddddocr/charsets.py",
+        "ddddocr/common.onnx",
+        "ddddocr/common_det.onnx",
+        "ddddocr/common_old.onnx",
+        "ddddocr/logo.png",
+        "ddddocr/api/__init__.py",
+        "ddddocr/api/__main__.py",
+        "ddddocr/api/app.py",
+        "ddddocr/api/mcp.py",
+        "ddddocr/api/models.py",
+        "ddddocr/api/routes.py",
+        "ddddocr/api/server.py",
+        "ddddocr/compat/__init__.py",
+        "ddddocr/compat/v1.py",
+        "ddddocr/core/__init__.py",
+        "ddddocr/core/base.py",
+        "ddddocr/core/detection_engine.py",
+        "ddddocr/core/ocr_engine.py",
+        "ddddocr/core/slide_engine.py",
+        "ddddocr/models/__init__.py",
+        "ddddocr/models/charset_manager.py",
+        "ddddocr/models/model_loader.py",
+        "ddddocr/preprocessing/__init__.py",
+        "ddddocr/preprocessing/color_filter.py",
+        "ddddocr/preprocessing/image_processor.py",
+        "ddddocr/utils/__init__.py",
+        "ddddocr/utils/compat.py",
+        "ddddocr/utils/exceptions.py",
+        "ddddocr/utils/image_io.py",
+        "ddddocr/utils/validators.py",
+        "ddddocr-1.6.1.dist-info/licenses/LICENSE",
+        "ddddocr-1.6.1.dist-info/METADATA",
+        "ddddocr-1.6.1.dist-info/WHEEL",
+        "ddddocr-1.6.1.dist-info/entry_points.txt",
+        "ddddocr-1.6.1.dist-info/top_level.txt",
+        "ddddocr-1.6.1.dist-info/RECORD"
+      ],
+      "license_related_members": [
+        "ddddocr-1.6.1.dist-info/licenses/LICENSE"
+      ]
+    }
+  ],
+  "git_sources": [
+    {
+      "repository": "sml2h3/ddddocr",
+      "commit": "c40f56f95412e10bcb9bd0bd24411e92f896d238",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/sml2h3/ddddocr/c40f56f95412e10bcb9bd0bd24411e92f896d238/README.md",
+      "sha256": "8bcb183557ed68ec08b835adc87f712e979d0b33ee721ba34664f4acaf24f92c",
+      "bytes": 33275
+    },
+    {
+      "repository": "sml2h3/ddddocr",
+      "commit": "c40f56f95412e10bcb9bd0bd24411e92f896d238",
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/sml2h3/ddddocr/c40f56f95412e10bcb9bd0bd24411e92f896d238/LICENSE",
+      "sha256": "8f9defe3bfe64316168989830d40793a5074f25a8b13f3bb8b093914a7c27f73",
+      "bytes": 1091
+    },
+    {
+      "repository": "sml2h3/dddd_trainer",
+      "commit": "5fd0d0b5bb83bf44a5692c9d253b7d928e05e673",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/sml2h3/dddd_trainer/5fd0d0b5bb83bf44a5692c9d253b7d928e05e673/README.md",
+      "sha256": "dde99e07cf7e7d36af09d9d356bf1a25a74217d3c7c28b05a1a814be56dce052",
+      "bytes": 8575
+    },
+    {
+      "repository": "sml2h3/dddd_trainer",
+      "commit": "5fd0d0b5bb83bf44a5692c9d253b7d928e05e673",
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/sml2h3/dddd_trainer/5fd0d0b5bb83bf44a5692c9d253b7d928e05e673/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "cmake/onnxruntime_mlas.cmake",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/cmake/onnxruntime_mlas.cmake",
+      "sha256": "0a32dcc9dac9e4389991da858aee62419cb925a5ad20048849b1d1e5b3c9164e",
+      "bytes": 31296
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "docs/OperatorKernels.md",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/docs/OperatorKernels.md",
+      "sha256": "2d45bcf63992306437dad1de1eae5eb0eb9720d5befb82e6659c4e836aeaa6b1",
+      "bytes": 260253
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/contrib_ops/cpu/cpu_contrib_kernels.cc",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/contrib_ops/cpu/cpu_contrib_kernels.cc",
+      "sha256": "7bf314062e0af0d69bc6274e6d06e927fb0c34dbdfaa8c9e728a0168c7225455",
+      "bytes": 31061
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/contrib_ops/cpu/quantization/dynamic_quantize_lstm.cc",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/contrib_ops/cpu/quantization/dynamic_quantize_lstm.cc",
+      "sha256": "43d40c9aee61b90df6fc2e06c9db00b21282463c3c7be0e2f94934bdb4d7ff5b",
+      "bytes": 12505
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/mlas/inc/mlas.h",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/mlas/inc/mlas.h",
+      "sha256": "22885dc9c08fb30bf24b8ff5f756693c9103f13aebfbf0b34d857939a60edede",
+      "bytes": 47999
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/mlas/lib/platform.cpp",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/mlas/lib/platform.cpp",
+      "sha256": "ae1a2214e6a5ba1ceb5093c837cd3ee143916360646bd9627d611c2a6b7d5c33",
+      "bytes": 24808
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/mlas/lib/qgemm.cpp",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/mlas/lib/qgemm.cpp",
+      "sha256": "b188d573fd46050d5118ffe72b8acd4e797f433bdf3b25d46107cf95b71eacf0",
+      "bytes": 14954
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/mlas/lib/qgemm.h",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/mlas/lib/qgemm.h",
+      "sha256": "ece60f7d5f30b7f5acebf7af11ec50bc36de3f48d22342cc12e29666b81b35bf",
+      "bytes": 27426
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/providers/cpu/quantization/conv_integer.cc",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/providers/cpu/quantization/conv_integer.cc",
+      "sha256": "a52295fcdf3636b9f9d7b39db0d858e7b71b3bc1834dc0a8a7562db2850836ae",
+      "bytes": 6244
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/providers/cpu/rnn/rnn_helpers.cc",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/providers/cpu/rnn/rnn_helpers.cc",
+      "sha256": "a47f245fd0fde10b54a8123890c457fcfe43f784c3bdffef0322441276b819c2",
+      "bytes": 30854
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/providers/cpu/rnn/rnn_helpers.h",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/providers/cpu/rnn/rnn_helpers.h",
+      "sha256": "c4c06683d638c22095c0b419f2f5a050e1117b0736b575a6edbd523fa79dc94e",
+      "bytes": 15951
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/providers/cpu/rnn/uni_directional_lstm.cc",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/providers/cpu/rnn/uni_directional_lstm.cc",
+      "sha256": "0a1d52cee80f140d458440af0a7858582aa169a3a43134b37eda46e45ebdabc9",
+      "bytes": 30331
+    },
+    {
+      "repository": "microsoft/onnxruntime",
+      "commit": "ffceed9d44f2f3efb9dd69fa75fea51163c91d91",
+      "tag": "v1.19.2",
+      "path": "onnxruntime/core/providers/cpu/rnn/uni_directional_lstm.h",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/ffceed9d44f2f3efb9dd69fa75fea51163c91d91/onnxruntime/core/providers/cpu/rnn/uni_directional_lstm.h",
+      "sha256": "1f0aef44985936f37b102c9efa81ee252585f85efd66fcbf2673c47a6cfc01f9",
+      "bytes": 6186
+    }
+  ],
+  "wheel_member_sources": [
+    {
+      "wheel_version": "1.4.11",
+      "member_path": "ddddocr/__init__.py",
+      "bytes": 210988,
+      "sha256": "56cf8459e86b922d0bd9393c3ade962a9049f060afeb758d603c0e8a34763112"
+    },
+    {
+      "wheel_version": "1.4.11",
+      "member_path": "ddddocr-1.4.11.dist-info/METADATA",
+      "bytes": 11271,
+      "sha256": "7d75073a48cc578af399f74621eeed85b798961fba964c53c603d893b89e42f0"
+    },
+    {
+      "wheel_version": "1.4.11",
+      "member_path": "ddddocr-1.4.11.dist-info/LICENSE",
+      "bytes": 1098,
+      "sha256": "6517f9f8ea3088e78633d768cff8b3a6e1e977365d22a5854f8aadd52d6f2bb4"
+    },
+    {
+      "wheel_version": "1.5.6",
+      "member_path": "ddddocr/__init__.py",
+      "bytes": 212568,
+      "sha256": "b43e332cc8413b89fc66cc0048abb517806a7580d093ae6928eb586f4cbd4d21"
+    },
+    {
+      "wheel_version": "1.5.6",
+      "member_path": "ddddocr-1.5.6.dist-info/METADATA",
+      "bytes": 17619,
+      "sha256": "711ef96bf4a65ea92d24210e4726a83a0d286ee7a8f5035016e6efe6cd8a8416"
+    },
+    {
+      "wheel_version": "1.5.6",
+      "member_path": "ddddocr-1.5.6.dist-info/LICENSE",
+      "bytes": 1098,
+      "sha256": "6517f9f8ea3088e78633d768cff8b3a6e1e977365d22a5854f8aadd52d6f2bb4"
+    },
+    {
+      "wheel_version": "1.6.1",
+      "member_path": "ddddocr/__init__.py",
+      "bytes": 534,
+      "sha256": "4668bb8798e0fc190901d3873d2e250d72ddb2bd1f85f3cce1c7728bfa6365b5"
+    },
+    {
+      "wheel_version": "1.6.1",
+      "member_path": "ddddocr-1.6.1.dist-info/METADATA",
+      "bytes": 36631,
+      "sha256": "4d38bb405384a566d2b864967a7bb05d9b392622bda69618947be94b5d152d09"
+    },
+    {
+      "wheel_version": "1.6.1",
+      "member_path": "ddddocr/core/ocr_engine.py",
+      "bytes": 14400,
+      "sha256": "e3e19ecb37427b15f6e93e1ef475b33b580d44383ef0a269665e81727b547594"
+    },
+    {
+      "wheel_version": "1.6.1",
+      "member_path": "ddddocr/models/charset_manager.py",
+      "bytes": 200660,
+      "sha256": "bee4347baa20cda88fe8510032a2438648cad2c10f8f0eec26fb59fa2b129d9c"
+    },
+    {
+      "wheel_version": "1.6.1",
+      "member_path": "ddddocr/models/model_loader.py",
+      "bytes": 8696,
+      "sha256": "950d9c5977d42816a2315299f67b0d402074aeacdd9295bbfa5ea53428e21faf"
+    },
+    {
+      "wheel_version": "1.6.1",
+      "member_path": "ddddocr/preprocessing/image_processor.py",
+      "bytes": 9492,
+      "sha256": "d31781ade3ffb6c2118141c837bd5008c3284c9ca327b70a6231b2546bdc9e45"
+    },
+    {
+      "wheel_version": "1.6.1",
+      "member_path": "ddddocr-1.6.1.dist-info/licenses/LICENSE",
+      "bytes": 1098,
+      "sha256": "6517f9f8ea3088e78633d768cff8b3a6e1e977365d22a5854f8aadd52d6f2bb4"
+    }
+  ],
+  "ort_1_19_2_cp312_distribution_evidence": [
+    {
+      "filename": "onnxruntime-1.19.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "url": "https://files.pythonhosted.org/packages/47/64/da42254ec14452cad2cdd4cf407094841c0a378c0d08944e9a36172197e9/onnxruntime-1.19.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "d2d366fbcc205ce68a8a3bde2185fd15c604d9645888703785b61ef174265168",
+      "bytes": 11486028,
+      "downloaded_or_executed": false
+    },
+    {
+      "filename": "onnxruntime-1.19.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "url": "https://files.pythonhosted.org/packages/b2/92/3574f6836f33b1b25f272293e72538c38451b12c2d9aa08630bb6bc0f057/onnxruntime-1.19.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "477b93df4db467e9cbf34051662a4b27c18e131fa1836e05974eae0d6e4cf29b",
+      "bytes": 13175054,
+      "downloaded_or_executed": false
+    },
+    {
+      "filename": "onnxruntime-1.19.2-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/44/c0/59768846533786a82cafb38d8d2f900ad666bc91f0ae634774d286fa3c47/onnxruntime-1.19.2-cp312-cp312-win_amd64.whl",
+      "sha256": "190103273ea4507638ffc31d66a980594b237874b65379e273125150eb044857",
+      "bytes": 11086411,
+      "downloaded_or_executed": false
+    }
+  ],
+  "license": {
+    "publisher_project_license": "MIT",
+    "separate_weight_license_found": false,
+    "readme_weight_exclusion_or_research_noncommercial_only_restriction_found": false,
+    "examined_scope": [
+      "ddddocr 1.4.11/1.5.6/1.6.1 wheel metadata, complete member names and bundled LICENSE",
+      "PyPI release README metadata for those fixed wheels",
+      "ddddocr README.md and LICENSE at c40f56f95412e10bcb9bd0bd24411e92f896d238",
+      "model metadata/docstrings",
+      "linked dddd_trainer README.md and LICENSE at 5fd0d0b5bb83bf44a5692c9d253b7d928e05e673"
+    ],
+    "not_established": [
+      "training-data provenance and ownership chain",
+      "author statement explicitly naming each ONNX SHA and its separate weight grant"
+    ],
+    "repository_license_path": "sources/ddddocr/LICENSE",
+    "repository_license_sha256": "8f9defe3bfe64316168989830d40793a5074f25a8b13f3bb8b093914a7c27f73",
+    "wheel_license_sha256_crlf": "6517f9f8ea3088e78633d768cff8b3a6e1e977365d22a5854f8aadd52d6f2bb4",
+    "linked_training_tool_license": "Apache-2.0; separate project, not the pretrained weight license"
+  },
+  "validation": {
+    "linux_x86_64_ort_1_19_2_cpu_session_load": [
+      "common_old.onnx",
+      "common.onnx"
+    ],
+    "model_run_called": false,
+    "image_or_label_evaluation": false,
+    "accuracy_evaluated": false,
+    "latency_evaluated": false,
+    "arm64_tested": false,
+    "uos_tested": false,
+    "windows_tested": false
+  },
+  "tracked_copied_artifacts": [
+    {
+      "path": "sources/ddddocr/charset-old.json",
+      "bytes": 49040,
+      "sha256": "2c097552127cb5476189e653c0d2ccfd6b6c87425c57f81a01b5770207c33360"
+    },
+    {
+      "path": "sources/ddddocr/LICENSE",
+      "bytes": 1091,
+      "sha256": "8f9defe3bfe64316168989830d40793a5074f25a8b13f3bb8b093914a7c27f73"
+    },
+    {
+      "path": "evidence/ddddocr-static-model-structure.json",
+      "bytes": 7656,
+      "sha256": "5749063cadd567e74368112ddf0b3c5764c6fb80d1a23514059cac85b77c70a6"
+    },
+    {
+      "path": "evidence/ddddocr-version-lineage.json",
+      "bytes": 9217,
+      "sha256": "56389411425a16bed0bfc9ec2c723a886e15fc91c1469ce5882401fbafe5ab10"
+    },
+    {
+      "path": "evidence/ddddocr-quantized-structure.json",
+      "bytes": 13432,
+      "sha256": "bbfed1a6d5b67bf1d98fedb69533f3c2b7dbe792210afbf4599117b49351d959"
+    },
+    {
+      "path": "evidence/ddddocr-ort-1.19.2-linux-x64-load-only.log",
+      "bytes": 866,
+      "sha256": "8029a5818835244a34341e88752041e7e819ebccde086705ad5fff40cc9df21e"
+    },
+    {
+      "path": "evidence/ddddocr-ort-1.19.2-linux-x64-load-only.json",
+      "bytes": 1142,
+      "sha256": "b2d1df15c7a4ba423b0709ee0ba59b33d9651a5a27c5a53c9f1570be5eff833b"
+    },
+    {
+      "path": "evidence/ddddocr-common-old-contract.json",
+      "bytes": 10197,
+      "sha256": "20875190d5591e5986ab4097761a13a448c3623be6714bde67674c713afc10be"
+    }
+  ]
+}
