@@ -1,0 +1,172 @@
+{
+  "status": "DUMMY_CONTRACTS_PASSED_BEFORE_TRAIN_DEV",
+  "candidate_sha256": "cd9c8b0d3ea37958be30b9ab9995ec2a83fc07f9639ffc3415af041a18c24bf6",
+  "adapter": {
+    "width_cases": [
+      {
+        "valid_width": 1,
+        "expert_input_shape": [
+          1,
+          1,
+          64,
+          1
+        ],
+        "source_output_shape": [
+          1,
+          1,
+          8210
+        ],
+        "target_output_shape": [
+          1,
+          1,
+          63
+        ]
+      },
+      {
+        "valid_width": 2,
+        "expert_input_shape": [
+          1,
+          1,
+          64,
+          2
+        ],
+        "source_output_shape": [
+          1,
+          1,
+          8210
+        ],
+        "target_output_shape": [
+          1,
+          1,
+          63
+        ]
+      },
+      {
+        "valid_width": 7,
+        "expert_input_shape": [
+          1,
+          1,
+          64,
+          9
+        ],
+        "source_output_shape": [
+          2,
+          1,
+          8210
+        ],
+        "target_output_shape": [
+          1,
+          2,
+          63
+        ]
+      },
+      {
+        "valid_width": 100,
+        "expert_input_shape": [
+          1,
+          1,
+          64,
+          133
+        ],
+        "source_output_shape": [
+          17,
+          1,
+          8210
+        ],
+        "target_output_shape": [
+          1,
+          17,
+          63
+        ]
+      },
+      {
+        "valid_width": 147,
+        "expert_input_shape": [
+          1,
+          1,
+          64,
+          196
+        ],
+        "source_output_shape": [
+          25,
+          1,
+          8210
+        ],
+        "target_output_shape": [
+          1,
+          25,
+          63
+        ]
+      },
+      {
+        "valid_width": 320,
+        "expert_input_shape": [
+          1,
+          1,
+          64,
+          426
+        ],
+        "source_output_shape": [
+          54,
+          1,
+          8210
+        ],
+        "target_output_shape": [
+          1,
+          54,
+          63
+        ]
+      }
+    ],
+    "integer_gray_exact": true,
+    "normalized_fp32_reference_max_abs_error": 3.5762786865234375e-07,
+    "normalized_float64_ideal_max_abs_error": 2.8401613235473633e-05,
+    "source_greedy_onehot_exact": true,
+    "reference_correction": "The initial float64 oracle exceeded 1e-5 at width320; FP32 scales/coordinates match standard ORT Resize arithmetic. The model/settings were unchanged."
+  },
+  "ordinary": {
+    "cases": 3,
+    "base_probability_max_abs_error": 0.0
+  },
+  "mapping": {
+    "argmax_tie_first_index": true,
+    "unsupported_to_blank": true,
+    "output_onehot_exact": true
+  },
+  "branch_execution": [
+    {
+      "flag": false,
+      "load_ms": 298.83703899758984,
+      "first_run_ms": 25.278229000832653,
+      "output_shape": [
+        1,
+        40,
+        63
+      ],
+      "executed_base_kernels": 107,
+      "executed_expert_kernels": 0,
+      "base_kernel_ms_sum": 1.447,
+      "expert_kernel_ms_sum": 0.0,
+      "profile": "conditional-expert-v1/dummy-v2/false_2026-11-12_17-10-37.json",
+      "timing_scope": "Single dummy first run, not a warm or controlled benchmark."
+    },
+    {
+      "flag": true,
+      "load_ms": 87.42652599903522,
+      "first_run_ms": 7.546115000877762,
+      "output_shape": [
+        1,
+        25,
+        63
+      ],
+      "executed_base_kernels": 0,
+      "executed_expert_kernels": 255,
+      "base_kernel_ms_sum": 0.0,
+      "expert_kernel_ms_sum": 5.62,
+      "profile": "conditional-expert-v1/dummy-v2/true_2026-11-12_17-10-38.json",
+      "timing_scope": "Single dummy first run, not a warm or controlled benchmark."
+    }
+  ],
+  "accuracy_images_read": 0,
+  "checker_script_sha256": "9e7067b2524f49948ccb715d4fe6f8b0181d974c2ce449a346258a12c043962a"
+}

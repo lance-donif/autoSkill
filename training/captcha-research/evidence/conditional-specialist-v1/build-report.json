@@ -1,0 +1,20 @@
+{
+  "status": "BUILT_NOT_YET_EVALUATED",
+  "candidate": "conditional-expert-v1/build/conditional-expert.onnx",
+  "candidate_sha256": "cd9c8b0d3ea37958be30b9ab9995ec2a83fc07f9639ffc3415af041a18c24bf6",
+  "source_initializers_unchanged": 127,
+  "base_initializers_unchanged": 249,
+  "target_class_count": 63,
+  "source_class_count": 8210,
+  "mapped_alnum_classes": 62,
+  "unsupported_and_blank_indices": 8148,
+  "output_shape": [
+    1,
+    null,
+    63
+  ],
+  "adapter_ops_standard": true,
+  "retained_source_custom_domain": "com.microsoft::DynamicQuantizeLSTM",
+  "model_bytes": 26722594,
+  "builder_sha256": "e5cc267b6cc5f8ed5a70d710758d965f4f807a7aad5c19ad830a4ae253087676"
+}

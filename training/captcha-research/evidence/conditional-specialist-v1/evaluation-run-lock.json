@@ -1,0 +1,10 @@
+{
+  "protocol_sha256": "b5b993ca26c47b26961ec4410719d9196349a75f5c44db48798001d5956b9b7f",
+  "candidate_sha256": "cd9c8b0d3ea37958be30b9ab9995ec2a83fc07f9639ffc3415af041a18c24bf6",
+  "script_sha256": "c4bac29c6548e758d02cbf2256291f80198dadc3cdf8be406b63e92f6df40fd7",
+  "dummy_report_sha256": "8cd03b8c17b049690467df040372394858fc7a8d462578d3e99951d977296fd9",
+  "settings_changed": false,
+  "test_images_loaded": 0,
+  "external_images_loaded": 0,
+  "training_runs": 0
+}

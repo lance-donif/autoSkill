@@ -1,0 +1,96 @@
+{
+  "version": "conditional-ddddocr-old-v1",
+  "status": "PREDECLARED_BEFORE_ANY_TRAIN_DEV_PREDICTION",
+  "source_model": "/workspace/autoSkill-release/captcha-specialist-research/wheel-1.6.1/ddddocr/common_old.onnx",
+  "source_sha256": "b8f2ad9cbc1f2e3922a6cb9459e30824e7e2467f3fb4fd61420640e34ea0bf68",
+  "source_charset": "/workspace/autoSkill-release/captcha-specialist-research/sources/charset-_get_old_charset.json",
+  "source_charset_sha256": "2c097552127cb5476189e653c0d2ccfd6b6c87425c57f81a01b5770207c33360",
+  "source_license_sha256": "6517f9f8ea3088e78633d768cff8b3a6e1e977365d22a5854f8aadd52d6f2bb4",
+  "base_model": "/workspace/autoSkill-release/captcha-research/baselines/speed-b58376af/captcha-ctc.onnx",
+  "base_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "base_metadata": "/workspace/autoSkill-release/captcha-research/baselines/original-be9dd198/captcha-ctc.json",
+  "base_metadata_sha256": "2641a73630a7de539669e622f0fc7b6ddb34f5b970134a091b68021ffee11346",
+  "data_manifest": "/workspace/autoSkill-release/captcha-research/residual-v2/data/manifest.jsonl",
+  "data_manifest_sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+  "data_root": "/workspace/autoSkill-release/captcha-research",
+  "teacher_cache": "/workspace/autoSkill-release/captcha-research/residual-v2/cache/features.npz",
+  "teacher_cache_sha256": "9d2d31561018ce5d4785c57d5a0604a91377fdbe20574bd89a621d0949b05e70",
+  "gate_helper": "/workspace/autoSkill-release/captcha-research/physical_onnx_v41.py",
+  "gate_helper_sha256": "79417e6b8c04a174687821aa4710f2bb415f07f2228fae53469a163eddd561f3",
+  "gate_numpy_helper": "/workspace/autoSkill-release/captcha-research/diagnose_physical_line_v41.py",
+  "gate_numpy_helper_sha256": "b51cb6f0b75b7c5ebd022890d806d1dd392aa0ab439631d9f75436aae972a341",
+  "frozen_physical_observations": "/workspace/autoSkill-release/captcha-research/residual-v41/physical-diagnostic-01/observations.jsonl",
+  "frozen_physical_observations_sha256": "27efdadfc63da0dc35a21eb4112ea9c01110f319f1095f6b1250a5231a8efb92",
+  "gate": "Unchanged v4.1: valid-column near-black/gray coverage>=.90, maxRGB<128, maxRGB-minRGB<=16, dark-gray pixel fraction<=.50.",
+  "input": {
+    "shape": [
+      1,
+      3,
+      48,
+      320
+    ],
+    "type": "float32",
+    "order": "BGR product tensor"
+  },
+  "adapter": {
+    "raw_integer": "Round(127.5*(product_tensor+1))",
+    "crop": "Inside then branch only; valid width counts all nonpadding columns including edges.",
+    "gray": "Floor((7471*B+38470*G+19595*R+32768)/65536), matching PIL RGB-to-L on reconstructed uint8 pixels.",
+    "resize": "Inside then branch only; ONNX FP32 linear Resize, half_pixel coordinates, gray height64, width=max(1,floor(validW*64/48)); no uint8 rounding after interpolation.",
+    "normalization": "gray/127.5-1; fixed legacy 1.5.6 [-1,1] normalization, no alternate trial.",
+    "reference_limit": "Explicit bilinear(gray) adaptation, not PIL Lanczos equivalence. The product already reduced source information to height48."
+  },
+  "decoder": {
+    "raw": "[T,N,8210] logits",
+    "argmax": "axis2,keepdims0,select_last_index0",
+    "mapping": "Unique source charset index->existing C63; blank and every unsupported token map to0.",
+    "output": "Transpose to[N,T], OneHot float32 depth63. Decoder interface only, not calibrated confidence.",
+    "reference": "Stable original ddddocr 1.4.11 ArgMax+Transpose semantics confirmed by source structure; unsupported tokens filtered."
+  },
+  "routing": "N=1 scalar ONNX If. Entire B583 in else; adapter and entire old expert in then; never compute both backbones on one input.",
+  "output": {
+    "shape": [
+      1,
+      null,
+      63
+    ],
+    "type": "float32",
+    "count": 1
+  },
+  "opset": 17,
+  "provider": "ORT1.19.2 CPU Linuxx64",
+  "threads": {
+    "intra": 2,
+    "inter": 1
+  },
+  "known_source_domain": "com.microsoft::DynamicQuantizeLSTM retained under approved kernel evidence; other adapter ops standard ONNX.",
+  "evaluation": {
+    "allowed_source": "synthetic-residual-v2",
+    "allowed_splits": [
+      "train",
+      "dev"
+    ],
+    "samples": 1600,
+    "train_used_for_retraining": false,
+    "single_fixed_configuration": true,
+    "dev_normal_predictions_changed_max": 0,
+    "line_noise_groups": [
+      "through-line",
+      "dark-through-line",
+      "first-symbol-touching",
+      "dark-first-symbol-touching"
+    ],
+    "line_noise_groups_no_exact_regression": true,
+    "pale_first_symbol_minimum_exact_gain": 2,
+    "no_line_pale_predictions_unchanged": true
+  },
+  "forbidden": [
+    "parameter or threshold tuning",
+    "norm alternatives",
+    "old test/public/blind inputs",
+    "training",
+    "production changes",
+    "committing model binaries"
+  ],
+  "next_stage": "Only if the fixed dev gate passes: report sole model/shape/preservation/profiling, freeze and request independent validation. No product replacement."
+}
