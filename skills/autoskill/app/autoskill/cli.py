@@ -13,7 +13,7 @@ STATUS_TEXT = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancell
 
 
 def emit(value: dict, code: int = 0) -> int:
-    print(json.dumps(value, ensure_ascii=False, indent=1))
+    print(json.dumps(value, ensure_ascii=False, indent=1))  # noqa: T201  # CLI stdout must contain exactly one JSON object.
     return code
 
 
@@ -269,7 +269,7 @@ def launch_check() -> dict:
                     report[engine] = "ok" if "工单" in driver.title() else "页面标题不符：" + driver.title()
                 finally:
                     driver.close()
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001  # Doctor must report every browser startup failure without aborting its checks.
                 report[engine] = "启动失败：" + (str(error) or type(error).__name__)[:1800]
     finally:
         server.shutdown()
@@ -313,106 +313,157 @@ def doctor(launch: bool = False) -> dict:
     return report
 
 
-def dispatch(args) -> tuple[dict, int]:
-    command, action = args.command, getattr(args, "action", None)
-    if command == "project":
-        if action == "create":
-            return {"created": projects.create(args.name, args.url, args.category, args.id)}, 0
-        if action == "list":
-            return {"projects": projects.list_all()}, 0
-        if action == "show":
-            return projects.get(args.project), 0
-        return projects.update(args.project, name=args.name, category=args.category, allowed_origins=args.allow_origin,
-                               approvals=args.approve, timeout_seconds=args.timeout, page_load_seconds=args.page_load,
-                               ignore_https_errors=None if args.insecure_tls is None else args.insecure_tls == "on"), 0
-    if command == "context":
-        return context(args.project), 0
-    if command == "cases":
-        return {"cases": context(args.project)["cases"]}, 0
-    if command == "secret":
-        if action == "set":
-            secrets.set_secret(args.name, read_secret_value(args))
-            return {"saved": args.name, "note": "已加密保存在本机；不会进入用例、报告或分享包"}, 0
-        if action == "delete":
-            secrets.delete_secret(args.name)
-            return {"deleted": args.name}, 0
-        return {"secrets": secrets.names()}, 0
-    if command == "report":
-        from . import reporting
+def _dispatch_project(args) -> tuple[dict, int]:
+    """Handle the project command without changing its result contract."""
+    action = getattr(args, "action", None)
+    if action == "create":
+        return {"created": projects.create(args.name, args.url, args.category, args.id)}, 0
+    if action == "list":
+        return {"projects": projects.list_all()}, 0
+    if action == "show":
+        return projects.get(args.project), 0
+    return projects.update(args.project, name=args.name, category=args.category, allowed_origins=args.allow_origin,
+                           approvals=args.approve, timeout_seconds=args.timeout, page_load_seconds=args.page_load,
+                           ignore_https_errors=None if args.insecure_tls is None else args.insecure_tls == "on"), 0
 
-        return reporting.build(args.project, args.out), 0
-    if command == "pack":
-        from . import share
 
-        if args.full:
-            return share.pack_full(args.out), 0
-        phrase = None
-        if args.include_secrets:
-            phrase = args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE")
-            if not phrase:
-                raise ValueError("--include-secrets 需要口令：加 --passphrase，或设置环境变量 AUTOSKILL_PASSPHRASE")
-        return share.pack(args.projects or None, args.out, phrase), 0
-    if command == "settings":
-        if args.browser:
-            paths.save_settings(browser=args.browser)
-        return {"browser": paths.browser_info()}, 0
-    if command == "plan":
+def _dispatch_context(args) -> tuple[dict, int]:
+    """Handle the context command without changing its result contract."""
+    return context(args.project), 0
+
+
+def _dispatch_cases(args) -> tuple[dict, int]:
+    """Handle the cases command without changing its result contract."""
+    return {"cases": context(args.project)["cases"]}, 0
+
+
+def _dispatch_secret(args) -> tuple[dict, int]:
+    """Handle the secret command without changing its result contract."""
+    action = getattr(args, "action", None)
+    if action == "set":
+        secrets.set_secret(args.name, read_secret_value(args))
+        return {"saved": args.name, "note": "已加密保存在本机；不会进入用例、报告或分享包"}, 0
+    if action == "delete":
+        secrets.delete_secret(args.name)
+        return {"deleted": args.name}, 0
+    return {"secrets": secrets.names()}, 0
+
+
+def _dispatch_report(args) -> tuple[dict, int]:
+    """Handle the report command without changing its result contract."""
+    from . import reporting
+
+    return reporting.build(args.project, args.out), 0
+
+
+def _dispatch_pack(args) -> tuple[dict, int]:
+    """Handle the pack command without changing its result contract."""
+    from . import share
+
+    if args.full:
+        return share.pack_full(args.out), 0
+    phrase = None
+    if args.include_secrets:
+        phrase = args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE")
+        if not phrase:
+            raise ValueError("--include-secrets 需要口令：加 --passphrase，或设置环境变量 AUTOSKILL_PASSPHRASE")
+    return share.pack(args.projects or None, args.out, phrase), 0
+
+
+def _dispatch_settings(args) -> tuple[dict, int]:
+    """Handle the settings command without changing its result contract."""
+    if args.browser:
+        paths.save_settings(browser=args.browser)
+    return {"browser": paths.browser_info()}, 0
+
+
+def _dispatch_plan(args) -> tuple[dict, int]:
+    """Handle the plan command without changing its result contract."""
+    action = getattr(args, "action", None)
+    from . import plan
+
+    if action == "write":
+        return plan.write(args.project, args.file), 0
+    if action == "mark":
+        return plan.mark(args.case, args.status, args.note), 0
+    return (plan.sync() if action == "sync" else plan.show()), 0
+
+
+def _dispatch_import(args) -> tuple[dict, int]:
+    """Handle the import command without changing its result contract."""
+    from . import share
+
+    return share.import_pack(args.file, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite), 0
+
+
+def _dispatch_demo(args) -> tuple[dict, int]:
+    """Handle the demo command without changing its result contract."""
+    return {"installed": demo.install(args.url),
+            "start_demo_site": "python examples/ticket-desk/server.py --port 8790（在 Skill 目录下）"}, 0
+
+
+def _dispatch_doctor(args) -> tuple[dict, int]:
+    """Handle the doctor command without changing its result contract."""
+    report = doctor(args.launch)
+    return report, 0 if report["ok"] else 1
+
+
+def _dispatch_verify(_args) -> tuple[dict, int]:
+    """Handle the verify command without changing its result contract."""
+    report = verify()
+    return report, 0 if report["ok"] else 1
+
+
+def _dispatch_export(args) -> tuple[dict, int]:
+    """Handle the export command without changing its result contract."""
+    action = getattr(args, "action", None)
+    if action == "postman":
+        return export_postman(args.project, args.out), 0
+    from .replay import codegen
+
+    return codegen.export(args.project, args.out), 0
+
+
+def _dispatch_dashboard(args) -> tuple[dict, int]:
+    """Handle the dashboard command without changing its result contract."""
+    from .server import app as server
+
+    server.serve(args.port)
+    return {"stopped": True}, 0
+
+
+def _dispatch_execution(args) -> tuple[dict, int]:
+    """Handle the execution command without changing its result contract."""
+    command = args.command
+    if command == "login":
+        auth = projects.auth(args.project)
+        chosen = [auth[k] for k in ("ui_case", "api_case") if auth.get(k)]
+        if not chosen:
+            raise ValueError(f"项目还没有登录用例；用 autoskill record start {args.project} --as-login 录制一次登录")
+        run = runner.create(args.project, chosen, "playwright", trigger="login")
+        final = runner.execute(run["id"], force_login=args.force)
+    else:
+        chosen = args.cases
+        if args.kind:
+            pool = [c for c in projects.cases(args.project) if c["kind"] == args.kind and ir.is_replayable(c)]
+            chosen = [c["id"] for c in pool if not args.cases or c["id"] in args.cases]
+            if not chosen:
+                raise ValueError("没有符合条件的可回放用例")
+        run = runner.create(args.project, chosen, args.engine)
+        final = runner.execute(run["id"])
+    summary = run_summary(final)
+    if command == "run":  # the verdicts go back into the case sheet these cases came from
         from . import plan
 
-        if action == "write":
-            return plan.write(args.project, args.file), 0
-        if action == "mark":
-            return plan.mark(args.case, args.status, args.note), 0
-        return (plan.sync() if action == "sync" else plan.show()), 0
-    if command == "import":
-        from . import share
+        written = plan.sync(quiet=True)
+        if written:
+            summary["plan"] = written
+    return summary, {"Pass": 0, "Fail": 1}.get(final["status"], 2)
 
-        return share.import_pack(args.file, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite), 0
-    if command == "demo":
-        return {"installed": demo.install(args.url),
-                "start_demo_site": "python examples/ticket-desk/server.py --port 8790（在 Skill 目录下）"}, 0
-    if command == "doctor":
-        report = doctor(args.launch)
-        return report, 0 if report["ok"] else 1
-    if command == "verify":
-        report = verify()
-        return report, 0 if report["ok"] else 1
-    if command == "export":
-        if action == "postman":
-            return export_postman(args.project, args.out), 0
-        from .replay import codegen
 
-        return codegen.export(args.project, args.out), 0
-    if command == "dashboard":
-        from .server import app as server
-
-        server.serve(args.port)
-        return {"stopped": True}, 0
-    if command in ("login", "run"):
-        if command == "login":
-            auth = projects.auth(args.project)
-            chosen = [auth[k] for k in ("ui_case", "api_case") if auth.get(k)]
-            if not chosen:
-                raise ValueError(f"项目还没有登录用例；用 autoskill record start {args.project} --as-login 录制一次登录")
-            run = runner.create(args.project, chosen, "playwright", trigger="login")
-            final = runner.execute(run["id"], force_login=args.force)
-        else:
-            chosen = args.cases
-            if args.kind:
-                pool = [c for c in projects.cases(args.project) if c["kind"] == args.kind and ir.is_replayable(c)]
-                chosen = [c["id"] for c in pool if not args.cases or c["id"] in args.cases]
-                if not chosen:
-                    raise ValueError("没有符合条件的可回放用例")
-            run = runner.create(args.project, chosen, args.engine)
-            final = runner.execute(run["id"])
-        summary = run_summary(final)
-        if command == "run":  # the verdicts go back into the case sheet these cases came from
-            from . import plan
-
-            written = plan.sync(quiet=True)
-            if written:
-                summary["plan"] = written
-        return summary, {"Pass": 0, "Fail": 1}.get(final["status"], 2)
+def _dispatch_recording(args) -> tuple[dict, int]:
+    """Dispatch recording operations and the existing assertion fallback."""
+    command, action = args.command, getattr(args, "action", None)
     from .recorder import session
 
     if command == "record":
@@ -424,6 +475,29 @@ def dispatch(args) -> tuple[dict, int]:
     if command == "browser":
         return session.browser(args.args), 0
     return session.check(args.kind, args.target, args.expected, args.attribute), 0
+
+
+def dispatch(args) -> tuple[dict, int]:
+    """Route one parsed CLI command to its named handler."""
+    handlers = {
+        "project": _dispatch_project,
+        "context": _dispatch_context,
+        "cases": _dispatch_cases,
+        "secret": _dispatch_secret,
+        "report": _dispatch_report,
+        "pack": _dispatch_pack,
+        "settings": _dispatch_settings,
+        "plan": _dispatch_plan,
+        "import": _dispatch_import,
+        "demo": _dispatch_demo,
+        "doctor": _dispatch_doctor,
+        "verify": _dispatch_verify,
+        "export": _dispatch_export,
+        "dashboard": _dispatch_dashboard,
+        "login": _dispatch_execution,
+        "run": _dispatch_execution,
+    }
+    return handlers.get(args.command, _dispatch_recording)(args)
 
 
 def delegate(args, argv: list[str], reason: str) -> int:
@@ -488,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
             result, code = dispatch(args)
         finally:
             sys.stdout = real_stdout
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001  # Unexpected command failures must still produce one JSON response.
         from .recorder.agent import AgentError
         from .recorder.session import RecordError
 

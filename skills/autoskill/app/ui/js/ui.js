@@ -14,7 +14,7 @@ function open(panel, onClose) {
     scrim.remove();
     panel.remove();
     closeCurrent = null;
-    if (previous && previous.focus) previous.focus();
+    if (previous?.focus) previous.focus();
     if (onClose) onClose();
   }
   document.addEventListener('keydown', onKey);

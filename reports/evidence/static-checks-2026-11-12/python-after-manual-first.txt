@@ -1,0 +1,223 @@
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_a_sandboxed_command_runs_through_the_service_with_the_same_output (test_bridge.BridgeTests.test_a_sandboxed_command_runs_through_the_service_with_the_same_output) ... ok
+test_web_pages_cannot_reach_the_command_endpoint (test_bridge.BridgeTests.test_web_pages_cannot_reach_the_command_endpoint) ... ok
+test_what_the_service_refuses_to_do_for_someone_else (test_bridge.BridgeTests.test_what_the_service_refuses_to_do_for_someone_else) ... ok
+test_a_failure_nobody_planned_for_is_still_one_json_object (test_bridge.RestrictedProcessTests.test_a_failure_nobody_planned_for_is_still_one_json_object) ... ok
+test_a_process_that_cannot_keep_data_or_start_a_browser_is_recognised (test_bridge.RestrictedProcessTests.test_a_process_that_cannot_keep_data_or_start_a_browser_is_recognised) ... ok
+test_recording_through_service_keeps_its_output_files (test_bridge.RestrictedProcessTests.test_recording_through_service_keeps_its_output_files) ... ok
+test_without_a_service_the_answer_is_json_that_says_what_to_do (test_bridge.RestrictedProcessTests.test_without_a_service_the_answer_is_json_that_says_what_to_do) ... ok
+test_code_comments_are_english (test_conventions.ConventionTests.test_code_comments_are_english) ... ok
+test_colours_are_defined_in_tokens_css_only (test_conventions.ConventionTests.test_colours_are_defined_in_tokens_css_only) ... ok
+test_every_command_is_documented_for_the_agent (test_conventions.ConventionTests.test_every_command_is_documented_for_the_agent) ... ok
+test_every_css_variable_in_use_is_defined (test_conventions.ConventionTests.test_every_css_variable_in_use_is_defined) ... ok
+test_every_step_kind_is_named_and_reaches_both_exported_scripts (test_conventions.ConventionTests.test_every_step_kind_is_named_and_reaches_both_exported_scripts) ... ok
+test_product_rules_are_not_reintroduced (test_conventions.ConventionTests.test_product_rules_are_not_reintroduced) ... ok
+test_source_files_are_clean_text (test_conventions.ConventionTests.test_source_files_are_clean_text) ... ok
+test_captcha_reader_returns_letters_and_digits (test_flow.FlowTests.test_captcha_reader_returns_letters_and_digits) ... ok
+test_case_sheet_is_written_read_marked_and_replaced (test_flow.FlowTests.test_case_sheet_is_written_read_marked_and_replaced) ... ok
+test_crud_recording_chains_small_ids_and_keeps_created_data_unique (test_flow.FlowTests.test_crud_recording_chains_small_ids_and_keeps_created_data_unique) ... ok
+test_one_site_is_one_project (test_flow.FlowTests.test_one_site_is_one_project) ... ok
+test_rand_and_min_count_reach_the_exported_scripts (test_flow.FlowTests.test_rand_and_min_count_reach_the_exported_scripts) ... ok
+test_search_as_you_type_keeps_the_last_request_only (test_flow.FlowTests.test_search_as_you_type_keeps_the_last_request_only) ... ok
+test_architecture_aliases_never_fall_back_to_windows (test_linux_platforms.LinuxPlatformTests.test_architecture_aliases_never_fall_back_to_windows) ... ok
+test_arm_native_paths_and_explicit_broken_override (test_linux_platforms.LinuxPlatformTests.test_arm_native_paths_and_explicit_broken_override) ... ok
+test_builder_rejects_x64_binary_for_arm_package (test_linux_platforms.LinuxPlatformTests.test_builder_rejects_x64_binary_for_arm_package) ... ok
+test_mismatched_driver_is_not_accepted (test_linux_platforms.LinuxPlatformTests.test_mismatched_driver_is_not_accepted) ... ok
+test_old_uos_can_select_system_browser_and_persist_it (test_linux_platforms.LinuxPlatformTests.test_old_uos_can_select_system_browser_and_persist_it) ... ok
+test_uos_old_glibc_is_reported_without_changing_system (test_linux_platforms.LinuxPlatformTests.test_uos_old_glibc_is_reported_without_changing_system) ... ok
+test_old_base64_fallback_is_not_silently_treated_as_encrypted (test_linux_secrets.LinuxSecretsTests.test_old_base64_fallback_is_not_silently_treated_as_encrypted) ... ok
+test_roundtrip_requires_private_local_key (test_linux_secrets.LinuxSecretsTests.test_roundtrip_requires_private_local_key) ... ok
+test_bad_second_digest_keeps_all_final_assets (test_platform_release.PlatformReleaseTests.test_bad_second_digest_keeps_all_final_assets) ... ok
+test_bad_assertion_fails_and_archive_preserves_evidence (test_qa_engine.Tests.test_bad_assertion_fails_and_archive_preserves_evidence) ... ok
+test_excel_formula_is_text (test_qa_engine.Tests.test_excel_formula_is_text) ... ok
+test_http_clients_accept_dsh_bracketed_ipv6_no_proxy (test_qa_engine.Tests.test_http_clients_accept_dsh_bracketed_ipv6_no_proxy) ... ok
+test_http_clients_use_configured_proxy_for_public_targets (test_qa_engine.Tests.test_http_clients_use_configured_proxy_for_public_targets) ... ok
+test_inferred_is_blocked (test_qa_engine.Tests.test_inferred_is_blocked) ... ok
+test_no_200_only_or_unknown_assertions (test_qa_engine.Tests.test_no_200_only_or_unknown_assertions) ... ok
+test_no_authorization_means_no_request (test_qa_engine.Tests.test_no_authorization_means_no_request) ... ok
+test_path_escape_and_origin (test_qa_engine.Tests.test_path_escape_and_origin) ... ok
+test_pointer_array_negative_rejected (test_qa_engine.Tests.test_pointer_array_negative_rejected) ... ok
+test_real_assertions_export_and_no_response_secret (test_qa_engine.Tests.test_real_assertions_export_and_no_response_secret) ... ok
+test_schema_version_and_unknown_requirement (test_qa_engine.Tests.test_schema_version_and_unknown_requirement) ... ok
+test_stale_result_rejected (test_qa_engine.Tests.test_stale_result_rejected) ... ok
+test_write_needs_specific_approval (test_qa_engine.Tests.test_write_needs_specific_approval) ... ok
+test_a_page_without_api_calls_gets_no_api_cases (test_recorder.CompileTests.test_a_page_without_api_calls_gets_no_api_cases) ... ok
+test_a_repeated_request_is_listed_once_even_when_its_case_already_exists (test_recorder.CompileTests.test_a_repeated_request_is_listed_once_even_when_its_case_already_exists) ... ok
+test_each_workspace_records_in_its_own_browser_session (test_recorder.CompileTests.test_each_workspace_records_in_its_own_browser_session) ... ok
+test_login_recording_becomes_a_dependency_chain_without_secrets (test_recorder.CompileTests.test_login_recording_becomes_a_dependency_chain_without_secrets) ... ok
+test_no_assertions_is_reported_not_hidden (test_recorder.CompileTests.test_no_assertions_is_reported_not_hidden) ... ok
+test_recording_while_signed_in_depends_on_the_login_cases (test_recorder.CompileTests.test_recording_while_signed_in_depends_on_the_login_cases) ... ok
+test_static_data_files_are_not_called_business_apis (test_recorder.CompileTests.test_static_data_files_are_not_called_business_apis) ... ok
+test_summary_counts_every_recorded_step_and_assertion (test_recorder.CompileTests.test_summary_counts_every_recorded_step_and_assertion) ... ok
+test_array_items_require_only_what_every_item_has (test_recorder.SchemaInferenceTests.test_array_items_require_only_what_every_item_has) ... ok
+test_maps_keyed_by_data_do_not_pin_their_keys (test_recorder.SchemaInferenceTests.test_maps_keyed_by_data_do_not_pin_their_keys) ... ok
+test_stable_fields_are_echoes_and_enums_not_ids_or_secrets (test_recorder.SchemaInferenceTests.test_stable_fields_are_echoes_and_enums_not_ids_or_secrets) ... ok
+test_wide_records_keep_their_fields_and_secrets_are_not_described (test_recorder.SchemaInferenceTests.test_wide_records_keep_their_fields_and_secrets_are_not_described) ... ok
+test_changed_content_without_revision_cannot_reuse_pass (test_regressions.RegressionTests.test_changed_content_without_revision_cannot_reuse_pass) ... ok
+test_legacy_schema_migration_is_explicit_and_invalidates_old_content (test_regressions.RegressionTests.test_legacy_schema_migration_is_explicit_and_invalidates_old_content) ... ok
+test_project_skill_lists_cases_and_how_to_replay_them (test_regressions.RegressionTests.test_project_skill_lists_cases_and_how_to_replay_them) ... ok
+test_revision_change_can_archive_and_rerun (test_regressions.RegressionTests.test_revision_change_can_archive_and_rerun) ... ok
+test_save_cases_increments_revision_and_keeps_snapshot (test_regressions.RegressionTests.test_save_cases_increments_revision_and_keeps_snapshot) ... ok
+test_bad_digest_keeps_old_asset_and_release_unpublished (test_release_publishing.ReleasePublishingTests.test_bad_digest_keeps_old_asset_and_release_unpublished) ... ok
+test_fallback_locator_is_used_and_reported (test_replay_ui.PlaywrightReplayTests.test_fallback_locator_is_used_and_reported) ... ok
+test_missing_element_fails_as_locator_not_found (test_replay_ui.PlaywrightReplayTests.test_missing_element_fails_as_locator_not_found) ... ok
+test_other_origin_can_be_navigated_and_replayed (test_replay_ui.PlaywrightReplayTests.test_other_origin_can_be_navigated_and_replayed) ... ok
+test_page_can_fetch_and_reload_outside_the_legacy_allow_list (test_replay_ui.PlaywrightReplayTests.test_page_can_fetch_and_reload_outside_the_legacy_allow_list) ... ok
+test_recorded_case_passes_and_leaves_a_screenshot (test_replay_ui.PlaywrightReplayTests.test_recorded_case_passes_and_leaves_a_screenshot) ... ok
+test_wrong_expectation_fails_with_the_actual_value (test_replay_ui.PlaywrightReplayTests.test_wrong_expectation_fails_with_the_actual_value) ... ok
+test_fallback_locator_is_used_and_reported (test_replay_ui.SeleniumReplayTests.test_fallback_locator_is_used_and_reported) ... ok
+test_missing_element_fails_as_locator_not_found (test_replay_ui.SeleniumReplayTests.test_missing_element_fails_as_locator_not_found) ... ok
+test_other_origin_can_be_navigated_and_replayed (test_replay_ui.SeleniumReplayTests.test_other_origin_can_be_navigated_and_replayed) ... ok
+test_page_can_fetch_and_reload_outside_the_legacy_allow_list (test_replay_ui.SeleniumReplayTests.test_page_can_fetch_and_reload_outside_the_legacy_allow_list) ... ok
+test_recorded_case_passes_and_leaves_a_screenshot (test_replay_ui.SeleniumReplayTests.test_recorded_case_passes_and_leaves_a_screenshot) ... ok
+test_wrong_expectation_fails_with_the_actual_value (test_replay_ui.SeleniumReplayTests.test_wrong_expectation_fails_with_the_actual_value) ... ok
+test_only_whitelisted_steps_are_accepted (test_replay_ui.StepModelTests.test_only_whitelisted_steps_are_accepted) ... ok
+test_origin_errors_never_echo_credentials (test_replay_ui.StepModelTests.test_origin_errors_never_echo_credentials) ... ok
+test_anonymous_api_case_stays_anonymous_after_a_login_in_the_same_run (test_runner.RunnerTests.test_anonymous_api_case_stays_anonymous_after_a_login_in_the_same_run) ... ok
+test_api_chain_passes_variables_and_reuses_the_token (test_runner.RunnerTests.test_api_chain_passes_variables_and_reuses_the_token) ... ok
+test_choosing_one_ui_case_logs_in_first_then_reuses_the_login (test_runner.RunnerTests.test_choosing_one_ui_case_logs_in_first_then_reuses_the_login) ... ok
+test_credentials_are_plain_on_this_machine_and_stay_out_of_the_shareable_project (test_runner.RunnerTests.test_credentials_are_plain_on_this_machine_and_stay_out_of_the_shareable_project) ... ok
+test_dependency_cycles_and_unknown_cases_are_rejected (test_runner.RunnerTests.test_dependency_cycles_and_unknown_cases_are_rejected) ... ok
+test_failed_login_blocks_dependents_instead_of_failing_them (test_runner.RunnerTests.test_failed_login_blocks_dependents_instead_of_failing_them) ... ok
+test_login_is_renewed_after_the_server_expires_the_session (test_runner.RunnerTests.test_login_is_renewed_after_the_server_expires_the_session) ... ok
+test_missing_secret_is_reported_by_name (test_runner.RunnerTests.test_missing_secret_is_reported_by_name) ... ok
+test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run (test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run) ... FAIL
+test_credentials_are_shown_in_project_settings_and_files_cannot_be_traversed (test_server.ApiGuardTests.test_credentials_are_shown_in_project_settings_and_files_cannot_be_traversed) ... ok
+test_loopback_only_and_no_cross_site_writes (test_server.ApiGuardTests.test_loopback_only_and_no_cross_site_writes) ... ok
+test_report_can_be_downloaded_from_the_dashboard (test_server.ApiGuardTests.test_report_can_be_downloaded_from_the_dashboard) ... ok
+test_every_figure_equals_its_drill_down_list (test_server.MetricsTests.test_every_figure_equals_its_drill_down_list) ... ok
+test_project_and_time_filters_apply_to_everything (test_server.MetricsTests.test_project_and_time_filters_apply_to_everything) ... ok
+test_still_failing_follows_the_latest_result_of_each_case (test_server.MetricsTests.test_still_failing_follows_the_latest_result_of_each_case) ... ok
+test_excel_report_uses_latest_results_and_treats_content_as_text (test_server.ReportTests.test_excel_report_uses_latest_results_and_treats_content_as_text) ... ok
+test_a_run_whose_process_died_is_marked_blocked (test_server.SchedulerTests.test_a_run_whose_process_died_is_marked_blocked) ... ok
+test_due_task_fires_once_and_not_while_its_run_is_active (test_server.SchedulerTests.test_due_task_fires_once_and_not_while_its_run_is_active) ... ok
+test_pause_resume_once_and_delete (test_server.SchedulerTests.test_pause_resume_once_and_delete) ... ok
+test_rules (test_server.SchedulerTests.test_rules) ... ok
+test_a_copied_folder_with_someone_elses_secret_store_still_works (test_server.ShareTests.test_a_copied_folder_with_someone_elses_secret_store_still_works) ... ok
+test_full_pack_contains_the_skill_and_projects_but_nothing_private (test_server.ShareTests.test_full_pack_contains_the_skill_and_projects_but_nothing_private) ... ok
+test_import_into_a_fresh_workspace_then_run (test_server.ShareTests.test_import_into_a_fresh_workspace_then_run) ... ok
+test_import_refuses_unsafe_or_invalid_packs (test_server.ShareTests.test_import_refuses_unsafe_or_invalid_packs) ... ok
+test_pack_carries_cases_and_knowledge_but_nothing_private (test_server.ShareTests.test_pack_carries_cases_and_knowledge_but_nothing_private) ... ok
+test_a_browser_that_stays_on_the_blank_page_is_retried_once_then_reported (test_slow_pages.NavigationWaitTests.test_a_browser_that_stays_on_the_blank_page_is_retried_once_then_reported) ... ok
+test_a_load_that_outlives_the_browser_tools_own_wait_is_not_a_failure (test_slow_pages.NavigationWaitTests.test_a_load_that_outlives_the_browser_tools_own_wait_is_not_a_failure) ... ok
+test_a_page_still_loading_when_the_budget_ends_is_handed_over_and_flagged (test_slow_pages.NavigationWaitTests.test_a_page_still_loading_when_the_budget_ends_is_handed_over_and_flagged) ... ok
+test_an_unreachable_page_is_an_error_that_keeps_the_browsers_reason (test_slow_pages.NavigationWaitTests.test_an_unreachable_page_is_an_error_that_keeps_the_browsers_reason) ... ok
+test_a_page_slower_than_its_load_budget_is_reported_as_a_page_timeout (test_slow_pages.PlaywrightLoadBudgetTests.test_a_page_slower_than_its_load_budget_is_reported_as_a_page_timeout) ... ok
+test_a_page_slower_than_the_step_timeout_still_replays (test_slow_pages.PlaywrightLoadBudgetTests.test_a_page_slower_than_the_step_timeout_still_replays) ... ok
+test_a_page_that_bounces_to_its_sign_in_screen_says_so (test_slow_pages.RecordingStartTests.test_a_page_that_bounces_to_its_sign_in_screen_says_so) ... ok
+test_a_recording_whose_browser_is_gone_does_not_block_the_next_one (test_slow_pages.RecordingStartTests.test_a_recording_whose_browser_is_gone_does_not_block_the_next_one) ... ok
+test_recording_can_navigate_reload_and_compile_another_origin (test_slow_pages.RecordingStartTests.test_recording_can_navigate_reload_and_compile_another_origin) ... ok
+test_recording_waits_for_a_late_script_and_returns_usable_elements (test_slow_pages.RecordingStartTests.test_recording_waits_for_a_late_script_and_returns_usable_elements) ... ok
+test_a_page_slower_than_its_load_budget_is_reported_as_a_page_timeout (test_slow_pages.SeleniumLoadBudgetTests.test_a_page_slower_than_its_load_budget_is_reported_as_a_page_timeout) ... ok
+test_a_page_slower_than_the_step_timeout_still_replays (test_slow_pages.SeleniumLoadBudgetTests.test_a_page_slower_than_the_step_timeout_still_replays) ... ok
+test_sandboxed_cli_records_switches_and_replays_through_service (test_tabs.TabBridgeTests.test_sandboxed_cli_records_switches_and_replays_through_service) ... ok
+test_invalid_tab_steps_are_rejected_before_replay (test_tabs.TabValidationTests.test_invalid_tab_steps_are_rejected_before_replay) ... ok
+test_popup_hints_remove_credentials_and_login_parameters (test_tabs.TabValidationTests.test_popup_hints_remove_credentials_and_login_parameters) ... ok
+test_delayed_popup_record_replay_and_standalone_exports (test_tabs.TabsTests.test_delayed_popup_record_replay_and_standalone_exports) ... ok
+test_manual_new_background_close_nonreused_ids_and_reset (test_tabs.TabsTests.test_manual_new_background_close_nonreused_ids_and_reset) ... ok
+test_missing_popup_fails_and_does_not_select_existing_tab (test_tabs.TabsTests.test_missing_popup_fails_and_does_not_select_existing_tab) ... ok
+test_script_closes_child_and_returns_result_to_parent (test_tabs.TabsTests.test_script_closes_child_and_returns_result_to_parent) ... 
+  test_script_closes_child_and_returns_result_to_parent (test_tabs.TabsTests.test_script_closes_child_and_returns_result_to_parent) (engine='playwright') ... FAIL
+test_simultaneous_popups_matched_by_destination (test_tabs.TabsTests.test_simultaneous_popups_matched_by_destination) ... ok
+test_target_blank_record_replay_and_standalone_exports (test_tabs.TabsTests.test_target_blank_record_replay_and_standalone_exports) ... ok
+test_window_open_record_replay_and_standalone_exports (test_tabs.TabsTests.test_window_open_record_replay_and_standalone_exports) ... ok
+test_business_api_requires_login (test_ticket_desk.TicketDeskTests.test_business_api_requires_login) ... ok
+test_create_then_resolve_then_filter (test_ticket_desk.TicketDeskTests.test_create_then_resolve_then_filter) ... ok
+test_expired_session_is_rejected (test_ticket_desk.TicketDeskTests.test_expired_session_is_rejected) ... ok
+test_static_files_cannot_escape_web_root (test_ticket_desk.TicketDeskTests.test_static_files_cannot_escape_web_root) ... ok
+test_validation_and_role_checks (test_ticket_desk.TicketDeskTests.test_validation_and_role_checks) ... ok
+test_wrong_password_is_rejected (test_ticket_desk.TicketDeskTests.test_wrong_password_is_rejected) ... ok
+test_twenty_ui_cases_pass_the_step_whitelist (test_todomvc.TodoFixtureTests.test_twenty_ui_cases_pass_the_step_whitelist) ... ok
+test_upstream_source_bytes_match_manifest (test_todomvc.TodoFixtureTests.test_upstream_source_bytes_match_manifest) ... ok
+test_auth_header_variants_are_not_exported (test_validation.ValidationTests.test_auth_header_variants_are_not_exported) ... ok
+test_env_credential_reference_can_be_exported_without_expansion (test_validation.ValidationTests.test_env_credential_reference_can_be_exported_without_expansion) ... ok
+test_execution_error_cannot_leave_previous_pass_current (test_validation.ValidationTests.test_execution_error_cannot_leave_previous_pass_current) ... ok
+test_external_response_schema_is_rejected_without_request (test_validation.ValidationTests.test_external_response_schema_is_rejected_without_request) ... ok
+test_invalid_container_gives_errors_not_traceback (test_validation.ValidationTests.test_invalid_container_gives_errors_not_traceback) ... ok
+test_invalid_pointer_escapes_rejected (test_validation.ValidationTests.test_invalid_pointer_escapes_rejected) ... ok
+test_literal_credential_rejected_before_export (test_validation.ValidationTests.test_literal_credential_rejected_before_export) ... ok
+test_save_rejects_bad_schema_before_mutating_cases (test_validation.ValidationTests.test_save_rejects_bad_schema_before_mutating_cases) ... ok
+test_vacuous_schema_rejected (test_validation.ValidationTests.test_vacuous_schema_rejected) ... ok
+
+======================================================================
+FAIL: test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run (test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill-static-checks/tests/test_server.py", line 177, in test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run
+    self.assertEqual((flag(usual["id"]), flag(quiet["id"]), flag(fired["id"])), (1, 0, 1))
+AssertionError: Tuples differ: (0, 0, 0) != (1, 0, 1)
+
+First differing element 0:
+0
+1
+
+- (0, 0, 0)
++ (1, 0, 1)
+
+======================================================================
+FAIL: test_script_closes_child_and_returns_result_to_parent (test_tabs.TabsTests.test_script_closes_child_and_returns_result_to_parent) (engine='playwright')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill-static-checks/tests/test_tabs.py", line 114, in replay
+    self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+AssertionError: 1 != 0 : Traceback (most recent call last):
+  File "/tmp/tmpt7tq07_p/playwright_standalone.py", line 156, in <module>
+    main()
+  File "/tmp/tmpt7tq07_p/playwright_standalone.py", line 149, in main
+    page = tc_ui_001(page)
+           ^^^^^^^^^^^^^^^
+  File "/tmp/tmpt7tq07_p/playwright_standalone.py", line 133, in tc_ui_001
+    page.get_by_role("button", name="Send and close", exact=True).click()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 17876, in click
+    self._sync(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_locator.py", line 165, in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 593, in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: Locator.click: Target page, context or browser has been closed
+Call log:
+  - waiting for get_by_role("button", name="Send and close", exact=True)
+    - locator resolved to <button id="send" onclick="window.opener.document.querySelector('#result').textContent=document.querySelector('#note').value;window.close()">Send and close</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - performing click action
+
+
+
+----------------------------------------------------------------------
+Ran 138 tests in 196.084s
+
+FAILED (failures=2)
+{"Fail": 1}
+{"Fail": 1}
+Excel 和导出清单已生成
+{"Pass": 1}
+{"Pass": 1}
+{"Pass": 1}
+{"Blocked": 1}
+{"Blocked": 1}
+{"Pass": 1}
+Excel 和导出清单已生成
+报告已生成
+{"Pass": 1}
+{"Blocked": 1}
+{"Pass": 1}
+{"Pass": 1}
+{"Pass": 1}
+{"Pass": 1}
+Excel 和导出清单已生成
+{"Pass": 1}
+{"Blocked": 1}

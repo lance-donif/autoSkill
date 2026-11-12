@@ -1,0 +1,52 @@
+{
+  "scripts/build-linux-bundle.py": {
+    "complete_module_ast_equal_after_inlining": true,
+    "helper_call_counts": {
+      "_install_wheels": 1
+    },
+    "arguments_are_same_bindings_in_same_order": true
+  },
+  "scripts/build-windows-bundle.py": {
+    "complete_module_ast_equal_after_inlining": true,
+    "helper_call_counts": {
+      "_install_wheels": 1
+    },
+    "arguments_are_same_bindings_in_same_order": true
+  },
+  "scripts/publish-windows-release.py": {
+    "complete_module_ast_equal_after_inlining": true,
+    "helper_call_counts": {
+      "_check_archive": 1
+    },
+    "arguments_are_same_bindings_in_same_order": true
+  },
+  "skills/autoskill/examples/ticket-desk/server.py": {
+    "complete_module_ast_equal_after_inlining": true,
+    "helper_call_counts": {
+      "_ticket_api": 1
+    },
+    "arguments_are_same_bindings_in_same_order": true
+  },
+  "skills/autoskill/app/autoskill/share.py": {
+    "complete_module_ast_equal_after_inlining": true,
+    "helper_call_counts": {
+      "_restore_pack_secrets": 1
+    },
+    "arguments_are_same_bindings_in_same_order": true
+  },
+  "skills/autoskill/app/autoskill/server/app.py": {
+    "complete_module_ast_equal_after_inlining": true,
+    "helper_call_counts": {
+      "_register_http_handlers": 1,
+      "_register_overview_routes": 1,
+      "_register_project_routes": 1,
+      "_register_download_routes": 1,
+      "_register_settings_routes": 1,
+      "_register_run_creation_route": 1,
+      "_register_run_detail_routes": 1,
+      "_register_schedule_routes": 1,
+      "_register_unknown_route": 1
+    },
+    "arguments_are_same_bindings_in_same_order": true
+  }
+}

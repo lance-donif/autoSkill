@@ -1,0 +1,15 @@
+{
+  "baseline": "7ffb678",
+  "ir_validation_cases": 850,
+  "pw_step_cases": 273,
+  "return_error_and_input_mutation_mismatches": [],
+  "public_and_existing_internal_signatures_equal": true,
+  "openapi_equal": true,
+  "openapi_paths": 24,
+  "openapi_operations": 29,
+  "signatures": {
+    "ir.validate": "(automation: 'object') -> 'None'",
+    "ir._check_step": "(step: 'object', table: 'dict', key: 'str', where: 'str') -> 'None'",
+    "codegen.pw_step": "(step: 'dict') -> 'str'"
+  }
+}

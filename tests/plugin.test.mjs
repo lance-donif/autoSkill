@@ -61,7 +61,7 @@ test('client registers dashboard and schedules panels pointing at the loopback d
   assert.equal(registration.id, 'dsh-plugin-autoskill');
   const plugin = registration.factory((name) => { assert.equal(name, 'react'); return { createElement: (tag, props) => ({ tag, props }) }; });
   const records = [];
-  const ctx = { effect: (fn) => fn(), slots: { inject: (_, fn) => fn(), register: (options, component) => { records.push({ options, component }); return () => {}; } } };
+  const ctx = { effect: (fn) => fn(), slots: { inject: (_, fn) => fn(), register: (options, component) => { records.push({ options, component }); return () => undefined; } } };
   plugin.apply(ctx, { port: 8788 });
   assert.equal(records.length, 4);
   const frames = records.filter((r) => r.options.name === 'main').map((r) => r.component());

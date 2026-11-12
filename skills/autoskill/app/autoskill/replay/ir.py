@@ -66,7 +66,7 @@ _rand = ""
 
 
 def set_rand(value: str) -> None:
-    global _rand
+    global _rand  # noqa: PLW0603  # Every step intentionally shares the current run's module-level token.
     _rand = value
 
 
@@ -156,6 +156,11 @@ def _check_step(step: object, table: dict, key: str, where: str) -> None:
         _check_locator(locator, where)
     if step[key] in ("count", "min_count") and not _is_index(step["expected"]):
         raise ValueError(f"{where}：count 断言需要非负整数")
+    _check_tab_fields(step, where)
+
+
+def _check_tab_fields(step: dict, where: str) -> None:
+    """Validate recorded tab ids and changes after the main step fields."""
     def tab_id(value):
         return isinstance(value, str) and value.startswith("t") and value[1:].isascii() and value[1:].isdigit() and int(value[1:]) > 0
     for field in ("tab", "active"):
@@ -217,7 +222,7 @@ def origin_of(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}"
 
 
-def check_origin(url: str, allowed: list[str]) -> None:
+def check_origin(url: str, allowed: list[str]) -> None:  # noqa: ARG001  # Preserve the legacy keyword argument without restricting origins.
     """Validate URL shape; legacy allowed_origins no longer limits site traffic."""
     parts = urlsplit(url)
     if parts.scheme in ("about", "data", "blob"):

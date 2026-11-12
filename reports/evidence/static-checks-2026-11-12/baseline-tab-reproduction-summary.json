@@ -1,0 +1,77 @@
+{
+  "baseline_commit": "bac57dcd2e6063cf901745ec7bfb5924a8da74cf",
+  "worktree": "/workspace/autoSkill-static-baseline-repro",
+  "display_unset": true,
+  "wayland_display_unset": true,
+  "fixed_run_count": 5,
+  "command": [
+    "/workspace/autoSkill-static-baseline-repro/.venv/bin/python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_tabs.py",
+    "-k",
+    "test_script_closes_child_and_returns_result_to_parent",
+    "-v"
+  ],
+  "protected_files": {
+    "ruff.toml": "4e6b4a27e57fdc8ca49321c0c34d7539afd037864e196e81d0ddae1e7e0024c7",
+    "biome.json": "cb328d325da450368bdc35fcc4c687cc83ff6ea95de914b3688d2ac7cdc27f27",
+    "tests/test_conventions.py": "c42598ec2aab48361e3b7a5731cc04a3bbcfae959b72371bf5a246832bf095ce"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "exit_code": 0,
+      "target_closed_error": false,
+      "log": "baseline-tab-repro-1.txt",
+      "tests": 1,
+      "skipped": 0,
+      "seconds": 7.707
+    },
+    {
+      "run": 2,
+      "exit_code": 0,
+      "target_closed_error": false,
+      "log": "baseline-tab-repro-2.txt",
+      "tests": 1,
+      "skipped": 0,
+      "seconds": 8.264
+    },
+    {
+      "run": 3,
+      "exit_code": 0,
+      "target_closed_error": false,
+      "log": "baseline-tab-repro-3.txt",
+      "tests": 1,
+      "skipped": 0,
+      "seconds": 7.561
+    },
+    {
+      "run": 4,
+      "exit_code": 0,
+      "target_closed_error": false,
+      "log": "baseline-tab-repro-4.txt",
+      "tests": 1,
+      "skipped": 0,
+      "seconds": 7.106
+    },
+    {
+      "run": 5,
+      "exit_code": 0,
+      "target_closed_error": false,
+      "log": "baseline-tab-repro-5.txt",
+      "tests": 1,
+      "skipped": 0,
+      "seconds": 7.258
+    }
+  ],
+  "tracked_source_unchanged": true,
+  "protected_files_unchanged": true,
+  "pass_count": 5,
+  "fail_count": 0,
+  "target_closed_error_count": 0
+}

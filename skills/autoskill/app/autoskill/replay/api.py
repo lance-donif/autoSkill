@@ -74,9 +74,9 @@ def _checks(case: dict, response, parsed, elapsed_ms: int) -> list[dict]:
         actual = response.headers.get(name, "")
         rows.append({"name": f"响应头 {name} 包含", "passed": str(wanted).lower() in actual.lower(),
                      "expected": wanted, "actual": actual})
-    for wanted in rules.get("body_contains", []):
-        rows.append({"name": "响应内容包含", "passed": wanted in response.text, "expected": wanted,
-                     "actual": "已包含" if wanted in response.text else "未包含"})
+    rows.extend({"name": "响应内容包含", "passed": wanted in response.text, "expected": wanted,
+                 "actual": "已包含" if wanted in response.text else "未包含"}
+                for wanted in rules.get("body_contains", []))
     if "max_ms" in rules:
         rows.append({"name": "响应时间不超过(ms)", "passed": elapsed_ms <= rules["max_ms"],
                      "expected": rules["max_ms"], "actual": elapsed_ms})

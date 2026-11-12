@@ -44,7 +44,7 @@ def binary_status(binary: str | None) -> dict:
         return {"ok": False, "error": "没有找到可执行文件"}
     try:
         done = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=12,
-                              env=paths.child_env(), errors="replace")
+                              env=paths.child_env(), errors="replace", check=False)
         output = (done.stdout + done.stderr).strip()
         result = {"ok": done.returncode == 0, "path": binary, "version": output[:500]}
         match = re.search(r"(?:Chrom(?:e|ium)|ChromeDriver)\s+(\d+)\.", output, re.IGNORECASE)
@@ -76,9 +76,9 @@ def configure(chrome: str | None = None, driver: str | None = None) -> dict:
     explicit_driver = driver or os.environ.get("AUTOSKILL_CHROMEDRIVER")
     pairs = [(explicit_chrome or paths.chrome(bundled=True), explicit_driver or paths.chromedriver())]
     if not explicit_chrome and not explicit_driver:
-        for name in ("chromium", "chromium-browser", "google-chrome"):
-            if shutil.which(name) and shutil.which("chromedriver"):
-                pairs.append((shutil.which(name), shutil.which("chromedriver")))
+        pairs.extend((shutil.which(name), shutil.which("chromedriver"))
+                     for name in ("chromium", "chromium-browser", "google-chrome")
+                     if shutil.which(name) and shutil.which("chromedriver"))
     attempted = []
     for browser, driver_path in pairs:
         check = browser_pair(browser, driver_path)
@@ -111,7 +111,7 @@ def main():
         from .cli import doctor
         result["doctor"] = doctor(True)
         result["ok"] = result["doctor"]["ok"]
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(json.dumps(result, ensure_ascii=False, indent=2))  # noqa: T201  # The command emits its JSON result.
     return 0 if result["ok"] else 2
 
 

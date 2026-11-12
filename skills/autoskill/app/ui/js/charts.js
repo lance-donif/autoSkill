@@ -34,7 +34,7 @@ export function fillBuckets(points, unit, start, end) {
     ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`
     : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const parse = (text) => new Date(text.replace(' ', 'T') + (unit === 'hour' ? ':00' : 'T00:00:00'));
-  let cursor = start ? new Date(start) : parse(points[0].bucket);
+  const cursor = start ? new Date(start) : parse(points[0].bucket);
   const last = end ? new Date(end.getTime() - 1) : new Date();
   if (unit === 'hour') cursor.setMinutes(0, 0, 0); else cursor.setHours(0, 0, 0, 0);
   const out = [];

@@ -65,21 +65,7 @@ export async function render(view) {
   const points = fillBuckets(summary.trend.points, summary.trend.unit, start, end);
   const none = r.executions === 0;
 
-  const heroNote = h('div', { class: 'stack', style: 'gap:8px' }, splitBar(r),
-    h('span', { class: 'kpi-note' }, none ? '这个范围内还没有执行'
-      : [h('b', {}, `${fmtNumber(r.passed)} 通过`), ` · ${fmtNumber(r.failed)} 失败 · ${fmtNumber(r.blocked)} 阻塞（不计入通过率）`]));
-
-  const kpis = h('section', { class: 'kpis', 'aria-label': '汇总指标' },
-    kpi({ hero: true, label: '通过率', value: fmtPercent(r.pass_rate), def: DEFINITIONS.rate, note: heroNote,
-      extra: sparkline(points), to: href('runs', { view: 'results' }) }),
-    kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
-      note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
-    kpi({ label: '执行次数', value: fmtNumber(u.total), def: DEFINITIONS.runs,
-      note: [`共 ${fmtNumber(r.executions)} 条次`, u.scheduled ? ` · 定时 ${u.scheduled}` : '', u.active ? ` · ${u.active} 个进行中` : ''], to: href('runs') }),
-    kpi({ label: '失败', value: fmtNumber(r.failed), def: DEFINITIONS.failed,
-      note: r.failed ? [h('b', {}, `${r.still_failing} 条`), ' 当前仍失败'] : '没有失败', to: href('runs', { view: 'results', status: 'Fail' }) }),
-    kpi({ label: '阻塞', value: fmtNumber(r.blocked), def: DEFINITIONS.blocked,
-      note: r.blocked ? '没有验证到结果' : '没有阻塞', to: href('runs', { view: 'results', status: 'Blocked' }) }));
+  const kpis = summaryKpis(r, c, u, s, points, none);
 
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '趋势展示方式' },
     h('button', { 'aria-pressed': String(!showTable), onClick: () => { showTable = false; refresh(); } }, '图表'),
@@ -104,9 +90,27 @@ export async function render(view) {
     h('div', { class: 'dash-grid even' }, failuresCard(failures, r, view), recentCard(recent)));
 }
 
+function summaryKpis(r, c, u, s, points, none) {
+  const heroNote = h('div', { class: 'stack', style: 'gap:8px' }, splitBar(r),
+    h('span', { class: 'kpi-note' }, none ? '这个范围内还没有执行'
+      : [h('b', {}, `${fmtNumber(r.passed)} 通过`), ` · ${fmtNumber(r.failed)} 失败 · ${fmtNumber(r.blocked)} 阻塞（不计入通过率）`]));
+
+  return h('section', { class: 'kpis', 'aria-label': '汇总指标' },
+    kpi({ hero: true, label: '通过率', value: fmtPercent(r.pass_rate), def: DEFINITIONS.rate, note: heroNote,
+      extra: sparkline(points), to: href('runs', { view: 'results' }) }),
+    kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
+      note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
+    kpi({ label: '执行次数', value: fmtNumber(u.total), def: DEFINITIONS.runs,
+      note: [`共 ${fmtNumber(r.executions)} 条次`, u.scheduled ? ` · 定时 ${u.scheduled}` : '', u.active ? ` · ${u.active} 个进行中` : ''], to: href('runs') }),
+    kpi({ label: '失败', value: fmtNumber(r.failed), def: DEFINITIONS.failed,
+      note: r.failed ? [h('b', {}, `${r.still_failing} 条`), ' 当前仍失败'] : '没有失败', to: href('runs', { view: 'results', status: 'Fail' }) }),
+    kpi({ label: '阻塞', value: fmtNumber(r.blocked), def: DEFINITIONS.blocked,
+      note: r.blocked ? '没有验证到结果' : '没有阻塞', to: href('runs', { view: 'results', status: 'Blocked' }) }));
+}
+
 function runAll(options = {}) {
   const s = scope();
-  const targets = (s.projects.length ? state.projects.filter((p) => s.projects.includes(p.id)) : state.projects).filter((p) => p.cases && p.cases.total);
+  const targets = (s.projects.length ? state.projects.filter((p) => s.projects.includes(p.id)) : state.projects).filter((p) => p.cases?.total);
   const label = targets.length > 1 ? `运行 ${targets.length} 个项目` : '运行全部用例';
   return runButton(label, () => targets.map((p) => ({ project_id: p.id })), options);
 }
@@ -114,7 +118,7 @@ function runAll(options = {}) {
 function pageHead() {
   return h('div', { class: 'page-head' },
     h('div', { class: 'grow' }, h('h1', {}, '仪表盘'), h('p', { class: 'sub' }, '下面所有数字、图表和列表都按上方的项目与时间范围统计。')),
-    state.projects.some((p) => p.cases && p.cases.total) && runAll());
+    state.projects.some((p) => p.cases?.total) && runAll());
 }
 
 function tasksCard(tasks) {
@@ -134,7 +138,7 @@ function tasksCard(tasks) {
     body);
 }
 
-function failuresCard(failures, r, view) {
+function failuresCard(failures, r, _view) {
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '失败列表范围' },
     h('button', { 'aria-pressed': String(!currentOnly), onClick: () => { currentOnly = false; refresh(); } }, '范围内全部'),
     h('button', { 'aria-pressed': String(currentOnly), onClick: () => { currentOnly = true; refresh(); } }, '当前仍失败'));

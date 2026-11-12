@@ -1,0 +1,2080 @@
+C901 `build` is too complex (17 > 15)
+  --> scripts/build-linux-bundle.py:41:5
+   |
+41 | def build(assets: Path, output: Path, arch: str) -> dict:
+   |     ^^^^^
+42 |     if output.exists() or output.is_relative_to(ROOT) or assets.is_relative_to(output):
+43 |         raise ValueError("Choose a new output folder outside the repository and assets")
+   |
+
+ARG001 Unused function argument: `folder`
+  --> scripts/build-windows-bundle.py:48:16
+   |
+47 | def copy_tree(source: Path, destination: Path) -> None:
+48 |     def ignore(folder, names):
+   |                ^^^^^^
+49 |         return [n for n in names if n in SKIP_NAMES or Path(n).suffix in SKIP_SUFFIXES]
+   |
+
+SIM112 Use capitalized environment variable `SYSTEMROOT` instead of `SystemRoot`
+  --> scripts/build-windows-bundle.py:74:41
+   |
+73 |     python = package / "vendor" / "windows-x64" / "python" / "python.exe"
+74 |     env = {"SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"), "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"}
+   |                                         ^^^^^^^^^^^^
+75 |     code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema; print(autoskill.__file__)"
+76 |     done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent))
+   |
+help: Replace `SystemRoot` with `SYSTEMROOT`
+
+PLW1510 `subprocess.run` without explicit `check` argument
+  --> scripts/build-windows-bundle.py:76:12
+   |
+74 |     env = {"SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"), "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"}
+75 |     code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema; print(autoskill.__file__)"
+76 |     done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent))
+   |            ^^^^^^^^^^^^^^
+77 |     located = done.stdout.strip()
+78 |     if done.returncode or not Path(located).resolve().is_relative_to(package.resolve()):
+   |
+help: Add explicit `check=False`
+   |
+75 |     code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema; print(autoskill.__file__)"
+   -     done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent))
+76 +     done = subprocess.run([str(python), "-c", code], check=False, env=env, capture_output=True, text=True, cwd=str(package.parent))
+77 |     located = done.stdout.strip()
+   |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+PLW1510 `subprocess.run` without explicit `check` argument
+  --> scripts/build-windows-bundle.py:93:12
+   |
+91 |     url = (output / "plugin" / "index.mjs").resolve().as_uri()
+92 |     env = {k: v for k, v in __import__("os").environ.items() if k != "AUTOSKILL_DEV_PYTHON"}
+93 |     done = subprocess.run([node, "--input-type=module", "-e", code, url], capture_output=True, text=True, env=env, encoding="utf-8")
+   |            ^^^^^^^^^^^^^^
+94 |     found = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
+95 |     if not found or found.get("python") != found.get("bundled") or not Path(found["skill"]).resolve().is_relative_to(output.resolve()):
+   |
+help: Add explicit `check=False`
+   |
+92 |     env = {k: v for k, v in __import__("os").environ.items() if k != "AUTOSKILL_DEV_PYTHON"}
+   -     done = subprocess.run([node, "--input-type=module", "-e", code, url], capture_output=True, text=True, env=env, encoding="utf-8")
+93 +     done = subprocess.run([node, "--input-type=module", "-e", code, url], check=False, capture_output=True, text=True, env=env, encoding="utf-8")
+94 |     found = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
+   |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+C901 `build` is too complex (17 > 15)
+   --> scripts/build-windows-bundle.py:99:5
+    |
+ 99 | def build(assets: Path, output: Path) -> dict:
+    |     ^^^^^
+100 |     if output.exists():
+101 |         raise ValueError("Output folder already exists; choose a new one")
+    |
+
+RUF005 Consider iterable unpacking instead of concatenation
+  --> scripts/publish-release.py:97:13
+   |
+95 |     checksum.write_text("".join(p["sha256"] + "  " + p["file"] + "\n" for p in packages), encoding="ascii")
+96 |     checksum_data = {"file": checksum.name, "bytes": checksum.stat().st_size, "sha256": hashlib.sha256(checksum.read_bytes()).hexdiges…
+97 |     files = list(zip(archives, packages)) + [(checksum, checksum_data)]
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+98 |     (args.proof / "archive-check.json").write_text(json.dumps(packages, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+99 |     notes = (f"## autoSkill {tag}\n\n提供 3 个按操作系统和 CPU 划分的安装包，另附 SHA256SUMS.txt：\n\n"
+   |
+help: Replace with iterable unpacking
+   |
+96 |     checksum_data = {"file": checksum.name, "bytes": checksum.stat().st_size, "sha256": hashlib.sha256(checksum.read_bytes()).hexdigest()}
+   -     files = list(zip(archives, packages)) + [(checksum, checksum_data)]
+97 +     files = [*list(zip(archives, packages)), (checksum, checksum_data)]
+98 |     (args.proof / "archive-check.json").write_text(json.dumps(packages, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+C901 `main` is too complex (16 > 15)
+  --> scripts/publish-windows-release.py:26:5
+   |
+26 | def main():
+   |     ^^^^
+27 |     parser = argparse.ArgumentParser(description=__doc__)
+28 |     for name in ('build', 'proof', 'result'):
+   |
+
+PLW1510 `subprocess.run` without explicit `check` argument
+  --> scripts/record-release-progress.py:40:9
+   |
+38 |         print('Progress write unavailable: ' + type(error).__name__)
+39 |     finally:
+40 |         subprocess.run(['git', 'worktree', 'remove', '--force', str(folder)], capture_output=True)
+   |         ^^^^^^^^^^^^^^
+help: Add explicit `check=False`
+   |
+39 |     finally:
+   -         subprocess.run(['git', 'worktree', 'remove', '--force', str(folder)], capture_output=True)
+40 +         subprocess.run(['git', 'worktree', 'remove', '--force', str(folder)], check=False, capture_output=True)
+41 |
+   |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+D100 Missing docstring in public module
+--> skills/autoskill/app/autoskill/__main__.py:1:1
+
+PLW1510 `subprocess.run` without explicit `check` argument
+   --> skills/autoskill/app/autoskill/bridge.py:143:24
+    |
+141 |         with out_path.open("wb") as out, err_path.open("wb") as err, in_path.open("rb") as stdin:
+142 |             try:
+143 |                 done = subprocess.run([sys.executable, "-m", "autoskill", *argv], stdin=stdin, stdout=out, stderr=err,
+    |                        ^^^^^^^^^^^^^^
+144 |                                       env=paths.child_env(extra), cwd=str(paths.workspace()), timeout=3500,
+145 |                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    |
+help: Add explicit `check=False`
+    |
+142 |             try:
+    -                 done = subprocess.run([sys.executable, "-m", "autoskill", *argv], stdin=stdin, stdout=out, stderr=err,
+143 +                 done = subprocess.run([sys.executable, "-m", "autoskill", *argv], check=False, stdin=stdin, stdout=out, stderr=err,
+144 |                                       env=paths.child_env(extra), cwd=str(paths.workspace()), timeout=3500,
+    |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+SIM105 Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`
+   --> skills/autoskill/app/autoskill/bridge.py:155:13
+    |
+153 |       finally:
+154 |           for file in (out_path, err_path, in_path):
+155 | /             try:
+156 | |                 file.unlink(missing_ok=True)
+157 | |             except OSError:
+158 | |                 pass
+    | |____________________^
+159 |       return {"exit": code, "stdout": stdout, "stderr": stderr}
+    |
+help: Replace `try`-`except`-`pass` with `with contextlib.suppress(OSError): ...`
+    |
+154 |         for file in (out_path, err_path, in_path):
+    -             try:
+155 +             with contextlib.suppress(OSError):
+156 |                 file.unlink(missing_ok=True)
+    -             except OSError:
+    -                 pass
+157 |     return {"exit": code, "stdout": stdout, "stderr": stderr}
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+PLW0603 Using the global statement to update `_loaded` is discouraged
+  --> skills/autoskill/app/autoskill/captcha.py:19:12
+   |
+18 | def _model():
+19 |     global _loaded
+   |            ^^^^^^^
+20 |     if _loaded is None:
+21 |         try:
+   |
+
+T201 `print` found
+  --> skills/autoskill/app/autoskill/cli.py:16:5
+   |
+15 | def emit(value: dict, code: int = 0) -> int:
+16 |     print(json.dumps(value, ensure_ascii=False, indent=1))
+   |     ^^^^^
+17 |     return code
+   |
+help: Remove `print`
+   |
+15 | def emit(value: dict, code: int = 0) -> int:
+   -     print(json.dumps(value, ensure_ascii=False, indent=1))
+16 |     return code
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/cli.py:272:20
+    |
+270 |                 finally:
+271 |                     driver.close()
+272 |             except Exception as error:
+    |                    ^^^^^^^^^
+273 |                 report[engine] = "启动失败：" + (str(error) or type(error).__name__)[:1800]
+274 |     finally:
+    |
+
+C901 `dispatch` is too complex (38 > 15)
+   --> skills/autoskill/app/autoskill/cli.py:316:5
+    |
+316 | def dispatch(args) -> tuple[dict, int]:
+    |     ^^^^^^^^
+317 |     command, action = args.command, getattr(args, "action", None)
+318 |     if command == "project":
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/cli.py:491:12
+    |
+489 |         finally:
+490 |             sys.stdout = real_stdout
+491 |     except Exception as error:
+    |            ^^^^^^^^^
+492 |         from .recorder.agent import AgentError
+493 |         from .recorder.session import RecordError
+    |
+
+SIM103 Return the condition directly
+   --> skills/autoskill/app/autoskill/core/store.py:134:5
+    |
+132 |       if any(meaningful_schema(v) for v in value.get("allOf", [])):
+133 |           return True
+134 | /     if any(key in value for key in ("anyOf", "oneOf")):
+135 | |         return True
+136 | |     return False
+    | |________________^
+help: Inline condition
+    |
+133 |         return True
+    -     if any(key in value for key in ("anyOf", "oneOf")):
+    -         return True
+    -     return False
+134 +     return bool(any(key in value for key in ("anyOf", "oneOf")))
+135 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+SIM102 Use a single `if` statement instead of nested `if` statements
+   --> skills/autoskill/app/autoskill/core/store.py:195:13
+    |
+193 |               normalized = re.sub(r"[^a-z0-9]", "", key.lower())
+194 |               target = location + "." + key
+195 | /             if (
+196 | |                 normalized in sensitive
+197 | |                 or normalized.endswith(("token", "secret", "apikey", "password", "cookie"))
+198 | |             ) and item not in ("", None):
+199 | |                 if not isinstance(item, str) or not SAFE_CREDENTIAL.fullmatch(item):
+    | |____________________________________________________________________________________^
+200 |                       errors.append(target + ": 敏感字段只能写成 ${ENV:名称} 或 {{变量}} 引用，不能写入真实值")
+201 |               errors.extend(credential_errors(item, target))
+    |
+help: Combine `if` statements using `and`
+    |
+197 |                 or normalized.endswith(("token", "secret", "apikey", "password", "cookie"))
+    -             ) and item not in ("", None):
+    -                 if not isinstance(item, str) or not SAFE_CREDENTIAL.fullmatch(item):
+    -                     errors.append(target + ": 敏感字段只能写成 ${ENV:名称} 或 {{变量}} 引用，不能写入真实值")
+198 +             ) and item not in ("", None) and (not isinstance(item, str) or not SAFE_CREDENTIAL.fullmatch(item)):
+199 +                 errors.append(target + ": 敏感字段只能写成 ${ENV:名称} 或 {{变量}} 引用，不能写入真实值")
+200 |             errors.extend(credential_errors(item, target))
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+C901 `validate` is too complex (42 > 15)
+   --> skills/autoskill/app/autoskill/core/store.py:208:5
+    |
+208 | def validate(p, check_results=True):
+    |     ^^^^^^^^
+209 |     import jsonschema
+    |
+
+PERF401 Use `list.extend` to create a transformed list
+   --> skills/autoskill/app/autoskill/core/store.py:261:21
+    |
+259 |             for rid in c["requirement_ids"]:
+260 |                 if rid not in req_ids:
+261 |                     errors.append(f"{cid}: 未知需求 {rid}")
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+262 |             if kind == "api":
+263 |                 a = c["assertions"]
+    |
+help: Replace for loop with list.extend
+
+PERF401 Use `list.extend` to create a transformed list
+   --> skills/autoskill/app/autoskill/core/store.py:277:25
+    |
+275 |                 for ptr in a.get("json_equals", {}):
+276 |                     if not valid_pointer(ptr):
+277 |                         errors.append(f"{cid}: 非法 JSON Pointer")
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+278 |     seen = set()
+279 |     result_schema = read(ROOT / "references/result.schema.json")
+    |
+help: Replace for loop with list.extend
+
+PLW2901 `for` loop variable `token` overwritten by assignment target
+   --> skills/autoskill/app/autoskill/core/store.py:432:9
+    |
+430 |         return v
+431 |     for token in ptr[1:].split("/"):
+432 |         token = token.replace("~1", "/").replace("~0", "~")
+    |         ^^^^^
+433 |         if isinstance(v, list):
+434 |             if not re.fullmatch(r"0|[1-9][0-9]*", token):
+    |
+
+C901 `run_api` is too complex (20 > 15)
+   --> skills/autoskill/app/autoskill/core/store.py:498:5
+    |
+498 | def run_api(p):
+    |     ^^^^^^^
+499 |     import httpx
+500 |     import jsonschema
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/core/store.py:621:20
+    |
+619 |             except ValueError as e:
+620 |                 r.update(status="Blocked", actual="", reason=str(e), assertions=[], evidence=[])
+621 |             except Exception as e:
+    |                    ^^^^^^^^^
+622 |                 r.update(
+623 |                     status="Blocked",
+    |
+
+T201 `print` found
+   --> skills/autoskill/app/autoskill/core/store.py:633:5
+    |
+631 |     write(p / "execution/api-results.json", results)
+632 |     require_valid(p)
+633 |     print(json.dumps(dict(collections.Counter(r["status"] for r in results)), ensure_ascii=False))
+    |     ^^^^^
+634 |     return results
+    |
+help: Remove `print`
+    |
+632 |     require_valid(p)
+    -     print(json.dumps(dict(collections.Counter(r["status"] for r in results)), ensure_ascii=False))
+633 |     return results
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+B007 Loop control variable `label` not used within loop body
+   --> skills/autoskill/app/autoskill/core/store.py:695:22
+    |
+693 |                 cell.data_type = "s"
+694 |         ws.auto_filter.ref = ws.dimensions
+695 |         for i, (key, label) in enumerate(cols, 1):
+    |                      ^^^^^
+696 |             ws.column_dimensions[ws.cell(1, i).column_letter].width = (
+697 |                 46 if key in ["steps", "expected", "actual", "extensions", "json", "assertions"] else 24
+    |
+help: Rename unused `label` to `_label`
+    |
+694 |         ws.auto_filter.ref = ws.dimensions
+    -         for i, (key, label) in enumerate(cols, 1):
+695 +         for i, (key, _label) in enumerate(cols, 1):
+696 |             ws.column_dimensions[ws.cell(1, i).column_letter].width = (
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+   --> skills/autoskill/app/autoskill/core/store.py:785:5
+    |
+783 |         },
+784 |     )
+785 |     print("Excel 和导出清单已生成")
+    |     ^^^^^
+help: Remove `print`
+    |
+784 |     )
+    -     print("Excel 和导出清单已生成")
+785 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+   --> skills/autoskill/app/autoskill/core/store.py:848:5
+    |
+846 |     ]
+847 |     (p / "output/测试执行报告.md").write_text("\n".join(text) + "\n", encoding="utf-8")
+848 |     print("报告已生成")
+    |     ^^^^^
+help: Remove `print`
+    |
+847 |     (p / "output/测试执行报告.md").write_text("\n".join(text) + "\n", encoding="utf-8")
+    -     print("报告已生成")
+848 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+   --> skills/autoskill/app/autoskill/core/store.py:881:5
+    |
+879 |             )
+880 |     write(p / "analysis/api-inventory.json", inv)
+881 |     print(f"导入 {len(inv)} 个接口；引用需分析阶段解析")
+    |     ^^^^^
+help: Remove `print`
+    |
+880 |     write(p / "analysis/api-inventory.json", inv)
+    -     print(f"导入 {len(inv)} 个接口；引用需分析阶段解析")
+881 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+   --> skills/autoskill/app/autoskill/core/store.py:889:21
+    |
+887 |             for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+888 |                 if query.casefold() in line.casefold():
+889 |                     print(f"{f.relative_to(p)}:{i}: {line}")
+    |                     ^^^^^
+help: Remove `print`
+    |
+888 |                 if query.casefold() in line.casefold():
+    -                     print(f"{f.relative_to(p)}:{i}: {line}")
+889 +                     pass
+890 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+C901 `save_cases` is too complex (20 > 15)
+   --> skills/autoskill/app/autoskill/core/store.py:938:5
+    |
+938 | def save_cases(p, incoming):
+    |     ^^^^^^^^^^
+939 |     """Replace a complete case catalog with snapshots and automatic revisions."""
+940 |     import jsonschema
+    |
+
+C901 `main` is too complex (16 > 15)
+    --> skills/autoskill/app/autoskill/core/store.py:1007:5
+     |
+1007 | def main():
+     |     ^^^^
+1008 |     ap = argparse.ArgumentParser(description=__doc__)
+1009 |     ap.add_argument(
+     |
+
+T201 `print` found
+    --> skills/autoskill/app/autoskill/core/store.py:1029:9
+     |
+1027 |     a = ap.parse_args()
+1028 |     if a.command == "doctor":
+1029 |         print(
+     |         ^^^^^
+1030 |             json.dumps(
+1031 |                 {
+     |
+help: Remove `print`
+     |
+1028 |     if a.command == "doctor":
+     -         print(
+     -             json.dumps(
+     -                 {
+     -                     "python": sys.version.split()[0],
+     -                     **{
+     -                         x: importlib.util.find_spec(x) is not None
+     -                         for x in ["httpx", "jsonschema", "openpyxl"]
+     -                     },
+     -                     "agent_browser_cli": shutil.which("agent-browser") is not None,
+     -                 },
+     -                 ensure_ascii=False,
+     -             )
+     -         )
+1029 |         return 0
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+    --> skills/autoskill/app/autoskill/core/store.py:1050:9
+     |
+1048 |     elif a.command == "validate":
+1049 |         require_valid(p)
+1050 |         print("校验通过")
+     |         ^^^^^
+1051 |     elif a.command == "coverage":
+1052 |         require_valid(p)
+     |
+help: Remove `print`
+     |
+1049 |         require_valid(p)
+     -         print("校验通过")
+1050 |     elif a.command == "coverage":
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+    --> skills/autoskill/app/autoskill/core/store.py:1054:9
+     |
+1052 |         require_valid(p)
+1053 |         cov = coverage(p)
+1054 |         print(json.dumps(cov, ensure_ascii=False))
+     |         ^^^^^
+1055 |         return 0 if cov["requirements"] and cov["covered"] == cov["requirements"] else 2
+1056 |     elif a.command == "run-api":
+     |
+help: Remove `print`
+     |
+1053 |         cov = coverage(p)
+     -         print(json.dumps(cov, ensure_ascii=False))
+1054 |         return 0 if cov["requirements"] and cov["covered"] == cov["requirements"] else 2
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+    --> skills/autoskill/app/autoskill/core/store.py:1067:9
+     |
+1065 |             ap.error("需要完整用例目录 JSON")
+1066 |         save_cases(p, read(Path(a.extra)))
+1067 |         print("用例已保存，版本和项目技能已同步")
+     |         ^^^^^
+1068 |     elif a.command == "sync-skills":
+1069 |         sync_skills(p)
+     |
+help: Remove `print`
+     |
+1066 |         save_cases(p, read(Path(a.extra)))
+     -         print("用例已保存，版本和项目技能已同步")
+1067 |     elif a.command == "sync-skills":
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+    --> skills/autoskill/app/autoskill/core/store.py:1070:9
+     |
+1068 |     elif a.command == "sync-skills":
+1069 |         sync_skills(p)
+1070 |         print("UI/API 项目用例 Skill 已生成")
+     |         ^^^^^
+1071 |     elif a.command == "search":
+1072 |         if not a.extra:
+     |
+help: Remove `print`
+     |
+1069 |         sync_skills(p)
+     -         print("UI/API 项目用例 Skill 已生成")
+1070 |     elif a.command == "search":
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+T201 `print` found
+    --> skills/autoskill/app/autoskill/core/store.py:1086:9
+     |
+1084 |         sys.exit(main())
+1085 |     except (ValueError, KeyError, OSError, ImportError, TypeError) as e:
+1086 |         print("错误: " + str(e), file=sys.stderr)
+     |         ^^^^^
+1087 |         sys.exit(1)
+     |
+help: Remove `print`
+     |
+1085 |     except (ValueError, KeyError, OSError, ImportError, TypeError) as e:
+     -         print("错误: " + str(e), file=sys.stderr)
+1086 |         sys.exit(1)
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+PLW1510 `subprocess.run` without explicit `check` argument
+  --> skills/autoskill/app/autoskill/platforms.py:46:16
+   |
+44 |         return {"ok": False, "error": "没有找到可执行文件"}
+45 |     try:
+46 |         done = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=12,
+   |                ^^^^^^^^^^^^^^
+47 |                               env=paths.child_env(), errors="replace")
+48 |         output = (done.stdout + done.stderr).strip()
+   |
+help: Add explicit `check=False`
+   |
+45 |     try:
+   -         done = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=12,
+46 +         done = subprocess.run([binary, "--version"], check=False, capture_output=True, text=True, timeout=12,
+47 |                               env=paths.child_env(), errors="replace")
+   |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+PERF401 Use `list.extend` to create a transformed list
+  --> skills/autoskill/app/autoskill/platforms.py:81:17
+   |
+79 |         for name in ("chromium", "chromium-browser", "google-chrome"):
+80 |             if shutil.which(name) and shutil.which("chromedriver"):
+81 |                 pairs.append((shutil.which(name), shutil.which("chromedriver")))
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+82 |     attempted = []
+83 |     for browser, driver_path in pairs:
+   |
+help: Replace for loop with list.extend
+
+T201 `print` found
+   --> skills/autoskill/app/autoskill/platforms.py:114:5
+    |
+112 |         result["doctor"] = doctor(True)
+113 |         result["ok"] = result["doctor"]["ok"]
+114 |     print(json.dumps(result, ensure_ascii=False, indent=2))
+    |     ^^^^^
+115 |     return 0 if result["ok"] else 2
+    |
+help: Remove `print`
+    |
+113 |         result["ok"] = result["doctor"]["ok"]
+    -     print(json.dumps(result, ensure_ascii=False, indent=2))
+114 |     return 0 if result["ok"] else 2
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+PLW2901 `for` loop variable `item` overwritten by assignment target
+   --> skills/autoskill/app/autoskill/projects.py:245:9
+    |
+243 |     merged = {c["id"]: c for c in cases(project_id, active_only=False)}
+244 |     for item in incoming:
+245 |         item = dict(item)
+    |         ^^^^
+246 |         if not item.get("requirement_ids"):
+247 |             item["requirement_ids"] = ["REQ-RECORDED"]
+    |
+
+SIM105 Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`
+  --> skills/autoskill/app/autoskill/recorder/agent.py:17:5
+   |
+16 |   def _discard(file: Path) -> None:
+17 | /     try:
+18 | |         file.unlink(missing_ok=True)
+19 | |     except OSError:
+20 | |         pass  # the browser daemon started by this command still holds the handle; swept later
+   | |____________^
+help: Replace `try`-`except`-`pass` with `with contextlib.suppress(OSError): ...`
+
+PLW1510 `subprocess.run` without explicit `check` argument
+  --> skills/autoskill/app/autoskill/recorder/agent.py:61:24
+   |
+59 |             stdin = in_path.open("rb") if stdin_text is not None else subprocess.DEVNULL
+60 |             try:
+61 |                 done = subprocess.run(command, stdin=stdin, stdout=out, stderr=err, env=paths.child_env(),
+   |                        ^^^^^^^^^^^^^^
+62 |                                       timeout=timeout, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+63 |             except subprocess.TimeoutExpired:
+   |
+help: Add explicit `check=False`
+   |
+60 |             try:
+   -                 done = subprocess.run(command, stdin=stdin, stdout=out, stderr=err, env=paths.child_env(),
+61 +                 done = subprocess.run(command, check=False, stdin=stdin, stdout=out, stderr=err, env=paths.child_env(),
+62 |                                       timeout=timeout, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+   |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+ARG001 Unused function argument: `allowed_origins`
+   --> skills/autoskill/app/autoskill/recorder/agent.py:108:17
+    |
+108 | def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False,
+    |                 ^^^^^^^^^^^^^^^
+109 |                 browser: str | None = None) -> list[str]:
+110 |     """Start the browser without a proxy fence, with optional login state."""
+    |
+
+C901 `add_business` is too complex (17 > 15)
+   --> skills/autoskill/app/autoskill/recorder/compile.py:150:9
+    |
+148 |         return json.dumps(parts, sort_keys=True, ensure_ascii=False)
+149 |
+150 |     def add_business(self, entry: dict, module: str, existing: dict) -> str | None:
+    |         ^^^^^^^^^^^^
+151 |         """Build (or reuse) the API case for one captured request. Returns 'new', 'reused' or None."""
+152 |         if entry["body_note"]:
+    |
+
+B007 Loop control variable `attempt` not used within loop body
+   --> skills/autoskill/app/autoskill/recorder/session.py:200:9
+    |
+198 |     started = time.monotonic()
+199 |     problem = ""
+200 |     for attempt in (1, 2):
+    |         ^^^^^^^
+201 |         try:
+202 |             agent.call(session_name(), ["open", url], timeout=90)
+    |
+help: Rename unused `attempt` to `_attempt`
+    |
+199 |     problem = ""
+    -     for attempt in (1, 2):
+200 +     for _attempt in (1, 2):
+201 |         try:
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+C901 `browser` is too complex (28 > 15)
+   --> skills/autoskill/app/autoskill/recorder/session.py:458:5
+    |
+458 | def browser(argv: list[str]) -> dict:
+    |     ^^^^^^^
+459 |     """Run one agent-browser command inside the recording and record it when it changes the page."""
+460 |     rec = current()
+    |
+
+PERF401 Use `list.extend` to create a transformed list
+  --> skills/autoskill/app/autoskill/replay/api.py:78:9
+   |
+76 |                        "expected": wanted, "actual": actual})
+77 |       for wanted in rules.get("body_contains", []):
+78 | /         rows.append({"name": "响应内容包含", "passed": wanted in response.text, "expected": wanted,
+79 | |                      "actual": "已包含" if wanted in response.text else "未包含"})
+   | |__________________________________________________________________________________^
+80 |       if "max_ms" in rules:
+81 |           rows.append({"name": "响应时间不超过(ms)", "passed": elapsed_ms <= rules["max_ms"],
+   |
+help: Replace for loop with list.extend
+
+C901 `pw_step` is too complex (16 > 15)
+  --> skills/autoskill/app/autoskill/replay/codegen.py:80:5
+   |
+80 | def pw_step(step: dict) -> str:
+   |     ^^^^^^^
+81 |     target = pw_locator(ir.locators(step)[0]) if ir.locators(step) else None
+82 |     if "action" in step:
+   |
+
+PLW0603 Using the global statement to update `_rand` is discouraged
+  --> skills/autoskill/app/autoskill/replay/ir.py:69:12
+   |
+68 | def set_rand(value: str) -> None:
+69 |     global _rand
+   |            ^^^^^
+70 |     _rand = value
+   |
+
+C901 `_check_step` is too complex (17 > 15)
+   --> skills/autoskill/app/autoskill/replay/ir.py:144:5
+    |
+144 | def _check_step(step: object, table: dict, key: str, where: str) -> None:
+    |     ^^^^^^^^^^^
+145 |     kind = "动作" if key == "action" else "断言"
+146 |     if not isinstance(step, dict) or step.get(key) not in table:
+    |
+
+ARG001 Unused function argument: `allowed`
+   --> skills/autoskill/app/autoskill/replay/ir.py:220:28
+    |
+220 | def check_origin(url: str, allowed: list[str]) -> None:
+    |                            ^^^^^^^
+221 |     """Validate URL shape; legacy allowed_origins no longer limits site traffic."""
+222 |     parts = urlsplit(url)
+    |
+
+PERF401 Use `list.extend` to create a transformed list
+  --> skills/autoskill/app/autoskill/replay/postman.py:43:9
+   |
+41 | …                  f"pm.expect((pm.response.headers.get({_js(name)}) || '').toLowerCase()).to.include({_js(str(wanted).lower())}));")
+42 | … for wanted in rules.get("body_contains", []):
+43 | …     lines.append(f"pm.test({_js('响应内容包含 ' + wanted[:40])}, () => pm.expect(pm.response.text()).to.include({_js(wanted)}));")
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+44 | … if "max_ms" in rules:
+45 | …     lines.append(f'pm.test("响应时间不超过 {rules["max_ms"]} ms", () => pm.expect(pm.response.responseTime).to.be.at.most({rules["max_m…
+   |
+help: Replace for loop with list.extend
+
+PERF401 Use a list comprehension to create a transformed list
+  --> skills/autoskill/app/autoskill/replay/selenium_driver.py:94:13
+   |
+92 |           cookies = []
+93 |           for c in self.wd.execute_cdp_cmd("Network.getAllCookies", {})["cookies"]:
+94 | /             cookies.append({"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c["path"],
+95 | |                             "expires": c.get("expires", -1), "httpOnly": c.get("httpOnly", False),
+96 | |                             "secure": c.get("secure", False), "sameSite": c.get("sameSite", "Lax")})
+   | |____________________________________________________________________________________________________^
+97 |           items = self.wd.execute_script("return Object.entries(localStorage).map(([name, value]) => ({name, value}));")
+98 |           return {"cookies": cookies, "origins": [{"origin": ir.origin_of(self.wd.current_url), "localStorage": items}]}
+   |
+help: Replace for loop with list comprehension
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/replay/tabs.py:116:12
+    |
+114 |     try:
+115 |         current = driver.current_window_handle
+116 |     except Exception:
+    |            ^^^^^^^^^
+117 |         current = handles[0]
+118 |     for handle in handles:
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/replay/tabs.py:136:16
+    |
+134 |         try:
+135 |             old = driver.current_window_handle
+136 |         except Exception:
+    |                ^^^^^^^^^
+137 |             old = None
+138 |         driver.switch_to.window(handle)
+    |
+
+PLW0108 Lambda may be unnecessary; consider inlining inner function
+   --> skills/autoskill/app/autoskill/replay/tabs.py:154:48
+    |
+152 |             time.sleep(0.05)
+153 |
+154 |     return Tabs(lambda: driver.window_handles, lambda h: driver.switch_to.window(h), create,
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+155 |                 close, url, ready, current)
+    |
+help: Inline function call
+    |
+153 |
+    -     return Tabs(lambda: driver.window_handles, lambda h: driver.switch_to.window(h), create,
+154 +     return Tabs(lambda: driver.window_handles, driver.switch_to.window, create,
+155 |                 close, url, ready, current)
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/replay/ui.py:100:16
+    |
+ 98 |         try:
+ 99 |             passed, actual = evaluate(driver, step, locator)
+100 |         except Exception as error:  # the element changed mid-read; keep polling
+    |                ^^^^^^^^^
+101 |             passed, actual = False, "读取失败：" + type(error).__name__
+102 |         if passed or time.monotonic() >= deadline:
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/replay/ui.py:240:12
+    |
+238 |             done = sum(1 for row in steps if not row.get("check"))
+239 |             outcome.update(status="Pass", actual=f"{done} 个步骤完成，{len(assertions)} 条断言通过")
+240 |     except Exception as error:  # every failure becomes a classified result, never a crash
+    |            ^^^^^^^^^
+241 |         category, message = classify(error)
+242 |         if steps and steps[-1]["status"] == "running":
+    |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> skills/autoskill/app/autoskill/replay/ui.py:256:9
+    |
+254 |               driver.screenshot(evidence_dir / screenshot_name)
+255 |               evidence.append(screenshot_name)
+256 | /         except Exception:
+257 | |             pass
+    | |________________^
+258 |       outcome.update(steps=steps, assertions=assertions, screenshots=evidence,
+259 |                      duration_ms=round((time.monotonic() - started) * 1000))
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/replay/ui.py:256:16
+    |
+254 |             driver.screenshot(evidence_dir / screenshot_name)
+255 |             evidence.append(screenshot_name)
+256 |         except Exception:
+    |                ^^^^^^^^^
+257 |             pass
+258 |     outcome.update(steps=steps, assertions=assertions, screenshots=evidence,
+    |
+
+DTZ005 `datetime.datetime.now()` called without a `tz` argument
+  --> skills/autoskill/app/autoskill/reporting.py:75:13
+   |
+73 |     info = projects.get(project_id)
+74 |     rows = _rows(project_id)
+75 |     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+   |             ^^^^^^^^^^^^^^^^^^^^^^^
+76 |     folder = Path(out) if out else paths.local() / "reports" / project_id
+77 |     folder.mkdir(parents=True, exist_ok=True)
+   |
+help: Pass a `datetime.timezone` object to the `tz` parameter
+
+B007 Loop control variable `key` not used within loop body
+  --> skills/autoskill/app/autoskill/reporting.py:88:17
+   |
+86 |         sheet.append([_text(row[key]) if key != "ms" else row[key] for key, _, _ in COLUMNS])
+87 |     head_fill = PatternFill("solid", fgColor="1C5CAB")
+88 |     for index, (key, _, width) in enumerate(COLUMNS, 1):
+   |                 ^^^
+89 |         cell = sheet.cell(1, index)
+90 |         cell.font, cell.fill = Font(color="FFFFFF", bold=True), head_fill
+   |
+help: Rename unused `key` to `_key`
+   |
+87 |     head_fill = PatternFill("solid", fgColor="1C5CAB")
+   -     for index, (key, _, width) in enumerate(COLUMNS, 1):
+88 +     for index, (_key, _, width) in enumerate(COLUMNS, 1):
+89 |         cell = sheet.cell(1, index)
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+DTZ005 `datetime.datetime.now()` called without a `tz` argument
+   --> skills/autoskill/app/autoskill/reporting.py:104:73
+    |
+103 |     overview = book.create_sheet("概览")
+104 |     lines = [("项目", info["name"]), ("被测地址", info["base_url"]), ("生成时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
+    |                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^
+105 |              ("用例总数", len(rows)), ("通过", counts["Pass"]), ("失败", counts["Fail"]), ("阻塞", counts["Blocked"]),
+106 |              ("未执行", counts[None]), ("通过率", f"{counts['Pass'] / judged:.1%}" if judged else "—"),
+    |
+help: Pass a `datetime.timezone` object to the `tz` parameter
+
+DTZ005 `datetime.datetime.now()` called without a `tz` argument
+   --> skills/autoskill/app/autoskill/reporting.py:121:21
+    |
+120 |     md = [f"# {info['name']} 测试报告", "", f"- 被测地址：{info['base_url']}",
+121 |           f"- 生成时间：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^
+122 |           f"- 用例 {len(rows)} 条：通过 {counts['Pass']}，失败 {counts['Fail']}，阻塞 {counts['Blocked']}，未执行 {counts[None]}",
+123 |           f"- 通过率：{counts['Pass'] / judged:.1%}（通过 ÷（通过 + 失败），阻塞与未执行不计入）" if judged else "- 通过率：—（还没…
+    |
+help: Pass a `datetime.timezone` object to the `tz` parameter
+
+SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+   --> skills/autoskill/app/autoskill/runner.py:131:13
+    |
+130 |                   time.sleep(1.5)  # leave the last page on screen for a moment
+131 | /             try:
+132 | |                 self.driver.close()
+133 | |             except Exception:
+134 | |                 pass
+    | |____________________^
+135 |
+136 |       def browser(self):
+    |
+help: Replace `try`-`except`-`pass` with `with contextlib.suppress(Exception): ...`
+    |
+16  | from .replay import api, ir, ui
+17  + import contextlib
+18  |
+--------------------------------------------------------------------------------
+131 |                 time.sleep(1.5)  # leave the last page on screen for a moment
+    -             try:
+132 +             with contextlib.suppress(Exception):
+133 |                 self.driver.close()
+    -             except Exception:
+    -                 pass
+134 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> skills/autoskill/app/autoskill/runner.py:133:13
+    |
+131 |               try:
+132 |                   self.driver.close()
+133 | /             except Exception:
+134 | |                 pass
+    | |____________________^
+135 |
+136 |       def browser(self):
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/runner.py:133:20
+    |
+131 |             try:
+132 |                 self.driver.close()
+133 |             except Exception:
+    |                    ^^^^^^^^^
+134 |                 pass
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/runner.py:142:20
+    |
+140 |             except ValueError as error:
+141 |                 self.driver_error = str(error)
+142 |             except Exception as error:
+    |                    ^^^^^^^^^
+143 |                 reason = paths.restricted()
+144 |                 detail = str(error).strip().splitlines()[0][:200] if str(error).strip() else ""
+    |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> skills/autoskill/app/autoskill/runner.py:177:13
+    |
+175 |                               "assertions": [{"name": "登录态有效", "passed": True, "expected": True, "actual": True}],
+176 |                               "steps": [], "screenshots": [], "duration_ms": 0, "reused": True}
+177 | /             except Exception:
+178 | |                 pass
+    | |____________________^
+179 |           outcome = self.replay(case)
+180 |           if outcome["status"] == "Pass":
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/runner.py:177:20
+    |
+175 |                             "assertions": [{"name": "登录态有效", "passed": True, "expected": True, "actual": True}],
+176 |                             "steps": [], "screenshots": [], "duration_ms": 0, "reused": True}
+177 |             except Exception:
+    |                    ^^^^^^^^^
+178 |                 pass
+179 |         outcome = self.replay(case)
+    |
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/runner.py:264:16
+    |
+262 |             self.driver.goto(ir.absolute_url(automation["start_url"], self.config["base_url"]))
+263 |             return all(ui.check(self.driver, step, 3.0)["passed"] for step in automation.get("assertions", []))
+264 |         except Exception:
+    |                ^^^^^^^^^
+265 |             return False
+    |
+
+SIM108 Use ternary operator `outcome = blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed") if broken else session.run_one(case)` instead of `if`-`else`-block
+   --> skills/autoskill/app/autoskill/runner.py:305:13
+    |
+303 |   …     started_at = db.now()
+304 |   …     broken = next((d for d in projects.depends_on(case) if outcomes.get(d) != "Pass"), None)
+305 | / …     if broken:
+306 | | …         outcome = blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed")
+307 | | …     else:
+308 | | …         outcome = session.run_one(case)
+    | |_________________________________________^
+309 |   …     outcomes[case_id] = outcome["status"]
+310 |   …     record(run, case, outcome, prerequisite, started_at)
+    |
+help: Replace `if`-`else`-block with `outcome = blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed") if broken else session.run_one(case)`
+    |
+304 |             broken = next((d for d in projects.depends_on(case) if outcomes.get(d) != "Pass"), None)
+    -             if broken:
+    -                 outcome = blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed")
+    -             else:
+    -                 outcome = session.run_one(case)
+305 +             outcome = blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed") if broken else session.run_one(case)
+306 |             outcomes[case_id] = outcome["status"]
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+BLE001 Do not catch blind exception: `Exception`
+   --> skills/autoskill/app/autoskill/runner.py:319:12
+    |
+317 |     except ValueError as error:
+318 |         final, reason = "Blocked", str(error)
+319 |     except Exception as error:  # never leave a run stuck in Running
+    |            ^^^^^^^^^
+320 |         final, reason = "Blocked", "运行器出错：" + type(error).__name__
+321 |     finally:
+    |
+
+SIM105 Use `contextlib.suppress(ValueError, OSError)` instead of `try`-`except`-`pass`
+  --> skills/autoskill/app/autoskill/secrets.py:79:13
+   |
+77 |       if legacy.is_file():  # an older version sealed each value: carry over what this user can still read, once
+78 |           for name, blob in json.loads(legacy.read_text(encoding="utf-8")).items():
+79 | /             try:
+80 | |                 data[name] = unseal(blob)
+81 | |             except (ValueError, OSError):
+82 | |                 pass  # sealed by another Windows user or machine (a copied folder): not set here
+   | |____________________^
+83 |           _write(data)
+84 |       return data
+   |
+help: Replace `try`-`except`-`pass` with `with contextlib.suppress(ValueError, OSError): ...`
+
+E741 Ambiguous variable name: `l`
+  --> skills/autoskill/app/autoskill/server/app.py:53:67
+   |
+51 |         view["start_url"] = automation.get("start_url")
+52 |         view["steps"] = [{"text": s.get("name") or ir.describe(s), "check": "assertion" in s,
+53 |                           "locators": [ir.describe_locator(l) for l in ir.locators(s)]}
+   |                                                                   ^
+54 |                          for s in [*automation.get("actions", []), *automation.get("assertions", [])]]
+55 |     else:
+   |
+
+C901 `create_app` is too complex (61 > 15)
+  --> skills/autoskill/app/autoskill/server/app.py:78:5
+   |
+78 | def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
+   |     ^^^^^^^^^^
+79 |     db.init()
+80 |     worker = jobs.Worker()
+   |
+
+ARG001 Unused function argument: `app`
+  --> skills/autoskill/app/autoskill/server/app.py:84:24
+   |
+83 |     @contextlib.asynccontextmanager
+84 |     async def lifespan(app: FastAPI):
+   |                        ^^^
+85 |         jobs.sweep()
+86 |         if any(p.get("id") == demo.PROJECT_ID and p.get("base_url") == demo.DEFAULT_URL for p in projects.list_all()):
+   |
+
+ARG001 Unused function argument: `request`
+   --> skills/autoskill/app/autoskill/server/app.py:116:27
+    |
+115 |     @app.exception_handler(ValueError)
+116 |     async def bad_request(request: Request, error: ValueError):
+    |                           ^^^^^^^
+117 |         return JSONResponse({"detail": str(error)}, status_code=400)
+    |
+
+ARG001 Unused function argument: `rest`
+   --> skills/autoskill/app/autoskill/server/app.py:359:17
+    |
+358 |     @app.get("/api/{rest:path}")
+359 |     def unknown(rest: str):
+    |                 ^^^^
+360 |         raise HTTPException(404, "没有这个接口")
+    |
+
+T201 `print` found
+   --> skills/autoskill/app/autoskill/server/app.py:371:5
+    |
+369 |     import uvicorn
+370 |
+371 |     print(f"autoSkill 仪表盘：http://127.0.0.1:{port}  （Ctrl+C 停止）", flush=True)
+    |     ^^^^^
+372 |     uvicorn.run(create_app(port), host="127.0.0.1", port=port, log_level="warning")
+    |
+help: Remove `print`
+    |
+370 |
+    -     print(f"autoSkill 仪表盘：http://127.0.0.1:{port}  （Ctrl+C 停止）", flush=True)
+371 |     uvicorn.run(create_app(port), host="127.0.0.1", port=port, log_level="warning")
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+  --> skills/autoskill/app/autoskill/server/jobs.py:88:13
+   |
+86 |                   sweep()
+87 |                   start_queued()
+88 | /             except Exception:
+89 | |                 pass  # state is durable; the next pass retries
+   | |____________________^
+
+BLE001 Do not catch blind exception: `Exception`
+  --> skills/autoskill/app/autoskill/server/jobs.py:88:20
+   |
+86 |                 sweep()
+87 |                 start_queued()
+88 |             except Exception:
+   |                    ^^^^^^^^^
+89 |                 pass  # state is durable; the next pass retries
+   |
+
+FURB162 Unnecessary timezone replacement with zero offset
+  --> skills/autoskill/app/autoskill/server/metrics.py:27:49
+   |
+25 |         return None
+26 |     try:
+27 |         value = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 |     except ValueError:
+29 |         raise ValueError("时间范围格式不正确") from None
+   |
+help: Remove `.replace()` call
+   |
+26 |     try:
+   -         value = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+27 +         value = datetime.datetime.fromisoformat(stamp)
+28 |     except ValueError:
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+FURB162 Unnecessary timezone replacement with zero offset
+  --> skills/autoskill/app/autoskill/server/scheduler.py:38:53
+   |
+36 |     if kind == "at":
+37 |         try:
+38 |             value = datetime.datetime.fromisoformat(str(rule.get("at", "")).replace("Z", "+00:00"))
+   |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+39 |         except ValueError:
+40 |             raise ValueError("执行时间格式不正确") from None
+   |
+help: Remove `.replace()` call
+   |
+37 |         try:
+   -             value = datetime.datetime.fromisoformat(str(rule.get("at", "")).replace("Z", "+00:00"))
+38 +             value = datetime.datetime.fromisoformat(str(rule.get("at", "")))
+39 |         except ValueError:
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+DTZ005 `datetime.datetime.now()` called without a `tz` argument
+  --> skills/autoskill/app/autoskill/share.py:74:13
+   |
+72 |     if passphrase is not None and len(passphrase) < 8:
+73 |         raise ValueError("口令至少 8 个字符")
+74 |     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+   |             ^^^^^^^^^^^^^^^^^^^^^^^
+75 |     target = Path(out) if out else paths.workspace() / f"autoskill-share-{stamp}.zip"
+76 |     if target.suffix.lower() != ".zip":  # a folder, existing or not
+   |
+help: Pass a `datetime.timezone` object to the `tz` parameter
+
+DTZ005 `datetime.datetime.now()` called without a `tz` argument
+   --> skills/autoskill/app/autoskill/share.py:108:13
+    |
+106 |     Leaves out workspace/.local: secrets, saved logins, run history and screenshots stay on this machine.
+107 |     """
+108 |     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    |             ^^^^^^^^^^^^^^^^^^^^^^^
+109 |     target = Path(out) if out else paths.SKILL.parent / f"autoskill-full-{stamp}.zip"
+110 |     if target.suffix.lower() != ".zip":  # a folder, existing or not
+    |
+help: Pass a `datetime.timezone` object to the `tz` parameter
+
+C901 `import_pack` is too complex (16 > 15)
+   --> skills/autoskill/app/autoskill/share.py:157:5
+    |
+157 | def import_pack(file: str, passphrase: str | None = None, overwrite: bool = False) -> dict:
+    |     ^^^^^^^^^^^
+158 |     """Import projects from a pack. Existing projects are kept unless `overwrite` is set."""
+159 |     source = Path(file)
+    |
+
+RET503 Missing explicit `return` at the end of function able to return non-`None` value
+   --> skills/autoskill/examples/ticket-desk/server.py:197:5
+    |
+195 |               self.error(HTTPStatus.BAD_REQUEST, "BAD_REQUEST")
+196 |
+197 | /     def api(self, path: str, query: dict) -> None:
+198 | |         method = self.command
+199 | |         state = self.state
+200 | |         if path == "/api/health" and method in ("GET", "HEAD"):
+201 | |             return self.send_json(200, {"status": "ok", "service": "ticket-desk"})
+202 | |         if path == "/api/login" and method == "POST":
+203 | |             body = self.read_json()
+204 | |             body = body if isinstance(body, dict) else {}
+205 | |             result = state.login(str(body.get("username", "")), str(body.get("password", "")))
+206 | |             if not result:
+207 | |                 return self.error(401, "INVALID_CREDENTIALS", message="账号或密码不正确")
+208 | |             token, user = result
+209 | |             cookie = f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax"
+210 | |             return self.send_json(200, {"token": token, "user": user}, {"Set-Cookie": cookie})
+211 | |         if path == "/api/test/reset" and method == "POST":
+212 | |             state.reset()
+213 | |             return self.send_json(200, {"reset": True})
+214 | |         if path == "/api/test/bug" and method == "POST":
+215 | |             # Demo aid: switch on a known defect (new tickets ignore the chosen priority)
+216 | |             # so that failing cases and their reports can be shown for real.
+217 | |             body = self.read_json()
+218 | |             state.bug = bool(isinstance(body, dict) and body.get("on"))
+219 | |             return self.send_json(200, {"bug": state.bug})
+220 | |         if path == "/api/test/expire-sessions" and method == "POST":
+221 | |             return self.send_json(200, {"expired": state.expire_all()})
+222 | |
+223 | |         user = self.current_user()
+224 | |         if not user:
+225 | |             return self.error(401, "UNAUTHENTICATED", message="请先登录")
+226 | |         if path == "/api/me" and method in ("GET", "HEAD"):
+227 | |             return self.send_json(200, user)
+228 | |         if path == "/api/logout" and method == "POST":
+229 | |             state.logout(self.token())
+230 | |             expired = f"{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+231 | |             return self.send_json(200, {"ok": True}, {"Set-Cookie": expired})
+232 | |         if path == "/api/tickets" and method in ("GET", "HEAD"):
+233 | |             status = (query.get("status") or [""])[0]
+234 | |             keyword = (query.get("q") or [""])[0].strip().casefold()
+235 | |             if status and status not in STATUSES:
+236 | |                 return self.error(422, "VALIDATION", fields={"status": "invalid"})
+237 | |             with state.lock:
+238 | |                 items = [
+239 | |                     dict(t)
+240 | |                     for t in state.tickets
+241 | |                     if (not status or t["status"] == status) and (not keyword or keyword in t["title"].casefold())
+242 | |                 ]
+243 | |             return self.send_json(200, {"items": items, "total": len(items)})
+244 | |         if path == "/api/tickets" and method == "POST":
+245 | |             if user["role"] != "admin":
+246 | |                 return self.error(403, "FORBIDDEN", message="当前角色不能新建工单")
+247 | |             values, errors = validate_ticket(self.read_json())
+248 | |             if errors:
+249 | |                 return self.error(422, "VALIDATION", fields=errors)
+250 | |             with state.lock:
+251 | |                 priority = "medium" if state.bug else values["priority"]
+252 | |                 ticket = dict(state._add(values["title"], priority, values["description"], user["id"]))
+253 | |             return self.send_json(201, ticket)
+254 | |         if path.startswith("/api/tickets/"):
+255 | |             ticket_id = path.rsplit("/", 1)[-1]
+256 | |             with state.lock:
+257 | |                 ticket = next((t for t in state.tickets if t["id"] == ticket_id), None)
+258 | |                 if not ticket:
+259 | |                     return self.error(404, "NOT_FOUND")
+260 | |                 if method in ("GET", "HEAD"):
+261 | |                     return self.send_json(200, dict(ticket))
+262 | |                 if method == "PATCH":
+263 | |                     if user["role"] != "admin":
+264 | |                         return self.error(403, "FORBIDDEN", message="当前角色不能修改工单")
+265 | |                     body = self.read_json()
+266 | |                     status = body.get("status") if isinstance(body, dict) else None
+267 | |                     if status not in STATUSES:
+268 | |                         return self.error(422, "VALIDATION", fields={"status": "invalid"})
+269 | |                     ticket["status"] = status
+270 | |                     return self.send_json(200, dict(ticket))
+271 | |         self.error(404, "NOT_FOUND")
+    | |____________________________________^
+272 |
+273 |       def static(self, path: str) -> None:
+    |
+help: Add explicit `return` statement
+    |
+271 |         self.error(404, "NOT_FOUND")
+272 +         return None
+273 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+C901 `api` is too complex (21 > 15)
+   --> skills/autoskill/examples/ticket-desk/server.py:197:9
+    |
+195 |             self.error(HTTPStatus.BAD_REQUEST, "BAD_REQUEST")
+196 |
+197 |     def api(self, path: str, query: dict) -> None:
+    |         ^^^
+198 |         method = self.command
+199 |         state = self.state
+    |
+
+RET503 Missing explicit `return` at the end of function able to return non-`None` value
+   --> skills/autoskill/examples/ticket-desk/server.py:273:5
+    |
+271 |           self.error(404, "NOT_FOUND")
+272 |
+273 | /     def static(self, path: str) -> None:
+274 | |         if self.command not in ("GET", "HEAD"):
+275 | |             return self.error(405, "METHOD_NOT_ALLOWED")
+276 | |         name = "index.html" if path in ("", "/") else path.lstrip("/")
+277 | |         file = (WEB / name).resolve()
+278 | |         if not file.is_relative_to(WEB) or not file.is_file():
+279 | |             return self.error(404, "NOT_FOUND")
+280 | |         data = file.read_bytes()
+281 | |         self.send_response(200)
+282 | |         self.send_header("Content-Type", CONTENT_TYPES.get(file.suffix, "application/octet-stream"))
+283 | |         self.send_header("Content-Length", str(len(data)))
+284 | |         self.send_header("Cache-Control", "no-store")
+285 | |         self.end_headers()
+286 | |         if self.command != "HEAD":
+287 | |             self.wfile.write(data)
+    | |__________________________________^
+help: Add explicit `return` statement
+    |
+287 |             self.wfile.write(data)
+288 +         return None
+289 |
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+PLW1510 `subprocess.run` without explicit `check` argument
+  --> tests/test_bridge.py:63:16
+   |
+61 |     def cli(self, *argv, sandboxed=True, **extra):
+62 |         home = {"USERPROFILE": str(self.home)} if sandboxed else {}
+63 |         done = subprocess.run([sys.executable, "-m", "autoskill", *argv], env=self.env(**home, **extra), capture_output=True,
+   |                ^^^^^^^^^^^^^^
+64 |                               text=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=120)
+65 |         return done.returncode, done.stdout, done.stderr
+   |
+help: Add explicit `check=False`
+   |
+62 |         home = {"USERPROFILE": str(self.home)} if sandboxed else {}
+   -         done = subprocess.run([sys.executable, "-m", "autoskill", *argv], env=self.env(**home, **extra), capture_output=True,
+63 +         done = subprocess.run([sys.executable, "-m", "autoskill", *argv], check=False, env=self.env(**home, **extra), capture_output=True,
+64 |                               text=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=120)
+   |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+RET503 Missing explicit `return` at the end of function able to return non-`None` value
+  --> tests/test_bridge.py:67:5
+   |
+65 |           return done.returncode, done.stdout, done.stderr
+66 |
+67 | /     def start_service(self) -> int:
+68 | |         port = free_port()
+69 | |         self.server = subprocess.Popen([sys.executable, "-m", "autoskill", "dashboard", "--port", str(port)], env=self.env(),
+70 | |                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+71 | |         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+72 | |         for _ in range(80):
+73 | |             try:
+74 | |                 with opener.open(f"http://127.0.0.1:{port}/api/status", timeout=1) as reply:
+75 | |                     if json.loads(reply.read())["bridge"] and paths.service_file().is_file():
+76 | |                         return port
+77 | |             except (OSError, ValueError, KeyError):
+78 | |                 pass
+79 | |             time.sleep(0.25)
+80 | |         self.fail("the service did not start")
+   | |______________________________________________^
+help: Add explicit `return` statement
+   |
+80 |         self.fail("the service did not start")
+81 +         return None
+82 |
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+RET503 Missing explicit `return` at the end of function able to return non-`None` value
+  --> tests/test_platform_release.py:17:9
+   |
+15 |       def test_bad_second_digest_keeps_all_final_assets(self):
+16 |           calls = []
+17 | /         def api(method, path, body=None, binary=None):
+18 | |             calls.append((method, path, body))
+19 | |             if path.startswith("/releases?"):
+20 | |                 return [{"id": 1, "tag_name": "vtest", "upload_url": "https://uploads.github.com/repo{?name}"}]
+21 | |             if path == "/releases/1/assets":
+22 | |                 return [{"id": 10, "name": "windows.zip"}, {"id": 11, "name": "linux.zip"}]
+23 | |             if method == "POST":
+24 | |                 return {"id": 20 if "windows.zip" in path else 21}
+25 | |             if path == "/releases/assets/20":
+26 | |                 return {"size": 3, "digest": "sha256:good"}
+27 | |             if path == "/releases/assets/21":
+28 | |                 return {"size": 3, "digest": "sha256:bad"}
+29 | |             self.fail("Unexpected mutation " + method + " " + path)
+   | |___________________________________________________________________^
+30 |           with tempfile.TemporaryDirectory() as folder:
+31 |               files = []
+   |
+help: Add explicit `return` statement
+   |
+29 |             self.fail("Unexpected mutation " + method + " " + path)
+30 +             return None
+31 |         with tempfile.TemporaryDirectory() as folder:
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:11:41
+   |
+10 | spec=importlib.util.spec_from_file_location('qa',str(Path(__file__).resolve().parents[1]/'skills/autoskill/scripts/qa.py'))
+11 | qa=importlib.util.module_from_spec(spec);spec.loader.exec_module(qa)
+   |                                         ^
+12 | class Handler(BaseHTTPRequestHandler):
+13 |     count=0
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:16:32
+   |
+14 |     def do_GET(self):
+15 |         type(self).count+=1
+16 |         self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(b'{"code":0,"s…
+   |                                ^
+17 |     def log_message(self,*a):pass
+18 | class Tests(unittest.TestCase):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:16:84
+   |
+14 |     def do_GET(self):
+15 |         type(self).count+=1
+16 |         self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(b'{"code":0,"s…
+   |                                                                                    ^
+17 |     def log_message(self,*a):pass
+18 | class Tests(unittest.TestCase):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:16:103
+   |
+14 |     def do_GET(self):
+15 |         type(self).count+=1
+16 |         self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(b'{"code":0,"s…
+   |                                                                                                       ^
+17 |     def log_message(self,*a):pass
+18 | class Tests(unittest.TestCase):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:21:64
+   |
+19 |     @classmethod
+20 |     def setUpClass(cls):
+21 |         cls.server=ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=cls.server.serve_forever,daemon=True).start()
+   |                                                                ^
+22 |         cls.origin='http://127.0.0.1:'+str(cls.server.server_port)
+23 |     @classmethod
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:24:49
+   |
+22 |         cls.origin='http://127.0.0.1:'+str(cls.server.server_port)
+23 |     @classmethod
+24 |     def tearDownClass(cls):cls.server.shutdown();cls.server.server_close()
+   |                                                 ^
+25 |     def setUp(self):
+26 |         self.tmp=tempfile.TemporaryDirectory();self.p=Path(self.tmp.name)/'project';qa.init(self.p)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:26:47
+   |
+24 |     def tearDownClass(cls):cls.server.shutdown();cls.server.server_close()
+25 |     def setUp(self):
+26 |         self.tmp=tempfile.TemporaryDirectory();self.p=Path(self.tmp.name)/'project';qa.init(self.p)
+   |                                               ^
+27 |         qa.write(self.p/'analysis/requirements.json',[{'id':'REQ-1','module':'M','title':'reads code','source':'PRD#1'}])
+28 |         self.c={'schema_version':'1.0.0','id':'TC-API-1','kind':'api','revision':1,'lifecycle':'active','requirement_ids':['REQ-1'],'m…
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:26:84
+   |
+24 |     def tearDownClass(cls):cls.server.shutdown();cls.server.server_close()
+25 |     def setUp(self):
+26 |         self.tmp=tempfile.TemporaryDirectory();self.p=Path(self.tmp.name)/'project';qa.init(self.p)
+   |                                                                                    ^
+27 |         qa.write(self.p/'analysis/requirements.json',[{'id':'REQ-1','module':'M','title':'reads code','source':'PRD#1'}])
+28 |         self.c={'schema_version':'1.0.0','id':'TC-API-1','kind':'api','revision':1,'lifecycle':'active','requirement_ids':['REQ-1'],'m…
+   |
+
+E501 Line too long (466 > 200)
+  --> tests/test_qa_engine.py:28:201
+   |
+26 | …
+27 | …
+28 | …ailable','steps':['GET /ok'],'test_data':{},'expected':'200 and code 0','source':'OpenAPI','risk':'read','tags':[],'extensions':{},'api_source':'openapi','source_ref':'input/spec.json#/ok','method':'GET','path':'/ok','assertions':{'status':200,'json_equals':{'/code':0}}}
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 | …
+30 | …
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:29:29
+   |
+27 |         qa.write(self.p/'analysis/requirements.json',[{'id':'REQ-1','module':'M','title':'reads code','source':'PRD#1'}])
+28 |         self.c={'schema_version':'1.0.0','id':'TC-API-1','kind':'api','revision':1,'lifecycle':'active','requirement_ids':['REQ-1'],'m…
+29 |         self.cases([self.c]);self.cfg={'mode':'auto','execution_authorized':True,'base_url':self.origin,'allowed_origins':[self.origin…
+   |                             ^
+30 |     def tearDown(self):self.tmp.cleanup()
+31 |     def cases(self,cases):qa.write(self.p/'testcases/api-cases.json',cases)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:29:152
+   |
+27 | …le':'reads code','source':'PRD#1'}])
+28 | …ifecycle':'active','requirement_ids':['REQ-1'],'module':'M','title':'read','priority':'P1','preconditions':'available','steps':['GET …
+29 | …e_url':self.origin,'allowed_origins':[self.origin],'approvals':[]};self.config(self.cfg)
+   |                                                                    ^
+30 | …
+31 | …
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:34:65
+   |
+32 |     def config(self,cfg):qa.write(self.p/'qa-config.json',cfg)
+33 |     def test_real_assertions_export_and_no_response_secret(self):
+34 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass');self.assertFalse(qa.validate(self.p))
+   |                                                                 ^
+35 |         qa.export(self.p);qa.report(self.p)
+36 |         manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],qa.VERSION)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:35:26
+   |
+33 |     def test_real_assertions_export_and_no_response_secret(self):
+34 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass');self.assertFalse(qa.validate(self.p))
+35 |         qa.export(self.p);qa.report(self.p)
+   |                          ^
+36 |         manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],qa.VERSION)
+37 |         for f in (self.p/'execution/logs').glob('*.json'):self.assertNotIn('must-never-be-saved',f.read_text(encoding='utf-8'))
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:36:63
+   |
+34 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass');self.assertFalse(qa.validate(self.p))
+35 |         qa.export(self.p);qa.report(self.p)
+36 |         manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],qa.VERSION)
+   |                                                               ^
+37 |         for f in (self.p/'execution/logs').glob('*.json'):self.assertNotIn('must-never-be-saved',f.read_text(encoding='utf-8'))
+38 |         self.assertEqual(qa.coverage(self.p)['ratio'],1)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_qa_engine.py:37:58
+   |
+35 |         qa.export(self.p);qa.report(self.p)
+36 |         manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],qa.VERSION)
+37 |         for f in (self.p/'execution/logs').glob('*.json'):self.assertNotIn('must-never-be-saved',f.read_text(encoding='utf-8'))
+   |                                                          ^
+38 |         self.assertEqual(qa.coverage(self.p)['ratio'],1)
+39 |     def test_http_clients_use_configured_proxy_for_public_targets(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:60:47
+   |
+58 |             self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass')
+59 |     def test_no_authorization_means_no_request(self):
+60 |         self.cfg['execution_authorized']=False;self.config(self.cfg);n=Handler.count
+   |                                               ^
+61 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+62 |     def test_inferred_is_blocked(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:60:69
+   |
+58 |             self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass')
+59 |     def test_no_authorization_means_no_request(self):
+60 |         self.cfg['execution_authorized']=False;self.config(self.cfg);n=Handler.count
+   |                                                                     ^
+61 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+62 |     def test_inferred_is_blocked(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:61:68
+   |
+59 |     def test_no_authorization_means_no_request(self):
+60 |         self.cfg['execution_authorized']=False;self.config(self.cfg);n=Handler.count
+61 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+   |                                                                    ^
+62 |     def test_inferred_is_blocked(self):
+63 |         self.c['api_source']='inferred';self.cases([self.c]);n=Handler.count
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:63:40
+   |
+61 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+62 |     def test_inferred_is_blocked(self):
+63 |         self.c['api_source']='inferred';self.cases([self.c]);n=Handler.count
+   |                                        ^
+64 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+65 |     def test_write_needs_specific_approval(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:63:61
+   |
+61 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+62 |     def test_inferred_is_blocked(self):
+63 |         self.c['api_source']='inferred';self.cases([self.c]);n=Handler.count
+   |                                                             ^
+64 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+65 |     def test_write_needs_specific_approval(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:64:68
+   |
+62 |     def test_inferred_is_blocked(self):
+63 |         self.c['api_source']='inferred';self.cases([self.c]);n=Handler.count
+64 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+   |                                                                    ^
+65 |     def test_write_needs_specific_approval(self):
+66 |         self.c.update(method='POST',risk='read');self.cases([self.c]);n=Handler.count
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:66:49
+   |
+64 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+65 |     def test_write_needs_specific_approval(self):
+66 |         self.c.update(method='POST',risk='read');self.cases([self.c]);n=Handler.count
+   |                                                 ^
+67 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+68 |     def test_bad_assertion_fails_and_archive_preserves_evidence(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:66:70
+   |
+64 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+65 |     def test_write_needs_specific_approval(self):
+66 |         self.c.update(method='POST',risk='read');self.cases([self.c]);n=Handler.count
+   |                                                                      ^
+67 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+68 |     def test_bad_assertion_fails_and_archive_preserves_evidence(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:67:68
+   |
+65 |     def test_write_needs_specific_approval(self):
+66 |         self.c.update(method='POST',risk='read');self.cases([self.c]);n=Handler.count
+67 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+   |                                                                    ^
+68 |     def test_bad_assertion_fails_and_archive_preserves_evidence(self):
+69 |         self.c['assertions']['json_equals']['/code']=1;self.cases([self.c]);self.assertEqual(qa.run_api(self.p)[0]['status'],'Fail')
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:69:55
+   |
+67 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+68 |     def test_bad_assertion_fails_and_archive_preserves_evidence(self):
+69 |         self.c['assertions']['json_equals']['/code']=1;self.cases([self.c]);self.assertEqual(qa.run_api(self.p)[0]['status'],'Fail')
+   |                                                       ^
+70 |         qa.run_api(self.p);self.assertTrue(list((self.p/'execution/history').rglob('api-results.json')))
+71 |     def test_stale_result_rejected(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:69:76
+   |
+67 |         self.assertEqual(qa.run_api(self.p)[0]['status'],'Blocked');self.assertEqual(Handler.count,n)
+68 |     def test_bad_assertion_fails_and_archive_preserves_evidence(self):
+69 |         self.c['assertions']['json_equals']['/code']=1;self.cases([self.c]);self.assertEqual(qa.run_api(self.p)[0]['status'],'Fail')
+   |                                                                            ^
+70 |         qa.run_api(self.p);self.assertTrue(list((self.p/'execution/history').rglob('api-results.json')))
+71 |     def test_stale_result_rejected(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:70:27
+   |
+68 |     def test_bad_assertion_fails_and_archive_preserves_evidence(self):
+69 |         self.c['assertions']['json_equals']['/code']=1;self.cases([self.c]);self.assertEqual(qa.run_api(self.p)[0]['status'],'Fail')
+70 |         qa.run_api(self.p);self.assertTrue(list((self.p/'execution/history').rglob('api-results.json')))
+   |                           ^
+71 |     def test_stale_result_rejected(self):
+72 |         qa.run_api(self.p);self.c['revision']=2;self.cases([self.c]);self.assertTrue(any('旧版本' in x for x in qa.validate(self.p)))
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:72:27
+   |
+70 |         qa.run_api(self.p);self.assertTrue(list((self.p/'execution/history').rglob('api-results.json')))
+71 |     def test_stale_result_rejected(self):
+72 |         qa.run_api(self.p);self.c['revision']=2;self.cases([self.c]);self.assertTrue(any('旧版本' in x for x in qa.validate(self.p)))
+   |                           ^
+73 |     def test_no_200_only_or_unknown_assertions(self):
+74 |         self.c['assertions']={'status':200};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:72:48
+   |
+70 |         qa.run_api(self.p);self.assertTrue(list((self.p/'execution/history').rglob('api-results.json')))
+71 |     def test_stale_result_rejected(self):
+72 |         qa.run_api(self.p);self.c['revision']=2;self.cases([self.c]);self.assertTrue(any('旧版本' in x for x in qa.validate(self.p)))
+   |                                                ^
+73 |     def test_no_200_only_or_unknown_assertions(self):
+74 |         self.c['assertions']={'status':200};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:72:69
+   |
+70 |         qa.run_api(self.p);self.assertTrue(list((self.p/'execution/history').rglob('api-results.json')))
+71 |     def test_stale_result_rejected(self):
+72 |         qa.run_api(self.p);self.c['revision']=2;self.cases([self.c]);self.assertTrue(any('旧版本' in x for x in qa.validate(self.p)))
+   |                                                                     ^
+73 |     def test_no_200_only_or_unknown_assertions(self):
+74 |         self.c['assertions']={'status':200};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:74:44
+   |
+72 |         qa.run_api(self.p);self.c['revision']=2;self.cases([self.c]);self.assertTrue(any('旧版本' in x for x in qa.validate(self.p)))
+73 |     def test_no_200_only_or_unknown_assertions(self):
+74 |         self.c['assertions']={'status':200};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |                                            ^
+75 |         self.c['assertions']={'status':200,'made_up':1};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+76 |     def test_path_escape_and_origin(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:74:65
+   |
+72 |         qa.run_api(self.p);self.c['revision']=2;self.cases([self.c]);self.assertTrue(any('旧版本' in x for x in qa.validate(self.p)))
+73 |     def test_no_200_only_or_unknown_assertions(self):
+74 |         self.c['assertions']={'status':200};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |                                                                 ^
+75 |         self.c['assertions']={'status':200,'made_up':1};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+76 |     def test_path_escape_and_origin(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:75:56
+   |
+73 |     def test_no_200_only_or_unknown_assertions(self):
+74 |         self.c['assertions']={'status':200};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+75 |         self.c['assertions']={'status':200,'made_up':1};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |                                                        ^
+76 |     def test_path_escape_and_origin(self):
+77 |         for bad in ['//evil.test/a','/%2e%2e/x','/a/../x','/a\\x','https://evil.test','/x?q=y','/%252f%252fevil.test']:
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:75:77
+   |
+73 |     def test_no_200_only_or_unknown_assertions(self):
+74 |         self.c['assertions']={'status':200};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+75 |         self.c['assertions']={'status':200,'made_up':1};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |                                                                             ^
+76 |     def test_path_escape_and_origin(self):
+77 |         for bad in ['//evil.test/a','/%2e%2e/x','/a/../x','/a\\x','https://evil.test','/x?q=y','/%252f%252fevil.test']:
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_qa_engine.py:80:51
+   |
+78 |             with self.subTest(bad=bad):
+79 |                 c=dict(self.c,path=bad)
+80 |                 with self.assertRaises(ValueError):qa.request_url(self.cfg,c)
+   |                                                   ^
+81 |         self.assertEqual(qa.request_url(dict(self.cfg,allowed_origins=[]),self.c),qa.request_url(self.cfg,self.c))
+82 |     def test_excel_formula_is_text(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:84:31
+   |
+82 |     def test_excel_formula_is_text(self):
+83 |         from openpyxl import load_workbook
+84 |         self.c['title']='=1+1';self.cases([self.c]);qa.export(self.p)
+   |                               ^
+85 |         wb=load_workbook(self.p/'output/接口测试用例.xlsx');ws=wb['测试用例'];col=[c.value for c in ws[1]].index('用例标题')+1
+86 |         self.assertEqual(ws.cell(2,col).data_type,'s');wb.close()
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:84:52
+   |
+82 |     def test_excel_formula_is_text(self):
+83 |         from openpyxl import load_workbook
+84 |         self.c['title']='=1+1';self.cases([self.c]);qa.export(self.p)
+   |                                                    ^
+85 |         wb=load_workbook(self.p/'output/接口测试用例.xlsx');ws=wb['测试用例'];col=[c.value for c in ws[1]].index('用例标题')+1
+86 |         self.assertEqual(ws.cell(2,col).data_type,'s');wb.close()
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:85:54
+   |
+83 |         from openpyxl import load_workbook
+84 |         self.c['title']='=1+1';self.cases([self.c]);qa.export(self.p)
+85 |         wb=load_workbook(self.p/'output/接口测试用例.xlsx');ws=wb['测试用例'];col=[c.value for c in ws[1]].index('用例标题')+1
+   |                                                            ^
+86 |         self.assertEqual(ws.cell(2,col).data_type,'s');wb.close()
+87 |     def test_pointer_array_negative_rejected(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:85:68
+   |
+83 |         from openpyxl import load_workbook
+84 |         self.c['title']='=1+1';self.cases([self.c]);qa.export(self.p)
+85 |         wb=load_workbook(self.p/'output/接口测试用例.xlsx');ws=wb['测试用例'];col=[c.value for c in ws[1]].index('用例标题')+1
+   |                                                                              ^
+86 |         self.assertEqual(ws.cell(2,col).data_type,'s');wb.close()
+87 |     def test_pointer_array_negative_rejected(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:86:55
+   |
+84 |         self.c['title']='=1+1';self.cases([self.c]);qa.export(self.p)
+85 |         wb=load_workbook(self.p/'output/接口测试用例.xlsx');ws=wb['测试用例'];col=[c.value for c in ws[1]].index('用例标题')+1
+86 |         self.assertEqual(ws.cell(2,col).data_type,'s');wb.close()
+   |                                                       ^
+87 |     def test_pointer_array_negative_rejected(self):
+88 |         with self.assertRaises(KeyError):qa.pointer([1], '/-1')
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_qa_engine.py:88:41
+   |
+86 |         self.assertEqual(ws.cell(2,col).data_type,'s');wb.close()
+87 |     def test_pointer_array_negative_rejected(self):
+88 |         with self.assertRaises(KeyError):qa.pointer([1], '/-1')
+   |                                         ^
+89 |     def test_schema_version_and_unknown_requirement(self):
+90 |         self.c['schema_version']='2.0.0';self.c['requirement_ids']=['unknown'];self.cases([self.c]);self.assertTrue(qa.validate(self.p…
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:90:41
+   |
+88 |         with self.assertRaises(KeyError):qa.pointer([1], '/-1')
+89 |     def test_schema_version_and_unknown_requirement(self):
+90 |         self.c['schema_version']='2.0.0';self.c['requirement_ids']=['unknown'];self.cases([self.c]);self.assertTrue(qa.validate(self.p…
+   |                                         ^
+91 | if __name__=='__main__':unittest.main(verbosity=2)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:90:79
+   |
+88 |         with self.assertRaises(KeyError):qa.pointer([1], '/-1')
+89 |     def test_schema_version_and_unknown_requirement(self):
+90 |         self.c['schema_version']='2.0.0';self.c['requirement_ids']=['unknown'];self.cases([self.c]);self.assertTrue(qa.validate(self.p…
+   |                                                                               ^
+91 | if __name__=='__main__':unittest.main(verbosity=2)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_qa_engine.py:90:100
+   |
+88 |         with self.assertRaises(KeyError):qa.pointer([1], '/-1')
+89 |     def test_schema_version_and_unknown_requirement(self):
+90 |         self.c['schema_version']='2.0.0';self.c['requirement_ids']=['unknown'];self.cases([self.c]);self.assertTrue(qa.validate(self.p…
+   |                                                                                                    ^
+91 | if __name__=='__main__':unittest.main(verbosity=2)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_qa_engine.py:91:24
+   |
+89 |     def test_schema_version_and_unknown_requirement(self):
+90 |         self.c['schema_version']='2.0.0';self.c['requirement_ids']=['unknown'];self.cases([self.c]);self.assertTrue(qa.validate(self.p…
+91 | if __name__=='__main__':unittest.main(verbosity=2)
+   |                        ^
+
+RET503 Missing explicit `return` at the end of function able to return non-`None` value
+  --> tests/test_release_publishing.py:38:13
+   |
+36 |               manifest.write_text(json.dumps({'autoskill': version}))
+37 |
+38 | /             def fake_api(method, path, body=None, binary=None):
+39 | |                 calls.append((method, path))
+40 | |                 if path.startswith('/releases?'):
+41 | |                     return [{'id': 1, 'tag_name': tag, 'upload_url': 'https://uploads.github.com/example{?name}'}]
+42 | |                 if path == '/releases/1/assets':
+43 | |                     return [{'id': 10, 'name': archive.name}]
+44 | |                 if method == 'POST':
+45 | |                     return {'id': 11}
+46 | |                 if path == '/releases/assets/11':
+47 | |                     return {'id': 11, 'size': archive.stat().st_size, 'digest': 'sha256:wrong'}
+48 | |                 self.fail('Unexpected mutation: ' + str((method, path)))
+   | |________________________________________________________________________^
+49 |
+50 |               env = {'RELEASE_TAG': tag, 'RELEASE_COMMIT': 'test', 'RELEASE_REPOSITORY': 'example/repo'}
+   |
+help: Add explicit `return` statement
+   |
+48 |                 self.fail('Unexpected mutation: ' + str((method, path)))
+49 +                 return None
+50 |
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+SIM105 Use `contextlib.suppress(ConnectionError)` instead of `try`-`except`-`pass`
+  --> tests/test_replay_ui.py:28:9
+   |
+27 |       def handle(self):
+28 | /         try:
+29 | |             super().handle()
+30 | |         except ConnectionError:  # the browser closed a keep-alive socket
+31 | |             pass
+   | |________________^
+help: Replace `try`-`except`-`pass` with `with contextlib.suppress(ConnectionError): ...`
+
+SIM105 Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`
+  --> tests/test_slow_pages.py:47:9
+   |
+45 |           self.send_header("Content-Length", str(len(body)))
+46 |           self.end_headers()
+47 | /         try:
+48 | |             self.wfile.write(body)
+49 | |         except OSError:
+50 | |             pass  # the browser went away
+   | |________________^
+help: Replace `try`-`except`-`pass` with `with contextlib.suppress(OSError): ...`
+
+SIM105 Use `contextlib.suppress(ConnectionError)` instead of `try`-`except`-`pass`
+  --> tests/test_tabs.py:30:9
+   |
+29 |       def handle(self):
+30 | /         try:
+31 | |             super().handle()
+32 | |         except ConnectionError:
+33 | |             pass  # Closing a tab can reset an idle HTTP connection on Windows.
+   | |________________^
+34 |
+35 |       def do_GET(self):
+   |
+help: Replace `try`-`except`-`pass` with `with contextlib.suppress(ConnectionError): ...`
+
+PLW1510 `subprocess.run` without explicit `check` argument
+   --> tests/test_tabs.py:113:27
+    |
+111 |                     env = {**paths.child_env(), 'CHROME_BINARY': paths.chrome(), 'CHROMEDRIVER': paths.chromedriver(),
+112 |                            'NO_PROXY': 'localhost,127.0.0.1,::1', 'no_proxy': 'localhost,127.0.0.1,::1', 'TIMEOUT': '5'}
+113 |                     run = subprocess.run([sys.executable, str(file)], env=env, capture_output=True, text=True, timeout=45)
+    |                           ^^^^^^^^^^^^^^
+114 |                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+    |
+help: Add explicit `check=False`
+    |
+112 |                            'NO_PROXY': 'localhost,127.0.0.1,::1', 'no_proxy': 'localhost,127.0.0.1,::1', 'TIMEOUT': '5'}
+    -                     run = subprocess.run([sys.executable, str(file)], env=env, capture_output=True, text=True, timeout=45)
+113 +                     run = subprocess.run([sys.executable, str(file)], check=False, env=env, capture_output=True, text=True, timeout=45)
+114 |                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+    |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+E501 Line too long (207 > 200)
+  --> tests/test_validation.py:26:201
+   |
+25 | …
+26 | …_SECRET'}}), ('extensions', {'access_token': 'QA_SYNTHETIC_SECRET'})]:
+   |                                                                 ^^^^^^^
+27 | …
+28 | …
+   |
+
+PLW1510 `subprocess.run` without explicit `check` argument
+  --> tests/test_validation.py:57:18
+   |
+55 | …                 qa.write(self.p / rel, before)
+56 | …     qa.write(self.p / 'testcases/api-cases.json', {'cases': []})
+57 | …     result = subprocess.run([sys.executable, str(qa.ROOT / 'scripts/qa.py'), 'validate', str(self.p)], capture_output=True, text=Tru…
+   |                ^^^^^^^^^^^^^^
+58 | …     self.assertNotEqual(result.returncode, 0)
+59 | …     self.assertNotIn('Traceback', result.stderr)
+   |
+help: Add explicit `check=False`
+   |
+56 |         qa.write(self.p / 'testcases/api-cases.json', {'cases': []})
+   -         result = subprocess.run([sys.executable, str(qa.ROOT / 'scripts/qa.py'), 'validate', str(self.p)], capture_output=True, text=True)
+57 +         result = subprocess.run([sys.executable, str(qa.ROOT / 'scripts/qa.py'), 'validate', str(self.p)], check=False, capture_output=True, text=True)
+58 |         self.assertNotEqual(result.returncode, 0)
+   |
+note: This suggestion may be incorrect or produce invalid syntax. It requires manual review and cannot be applied automatically
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_validation.py:73:62
+   |
+71 |         for key in ['X-Api-Key','X-Auth-Token','client_secret']:
+72 |             with self.subTest(key=key):
+73 |                 self.c['headers']={key:'QA_SYNTHETIC_SECRET'};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |                                                              ^
+74 |
+75 |     def test_external_response_schema_is_rejected_without_request(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_validation.py:73:83
+   |
+71 |         for key in ['X-Api-Key','X-Auth-Token','client_secret']:
+72 |             with self.subTest(key=key):
+73 |                 self.c['headers']={key:'QA_SYNTHETIC_SECRET'};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |                                                                                   ^
+74 |
+75 |     def test_external_response_schema_is_rejected_without_request(self):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_validation.py:77:29
+   |
+75 |     def test_external_response_schema_is_rejected_without_request(self):
+76 |         self.c['assertions']={'status':200,'schema':{'type':'object','required':['code'],'properties':{'code':{'$ref':'https://externa…
+77 |         self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+   |                             ^
+78 |         with self.assertRaises(ValueError):qa.run_api(self.p)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_validation.py:78:43
+   |
+76 |         self.c['assertions']={'status':200,'schema':{'type':'object','required':['code'],'properties':{'code':{'$ref':'https://externa…
+77 |         self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+78 |         with self.assertRaises(ValueError):qa.run_api(self.p)
+   |                                           ^
+79 |
+80 |     def test_save_rejects_bad_schema_before_mutating_cases(self):
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_validation.py:83:43
+   |
+81 |         before=(self.p/'testcases/api-cases.json').read_bytes()
+82 |         self.c['assertions']={'status':200,'schema':{'type':5}}
+83 |         with self.assertRaises(ValueError):qa.save_cases(self.p,[self.c])
+   |                                           ^
+84 |         self.assertEqual((self.p/'testcases/api-cases.json').read_bytes(),before)
+   |
+
+Found 246 errors (93 fixed, 153 remaining).
+31 unsafe fixes available with `--fix --unsafe-fixes`.

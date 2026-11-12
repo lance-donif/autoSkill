@@ -113,7 +113,9 @@
 .banner { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-radius: var(--r-md); font-size: var(--t-sm); background: var(--warn-wash); color: var(--warn-ink); }
 .banner.bad { background: var(--bad-wash); color: var(--bad-ink); }
 .banner.info { background: var(--accent-wash); color: var(--accent-strong); }
+/* biome-ignore lint/style/noDescendingSpecificity: Banner icons retain their original cascade position after empty-state artwork. */
 .banner svg { width: 16px; height: 16px; margin-top: 2px; flex: none; }
+/* biome-ignore lint/style/noDescendingSpecificity: Banner buttons retain their original cascade position after table action controls. */
 .banner .btn { margin-left: auto; flex: none; }
 .progress { height: 6px; border-radius: 999px; background: var(--accent-wash); overflow: hidden; }
 .progress > i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transition: width var(--slow) var(--ease); }

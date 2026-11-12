@@ -241,8 +241,8 @@ def save_cases(project_id: str, incoming: list[dict]) -> list[dict]:
     requirements = store.read(folder / "analysis/requirements.json")
     known = {r["id"] for r in requirements}
     merged = {c["id"]: c for c in cases(project_id, active_only=False)}
-    for item in incoming:
-        item = dict(item)
+    for incoming_item in incoming:
+        item = dict(incoming_item)
         if not item.get("requirement_ids"):
             item["requirement_ids"] = ["REQ-RECORDED"]
         if "REQ-RECORDED" in item["requirement_ids"] and "REQ-RECORDED" not in known:

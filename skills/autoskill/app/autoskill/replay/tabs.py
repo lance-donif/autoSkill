@@ -113,7 +113,7 @@ def selenium_tabs(driver):
         raise ValueError("所有标签页都已关闭")
     try:
         current = driver.current_window_handle
-    except Exception:
+    except Exception:  # noqa: BLE001  # Closed-window failures vary by browser adapter; retain the existing fallback.
         current = handles[0]
     for handle in handles:
         if handle != current:
@@ -133,7 +133,7 @@ def selenium_tabs(driver):
     def url(handle):
         try:
             old = driver.current_window_handle
-        except Exception:
+        except Exception:  # noqa: BLE001  # A closing window can fail through different driver exception types.
             old = None
         driver.switch_to.window(handle)
         value = driver.current_url
@@ -151,5 +151,8 @@ def selenium_tabs(driver):
                 raise TimeoutError("标签页加载超时")
             time.sleep(0.05)
 
-    return Tabs(lambda: driver.window_handles, lambda h: driver.switch_to.window(h), create,
+    def activate(handle):
+        return driver.switch_to.window(handle)
+
+    return Tabs(lambda: driver.window_handles, activate, create,
                 close, url, ready, current)

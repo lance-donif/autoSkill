@@ -72,7 +72,7 @@ def build(project_id: str, out: str | None = None) -> dict:
 
     info = projects.get(project_id)
     rows = _rows(project_id)
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")  # noqa: DTZ005  # Report filenames use the machine's local wall clock.
     folder = Path(out) if out else paths.local() / "reports" / project_id
     folder.mkdir(parents=True, exist_ok=True)
     counts = {key: sum(r["status"] == key for r in rows) for key in ("Pass", "Fail", "Blocked", None)}
@@ -85,7 +85,7 @@ def build(project_id: str, out: str | None = None) -> dict:
     for row in rows:
         sheet.append([_text(row[key]) if key != "ms" else row[key] for key, _, _ in COLUMNS])
     head_fill = PatternFill("solid", fgColor="1C5CAB")
-    for index, (key, _, width) in enumerate(COLUMNS, 1):
+    for index, (_key, _, width) in enumerate(COLUMNS, 1):
         cell = sheet.cell(1, index)
         cell.font, cell.fill = Font(color="FFFFFF", bold=True), head_fill
         cell.alignment = Alignment(vertical="center")
@@ -101,7 +101,8 @@ def build(project_id: str, out: str | None = None) -> dict:
     sheet.auto_filter.ref = sheet.dimensions
 
     overview = book.create_sheet("概览")
-    lines = [("项目", info["name"]), ("被测地址", info["base_url"]), ("生成时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
+    lines = [("项目", info["name"]), ("被测地址", info["base_url"]),
+             ("生成时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),  # noqa: DTZ005  # Report text preserves local wall-clock time.
              ("用例总数", len(rows)), ("通过", counts["Pass"]), ("失败", counts["Fail"]), ("阻塞", counts["Blocked"]),
              ("未执行", counts[None]), ("通过率", f"{counts['Pass'] / judged:.1%}" if judged else "—"),
              ("口径", "每条用例取最近一次回放结果；通过率 = 通过 ÷（通过 + 失败），阻塞与未执行不计入。")]
@@ -118,7 +119,7 @@ def build(project_id: str, out: str | None = None) -> dict:
         return str(text).replace("|", "\\|").replace("\n", " ")
 
     md = [f"# {info['name']} 测试报告", "", f"- 被测地址：{info['base_url']}",
-          f"- 生成时间：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",
+          f"- 生成时间：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",  # noqa: DTZ005  # Report text preserves local wall-clock time.
           f"- 用例 {len(rows)} 条：通过 {counts['Pass']}，失败 {counts['Fail']}，阻塞 {counts['Blocked']}，未执行 {counts[None]}",
           f"- 通过率：{counts['Pass'] / judged:.1%}（通过 ÷（通过 + 失败），阻塞与未执行不计入）" if judged else "- 通过率：—（还没有可判定的结果）",
           "", "| 用例 | 类型 | 标题 | 最近结果 | 原因 |", "| --- | --- | --- | --- | --- |"]

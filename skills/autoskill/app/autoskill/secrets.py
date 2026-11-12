@@ -7,6 +7,7 @@ what older versions stored encrypted.
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import os
 import re
@@ -76,10 +77,9 @@ def _load() -> dict:
     data, legacy = {}, paths.local() / "secrets.json"
     if legacy.is_file():  # an older version sealed each value: carry over what this user can still read, once
         for name, blob in json.loads(legacy.read_text(encoding="utf-8")).items():
-            try:
+            # A copied store may contain entries sealed by another user or machine.
+            with contextlib.suppress(ValueError, OSError):
                 data[name] = unseal(blob)
-            except (ValueError, OSError):
-                pass  # sealed by another Windows user or machine (a copied folder): not set here
         _write(data)
     return data
 

@@ -37,7 +37,7 @@ def main():
         # Publication validation does not depend on this optional progress write.
         print('Progress write unavailable: ' + type(error).__name__)
     finally:
-        subprocess.run(['git', 'worktree', 'remove', '--force', str(folder)], capture_output=True)
+        subprocess.run(['git', 'worktree', 'remove', '--force', str(folder)], capture_output=True, check=False)
 
 
 if __name__ == '__main__':

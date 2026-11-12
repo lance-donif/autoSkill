@@ -34,7 +34,7 @@ export function applyTheme(name) {
 
 export function renderSide() {
   const current = route().page;
-  const runtime = state.status && state.status.runtime;
+  const runtime = state.status?.runtime;
   replace(document.getElementById('side'),
     h('a', { class: 'brand', href: href('dashboard') },
       h('span', { class: 'brand-mark' }, icon('spark')),

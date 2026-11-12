@@ -35,7 +35,7 @@ async function readSkill(skillDir, entry) {
   const split = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!split) throw new Error('Invalid bundled Skill');
   const field = (key) => {
-    const match = split[1].match(new RegExp('^' + key + ':\s*(.+)$', 'm'));
+    const match = split[1].match(new RegExp('^' + key + ':s*(.+)$', 'm'));
     if (!match) throw new Error('Missing Skill ' + key);
     return match[1].trim();
   };

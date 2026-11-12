@@ -147,6 +147,20 @@ class Compiler:
         parts = [case["method"], case["path"], case.get("params", {}), case.get("json"), case.get("form")]
         return json.dumps(parts, sort_keys=True, ensure_ascii=False)
 
+    def _business_headers(self, entry: dict, deps: set) -> dict:
+        """Normalize captured headers and record credential dependencies in order."""
+        headers = {}
+        for name, value in entry["headers"].items():
+            if DROP_HEADERS.match(name):
+                continue
+            shown = "-".join(part.capitalize() for part in name.split("-"))
+            if name == "authorization":
+                scheme = SCHEME.match(value)
+                headers[shown] = (scheme[1] + " " if scheme else "") + self.credential(scheme[2] if scheme else value, shown, deps)
+            else:
+                headers[shown] = self.scrub(value, name, deps)
+        return headers
+
     def add_business(self, entry: dict, module: str, existing: dict) -> str | None:
         """Build (or reuse) the API case for one captured request. Returns 'new', 'reused' or None."""
         if entry["body_note"]:
@@ -159,16 +173,7 @@ class Compiler:
             if found:
                 deps.add(found[1])
             segments.append("{{" + found[0] + "}}" if found else self.template(segment))
-        headers = {}
-        for name, value in entry["headers"].items():
-            if DROP_HEADERS.match(name):
-                continue
-            shown = "-".join(part.capitalize() for part in name.split("-"))
-            if name == "authorization":
-                scheme = SCHEME.match(value)
-                headers[shown] = (scheme[1] + " " if scheme else "") + self.credential(scheme[2] if scheme else value, shown, deps)
-            else:
-                headers[shown] = self.scrub(value, name, deps)
+        headers = self._business_headers(entry, deps)
         params = self.scrub(entry["params"], "", deps)
         body = self.scrub(entry["json"], "", deps) if entry["json"] is not None else None
         form = self.scrub(entry["form"], "", deps) if entry.get("form") else None

@@ -89,11 +89,10 @@ class SeleniumDriver:
                 self._seeds[entry["origin"]] = added["identifier"]
 
     def storage_state(self) -> dict:
-        cookies = []
-        for c in self.wd.execute_cdp_cmd("Network.getAllCookies", {})["cookies"]:
-            cookies.append({"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c["path"],
-                            "expires": c.get("expires", -1), "httpOnly": c.get("httpOnly", False),
-                            "secure": c.get("secure", False), "sameSite": c.get("sameSite", "Lax")})
+        cookies = [{"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c["path"],
+                    "expires": c.get("expires", -1), "httpOnly": c.get("httpOnly", False),
+                    "secure": c.get("secure", False), "sameSite": c.get("sameSite", "Lax")}
+                   for c in self.wd.execute_cdp_cmd("Network.getAllCookies", {})["cookies"]]
         items = self.wd.execute_script("return Object.entries(localStorage).map(([name, value]) => ({name, value}));")
         return {"cookies": cookies, "origins": [{"origin": ir.origin_of(self.wd.current_url), "localStorage": items}]}
 

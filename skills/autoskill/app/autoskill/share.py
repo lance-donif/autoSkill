@@ -71,7 +71,7 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
         raise ValueError("还没有可以分享的项目")
     if passphrase is not None and len(passphrase) < 8:
         raise ValueError("口令至少 8 个字符")
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")  # noqa: DTZ005  # Pack filenames use the machine's local wall clock.
     target = Path(out) if out else paths.workspace() / f"autoskill-share-{stamp}.zip"
     if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-share-{stamp}.zip"
@@ -105,7 +105,7 @@ def pack_full(out: str | None = None) -> dict:
 
     Leaves out workspace/.local: secrets, saved logins, run history and screenshots stay on this machine.
     """
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")  # noqa: DTZ005  # Pack filenames use the machine's local wall clock.
     target = Path(out) if out else paths.SKILL.parent / f"autoskill-full-{stamp}.zip"
     if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-full-{stamp}.zip"
@@ -152,6 +152,18 @@ def _safe_members(archive: zipfile.ZipFile) -> dict[str, list[zipfile.ZipInfo]]:
             raise ValueError(f"分享包里有不允许的文件，已拒绝导入：{name[:80]}")
         grouped.setdefault(parts[1], []).append(member)
     return grouped
+
+
+def _restore_pack_secrets(archive: zipfile.ZipFile, passphrase: str | None) -> list[str]:
+    """Restore the same valid credential entries while the archive is open."""
+    restored = []
+    if SECRETS in archive.namelist() and passphrase:
+        values = json.loads(decrypt(json.loads(archive.read(SECRETS).decode("utf-8")), passphrase).decode("utf-8"))
+        for name, value in values.items():
+            if secrets.NAME.fullmatch(name) and isinstance(value, str):
+                secrets.set_secret(name, value)
+                restored.append(name)
+    return restored
 
 
 def import_pack(file: str, passphrase: str | None = None, overwrite: bool = False) -> dict:
@@ -201,13 +213,7 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
             except (ValueError, KeyError, OSError) as error:
                 shutil.rmtree(staging, ignore_errors=True)
                 skipped.append({"id": project_id, "reason": "内容没有通过校验：" + str(error)[:200]})
-        restored = []
-        if SECRETS in archive.namelist() and passphrase:
-            values = json.loads(decrypt(json.loads(archive.read(SECRETS).decode("utf-8")), passphrase).decode("utf-8"))
-            for name, value in values.items():
-                if secrets.NAME.fullmatch(name) and isinstance(value, str):
-                    secrets.set_secret(name, value)
-                    restored.append(name)
+        restored = _restore_pack_secrets(archive, passphrase)
     missing = sorted({name for pid in imported for name in projects.missing_secrets(pid)})
     hint = ""
     if missing:

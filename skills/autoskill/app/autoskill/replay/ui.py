@@ -97,7 +97,7 @@ def check(driver, step: dict, timeout: float) -> dict:
     while True:
         try:
             passed, actual = evaluate(driver, step, locator)
-        except Exception as error:  # the element changed mid-read; keep polling
+        except Exception as error:  # noqa: BLE001  # Engine-specific read failures are retried while the element changes.
             passed, actual = False, "读取失败：" + type(error).__name__
         if passed or time.monotonic() >= deadline:
             break
@@ -237,7 +237,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
         else:
             done = sum(1 for row in steps if not row.get("check"))
             outcome.update(status="Pass", actual=f"{done} 个步骤完成，{len(assertions)} 条断言通过")
-    except Exception as error:  # every failure becomes a classified result, never a crash
+    except Exception as error:  # noqa: BLE001  # Every engine failure must become the existing structured case result.
         category, message = classify(error)
         if steps and steps[-1]["status"] == "running":
             steps[-1].update(status="failed", error=message)
@@ -253,7 +253,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             evidence_dir.mkdir(parents=True, exist_ok=True)
             driver.screenshot(evidence_dir / screenshot_name)
             evidence.append(screenshot_name)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110  # Screenshot evidence is optional and must not change the case result.
             pass
     outcome.update(steps=steps, assertions=assertions, screenshots=evidence,
                    duration_ms=round((time.monotonic() - started) * 1000))

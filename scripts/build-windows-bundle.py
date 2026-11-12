@@ -45,7 +45,7 @@ def unzip(archive: Path, destination: Path) -> None:
 
 
 def copy_tree(source: Path, destination: Path) -> None:
-    def ignore(folder, names):
+    def ignore(_folder, names):
         return [n for n in names if n in SKIP_NAMES or Path(n).suffix in SKIP_SUFFIXES]
 
     shutil.copytree(source, destination, ignore=ignore)
@@ -71,9 +71,12 @@ def smoke_test(package: Path) -> None:
     import subprocess
 
     python = package / "vendor" / "windows-x64" / "python" / "python.exe"
-    env = {"SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"), "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"}
+    env = {
+        "SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"),  # noqa: SIM112  # Preserve the canonical Windows key on case-sensitive hosts.
+        "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1",
+    }
     code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema; print(autoskill.__file__)"
-    done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent))
+    done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent), check=False)
     located = done.stdout.strip()
     if done.returncode or not Path(located).resolve().is_relative_to(package.resolve()):
         raise ValueError("Packaged interpreter cannot start the packaged app: " + (done.stderr.strip() or located)[-400:])
@@ -90,10 +93,25 @@ def plugin_check(output: Path) -> None:
             "console.log(JSON.stringify({skill: m.SKILL_DIR, python: s.python, bundled: s.bundled}));")
     url = (output / "plugin" / "index.mjs").resolve().as_uri()
     env = {k: v for k, v in __import__("os").environ.items() if k != "AUTOSKILL_DEV_PYTHON"}
-    done = subprocess.run([node, "--input-type=module", "-e", code, url], capture_output=True, text=True, env=env, encoding="utf-8")
+    done = subprocess.run([node, "--input-type=module", "-e", code, url], capture_output=True, text=True, env=env, encoding="utf-8", check=False)
     found = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
     if not found or found.get("python") != found.get("bundled") or not Path(found["skill"]).resolve().is_relative_to(output.resolve()):
         raise ValueError("Packaged DSH plugin cannot find the packaged runtime: " + (done.stderr.strip() or done.stdout.strip())[-400:])
+
+
+def _install_wheels(assets: Path, site: Path) -> list[dict]:
+    """Install sorted wheels before assembling browser assets."""
+    wheels = []
+    for wheel in sorted((assets / "wheels").glob("*.whl")):
+        with zipfile.ZipFile(wheel) as archive:
+            meta_name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
+            meta = Parser().parsestr(archive.read(meta_name).decode("utf-8"))
+        if "telemetry" in meta["Name"].lower():
+            raise ValueError("Telemetry dependency found: " + meta["Name"])
+        wheels.append({"name": meta["Name"], "version": meta["Version"], "license": meta.get("License-Expression") or meta.get("License", "")[:60],
+                       "file": wheel.name, "sha256": sha256(wheel)})
+        unzip(wheel, site)
+    return wheels
 
 
 def build(assets: Path, output: Path) -> dict:
@@ -126,17 +144,7 @@ def build(assets: Path, output: Path) -> dict:
     # The embeddable build ignores PYTHONPATH once a ._pth file exists, so the app folder is listed here,
     # relative to python.exe: vendor/windows-x64/python -> ../../../app.
     pth.write_text(f"{pth.stem}.zip\n.\nLib/site-packages\n../../../app\nimport site\n", encoding="ascii")
-    wheels = []
-    for wheel in sorted((assets / "wheels").glob("*.whl")):
-        with zipfile.ZipFile(wheel) as archive:
-            meta_name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
-            meta = Parser().parsestr(archive.read(meta_name).decode("utf-8"))
-        if "telemetry" in meta["Name"].lower():
-            raise ValueError("Telemetry dependency found: " + meta["Name"])
-        wheels.append({"name": meta["Name"], "version": meta["Version"], "license": meta.get("License-Expression") or meta.get("License", "")[:60],
-                       "file": wheel.name, "sha256": sha256(wheel)})
-        unzip(wheel, site)
-
+    wheels = _install_wheels(assets, site)
     # Chrome for Testing and its matching driver.
     unzip(assets / "chrome" / recorded["sources"]["chrome"]["file"], vendor / "chrome")
     chrome = vendor / "chrome" / "chrome-win64"

@@ -1,0 +1,220 @@
+{
+  "environment": {
+    "display_unset": true,
+    "wayland_display_unset": true,
+    "python": ".venv/bin/python"
+  },
+  "python_before": {
+    "log": "python-before.txt",
+    "total": 138,
+    "passed": 137,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 217.914,
+    "failure_names": [
+      "test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run (test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run)"
+    ]
+  },
+  "python_after_safe": {
+    "log": "python-after-safe.txt",
+    "total": 138,
+    "passed": 137,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 186.422,
+    "failure_names": [
+      "test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run (test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run)"
+    ]
+  },
+  "python_after_manual": {
+    "log": "python-after-manual.txt",
+    "total": 138,
+    "passed": 137,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 197.115,
+    "failure_names": [
+      "test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run (test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run)"
+    ]
+  },
+  "python_after_complexity": {
+    "log": "python-after-complexity.txt",
+    "total": 138,
+    "passed": 136,
+    "failures": 2,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 166.547,
+    "failure_names": [
+      "test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run (test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run)",
+      "test_script_closes_child_and_returns_result_to_parent (test_tabs.TabsTests.test_script_closes_child_and_returns_result_to_parent) (engine='playwright')"
+    ]
+  },
+  "fresh_failed_tab_target": {
+    "log": "python-after-complexity-tabs-target.txt",
+    "total": 1,
+    "passed": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 7.481,
+    "failure_names": []
+  },
+  "classification": {
+    "known_environment_failure": "test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run",
+    "additional_full_run_failure": "Playwright standalone click closes its own page before reply (TargetClosedError); same failure occurred on the first manual-phase full run; original isolated test passes unchanged",
+    "full_log_preserved": true,
+    "additional_full_suite_rerun": true,
+    "additional_full_suite_rerun_count": 1,
+    "baseline_tab_reproduction": "Exact bac57dc original target passed all fixed 5 runs; no TargetClosedError reproduced. Do not claim direct baseline reproduction.",
+    "final_full_result": "One separately logged full rerun on unchanged source matches before: 137 pass and the same single no-display environment failure. The earlier full result of 136 pass / 2 failures remains preserved."
+  },
+  "node": {
+    "tests": 8,
+    "passed": 8,
+    "failures": 0,
+    "skipped": 0,
+    "log": "node-after-complexity.txt"
+  },
+  "ruff": {
+    "errors": 0,
+    "log": "ruff-final.txt"
+  },
+  "biome": {
+    "errors": 0,
+    "warnings": 0,
+    "unprinted_diagnostics": 0,
+    "log": "biome-final.json"
+  },
+  "conventions": {
+    "log": "conventions-final.txt",
+    "total": 7,
+    "passed": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 0.115,
+    "failure_names": []
+  },
+  "integrity": {
+    "reviewed_source_hashes_unchanged_during_full_regression": true,
+    "protected_hashes_unchanged": true,
+    "changed_source_files": 16,
+    "protected_files": {
+      "ruff.toml": "4e6b4a27e57fdc8ca49321c0c34d7539afd037864e196e81d0ddae1e7e0024c7",
+      "biome.json": "cb328d325da450368bdc35fcc4c687cc83ff6ea95de914b3688d2ac7cdc27f27",
+      "tests/test_conventions.py": "c42598ec2aab48361e3b7a5731cc04a3bbcfae959b72371bf5a246832bf095ce"
+    },
+    "reviewed_source_hashes_unchanged_during_authorized_final_rerun": true,
+    "protected_hashes_unchanged_after_authorized_final_rerun": true
+  },
+  "independent_differential": {
+    "baseline": "7ffb678",
+    "ir_validation_cases": 850,
+    "pw_step_cases": 273,
+    "return_error_and_input_mutation_mismatches": [],
+    "public_and_existing_internal_signatures_equal": true,
+    "openapi_equal": true,
+    "openapi_paths": 24,
+    "openapi_operations": 29,
+    "signatures": {
+      "ir.validate": "(automation: 'object') -> 'None'",
+      "ir._check_step": "(step: 'object', table: 'dict', key: 'str', where: 'str') -> 'None'",
+      "codegen.pw_step": "(step: 'dict') -> 'str'"
+    }
+  },
+  "review": "All 16 complexity-phase changed source files reviewed; no substantive behavior differences found. No source edits made by reviewer.",
+  "python_after_complexity_authorized_final_rerun": {
+    "log": "python-after-complexity-rerun.txt",
+    "total": 138,
+    "passed": 137,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 195.672,
+    "failure_names": [
+      "test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run (test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run)"
+    ]
+  },
+  "final_full_result_matches_before": true,
+  "baseline_tab_reproduction": {
+    "baseline_commit": "bac57dcd2e6063cf901745ec7bfb5924a8da74cf",
+    "worktree": "/workspace/autoSkill-static-baseline-repro",
+    "display_unset": true,
+    "wayland_display_unset": true,
+    "fixed_run_count": 5,
+    "command": [
+      "/workspace/autoSkill-static-baseline-repro/.venv/bin/python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_tabs.py",
+      "-k",
+      "test_script_closes_child_and_returns_result_to_parent",
+      "-v"
+    ],
+    "protected_files": {
+      "ruff.toml": "4e6b4a27e57fdc8ca49321c0c34d7539afd037864e196e81d0ddae1e7e0024c7",
+      "biome.json": "cb328d325da450368bdc35fcc4c687cc83ff6ea95de914b3688d2ac7cdc27f27",
+      "tests/test_conventions.py": "c42598ec2aab48361e3b7a5731cc04a3bbcfae959b72371bf5a246832bf095ce"
+    },
+    "runs": [
+      {
+        "run": 1,
+        "exit_code": 0,
+        "target_closed_error": false,
+        "log": "baseline-tab-repro-1.txt",
+        "tests": 1,
+        "skipped": 0,
+        "seconds": 7.707
+      },
+      {
+        "run": 2,
+        "exit_code": 0,
+        "target_closed_error": false,
+        "log": "baseline-tab-repro-2.txt",
+        "tests": 1,
+        "skipped": 0,
+        "seconds": 8.264
+      },
+      {
+        "run": 3,
+        "exit_code": 0,
+        "target_closed_error": false,
+        "log": "baseline-tab-repro-3.txt",
+        "tests": 1,
+        "skipped": 0,
+        "seconds": 7.561
+      },
+      {
+        "run": 4,
+        "exit_code": 0,
+        "target_closed_error": false,
+        "log": "baseline-tab-repro-4.txt",
+        "tests": 1,
+        "skipped": 0,
+        "seconds": 7.106
+      },
+      {
+        "run": 5,
+        "exit_code": 0,
+        "target_closed_error": false,
+        "log": "baseline-tab-repro-5.txt",
+        "tests": 1,
+        "skipped": 0,
+        "seconds": 7.258
+      }
+    ],
+    "tracked_source_unchanged": true,
+    "protected_files_unchanged": true,
+    "pass_count": 5,
+    "fail_count": 0,
+    "target_closed_error_count": 0
+  }
+}

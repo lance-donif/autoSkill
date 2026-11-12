@@ -197,7 +197,7 @@ def _open(url: str, budget: float) -> dict:
     """Navigate and wait for the page. A navigation that outlives agent-browser's own wait is not a failure."""
     started = time.monotonic()
     problem = ""
-    for attempt in (1, 2):
+    for _attempt in (1, 2):
         try:
             agent.call(session_name(), ["open", url], timeout=90)
             problem = ""
@@ -455,35 +455,33 @@ def _plain(text: str) -> str:
     return "${ENV:" + text[7:] + "}" if text.startswith("secret:") and secrets.NAME.fullmatch(text[7:]) else text
 
 
-def browser(argv: list[str]) -> dict:
-    """Run one agent-browser command inside the recording and record it when it changes the page."""
-    rec = current()
-    if not argv:
-        raise RecordError("缺少浏览器命令，例如：autoskill browser click @e3")
-    command, rest = argv[0], argv[1:]
-    if command in DENIED or any(a.split("=")[0] in DENIED_FLAGS for a in argv):
-        raise RecordError(f"录制中不能使用 {command}：安装、升级、远程浏览器、网络与登录态由 autoskill 统一管理")
-    config = projects.config(rec["project_id"])
-    _sync_tabs(rec)
+def _targeted_step(rec: dict, command: str, rest: list[str], argv: list[str]) -> tuple[dict, dict | None]:
+    """Describe and validate a target before sending its recorded action."""
+    if not rest:
+        raise RecordError(f"{command} 需要目标，例如 @e3")
+    found = _target(rec, rest[0])  # describe before acting: the element may be gone afterwards
+    what = f'{found.get("role") or found.get("tag")}「{found.get("name", "")}」'
+    if command in ("fill", "type") and not found.get("editable"):
+        raise RecordError(f"{rest[0]} 是 {what}，不能输入文字；编号可能来自旧的 snapshot，请用最近一次返回的 snapshot 重新确认")
+    if command == "select" and found.get("tag") != "select":
+        raise RecordError(f"{rest[0]} 是 {what}，不是下拉框；自定义下拉请用 click 打开后再 click 选项")
+    if command in ("check", "uncheck") and not found.get("checkable"):
+        raise RecordError(f"{rest[0]} 是 {what}，不是复选框或单选框；请用最近一次返回的 snapshot 重新确认")
+    step = {"action": command, "locators": found["locators"]}
+    send = list(argv)
+    if command in ("fill", "type", "select"):
+        if len(rest) < 2:
+            raise RecordError(f"{command} 需要内容")
+        typed, step["value"] = _secret_value(rec, _plain(rest[1]), bool(found.get("secret")) and command != "select")
+        send = [command, rest[0], typed]
+    early_change = _act(rec, send)
+    return step, early_change
+
+
+def _browser_action(rec: dict, command: str, rest: list[str], argv: list[str], config: dict) -> tuple[dict, dict | None, str | None]:
+    """Execute a changing command and retain the step and any early tab changes."""
     early_change = None
-    if command == "tab":
-        return _tab_command(rec, rest)
-    if command == "snapshot":
-        tree = snapshot(rec, interactive="--all" not in rest)
-        _save(rec)
-        return {"snapshot": tree}
-    if command == "describe":
-        if not rest:
-            raise RecordError("describe 需要目标，例如 @e5")
-        found = _target(rec, rest[0], rich=True)
-        return {"element": found.get("tag"), "role": found.get("role"), "name": found.get("name"),
-                "locators": [ir.describe_locator(loc) for loc in found["locators"]],
-                "use_as_target": [_as_target(loc) for loc in found["locators"]]}
-    if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview", "dialog"):
-        result = agent.call(session_name(), argv)
-        if command == "wait" and rest and rest[0].isdigit():
-            result = {"waited_ms": int(rest[0])}
-        return {"result": result}
+    recognized = None
     if command == "open":
         if not rest:
             raise RecordError("open 需要地址")
@@ -513,26 +511,41 @@ def browser(argv: list[str]) -> dict:
         early_change = _act(rec, ["fill", rest[1], recognized])
         step = {"action": "captcha", "locators": field["locators"], "image": picture["locators"]}
     elif command in TARGETED:
-        if not rest:
-            raise RecordError(f"{command} 需要目标，例如 @e3")
-        found = _target(rec, rest[0])  # describe before acting: the element may be gone afterwards
-        what = f'{found.get("role") or found.get("tag")}「{found.get("name", "")}」'
-        if command in ("fill", "type") and not found.get("editable"):
-            raise RecordError(f"{rest[0]} 是 {what}，不能输入文字；编号可能来自旧的 snapshot，请用最近一次返回的 snapshot 重新确认")
-        if command == "select" and found.get("tag") != "select":
-            raise RecordError(f"{rest[0]} 是 {what}，不是下拉框；自定义下拉请用 click 打开后再 click 选项")
-        if command in ("check", "uncheck") and not found.get("checkable"):
-            raise RecordError(f"{rest[0]} 是 {what}，不是复选框或单选框；请用最近一次返回的 snapshot 重新确认")
-        step = {"action": command, "locators": found["locators"]}
-        send = list(argv)
-        if command in ("fill", "type", "select"):
-            if len(rest) < 2:
-                raise RecordError(f"{command} 需要内容")
-            typed, step["value"] = _secret_value(rec, _plain(rest[1]), bool(found.get("secret")) and command != "select")
-            send = [command, rest[0], typed]
-        early_change = _act(rec, send)
+        step, early_change = _targeted_step(rec, command, rest, argv)
     else:
         raise RecordError(f"录制不支持 {command}；可用：open snapshot describe tab click dblclick hover fill type select check uncheck press reload captcha dialog get is wait")
+    return step, early_change, recognized
+
+
+def browser(argv: list[str]) -> dict:
+    """Run one agent-browser command inside the recording and record it when it changes the page."""
+    rec = current()
+    if not argv:
+        raise RecordError("缺少浏览器命令，例如：autoskill browser click @e3")
+    command, rest = argv[0], argv[1:]
+    if command in DENIED or any(a.split("=")[0] in DENIED_FLAGS for a in argv):
+        raise RecordError(f"录制中不能使用 {command}：安装、升级、远程浏览器、网络与登录态由 autoskill 统一管理")
+    config = projects.config(rec["project_id"])
+    _sync_tabs(rec)
+    if command == "tab":
+        return _tab_command(rec, rest)
+    if command == "snapshot":
+        tree = snapshot(rec, interactive="--all" not in rest)
+        _save(rec)
+        return {"snapshot": tree}
+    if command == "describe":
+        if not rest:
+            raise RecordError("describe 需要目标，例如 @e5")
+        found = _target(rec, rest[0], rich=True)
+        return {"element": found.get("tag"), "role": found.get("role"), "name": found.get("name"),
+                "locators": [ir.describe_locator(loc) for loc in found["locators"]],
+                "use_as_target": [_as_target(loc) for loc in found["locators"]]}
+    if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview", "dialog"):
+        result = agent.call(session_name(), argv)
+        if command == "wait" and rest and rest[0].isdigit():
+            result = {"waited_ms": int(rest[0])}
+        return {"result": result}
+    step, early_change, recognized = _browser_action(rec, command, rest, argv, config)
     change = _observe_tabs(rec, settle=0.6 if command in ("click", "dblclick", "press") else 0)
     if early_change:
         change = {"opened": early_change["opened"] + (change or {}).get("opened", []),

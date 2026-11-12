@@ -229,6 +229,10 @@ class Handler(BaseHTTPRequestHandler):
             state.logout(self.token())
             expired = f"{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
             return self.send_json(200, {"ok": True}, {"Set-Cookie": expired})
+        return self._ticket_api(path, query, user, method, state)
+
+    def _ticket_api(self, path: str, query: dict, user: dict, method: str, state: State) -> None:
+        """Handle authenticated ticket routes with the existing lock boundaries."""
         if path == "/api/tickets" and method in ("GET", "HEAD"):
             status = (query.get("status") or [""])[0]
             keyword = (query.get("q") or [""])[0].strip().casefold()
@@ -269,6 +273,7 @@ class Handler(BaseHTTPRequestHandler):
                     ticket["status"] = status
                     return self.send_json(200, dict(ticket))
         self.error(404, "NOT_FOUND")
+        return None
 
     def static(self, path: str) -> None:
         if self.command not in ("GET", "HEAD"):
@@ -285,6 +290,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(data)
+        return None
 
 
 class Server(ThreadingHTTPServer):
