@@ -1,0 +1,4090 @@
+{
+  "status": "DEV_SELECTED_PENDING_EXPORT_AUTHORIZATION",
+  "selected": {
+    "checkpoint": {
+      "trial": 2,
+      "epoch": 13,
+      "config": {
+        "hidden": 48,
+        "radius": 1,
+        "cap": 4.0,
+        "learning_rate": 0.001,
+        "teacher_kl": 2.0,
+        "residual_penalty": 0.05
+      },
+      "diagnostic_only": true,
+      "metrics": {
+        "trial": 2,
+        "epoch": 13,
+        "train_loss": 0.1283273264558345,
+        "dev_CTC": 0.2549352651866693,
+        "dev_exact": 300,
+        "dev_total": 400,
+        "normal_new_wrong": 10,
+        "first_symbol_gain": 21,
+        "total_gain": 23,
+        "eligible": false,
+        "elapsed_seconds": 4.047131693998381
+      },
+      "file": "/workspace/autoSkill-release/captcha-research/residual-v2/runs/ctc-checkpoint-replay-01/checkpoints/trial-2-epoch-13.npz",
+      "sha256": "b9d07631ac888c89dc8f9cef66050253d9141b458bde18d27bb4e85755fdffb1"
+    },
+    "global_scale": 1.0,
+    "ranking": [
+      4,
+      15,
+      -117,
+      -20415,
+      -13,
+      -2
+    ],
+    "parameter_count": 20415,
+    "dev": {
+      "eligible": true,
+      "groups": {
+        "plain": {
+          "exact": 36,
+          "samples": 40,
+          "edits": 4,
+          "characters": 200,
+          "exact_rate": 0.9,
+          "CER": 0.02
+        },
+        "NORMAL": {
+          "exact": 178,
+          "samples": 200,
+          "edits": 22,
+          "characters": 1000,
+          "exact_rate": 0.89,
+          "CER": 0.022
+        },
+        "ALL": {
+          "exact": 292,
+          "samples": 400,
+          "edits": 139,
+          "characters": 2000,
+          "exact_rate": 0.73,
+          "CER": 0.0695
+        },
+        "ordinary-aug": {
+          "exact": 37,
+          "samples": 40,
+          "edits": 3,
+          "characters": 200,
+          "exact_rate": 0.925,
+          "CER": 0.015
+        },
+        "pale": {
+          "exact": 33,
+          "samples": 40,
+          "edits": 8,
+          "characters": 200,
+          "exact_rate": 0.825,
+          "CER": 0.04
+        },
+        "NOISY": {
+          "exact": 114,
+          "samples": 200,
+          "edits": 117,
+          "characters": 1000,
+          "exact_rate": 0.57,
+          "CER": 0.117
+        },
+        "paired-clean": {
+          "exact": 105,
+          "samples": 120,
+          "edits": 15,
+          "characters": 600,
+          "exact_rate": 0.875,
+          "CER": 0.025
+        },
+        "through-line": {
+          "exact": 29,
+          "samples": 40,
+          "edits": 12,
+          "characters": 200,
+          "exact_rate": 0.725,
+          "CER": 0.06
+        },
+        "dark-through-line": {
+          "exact": 30,
+          "samples": 40,
+          "edits": 13,
+          "characters": 200,
+          "exact_rate": 0.75,
+          "CER": 0.065
+        },
+        "first-symbol-touching": {
+          "exact": 6,
+          "samples": 40,
+          "edits": 48,
+          "characters": 200,
+          "exact_rate": 0.15,
+          "CER": 0.24
+        },
+        "dark-first-symbol-touching": {
+          "exact": 16,
+          "samples": 40,
+          "edits": 36,
+          "characters": 200,
+          "exact_rate": 0.4,
+          "CER": 0.18
+        }
+      },
+      "normal_new_wrong_ids": [],
+      "normal_new_wrong_count": 0,
+      "normal_regressed_groups": [],
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 4,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 15,
+      "no_line_pale_preserved": true
+    },
+    "weights": "/workspace/autoSkill-release/captcha-research/residual-v4/conditional-select-01/selected-weights.npz",
+    "weights_sha256": "b9d07631ac888c89dc8f9cef66050253d9141b458bde18d27bb4e85755fdffb1"
+  },
+  "baseline_dev": {
+    "plain": {
+      "exact": 36,
+      "samples": 40,
+      "edits": 4,
+      "characters": 200,
+      "exact_rate": 0.9,
+      "CER": 0.02
+    },
+    "NORMAL": {
+      "exact": 178,
+      "samples": 200,
+      "edits": 22,
+      "characters": 1000,
+      "exact_rate": 0.89,
+      "CER": 0.022
+    },
+    "ALL": {
+      "exact": 277,
+      "samples": 400,
+      "edits": 161,
+      "characters": 2000,
+      "exact_rate": 0.6925,
+      "CER": 0.0805
+    },
+    "ordinary-aug": {
+      "exact": 37,
+      "samples": 40,
+      "edits": 3,
+      "characters": 200,
+      "exact_rate": 0.925,
+      "CER": 0.015
+    },
+    "pale": {
+      "exact": 33,
+      "samples": 40,
+      "edits": 8,
+      "characters": 200,
+      "exact_rate": 0.825,
+      "CER": 0.04
+    },
+    "NOISY": {
+      "exact": 99,
+      "samples": 200,
+      "edits": 139,
+      "characters": 1000,
+      "exact_rate": 0.495,
+      "CER": 0.139
+    },
+    "paired-clean": {
+      "exact": 105,
+      "samples": 120,
+      "edits": 15,
+      "characters": 600,
+      "exact_rate": 0.875,
+      "CER": 0.025
+    },
+    "through-line": {
+      "exact": 29,
+      "samples": 40,
+      "edits": 12,
+      "characters": 200,
+      "exact_rate": 0.725,
+      "CER": 0.06
+    },
+    "dark-through-line": {
+      "exact": 26,
+      "samples": 40,
+      "edits": 19,
+      "characters": 200,
+      "exact_rate": 0.65,
+      "CER": 0.095
+    },
+    "first-symbol-touching": {
+      "exact": 2,
+      "samples": 40,
+      "edits": 55,
+      "characters": 200,
+      "exact_rate": 0.05,
+      "CER": 0.275
+    },
+    "dark-first-symbol-touching": {
+      "exact": 9,
+      "samples": 40,
+      "edits": 45,
+      "characters": 200,
+      "exact_rate": 0.225,
+      "CER": 0.225
+    }
+  },
+  "trials": [
+    {
+      "trial": 0,
+      "epoch": 1,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 0,
+      "total_noise_exact_gain": 2,
+      "noise_edits": 135,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 1,
+        "first-symbol-touching": 0,
+        "dark-first-symbol-touching": 1
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        0,
+        2,
+        -135,
+        -13631,
+        -1,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 2,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 2
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        1,
+        6,
+        -129,
+        -13631,
+        -2,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 3,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 130,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        1,
+        6,
+        -130,
+        -13631,
+        -3,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 4,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 4,
+      "noise_edits": 132,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 2
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        1,
+        4,
+        -132,
+        -13631,
+        -4,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 5,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 2
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        2,
+        6,
+        -129,
+        -13631,
+        -5,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 6,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 2
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        2,
+        6,
+        -129,
+        -13631,
+        -6,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 7,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 7,
+      "noise_edits": 128,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        2,
+        7,
+        -128,
+        -13631,
+        -7,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 8,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 7,
+      "noise_edits": 128,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        2,
+        7,
+        -128,
+        -13631,
+        -8,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 9,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 8,
+      "noise_edits": 126,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        2,
+        8,
+        -126,
+        -13631,
+        -9,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 10,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 8,
+      "noise_edits": 126,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        2,
+        8,
+        -126,
+        -13631,
+        -10,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 11,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        10,
+        -123,
+        -13631,
+        -11,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 12,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        11,
+        -121,
+        -13631,
+        -12,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 13,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        10,
+        -122,
+        -13631,
+        -13,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 14,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        11,
+        -121,
+        -13631,
+        -14,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 15,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        10,
+        -121,
+        -13631,
+        -15,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 16,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        10,
+        -121,
+        -13631,
+        -16,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 17,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        11,
+        -120,
+        -13631,
+        -17,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 18,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        10,
+        -120,
+        -13631,
+        -18,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 19,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        3,
+        11,
+        -120,
+        -13631,
+        -19,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 20,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -117,
+        -13631,
+        -20,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 21,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -118,
+        -13631,
+        -21,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 22,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        13,
+        -117,
+        -13631,
+        -22,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 23,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -117,
+        -13631,
+        -23,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 24,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -118,
+        -13631,
+        -24,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 25,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        11,
+        -119,
+        -13631,
+        -25,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 26,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        11,
+        -119,
+        -13631,
+        -26,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 27,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        11,
+        -119,
+        -13631,
+        -27,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 28,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -118,
+        -13631,
+        -28,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 29,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -118,
+        -13631,
+        -29,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 30,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -118,
+        -13631,
+        -30,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 31,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        11,
+        -119,
+        -13631,
+        -31,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 32,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 5,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 5,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        5,
+        13,
+        -118,
+        -13631,
+        -32,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 33,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -118,
+        -13631,
+        -33,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 34,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 5,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 5,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        5,
+        13,
+        -117,
+        -13631,
+        -34,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 35,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        4,
+        12,
+        -118,
+        -13631,
+        -35,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 36,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 5,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 5,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        5,
+        13,
+        -117,
+        -13631,
+        -36,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 37,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 5,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 5,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        5,
+        12,
+        -118,
+        -13631,
+        -37,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 38,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 5,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 5,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        5,
+        13,
+        -117,
+        -13631,
+        -38,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 39,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 5,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 5,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        5,
+        12,
+        -118,
+        -13631,
+        -39,
+        0
+      ]
+    },
+    {
+      "trial": 0,
+      "epoch": 40,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 5,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 5,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 13631,
+      "ranking": [
+        5,
+        12,
+        -118,
+        -13631,
+        -40,
+        0
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 1,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 0,
+      "total_noise_exact_gain": 2,
+      "noise_edits": 133,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 1,
+        "first-symbol-touching": 0,
+        "dark-first-symbol-touching": 1
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        0,
+        2,
+        -133,
+        -20415,
+        -1,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 2,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        1,
+        6,
+        -129,
+        -20415,
+        -2,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 3,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 4,
+      "noise_edits": 132,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 1,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        1,
+        4,
+        -132,
+        -20415,
+        -3,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 4,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 130,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        2,
+        6,
+        -130,
+        -20415,
+        -4,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 5,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 127,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        2,
+        6,
+        -127,
+        -20415,
+        -5,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 6,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 7,
+      "noise_edits": 125,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        2,
+        7,
+        -125,
+        -20415,
+        -6,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 7,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 8,
+      "noise_edits": 124,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        3,
+        8,
+        -124,
+        -20415,
+        -7,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 8,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        3,
+        10,
+        -122,
+        -20415,
+        -8,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 9,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        3,
+        10,
+        -122,
+        -20415,
+        -9,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 10,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        3,
+        10,
+        -120,
+        -20415,
+        -10,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 11,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        3,
+        10,
+        -121,
+        -20415,
+        -11,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 12,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        3,
+        11,
+        -120,
+        -20415,
+        -12,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 13,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 4,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        3,
+        13,
+        -118,
+        -20415,
+        -13,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 14,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -14,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 15,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -118,
+        -20415,
+        -15,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 16,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -120,
+        -20415,
+        -16,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 17,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -121,
+        -20415,
+        -17,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 18,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -121,
+        -20415,
+        -18,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 19,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -119,
+        -20415,
+        -19,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 20,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -122,
+        -20415,
+        -20,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 21,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -21,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 22,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -120,
+        -20415,
+        -22,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 23,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -121,
+        -20415,
+        -23,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 24,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -122,
+        -20415,
+        -24,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 25,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -121,
+        -20415,
+        -25,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 26,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -26,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 27,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -27,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 28,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -28,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 29,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -29,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 30,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -30,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 31,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        10,
+        -123,
+        -20415,
+        -31,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 32,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        10,
+        -123,
+        -20415,
+        -32,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 33,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -33,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 34,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 9,
+      "noise_edits": 124,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 1,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        9,
+        -124,
+        -20415,
+        -34,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 35,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        10,
+        -122,
+        -20415,
+        -35,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 36,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -36,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 37,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -120,
+        -20415,
+        -37,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 38,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        10,
+        -122,
+        -20415,
+        -38,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 39,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -20415,
+        -39,
+        -1
+      ]
+    },
+    {
+      "trial": 1,
+      "epoch": 40,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 9,
+      "noise_edits": 124,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        9,
+        -124,
+        -20415,
+        -40,
+        -1
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 1,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 3,
+      "noise_edits": 132,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 1,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 1
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        1,
+        3,
+        -132,
+        -20415,
+        -1,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 2,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        1,
+        6,
+        -129,
+        -20415,
+        -2,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 3,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 128,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 1,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        2,
+        6,
+        -128,
+        -20415,
+        -3,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 4,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 8,
+      "noise_edits": 126,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        8,
+        -126,
+        -20415,
+        -4,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 5,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        10,
+        -123,
+        -20415,
+        -5,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 6,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -6,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 7,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -118,
+        -20415,
+        -7,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 8,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -117,
+        -20415,
+        -8,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 9,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -118,
+        -20415,
+        -9,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 10,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -118,
+        -20415,
+        -10,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 11,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -118,
+        -20415,
+        -11,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 12,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -120,
+        -20415,
+        -12,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 13,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 15,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 4,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        15,
+        -117,
+        -20415,
+        -13,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 14,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -120,
+        -20415,
+        -14,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 15,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -119,
+        -20415,
+        -15,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 16,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -122,
+        -20415,
+        -16,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 17,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -121,
+        -20415,
+        -17,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 18,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -121,
+        -20415,
+        -18,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 19,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -119,
+        -20415,
+        -19,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 20,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -120,
+        -20415,
+        -20,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 21,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -120,
+        -20415,
+        -21,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 22,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -22,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 23,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -23,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 24,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -120,
+        -20415,
+        -24,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 25,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -118,
+        -20415,
+        -25,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 26,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 14,
+      "noise_edits": 118,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        14,
+        -118,
+        -20415,
+        -26,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 27,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 15,
+      "noise_edits": 117,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        15,
+        -117,
+        -20415,
+        -27,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 28,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -28,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 29,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -29,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 30,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 119,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -119,
+        -20415,
+        -30,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 31,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -120,
+        -20415,
+        -31,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 32,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -120,
+        -20415,
+        -32,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 33,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -122,
+        -20415,
+        -33,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 34,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -120,
+        -20415,
+        -34,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 35,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -121,
+        -20415,
+        -35,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 36,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -122,
+        -20415,
+        -36,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 37,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 8
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        13,
+        -120,
+        -20415,
+        -37,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 38,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -122,
+        -20415,
+        -38,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 39,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -122,
+        -20415,
+        -39,
+        -2
+      ]
+    },
+    {
+      "trial": 2,
+      "epoch": 40,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 12,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 7
+      },
+      "parameter_count": 20415,
+      "ranking": [
+        4,
+        12,
+        -122,
+        -20415,
+        -40,
+        -2
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 1,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 0,
+      "total_noise_exact_gain": 1,
+      "noise_edits": 135,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 0,
+        "first-symbol-touching": 0,
+        "dark-first-symbol-touching": 1
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        0,
+        1,
+        -135,
+        -27199,
+        -1,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 2,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 5,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 2
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        1,
+        5,
+        -129,
+        -27199,
+        -2,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 3,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 128,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        1,
+        6,
+        -128,
+        -27199,
+        -3,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 4,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 1,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 128,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 2,
+        "first-symbol-touching": 1,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        1,
+        6,
+        -128,
+        -27199,
+        -4,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 5,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        6,
+        -129,
+        -27199,
+        -5,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 6,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 130,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        6,
+        -130,
+        -27199,
+        -6,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 7,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 6,
+      "noise_edits": 129,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 3
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        6,
+        -129,
+        -27199,
+        -7,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 8,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 7,
+      "noise_edits": 128,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 2,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        7,
+        -128,
+        -27199,
+        -8,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 9,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 8,
+      "noise_edits": 127,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        8,
+        -127,
+        -27199,
+        -9,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 10,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 9,
+      "noise_edits": 125,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 4
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        9,
+        -125,
+        -27199,
+        -10,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 11,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 124,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        10,
+        -124,
+        -27199,
+        -11,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 12,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 124,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        10,
+        -124,
+        -27199,
+        -12,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 13,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 2,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 2,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        2,
+        11,
+        -123,
+        -27199,
+        -13,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 14,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        3,
+        11,
+        -122,
+        -27199,
+        -14,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 15,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 13,
+      "noise_edits": 120,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 4,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 6
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        3,
+        13,
+        -120,
+        -27199,
+        -15,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 16,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 4,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        3,
+        11,
+        -123,
+        -27199,
+        -16,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 17,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        3,
+        11,
+        -122,
+        -27199,
+        -17,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 18,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        3,
+        11,
+        -123,
+        -27199,
+        -18,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 19,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        3,
+        11,
+        -121,
+        -27199,
+        -19,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 20,
+      "eligible": true,
+      "pale_first_symbol_exact_gain": 3,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": 0,
+        "dark-through-line": 3,
+        "first-symbol-touching": 3,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        3,
+        11,
+        -122,
+        -27199,
+        -20,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 21,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -21,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 22,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 10,
+      "noise_edits": 123,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -2,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        10,
+        -123,
+        -27199,
+        -22,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 23,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -23,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 24,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -24,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 25,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -25,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 26,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -26,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 27,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -27,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 28,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -28,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 29,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -29,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 30,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -30,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 31,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -31,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 32,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -32,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 33,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -33,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 34,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -34,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 35,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -35,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 36,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -36,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 37,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -37,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 38,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -38,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 39,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 122,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -122,
+        -27199,
+        -39,
+        -3
+      ]
+    },
+    {
+      "trial": 3,
+      "epoch": 40,
+      "eligible": false,
+      "pale_first_symbol_exact_gain": 4,
+      "total_noise_exact_gain": 11,
+      "noise_edits": 121,
+      "normal_new_wrong": 0,
+      "line_noise_exact_gains": {
+        "through-line": -1,
+        "dark-through-line": 3,
+        "first-symbol-touching": 4,
+        "dark-first-symbol-touching": 5
+      },
+      "parameter_count": 27199,
+      "ranking": [
+        4,
+        11,
+        -121,
+        -27199,
+        -40,
+        -3
+      ]
+    }
+  ],
+  "evaluated_checkpoints": 160,
+  "eligible_checkpoints": 35,
+  "global_alpha": 1.0,
+  "training_runs": 0,
+  "test_images_loaded": 0,
+  "external_images_loaded": 0,
+  "unflagged_logits_unchanged": true,
+  "model_exported": false
+}

@@ -1,0 +1,22 @@
+{
+  "status": "DEV_SELECTED_PENDING_EXPORT_AUTHORIZATION",
+  "weights_sha256": "b9d07631ac888c89dc8f9cef66050253d9141b458bde18d27bb4e85755fdffb1",
+  "files_sha256": {
+    "select_physical_residual.py": "d6bd9aad32edbd6321c48641f558f82598dbef82a83cc9f0a457a94bb5e81156",
+    "test_physical_selection.py": "ec38095fbbb70e57d24594bb585ee934f3c1f677271a17a1a3a00e6856844cff",
+    "physical_conditional_protocol_v4.json": "ab1815592db507807bb1005911e1d89fdddde7d24dd59457ec76e80bd0cfe446"
+  },
+  "selection_sha256": "d60960eee070ba0c5da7ce11abe3efde5852c2276860ffcb96a8e01ed2a95503",
+  "training_runs": 0,
+  "model_exported": false,
+  "external_images_loaded": 0,
+  "test_images_loaded": 0,
+  "repository_copy_sha256": {
+    "select_physical_residual.py": "0d64e0cf8c691be92867a6709a28e62c7d1d33b1c4a67e2e67b24007a4a8349a",
+    "test_physical_selection.py": "ec38095fbbb70e57d24594bb585ee934f3c1f677271a17a1a3a00e6856844cff",
+    "physical_conditional_protocol_v4.json": "ab1815592db507807bb1005911e1d89fdddde7d24dd59457ec76e80bd0cfe446"
+  },
+  "copy_changes": [
+    "Import grouping adjusted for repository Ruff; selection algorithm unchanged. Future repository replay uses the new cache contract."
+  ]
+}
