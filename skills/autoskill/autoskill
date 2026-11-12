@@ -2,12 +2,27 @@
 # autoSkill entry point for Linux and Git Bash.
 # Calls the bundled interpreter directly, so text with & < > | % passes through unchanged.
 here=$(cd "$(dirname "$0")" && pwd)
-py="$here/vendor/windows-x64/python/python.exe"
-if [ "$(uname -s)" = Linux ] && [ -x "$here/../../.venv/bin/python" ]; then
-  py="$here/../../.venv/bin/python"
-elif [ -x "$py" ]; then
+if [ "$(uname -s)" = Linux ]; then
+  case "$(uname -m)" in
+    x86_64|amd64) target=linux-x64 ;;
+    aarch64|arm64) target=linux-arm64 ;;
+    *) echo '{"error":"Unsupported Linux CPU; use x86_64 or ARM64."}'; exit 3 ;;
+  esac
+  py="$here/vendor/$target/python/bin/python3"
+  if [ -n "${AUTOSKILL_DEV_PYTHON:-}" ]; then
+    py="$AUTOSKILL_DEV_PYTHON"
+  elif [ -x "$py" ]; then
+    export PYTHONNOUSERSITE=1
+  elif [ -x "$here/../../.venv/bin/python" ]; then
+    py="$here/../../.venv/bin/python"
+  else
+    echo '{"error":"Linux runtime not found. Run sh setup-linux.sh in the matching x64/ARM64 package, or follow docs/Linux-DSH.md."}'
+    exit 3
+  fi
+elif [ -x "$here/vendor/windows-x64/python/python.exe" ]; then
+  py="$here/vendor/windows-x64/python/python.exe"
   export PYTHONNOUSERSITE=1
-elif [ -n "$AUTOSKILL_DEV_PYTHON" ]; then
+elif [ -n "${AUTOSKILL_DEV_PYTHON:-}" ]; then
   py="$AUTOSKILL_DEV_PYTHON"
 else
   echo '{"error": "runtime not found. Linux: follow docs/Linux-DSH.md; Windows: use the complete offline package. Nothing is downloaded."}'

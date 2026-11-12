@@ -79,8 +79,28 @@ test('the skill is found in both the offline package layout and a source checkou
     writeFileSync(join(root, 'autoskill', 'SKILL.md'), 'x');
     assert.equal(findSkillDir(root), join(root, 'autoskill'));
     const spec = runtimeSpec({}, join(root, 'autoskill'));
-    assert.equal(spec.bundled, join(root, 'autoskill', 'vendor', 'windows-x64', 'python', 'python.exe'));
+    assert.equal(spec.bundled, process.platform === 'linux'
+      ? join(root, 'autoskill', 'vendor', `linux-${process.arch}`, 'python', 'bin', 'python3')
+      : join(root, 'autoskill', 'vendor', 'windows-x64', 'python', 'python.exe'));
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Linux offline bundle takes its native Python before the source venv', { skip: process.platform !== 'linux' }, () => {
+  const root = mkdtempSync(join(tmpdir(), 'autoskill native-'));
+  const before = process.env.AUTOSKILL_DEV_PYTHON;
+  delete process.env.AUTOSKILL_DEV_PYTHON;
+  try {
+    const skill = join(root, 'autoskill');
+    const python = join(skill, 'vendor', `linux-${process.arch}`, 'python', 'bin', 'python3');
+    mkdirSync(join(python, '..'), { recursive: true });
+    writeFileSync(python, '');
+    const spec = runtimeSpec({}, skill);
+    assert.equal(spec.python, python);
+    assert.equal(spec.env.PYTHONNOUSERSITE, '1');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    if (before !== undefined) process.env.AUTOSKILL_DEV_PYTHON = before;
+  }
 });
 
 test('package manifest points at files that exist', async () => {

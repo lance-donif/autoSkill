@@ -30,6 +30,9 @@ def main():
         shutil.copyfile(source, 'reports/offline-package.json')
         report.update({k: data[k] for k in ('bytes', 'sha256', 'release_url', 'download_url', 'asset_id')})
         report['verification'] = data.get('verification')
+        if data.get('packages'):
+            report['packages'] = [{k: p[k] for k in ('target', 'file', 'bytes', 'sha256', 'download_url', 'asset_id')} for p in data['packages']]
+            report['package_count'] = len(data['packages'])
         path = Path('reports/交付验证报告.md')
         text = path.read_text(encoding='utf-8')
         text = text.replace('分支：`rebuild/replay-studio`（基于 `main` 的 `bf43edc`）', '源码现位于 `main`；以下开发阶段记录保留其原有验证边界')
@@ -41,6 +44,14 @@ def main():
                 lines[index] = (f"| Windows x64 完整离线包 | `{data['file']}`（Release {tag}） | {data['bytes']:,} 字节。"
                                 f"SHA-256：`{data['sha256']}`；{check_text}，DSH 智能体未验收 |")
         text = '\n'.join(lines) + '\n'
+        if data.get('packages'):
+            lines = text.splitlines()
+            lines = [line for line in lines if not line.startswith(('| Linux x64 离线包 |', '| Linux ARM64 / UOS 离线包 |'))]
+            position = next(i for i, line in enumerate(lines) if line.startswith('| Windows x64 完整离线包 |')) + 1
+            for package in reversed(data['packages'][1:]):
+                label = 'Linux ARM64 / UOS 离线包' if package['target'] == 'linux-arm64' else 'Linux x64 离线包'
+                lines.insert(position, f"| {label} | `{package['file']}`（Release {tag}） | {package['bytes']:,} 字节；SHA-256：`{package['sha256']}`；需要系统共享库，UOS 真机未验证 |")
+            text = '\n'.join(lines) + '\n'
         note = (f"\n最新发布 {tag}：构建自 `{data['built_from_commit']}`，大小 {data['bytes']:,} 字节，SHA-256 `{data['sha256']}`。"
                 f'{check_text}；默认 DSH 沙箱智能体尚未验收，其他历史结果保持原有边界。\n')
         text = text.replace('## 6. 未验证', note + '\n## 6. 未验证', 1)

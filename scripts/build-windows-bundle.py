@@ -107,9 +107,11 @@ def build(assets: Path, output: Path) -> dict:
     copy_tree(SKILL, package)
     # The package root is itself an installable DeepSeek Harness bundle: choose this folder in DSH.
     shutil.copytree(ROOT / "plugin", output / "plugin")
+    shutil.copytree(ROOT / "docs", output / "docs")
+    shutil.copy2(ROOT / "README.md", output / "README.md")
     shutil.copy2(ROOT / "cordis.patch.yml", output / "cordis.patch.yml")
     manifest_json = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-    manifest_json["files"] = ["plugin", "autoskill", "cordis.patch.yml"]
+    manifest_json["files"] = ["plugin", "autoskill", "cordis.patch.yml", "docs", "README.md"]
     manifest_json.pop("scripts", None)
     (output / "package.json").write_text(json.dumps(manifest_json, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
 

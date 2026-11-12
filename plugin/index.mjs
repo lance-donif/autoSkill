@@ -32,21 +32,22 @@ export async function bundledSkills(skillDir = SKILL_DIR) {
   const id = field('name');
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('Invalid Skill id');
   // The agent has to know where the entry point is; the skill text itself only says "this folder".
-  const where = `> 本技能目录：\`${dirname(path)}\`。下文的 \`autoskill\` 指这个目录里的 \`autoskill.cmd\`（PowerShell / cmd）或 \`autoskill\`（Git Bash）。
+  const where = `> 本技能目录：\`${dirname(path)}\`。下文的 \`autoskill\` 指这个目录里的 \`autoskill.cmd\`（PowerShell / cmd）或 \`autoskill\`（Linux / UOS / Git Bash）。
 
 `;
   return [{ name: id, description: field('description'), content: where + split[2], source: 'bundled', path,
     resourceBase: { kind: 'directory', path: dirname(path) } }];
 }
 
-/** Bundled Windows Python or the explicitly provisioned Linux venv; never download at startup. */
+/** Native bundled Python or an explicitly provisioned source venv; never download at startup. */
 export function runtimeSpec(config = {}, skillDir = SKILL_DIR) {
   const port = config.port ?? 8787;
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('autoSkill port must be 1024-65535');
-  const bundled = join(skillDir, 'vendor', 'windows-x64', 'python', 'python.exe');
+  const target = process.platform === 'linux' ? `linux-${process.arch}` : 'windows-x64';
+  const bundled = join(skillDir, 'vendor', target, 'python', ...(process.platform === 'linux' ? ['bin', 'python3'] : ['python.exe']));
   const linux = join(skillDir, '..', '..', '.venv', 'bin', 'python');
   const python = config.python ?? (process.platform === 'linux'
-    ? process.env.AUTOSKILL_DEV_PYTHON ?? (existsSync(linux) ? linux : null)
+    ? process.env.AUTOSKILL_DEV_PYTHON ?? (existsSync(bundled) ? bundled : existsSync(linux) ? linux : null)
     : existsSync(bundled) ? bundled : process.env.AUTOSKILL_DEV_PYTHON ?? null);
   const env = { PYTHONPATH: join(skillDir, 'app'), PYTHONUTF8: '1', PYTHONDONTWRITEBYTECODE: '1',
     DO_NOT_TRACK: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', PIP_NO_INDEX: '1', SE_OFFLINE: 'true', SE_AVOID_STATS: 'true' };
@@ -61,7 +62,7 @@ export async function apply(ctx, config = {}) {
   const spec = runtimeSpec(config);
   if (!spec.python) {
     throw new Error('autoSkill：所选目录里没有运行时，仪表盘无法启动（缺少 ' + spec.bundled + '）。'
-      + 'Windows 请选择完整离线包；Linux 源码部署请先按 docs/Linux-DSH.md 创建 .venv 并安装运行依赖。');
+      + 'Windows 请选择完整离线包；Linux / UOS 请选择匹配 CPU 的离线包并运行 sh setup-linux.sh；源码部署见 docs/Linux-DSH.md。');
   }
   const instance = randomUUID();
   const child = spawn(spec.python, spec.args, { cwd: spec.cwd, windowsHide: true, stdio: ['ignore', 'ignore', 'inherit'],
@@ -83,5 +84,5 @@ export async function apply(ctx, config = {}) {
   }
   child.kill();
   throw new Error('autoSkill：仪表盘没有在端口 ' + spec.port + ' 上启动。'
-    + (exited ? '运行时进程启动后立即退出，随包文件可能不完整（可运行 autoskill.cmd verify 检查）。' : '这个端口可能被别的程序占用；可在插件配置里换一个 port。'));
+    + (exited ? '运行时进程启动后立即退出，运行 autoskill verify 检查包完整性，再用 doctor --launch 检查系统依赖。' : '这个端口可能被别的程序占用；可在插件配置里换一个 port。'));
 }

@@ -5,7 +5,7 @@ description: 录一次，到处回放的自动化测试。操作网页时自动�
 
 # autoSkill
 
-你通过一个命令行工具完成全部工作。Windows 离线包自带浏览器和全部依赖；Linux 需由维护者按 `docs/Linux-DSH.md` 预先部署。运行命令时**不联网安装任何东西**。
+你通过一个命令行工具完成全部工作。Windows x64、Linux x64 / ARM64 包自带浏览器和程序依赖；Linux / 统信 UOS 由维护者按 `docs/Linux-DSH.md` 检查系统库与浏览器（`sh setup-linux.sh`）。运行命令时**不联网安装任何东西**。
 
 ## 怎么调用
 
@@ -25,7 +25,7 @@ description: 录一次，到处回放的自动化测试。操作网页时自动�
 
 有些宿主（例如 DeepSeek Harness 的默认模式）把你的命令放在沙箱里执行：不能写会话目录以外的文件，不能启动浏览器，HTTPS 也可能不通。**你不需要为此做任何事**：autoskill 发现自己受限时，会把命令自动交给在沙箱外运行的 autoSkill 后台服务（就是仪表盘那个进程）执行，输出和退出码与直接执行完全一样。
 
-只有后台服务没在运行时才会报错，错误里写明了做法：请用户在 DeepSeek Harness 里启用 autoSkill 插件，或在自己的终端里运行 `autoskill.cmd dashboard` 并保持窗口不关，然后**原样重试**同一条命令。
+只有后台服务没在运行时才会报错，错误里写明了做法：请用户在 DeepSeek Harness 里启用 autoSkill 插件，或在自己的终端里运行 `autoskill dashboard`（按所在 Shell 使用入口） 并保持窗口不关，然后**原样重试**同一条命令。
 
 **不要自己绕**：不要设置 `AUTOSKILL_WORKSPACE` 换数据目录，不要改 `USERPROFILE`，不要直接调用 `vendor` 里的程序，不要去读或改 autoSkill 的源码。这样做数据会和仪表盘分家，浏览器也仍然起不来。通过后台服务执行时，`--out` 只能指向 autoSkill 数据目录以内（省略即可）；`pack --full` 和 `pack --include-secrets` 需要用户在自己的终端里运行。
 

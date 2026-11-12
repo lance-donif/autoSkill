@@ -254,7 +254,7 @@ def launch_check() -> dict:
                 finally:
                     driver.close()
             except Exception as error:
-                report[engine] = "启动失败：" + (str(error) if isinstance(error, ValueError) else type(error).__name__)
+                report[engine] = "启动失败：" + (str(error) or type(error).__name__)[:1800]
     finally:
         server.shutdown()
         server.server_close()
@@ -263,9 +263,11 @@ def launch_check() -> dict:
 
 def doctor(launch: bool = False) -> dict:
     import importlib.util
+    from . import platforms
 
     modules = ("playwright", "selenium", "httpx", "jsonschema", "openpyxl", "fastapi", "uvicorn")
     report = {
+        "platform": platforms.system_info(),
         "bundled_runtime": paths.VENDOR.is_dir(),
         "chrome": paths.chrome(), "chromedriver": paths.chromedriver(), "agent_browser": paths.agent_browser(),
         "python": sys.version.split()[0],
@@ -274,15 +276,23 @@ def doctor(launch: bool = False) -> dict:
     }
     if os.environ.get("AUTOSKILL_BRIDGE") == "off":
         report["executed_by"] = "autoSkill 后台服务（发起命令的进程在受限沙箱里，已自动转交）"
-    problems = [name for name, ok in report["modules"].items() if not ok]
+    problems = platforms.runtime_problems(report["platform"])
+    problems += [name for name, ok in report["modules"].items() if not ok]
+    if sys.platform == "linux" and importlib.util.find_spec("cryptography") is None:
+        problems.append("cryptography（Linux 本机凭据加密）")
     problems += [name for name in ("chrome", "chromedriver", "agent_browser") if not report[name]]
+    if launch and not problems:
+        report["browser_versions"] = platforms.browser_pair(report["chrome"], report["chromedriver"])
+        report["agent_browser_version"] = platforms.binary_status(report["agent_browser"])
+        if not report["browser_versions"]["ok"] or not report["agent_browser_version"]["ok"]:
+            problems.append("浏览器 / 驱动版本或运行时系统库，请查看 browser_versions 和 agent_browser_version")
     if launch and not problems:
         report["browser_launch"] = launch_check()
         problems += [f"{engine} 浏览器" for engine, result in report["browser_launch"].items() if result != "ok"]
     report["ok"] = not problems
     if problems:
         report["missing"] = problems
-        report["hint"] = "请使用完整离线包；缺失的部分不会联网下载"
+        report["hint"] = "请使用匹配系统和 CPU 的完整包；Linux / UOS 先运行 sh setup-linux.sh；缺失的部分不会联网下载"
     return report
 
 

@@ -2,13 +2,22 @@
 from __future__ import annotations
 
 import os
+import platform
+import json
 import shutil
 import sys
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parents[2]
 APP = SKILL / "app"
-VENDOR = SKILL / "vendor" / ("linux-x64" if sys.platform == "linux" else "windows-x64")
+
+def runtime_target(system: str | None = None, machine: str | None = None) -> str:
+    system, machine = system or sys.platform, (machine or platform.machine()).lower()
+    architecture = {"x86_64": "x64", "amd64": "x64", "aarch64": "arm64"}.get(machine, machine)
+    return ("linux-" if system == "linux" else "windows-" if system == "win32" else system + "-") + architecture
+
+
+VENDOR = SKILL / "vendor" / runtime_target()
 
 # Applied to every child process: no installers, no update checks, no telemetry.
 OFFLINE_ENV = {
@@ -93,21 +102,40 @@ def projects_dir() -> Path:
 
 def _first(*candidates: str | Path | None) -> str | None:
     for candidate in candidates:
-        if candidate and Path(candidate).is_file():
+        if candidate and Path(candidate).is_file() and (os.name == "nt" or os.access(candidate, os.X_OK)):
             return str(candidate)
     return None
 
 
+def _configured_binary(name: str, variable: str) -> tuple[bool, str | None]:
+    if os.environ.get(variable):
+        return True, _first(os.environ[variable])
+    settings = VENDOR / "runtime-settings.json"
+    if sys.platform == "linux" and settings.is_file():
+        config = json.loads(settings.read_text(encoding="utf-8"))
+        if config.get(name):
+            candidate = Path(config[name])
+            return True, _first(candidate if candidate.is_absolute() else VENDOR / candidate)
+    return False, None
+
+
 def chrome() -> str | None:
-    relative = "chrome-linux64/chrome" if sys.platform == "linux" else "chrome-win64/chrome.exe"
-    return _first(os.environ.get("AUTOSKILL_CHROMIUM"), VENDOR / "chrome" / relative)
+    configured, value = _configured_binary("chrome", "AUTOSKILL_CHROMIUM")
+    if configured:
+        return value
+    folder = "chrome-linux-arm64" if runtime_target() == "linux-arm64" else "chrome-linux64"
+    relative = folder + "/chrome" if sys.platform == "linux" else "chrome-win64/chrome.exe"
+    system = [shutil.which(n) for n in ("chromium", "chromium-browser", "google-chrome")] if sys.platform == "linux" else []
+    return _first(VENDOR / "chrome" / relative, *system)
 
 
 def chromedriver() -> str | None:
-    return _first(
-        os.environ.get("AUTOSKILL_CHROMEDRIVER"),
-        VENDOR / "chromedriver" / ("chromedriver-linux64/chromedriver" if sys.platform == "linux" else "chromedriver-win64/chromedriver.exe"),
-    )
+    configured, value = _configured_binary("chromedriver", "AUTOSKILL_CHROMEDRIVER")
+    if configured:
+        return value
+    folder = "chromedriver-linux-arm64" if runtime_target() == "linux-arm64" else "chromedriver-linux64"
+    relative = folder + "/chromedriver" if sys.platform == "linux" else "chromedriver-win64/chromedriver.exe"
+    return _first(VENDOR / "chromedriver" / relative, shutil.which("chromedriver") if sys.platform == "linux" else None)
 
 
 def agent_browser() -> str | None:
@@ -117,9 +145,10 @@ def agent_browser() -> str | None:
         return bundled
     shim = shutil.which("agent-browser")
     if shim:
-        folder = Path(shim).resolve().parent / "node_modules" / "agent-browser" / "bin"
-        names = ["agent-browser-win32-x64.exe"] if os.name == "nt" else ["agent-browser"]
-        return _first(*[folder / name for name in names])
+        folder = Path(shim).resolve().parent
+        name = "agent-browser-win32-x64.exe" if os.name == "nt" else "agent-browser-" + runtime_target()
+        return _first(folder / name, folder / "node_modules" / "agent-browser" / "bin" / name,
+                      folder.parent / "agent-browser" / "bin" / name)
     return None
 
 

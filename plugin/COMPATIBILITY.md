@@ -20,7 +20,15 @@
 
 ## 已验证
 
-`tests/plugin.test.mjs`（7 项）：技能注册信息、仪表盘启动参数（argv 方式、离线开关、不经过 shell）、缺少运行时时如实报告、Linux 本地 venv、客户端面板注册与地址、清单指向的文件存在。
+`tests/plugin.test.mjs`（8 项）：技能注册、仪表盘启动参数（argv、离线开关、不经过 shell）、缺少运行时报告、Linux 本地 venv、原生离线包 Python、面板地址、包目录结构与清单文件。
+
+## Linux x64 / ARM64 与统信 UOS
+
+Release 提供 Windows x64、Linux x64、Linux ARM64 三个包，UOS ARM64 使用 Linux ARM64 包。插件按 CPU 选择 `vendor/linux-x64/python/bin/python3` 或 `vendor/linux-arm64/python/bin/python3`；源码部署可用本地 `.venv`。Linux / UOS 先运行 `sh setup-linux.sh`。Node / DSH 为宿主依赖，不包含在技能包中。
+
+agent-browser、Playwright、Chrome for Testing 均有 Linux ARM64 程序；Selenium 4.38.0 通过显式 chromedriver Service 使用 ARM64，避免调用旧 Selenium Manager。官方依据和系统库要求见 [平台与第三方支持](../docs/平台与第三方支持.md)，安装见 [Linux-DSH](../docs/Linux-DSH.md)。
+
+当前 Debian 13 x64 的两种浏览器本机启动通过。ARM64 原生 runner 只组装和检查包，没有 UOS ARM64 真机或 UOS DSH 验收；默认沙箱智能体也仍未验收。不能把 Ubuntu ARM64 组装成功写成 UOS 已通过。
 
 ## Linux DSH Web（2026-11-12）
 

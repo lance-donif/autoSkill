@@ -1,0 +1,123 @@
+name: Build and publish platform offline packages
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: platform-offline-release
+  cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+  RELEASE_TAG: ${{ github.ref_name }}
+  RELEASE_COMMIT: ${{ github.sha }}
+  RELEASE_REPOSITORY: ${{ github.repository }}
+  RELEASE_RUN_ID: ${{ github.run_id }}
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build Windows x64 package (no functional regression)
+        shell: pwsh
+        run: |
+          python scripts/record-release-progress.py --stage building
+          $build = Join-Path $env:RUNNER_TEMP 'autoskill-windows'
+          python scripts/fetch-windows-assets.py --assets "$build/assets" --chrome-version 157.0.8103.78
+          if ($LASTEXITCODE -ne 0) { throw 'Asset fetch failed' }
+          python scripts/build-windows-bundle.py --assets "$build/assets" --output "$build/package" --zip
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-windows-x64
+          path: ${{ runner.temp }}/autoskill-windows/autoSkill-*.zip
+          compression-level: 0
+          if-no-files-found: error
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build native Linux package (no functional regression)
+        run: |
+          python scripts/fetch-linux-assets.py --assets "$RUNNER_TEMP/autoskill-linux/assets" --arch '${{ matrix.arch }}'
+          python scripts/build-linux-bundle.py --assets "$RUNNER_TEMP/autoskill-linux/assets" --output "$RUNNER_TEMP/autoskill-linux/package" --arch '${{ matrix.arch }}' --zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/autoskill-linux/autoSkill-*.zip
+          compression-level: 0
+          if-no-files-found: error
+  publish:
+    needs: [windows, linux]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        if: needs.windows.result == 'success' && needs.linux.result == 'success'
+        with:
+          pattern: bundle-*
+          path: ${{ runner.temp }}/autoskill-bundles
+      - name: Require all three packages
+        env:
+          WINDOWS_RESULT: ${{ needs.windows.result }}
+          LINUX_RESULT: ${{ needs.linux.result }}
+        run: test "$WINDOWS_RESULT" = success && test "$LINUX_RESULT" = success
+      - name: Verify all uploads before replacement and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/record-release-progress.py --stage publishing
+          python scripts/publish-release.py --build "$RUNNER_TEMP/autoskill-bundles" --proof "$RUNNER_TEMP/autoskill-release-proof" --result "$RUNNER_TEMP/autoskill-release-result"
+      - name: Record publication result on main
+        if: always()
+        env:
+          RELEASE_JOB_STATUS: ${{ job.status }}
+        run: |
+          git fetch origin main
+          git switch -C main origin/main
+          python scripts/record-release-result.py --result "$RUNNER_TEMP/autoskill-release-result" --proof "$RUNNER_TEMP/autoskill-release-proof"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add reports docs
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record $RELEASE_TAG platform release result"
+            git push origin main
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: platform-release-evidence
+          path: ${{ runner.temp }}/autoskill-release-proof

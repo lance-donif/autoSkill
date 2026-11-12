@@ -2,7 +2,7 @@
 
 **录一次，到处回放。** AI 操作网页时，autoSkill 同步录下页面动作和接口流量，编译成不需要 AI 的回放用例：页面用例可用 Playwright 或 Selenium 回放，接口用例走 HTTP，并可导出 Postman 集合和独立脚本。用例按项目归档，可以定时执行，结果在仪表盘里查看。
 
-它是一个 Skill：任何能读文件、能执行命令的 AI 智能体都可以使用，不绑定某个平台。Windows x64 完整包自带全部运行依赖，内网离线可用。
+它是一个 Skill：任何能读文件、能执行命令的 AI 智能体都可以使用，不绑定某个平台。提供 Windows x64、Linux x64、Linux ARM64（统信 UOS ARM64）三个运行时包。Linux 需要浏览器依赖的系统共享库；UOS 真机尚未验收，见 [平台与第三方支持](docs/平台与第三方支持.md)。
 
 ## 它解决什么
 
@@ -27,7 +27,7 @@
 
 ## 使用（完整离线包）
 
-解压后不需要安装任何东西。给人看的入口是仪表盘：
+Windows 包解压即用。Linux / UOS 先按 [Linux-DSH.md](docs/Linux-DSH.md) 运行 `sh setup-linux.sh`。给人看的入口是仪表盘，Windows：
 
 ```bat
 autoskill\autoskill.cmd dashboard
@@ -77,7 +77,7 @@ autoskill import <分享包>            # 对方导入
 ## 安全与离线
 
 - 浏览器只能访问项目授权的地址，其他地址在浏览器层面不可达；访问范围、高风险操作（删除、支付等）按项目显式开启。
-- 凭据和登录态只保存在本机，用当前 Windows 用户的 DPAPI 加密；用例、报告、导出文件里只有凭据名称。
+- 凭据和登录态只保存在本机，Windows 用当前用户的 DPAPI、Linux 用本机 Fernet 密钥加密；用例、报告、导出文件里只有凭据名称。
 - 仪表盘只监听 127.0.0.1，拒绝跨站写请求。它代沙箱里的命令行执行 autoskill 命令的接口只接受命令行请求，网页无法调用；只执行 autoskill 自己的命令，输出文件不能落在数据目录之外。不需要时用 `AUTOSKILL_BRIDGE_SERVER=off` 关闭。
 - 不联网安装，不检查更新，不上报数据。浏览器的后台联网、组件更新、崩溃上报均关闭。
 
@@ -96,8 +96,8 @@ python scripts/fetch-windows-assets.py --assets <仓库外目录>            # �
 python scripts/build-windows-bundle.py --assets <目录> --output <新目录> --zip   # 维护者：组装离线包
 ```
 
-完整离线包约 272 MB，超过 Git 单文件限制，作为 GitHub Release 附件发布，不进入仓库历史。
+运行时包作为 GitHub Release 附件发布，不进入仓库历史。大小和 SHA-256 以同一 Release 的附件及 `SHA256SUMS.txt` 为准。
 
-Linux 源码部署与 DSH Web 接入见 [Linux-DSH.md](docs/Linux-DSH.md)。站点白名单与浏览器代理围栏已按使用者要求移除，旧配置不再限制网络访问。
+Linux / UOS 安装与 DSH Web 接入见 [Linux-DSH.md](docs/Linux-DSH.md)，仪表盘入口为 `autoskill/autoskill dashboard`。站点白名单与浏览器代理围栏已按使用者要求移除，旧配置不再限制网络访问。
 
-Windows 完整包下载：[最新 Release](https://github.com/lance-donif/autoSkill/releases/latest)。发布流程在 Windows CI 中构建离线包，核对 ZIP 结构、CRC、上传附件大小与 SHA-256 后发布。当前按维护者要求跳过功能回归与浏览器启动测试；工作流的 RUN_RELEASE_TESTS 可重新启用这些检查。状态见 `reports/release-status.json`。
+下载：[最新 Release](https://github.com/lance-donif/autoSkill/releases/latest)。`.github/workflows/release.yml` 在三个原生平台上组装包，核对全部附件 ZIP 结构、CRC、上传大小与 SHA-256 后一起发布。当前按维护者要求跳过完整功能回归与浏览器启动测试。状态见 `reports/release-status.json`。

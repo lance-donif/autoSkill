@@ -1,5 +1,7 @@
 # 安装与使用
 
+Linux / 统信 UOS ARM64 请使用匹配 CPU 的 Linux 包，先运行 `sh setup-linux.sh`；安装、系统库和 DSH 接入见 [Linux-DSH.md](../docs/Linux-DSH.md)。以下为 Windows 安装说明。
+
 ## 拿到的是什么
 
 `autoSkill-Windows-x64-Offline.zip` 解压后：
