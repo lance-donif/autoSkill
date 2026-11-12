@@ -176,6 +176,13 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             steps.append(row)
             clock = time.monotonic()
             try:
+                if "assertion" in step:
+                    result = check(driver, step, min(timeout, 5.0))
+                    assertions.append(result)
+                    outcome["fallbacks"] += int(bool(result.get("fallback")))
+                    row["status"] = "done" if result["passed"] else "failed"
+                    row["check"] = True
+                    continue
                 if perform(driver, step, base_url, allowed, timeout):
                     row["fallback"] = True
                     outcome["fallbacks"] += 1

@@ -161,7 +161,9 @@ SAFE_CREDENTIAL = re.compile(
 
 
 def has_real_assertion(a):
-    """A 2xx/3xx expectation needs more than the status code."""
+    """A success expectation needs more than the status code, unless the response has no body by definition."""
+    if a.get("status") in (204, 205) or 300 <= a.get("status", 0) < 400:
+        return True
     return bool(
         a.get("json_equals") or a.get("body_contains") or a.get("header_contains") or meaningful_schema(a.get("schema"))
     )

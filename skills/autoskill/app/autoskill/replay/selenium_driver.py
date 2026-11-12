@@ -13,7 +13,7 @@ from .. import paths
 from . import ir
 
 DOM_JS = (Path(__file__).with_name("dom.js")).read_text(encoding="utf-8")
-FIND = "return (" + DOM_JS + ")(arguments[0]);"
+FIND = "return (" + DOM_JS + ")().find(arguments[0]);"
 KEYS = {"Enter": "ENTER", "Escape": "ESCAPE", "Tab": "TAB", "Backspace": "BACKSPACE", "Delete": "DELETE",
         "Space": "SPACE", "ArrowUp": "ARROW_UP", "ArrowDown": "ARROW_DOWN", "ArrowLeft": "ARROW_LEFT",
         "ArrowRight": "ARROW_RIGHT", "Home": "HOME", "End": "END", "PageUp": "PAGE_UP", "PageDown": "PAGE_DOWN",

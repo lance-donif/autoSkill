@@ -181,10 +181,19 @@ class Session:
             sessions.save(self.pid, variables=self.saved["variables"])
         return outcome
 
+    def state_variables(self) -> None:
+        """API variables that live in the browser login (for example a token kept in localStorage)."""
+        stored = {item["name"]: item["value"] for origin in self.saved.get("ui", {}).get("origins", [])
+                  for item in origin.get("localStorage", [])}
+        for name, source in self.auth.get("state_variables", {}).items():
+            if source.get("name") in stored:
+                self.variables[name] = stored[source["name"]]
+
     # --- one case ----------------------------------------------------
     def run_one(self, case: dict) -> dict:
         case_id = case["id"]
         if case["kind"] == "api":
+            self.state_variables()
             if case_id == self.auth.get("api_case"):
                 return self.api_login(case, self.force_login)
             outcome = api.run_case(self.client, case, self.config, self.variables)

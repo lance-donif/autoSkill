@@ -144,7 +144,10 @@ def validate(automation: object) -> None:
     if not isinstance(actions, list) or not isinstance(assertions, list):
         raise ValueError("actions 与 assertions 必须是数组")
     for index, step in enumerate(actions, 1):
-        _check_step(step, ACTIONS, "action", f"第 {index} 步")
+        if isinstance(step, dict) and "assertion" in step:  # a check made mid-flow
+            _check_step(step, ASSERTIONS, "assertion", f"第 {index} 步")
+        else:
+            _check_step(step, ACTIONS, "action", f"第 {index} 步")
     for index, step in enumerate(assertions, 1):
         _check_step(step, ASSERTIONS, "assertion", f"第 {index} 条断言")
 
