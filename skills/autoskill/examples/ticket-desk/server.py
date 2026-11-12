@@ -143,12 +143,16 @@ class Handler(BaseHTTPRequestHandler):
     def error(self, status: int, code: str, **extra) -> None:
         self.send_json(status, {"code": code, **extra})
 
-    def read_json(self) -> object:
+    def read_body(self) -> None:
+        """Always consume the request body: answering with unread bytes resets the connection on Windows."""
         length = int(self.headers.get("Content-Length") or 0)
         if length > 64 * 1024:
+            self.close_connection = True
             raise ValueError("body too large")
-        raw = self.rfile.read(length) if length else b""
-        return json.loads(raw.decode("utf-8")) if raw else {}
+        self.body = self.rfile.read(length) if length else b""
+
+    def read_json(self) -> object:
+        return json.loads(self.body.decode("utf-8")) if self.body else {}
 
     def token(self) -> str | None:
         header = self.headers.get("Authorization", "")
@@ -177,7 +181,9 @@ class Handler(BaseHTTPRequestHandler):
     def route(self) -> None:
         url = urlsplit(self.path)
         path = url.path
+        self.body = b""
         try:
+            self.read_body()
             if path.startswith("/api/"):
                 self.api(path, parse_qs(url.query))
             else:
