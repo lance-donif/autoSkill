@@ -25,11 +25,12 @@ class ReleasePublishingTests(unittest.TestCase):
             archive = base / 'autoSkill-Windows-x64-Offline.zip'
             archive.write_bytes(b'new package')
             calls = []
+            tag = 'v' + json.loads((ROOT / 'package.json').read_text())['version']
 
             def fake_api(method, path, body=None, binary=None):
                 calls.append((method, path))
                 if path.startswith('/releases?'):
-                    return [{'id': 1, 'tag_name': 'v2.0.1', 'upload_url': 'https://uploads.github.com/example{?name}'}]
+                    return [{'id': 1, 'tag_name': tag, 'upload_url': 'https://uploads.github.com/example{?name}'}]
                 if path == '/releases/1/assets':
                     return [{'id': 10, 'name': archive.name}]
                 if method == 'POST':
@@ -38,7 +39,7 @@ class ReleasePublishingTests(unittest.TestCase):
                     return {'id': 11, 'size': archive.stat().st_size, 'digest': 'sha256:wrong'}
                 self.fail('Unexpected mutation: ' + str((method, path)))
 
-            env = {'RELEASE_TAG': 'v2.0.1', 'RELEASE_COMMIT': 'test', 'RELEASE_REPOSITORY': 'example/repo'}
+            env = {'RELEASE_TAG': tag, 'RELEASE_COMMIT': 'test', 'RELEASE_REPOSITORY': 'example/repo'}
             argv = ['publish', '--build', str(base), '--proof', str(proof), '--result', str(base / 'result')]
             with patch.dict(os.environ, env), patch('sys.argv', argv), patch.object(publisher, 'api', fake_api):
                 with self.assertRaisesRegex(ValueError, 'digest mismatch'):

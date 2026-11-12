@@ -1,5 +1,5 @@
 {
-  "tag": "v2.0.1",
+  "tag": "v2.0.2",
   "status": "pending",
-  "note": "Windows CI must verify the offline package before publishing; DSH agent sandbox remains unverified."
+  "note": "Retry Windows CI with normal vendor lookup for restricted subprocesses and verbose progress."
 }

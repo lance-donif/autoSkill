@@ -7,7 +7,7 @@ permissions:
   contents: write
 concurrency:
   group: windows-offline-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   release:
     runs-on: windows-latest
@@ -15,6 +15,10 @@ jobs:
     env:
       PYTHONUTF8: '1'
       PYTHONDONTWRITEBYTECODE: '1'
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_COMMIT: ${{ github.sha }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+      RELEASE_RUN_ID: ${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +34,7 @@ jobs:
       - name: Build offline package from official assets
         shell: pwsh
         run: |
+          python scripts/record-release-progress.py --stage building
           $build = Join-Path $env:RUNNER_TEMP 'autoSkill 发布构建'
           python scripts/fetch-windows-assets.py --assets "$build/assets" --chrome-version 157.0.8103.78
           if ($LASTEXITCODE -ne 0) { throw 'Asset fetch failed' }
@@ -63,10 +68,15 @@ jobs:
         run: |
           $proof = Join-Path $env:RUNNER_TEMP 'autoskill-release-proof'
           $vendor = Join-Path $env:AUTOSKILL_RELEASE_BUILD 'package/autoskill/vendor/windows-x64'
+          # Restricted-process tests intentionally strip AUTOSKILL_* variables.
+          # The source checkout must also find the runtime through its normal vendor layout.
+          $sourceVendor = Join-Path $env:GITHUB_WORKSPACE 'skills/autoskill/vendor'
+          New-Item -ItemType Junction -Path $sourceVendor -Target (Join-Path $env:AUTOSKILL_RELEASE_BUILD 'package/autoskill/vendor') | Out-Null
           $env:AUTOSKILL_CHROMIUM = Join-Path $vendor 'chrome/chrome-win64/chrome.exe'
           $env:AUTOSKILL_CHROMEDRIVER = Join-Path $vendor 'chromedriver/chromedriver-win64/chromedriver.exe'
           $env:AUTOSKILL_AGENT_BROWSER = Join-Path $vendor 'agent-browser/agent-browser.exe'
-          python -m unittest discover -s tests -p 'test_*.py' 2>&1 | Tee-Object "$proof/python-tests.txt"
+          python scripts/record-release-progress.py --stage testing
+          python -m unittest discover -s tests -p 'test_*.py' -v 2>&1 | Tee-Object "$proof/python-tests.txt"
           if ($LASTEXITCODE -ne 0) { throw 'Python regression failed' }
           node --test tests/plugin.test.mjs 2>&1 | Tee-Object "$proof/plugin-tests.txt"
           if ($LASTEXITCODE -ne 0) { throw 'Plugin regression failed' }
