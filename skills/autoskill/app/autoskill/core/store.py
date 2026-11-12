@@ -381,7 +381,6 @@ def init(p):
         (p / "knowledge" / f"{k}.md").write_text(
             f"# {k}\n\n待补充；未提供不代表不存在。凭据仅存环境变量名称。\n", encoding="utf-8"
         )
-    print(f"项目已创建: {p}")
 
 
 def coverage(p):

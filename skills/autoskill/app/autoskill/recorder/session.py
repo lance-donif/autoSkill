@@ -275,7 +275,14 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
         if kind == "count":
             step["locators"] = [_spec(rec, target, rich=True).get("locator") or {"by": "css", "value": target}]
         else:
-            step["locators"] = _target(rec, target, rich=True)["locators"]
+            found = _target(rec, target, rich=True)["locators"]
+            explicit = _spec(rec, target, rich=True).get("locator")
+            given_as_text = bool(explicit) and explicit["by"] == "text"
+            if not given_as_text:  # locating an element by the very text being asserted proves nothing
+                found = [loc for loc in found if loc["by"] != "text"] or found
+            if explicit and explicit["by"] == "css" and all(loc != explicit for loc in found):
+                found = [explicit, *found]  # the recorder chose this selector on purpose
+            step["locators"] = found
     if "expected" in required:
         if expected is None:
             raise RecordError(f"{kind} 断言需要期望值")

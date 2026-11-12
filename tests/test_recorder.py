@@ -152,6 +152,15 @@ class CompileTests(unittest.TestCase):
         page = next(c for c in made if c["path"] == "/")
         self.assertEqual(page["assertions"]["body_contains"], ["<title>纯前端页面</title>"])
 
+    def test_static_data_files_are_not_called_business_apis(self):
+        catalogue = {f"k{i}": {"name": str(i)} if i % 2 else {} for i in range(30)}
+        traffic = {"log": {"entries": [entry("GET", "/learn.json", 200, catalogue, kind="xhr")]}}
+        summary = compiler.build(self.pid, self.rec(), traffic, None, "静态数据")
+        case = next(c for c in projects.cases(self.pid) if c["kind"] == "api")
+        self.assertEqual((summary["api_traffic"], case["extensions"]["traffic"], case["title"]), ("static", "static", "读取静态数据 /learn.json"))
+        self.assertTrue(any("不是业务接口测试" in note for note in summary["notes"]))
+        self.assertTrue(any("只校验了状态码和大致结构" in note for note in summary["notes"]))
+
     def test_no_assertions_is_reported_not_hidden(self):
         rec = self.rec()
         rec["steps"] = rec["steps"][:1]

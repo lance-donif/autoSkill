@@ -276,7 +276,7 @@ async function caseDrawer(projectId, caseId) {
       h('table', { class: 'table kv' }, h('tbody', {}, rows.map(([label, value]) => h('tr', {}, h('td', { class: 'sub' }, label), h('td', { class: 'mono' }, String(value))))))));
     const extract = Object.entries(item.extract || {});
     if (extract.length) body.push(h('p', { class: 'sub' }, '为后续用例提供变量：' + extract.map(([name, pointer]) => `{{${name}}} ← ${pointer}`).join('，')));
-    if (item.traffic === 'resource') body.push(h('div', { class: 'banner info' }, icon('info'), '这是「页面与静态资源可访问」检查，不是业务接口测试。'));
+    if (item.traffic === 'resource' || item.traffic === 'static') body.push(h('div', { class: 'banner info' }, icon('info'), '这是「页面资源或静态数据文件可访问」检查，不是业务接口测试。'));
   }
   const run = h('button', { class: 'btn primary' }, icon('play'), '运行这条用例');
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId] }], run); if (started) closeOverlay(); });

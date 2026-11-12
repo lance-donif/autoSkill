@@ -16,6 +16,7 @@ DROP_HEADERS = re.compile(
     r"^(user-agent|accept.*|referer|origin|host|connection|content-length|content-type|cookie|pragma|"
     r"cache-control|sec-.*|upgrade-insecure-requests|if-.*|priority|dnt|te)$", re.I)
 SCHEME = re.compile(r"^(Bearer|Basic|Token)\s+(.+)$", re.I)
+STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.I)
 LOGIN_PATH = re.compile(r"(login|signin|sign-in|auth|token|session)", re.I)
 CHANGING = {"fill", "type", "click", "dblclick", "press", "check", "uncheck", "select"}
 MAX_API_CASES = 30
@@ -181,8 +182,13 @@ class Compiler:
             rules["header_contains"] = {"content-type": entry["mime"]}
         verb = {"GET": "查询", "POST": "提交", "PUT": "修改", "PATCH": "修改", "DELETE": "删除"}.get(entry["method"], entry["method"])
         title = f'{verb} {"/".join(segments)}' + (f'（返回 {entry["status"]}）' if entry["status"] >= 400 else "")
-        case = builder.api_case(f"TC-API-{self.next_number:03d}", title, entry["method"], "/".join(segments), rules,
-                                module=module, headers=headers, params=params, json=body, depends_on=sorted(deps))
+        static = entry["method"] == "GET" and bool(STATIC_FILE.search(entry["path"])) and not params
+        if "json_equals" not in rules and not rules.get("schema", {}).get("required"):
+            self.notes.append(f'{entry["method"]} {entry["path"]}：响应里没有适合自动断言的稳定字段，只校验了状态码和大致结构；需要更强的校验请人工补充')
+        case = builder.api_case(f"TC-API-{self.next_number:03d}", ("读取静态数据 " + entry["path"]) if static else title,
+                                entry["method"], "/".join(segments), rules, module="页面与资源" if static else module,
+                                headers=headers, params=params, json=body, depends_on=sorted(deps),
+                                traffic="static" if static else "business")
         match = existing.get(self.signature(case))
         if match and match["assertions"]["status"] == entry["status"]:
             case, outcome = json.loads(json.dumps(match)), "reused"
@@ -256,7 +262,10 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
             counts[outcome] += 1
     if len(business) > MAX_API_CASES:
         compiler.notes.append(f"接口请求较多，只为前 {MAX_API_CASES} 个生成了用例")
-    traffic = "business"
+    kinds = {c["extensions"].get("traffic") for c in compiler.cases}
+    traffic = "business" if "business" in kinds else "static"
+    if traffic == "static" and compiler.cases:
+        compiler.notes.append("页面没有调用业务接口，只读取了静态数据文件；这些接口用例验证的是文件可访问且结构正常，不是业务接口测试")
     if not compiler.cases:
         traffic = "resource"
         for entry in [e for e in captured if e["resource"]][:MAX_RESOURCE_CASES]:
