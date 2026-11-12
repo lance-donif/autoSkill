@@ -188,6 +188,10 @@ export function href(page, params = {}) {
   return '#/' + page + (text ? '?' + text : '');
 }
 window.addEventListener('hashchange', () => listeners.forEach((fn) => fn()));
+/** Re-render the current page in place (after an action changed what it shows). */
+export function refresh() { listeners.forEach((fn) => fn()); }
+/** A page showing something still in progress asks to be kept fresh for a few seconds. */
+export const live = { until: 0 };
 
 // ---- formatting ----
 const pad = (n) => String(n).padStart(2, '0');

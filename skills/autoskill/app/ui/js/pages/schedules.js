@@ -1,5 +1,5 @@
 // Schedules: run chosen cases at fixed times. Create, edit, pause, delete, run now.
-import { h, icon, replace, api, scope, scopeQuery, go, href, route, statusPill, attempt, toast, fmtTime, fmtUntil, ENGINE } from '../core.js';
+import { h, icon, replace, api, scope, scopeQuery, go, href, route, statusPill, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
 import { empty, errorState, drawer, closeOverlay, confirm } from '../ui.js';
 import { state } from '../shell.js';
 
@@ -9,10 +9,9 @@ const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai'
 export async function render(view) {
   let tasks;
   try { tasks = await api('/tasks' + scopeQuery()); } catch (error) {
-    replace(view, h('div', { class: 'card' }, errorState(error, () => render(view))));
+    replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
-  const refresh = () => render(view);
   const create = h('button', { class: 'btn primary', disabled: !state.projects.length, onClick: () => editor(null, refresh) }, icon('plus'), '新建定时任务');
   let body;
   if (!tasks.length) {

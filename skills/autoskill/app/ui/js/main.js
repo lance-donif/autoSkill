@@ -1,5 +1,5 @@
 // Entry point: routing, the shared frame, and a quiet refresh while runs are in progress.
-import { route, onChange, h, replace } from './core.js';
+import { route, onChange, h, replace, live } from './core.js';
 import { refreshShell, renderSide, renderScope, applyTheme, state } from './shell.js';
 import { skeletonRows, errorState } from './ui.js';
 
@@ -62,5 +62,5 @@ setInterval(async () => {
   if (busy()) return;
   const wasActive = state.active;
   await refreshShell();
-  if (state.active > 0 || wasActive > 0 || !state.online) show({ quiet: true });
+  if (state.active > 0 || wasActive > 0 || !state.online || Date.now() < live.until) show({ quiet: true });
 }, 2500);

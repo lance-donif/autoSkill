@@ -1,6 +1,6 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
 import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt, toast,
-  fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER } from '../core.js';
+  fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
 import { empty, errorState, startRun, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
 
@@ -23,7 +23,7 @@ async function history(view) {
   try {
     data = await api((mode === 'results' ? '/results' : '/runs') + scopeQuery({ status, limit: PAGE, offset }));
   } catch (error) {
-    replace(view, h('div', { class: 'card' }, errorState(error, () => history(view))));
+    replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
   const tabs = h('div', { class: 'seg', role: 'group', 'aria-label': '查看方式' },
@@ -87,7 +87,7 @@ let reportFor = null;
 async function report(view, runId) {
   let run;
   try { run = await api('/runs/' + runId); } catch (error) {
-    replace(view, h('div', { class: 'card' }, errorState(error, () => report(view, runId))));
+    replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
   const focus = route().params.get('case');
@@ -98,6 +98,7 @@ async function report(view, runId) {
     else for (const row of run.results) if (!row.prerequisite && row.status !== 'Pass') openRows.add(row.case_id);  // failures open by default
   }
   const running = active(run);
+  if (running) live.until = Date.now() + 8000;
   const counted = run.results.filter((row) => !row.prerequisite);
   const spent = run.results.reduce((sum, row) => sum + row.duration_ms, 0);
   const notPassed = counted.filter((row) => row.status !== 'Pass').length;
@@ -117,6 +118,7 @@ async function report(view, runId) {
     if (!(await confirm({ title: '取消这次运行？', text: '正在执行的那条用例会跑完，之后的不再执行。已完成的结果会保留。', action: '取消运行', danger: true }))) return;
     await attempt(() => api(`/runs/${runId}/cancel`, { method: 'POST', body: {} }), stop);
     toast('已请求取消');
+    refresh();
   });
 
   const summary = h('section', { class: 'card run-summary' },
@@ -140,7 +142,7 @@ async function report(view, runId) {
     h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例结果'),
       h('p', { class: 'sub' }, run.results.some((row) => row.prerequisite) ? '带「前置」标记的用例是为了满足依赖自动执行的，不计入统计。' : '点开一条查看每一步和每条断言。'))),
     run.results.length
-      ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row, view)))
+      ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row)))
       : empty({ glyph: 'clock', title: running ? '正在准备' : '没有结果', text: running ? '浏览器启动后，结果会一条条出现在这里。' : (run.reason || '这次运行没有产生结果。') }));
 
   replace(view,
@@ -156,11 +158,11 @@ function stat(label, value, tone) {
   return h('div', { class: 'stat' + (tone ? ' ' + tone : '') }, h('span', { class: 'stat-value' }, String(value)), h('span', { class: 'stat-label' }, label));
 }
 
-function resultRow(run, row, view) {
+function resultRow(run, row) {
   const open = openRows.has(row.case_id);
   const head = h('button', { class: 'result-head', 'aria-expanded': String(open), onClick: () => {
     if (open) openRows.delete(row.case_id); else openRows.add(row.case_id);
-    report(view, run.id);
+    refresh();
   } },
   icon('right', 'icon-svg caret'), statusPill(row.status),
   h('span', { class: 'grow' }, h('span', { class: 'title' }, row.case_title),

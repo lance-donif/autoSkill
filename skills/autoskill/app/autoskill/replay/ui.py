@@ -201,7 +201,8 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             outcome.update(status="Fail", category=ASSERTION, actual="页面结果与预期不一致",
                            reason="；".join(f'{a["name"]}（实际：{a["actual"]}）' for a in failed)[:500])
         else:
-            outcome.update(status="Pass", actual=f"{len(steps)} 个步骤完成，{len(assertions)} 条断言通过")
+            done = sum(1 for row in steps if not row.get("check"))
+            outcome.update(status="Pass", actual=f"{done} 个步骤完成，{len(assertions)} 条断言通过")
     except Exception as error:  # every failure becomes a classified result, never a crash
         category, message = classify(error)
         if steps and steps[-1]["status"] == "running":

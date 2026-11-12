@@ -17,4 +17,6 @@ else
   PYTHONPATH="$here/app"
 fi
 export PYTHONPATH PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1
+# Git Bash turns an argument like /orders into C:/Program Files/Git/orders; tell the CLI what prefix to undo.
+if command -v cygpath >/dev/null 2>&1; then AUTOSKILL_MSYS_ROOT=$(cygpath -m /); export AUTOSKILL_MSYS_ROOT; fi
 exec "$py" -m autoskill "$@"

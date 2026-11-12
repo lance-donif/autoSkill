@@ -1,5 +1,5 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
-import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route } from '../core.js';
+import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay } from '../ui.js';
 import { state, refreshShell } from '../shell.js';
 
@@ -21,7 +21,7 @@ export async function render(view) {
   try {
     data = await api('/cases' + scopeQuery());
   } catch (error) {
-    replace(view, h('div', { class: 'card' }, errorState(error, () => render(view))));
+    replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
   const s = scope();

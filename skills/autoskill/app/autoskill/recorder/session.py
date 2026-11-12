@@ -263,6 +263,13 @@ def browser(argv: list[str]) -> dict:
         if not rest:
             raise RecordError(f"{command} 需要目标，例如 @e3")
         found = _target(rec, rest[0])  # describe before acting: the element may be gone afterwards
+        what = f'{found.get("role") or found.get("tag")}「{found.get("name", "")}」'
+        if command in ("fill", "type") and not found.get("editable"):
+            raise RecordError(f"{rest[0]} 是 {what}，不能输入文字；编号可能来自旧的 snapshot，请用最近一次返回的 snapshot 重新确认")
+        if command == "select" and found.get("tag") != "select":
+            raise RecordError(f"{rest[0]} 是 {what}，不是下拉框；自定义下拉请用 click 打开后再 click 选项")
+        if command in ("check", "uncheck") and not found.get("checkable"):
+            raise RecordError(f"{rest[0]} 是 {what}，不是复选框或单选框；请用最近一次返回的 snapshot 重新确认")
         step = {"action": command, "locators": found["locators"]}
         send = list(argv)
         if command in ("fill", "type", "select"):

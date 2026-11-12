@@ -161,6 +161,15 @@ class CompileTests(unittest.TestCase):
         self.assertTrue(any("不是业务接口测试" in note for note in summary["notes"]))
         self.assertTrue(any("只校验了状态码和大致结构" in note for note in summary["notes"]))
 
+    def test_summary_counts_every_recorded_step_and_assertion(self):
+        rec = self.rec()
+        rec["steps"] = [{"action": "click", "locators": [{"by": "testid", "value": "a"}]},
+                        {"assertion": "visible", "locators": [{"by": "testid", "value": "b"}]},  # a check made mid-flow
+                        {"action": "click", "locators": [{"by": "testid", "value": "c"}]},
+                        {"assertion": "visible", "locators": [{"by": "testid", "value": "d"}]}]
+        summary = compiler.build(self.pid, rec, {"log": {"entries": []}}, None, "中途断言")
+        self.assertEqual((summary["ui_case"]["steps"], summary["ui_case"]["assertions"]), (3, 2))  # opening the page is a step
+
     def test_no_assertions_is_reported_not_hidden(self):
         rec = self.rec()
         rec["steps"] = rec["steps"][:1]

@@ -284,7 +284,8 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     if rec.get("as_login") and state:
         sessions.save(project_id, ui=state)
     return {
-        "ui_case": {"id": ui_id, "title": title, "steps": len(actions) + 1, "assertions": len(checks),
+        "ui_case": {"id": ui_id, "title": title, "steps": sum("action" in s for s in rec["steps"]) + 1,
+                    "assertions": sum("assertion" in s for s in rec["steps"]),
                     "depends_on": projects.depends_on(ui_case)},
         "api_cases": [{"id": c["id"], "title": c["title"], "depends_on": projects.depends_on(c)} for c in compiler.cases],
         "api_traffic": traffic if compiler.cases else "none", "api_new": counts["new"], "api_reused": counts["reused"],

@@ -124,6 +124,8 @@
     const auto = (el.getAttribute('autocomplete') || '').toLowerCase();
     return {
       locators: out, tag: el.tagName.toLowerCase(), role: r, name: name.slice(0, 80), type,
+      editable: (el.tagName === 'INPUT' && !/^(button|submit|reset|checkbox|radio|file|image|hidden)$/.test(type)) || el.tagName === 'TEXTAREA' || el.isContentEditable,
+      checkable: el.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio') || /^(checkbox|radio|switch)$/.test(r || ''),
       secret: type === 'password' || /password|one-time-code|^cc-/.test(auto),
     };
   }

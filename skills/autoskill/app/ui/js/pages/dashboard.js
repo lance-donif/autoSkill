@@ -1,6 +1,6 @@
 // Dashboard: every figure, chart and list below is computed from the same scope (projects x time range).
 import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope, statusPill, copyText, attempt,
-  fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope } from '../core.js';
+  fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope, refresh } from '../core.js';
 import { definition, empty, errorState, skeletonRows, runButton } from '../ui.js';
 import { trendChart, trendTable, legend, fillBuckets, sparkline, splitBar } from '../charts.js';
 import { state, refreshShell } from '../shell.js';
@@ -56,7 +56,7 @@ export async function render(view) {
         items: [...failed.items, ...blocked.items].sort((a, b) => (a.started_at < b.started_at ? 1 : -1)).slice(0, 6) };
     }
   } catch (error) {
-    replace(view, pageHead(null), h('div', { class: 'card' }, errorState(error, () => render(view))));
+    replace(view, pageHead(null), h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
   const r = summary.results, c = summary.cases, u = summary.runs;
@@ -82,8 +82,8 @@ export async function render(view) {
       note: r.blocked ? '没有验证到结果' : '没有阻塞', to: href('runs', { view: 'results', status: 'Blocked' }) }));
 
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '趋势展示方式' },
-    h('button', { 'aria-pressed': String(!showTable), onClick: () => { showTable = false; render(view); } }, '图表'),
-    h('button', { 'aria-pressed': String(showTable), onClick: () => { showTable = true; render(view); } }, '表格'));
+    h('button', { 'aria-pressed': String(!showTable), onClick: () => { showTable = false; refresh(); } }, '图表'),
+    h('button', { 'aria-pressed': String(showTable), onClick: () => { showTable = true; refresh(); } }, '表格'));
   const pickDay = (point) => {
     const day = point.bucket.slice(0, 10);
     go('runs', { view: 'results', range: 'custom', from: day, to: day });
@@ -136,8 +136,8 @@ function tasksCard(tasks) {
 
 function failuresCard(failures, r, view) {
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '失败列表范围' },
-    h('button', { 'aria-pressed': String(!currentOnly), onClick: () => { currentOnly = false; render(view); } }, '范围内全部'),
-    h('button', { 'aria-pressed': String(currentOnly), onClick: () => { currentOnly = true; render(view); } }, '当前仍失败'));
+    h('button', { 'aria-pressed': String(!currentOnly), onClick: () => { currentOnly = false; refresh(); } }, '范围内全部'),
+    h('button', { 'aria-pressed': String(currentOnly), onClick: () => { currentOnly = true; refresh(); } }, '当前仍失败'));
   const body = failures.items.length
     ? h('div', { class: 'list' }, failures.items.map((item) => h('a', { class: 'list-row', href: href('runs/' + item.run_id, { case: item.case_id }) },
       statusPill(item.status),

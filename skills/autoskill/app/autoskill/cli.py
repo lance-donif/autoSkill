@@ -373,11 +373,31 @@ def dispatch(args) -> tuple[dict, int]:
     return session.check(args.kind, args.target, args.expected, args.attribute), 0
 
 
+def undo_msys(args) -> None:
+    """Restore arguments Git Bash rewrote from "/x" to "<Git root>/x". Only for values that are never file paths."""
+    root = (os.environ.get("AUTOSKILL_MSYS_ROOT") or "").rstrip("/")
+    if not root:
+        return
+
+    def fix(value):
+        if isinstance(value, str) and value.lower().startswith(root.lower() + "/"):
+            return value[len(root):]
+        return value
+
+    if args.command == "check":
+        args.target, args.expected = fix(args.target), fix(args.expected)
+    elif args.command == "browser":
+        args.args = [fix(a) for a in args.args]
+    elif args.command == "record" and getattr(args, "url", None):
+        args.url = fix(args.url)
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     args = parser().parse_args(argv)
+    undo_msys(args)
     db.init()
     real_stdout = sys.stdout
     try:
