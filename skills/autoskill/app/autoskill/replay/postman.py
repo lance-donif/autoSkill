@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from urllib.parse import quote
 
 SCHEMA = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 ENV_REF = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -55,11 +56,18 @@ def test_script(case: dict) -> list[str]:
     return lines
 
 
+def _fields(values: dict, secrets_seen: set) -> list[dict]:
+    """Keep repeated query and form fields as distinct Postman entries."""
+    converted = _convert(values, secrets_seen)
+    return [{"key": key, "value": "" if item is None else item if isinstance(item, str) else _js(item)}
+            for key, value in converted.items() for item in (value if isinstance(value, list) else [value])]
+
+
 def _item(case: dict, secrets_seen: set) -> dict:
     path = _convert(case["path"], secrets_seen)
-    params = _convert(case.get("params", {}), secrets_seen)
-    query = [{"key": k, "value": v if isinstance(v, str) else _js(v)} for k, v in params.items()]
-    raw = "{{base_url}}" + path + ("?" + "&".join(f'{q["key"]}={q["value"]}' for q in query) if query else "")
+    query = _fields(case.get("params", {}), secrets_seen)
+    encoded = "&".join(quote(q["key"], safe="{}") + "=" + quote(q["value"], safe="{}") for q in query)
+    raw = "{{base_url}}" + path + ("?" + encoded if query else "")
     request = {
         "method": case["method"],
         "header": [{"key": k, "value": v} for k, v in _convert(case.get("headers", {}), secrets_seen).items()],
@@ -71,6 +79,8 @@ def _item(case: dict, secrets_seen: set) -> dict:
             request["header"].append({"key": "Content-Type", "value": "application/json"})
         body = json.dumps(_convert(case["json"], secrets_seen), ensure_ascii=False, indent=2)
         request["body"] = {"mode": "raw", "raw": body, "options": {"raw": {"language": "json"}}}
+    elif "form" in case:
+        request["body"] = {"mode": "urlencoded", "urlencoded": _fields(case["form"], secrets_seen)}
     return {
         "name": f'{case["id"]} {case["title"]}',
         "request": request,
