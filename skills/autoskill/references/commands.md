@@ -99,7 +99,7 @@
 | `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本（含前置步骤），运行时不需要 autoSkill；凭据从同名环境变量读取 |
 | `report <项目> [--out 目录]` | Excel（用例、步骤、断言、最近结果）和 Markdown 摘要 |
 | `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包：用例、知识库、登录方式定义。不含登录态、运行记录、截图；凭据仅在 `--include-secrets` 时用口令加密带上 |
-| `pack --full [--out 路径]` | 完整包：整个 Skill（运行时 + 全部项目与知识库），对方解压即用。不含 `workspace/.local`（凭据、登录态、运行记录、截图） |
+| `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含运行历史、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
 | `import <分享包> [--passphrase 口令] [--overwrite]` | 导入轻量分享包。已有同名项目默认跳过 |
 
 ## 其他
@@ -116,7 +116,7 @@
 ```
 <Skill 目录>/workspace/
   projects/<项目>/        可以分享：project.json、qa-config.json、auth.json、testcases/、knowledge/
-  .local/                 只在本机：凭据、登录态、运行记录、截图、报告
+  .local/                 本机数据：完整包会分享凭据和登录态；运行记录、截图、报告不随包带走
     recording.json        默认会话的录制状态（兼容旧版本）
     recordings/<哈希>/    命名会话的录制状态和临时文件
     case-plans/<哈希>/autoskill-cases/  命名会话的默认 Excel 用例 Skill
