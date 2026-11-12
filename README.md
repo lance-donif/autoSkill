@@ -1,69 +1,94 @@
 # autoSkill
 
-支持 **Skill** 与 **DeepSeek Harness 插件** 两种形式。插件版提供仪表盘、用例库、执行记录、定时任务和运行配置页；脚本模式无需AI，AI模式通过官方DSH SDK。完整安装说明见 [plugin/INSTALL.md](plugin/INSTALL.md)。
+**录一次，到处回放。** AI 操作网页时，autoSkill 同步录下页面动作和接口流量，编译成不需要 AI 的回放用例：页面用例可用 Playwright 或 Selenium 回放，接口用例走 HTTP，并可导出 Postman 集合和独立脚本。用例按项目归档，可以定时执行，结果在仪表盘里查看。
 
-AI 自动化测试 Skill 原型：根据需求生成 UI/API 用例，统一存储并导出，结合真实浏览器和独立 HTTP 执行器保存测试结果。
+它是一个 Skill：任何能读文件、能执行命令的 AI 智能体都可以使用，不绑定某个平台。Windows x64 完整包自带全部运行依赖，内网离线可用。
 
-## 当前内容
+## 它解决什么
 
-| 目录 | 内容 |
+| 以前 | 现在 |
 | --- | --- |
-| `skills/autoskill/` | 主控、用例生成、Excel、知识库、浏览器适配、存储规范及 Python 引擎 |
-| `skills/selenium-ui-cases/` | Selenium 官方测试页20条 UI 用例 Skill |
-| `skills/selenium-api-cases/` | 索引依赖 GitHub Tree API 的4条接口用例 Skill 与执行器 |
-| `examples/selenium/` | 测试需求、标准 JSON、真实接口结果与浏览器阻塞记录 |
-| `tests/` | 11项基础回归及6项问题复现探针 |
-| `reports/` | 已知问题、测试报告和真实执行摘要 |
+| 每次回归都要 AI 重新理解页面、重新操作，慢且结果不稳定 | AI 只在第一次录制时参与；之后回放是确定性的脚本，不调用模型 |
+| 页面测试和接口测试各写一套 | 录一次页面操作，同时得到页面用例和它背后的接口用例 |
+| 每次都要提醒「先登录」 | 项目有登录用例后，录制和回放都自动先登录，登录态在本机复用，过期自动重登 |
+| 用例散落在个人电脑上 | 用例、知识库、登录方式跟着 Skill 目录走，一条命令打包分享 |
 
-## Windows x64 内网使用
+## 目录
 
-使用依赖已内置的Windows完整包；解压后直接执行，不需要联网初始化：
+| 路径 | 内容 |
+| --- | --- |
+| `skills/autoskill/` | 产品本体：`SKILL.md`（给 AI 的使用说明）、命令行入口、应用代码、仪表盘、示例 |
+| `skills/autoskill/references/` | 命令参考、常见问题、随包的 agent-browser 离线指南 |
+| `skills/autoskill/examples/ticket-desk/` | 示例工单系统：带登录和业务接口的演示站点 |
+| `plugin/` | DeepSeek Harness 插件：注册 Skill，并把仪表盘、定时任务放进侧边栏 |
+| `scripts/` | 维护者用：下载运行时、组装离线包 |
+| `tests/` | 自动化测试（真实浏览器、真实 HTTP、真实数据库） |
+| `docs/`、`reports/` | 需求与验收清单、测试证据 |
+
+## 使用（完整离线包）
+
+解压后不需要安装任何东西。给人看的入口是仪表盘：
 
 ```bat
-skills\autoskill\run-windows.cmd verify
-skills\autoskill\run-windows.cmd doctor --ui
-skills\autoskill\run-windows.cmd dashboard
+autoskill\autoskill.cmd dashboard
 ```
 
-核心命令用 `run-windows.cmd qa <命令> <项目目录>`。完整包中有Python、Node、Python库、测试浏览器、Agent Browser和DSH SDK；GitHub源码ZIP不含这些二进制，不能代替完整包。安装与模型配置见 [plugin/INSTALL.md](plugin/INSTALL.md)。
+浏览器打开 <http://127.0.0.1:8787>。第一次使用点「加载示例项目」，再点「运行全部」，就能看到完整效果。
 
-先生成用例、save-cases保存、validate与coverage校验，再export/report；实际执行必须配置授权origin。脚本模式无需模型。AI只能使用显式配置的内网provider/model，缺配置不回退默认公网模型。
+给 AI 用：把 `autoskill` 目录交给你的智能体，告诉它「使用这个目录里的 autoSkill 技能测试 <网址>」。它会阅读 `SKILL.md` 并按下面的流程工作：
 
-## 导入 Skill
+```
+autoskill project create --name "订单中心" --url http://10.0.0.8:8080
+autoskill context <项目>
+autoskill record start <项目>
+autoskill browser click @e5
+autoskill check contains testid=toast "已创建"
+autoskill record stop --title "新建工单"
+autoskill run <项目>
+```
 
-每个顶层 `skills/<名称>/SKILL.md` 是独立入口，按使用平台的技能加载机制加载。autoSkill 会主动读取其内部子模块，不能依赖加载器自动发现嵌套目录。不保证所有客户端可直接用同一条安装命令。
+全部命令见 [`skills/autoskill/references/commands.md`](skills/autoskill/references/commands.md)。
 
-## 已知限制
+自检：`autoskill.cmd verify`（按清单校验随包文件）、`autoskill.cmd doctor --launch`（真实启动一次浏览器）。
 
-- 主引擎当前写入1.1.0，同时接受1.0.0旧定义；已支持源码/官方文档确认来源及目录附加断言。旧的执行结果缺少内容哈希时必须归档重跑，不能冒认通过。
-- 已修复初测6项问题，并新增9项针对性回归；内网补充后累计49项Python与5项Node测试通过（含后续插件与调度测试）。历史问题与修复说明见 reports/qa-master-test-report.md。
-- 引擎测试通过不等于真实浏览器全流程通过；完整UI验收状态见执行报告。
-- Selenium 真实浏览器本轮不可达，UI全部 Blocked；4条第三方依赖接口真实执行通过。具体证据与范围见 reports/selenium-execution-summary.md。
-- 仅使用专用测试环境与合成数据；不要提交账号密码、Cookie、Token、原始 HAR 或其他秘密。
+## 仪表盘
 
-Windows实机启动、断网抓包及DSH模型联调尚未完成，不将自动检查通过等同于这些验收通过。
+- **仪表盘**：默认汇总全部项目，可按项目和时间范围筛选；筛选同时作用于所有数字、图表和列表，并写入网址。每个指标旁有统计口径说明，点击进入同一筛选条件下的明细。
+- **项目与用例**：单条运行、勾选批量运行、整个项目运行；可选 Playwright 或 Selenium。
+- **执行记录**：实时进度、可取消、只重跑未通过的；每条用例展开可见逐步时间线、逐条断言（期望与实际）、请求与响应、结束时截图。
+- **定时任务**：每天、每周、固定间隔、仅一次；可编辑、暂停、立即运行。仪表盘运行期间才会触发。
 
-## 双执行通道
+统计口径：通过率 = 通过 ÷（通过 + 失败）。阻塞（没有验证到结果）单独展示，不进分母；为满足依赖而自动执行的前置用例不计入。
 
-共享runtime提供script/UI（Playwright）、script/API（HTTP）与ai（官方DSH SDK）通道。脚本模式不调用模型；自然语言用例需先形成extensions.automation动作和断言才可脚本执行。官方Agent Browser发现Skill已随仓库附带（Apache-2.0），Windows完整包的CLI和浏览器依赖已放在Skill内部。AI SDK需匹配用户DSH安装版本和模型配置。
+## 分享
 
-## 插件开发与预览
+```
+autoskill pack                       # 打包全部项目：用例、知识库、登录方式定义
+autoskill import <分享包>            # 对方导入
+```
+
+分享包不含凭据、登录态、运行记录和截图。对方首次使用时按提示设置凭据即可；团队共用测试账号时可加 `--include-secrets --passphrase <口令>`，凭据用口令加密后随包带走。
+
+## 安全与离线
+
+- 浏览器只能访问项目授权的地址，其他地址在浏览器层面不可达；访问范围、高风险操作（删除、支付等）按项目显式开启。
+- 凭据和登录态只保存在本机，用当前 Windows 用户的 DPAPI 加密；用例、报告、导出文件里只有凭据名称。
+- 仪表盘只监听 127.0.0.1，拒绝跨站写请求。
+- 不联网安装，不检查更新，不上报数据。浏览器的后台联网、组件更新、崩溃上报均关闭。
+
+## 已验证与未验证
+
+实测结果、证据和仍未解决的问题见 [`reports/交付验证报告.md`](reports/交付验证报告.md)。没有真实运行过的项目不写成通过。
+
+## 开发
+
+需要本机 Python 3.12+ 和 `requirements.txt` 中的库，以及 Chrome for Testing 与 chromedriver（通过环境变量 `AUTOSKILL_CHROMIUM`、`AUTOSKILL_CHROMEDRIVER`、`AUTOSKILL_AGENT_BROWSER` 指定）。
 
 ```bash
-npm run build
-npm test
-npm run doctor
-npm run dashboard
+python -m unittest discover -s tests -p "test_*.py"      # Python 测试
+node --test tests/plugin.test.mjs                        # 插件契约测试
+python scripts/fetch-windows-assets.py --assets <仓库外目录>            # 维护者：从官方源下载运行时
+python scripts/build-windows-bundle.py --assets <目录> --output <新目录> --zip   # 维护者：组装离线包
 ```
 
-DSH插件的宿主入口为plugin/index.mjs，客户端入口构建为lib/client.js。实际安装使用官方Plugins管理器的本地file: Bundle方式；请先阅读安装说明和兼容边界。插件面板当前限定同机访问回环后台，远程Web部署还需认证传输桥。
-
-## 可脚本复跑的开源待办示例
-
-`examples/todomvc/` 附带未经业务修改、逐文件核对Git blob的官方TodoMVC、20条UI动作/断言和4条本地控制台API用例，以及两个项目样例Skill。详情见 [示例说明](examples/todomvc/README.md)。测试结果诚实保留当前浏览器受阻状态，不把生成与格式校验当成真实页面通过。
-
-本轮功能与验证边界详见 [最终验证报告](reports/final-validation.md)。当前已实现双形式与双执行通道，但真实DSH宿主/模型和浏览器端到端验收仍未完成，不能据自动测试通过宣称所有UI流程已通过。
-
-## Windows x64 内网交付
-
-内网用户使用依赖已内置的Windows完整包，不运行联网初始化命令。入口为 `skills/autoskill/run-windows.cmd`，支持本地校验、依赖检查、核心命令与仪表盘。完整包与源码ZIP不同；具体版本和未完成的Windows实机验收见 `reports/windows-bundle-components.json`，使用步骤见 `plugin/INSTALL.md`。运行入口不下载依赖或在线更新，AI无默认公网模型回退。
+完整离线包约 272 MB，超过 Git 单文件限制，作为 GitHub Release 附件发布，不进入仓库历史。

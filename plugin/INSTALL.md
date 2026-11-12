@@ -1,61 +1,68 @@
-# autoSkill：Windows x64 内网完整包
+# 安装与使用
 
-## 用户环境不需要联网初始化
+## 拿到的是什么
 
-使用随交付文件提供的 **Windows x64 完整包**。依赖已直接置于 `skills/autoskill/vendor/windows-x64/`：Python嵌入运行时、Python库、Node运行时、测试浏览器、Agent Browser原生程序、DSH SDK及其依赖。浏览器core指南及references也已在Skill内，无须联网获取。
+`autoSkill-Windows-x64-Offline.zip` 解压后有两个目录：
 
-用户无需安装Python、Node、pip、npm或浏览器，不运行任何在线安装命令。解压后保留目录结构，建议目录 `C:\autoSkill`。支持Windows 10及以上x64；系统本身必须能够运行这些Windows程序。DSH宿主与内网模型服务仍由用户现有环境提供，不捆绑整个DSH应用或模型权重。
+| 目录 | 用途 |
+| --- | --- |
+| `autoskill\` | Skill 本体，自带 Python、Chrome、chromedriver、agent-browser 和全部库。**只要这个目录就能用。** |
+| `dsh-plugin\` | 可选：DeepSeek Harness 插件，把仪表盘和定时任务放进 DSH 侧边栏。 |
 
-仓库源码与完整包有区别：GitHub源码不包含数百MB的运行时二进制；**下载源码ZIP不能替代完整包**。完整包中依赖确实位于Skill内部，不要求用户另找联网机器准备。组件版本、SHA256及依赖清单见完整包中的 `offline-manifest.json`、`requirements-windows.lock` 和仓库 `reports/windows-bundle-components.json`。
+支持 Windows 10 / 11 x64。不需要安装 Python、Node 或浏览器，不需要联网。解压路径可以包含中文和空格。
 
-## 首次检查与使用
+从 GitHub 下载的源码 ZIP 不含运行时，不能代替完整包。
 
-在cmd中执行（路径可自行修改）：
-
-```bat
-C:\autoSkill\skills\autoskill\run-windows.cmd verify
-C:\autoSkill\skills\autoskill\run-windows.cmd doctor --ui
-C:\autoSkill\skills\autoskill\run-windows.cmd dashboard
-```
-
-`verify`校验随附运行文件的SHA256，`doctor`仅检查本地依赖和浏览器文件，不联网。文件存在不等于浏览器已启动成功。仪表盘地址默认 `http://127.0.0.1:8787`，后台只监听回环地址。
-
-核心Skill命令示例：
+## 第一次使用
 
 ```bat
-C:\autoSkill\skills\autoskill\run-windows.cmd qa init C:\qa-workspace\demo
-C:\autoSkill\skills\autoskill\run-windows.cmd qa validate C:\qa-workspace\demo
+autoskill\autoskill.cmd verify            校验随包文件是否完整
+autoskill\autoskill.cmd doctor --launch   真实启动一次浏览器，确认这台电脑能跑
+autoskill\autoskill.cmd dashboard         启动仪表盘，浏览器打开 http://127.0.0.1:8787
 ```
 
-项目数据放在包目录外，避免覆盖或污染交付文件。UI用例的URL、接口地址、账号引用、授权origin必须按内网测试环境配置。
+仪表盘里点「加载示例项目」→「运行全部」，即可看到完整流程。
 
-## 方式一：仅Skill
+## 方式一：作为 Skill（任何智能体）
 
-把完整包的 `skills/autoskill/`（包括vendor，不能只复制SKILL.md）与 `skills/agent-browser/` 并列放入DSH的 `.dsh/skills/` 或 `~/.dsh/skills/`。主技能名autoskill，显示名autoSkill。仅Skill形式不注册仪表盘或定时任务页面；独立仪表盘启动命令仍可用于本地预览。
+把 `autoskill\` 整个目录放到你的智能体能读取的位置（不能只复制 `SKILL.md`），然后告诉它：
 
-AI需要直接读取Skill内的 `references/agent-browser-core.offline/SKILL.md`；不得执行官方发现入口中的 `skills get` 或外部安装命令。AI操作浏览器使用完整包内离线包装器：它拒绝安装、升级、远程provider和策略覆盖，并读取项目授权origin配置。
+> 使用 `<路径>\autoskill` 里的 autoSkill 技能测试 `<网址>`。
 
-## 方式二：DSH插件
+智能体会阅读 `SKILL.md`，通过 `autoskill` 命令完成建项目、录制、回放。如果平台有固定的 Skill 目录（例如 `.dsh/skills/`），把 `autoskill\` 放进去即可。
 
-DSH必须已在本机可用。在Plugins页面安装完整包的本地Bundle `file:C:/autoSkill`，启用 `dsh-plugin-autoskill`。插件自动优先选择随包Python和浏览器，注册4个顶层Skill，侧边栏增加仪表盘与定时任务页面。包内无强制npm依赖安装步骤。
+## 方式二：DeepSeek Harness 插件
 
-支持配置port、stateRoot、python、chromium。显式配置优先于随包路径。仪表盘目前要求浏览器与DSH宿主在同一台机器；远程DSH Web访问桥尚未实现。
+DSH 需已安装。把 `dsh-plugin\` 里的三项（`plugin\`、`package.json`、`cordis.patch.yml`）放到 `autoskill\` 的上一级，使目录结构为：
 
-## AI与脚本模式
+```
+<安装目录>\
+  package.json
+  cordis.patch.yml
+  plugin\
+  skills\autoskill\        ← 把 autoskill\ 改名并放到这里
+```
 
-脚本模式不加载SDK、不调用模型，只访问获授权的内网测试网站或接口。
+在 DSH 的 Plugins 页面安装本地 Bundle `file:<安装目录>` 并启用 `dsh-plugin-autoskill`。插件会注册 autoSkill 技能、启动仪表盘，并在侧边栏增加「autoSkill 仪表盘」和「autoSkill 定时任务」。
 
-AI模式必须显式设置以下环境变量，并由DSH继承：
+可配置项：`port`（默认 8787）、`workspace`（数据目录，默认在 Skill 目录内）。
 
-- `AUTOSKILL_DSH_COMMAND`：已有本地DSH JSON-RPC运行程序的绝对路径。
-- `AUTOSKILL_DSH_ARGS`：对应参数的JSON数组，默认空数组；禁止使用npx等联网启动器。
-- `AUTOSKILL_AI_PROVIDER`：DSH中已配置的内网provider。
-- `AUTOSKILL_AI_MODEL`：该provider中的模型标识。
+本插件在真实 DSH 宿主中的加载尚未实测，只通过了入口契约测试，见 `COMPATIBILITY.md`。
 
-未设置时任务受阻，不回退到SDK默认的公网provider/model。随附SDK为0.0.1-rc.1的launch/provider/model接口，需要与实际DSH JSON-RPC宿主兼容；本轮没有真实DSH/模型联调。技能不会下载DSH或模型。
+## 数据放在哪
 
-## 更新和遥测
+```
+autoskill\workspace\
+  projects\<项目>\     用例、知识库、登录方式定义 —— 可以分享
+  .local\              凭据、登录态、运行记录、截图 —— 只在本机
+```
 
-autoSkill没有远程更新器、版本检查服务或遥测上传服务；运行入口禁用pip索引查询、浏览器下载、npm更新提示/审计/资助请求，设置DO_NOT_TRACK及OTEL_SDK_DISABLED。Node包管理器和Agent Browser的安装脚本不随完整包交付，PATH中的Agent Browser入口拒绝install/upgrade/update/skills等设置命令。浏览器启动关闭后台联网、组件更新、域可靠性、同步、崩溃上报及ping；脚本浏览器阻止Service Worker并按项目origin拦截请求。
+升级到新版本时，把旧目录里的 `workspace\` 复制到新目录即可。凭据和登录态用当前 Windows 用户加密，换电脑或换用户后需要重新设置凭据。
 
-这些设置不能证明任意第三方二进制或用户既有DSH宿主已经实现零外联。需要零外联保证时，应由内网出口策略只允许测试服务和模型服务，并在Windows实机记录进程网络流量验收。技能不能修改或审计用户整个DSH应用；本轮也没有完成Windows断网/抓包验收，报告不得写成通过。更新仅接受管理员手动替换经审核完整包，不在运行时联网更新。
+## 更新与外联
+
+autoSkill 没有在线更新、版本检查或数据上报。更新方式是管理员手动替换为新的完整包。
+
+运行时只连接两类地址：本机（仪表盘、浏览器驱动）和项目里授权的被测地址。浏览器的后台联网、组件更新、崩溃上报已关闭，未授权地址在浏览器层面不可达。
+
+需要严格的零外联保证时，仍建议由内网出口策略限制，只放行被测系统。
