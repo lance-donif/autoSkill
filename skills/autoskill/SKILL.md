@@ -26,6 +26,10 @@ AI 浏览器先直接读取 `references/agent-browser-core.offline/SKILL.md` 和
    - `skills/testcase-to-excel/SKILL.md`
 5. 读取 `references/contracts.md` 和 `references/safety-rules.md`，检查依赖：`python <技能目录>/scripts/qa.py doctor`。缺少依赖时明确能力边界，不自动更改用户全局 Python 或冒充安装外部浏览器工具。
 
+## 用例回放
+
+直接读取项目权威JSON，用 `run-windows.cmd replay --project <项目绝对路径> --kind ui --engine script` 执行；接口改为 `--kind api`。可用 `--case TC-ID` 选择用例。必须先授权项目origin和操作。每次生成独立运行快照，不能把上次结果复制成回放通过。DSH模型回放显式选择 `--engine ai`，缺宿主/内网模型配置时报告Blocked。
+
 ## 八阶段流程
 
 1. 保存输入清单和来源定位，提取需求到 `analysis/requirements.json`。要求、假设、待确认项分别记录，未知不补成事实。

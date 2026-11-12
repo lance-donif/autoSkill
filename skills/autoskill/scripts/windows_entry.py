@@ -48,11 +48,13 @@ def main():
     env = environment()
     if mode == 'qa':
         command = [sys.executable, str(SKILL / 'scripts/qa.py'), *args]
+    elif mode == 'replay':
+        command = [sys.executable, '-m', 'runtime.replay', *args]
     elif mode in ('doctor', 'dashboard'):
         script = 'doctor.mjs' if mode == 'doctor' else 'start.mjs'
         command = [str(VENDOR / 'node/node.exe'), str(app / 'scripts' / script), *args]
     else:
-        raise SystemExit('Use verify, doctor [--ui|--ai], qa <command> <project>, or dashboard')
+        raise SystemExit('Use verify, doctor [--ui|--ai], qa <command> <project>, replay --project PATH --kind ui|api, or dashboard')
     try:
         result = subprocess.run(command, cwd=app, env=env)
         raise SystemExit(result.returncode)
