@@ -9,7 +9,13 @@ from .. import db, paths, projects, secrets
 from ..replay import ir
 from . import agent
 
-SESSION = "autoskill-rec"
+
+
+def session_name() -> str:
+    """One browser session per workspace: two autoSkill folders on one machine must never share a browser."""
+    import hashlib
+
+    return "autoskill-" + hashlib.sha1(str(paths.workspace()).lower().encode("utf-8")).hexdigest()[:10]
 DOM_JS = (Path(__file__).resolve().parents[1] / "replay" / "dom.js").read_text(encoding="utf-8")
 TARGETED = ("click", "dblclick", "hover", "check", "uncheck", "fill", "type", "select")
 READ_ONLY = ("snapshot", "get", "is", "wait", "screenshot", "scroll", "scrollintoview", "focus", "eval")
@@ -50,14 +56,14 @@ def relative(url: str, base_url: str) -> str:
 
 
 def snapshot(rec: dict, interactive: bool = True) -> str:
-    data = agent.call(SESSION, ["snapshot", *(["-i"] if interactive else [])]) or {}
+    data = agent.call(session_name(), ["snapshot", *(["-i"] if interactive else [])]) or {}
     rec["refs"] = data.get("refs", {})
     return data.get("snapshot", "")
 
 
 def _describe(spec: dict) -> dict | None:
     script = "JSON.stringify((" + DOM_JS + ")().target(" + json.dumps(spec, ensure_ascii=False) + "))"
-    result = (agent.call(SESSION, ["eval", "--stdin"], stdin_text=script) or {}).get("result")
+    result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script) or {}).get("result")
     return json.loads(result) if isinstance(result, str) and result != "null" else None
 
 
@@ -66,7 +72,7 @@ def _spec(rec: dict, token: str, rich: bool = False) -> dict:
         ref = rec["refs"].get(token[1:])
         if not ref:
             raise RecordError(f"引用 {token} 已失效；先运行 autoskill browser snapshot 再操作")
-        box = agent.call(SESSION, ["get", "box", token], check=False)
+        box = agent.call(session_name(), ["get", "box", token], check=False)
         return {"ref": {"role": ref.get("role"), "name": ref.get("name"), "box": box}}
     if rich:
         kind, _, value = token.partition("=")
@@ -121,7 +127,7 @@ class PageProbe:
     def _read(self, locator: dict, what: str, arg: str | None = None):
         script = ("JSON.stringify((" + DOM_JS + ")().read(" + json.dumps(locator, ensure_ascii=False) + ", "
                   + json.dumps(what) + ", " + json.dumps(arg) + "))")
-        result = (agent.call(SESSION, ["eval", "--stdin"], stdin_text=script) or {}).get("result")
+        result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script) or {}).get("result")
         return json.loads(result) if isinstance(result, str) else None
 
     def count(self, locator: dict) -> int:
@@ -131,10 +137,10 @@ class PageProbe:
         return self._read(locator, what, arg)
 
     def url(self) -> str:
-        return (agent.call(SESSION, ["get", "url"]) or {}).get("url", "")
+        return (agent.call(session_name(), ["get", "url"]) or {}).get("url", "")
 
     def title(self) -> str:
-        return (agent.call(SESSION, ["get", "title"]) or {}).get("title", "")
+        return (agent.call(session_name(), ["get", "title"]) or {}).get("title", "")
 
 
 def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
@@ -155,11 +161,11 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         state_file = paths.local() / "recording-state.json"
         state_file.write_text(json.dumps(sessions.load(project_id).get("ui", {})), encoding="utf-8")
         used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
-    agent.call(SESSION, ["close"], check=False, timeout=30)
+    agent.call(session_name(), ["close"], check=False, timeout=30)
     try:
-        agent.call(SESSION, ["open", "about:blank"], launch=agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors"))), timeout=90)
-        agent.call(SESSION, ["network", "har", "start"])
-        opened = agent.call(SESSION, ["open", start_url], timeout=90) or {}
+        agent.call(session_name(), ["open", "about:blank"], launch=agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors"))), timeout=90)
+        agent.call(session_name(), ["network", "har", "start"])
+        opened = agent.call(session_name(), ["open", start_url], timeout=90) or {}
     finally:
         if state_file:
             state_file.unlink(missing_ok=True)
@@ -207,7 +213,7 @@ def status() -> dict:
 
 
 def cancel() -> dict:
-    agent.call(SESSION, ["close"], check=False, timeout=30)
+    agent.call(session_name(), ["close"], check=False, timeout=30)
     existed = _file().is_file()
     _file().unlink(missing_ok=True)
     return {"cancelled": existed}
@@ -239,22 +245,22 @@ def browser(argv: list[str]) -> dict:
                 "locators": [ir.describe_locator(loc) for loc in found["locators"]],
                 "use_as_target": [_as_target(loc) for loc in found["locators"]]}
     if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview"):
-        return {"result": agent.call(SESSION, argv)}
+        return {"result": agent.call(session_name(), argv)}
     if command == "open":
         if not rest:
             raise RecordError("open 需要地址")
         url = ir.absolute_url(rest[0], config["base_url"])
         ir.check_origin(url, config["allowed_origins"])
-        agent.call(SESSION, ["open", url], timeout=90)
+        agent.call(session_name(), ["open", url], timeout=90)
         result = _record(rec, {"action": "goto", "url": relative(url, config["base_url"])})
     elif command == "reload":
-        agent.call(SESSION, ["reload"], timeout=90)
+        agent.call(session_name(), ["reload"], timeout=90)
         result = _record(rec, {"action": "reload"})
     elif command == "press":
         if not rest:
             raise RecordError("press 需要按键名，例如 Enter")
         focused = _describe({})
-        agent.call(SESSION, ["press", rest[0]])
+        agent.call(session_name(), ["press", rest[0]])
         step = {"action": "press", "key": rest[0]}
         if focused and focused.get("locators"):
             step["locators"] = focused["locators"]
@@ -277,7 +283,7 @@ def browser(argv: list[str]) -> dict:
                 raise RecordError(f"{command} 需要内容")
             typed, step["value"] = _secret_value(rec, _plain(rest[1]), bool(found.get("secret")) and command != "select")
             send = [command, rest[0], typed]
-        agent.call(SESSION, send)
+        agent.call(session_name(), send)
         result = _record(rec, step)
     else:
         raise RecordError(f"录制不支持 {command}；可用：open snapshot describe click dblclick hover fill type select check uncheck press reload get is wait")
@@ -340,12 +346,12 @@ def stop(title: str, module: str = "", category: str = "") -> dict:
     har_file, state_file = paths.local() / "recording.har", paths.local() / "recording-state.json"
     har, state = {"log": {"entries": []}}, None
     try:
-        if agent.call(SESSION, ["network", "har", "stop", str(har_file)], check=False) is not None and har_file.is_file():
+        if agent.call(session_name(), ["network", "har", "stop", str(har_file)], check=False) is not None and har_file.is_file():
             har = json.loads(har_file.read_text(encoding="utf-8", errors="replace"))
-        if agent.call(SESSION, ["state", "save", str(state_file)], check=False) is not None and state_file.is_file():
+        if agent.call(session_name(), ["state", "save", str(state_file)], check=False) is not None and state_file.is_file():
             state = json.loads(state_file.read_text(encoding="utf-8"))
     finally:
-        agent.call(SESSION, ["close"], check=False, timeout=30)
+        agent.call(session_name(), ["close"], check=False, timeout=30)
         har_file.unlink(missing_ok=True)  # raw traffic and cookies never stay on disk
         state_file.unlink(missing_ok=True)
     summary = compiler.build(rec["project_id"], rec, har, state, title.strip(), module, category)

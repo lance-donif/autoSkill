@@ -127,7 +127,7 @@ async function report(view, runId) {
         statusPill(run.status),
         h('div', { class: 'grow' }, h('h1', {}, run.project_name),
           h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 页面用例用 ${ENGINE[run.engine]} 回放 · ${fmtTime(run.created_at)}`)),
-        running ? stop : [again, notPassed > 0 && retry]),
+        running ? stop : [h('a', { class: 'btn', href: `/api/projects/${run.project_id}/report`, download: '', title: '用例、步骤、断言和每条用例的最近结果' }, icon('table'), '下载报告'), again, notPassed > 0 && retry]),
       running
         ? h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),

@@ -212,6 +212,17 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         return Response(source, media_type="text/x-python; charset=utf-8",
                         headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
+    @app.get("/api/projects/{project_id}/report")
+    def report_file(project_id: str, part: str = "excel"):
+        """Download the project report: cases, steps, assertions and the latest result of each case."""
+        from pathlib import Path
+
+        from .. import reporting
+
+        built = reporting.build(project_id)
+        file = Path(built["markdown" if part == "markdown" else "excel"])
+        return FileResponse(file, filename=file.name)
+
     @app.put("/api/secrets/{name}")
     async def put_secret(name: str, request: Request):
         """Write-only: a value can be stored or replaced, never read back."""

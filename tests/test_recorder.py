@@ -170,6 +170,18 @@ class CompileTests(unittest.TestCase):
         summary = compiler.build(self.pid, rec, {"log": {"entries": []}}, None, "中途断言")
         self.assertEqual((summary["ui_case"]["steps"], summary["ui_case"]["assertions"]), (3, 2))  # opening the page is a step
 
+    def test_each_workspace_records_in_its_own_browser_session(self):
+        from autoskill.recorder import session
+
+        mine = session.session_name()
+        self.assertEqual(mine, session.session_name())
+        with tempfile.TemporaryDirectory() as other:
+            os.environ["AUTOSKILL_WORKSPACE"] = other
+            try:
+                self.assertNotEqual(session.session_name(), mine)
+            finally:
+                os.environ["AUTOSKILL_WORKSPACE"] = self.tmp.name
+
     def test_no_assertions_is_reported_not_hidden(self):
         rec = self.rec()
         rec["steps"] = rec["steps"][:1]

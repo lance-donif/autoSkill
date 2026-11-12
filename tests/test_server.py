@@ -177,6 +177,14 @@ class ApiGuardTests(Workspace):
             os.environ.pop("AUTOSKILL_HEADED", None)
         self.assertEqual(flag(fired["id"]), 0)
 
+    def test_report_can_be_downloaded_from_the_dashboard(self):
+        with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
+            got = client.get(f"/api/projects/{PID}/report")
+            self.assertEqual(got.status_code, 200)
+            self.assertEqual(got.content[:2], b"PK")  # an .xlsx file
+            self.assertIn("attachment", got.headers["content-disposition"])
+            self.assertEqual(client.get("/api/projects/nope/report").status_code, 400)
+
     def test_secrets_are_write_only_and_files_cannot_be_traversed(self):
         with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
             self.assertEqual(client.put("/api/secrets/X_TOKEN", json={"value": "v"}).status_code, 200)

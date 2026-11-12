@@ -232,6 +232,7 @@ async function projectSettings(projectId) {
             h('span', { class: 'hint' }, '未勾选的操作类型，相关用例会被阻塞而不是执行。')))),
       h('details', { class: 'more' }, h('summary', {}, '导出'),
         h('div', { class: 'row wrap', style: 'margin-top:12px' },
+          h('a', { class: 'btn', href: `/api/projects/${projectId}/report`, download: '' }, icon('table'), 'Excel 测试报告'),
           h('a', { class: 'btn', href: `/api/projects/${projectId}/postman?part=collection`, download: '' }, icon('api'), 'Postman 集合'),
           h('a', { class: 'btn', href: `/api/projects/${projectId}/postman?part=environment`, download: '' }, 'Postman 环境'),
           h('span', { class: 'hint sub' }, '凭据值不会导出，在 Postman 环境里自行填写。'))),
