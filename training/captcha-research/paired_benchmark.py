@@ -1,4 +1,5 @@
 """ABBA process-isolated benchmark; no simultaneous competing ORT sessions."""
+import hashlib
 import json
 import os
 import resource
@@ -18,7 +19,7 @@ def worker(kind, threads):
     import onnxruntime as ort
     from PIL import Image
 
-    file = SOURCE if kind == 'original' else ROOT / 'candidates/rbf-distance-matmul.onnx'
+    file = SOURCE if kind == 'original' else Path(os.environ.get('CAPTCHA_CANDIDATE_MODEL', str(ROOT / 'candidates/rbf-distance-matmul.onnx')))
     manifest = [json.loads(line) for line in (ROOT / 'datasets/manifest.jsonl').read_text().splitlines()]
     rows = []
     for category in ('plain', 'pale', 'through-line', 'first-symbol-touching'):
@@ -51,7 +52,8 @@ def worker(kind, threads):
         started = time.perf_counter()
         session.run(None, {key: tensor})
         timings.append((time.perf_counter() - started) * 1000)
-    return {'model': kind, 'threads': threads or 'ORT default', 'initialization_ms': initialized_ms,
+    return {'model': kind, 'model_file': str(file), 'model_sha256': hashlib.sha256(file.read_bytes()).hexdigest(),
+            'threads': threads or 'ORT default', 'initialization_ms': initialized_ms,
             'first_inference_ms': first_ms, 'process_cold_imports_prepare_init_first_ms': cold_to_first,
             'warm_inference_ms': timings, 'warm_median_ms': statistics.median(timings),
             'warm_p95_ms': sorted(timings)[round(.95 * (len(timings) - 1))],
