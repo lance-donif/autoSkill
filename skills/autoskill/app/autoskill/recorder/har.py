@@ -63,8 +63,45 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
     return found, notes
 
 
+WIDE = 12     # an object with more keys than this is treated as a map, not a record
+SAMPLE = 50   # how many array items / map values are compared
+
+
+def merge_schemas(schemas: list[dict]) -> dict:
+    """What every sample has in common: a key is required only if all samples have it."""
+    types = {schema.get("type") for schema in schemas}
+    if len(types) != 1 or None in types:
+        return {}  # mixed or unknown types: no constraint rather than a wrong one
+    kind = types.pop()
+    if kind == "array":
+        items = merge_schemas([schema["items"] for schema in schemas if schema.get("items")])
+        return {"type": "array", **({"items": items} if items else {})}
+    if kind != "object":
+        return {"type": kind}
+    merged: dict = {"type": "object"}
+    required = set.intersection(*[set(schema.get("required", [])) for schema in schemas])
+    if required:
+        merged["required"] = sorted(required)
+    properties = {}
+    for key in sorted(required):
+        parts = [schema["properties"][key] for schema in schemas if key in schema.get("properties", {})]
+        common = merge_schemas(parts) if len(parts) == len(schemas) else {}
+        if common:
+            properties[key] = common
+    if properties:
+        merged["properties"] = properties
+    values = [schema["additionalProperties"] for schema in schemas if isinstance(schema.get("additionalProperties"), dict)]
+    if values and len(values) == len(schemas):
+        common = merge_schemas(values)
+        if common:
+            merged["additionalProperties"] = common
+    if all("minProperties" in schema for schema in schemas):
+        merged["minProperties"] = 1
+    return merged
+
+
 def infer_schema(value, depth: int = 0) -> dict:
-    """Structure of a response: types and required keys, without any values."""
+    """Structure of a response: types and the keys that are always present, without any values."""
     if isinstance(value, bool):
         return {"type": "boolean"}
     if isinstance(value, int):
@@ -78,14 +115,28 @@ def infer_schema(value, depth: int = 0) -> dict:
     if isinstance(value, list):
         schema: dict = {"type": "array"}
         if value and depth < MAX_DEPTH:
-            schema["items"] = infer_schema(value[0], depth + 1)
+            items = merge_schemas([infer_schema(item, depth + 1) for item in value[:SAMPLE]])
+            if items:
+                schema["items"] = items
+        return schema
+    if len(value) > WIDE and all(isinstance(v, dict) for v in value.values()):
+        # Many keys whose values are all objects is a map ("id -> record"), not a record: its keys change with
+        # the data, so require it to be non-empty and describe what the records share. A record with many
+        # scalar fields keeps its required keys below.
+        schema = {"type": "object", "minProperties": 1}
+        records = list(value.values())[:SAMPLE]
+        if depth < MAX_DEPTH:
+            common = merge_schemas([infer_schema(v, depth + 1) for v in records])
+            if common:
+                schema["additionalProperties"] = common
         return schema
     schema = {"type": "object", "required": sorted(value)}
     if depth < MAX_DEPTH:
         # sensitive fields are required to exist, but nothing about them is written down
-        schema["properties"] = {
-            k: infer_schema(v, depth + 1) for k, v in value.items() if v is not None and not SENSITIVE.search(str(k))
-        }
+        properties = {k: infer_schema(v, depth + 1) for k, v in value.items() if v is not None and not SENSITIVE.search(str(k))}
+        properties = {k: v for k, v in properties.items() if v}
+        if properties:
+            schema["properties"] = properties
     return schema
 
 

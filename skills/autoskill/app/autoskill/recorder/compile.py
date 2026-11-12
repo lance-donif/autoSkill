@@ -175,7 +175,7 @@ class Compiler:
             if fields:
                 rules["json_equals"] = fields
             schema = harlib.infer_schema(entry["response"])
-            if schema.get("required") or schema.get("type") == "array":
+            if schema.get("required") or schema.get("minProperties") or schema.get("type") == "array":
                 rules["schema"] = schema
         if len(rules) == 1 and entry["status"] < 300 and entry["status"] not in (204, 205) and entry["mime"]:
             rules["header_contains"] = {"content-type": entry["mime"]}
