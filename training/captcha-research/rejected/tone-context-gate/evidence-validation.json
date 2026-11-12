@@ -1,0 +1,19 @@
+{
+  "validated": true,
+  "blind_samples": 480,
+  "existing_exclusion_records": 1932,
+  "label_overlap": 0,
+  "pixel_overlap": 0,
+  "font_hash_overlap": 0,
+  "seed_overlap": 0,
+  "noise_first_glyph_intersections_rechecked": 240,
+  "prediction_rows_each_model": {
+    "original": 1532,
+    "fast": 1532,
+    "tone_context_gate": 1532
+  },
+  "fast_vs_original_decoded_string_changes": 0,
+  "all_models_started_after_freeze": true,
+  "freeze_sha256": "3332b6c2142c45d3140547197706dc83504f86fa13107d56a54da775856e86d3",
+  "evaluation_report_sha256": "3119cb9c41b9fa8d789852dc54a9d61a90dde43f28ea694f328e45825a8d23b7"
+}

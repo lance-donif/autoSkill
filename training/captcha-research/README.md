@@ -11,7 +11,7 @@
 - 明确许可的公开小样本：`PatrickLib/captcha_recognize@e4ed7a1513ddcf3b2aec7620f4d68e7c90ddc5a4`，仓库附 **Apache-2.0**；README 规定文件名前缀为标签。取得 **12 张**作者发布的生成器样图（6 张 128×48、6 张 150×40）。这是有真实已知标签的公开样图，不是目标站验收集。
 - 困难合成集：**480 train / 160 dev / 240 test**，四类分别为 plain、pale、through-line、first-symbol-touching。训练字体族 OpenSans/Noto，开发集 Liberation，锁定测试集 DejaVu；字体族、seed 范围、标签和像素 SHA 均不交叉。记录文字/背景灰度、对比度、线宽、曲率、相位、斜率和首位 hook/loop/slash 噪声。噪声符号**不进入标签**。
 - 所有公开来源均作 external_test，未用于小头训练。原始模型训练样本、原始 checkpoint、NOTICE 所指训练 manifest 和源码在本机均不存在；无法验证与原训练集的历史重叠。
-- `sources-manifest.json` 固定 URL、commit、原始归档 SHA、许可证证据和排除理由。`datasets/manifest.jsonl` 与 `datasets/public-apache-manifest.jsonl` 是逐图元数据，不包含像素数据。
+- `sources-manifest.json` 固定 URL、commit、原始归档 SHA、许可证证据和排除理由。仓库内 `manifests/manifest.jsonl` 与 `manifests/public-apache-manifest.jsonl` 是逐图元数据，不包含像素数据；准备工具将可复现的原始产物写入外部研究目录的 `datasets/`。
 
 ## 原始模型基线
 
@@ -62,12 +62,26 @@ OPENBLAS_NUM_THREADS=1 python training/captcha-research/paired_benchmark.py
 
 `validate_distance.py` 不依赖小头训练产物；它加载固定 manifest，核对逐图数值/字符串与分组 exact-match/CER。benchmark 在独立进程内冷导入科学计算库，不同时保留两个互相争抢线程的 ORT session。原始测量值是一次固定实验的证据，复测时间会随宿主机负载变化。
 
+## 已否决的准确率候选
+
+色调恢复加上下文门控候选（`beafa0c…`）冻结后，独立生成并冻结了四类各 120 张的 **480 张新盲测**，与现有 1,932 条研究记录的标签、像素、字体文件及 seed 均无交叉。评估通过真实 `autoskill.captcha.solve`，没有替代产品预处理或解码。
+
+| 评估集 | 原模型 / 速度模型 | 色调门控候选 |
+|---|---:|---:|
+| 新合成盲测 | 317/480 | 320/480 |
+| 其中首位符号接触 | 5/120 | 8/120 |
+| 外部公开集 | 341/1040 | 185/1040 |
+| Apache 作者样图 | 7/12 | 3/12 |
+
+候选在新难例上净增 3 张，但外部兼容集明显退化，**已否决，未替换产品权重**。速度模型在全部 1,532 张上的识别字符串与原模型一致。完整分组、CER、模型/数据 SHA 与局限见 [独立盲测报告](rejected/tone-context-gate/盲测报告.md) 及同目录 JSON；原始图像、预测、生成器和训练候选留存在仓库外冻结研究目录，未随产品分发。该失败结果不用于下一路线的参数选择。
+
 ## 复现
 
 从 autoSkill 根目录运行，将工作目录显式指向仓库外。不要向当前 `models/captcha` 写候选模型。
 
 ```bash
 export CAPTCHA_MODEL_DIR="$PWD/skills/autoskill/models/captcha"
+export CAPTCHA_BASELINE_MODEL=/absolute/path/outside-repository/original-captcha-ctc.onnx
 export CAPTCHA_RESEARCH_DIR=/absolute/path/outside-repository/captcha-research
 mkdir -p "$CAPTCHA_RESEARCH_DIR/sources"
 git clone https://github.com/AakashKumarNain/CaptchaCracker.git "$CAPTCHA_RESEARCH_DIR/sources/CaptchaCracker"
@@ -75,8 +89,8 @@ git -C "$CAPTCHA_RESEARCH_DIR/sources/CaptchaCracker" checkout 21fe487174290b161
 git clone https://github.com/PatrickLib/captcha_recognize.git "$CAPTCHA_RESEARCH_DIR/sources/captcha-recognize"
 git -C "$CAPTCHA_RESEARCH_DIR/sources/captcha-recognize" checkout e4ed7a1513ddcf3b2aec7620f4d68e7c90ddc5a4
 # 准备工具使用现有 ORT/NumPy/Pillow；不需要 Torch/Paddle。
-python /path/to/experiment-scripts/prepare_datasets.py
-python /path/to/experiment-scripts/inspect_baseline.py
+python training/captcha-research/prepare_datasets.py
+python training/captcha-research/inspect_baseline.py
 ```
 
 需要与 manifest 对应的系统字体文件，脚本中固定了字体路径，并记录每个字体文件的 SHA。图像、模型候选、缓存、完整预测和 profiler 原始 JSON 留在仓库外；可提交脚本、来源/标签 manifest、冻结记录和结果摘要。
