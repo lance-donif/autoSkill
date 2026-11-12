@@ -176,6 +176,15 @@ def link(case_id: str, project_id: str, replay_case: str, assertions: int) -> di
     return {"case": case_id, "replay": f"{project_id}/{replay_case}", "next": "autoskill run 回放后，结果会写回用例表"}
 
 
+def _case_revisions(project_id: str) -> dict[str, int]:
+    """A removed project invalidates its old verdicts without interrupting other rows."""
+    try:
+        projects.path(project_id)
+    except ValueError:
+        return {}
+    return {case["id"]: case["revision"] for case in projects.cases(project_id)}
+
+
 def sync(quiet: bool = False) -> dict | None:
     """Write the latest replay verdict of every linked row back into the sheet."""
     from . import reporting
@@ -191,7 +200,7 @@ def sync(quiet: bool = False) -> dict | None:
                 continue
             if project_id not in latest:
                 latest[project_id] = reporting.latest_results(project_id)
-                revisions[project_id] = {case["id"]: case["revision"] for case in projects.cases(project_id)}
+                revisions[project_id] = _case_revisions(project_id)
             result = latest[project_id].get(replay_case)
             if result and result["status"] in STATUS:
                 if result["case_revision"] != revisions[project_id].get(replay_case):

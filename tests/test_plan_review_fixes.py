@@ -1,6 +1,7 @@
 """Case sheet verdicts follow revisions, and generated Excel content stays literal text."""
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -34,9 +35,10 @@ class PlanReviewTests(unittest.TestCase):
         source.write_text(json.dumps([item or {"id": "TC-001", "title": "Health check"}]), encoding="utf-8")
         return plan.write(self.pid, str(source))
 
-    def record_result(self, status, reason=""):
-        case = projects.case(self.pid, self.case_id)
-        run = runner.create(self.pid, [self.case_id])
+    def record_result(self, status, reason="", project_id=None):
+        pid = project_id or self.pid
+        case = projects.case(pid, self.case_id)
+        run = runner.create(pid, [self.case_id])
         runner.record(run, case, {"status": status, "reason": reason}, False, db.now())
         db.update("runs", run["id"], {"status": status, "finished_at": db.now()})
 
@@ -70,6 +72,27 @@ class PlanReviewTests(unittest.TestCase):
                 cell = book["用例"].cell(2, column)
                 self.assertEqual((cell.value, cell.data_type), (fields[key], "s"), key)
         self.assertEqual((book["信息"]["B2"].value, book["信息"]["B2"].data_type), ("=1+1", "s"))
+
+    def test_sync_preserves_design_rows_and_updates_other_projects_after_a_project_is_removed(self):
+        other = projects.create("Remaining project", "http://127.0.0.1:10", project_id="remaining")["id"]
+        projects.save_cases(other, [builder.api_case(self.case_id, "Remaining case", "GET", "/health",
+                                                   {"status": 200, "json_equals": {"/ok": True}})])
+        source = self.folder / "designed.json"
+        source.write_text(json.dumps([{"id": "TC-001", "title": "Removed project design"},
+                                      {"id": "TC-002", "title": "Remaining project design"}]), encoding="utf-8")
+        plan.write(self.pid, str(source))
+        plan.link("TC-001", self.pid, self.case_id, 1)
+        plan.link("TC-002", other, self.case_id, 1)
+        self.record_result("Pass")
+        self.record_result("Pass", project_id=other)
+        self.assertEqual(plan.sync()["summary"]["通过"], 2)
+
+        shutil.rmtree(projects.path(self.pid))
+        self.assertEqual(plan.sync(quiet=True)["updated"], 2)
+        rows = plan.show()["cases"]
+        self.assertEqual([(row["id"], row["title"], row["status"]) for row in rows],
+                         [("TC-001", "Removed project design", "未执行"), ("TC-002", "Remaining project design", "通过")])
+        self.assertEqual(rows[0]["replay"], self.pid + "/" + self.case_id)
 
     def test_manual_and_replay_notes_stay_literal_without_rewriting_existing_formulas(self):
         made = self.write_plan()
