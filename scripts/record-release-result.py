@@ -58,7 +58,8 @@ def main():
         path.write_text(text, encoding='utf-8')
         # Only source-side audit documents change after packaging. Keep shipped plugin docs
         # byte-identical to the tag from which the verified archive was built.
-        for filename in ('docs/需求与验收清单.md',):
+        # Platform bundles also ship docs/: do not mutate them after their archive is hashed.
+        for filename in (() if data.get('packages') else ('docs/需求与验收清单.md',)):
             path = Path(filename)
             with path.open('a', encoding='utf-8') as stream:
                 stream.write(f"\n发布 {tag}：{check_text}，证据见 `reports/evidence/releases/{tag}/`。"
