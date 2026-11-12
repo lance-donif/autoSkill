@@ -1,0 +1,374 @@
+{
+  "protocol": {
+    "order_per_configuration": [
+      "original",
+      "candidate",
+      "candidate",
+      "original",
+      "candidate",
+      "original",
+      "original",
+      "candidate"
+    ],
+    "configurations": [
+      {
+        "name": "ort-default",
+        "intra": 0,
+        "inter": 0
+      },
+      {
+        "name": "intra2-inter1",
+        "intra": 2,
+        "inter": 1
+      }
+    ],
+    "independent_processes": true,
+    "blocks_per_model_per_configuration": 4,
+    "fixed_dev_inputs_per_block": 32,
+    "category_order": [
+      "plain",
+      "pale",
+      "through-line",
+      "first-symbol-touching"
+    ],
+    "selection": "first 8 dev entries per category in the original manifest order; no labels/predictions used",
+    "cold_first_solves_per_block": 1,
+    "additional_first_input_warmups": 5,
+    "warm_measured_solves_per_block": 32,
+    "percentile": "nearest rank: sorted[ceil(0.95*n)-1]",
+    "cold_clock_excludes": "Python startup; benchmark stdlib imports; bulk asset/model/input provenance hashing",
+    "cold_clock_includes": "scientific/source imports; all 32 PNG byte reads; meta read; one session initialization; first full solve",
+    "source_load_note": "Small source-byte SHA checks occur inside module imports; lazy helper/Pillow imports remain inside first solve",
+    "warm_clock": "full solve including image decoding/preprocessing/all ORT runs/CTC; excludes PNG file reads",
+    "os_page_cache_flushed": false,
+    "cache_note": "Parent preflight hashes assets and inputs; OS page cache is not cleared and may be warm",
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    },
+    "sessions_per_worker": 1,
+    "provider": "CPUExecutionProvider",
+    "rss_note": "Process lifetime peak including startup/imports/ORT/work; sampled before post-timing provenance hashing; KiB (macOS bytes converted)",
+    "errors": "ValueError solve attempts retained in timing distributions; other worker failures abort without a completed summary"
+  },
+  "assets": {
+    "original_source": {
+      "path": "/workspace/autoSkill-static-checks/skills/autoskill/app/autoskill/captcha.py",
+      "sha256": "18b899e023f29f85da0ab07dd3d10e389f38b85e6fc8ebe9233ecae0f59db6ea",
+      "bytes": 2580
+    },
+    "candidate_source": {
+      "path": "/workspace/autoSkill-captcha-model/skills/autoskill/app/autoskill/captcha.py",
+      "sha256": "ae7c69e1b5adc163771e360e6e92c08369518dd34e9e741073388e7736029ae0",
+      "bytes": 3280
+    },
+    "candidate_helper": {
+      "path": "/workspace/autoSkill-captcha-model/skills/autoskill/app/autoskill/captcha_image.py",
+      "sha256": "202432c2ada74a8eb30d06b8b62b126f574e98f246252ccc750680e15d5dca57",
+      "bytes": 4773
+    },
+    "original_model": {
+      "path": "/workspace/autoSkill-release/captcha-research/baselines/original-be9dd198/captcha-ctc.onnx",
+      "sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+      "bytes": 13055561
+    },
+    "original_meta": {
+      "path": "/workspace/autoSkill-release/captcha-research/baselines/original-be9dd198/captcha-ctc.json",
+      "sha256": "2641a73630a7de539669e622f0fc7b6ddb34f5b970134a091b68021ffee11346",
+      "bytes": 808
+    },
+    "candidate_model": {
+      "path": "/workspace/autoSkill-captcha-model/skills/autoskill/models/captcha/captcha-ctc.onnx",
+      "sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+      "bytes": 13061505
+    },
+    "candidate_meta": {
+      "path": "/workspace/autoSkill-captcha-model/skills/autoskill/models/captcha/captcha-ctc.json",
+      "sha256": "3d8291576201fe63a270da934fda8159e0d5c9229d2cf781da4e72017bba13de",
+      "bytes": 1306
+    },
+    "manifest": {
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/manifest.jsonl",
+      "sha256": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+      "bytes": 1784686
+    },
+    "package_init": {
+      "path": "/workspace/autoSkill-captcha-model/skills/autoskill/app/autoskill/__init__.py",
+      "sha256": "260f69dca73fe130a0db1dee26338f89efab681e97d95de157f57e58f975f380",
+      "bytes": 94
+    },
+    "package_paths": {
+      "path": "/workspace/autoSkill-captcha-model/skills/autoskill/app/autoskill/paths.py",
+      "sha256": "8e8b4b5d5cf23caccf6588eed2ea98c27a2f3523ff0ec98660aeb8cfecc476cf",
+      "bytes": 9091
+    }
+  },
+  "inputs": [
+    {
+      "index": 0,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d9ef16ad17de39dc.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d9ef16ad17de39dc.png",
+      "sha256": "50ee2e3cedeaa9b7cbbe2a6e5db099b586ac672ab7aec18ca9ce3a3bfc3d4fe2",
+      "split": "dev"
+    },
+    {
+      "index": 1,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-e24e54a655fd7554.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-e24e54a655fd7554.png",
+      "sha256": "773b90ba6ec332d5373d1a7cb63d015181b85bfe6a9f734b6d36868bdfdcfd6f",
+      "split": "dev"
+    },
+    {
+      "index": 2,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d15ddbe6f1aea56a.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d15ddbe6f1aea56a.png",
+      "sha256": "c98341a8e4b5888d2689d470e1d08143b180290ec8c891c069a89234a4992e59",
+      "split": "dev"
+    },
+    {
+      "index": 3,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d7090780200e8e21.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d7090780200e8e21.png",
+      "sha256": "2570c3f7f5a52d491bb63f8c3d9c3915c0c0b422205be4db0ff8e1d61297515f",
+      "split": "dev"
+    },
+    {
+      "index": 4,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-fa19072fa09eb072.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-fa19072fa09eb072.png",
+      "sha256": "e38478d0fa42867f33dfad93e254270f32f09166dbbe7465c066a75bc4b6da05",
+      "split": "dev"
+    },
+    {
+      "index": 5,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-a81433262b20dff9.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-a81433262b20dff9.png",
+      "sha256": "07b2b9def4ec34e400eeece4b33ca7b50ad17d8e76bc1699492e203128504742",
+      "split": "dev"
+    },
+    {
+      "index": 6,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-b8d03b3424189b87.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-b8d03b3424189b87.png",
+      "sha256": "e5cae184b631d15b4a35fe6614a2b3b4c8e0e9dd19af5d9a5a1d6d35c36e2f6b",
+      "split": "dev"
+    },
+    {
+      "index": 7,
+      "category": "plain",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-9de5df3cbb842953.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-9de5df3cbb842953.png",
+      "sha256": "90e2879f34a965f27ecdf005ea14345265ac8095029e1a008f19ca9a8ef2379f",
+      "split": "dev"
+    },
+    {
+      "index": 8,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-ca33da326e91283c.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-ca33da326e91283c.png",
+      "sha256": "e0c284d1312e96df8cac247055c36f54ba7d096a32be7b999d166f5846699ef5",
+      "split": "dev"
+    },
+    {
+      "index": 9,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-386e5ee24509cb9a.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-386e5ee24509cb9a.png",
+      "sha256": "fe9af3b62d3a8ff45c7c769319c9c62d5c6ce7512e5070b1572c8535449fc390",
+      "split": "dev"
+    },
+    {
+      "index": 10,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-b43e51fd46ad18a0.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-b43e51fd46ad18a0.png",
+      "sha256": "5c5a42f21e8ede002da5725c9dcada5ca0f4da45a172fbd0cd7174789e96dbc8",
+      "split": "dev"
+    },
+    {
+      "index": 11,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-1eb27f6f64be72cc.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-1eb27f6f64be72cc.png",
+      "sha256": "f723cc39f005c092edf237b41ab95cca24a60b97f214965b4e176ec61d2ad886",
+      "split": "dev"
+    },
+    {
+      "index": 12,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-68b6742ce9bebb18.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-68b6742ce9bebb18.png",
+      "sha256": "e5efe6cc2b78cccff44fe4d5ad4f52fd23d30662a65f5ec32505c14714aea588",
+      "split": "dev"
+    },
+    {
+      "index": 13,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-7f5032e21e828b6c.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-7f5032e21e828b6c.png",
+      "sha256": "b130bd51223dec8213f2ec001cbfb1010dfd1018d74d8f183262c6950cf33435",
+      "split": "dev"
+    },
+    {
+      "index": 14,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-c6d5700b4b9a5b9d.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-c6d5700b4b9a5b9d.png",
+      "sha256": "eccb83237141a9f3a2bd79270cdb2e84e2572cbd3913380ba1d455d8dced15db",
+      "split": "dev"
+    },
+    {
+      "index": 15,
+      "category": "pale",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-03ffdfe209d5c50c.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-03ffdfe209d5c50c.png",
+      "sha256": "ca6c11082802779b8a0ad3ee93e8448c8ec09010ed12b9d508df32a27e560870",
+      "split": "dev"
+    },
+    {
+      "index": 16,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-c43c09315b15cef2.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-c43c09315b15cef2.png",
+      "sha256": "0b596db5b2871c42182ed32083641b7991039671180452400d6641092d132d87",
+      "split": "dev"
+    },
+    {
+      "index": 17,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-606d26981a764dfe.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-606d26981a764dfe.png",
+      "sha256": "5312b6e485f9bc333b410f1ca1397c3bdd95270ce054a354be4081296bf6c5b3",
+      "split": "dev"
+    },
+    {
+      "index": 18,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-bdee4ed089b038be.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-bdee4ed089b038be.png",
+      "sha256": "3580c4bcf91a2a4d55746171bc0ec63b267f2d04ce69ff544ef5c320c332f51f",
+      "split": "dev"
+    },
+    {
+      "index": 19,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-2d917c836d1f76c3.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-2d917c836d1f76c3.png",
+      "sha256": "d88cc0d25d4aa2bcc1c89bc00b062d240d26a18378e67bef9bcc32a09a05df24",
+      "split": "dev"
+    },
+    {
+      "index": 20,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-f3e57840b2ea357d.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-f3e57840b2ea357d.png",
+      "sha256": "d8a8ac38cbbc6cba3d4a45d43e3b4d7df6fd6b2ec6d0114c4f407f880fb3993f",
+      "split": "dev"
+    },
+    {
+      "index": 21,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-e5c1bcfd3ad8bfa2.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-e5c1bcfd3ad8bfa2.png",
+      "sha256": "5db8b1eeb4da9df1a200ee794854e762b64a0113c6a32fa819466e9cc0e6bc41",
+      "split": "dev"
+    },
+    {
+      "index": 22,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-944e7eae9673de7b.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-944e7eae9673de7b.png",
+      "sha256": "f167b5f11daa34dfc479400b592b782e845e5d1ecb5cf964e998203810f4cf2d",
+      "split": "dev"
+    },
+    {
+      "index": 23,
+      "category": "through-line",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-e1bd5e561674aa1c.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-e1bd5e561674aa1c.png",
+      "sha256": "a8ab21cb6053cf031a7836273c8532c216042e90bf7a73fb94cedaa76933a078",
+      "split": "dev"
+    },
+    {
+      "index": 24,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-c3689476c2bab64e.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-c3689476c2bab64e.png",
+      "sha256": "ca8acc1c4776a24a3aa78c66b826a489ff7c4b6896cf229ba219c7b6474607a6",
+      "split": "dev"
+    },
+    {
+      "index": 25,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-57f53a08c1d397b5.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-57f53a08c1d397b5.png",
+      "sha256": "fcef8ac5dd35f86982271b9ae1b8ed46b8500d8f7bdc3bb1310ae0b53cbfc406",
+      "split": "dev"
+    },
+    {
+      "index": 26,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-bf2e025350e2054a.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-bf2e025350e2054a.png",
+      "sha256": "842af681703a26ac73758542294da03766cbabac1018281f1f48e843a10117a3",
+      "split": "dev"
+    },
+    {
+      "index": 27,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-ec4a79d8a933285f.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-ec4a79d8a933285f.png",
+      "sha256": "2d43c9262eec97e20450e4422f97cd705d710bb3355f70e959fb6262e33ad073",
+      "split": "dev"
+    },
+    {
+      "index": 28,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d56ea2af711b8820.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d56ea2af711b8820.png",
+      "sha256": "9c9db1c3e8efe73d9330c6056ca415ed626c35c3649868ac707bdf59ff91b070",
+      "split": "dev"
+    },
+    {
+      "index": 29,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-9d95c6f817342244.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-9d95c6f817342244.png",
+      "sha256": "0cdb4ea0982bf74fb6de1e49718507f2f4f55e540a8b11628493b3557adec38d",
+      "split": "dev"
+    },
+    {
+      "index": 30,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-b35373c620d10edd.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-b35373c620d10edd.png",
+      "sha256": "372b104647de93d2f39749a4a5d8a2437cb4fa9def991621211996685ac7136b",
+      "split": "dev"
+    },
+    {
+      "index": 31,
+      "category": "first-symbol-touching",
+      "file": "datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d6e2fa4e700a94c2.png",
+      "path": "/workspace/autoSkill-release/captcha-research/datasets/synthetic-hard-v1/dev/synthetic-hard-v1-d6e2fa4e700a94c2.png",
+      "sha256": "a28efd3b31d9cbdeabd6fcc423ac2c4d2d74664eeef84069af5ab1170bcf3174",
+      "split": "dev"
+    }
+  ],
+  "tool": {
+    "path": "/workspace/autoSkill-captcha-model/training/captcha-research/benchmark_solver_pipeline.py",
+    "sha256": "44cf5a3e727eea109978634eec74bcf6a51e799e39d0c10945ae6dea86e0cdbf"
+  },
+  "host": {
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "cpu_count": 3,
+    "python": "/workspace/autoSkill-captcha-model/.venv/bin/python"
+  }
+}
