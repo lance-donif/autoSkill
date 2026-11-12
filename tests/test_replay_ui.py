@@ -81,6 +81,12 @@ class BrowserReplayMixin:
         case = copy.deepcopy(self.case)
         if edit:
             edit(case["extensions"]["automation"])
+        # Upstream initializes its route/count in window.load, after DOMContentLoaded.
+        # Establish that real application precondition before typing; retain the original
+        # actions and business assertions, including the intentionally wrong expectation.
+        case["extensions"]["automation"]["actions"].insert(0, {
+            "assertion": "contains", "selector": ".todo-count", "expected": "0",
+        })
         self.driver.reset()
         return ui.run_case(self.driver, case, self.config, Path(self.tmp.name), self.engine + ".png")
 

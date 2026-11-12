@@ -1,8 +1,5 @@
 {
-  "tag": "v2.0.2",
-  "source_commit": "7775f292fe7bc178960ad584a34f620a6c8755f9",
-  "status": "failed",
-  "run_id": "43216299121",
-  "recorded_at": "2026-11-12T12:26:49.891740+00:00",
-  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/43216299121"
+  "tag": "v2.0.3",
+  "status": "pending",
+  "note": "Windows retry with explicit TodoMVC readiness and separate realistic initial navigation budget for missing-popup test."
 }

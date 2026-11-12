@@ -25,6 +25,12 @@ class Site(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def handle(self):
+        try:
+            super().handle()
+        except ConnectionError:
+            pass  # Closing a tab can reset an idle HTTP connection on Windows.
+
     def do_GET(self):
         if self.path.startswith('/child'):
             html = '''<title>Child</title><h1>Child page</h1><input id=note>
@@ -178,7 +184,8 @@ class TabsTests(unittest.TestCase):
                       'assertions': [{'assertion': 'url_contains', 'expected': '/child'}]}
         case = {'id': 'MISSING', 'kind': 'ui', 'extensions': {'automation': automation}}
         for cls in (PlaywrightDriver, SeleniumDriver):
-            config = {'base_url': self.base, 'page_load_seconds': 0.3, 'timeout_seconds': 1}
+            # This tests a missing popup, not a sub-second initial navigation.
+            config = {'base_url': self.base, 'page_load_seconds': 5, 'timeout_seconds': 1}
             driver = cls(config)
             try:
                 driver.reset()
