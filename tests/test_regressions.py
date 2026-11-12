@@ -53,11 +53,12 @@ class RegressionTests(unittest.TestCase):
         snapshot=list((self.p/'versions').rglob('api-cases.json'))
         self.assertTrue(any(qa.read(path)[0]['schema_version']=='1.0.0' for path in snapshot))
 
-    def test_project_case_skills_are_created_and_link_authoritative_data(self):
+    def test_project_skill_lists_cases_and_how_to_replay_them(self):
         qa.sync_skills(self.p)
-        for kind in ['ui', 'api']:
-            s = (self.p / 'case-skills' / kind / 'SKILL.md').read_text(encoding='utf-8')
-            self.assertIn('../../testcases/' + qa.FILES[kind], s)
-            self.assertIn('case_content_sha256', s)
+        text = (self.p / 'SKILL.md').read_text(encoding='utf-8')
+        self.assertTrue(text.startswith('---\nname: '))
+        self.assertIn('autoskill run ', text)
+        self.assertIn('| TC-API-1 | 接口 |', text)
+        self.assertFalse((self.p / 'case-skills').exists())
 if __name__ == '__main__':
     unittest.main(verbosity=2)

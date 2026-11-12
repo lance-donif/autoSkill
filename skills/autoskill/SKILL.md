@@ -110,6 +110,7 @@ autoskill run <项目>                          # 全部用例；前置用例（
 autoskill run <项目> --case TC-UI-002         # 指定用例，可重复 --case
 autoskill run <项目> --engine selenium        # 页面用例换 Selenium 回放（默认 Playwright）
 autoskill run <项目> --kind api               # 只回放接口用例
+autoskill run <项目> --headed                 # 显示浏览器窗口并放慢节奏，给人看操作过程
 autoskill export postman <项目>               # Postman 集合 + 环境（不含凭据值）
 autoskill export scripts <项目>               # 独立的 Playwright / Selenium 脚本
 autoskill report <项目>                       # Excel 用例表 + 执行报告
@@ -124,6 +125,8 @@ autoskill dashboard                           # 仪表盘（给人看；会一�
 ## 根据需求文档和知识库设计用例
 
 用户给了需求文档时：先读文档，列出要验证的场景（正常流程、必填与边界、权限、错误提示），再逐个录制。项目知识库在 `context` 输出的 `knowledge` 里（业务规则、角色、测试数据、历史缺陷）；你了解到的稳定事实可以写回 `<本目录>/workspace/projects/<项目>/knowledge/*.md`，下次任何人、任何 AI 都能用上。只写确认过的事实，不写密码。
+
+浏览器默认在后台运行，**不显示窗口**。用户想亲眼看操作过程时，给 `record start`、`run`、`login` 加 `--headed`。
 
 ## 边界
 

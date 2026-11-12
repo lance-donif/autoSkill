@@ -18,7 +18,8 @@ ENGINES = ("playwright", "selenium")
 
 
 def create(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
-           trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None) -> dict:
+           trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
+           headed: bool = False) -> dict:
     """Validate the request and queue a run."""
     if engine not in ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
@@ -38,7 +39,7 @@ def create(project_id: str, case_ids: list[str] | None = None, engine: str = "pl
         raise ValueError("项目里还没有可回放的用例；先录制一条")
     run = {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
            "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
-           "total": len(chosen), "created_at": db.now()}
+           "total": len(chosen), "created_at": db.now(), "headed": int((bool(headed) or paths.headed()) and trigger != "schedule")}  # schedules never open windows
     db.insert("runs", run)
     return run
 
@@ -51,10 +52,10 @@ def make_driver(engine: str, config: dict):
     if engine == "selenium":
         from .replay.selenium_driver import SeleniumDriver
 
-        return SeleniumDriver(config)
+        return SeleniumDriver(config, headless=not paths.headed())
     from .replay.playwright_driver import PlaywrightDriver
 
-    return PlaywrightDriver(config)
+    return PlaywrightDriver(config, headless=not paths.headed())
 
 
 def blocked(reason: str, category: str) -> dict:
@@ -120,6 +121,10 @@ class Session:
     def close(self) -> None:
         self.client.close()
         if self.driver:
+            if paths.headed():
+                import time
+
+                time.sleep(1.5)  # leave the last page on screen for a moment
             try:
                 self.driver.close()
             except Exception:
@@ -271,6 +276,8 @@ def execute(run_id: str, force_login: bool = False) -> dict:
     if not run:
         raise ValueError(f"运行 {run_id} 不存在")
     chosen = json.loads(run["case_ids"])
+    if run.get("headed"):
+        os.environ["AUTOSKILL_HEADED"] = "1"  # this process runs one run only
     db.update("runs", run_id, {"status": "Running", "started_at": db.now(), "pid": os.getpid()})
     counts = {"done": 0, "passed": 0, "failed": 0, "blocked": 0}
     final, reason, session = "Pass", "", None

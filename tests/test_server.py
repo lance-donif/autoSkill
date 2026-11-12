@@ -163,6 +163,20 @@ class ApiGuardTests(Workspace):
             self.assertEqual(client.post("/api/runs", json={}, headers={"Origin": "https://evil.test"}).status_code, 403)
             self.assertEqual(client.post("/api/runs", json={}, headers={"Sec-Fetch-Site": "cross-site"}).status_code, 403)
 
+    def test_show_browser_window_is_chosen_per_run_and_never_for_schedules(self):
+        with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
+            shown = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"], "headed": True}).json()["runs"][0]
+            quiet = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"]}).json()["runs"][0]
+        flag = lambda run_id: db.one("SELECT headed FROM runs WHERE id = ?", (run_id,))["headed"]  # noqa: E731
+        self.assertEqual((flag(shown["id"]), flag(quiet["id"])), (1, 0))
+        task = scheduler.create({"title": "后台", "project_id": PID, "engine": "playwright", "rule": {"kind": "daily", "time": "09:00"}})
+        os.environ["AUTOSKILL_HEADED"] = "1"
+        try:
+            fired = scheduler.fire(scheduler.get(task["id"]))
+        finally:
+            os.environ.pop("AUTOSKILL_HEADED", None)
+        self.assertEqual(flag(fired["id"]), 0)
+
     def test_secrets_are_write_only_and_files_cannot_be_traversed(self):
         with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
             self.assertEqual(client.put("/api/secrets/X_TOKEN", json={"value": "v"}).status_code, 200)

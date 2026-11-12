@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from .. import secrets
+from .. import paths, secrets
 from . import ir
 
 # Failure categories shown in the dashboard.
@@ -19,6 +19,7 @@ LOCATOR, ASSERTION, TIMEOUT, BLOCKED_ORIGIN, ENVIRONMENT, SECRET = (
 )
 POLL = 0.1
 PRIMARY_GRACE = 1.5  # seconds the best locator gets before fallbacks are considered
+WATCH_PAUSE = 0.6  # seconds between steps when a person is watching the browser window
 
 
 class StepError(Exception):
@@ -190,6 +191,8 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                 row["status"] = "done"
             finally:
                 row["ms"] = round((time.monotonic() - clock) * 1000)
+                if paths.headed():
+                    time.sleep(WATCH_PAUSE)
         for step in automation.get("assertions", []):
             result = check(driver, step, min(timeout, 5.0))
             outcome["fallbacks"] += int(bool(result.get("fallback")))

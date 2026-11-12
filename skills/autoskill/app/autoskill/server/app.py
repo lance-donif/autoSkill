@@ -232,7 +232,8 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         created, skipped = [], []
         for item in items:
             try:
-                created.append(runner.create(item["project_id"], item.get("case_ids") or None, engine, batch_id=batch))
+                created.append(runner.create(item["project_id"], item.get("case_ids") or None, engine, batch_id=batch,
+                                             headed=bool(body.get("headed"))))
             except ValueError as error:
                 skipped.append({"project_id": item.get("project_id"), "reason": str(error)})
         if not created:
@@ -271,7 +272,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         kept = [c for c in case_ids if c in active]
         if not kept:
             raise ValueError("这些用例已被归档，无法重新运行")
-        created = runner.create(run["project_id"], kept, body.get("engine") or run["engine"])
+        created = runner.create(run["project_id"], kept, body.get("engine") or run["engine"], headed=bool(body.get("headed")))
         return {"id": created["id"], "total": created["total"], "dropped": len(case_ids) - len(kept)}
 
     @app.get("/api/runs/{run_id}/files/{name}")

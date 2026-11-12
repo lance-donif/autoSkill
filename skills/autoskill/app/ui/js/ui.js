@@ -123,10 +123,13 @@ export function definition(text) {
 const ENGINE_KEY = 'autoskill.engine';
 export function preferredEngine() { return localStorage.getItem(ENGINE_KEY) || 'playwright'; }
 export function setEngine(engine) { localStorage.setItem(ENGINE_KEY, engine); }
+const HEADED_KEY = 'autoskill.headed';
+export function preferredHeaded() { return localStorage.getItem(HEADED_KEY) === '1'; }
+export function setHeaded(on) { localStorage.setItem(HEADED_KEY, on ? '1' : '0'); }
 
 /** Queue runs and take the user to the live result. `items` = [{project_id, case_ids?}]. */
 export async function startRun(items, button, engine = preferredEngine()) {
-  const result = await attempt(() => api('/runs', { method: 'POST', body: { items, engine } }), button);
+  const result = await attempt(() => api('/runs', { method: 'POST', body: { items, engine, headed: preferredHeaded() } }), button);
   if (!result) return null;
   if (result.skipped.length) toast(`${result.skipped.length} 个项目没有启动：${result.skipped[0].reason}`, { bad: true });
   if (result.runs.length === 1) go('runs/' + result.runs[0].id);
@@ -142,16 +145,19 @@ export function runButton(label, getItems, { small = false, primary = true } = {
     onClick: () => { const items = getItems(); if (items.length) startRun(items, main); },
   }, icon('play'), label);
   const chooser = h('button', {
-    class: `btn${size} icon`, 'aria-label': '选择回放引擎', title: '回放引擎：' + ENGINE[preferredEngine()],
+    class: `btn${size} icon`, 'aria-label': '回放选项', title: '回放选项：引擎、是否显示浏览器窗口',
   }, icon('chevron'));
   const pop = menuButton(chooser, (menu, close) => {
     menu.append(h('div', { class: 'menu-title' }, '页面用例的回放引擎（接口用例始终走 HTTP）'));
     for (const engine of ['playwright', 'selenium']) {
       menu.append(menuItem(ENGINE[engine], {
         checked: preferredEngine() === engine,
-        onPick: () => { setEngine(engine); chooser.title = '回放引擎：' + ENGINE[engine]; close(); },
+        onPick: () => { setEngine(engine); close(); },
       }));
     }
+    menu.append(h('div', { class: 'menu-sep' }), menuItem('显示浏览器窗口，观看操作过程', {
+      checked: preferredHeaded(), onPick: () => { setHeaded(!preferredHeaded()); close(); },
+    }), h('div', { class: 'menu-title' }, '默认在后台运行、不显示窗口；定时任务始终在后台'));
   }, true);
   return h('div', { class: 'row', style: 'gap:4px' }, main, pop);
 }

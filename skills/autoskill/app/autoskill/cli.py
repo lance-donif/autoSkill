@@ -117,6 +117,7 @@ def parser() -> argparse.ArgumentParser:
     login = sub.add_parser("login", help="执行项目的登录用例并保存登录态")
     login.add_argument("project")
     login.add_argument("--force", action="store_true", help="忽略已保存的登录态，重新登录")
+    login.add_argument("--headed", action="store_true", help="显示浏览器窗口并放慢节奏，方便人观看（默认在后台运行，不显示窗口）")
 
     record = sub.add_parser("record", help="录制：start / stop / status / undo / cancel").add_subparsers(dest="action", required=True)
     start = record.add_parser("start")
@@ -124,6 +125,7 @@ def parser() -> argparse.ArgumentParser:
     start.add_argument("--as-login", action="store_true", help="本次录制的是登录流程本身")
     start.add_argument("--no-login", action="store_true", help="以未登录状态开始")
     start.add_argument("--url", help="起始地址，默认项目地址")
+    start.add_argument("--headed", action="store_true", help="显示浏览器窗口并放慢节奏，方便人观看（默认在后台运行，不显示窗口）")
     stop = record.add_parser("stop")
     stop.add_argument("--title", required=True)
     stop.add_argument("--module", default="")
@@ -145,6 +147,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--case", action="append", dest="cases", help="用例编号，可重复；省略则回放全部")
     run.add_argument("--engine", choices=runner.ENGINES, default="playwright")
     run.add_argument("--kind", choices=("ui", "api"), help="只回放某一类")
+    run.add_argument("--headed", action="store_true", help="显示浏览器窗口并放慢节奏，方便人观看（默认在后台运行，不显示窗口）")
 
     export = sub.add_parser("export", help="导出：postman / scripts").add_subparsers(dest="action", required=True)
     for name in ("postman", "scripts"):
@@ -169,6 +172,7 @@ def parser() -> argparse.ArgumentParser:
     sub.add_parser("demo", help="安装示例项目（示例工单系统）").add_argument("--url", default=demo.DEFAULT_URL)
     dash = sub.add_parser("dashboard", help="启动仪表盘")
     dash.add_argument("--port", type=int, default=8787)
+    dash.add_argument("--headed", action="store_true", help="从仪表盘发起的回放都显示浏览器窗口")
     doc = sub.add_parser("doctor", help="检查运行时是否齐全；不联网")
     doc.add_argument("--launch", action="store_true", help="同时真实启动一次浏览器（Playwright 与 Selenium）")
     sub.add_parser("verify", help="按清单校验随包运行时文件的完整性（SHA-256）")
@@ -398,6 +402,8 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
     args = parser().parse_args(argv)
     undo_msys(args)
+    if getattr(args, "headed", False):
+        os.environ["AUTOSKILL_HEADED"] = "1"
     db.init()
     real_stdout = sys.stdout
     try:

@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS runs (
   case_ids TEXT NOT NULL DEFAULT '[]', total INTEGER NOT NULL DEFAULT 0, done INTEGER NOT NULL DEFAULT 0,
   passed INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, blocked INTEGER NOT NULL DEFAULT 0,
   current TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '', cancel INTEGER NOT NULL DEFAULT 0,
-  pid INTEGER, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT);
+  pid INTEGER, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT, headed INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS runs_by_time ON runs (created_at);
 CREATE INDEX IF NOT EXISTS runs_by_project ON runs (project_id, created_at);
 CREATE TABLE IF NOT EXISTS results (
@@ -75,6 +75,8 @@ def connect():
 def init() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        if "headed" not in {row[1] for row in conn.execute("PRAGMA table_info(runs)")}:  # databases from before this column
+            conn.execute("ALTER TABLE runs ADD COLUMN headed INTEGER NOT NULL DEFAULT 0")
 
 
 def rows(sql: str, args: tuple | list = ()) -> list[dict]:

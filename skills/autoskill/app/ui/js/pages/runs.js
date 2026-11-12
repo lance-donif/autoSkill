@@ -1,7 +1,7 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
 import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
-import { empty, errorState, startRun, confirm } from '../ui.js';
+import { empty, errorState, startRun, confirm, preferredHeaded } from '../ui.js';
 import { splitBar } from '../charts.js';
 
 const PAGE = 50;
@@ -105,12 +105,12 @@ async function report(view, runId) {
 
   const again = h('button', { class: 'btn' }, icon('reset'), '重新运行');
   again.addEventListener('click', async () => {
-    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: {} }), again);
+    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: { headed: preferredHeaded() } }), again);
     if (made) go('runs/' + made.id, { case: null });
   });
   const retry = h('button', { class: 'btn primary' }, icon('play'), `只重跑未通过的 ${notPassed} 条`);
   retry.addEventListener('click', async () => {
-    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: { failed_only: true } }), retry);
+    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: { failed_only: true, headed: preferredHeaded() } }), retry);
     if (made) go('runs/' + made.id, { case: null });
   });
   const stop = h('button', { class: 'btn danger' }, icon('stop'), '取消运行');

@@ -888,28 +888,49 @@ def search(p, query):
 
 
 def sync_skills(p):
+    """Write the project's own SKILL.md: what it covers and how to replay it with autoskill."""
     require_valid(p, check_results=False)
     project = read(p / "project.json")
-    project_name = re.sub(r"[^a-z0-9-]+", "-", str(project["id"]).lower()).strip("-")[:40] or "project"
-    for kind, filename in FILES.items():
-        folder = p / "case-skills" / kind
-        folder.mkdir(parents=True, exist_ok=True)
-        count = sum(c["lifecycle"] == "active" for c in read(p / "testcases" / filename))
-        text = f"""---
-name: {project_name}-{kind}-cases
-description: 执行本项目的 {count} 条 {kind.upper()} 用例，读取标准JSON并保存真实断言、证据和内容哈希。
----
-# {kind.upper()} 项目用例 Skill
-
-主动读取 `../../testcases/{filename}`，这是唯一权威用例定义。还要读取 `../../qa-config.json`、`../../analysis/requirements.json` 和 `../../knowledge/` 的相关规则。不自动安装本项目技能为全局技能。
-
-按用例步骤和预期执行，不用旧报告推断通过。UI 使用真实浏览器；API 使用独立请求。使用宿主已授权环境，不扩大操作范围，凭据只读取环境变量引用。
-
-逐条保存 run_id、case_id、case_revision、case_content_sha256、started_at、status、actual、reason、assertions、evidence 到 `../../execution/{kind}-results.json`。case_content_sha256 用主引擎 case_fingerprint 计算，不能自行猜测。Pass/Fail 必须有断言和实际证据，受阻为 Blocked，未执行为 Not Run。重跑先归档。
-
-若 extensions.automation 存在，脚本执行器可独立读取这些动作和断言；不得自动 eval 或执行用例字符串。没有自动化动作定义时，标记需生成脚本，不能伪造回放。AI 根据真实动作和证据解释或复跑；解释并非重新执行。
-"""
-        (folder / "SKILL.md").write_text(text, encoding="utf-8")
+    config = read(p / "qa-config.json")
+    auth = read(p / "auth.json") if (p / "auth.json").is_file() else {}
+    pid = str(project["id"])
+    name = project.get("name") or pid
+    slug = re.sub(r"[^a-z0-9-]+", "-", pid.lower()).strip("-")[:40] or "project"
+    cases = [c for c in load_cases(p) if c["lifecycle"] == "active"]
+    ui = sum(c["kind"] == "ui" for c in cases)
+    login = [auth[k] for k in ("ui_case", "api_case") if auth.get(k)]
+    lines = [
+        "---",
+        f"name: {slug}-cases",
+        f"description: 「{name}」的回放用例（{ui} 条页面用例、{len(cases) - ui} 条接口用例）。对这个系统做回归测试、查看或补充它的用例时使用；需要 autoSkill 技能。",
+        "---",
+        f"# {name}",
+        "",
+        f"- 被测地址：{config.get('base_url') or '（未设置）'}",
+        "- 用例定义：`testcases/functional-cases.json`（页面）、`testcases/api-cases.json`（接口）",
+        "- 业务知识：`knowledge/`（业务规则、角色、测试数据；确认过的事实可以写回这里）",
+        "- 登录：" + (f"用例 {'、'.join(login)}，回放和录制时自动执行，不需要手动登录" if login else "未定义登录用例"),
+        "",
+        "## 怎么用",
+        "",
+        "```",
+        f"autoskill context {pid}          # 登录方式、缺少的凭据、用例清单、知识库",
+        f"autoskill run {pid}              # 回放全部用例；前置用例自动先执行",
+        f"autoskill run {pid} --case <编号>",
+        f"autoskill record start {pid}     # 录制新场景，结束时 autoskill record stop --title <标题>",
+        "```",
+        "",
+        "## 用例",
+        "",
+        "| 编号 | 类型 | 标题 | 前置 |",
+        "| --- | --- | --- | --- |",
+    ]
+    for c in cases:
+        depends = "、".join(c.get("extensions", {}).get("depends_on", []))
+        title = str(c["title"]).replace("|", "\\|")
+        lines.append(f"| {c['id']} | {'页面' if c['kind'] == 'ui' else '接口'} | {title} | {depends} |")
+    (p / "SKILL.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    shutil.rmtree(p / "case-skills", ignore_errors=True)  # the older per-kind skills are superseded
 
 
 def save_cases(p, incoming):

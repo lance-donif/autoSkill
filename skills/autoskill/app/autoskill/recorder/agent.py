@@ -96,4 +96,6 @@ def launch_args(allowed_origins: list[str], state_file: Path | None = None, inse
         flags = ["--state", str(state_file), *flags]
     if insecure_tls:
         flags = ["--ignore-https-errors", *flags]
+    if paths.headed():
+        flags = ["--headed", *flags]
     return flags

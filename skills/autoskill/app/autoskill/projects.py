@@ -64,6 +64,7 @@ def create(name: str, base_url: str, category: str = "", project_id: str | None 
         store.write(folder / "auth.json", {})
         for junk in ("staging", "testcase-skill", "execution", "output", "input", "versions"):
             shutil.rmtree(folder / junk, ignore_errors=True)
+        store.sync_skills(folder)
     except Exception:
         shutil.rmtree(folder, ignore_errors=True)
         raise
@@ -86,6 +87,7 @@ def auth(project_id: str) -> dict:
 
 def set_auth(project_id: str, value: dict) -> None:
     store.write(path(project_id) / "auth.json", value)
+    store.sync_skills(path(project_id))
 
 
 def update(project_id: str, **fields) -> dict:
@@ -116,6 +118,7 @@ def update(project_id: str, **fields) -> dict:
         cfg["timeout_seconds"] = max(3, min(120, int(fields["timeout_seconds"])))
     store.write(folder / "project.json", info)
     store.write(folder / "qa-config.json", cfg)
+    store.sync_skills(folder)
     reindex(project_id)
     return get(project_id)
 

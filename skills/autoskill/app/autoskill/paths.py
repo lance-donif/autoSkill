@@ -85,6 +85,11 @@ def agent_browser() -> str | None:
     return None
 
 
+def headed() -> bool:
+    """Show the browser window (and pace the steps) so a person can watch. Off by default."""
+    return os.environ.get("AUTOSKILL_HEADED") == "1"
+
+
 def child_env(extra: dict | None = None) -> dict:
     env = {k: v for k, v in os.environ.items() if not k.startswith("AGENT_BROWSER_")}
     env.update(OFFLINE_ENV)
