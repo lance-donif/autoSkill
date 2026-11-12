@@ -8,5 +8,6 @@
   "script_engine_executed": false,
   "windows_runtime_executed": false,
   "original_preflight_error": "execution/logs/preflight-input-error.json",
-  "current_results": "4 real UI Pass after definitions corrected"
+  "current_results": "4 real UI Pass after definitions corrected",
+  "authorization_source": "用户明确要求在可访问示例页进行真实UI测试；仅合成待办的新增/完成/筛选/编辑操作。run-config记录该授权范围，不表示脚本引擎执行或网络拦截器运行。"
 }

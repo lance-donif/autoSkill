@@ -194,5 +194,13 @@
     "windows_boot_test": "Not Run",
     "windows_network_capture": "Not Run",
     "dsh_ai_integration": "Not Run"
+  },
+  "real_ui_verification": {
+    "cases": 4,
+    "status": "Pass",
+    "engine": "AI/cloud-browser",
+    "script_engine_verified": false,
+    "windows_verified": false,
+    "source_commit": "e1de0680e45c895c0f52dce0b0238c685ec55399"
   }
 }

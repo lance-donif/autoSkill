@@ -6,4 +6,4 @@
 
 这不是DSH模型或脚本引擎执行记录。extensions.automation含供新浏览器上下文独立初始化的动作和断言，已通过白名单结构校验，但不将其记为脚本引擎已运行。AI场景按001→004依次复用前置状态，四条相应前置条件已区分。
 
-为防止直接复制示例即执行，qa-config.json恢复为未授权；实际执行时的授权配置保存在execution/run-config.json。重放前必须明确授权目标origin与合成数据操作。无接口用例；接口Excel为空目录，不代表接口测试通过。
+为防止直接复制示例即执行，qa-config.json恢复为未授权；本次用户授权范围保存在execution/run-config.json。重放前必须明确授权目标origin与合成数据操作。无接口用例；接口Excel为空目录，不代表接口测试通过。

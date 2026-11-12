@@ -1,8 +1,10 @@
 {
   "mode": "review",
   "execution_authorized": false,
-  "base_url": "",
-  "allowed_origins": [],
+  "base_url": "https://todomvc.com",
+  "allowed_origins": [
+    "https://todomvc.com"
+  ],
   "approvals": [],
   "timeout_seconds": 20,
   "cleanup_status": "未清理：唯一的合成待办保留在当前测试页面供复核；没有真实账号或后端数据。"
