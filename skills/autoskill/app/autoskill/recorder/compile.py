@@ -21,6 +21,8 @@ STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.IGNORECASE)
 LOGIN_PATH = re.compile(r"(login|signin|sign-in|auth|token|session)", re.IGNORECASE)
 CHANGING = {"fill", "type", "click", "dblclick", "press", "check", "uncheck", "select"}
 MAX_API_CASES = 30
+CONTAINERS = {"data", "result", "response", "items", "records", "rows", "list", "payload", "body", "attributes"}
+PATH_ACTIONS = {"create", "update", "delete", "list", "detail", "search", "new", "get"}
 
 
 def split_steps(steps: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -51,6 +53,29 @@ def var_name(key: str, path: str, taken: set) -> str:
     return name
 
 
+def _field_name(value: str) -> str:
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
+    return re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_").lower()
+
+
+def _resource(value: str) -> str:
+    name = _field_name(value)
+    if name.endswith("ies"):
+        return name[:-3] + "y"
+    return name[:-1] if name.endswith("s") and not name.endswith(("ss", "us")) else name
+
+
+def _id_resource(key: str) -> str:
+    parts = _field_name(key).split("_")
+    return _resource("_".join(parts[:-1])) if parts[-1] in ("id", "ids") else ""
+
+
+def _path_resource(path: str, value: str = "") -> str:
+    parts = [part for part in path.split("/") if part and part != value and not part.isdigit()
+             and not part.startswith("{{") and _field_name(part) not in PATH_ACTIONS]
+    return _resource(parts[-1]) if parts else ""
+
+
 class Compiler:
     def __init__(self, project_id: str, rec: dict, browser_state: dict | None, login_ui_case: str | None):
         self.pid = project_id
@@ -59,7 +84,7 @@ class Compiler:
         self.login_ui_case = login_ui_case
         self.state = browser_state or {}
         self.cases: list[dict] = []
-        self.pool: dict[str, tuple[int, str, str]] = {}  # value -> (case index, pointer, key)
+        self.pool: dict[str, list[tuple[int, str, str]]] = {}  # value -> possible (case index, pointer, key) sources
         self.names: dict[tuple[int, str], str] = {}
         self.cookie_sources: dict[tuple[str, str], str] = {}
         self.cookie_logins: set[str] = set()
@@ -77,13 +102,38 @@ class Compiler:
         return value.replace(self.rand, ir.RAND) if self.rand and isinstance(value, str) else value
 
     # --- values ------------------------------------------------------
-    def variable(self, value: str, key: str | None = None) -> tuple[str, str] | None:
-        """(name, id of the case that provides it) when the value came from an earlier response."""
-        if len(value) < 4 and key is not None and not harlib.STRICT_ID.search(key):
-            return None  # a short number is an id only where the field says so: page=1 is not ticket 1
-        hit = self.pool.get(value)
-        if not hit:
+    def _source_resource(self, hit: tuple[int, str, str], value: str) -> str:
+        index, pointer, key = hit
+        if named := _id_resource(key):
+            return named
+        parents = [part.replace("~1", "/").replace("~0", "~") for part in pointer.split("/")[1:-1]]
+        parents = [part for part in parents if not part.isdigit() and _field_name(part) not in CONTAINERS]
+        return _resource(parents[-1]) if parents else _path_resource(self.cases[index]["path"], value)
+
+    def _variable_source(self, value: str, key: str | None, resource: str) -> tuple[int, str, str] | None:
+        hits = self.pool.get(value, [])
+        if not hits:
             return None
+        sensitive_key = bool(key and harlib.SENSITIVE.search(key))
+        wanted = _id_resource(key or "") or ("" if sensitive_key else _resource(resource))
+        matching = [hit for hit in hits if wanted and self._source_resource(hit, value) == wanted]
+        if wanted and not matching:
+            self.notes.append(f"请求字段 {key or resource} 的资源与已捕获来源不匹配，已保留录制值")
+            return None
+        hits = matching or hits
+        matching = ([hit for hit in hits if _field_name(hit[2]) == _field_name(key)] if key is not None else
+                    [hit for hit in hits if harlib.STRICT_ID.search(hit[2])])
+        hits = matching or hits
+        if len(hits) == 1 or len({self._source_resource(hit, value) for hit in hits}) == 1:
+            return hits[0]  # later reads of the same resource must not replace its original producer
+        if sensitive_key:
+            sensitive = [hit for hit in hits if harlib.SENSITIVE.search(hit[2])]
+            if sensitive:
+                return sensitive[0]
+        self.notes.append(f"请求字段 {key or resource or '路径参数'} 的值对应多个资源，无法唯一关联，已保留录制值")
+        return None
+
+    def _extract(self, hit: tuple[int, str, str]) -> tuple[str, str]:
         index, pointer, key = hit
         source = self.cases[index]
         name = self.names.get((index, pointer))
@@ -92,6 +142,13 @@ class Compiler:
             name = self.names[(index, pointer)] = var_name(key, source["path"], taken)
             source["extensions"].setdefault("extract", {})[name] = pointer
         return name, source["id"]
+
+    def variable(self, value: str, key: str | None = None, resource: str = "") -> tuple[str, str] | None:
+        """Associate equal values by their field/resource, preserving distinct producers for colliding ids."""
+        if len(value) < 4 and key is not None and not (harlib.STRICT_ID.search(key) or _id_resource(key)):
+            return None  # a short number is an id only where the field says so: page=1 is not ticket 1
+        hit = self._variable_source(value, key, resource)
+        return self._extract(hit) if hit else None
 
     def secret(self, value: str, hint: str) -> str:
         """A ${ENV:NAME} reference for a secret value, storing it locally if it is new."""
@@ -105,17 +162,18 @@ class Compiler:
             self.secret_names[value] = name
         return "${ENV:" + name + "}"
 
-    def scrub(self, value, key: str, deps: set):
+    def scrub(self, value, key: str, deps: set, resource: str = ""):
         """Replace secrets and correlated values anywhere inside a request part."""
         if isinstance(value, dict):
-            return {k: self.scrub(v, k, deps) for k, v in value.items()}
+            return {k: self.scrub(v, k, deps, _resource(k) if isinstance(v, (dict, list)) and _field_name(k) not in CONTAINERS
+                                  else resource) for k, v in value.items()}
         if isinstance(value, list):
-            return [self.scrub(v, key, deps) for v in value]
+            return [self.scrub(v, key, deps, resource) for v in value]
         if isinstance(value, bool) or value is None or value == "":
             return value
         if isinstance(value, str) and value in self.secret_names:
             return "${ENV:" + self.secret_names[value] + "}"
-        found = self.variable(str(value), key)
+        found = self.variable(str(value), key, resource)
         if found:
             deps.add(found[1])
             return "{{" + found[0] + "}}"
@@ -125,7 +183,7 @@ class Compiler:
 
     def credential(self, token: str, header: str, deps: set) -> str:
         """Where an auth token comes from at replay time: an earlier response, the login case, or the browser login."""
-        found = self.variable(token)
+        found = self.variable(token, "token")
         if found:
             deps.add(found[1])
             self.auth_provider = found[1]
@@ -196,15 +254,17 @@ class Compiler:
             return None
         deps: set = set()
         segments = []
-        for segment in entry["path"].split("/"):
-            found = self.variable(segment) if segment else None
+        path = entry["path"].split("/")
+        for index, segment in enumerate(path):
+            found = self.variable(segment, resource=path[index - 1] if index else "") if segment else None
             if found:
                 deps.add(found[1])
             segments.append("{{" + found[0] + "}}" if found else self.template(segment))
         headers = self._business_headers(entry, deps)
-        params = self.scrub(entry["params"], "", deps)
-        body = self.scrub(entry["json"], "", deps) if entry["json"] is not None else None
-        form = self.scrub(entry["form"], "", deps) if entry.get("form") else None
+        resource = _path_resource("/".join(segments))
+        params = self.scrub(entry["params"], "", deps, resource)
+        body = self.scrub(entry["json"], "", deps, resource) if entry["json"] is not None else None
+        form = self.scrub(entry["form"], "", deps, resource) if entry.get("form") else None
         self._login_dependencies(entry, deps)
         rules: dict = {"status": entry["status"]}
         if entry["response"] is not None:
@@ -243,7 +303,7 @@ class Compiler:
         self.cases.append(case)
         self.remember_cookies(entry, case["id"])
         for pointer, key, value in harlib.correlatable(entry["response"]):
-            self.pool.setdefault(str(value), (len(self.cases) - 1, pointer, key))
+            self.pool.setdefault(str(value), []).append((len(self.cases) - 1, pointer, key))
         return outcome
 
 
@@ -251,10 +311,10 @@ class Compiler:
         """In a login recording, the request that returned the session token becomes the API login case."""
         for index, case in enumerate(self.cases):
             if case["method"] == "POST" and LOGIN_PATH.search(case["path"]) and case["assertions"]["status"] < 400:
-                tokens = [v for v, (i, _, key) in self.pool.items() if i == index and harlib.SENSITIVE.search(key)]
+                tokens = [hit for hits in self.pool.values() for hit in hits if hit[0] == index and harlib.SENSITIVE.search(hit[2])]
                 if tokens or case["id"] in self.cookie_logins:
                     if tokens:
-                        self.variable(tokens[0])  # make sure the token is extracted even if nothing used it yet
+                        self._extract(tokens[0])  # make sure the token is extracted even if nothing used it yet
                     self.auth["api_case"] = case["id"]
                     probe = next((c for c in self.cases[index + 1:] if c["method"] == "GET"
                                   and case["id"] in projects.depends_on(c) and c["assertions"]["status"] == 200), None)

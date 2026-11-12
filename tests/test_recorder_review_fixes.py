@@ -45,7 +45,7 @@ class RecorderReviewTests(unittest.TestCase):
     def compile(self, entries, *, state=None, **extra):
         rec = {"project_id": self.pid, "start_url": "/", "steps": [{"action": "click", "selector": "#submit"}],
                "secrets": [], "used_login": False, "as_login": False, **extra}
-        compiler.build(self.pid, rec, {"log": {"entries": entries}}, state, "录制回归")
+        self.summary = compiler.build(self.pid, rec, {"log": {"entries": entries}}, state, "录制回归")
         return [case for case in projects.cases(self.pid) if case["kind"] == "api"]
 
     def test_repeated_query_and_form_values_reach_the_replayed_request(self):
@@ -154,6 +154,116 @@ class RecorderReviewTests(unittest.TestCase):
         updated = self.compile(self.cookie_traffic(), as_login=True)
         self.assertEqual(len(updated), 3)
         self.assertEqual(projects.depends_on(updated[-1]), [updated[1]["id"]])
+
+    def assert_collision_replay(self, reverse=False):
+        producers = [entry("POST", "/api/orders", {"id": 1}, body={"title": "order"}),
+                     entry("POST", "/api/customers", {"id": 1}, body={"name": "customer"})]
+        cases = self.compile([*(reversed(producers) if reverse else producers),
+                              entry("DELETE", "/api/customers/1", {"ok": True})])
+        customer_case = next(case for case in cases if case["path"] == "/api/customers")
+        deleting = cases[-1]
+        self.assertEqual(projects.depends_on(deleting), [customer_case["id"]])
+        self.assertEqual(customer_case["extensions"]["extract"], {"customer_id": "/id"})
+        self.assertEqual(deleting["path"], "/api/customers/{{customer_id}}")
+        customers = {101: "pre-existing customer"}
+        deleted = []
+
+        def handle(request):
+            if request.url.path == "/api/orders":
+                return httpx.Response(200, json={"id": 101})
+            if request.url.path == "/api/customers":
+                customers[202] = "created customer"
+                return httpx.Response(200, json={"id": 202})
+            target = int(request.url.path.rsplit("/", 1)[-1])
+            deleted.append(target)
+            del customers[target]
+            return httpx.Response(200, json={"ok": True})
+
+        variables = {}
+        with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+            for case in cases:
+                self.assertEqual(api.run_case(client, case, projects.config(self.pid), variables)["status"], "Pass")
+        self.assertEqual(deleted, [202])
+        self.assertEqual(customers, {101: "pre-existing customer"})
+
+    def test_colliding_ids_target_the_matching_resource_during_replay(self):
+        self.assert_collision_replay()
+
+    def test_colliding_ids_do_not_depend_on_producer_order(self):
+        self.assert_collision_replay(reverse=True)
+
+    def test_colliding_ids_in_request_fields_use_named_resources(self):
+        cases = self.compile([entry("POST", "/api/orders", {"id": 1}, body={"title": "order"}),
+                              entry("POST", "/api/customers", {"id": 1}, body={"name": "customer"}),
+                              entry("POST", "/api/link?order_id=1&customerId=1", {"ok": True},
+                                    body={"order_id": 1, "customerId": 1, "customer": {"id": 1}, "page": 1})])
+        order, customer, linked = cases
+        self.assertEqual(set(projects.depends_on(linked)), {order["id"], customer["id"]})
+        self.assertEqual(linked["params"], {"order_id": "{{order_id}}", "customerId": "{{customer_id}}"})
+        self.assertEqual(api.fill(linked["json"], {"order_id": 101, "customer_id": 202}),
+                         {"order_id": 101, "customerId": 202, "customer": {"id": 202}, "page": 1})
+
+    def test_nested_response_fields_disambiguate_equal_ids_from_one_endpoint(self):
+        cases = self.compile([entry("GET", "/api/bootstrap", {"order": {"id": 7}, "customer": {"id": 7}}),
+                              entry("DELETE", "/api/customers/7", {"ok": True}),
+                              entry("DELETE", "/api/orders/7", {"ok": True})])
+        producer, customer, order = cases
+        variables = {name: 202 if pointer == "/customer/id" else 101
+                     for name, pointer in producer["extensions"]["extract"].items()}
+        self.assertEqual(set(producer["extensions"]["extract"].values()), {"/customer/id", "/order/id"})
+        self.assertEqual(api.fill(customer["path"], variables), "/api/customers/202")
+        self.assertEqual(api.fill(order["path"], variables), "/api/orders/101")
+
+    def test_later_reads_keep_the_original_resource_producer(self):
+        cases = self.compile([entry("POST", "/api/customers", {"id": 1}, body={"name": "customer"}),
+                              entry("GET", "/api/customers", {"items": [{"id": 1}]}),
+                              entry("POST", "/api/orders", {"id": 1}, body={"title": "order"}),
+                              entry("DELETE", "/api/customers/1", {"ok": True})])
+        self.assertEqual(projects.depends_on(cases[-1]), [cases[0]["id"]])
+
+    def test_a_single_unrelated_id_does_not_override_explicit_resource_hints(self):
+        cases = self.compile([entry("POST", "/api/orders", {"id": 1}, body={"title": "order"}),
+                              entry("DELETE", "/api/customers/1", {"ok": True}),
+                              entry("POST", "/api/link?customerId=1", {"ok": True}, body={"customer_id": 1})])
+        self.assertEqual(cases[1]["path"], "/api/customers/1")
+        self.assertEqual(cases[2]["params"], {"customerId": "1"})
+        self.assertEqual(cases[2]["json"], {"customer_id": 1})
+        self.assertEqual([projects.depends_on(case) for case in cases], [[], [], []])
+        self.assertTrue(any("资源与已捕获来源不匹配" in note for note in self.summary["notes"]))
+
+    def test_field_matching_does_not_override_a_conflicting_resource(self):
+        cases = self.compile([entry("POST", "/api/orders", {"id": 1001}, body={"title": "order"}),
+                              entry("POST", "/api/invoices", {"code": 1001}, body={"title": "invoice"}),
+                              entry("DELETE", "/api/customers/1001", {"ok": True})])
+        self.assertEqual(cases[-1]["path"], "/api/customers/1001")
+        self.assertEqual(projects.depends_on(cases[-1]), [])
+        self.assertTrue(any("资源与已捕获来源不匹配" in note for note in self.summary["notes"]))
+
+    def test_ambiguous_ids_without_resource_hints_are_replayed_as_recorded(self):
+        cases = self.compile([entry("POST", "/api/orders", {"id": 1}, body={"title": "order"}),
+                              entry("POST", "/api/invoices", {"id": 1}, body={"title": "invoice"}),
+                              entry("DELETE", "/1", {"ok": True})])
+        self.assertEqual(cases[-1]["path"], "/1")
+        self.assertEqual(projects.depends_on(cases[-1]), [])
+        self.assertTrue(any("无法唯一关联" in note for note in self.summary["notes"]))
+        sent = []
+
+        def handle(request):
+            sent.append(request.url.path)
+            return httpx.Response(200, json={"ok": True})
+
+        with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+            self.assertEqual(api.run_case(client, cases[-1], projects.config(self.pid), {})["status"], "Pass")
+        self.assertEqual(sent, ["/1"])
+
+    def test_tokens_still_correlate_across_resource_paths(self):
+        token = "recorded-token-for-cross-resource-test"
+        cases = self.compile([entry("POST", "/api/login", {"token": token}, body={"username": "qa"}),
+                              entry("POST", "/api/customers", {"ok": True}, body={"token": token},
+                                    headers={"Authorization": "Bearer " + token})], as_login=True)
+        self.assertEqual(projects.depends_on(cases[-1]), [cases[0]["id"]])
+        self.assertEqual(cases[-1]["json"], {"token": "{{token}}"})
+        self.assertEqual(cases[-1]["headers"], {"Authorization": "Bearer {{token}}"})
 
 
 if __name__ == "__main__":
