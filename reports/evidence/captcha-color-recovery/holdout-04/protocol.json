@@ -1,0 +1,330 @@
+{
+  "schema_version": 5,
+  "revision": 2,
+  "experiment": "blind4-business-primary-full-string-1200",
+  "status": "ACCEPTANCE_AND_DATA_PLAN_REGISTERED_WAIT_COMPLETE_RUNTIME_FREEZE_NO_SEED_NO_IMAGES",
+  "registered_unix": 1794505508.2388809,
+  "previous_proposal": {
+    "file": "protocol-history/960-protocol-proposal.json",
+    "sha256": "4e6dc47ed7150293f74239dc11b4e12a7d67193a271b3bc56932e187d71c278c",
+    "status": "Superseded before any blind4 seed/image/label/prediction; retained byte-for-byte."
+  },
+  "prospective_timeline": {
+    "known_dev_context_before_this_registration": {
+      "root_reported_pale_first_exact": [
+        2,
+        18,
+        40
+      ],
+      "ordinary_decoded_string_changes": 0,
+      "through_line_exact": [
+        29,
+        33,
+        40
+      ],
+      "dark_first_exact": [
+        9,
+        9
+      ],
+      "one_already_whole_string_wrong_dark_example_CER_edit_errors": [
+        1,
+        3
+      ],
+      "previous_per_group_CER_protocol_result": "REJECTED_AND_RETAINED"
+    },
+    "metric_choice_after_dev_observation": true,
+    "metric_choice_before_blind4_generation": true,
+    "metric_choice_before_blind4_prediction": true,
+    "no_prior_blind_results_reinterpreted": true
+  },
+  "planned_total": 1200,
+  "main_categories": [
+    "plain",
+    "pale",
+    "through-line",
+    "first-symbol-touching"
+  ],
+  "dark_control_categories": [
+    "dark-through-line",
+    "dark-first-symbol-touching"
+  ],
+  "category_counts": {
+    "plain": 240,
+    "pale": 240,
+    "through-line": 240,
+    "first-symbol-touching": 240,
+    "dark-through-line": 120,
+    "dark-first-symbol-touching": 120
+  },
+  "main_total": 960,
+  "dark_control_total": 240,
+  "length_counts": {
+    "4": 600,
+    "6": 600
+  },
+  "per_category_length_policy": "4 and6 equally split inside every cohort.",
+  "prefix_counts": {
+    "first-symbol-touching": {
+      "hook": 80,
+      "loop": 80,
+      "slash": 80
+    },
+    "dark-first-symbol-touching": {
+      "hook": 40,
+      "loop": 40,
+      "slash": 40
+    }
+  },
+  "font_counts": {
+    "Arimo": 300,
+    "Cousine": 300,
+    "Tinos": 300,
+    "Roboto": 300
+  },
+  "line_bearing_mask_intersections_expected": 720,
+  "mask_count_derivation": "main through240 + main first240 + dark-through120 + dark-first120 =720; all must overlap first glyph masks.",
+  "font_regular_files": [
+    {
+      "file": "/workspace/autoSkill-release/captcha-round4-font-sources-2026-11-12/croscore/usr/share/fonts/truetype/croscore/Arimo-Regular.ttf",
+      "family": "Arimo",
+      "style": "Regular",
+      "sha256": "5c315974260455a02fad62495a0ae9a783bb53f0eccf807deb75c7967e7a81d6",
+      "alphanumeric_cmap_coverage": 62
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-round4-font-sources-2026-11-12/croscore/usr/share/fonts/truetype/croscore/Cousine-Regular.ttf",
+      "family": "Cousine",
+      "style": "Regular",
+      "sha256": "829e776e4929eb6467838b92c7b700085fac2073801e6b54b224661affb34688",
+      "alphanumeric_cmap_coverage": 62
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-round4-font-sources-2026-11-12/croscore/usr/share/fonts/truetype/croscore/Tinos-Regular.ttf",
+      "family": "Tinos",
+      "style": "Regular",
+      "sha256": "cf264a22292950ca1679b2ade07e9e6ecb26c649ab70975d0e113f979efa827a",
+      "alphanumeric_cmap_coverage": 62
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-round4-font-sources-2026-11-12/roboto/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Regular.ttf",
+      "family": "Roboto",
+      "style": "Regular",
+      "sha256": "00c09081b7409369afa80e4af7b1e118ef6ccd4fabc16720180bef9574e4f57d",
+      "alphanumeric_cmap_coverage": 62
+    }
+  ],
+  "font_source_inventory_sha256": "52d34607fab9d61fd9d8794a827837565c5c0720d911b4846ac434d54d6dec1b",
+  "image_size": [
+    184,
+    60
+  ],
+  "alphabet": "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  "lengths": [
+    4,
+    6
+  ],
+  "font_size_range_inclusive": [
+    28,
+    34
+  ],
+  "background_gray_range_inclusive": [
+    248,
+    255
+  ],
+  "line_gray_range_inclusive": [
+    0,
+    44
+  ],
+  "line_widths_px": [
+    1,
+    2,
+    3
+  ],
+  "noise_symbols": [
+    "hook",
+    "loop",
+    "slash"
+  ],
+  "foreground_gray_ranges_inclusive": {
+    "plain": [
+      8,
+      79
+    ],
+    "pale": [
+      185,
+      224
+    ],
+    "through-line": [
+      100,
+      184
+    ],
+    "first-symbol-touching": [
+      150,
+      214
+    ],
+    "dark-through-line": [
+      5,
+      85
+    ],
+    "dark-first-symbol-touching": [
+      5,
+      85
+    ]
+  },
+  "geometry_aliases": {
+    "dark-through-line": "through-line",
+    "dark-first-symbol-touching": "first-symbol-touching"
+  },
+  "render_reference": {
+    "plan": "/workspace/autoSkill-release/captcha-blind-validation-2026-11-12/plan.json",
+    "plan_sha256": "998e666f8dd3cee7c52ca9b22c609880bd0069da8f649529b3836ddce782c6b4",
+    "generator": "/workspace/autoSkill-release/captcha-blind-validation-v3-2026-11-12/generate_blind.py",
+    "generator_sha256": "3c6b87b0c1bb170358ad0012efac91ef30a211981c65ba63f91bcd7cf29c9836",
+    "image_generation_block_sha256": "4b6fa13e8a15b083460989c3639bcd74efdded4a35ddb93eb1187ea161725a89",
+    "policy": "No geometric/color/line range changes. Only new reserved fonts, fresh seed, and preregistered sample-count increase. Existing prediction/error files are not generator inputs."
+  },
+  "render_policy": "Keep the four primary cohorts recipe unchanged. Dark controls use the same geometry/font/position/background/line distributions through canonical aliases; only their foreground range is5..85. No correction or matching against prior failure images.",
+  "independence_policy": "Main and dark controls have fresh independent labels and per-image seeds, globally unique and disjoint from all exclusion manifests; never reuse paired labels/seeds between light and dark cohorts. All generated cases retained without predictive filtering.",
+  "seed_policy": {
+    "master_seed": null,
+    "assigned_only_after_root_registration": true,
+    "generator": "Fresh192-bit CSPRNG master; per-image SHA256(master:category:index) first64bits; reject any old seed or variant_seed; unique new seeds.",
+    "assigned_only_after_root_registration_and_runtime_freeze": true
+  },
+  "base_history_records": 4972,
+  "derived_restore_records": 239,
+  "exclusion_records": 5211,
+  "exclusion_manifests": [
+    {
+      "file": "/workspace/autoSkill-release/captcha-research/datasets/manifest.jsonl",
+      "records": 1920,
+      "sha256": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+      "snapshot": "exclusions/01-datasets-manifest.jsonl"
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-research/datasets/public-apache-manifest.jsonl",
+      "records": 12,
+      "sha256": "0541138b83ada3b1b17ea952fed45310a81f465a2742266827545ce86f9b8ce9",
+      "snapshot": "exclusions/02-datasets-manifest.jsonl"
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-2026-11-12/manifest.jsonl",
+      "records": 480,
+      "sha256": "6b19d207406d405690f887cf9fadf2ea985c47a6922096e05b932507cdc5e304",
+      "snapshot": "exclusions/03-captcha-blind-validation-2026-11-12-manifest.jsonl"
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-research/residual-v2/data/manifest.jsonl",
+      "records": 1600,
+      "sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+      "snapshot": "exclusions/04-data-manifest.jsonl"
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v2-2026-11-12/manifest.jsonl",
+      "records": 480,
+      "sha256": "c964fe23c182a4e77b9fa7b7a7b436107794a4e391305d9a2d7dffedc7027b9b",
+      "snapshot": "exclusions/05-captcha-blind-validation-v2-2026-11-12-manifest.jsonl"
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v3-2026-11-12/manifest.jsonl",
+      "records": 480,
+      "sha256": "fbb367bf9c2f64d5aba10cd7db034182ed9d9155614a120fdf4108207b14f46d",
+      "snapshot": "exclusions/06-captcha-blind-validation-v3-2026-11-12-manifest.jsonl"
+    },
+    {
+      "file": "/workspace/autoSkill-release/captcha-color-research/color-layers-v3-business/derived-restore-exclusion.jsonl",
+      "records": 239,
+      "sha256": "e01b72ce3f5e5aa480cfb5fd6593b93a6ed98bccb6d2905f5f50c617cbb30e15",
+      "snapshot": "exclusions/07-derived-restore-exclusion.jsonl",
+      "policy": "All239 actual restoration-derived pixels; includes retained181 subset. Labels may repeat old sources; every derived hash and seed/variant_seed still enters exclusion union."
+    }
+  ],
+  "derived_exclusion_freeze": {
+    "file": "/workspace/autoSkill-release/captcha-color-research/color-layers-v3-business/derived-exclusion-freeze.json",
+    "snapshot": "exclusions/07-derived-exclusion-freeze.json",
+    "sha256": "b2e4dc45f809344388d6ebee08891fd015f190582a5e16f93e0c4e10aede08ff"
+  },
+  "acceptance_file": "business-acceptance-preregistration.json",
+  "acceptance_sha256": "ab5efa9dba94388449df3cf0dd779a970ef72c6241ee6b94a060a773dfc4805a",
+  "runtime_plan": {
+    "original": {
+      "code_snapshot": "baseline-runtime/captcha-old.py",
+      "code_sha256": "18b899e023f29f85da0ab07dd3d10e389f38b85e6fc8ebe9233ecae0f59db6ea",
+      "weights": {
+        "file": "/workspace/autoSkill-release/captcha-research/baselines/original-be9dd198/captcha-ctc.onnx",
+        "sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4"
+      }
+    },
+    "fast": {
+      "code_snapshot": "baseline-runtime/captcha-old.py",
+      "code_sha256": "18b899e023f29f85da0ab07dd3d10e389f38b85e6fc8ebe9233ecae0f59db6ea",
+      "weights": {
+        "file": "/workspace/autoSkill-release/captcha-research/baselines/speed-b58376af/captcha-ctc.onnx",
+        "sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662"
+      }
+    },
+    "candidate": {
+      "type": "same B583 weights plus a newly frozen three-layer bright-text restoration runtime",
+      "weights": {
+        "file": "/workspace/autoSkill-release/captcha-research/baselines/speed-b58376af/captcha-ctc.onnx",
+        "sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662"
+      },
+      "code_files": null,
+      "code_set_sha256": null,
+      "configuration_files": null,
+      "configuration_sha256": null,
+      "metadata_files": null,
+      "metadata_sha256": null,
+      "dependency_versions": null,
+      "entrypoint": "solve(png:bytes)->str",
+      "complete_runtime_freeze_manifest": null,
+      "status": "PENDING_ROOT_RUNTIME_FREEZE; no image generation before complete code+sameB583+cfg+meta+dependencies are fixed."
+    }
+  },
+  "pre_generation_requirements": [
+    "Verify the complete candidate runtime code/helper source, exactB583 weights, metadata, all config values and dependency/thread versions against a root-provided freeze.",
+    "Verify old-code baseline snapshot18b899 and be9/b583 model/meta snapshots separately; never let the candidate runtime replace baseline code.",
+    "Prepare/freeze generator, dataset validator and a versioned evaluator that imports the correct old/new solver per model.",
+    "Assign fresh master seed, freeze generation plan, then generate1200 and verify all exclusions/unique labels/pixels/seeds and720 mask intersections.",
+    "Freeze complete dataset/labels/parameters/evaluation order before any blind prediction."
+  ],
+  "evaluation_plan": {
+    "systems": [
+      "original old-code+be9",
+      "fast old-code+b583",
+      "candidate new-code+b583"
+    ],
+    "blind_images": 1200,
+    "external_images": {
+      "public-fournierp": 1040,
+      "patrick-public-apache2": 12
+    },
+    "images_per_system": 2252,
+    "top_level_solve_calls_per_image": 1,
+    "internal_ORT_calls": "The frozen restoration pipeline may make multiple model calls within its one solve. Record every call count and summed inference latency; do not reuse the prior evaluator assertion of<=1 internal call. No external retries or label-informed selection.",
+    "warmups": "Five calls on first frozen blind image only; no external warmups.",
+    "threads": {
+      "intra": 2,
+      "inter": 1,
+      "provider": "CPUExecutionProvider"
+    },
+    "processes": "Dedicated sequential processes with matching dependency/runtime versions; competing training/ORT/timing stopped.",
+    "input_to_solver": "Image bytes and frozen config only; no expected label, sample ID, cohort or font metadata passed to candidate.",
+    "metrics": [
+      "strict full-string exact",
+      "all six categories CER and signed changes",
+      "main960 subtotal and dark240 subtotal reported separately",
+      "all six per-category newly-correct/newly-wrong/string changes",
+      "external source exact/CER/paired separately",
+      "blind total CER and external total CER acceptance",
+      "exceptions/empty retained aswrong",
+      "solve total latency/internal call count/summed inference latency"
+    ],
+    "single_pass": "Each system each2252 image exactly once for scored evaluation; external results accept/reject only, no retraining or repeated selection."
+  },
+  "font_history_statement": "The four fonts are disjoint from all provided historical records; the original pretrained model historical training fonts are unknown.",
+  "models_executed": 0,
+  "images_generated": 0,
+  "labels_generated": 0,
+  "new_font_or_label_information_sent_to_conversion_development": false
+}

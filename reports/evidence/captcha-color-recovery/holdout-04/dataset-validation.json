@@ -1,0 +1,41 @@
+{
+  "validated": true,
+  "new_samples": 1200,
+  "main_samples": 960,
+  "dark_controls": 240,
+  "exclusion_records": 5211,
+  "label_pixel_seed_variant_font_overlap": 0,
+  "unique_new_labels_pixels_seeds": 1200,
+  "line_first_glyph_intersections": 720,
+  "category_counts": {
+    "plain": 240,
+    "pale": 240,
+    "through-line": 240,
+    "first-symbol-touching": 240,
+    "dark-through-line": 120,
+    "dark-first-symbol-touching": 120
+  },
+  "font_counts": {
+    "Arimo": 300,
+    "Cousine": 300,
+    "Tinos": 300,
+    "Roboto": 300
+  },
+  "length_counts": {
+    "4": 600,
+    "6": 600
+  },
+  "geometry_reference_unchanged_except_declared_cohort_routing": true,
+  "main_recipe_unchanged_dark_foreground_only_5_85": true,
+  "runtime_before_seed_before_images_before_predictions": true,
+  "old_and_candidate_solvers_separately_frozen": true,
+  "same_B583_fast_candidate": true,
+  "full_source_model_meta_config_dependencies_reverified": true,
+  "model_sessions_created": 0,
+  "predictions_created": 0,
+  "manifest_sha256": "a90f681ea243fdef2786c4954a4622ddf79cc6988311f25ba820f1de5354f70b",
+  "runtime_freeze_sha256": "53c94914548b3ba880ebc27971d5735f21442feb8076674cc0cc2425b03fb958",
+  "pre_generation_freeze_sha256": "6411722a32261ed08330e5b64e0661e64052534fba31766e4d5be5280525ba6f",
+  "acceptance_sha256": "ab5efa9dba94388449df3cf0dd779a970ef72c6241ee6b94a060a773dfc4805a",
+  "dataset_freeze_sha256": "aaeca3e38d07b732d1bcc5d678b9c13f41abc918ca67f00844ba257bf6c75d93"
+}
