@@ -1,0 +1,26 @@
+[
+  {
+    "id": "REQ-UI-001",
+    "module": "Todo创建",
+    "title": "新增待办",
+    "source": "测试范围：用户要求执行 TodoMVC 新增待办真实UI用例"
+  },
+  {
+    "id": "REQ-UI-002",
+    "module": "Todo状态",
+    "title": "标记待办完成",
+    "source": "测试范围：用户要求执行 TodoMVC 标完成真实UI用例"
+  },
+  {
+    "id": "REQ-UI-003",
+    "module": "Todo筛选",
+    "title": "Completed筛选",
+    "source": "测试范围：用户要求执行 TodoMVC Completed筛选真实UI用例"
+  },
+  {
+    "id": "REQ-UI-004",
+    "module": "Todo编辑",
+    "title": "双击编辑待办",
+    "source": "测试范围：用户要求执行 TodoMVC 双击编辑真实UI用例"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "mode": "AI/cloud-browser",
+  "test_page": "https://todomvc.com/examples/javascript-es5/dist/",
+  "browser": "Chrome/CDP",
+  "tab": "4",
+  "generated_by": "Luna initial definitions, revised by primary agent",
+  "initial_luna_results": "execution/history/luna-original/ui-results.json",
+  "script_engine_executed": false,
+  "windows_runtime_executed": false,
+  "original_preflight_error": "execution/logs/preflight-input-error.json",
+  "current_results": "4 real UI Pass after definitions corrected"
+}

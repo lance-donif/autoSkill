@@ -1,0 +1,5 @@
+case TC-F-004 | actual CUA browser observation
+Action: double-clicked the visible todo text; AX tree replaced row with focused editable text field, confirming edit mode.
+Edit/commit: initial typing appended due field behavior. Re-entered edit mode, selected all with Control+A, typed `autoSkill synthetic UI todo 001 edited`, and pressed Return.
+After: AX tree showed text `autoSkill synthetic UI todo 001 edited`, checkbox 1, and URL hash #/completed. A final browser screenshot was captured and emitted in the CUA session.
+Result: Pass after correcting synthetic text; completed state persisted.

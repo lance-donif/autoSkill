@@ -1,0 +1,22 @@
+{
+  "case_id": "TC-F-003",
+  "started_at": "2026-11-11T23:57:23.878Z",
+  "finished_at": "2026-11-11T23:57:33.145Z",
+  "actual": "{\"url\":\"https://todomvc.com/examples/javascript-es5/dist/#/completed\",\"checked\":true,\"labels\":[\"autoSkill synthetic UI todo 001\"],\"selected\":\"selected\"}",
+  "assertions": [
+    {
+      "name": "Completed路由",
+      "passed": true
+    },
+    {
+      "name": "已完成待办仍显示",
+      "passed": true
+    },
+    {
+      "name": "筛选链接被选中",
+      "passed": true
+    }
+  ],
+  "screenshot": "TC-F-003.jpg",
+  "dom": "- complementary:\n  - heading \"JavaScript ES5\" [level=3]\n  - heading \"Example\" [level=5]\n  - link \"Source\":\n    - /url: https://github.com/tastejs/todomvc/tree/gh-pages/examples/javascript-es5\n  - separator\n  - blockquote:\n    - paragraph: “ JavaScript® (often shortened to JS) is a lightweight, interpreted, object-oriented language with first-class functions, most known as the scripting language for Web pages, but used in many non-browser environments as well such as node.js or Apache CouchDB. ”\n    - link \"JavaScript ES5\":\n      - /url: http://developer.mozilla.org/en-US/docs/JavaScript\n  - separator\n  - emphasis:\n    - text: If you have other helpful links to share, or find any of the links above no longer work, please\n    - link \"let us know\":\n      - /url: https://github.com/tastejs/todomvc/issues\n    - text: .\n- heading \"todos\" [level=1]\n- textbox \"What needs to be done?\"\n- main:\n  - checkbox\n  - generic: ❯ Mark all as complete\n  - list:\n    - checkbox [checked]\n    - generic: autoSkill synthetic UI todo 001\n    - text: ×\n- strong: \"0\"\n- text: items left\n- list:\n  - link \"All\":\n    - /url: \"#/\"\n  - link \"Active\":\n    - /url: \"#/active\"\n  - link \"Completed\" [active]:\n    - /url: \"#/completed\"\n- button \"Clear completed\"\n- contentinfo:\n  - paragraph: Double-click to edit a todo\n  - paragraph:\n    - text: Created by\n    - link \"Oscar Godson\":\n      - /url: http://twitter.com/oscargodson\n  - paragraph:\n    - text: Refactored by\n    - link \"Christoph Burgmer\":\n      - /url: https://github.com/cburgmer\n  - paragraph: Maintenanced by the TodoMVC team\n  - paragraph:\n    - text: Part of\n    - link \"TodoMVC\":\n      - /url: http://todomvc.com"
+}

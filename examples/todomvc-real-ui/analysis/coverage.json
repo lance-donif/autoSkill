@@ -1,0 +1,43 @@
+{
+  "requirements": 4,
+  "covered": 4,
+  "ratio": 1.0,
+  "rows": [
+    {
+      "requirement_id": "REQ-UI-001",
+      "module": "Todo创建",
+      "title": "新增待办",
+      "case_ids": [
+        "TC-F-001"
+      ],
+      "covered": true
+    },
+    {
+      "requirement_id": "REQ-UI-002",
+      "module": "Todo状态",
+      "title": "标记待办完成",
+      "case_ids": [
+        "TC-F-002"
+      ],
+      "covered": true
+    },
+    {
+      "requirement_id": "REQ-UI-003",
+      "module": "Todo筛选",
+      "title": "Completed筛选",
+      "case_ids": [
+        "TC-F-003"
+      ],
+      "covered": true
+    },
+    {
+      "requirement_id": "REQ-UI-004",
+      "module": "Todo编辑",
+      "title": "双击编辑待办",
+      "case_ids": [
+        "TC-F-004"
+      ],
+      "covered": true
+    }
+  ]
+}
