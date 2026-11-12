@@ -5,22 +5,29 @@ executes it in its own process so a browser crash cannot take the dashboard down
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
+import subprocess
 import sys
+import threading
+import time
 import uuid
 from pathlib import Path
 
-from . import db, paths, projects, sessions
+from . import db, paths, projects, sessions, task_context
 from .replay import api, ir, ui
 
 ENGINES = ("playwright", "selenium")
+MAX_PARALLEL = 2
+_children: dict[int, subprocess.Popen] = {}
+_children_lock = threading.Lock()
 
 
 def create(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
            trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
-           headed: bool | None = None) -> dict:
+           headed: bool | None = None, force_login: bool = False, session_id: str | None = None) -> dict:
     """Validate the request and queue a run."""
     if engine not in ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
@@ -40,7 +47,8 @@ def create(project_id: str, case_ids: list[str] | None = None, engine: str = "pl
         raise ValueError("项目里还没有可回放的用例；先录制一条")
     run = {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
            "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
-           "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed))}
+           "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed)),
+           "force_login": int(force_login), "session_id": (task_context.session_id() if session_id is None else session_id) or ""}
     db.insert("runs", run)
     return run
 
@@ -279,19 +287,110 @@ def record(run: dict, case: dict, outcome: dict, prerequisite: bool, started_at:
     })
 
 
-def execute(run_id: str, force_login: bool = False) -> dict:
-    """Run a queued run to completion in this process and return its final row."""
+def parallel_limit() -> int:
+    """The default resource budget can be increased for independent concurrent tasks."""
+    try:
+        return max(1, int(os.environ.get("AUTOSKILL_MAX_PARALLEL", MAX_PARALLEL)))
+    except ValueError:
+        return MAX_PARALLEL
+
+
+def reap_children() -> None:
+    """Poll every owned process, including successful runs, so exited children never accumulate."""
+    with _children_lock:
+        for pid, child in list(_children.items()):
+            if child.poll() is not None:
+                del _children[pid]
+
+
+def process_alive(pid: int | None) -> bool:
+    if not pid or pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+        kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+        handle = kernel.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ctypes.get_last_error() == 5  # Access denied does not prove a process exited.
+        try:
+            code = wintypes.DWORD()
+            return bool(kernel.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259
+        finally:
+            kernel.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    if sys.platform.startswith("linux"):
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+        except (OSError, IndexError):
+            return False  # The process may have exited between kill(0) and the stat read.
+        return state not in ("Z", "X")
+    return True
+
+
+def recover_runs() -> None:
+    """Recover dead executors without overwriting a child that just accepted its reservation or finished."""
+    reap_children()
+    for run in db.rows("SELECT id, pid, claim_token FROM runs WHERE status = 'Running'"):
+        if process_alive(run["pid"]):
+            continue
+        with db.connect() as conn:
+            conn.execute(
+                "UPDATE runs SET status = CASE WHEN cancel = 1 THEN 'Cancelled' ELSE 'Blocked' END, "
+                "current = '', finished_at = ?, claim_token = '', "
+                "reason = CASE WHEN cancel = 1 THEN '' ELSE ? END "
+                "WHERE id = ? AND status = 'Running' AND pid IS ? AND claim_token = ?",
+                (db.now(), "运行进程意外结束（可能是电脑休眠或进程被关闭），请重新运行", run["id"], run["pid"], run["claim_token"]))
+
+
+def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
+    """Join an existing run or become its sole executor; only the designated child can use a reservation."""
+    while True:
+        claimed = (db.activate_run(run_id, os.getpid(), token) if token is not None
+                   else db.claim_run(run_id, os.getpid(), parallel_limit()))
+        run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
+        if not run:
+            raise ValueError(f"运行 {run_id} 不存在")
+        if claimed or token is not None or run["status"] in db.FINISHED:
+            return run, claimed
+        recover_runs()
+        time.sleep(0.1)
+
+
+def execute(run_id: str, force_login: bool = False, *, claim_token: str | None = None) -> dict:
+    """Execute a run once, or wait for the process that already owns it to return its final row."""
     db.init()
-    run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
-    if not run:
-        raise ValueError(f"运行 {run_id} 不存在")
+    if force_login:
+        db.execute("UPDATE runs SET force_login = 1 WHERE id = ? AND status = 'Queued'", (run_id,))
+    run, claimed = _acquire(run_id, claim_token)
+    if not claimed:
+        return run
+    with task_context.use_session(run["session_id"] or None):
+        return _execute_claimed(run)
+
+
+def _execute_claimed(run: dict) -> dict:
+    """Only a process that claimed the row may enter the case loop."""
+    run_id = run["id"]
     chosen = json.loads(run["case_ids"])
     os.environ["AUTOSKILL_HEADED"] = "1" if run.get("headed") else "0"  # the choice made when the run was queued
-    db.update("runs", run_id, {"status": "Running", "started_at": db.now(), "pid": os.getpid()})
     counts = {"done": 0, "passed": 0, "failed": 0, "blocked": 0}
     final, reason, session = "Pass", "", None
     try:
-        session = Session(run, force_login)
+        if run["cancel"]:
+            db.finish_run(run_id, os.getpid(), counts, "Cancelled", "")
+            return db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
+        session = Session(run, bool(run["force_login"]))
         outcomes: dict[str, str] = {}
         for case_id, prerequisite in build_plan(chosen, session.cases):
             if db.one("SELECT cancel FROM runs WHERE id = ?", (run_id,))["cancel"]:
@@ -318,21 +417,39 @@ def execute(run_id: str, force_login: bool = False) -> dict:
         final, reason = "Blocked", "运行器出错：" + type(error).__name__
     finally:
         if session:
-            session.close()
-    db.update("runs", run_id, {**counts, "status": final, "reason": reason, "current": "", "finished_at": db.now()})
+            with contextlib.suppress(Exception):  # Cleanup must not prevent the durable run from reaching its terminal state.
+                session.close()
+    db.finish_run(run_id, os.getpid(), counts, final, reason)
     return db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
 
 
-def spawn(run_id: str, force_login: bool = False) -> int:
-    """Execute a run in its own process and return that process id."""
-    import subprocess
-
-    command = [sys.executable, "-m", "autoskill.runner", run_id, *(["--force-login"] if force_login else [])]
+def spawn(run_id: str, force_login: bool = False) -> int | None:
+    """Reserve a queued run for one child, retaining its handle until it is reaped."""
+    token = uuid.uuid4().hex
+    if force_login:
+        db.execute("UPDATE runs SET force_login = 1 WHERE id = ? AND status = 'Queued'", (run_id,))
+    if not db.claim_run(run_id, os.getpid(), parallel_limit(), token):
+        return None
+    command = [sys.executable, "-m", "autoskill.runner", run_id, "--claim-token", token]
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    child = subprocess.Popen(command, cwd=str(paths.APP), env=paths.child_env(), creationflags=flags,
-                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        child = subprocess.Popen(command, cwd=str(paths.APP), env=paths.child_env(), creationflags=flags,
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as error:
+        with db.connect() as conn:
+            conn.execute(
+                "UPDATE runs SET status = CASE WHEN cancel = 1 THEN 'Cancelled' ELSE 'Blocked' END, "
+                "reason = CASE WHEN cancel = 1 THEN '' ELSE ? END, finished_at = ?, claim_token = '', pid = NULL "
+                "WHERE id = ? AND status = 'Running' AND claim_token = ?",
+                ("无法启动运行进程：" + type(error).__name__, db.now(), run_id, token))
+        return None
+    with _children_lock:
+        _children[child.pid] = child
+    with db.connect() as conn:
+        conn.execute("UPDATE runs SET pid = ? WHERE id = ? AND status = 'Running' AND claim_token = ?", (child.pid, run_id, token))
     return child.pid
 
 
 if __name__ == "__main__":
-    execute(sys.argv[1], force_login="--force-login" in sys.argv[2:])
+    token_arg = sys.argv.index("--claim-token") + 1 if "--claim-token" in sys.argv else None
+    execute(sys.argv[1], force_login="--force-login" in sys.argv[2:], claim_token=sys.argv[token_arg] if token_arg else None)

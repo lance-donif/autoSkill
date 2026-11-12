@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS runs (
   case_ids TEXT NOT NULL DEFAULT '[]', total INTEGER NOT NULL DEFAULT 0, done INTEGER NOT NULL DEFAULT 0,
   passed INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, blocked INTEGER NOT NULL DEFAULT 0,
   current TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '', cancel INTEGER NOT NULL DEFAULT 0,
-  pid INTEGER, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT, headed INTEGER NOT NULL DEFAULT 0);
+  pid INTEGER, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT, headed INTEGER NOT NULL DEFAULT 0,
+  claim_token TEXT NOT NULL DEFAULT '', force_login INTEGER NOT NULL DEFAULT 0, session_id TEXT NOT NULL DEFAULT '');
 CREATE INDEX IF NOT EXISTS runs_by_time ON runs (created_at);
 CREATE INDEX IF NOT EXISTS runs_by_project ON runs (project_id, created_at);
 CREATE TABLE IF NOT EXISTS results (
@@ -75,8 +76,44 @@ def connect():
 def init() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
-        if "headed" not in {row[1] for row in conn.execute("PRAGMA table_info(runs)")}:  # databases from before this column
-            conn.execute("ALTER TABLE runs ADD COLUMN headed INTEGER NOT NULL DEFAULT 0")
+        conn.execute("BEGIN IMMEDIATE")  # Concurrent CLI/worker startups must not migrate the same column twice.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
+        for name, definition in (("headed", "INTEGER NOT NULL DEFAULT 0"), ("claim_token", "TEXT NOT NULL DEFAULT ''"),
+                                 ("force_login", "INTEGER NOT NULL DEFAULT 0"), ("session_id", "TEXT NOT NULL DEFAULT ''")):
+            if name not in columns:
+                conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
+
+
+def claim_run(run_id: str, pid: int, maximum: int, token: str = "") -> bool:
+    """Atomically reserve one queued run, respecting the shared login and process slots."""
+    with connect() as conn:
+        return bool(conn.execute(
+            "UPDATE runs SET status = 'Running', started_at = ?, pid = ?, claim_token = ? "
+            "WHERE id = ? AND status = 'Queued' AND cancel = 0 "
+            "AND (SELECT COUNT(*) FROM runs WHERE status = 'Running') < ? "
+            "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' AND active.project_id = runs.project_id)",
+            (now(), pid, token, run_id, maximum)).rowcount)
+
+
+def activate_run(run_id: str, pid: int, token: str) -> bool:
+    """A spawned child consumes its reservation once, before any case can execute."""
+    if not token:
+        return False
+    with connect() as conn:
+        return bool(conn.execute(
+            "UPDATE runs SET pid = ?, claim_token = '' WHERE id = ? AND status = 'Running' AND claim_token = ?",
+            (pid, run_id, token)).rowcount)
+
+
+def finish_run(run_id: str, pid: int, counts: dict, status: str, reason: str) -> None:
+    """Finish only the active executor's row; cancellation also wins during the final case or cleanup."""
+    with connect() as conn:
+        conn.execute(
+            "UPDATE runs SET done = ?, passed = ?, failed = ?, blocked = ?, "
+            "status = CASE WHEN cancel = 1 THEN 'Cancelled' ELSE ? END, "
+            "reason = CASE WHEN cancel = 1 THEN '' ELSE ? END, current = '', finished_at = ? "
+            "WHERE id = ? AND status = 'Running' AND pid = ? AND claim_token = ''",
+            (counts["done"], counts["passed"], counts["failed"], counts["blocked"], status, reason, now(), run_id, pid))
 
 
 def rows(sql: str, args: tuple | list = ()) -> list[dict]:
