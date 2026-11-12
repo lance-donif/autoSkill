@@ -159,6 +159,8 @@ def _restore_pack_secrets(archive: zipfile.ZipFile, passphrase: str | None) -> l
     restored = []
     if SECRETS in archive.namelist() and passphrase:
         values = json.loads(decrypt(json.loads(archive.read(SECRETS).decode("utf-8")), passphrase).decode("utf-8"))
+        if not isinstance(values, dict):
+            raise ValueError("分享包中的凭据必须是对象")
         for name, value in values.items():
             if secrets.NAME.fullmatch(name) and isinstance(value, str):
                 secrets.set_secret(name, value)
@@ -166,8 +168,82 @@ def _restore_pack_secrets(archive: zipfile.ZipFile, passphrase: str | None) -> l
     return restored
 
 
+def _validate_import(staging: Path) -> None:
+    """Check the complete project before moving its current directory aside."""
+    from .core import store
+
+    store.require_valid(staging, check_results=False)
+    for name in ("qa-config.json", "auth.json"):
+        file = staging / name
+        if name == "auth.json" and not file.is_file():
+            continue
+        if not file.is_file():
+            raise ValueError(f"缺少 {name}")
+        if not isinstance(store.read(file), dict):
+            raise ValueError(f"{name} 必须是对象")
+
+
+def _rollback_import(target: Path, backup: Path, installed: bool) -> None:
+    """Keep the original backup available if the filesystem also refuses rollback."""
+    import shutil
+
+    try:
+        if installed:
+            shutil.rmtree(target)
+        if backup.exists():
+            backup.replace(target)
+    except OSError as error:
+        saved = backup if backup.exists() else target
+        raise OSError(f"导入回滚未完成；数据保留在 {saved}，请恢复后重试") from error
+
+
+def _install_import(project_id: str, staging: Path, backup: Path) -> dict:
+    """Replace files reversibly; reindex commits its own transaction only after every row succeeds."""
+    import shutil
+
+    target = paths.projects_dir() / project_id
+    installed, committed = False, False
+    try:
+        if target.exists():
+            target.replace(backup)
+        staging.replace(target)
+        installed = True
+        info = projects.get(project_id)
+        projects.reindex(project_id)
+        committed = True
+    finally:
+        if not committed:
+            _rollback_import(target, backup, installed)
+    shutil.rmtree(backup, ignore_errors=True)
+    return info
+
+
+def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo]) -> dict:
+    """Use a private staging directory so failures cannot remove another import's files."""
+    import shutil
+    import tempfile
+
+    folder = paths.local() / "import"
+    folder.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix=f"{project_id}-", dir=folder))
+    staging, backup = work / "incoming", work / "previous"
+    try:
+        for member in members:
+            destination = staging / Path(*member.filename.split("/")[2:])
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(archive.read(member))
+        _validate_import(staging)
+        (staging / "knowledge").mkdir(exist_ok=True)
+        return _install_import(project_id, staging, backup)
+    finally:
+        if not backup.exists():
+            shutil.rmtree(work, ignore_errors=True)
+
+
 def import_pack(file: str, passphrase: str | None = None, overwrite: bool = False) -> dict:
     """Import projects from a pack. Existing projects are kept unless `overwrite` is set."""
+    import sqlite3
+
     source = Path(file)
     if not source.is_file():
         raise ValueError(f"找不到分享包：{file}")
@@ -179,45 +255,24 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
         if MANIFEST not in archive.namelist():
             raise ValueError("这不是 autoSkill 分享包")
         manifest = json.loads(archive.read(MANIFEST).decode("utf-8"))
+        if not isinstance(manifest, dict):
+            raise ValueError("分享包清单必须是对象")
         grouped = _safe_members(archive)
+        restored = _restore_pack_secrets(archive, passphrase)
         imported, skipped = [], []
         for project_id, members in grouped.items():
             target = paths.projects_dir() / project_id
             if target.exists() and not overwrite:
                 skipped.append({"id": project_id, "reason": "本机已有同名项目；加 --overwrite 用分享包里的版本替换"})
                 continue
-            staging = paths.local() / "import" / project_id
-            if staging.exists():
-                import shutil
-
-                shutil.rmtree(staging)
-            for member in members:
-                destination = staging / Path(*member.filename.split("/")[2:])
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(archive.read(member))
-            import shutil
-
             try:
-                from .core import store
-
-                if not (staging / "project.json").is_file():
-                    raise ValueError("缺少 project.json")
-                for sub in ("analysis", "testcases", "knowledge"):
-                    (staging / sub).mkdir(exist_ok=True)
-                store.require_valid(staging, check_results=False)  # cases must pass the same checks as local ones
-                if target.exists():
-                    shutil.rmtree(target)
-                shutil.move(str(staging), str(target))
-                projects.reindex(project_id)
-                imported.append(project_id)
-            except (ValueError, KeyError, OSError) as error:
-                shutil.rmtree(staging, ignore_errors=True)
+                imported.append(_import_project(archive, project_id, members))
+            except (ValueError, KeyError, OSError, TypeError, AttributeError, sqlite3.Error) as error:
                 skipped.append({"id": project_id, "reason": "内容没有通过校验：" + str(error)[:200]})
-        restored = _restore_pack_secrets(archive, passphrase)
-    missing = sorted({name for pid in imported for name in projects.missing_secrets(pid)})
+    missing = sorted({name for info in imported for name in info["missing_secrets"]})
     hint = ""
     if missing:
         hint = ("分享包里带有加密的凭据：加上 --passphrase 重新导入即可恢复" if manifest.get("secrets_included") and not passphrase
                 else "还需要设置凭据：" + "；".join(f"autoskill secret set {name}" for name in missing))
-    return {"imported": [projects.get(pid) for pid in imported], "skipped": skipped,
+    return {"imported": imported, "skipped": skipped,
             "secrets_restored": sorted(restored), "missing_secrets": missing, "next": hint or "可以直接运行：autoskill run <项目>"}
