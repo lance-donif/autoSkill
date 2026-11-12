@@ -20,6 +20,18 @@ KEYS = {"Enter": "ENTER", "Escape": "ESCAPE", "Tab": "TAB", "Backspace": "BACKSP
         "Control": "CONTROL", "Shift": "SHIFT", "Alt": "ALT", "Meta": "META"}
 
 
+def _bypass_proxy_for_loopback() -> None:
+    """chromedriver is reached over loopback; that connection must never go through HTTP(S)_PROXY."""
+    import os
+
+    current = os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or ""
+    entries = [e.strip() for e in current.split(",") if e.strip()]
+    for host in ("localhost", "127.0.0.1"):
+        if host not in entries:
+            entries.append(host)
+    os.environ["NO_PROXY"] = os.environ["no_proxy"] = ",".join(entries)
+
+
 class SeleniumDriver:
     name = "selenium"
 
@@ -35,8 +47,7 @@ class SeleniumDriver:
         options = webdriver.ChromeOptions()
         options.binary_location = chrome
         options.page_load_strategy = "eager"
-        # chromedriver is reached over loopback; never route that through HTTP(S)_PROXY from the environment
-        options.ignore_local_proxy_environment_variables()
+        _bypass_proxy_for_loopback()
         for arg in [*paths.QUIET_CHROME_ARGS, *paths.fence_args(self.allowed), "--window-size=1366,860"]:
             options.add_argument(arg)
         if headless:
