@@ -1,19 +1,9 @@
 {
-  "tag": "v2.0.5",
-  "source_commit": "a378e686c36f8e644ce5295a2d7808167c671814",
-  "status": "published",
-  "run_id": "43223912175",
-  "recorded_at": "2026-11-12T13:07:09.143128+00:00",
-  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/43223912175",
-  "bytes": 272575984,
-  "sha256": "b70ed035233f7c070c4f9f0e54f6d33f0f92c73ca871461079af46d10b88aafc",
-  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.0.5",
-  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.0.5/autoSkill-Windows-x64-Offline.zip",
-  "asset_id": 739526645,
-  "verification": {
-    "mode": "archive-only",
-    "functional_tests_run": false,
-    "zip_crc_ok": true,
-    "uploaded_digest_verified": true
-  }
+  "tag": "v2.1.0",
+  "source_commit": "6567573a4fcfd31d7e89a248c1a9e1112fe6bb40",
+  "status": "running",
+  "stage": "building",
+  "run_id": "43228816625",
+  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/43228816625",
+  "recorded_at": "2026-11-12T13:36:21.444859+00:00"
 }
