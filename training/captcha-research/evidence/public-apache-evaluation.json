@@ -1,0 +1,210 @@
+{
+  "original": {
+    "exact": 7,
+    "samples": 12,
+    "CER": 0.2,
+    "warm_median_ms": 23.407271000905894,
+    "predictions": [
+      {
+        "id": "patrick-apache-a63e510ae113023e",
+        "category": "upstream-gregwar",
+        "expected": "1ab2s",
+        "prediction": "Xdp2s",
+        "inference_ms": 107.20890400261851,
+        "edit_errors": 3
+      },
+      {
+        "id": "patrick-apache-a8953806ad5966bf",
+        "category": "upstream-gregwar",
+        "expected": "1ezx8",
+        "prediction": "1ezx8",
+        "inference_ms": 71.50896299935994,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-fa83e5c20ab2809e",
+        "category": "upstream-gregwar",
+        "expected": "1iv22",
+        "prediction": "W22",
+        "inference_ms": 20.73627500067232,
+        "edit_errors": 3
+      },
+      {
+        "id": "patrick-apache-470b4adf5f4af74d",
+        "category": "upstream-gregwar",
+        "expected": "1kxw2",
+        "prediction": "1ksFW2",
+        "inference_ms": 20.25390099879587,
+        "edit_errors": 3
+      },
+      {
+        "id": "patrick-apache-221e0ed96dfb1dc3",
+        "category": "upstream-gregwar",
+        "expected": "1vuy5",
+        "prediction": "1vuy5",
+        "inference_ms": 26.119858001038665,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-546e0a68ab26ac39",
+        "category": "upstream-gregwar",
+        "expected": "3mtj9",
+        "prediction": "3mtj9",
+        "inference_ms": 23.659192000195617,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-5cd36306225175cc",
+        "category": "upstream-lepture",
+        "expected": "CMQVA",
+        "prediction": "CMQVA",
+        "inference_ms": 27.703317999112187,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-f975341bc20273fb",
+        "category": "upstream-lepture",
+        "expected": "CMQZJ",
+        "prediction": "CMQZJ",
+        "inference_ms": 26.30561200203374,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-e6e32d2f3b435c3d",
+        "category": "upstream-lepture",
+        "expected": "CRGEU",
+        "prediction": "CRGEU",
+        "inference_ms": 23.407271000905894,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-1edb453909f5645f",
+        "category": "upstream-lepture",
+        "expected": "CZHBN",
+        "prediction": "C2zHBN",
+        "inference_ms": 16.964702001132537,
+        "edit_errors": 2
+      },
+      {
+        "id": "patrick-apache-678d5782171f6744",
+        "category": "upstream-lepture",
+        "expected": "CZWED",
+        "prediction": "CZWED",
+        "inference_ms": 19.777548001002287,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-c7a4cca292d9cf93",
+        "category": "upstream-lepture",
+        "expected": "DZPEW",
+        "prediction": "DZPEw",
+        "inference_ms": 17.701472002954688,
+        "edit_errors": 1
+      }
+    ]
+  },
+  "distance": {
+    "exact": 7,
+    "samples": 12,
+    "CER": 0.2,
+    "warm_median_ms": 22.364219999872148,
+    "predictions": [
+      {
+        "id": "patrick-apache-a63e510ae113023e",
+        "category": "upstream-gregwar",
+        "expected": "1ab2s",
+        "prediction": "Xdp2s",
+        "inference_ms": 23.49666299778619,
+        "edit_errors": 3
+      },
+      {
+        "id": "patrick-apache-a8953806ad5966bf",
+        "category": "upstream-gregwar",
+        "expected": "1ezx8",
+        "prediction": "1ezx8",
+        "inference_ms": 22.854374001326505,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-fa83e5c20ab2809e",
+        "category": "upstream-gregwar",
+        "expected": "1iv22",
+        "prediction": "W22",
+        "inference_ms": 22.391860002244357,
+        "edit_errors": 3
+      },
+      {
+        "id": "patrick-apache-470b4adf5f4af74d",
+        "category": "upstream-gregwar",
+        "expected": "1kxw2",
+        "prediction": "1ksFW2",
+        "inference_ms": 22.46088199899532,
+        "edit_errors": 3
+      },
+      {
+        "id": "patrick-apache-221e0ed96dfb1dc3",
+        "category": "upstream-gregwar",
+        "expected": "1vuy5",
+        "prediction": "1vuy5",
+        "inference_ms": 22.364219999872148,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-546e0a68ab26ac39",
+        "category": "upstream-gregwar",
+        "expected": "3mtj9",
+        "prediction": "3mtj9",
+        "inference_ms": 22.45865900113131,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-5cd36306225175cc",
+        "category": "upstream-lepture",
+        "expected": "CMQVA",
+        "prediction": "CMQVA",
+        "inference_ms": 22.219555998162832,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-f975341bc20273fb",
+        "category": "upstream-lepture",
+        "expected": "CMQZJ",
+        "prediction": "CMQZJ",
+        "inference_ms": 22.130024000944104,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-e6e32d2f3b435c3d",
+        "category": "upstream-lepture",
+        "expected": "CRGEU",
+        "prediction": "CRGEU",
+        "inference_ms": 22.152085999550764,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-1edb453909f5645f",
+        "category": "upstream-lepture",
+        "expected": "CZHBN",
+        "prediction": "C2zHBN",
+        "inference_ms": 22.366944001987576,
+        "edit_errors": 2
+      },
+      {
+        "id": "patrick-apache-678d5782171f6744",
+        "category": "upstream-lepture",
+        "expected": "CZWED",
+        "prediction": "CZWED",
+        "inference_ms": 22.119937999377726,
+        "edit_errors": 0
+      },
+      {
+        "id": "patrick-apache-c7a4cca292d9cf93",
+        "category": "upstream-lepture",
+        "expected": "DZPEW",
+        "prediction": "DZPEw",
+        "inference_ms": 22.17745300004026,
+        "edit_errors": 1
+      }
+    ]
+  }
+}

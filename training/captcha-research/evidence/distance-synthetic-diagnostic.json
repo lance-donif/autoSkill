@@ -1,0 +1,18 @@
+{
+  "original": {
+    "initialization_ms": 53.06912399828434,
+    "median_inference_ms": 17.230929001016193,
+    "p95_inference_ms": 26.262776998919435
+  },
+  "distance": {
+    "initialization_ms": 60.168862000864465,
+    "median_inference_ms": 15.871740999500616,
+    "p95_inference_ms": 23.944974000187358
+  },
+  "comparison": {
+    "samples": 32,
+    "max_absolute_probability_error": 0.0,
+    "frame_argmax_changes": 0,
+    "sequence_changes": 0
+  }
+}

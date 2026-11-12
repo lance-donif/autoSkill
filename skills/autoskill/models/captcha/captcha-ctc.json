@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "modelName": "ppocrv6_small_ctc_alnum_63-local-trained-20261019-expanded-20261019",
+  "modelName": "ppocrv6_small_ctc_alnum_63-local-trained-20261019-expanded-20261019-distance-matmul",
   "imageShape": [
     3,
     48,
@@ -73,5 +73,15 @@
   ],
   "maxWidth": 320,
   "smoothing": "low",
-  "supportsMath": false
+  "supportsMath": false,
+  "modelSha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "graphOptimization": {
+    "name": "rbf-squared-distance-matmul",
+    "sourceModelSha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+    "learnedWeightsChanged": false,
+    "probabilityComparisonSamples": 1920,
+    "maxAbsoluteProbabilityError": 0.0,
+    "decodedSequenceChanges": 0,
+    "note": "Algebraic inference-graph rewrite; no accuracy improvement claim."
+  }
 }

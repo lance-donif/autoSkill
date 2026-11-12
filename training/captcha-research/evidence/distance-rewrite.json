@@ -1,0 +1,28 @@
+{
+  "source_sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+  "candidate_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "candidate": "/workspace/autoSkill-release/captcha-research/candidates/rbf-distance-matmul.onnx",
+  "file_bytes": 13061505,
+  "learned_weights_changed": false,
+  "note": "Centre matrices are transposed without loss; only derived squared norms and graph algebra added. Floating-point operation order changes require numerical/recognition validation.",
+  "heads": [
+    {
+      "head": "local",
+      "centres": [
+        44,
+        120
+      ],
+      "original_intermediate_elements_per_image": 211200,
+      "new_distance_elements_per_image": 1760
+    },
+    {
+      "head": "expanded",
+      "centres": [
+        1200,
+        120
+      ],
+      "original_intermediate_elements_per_image": 5760000,
+      "new_distance_elements_per_image": 48000
+    }
+  ]
+}

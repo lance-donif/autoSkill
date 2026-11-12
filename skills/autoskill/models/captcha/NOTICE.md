@@ -15,3 +15,19 @@ Exact source URLs, archive hashes, limitations, sample provenance, and split gro
 recorded in `training/ppocrv6-captcha/public-datasets.ts`, the dataset manifest, and the
 candidate model card. The model must not be presented as supporting CAPTCHA types outside
 the documented project scope.
+
+
+## autoSkill inference-graph optimization (2026-11-12)
+
+The learned OCR weights and both RBF correction heads are unchanged. The squared
+distance calculation uses `||x||^2 + ||c||^2 - 2*x*c.T` instead of materializing
+large broadcast difference/square tensors. Centre matrices are transposed exactly;
+additional squared-norm constants are derived from the same centres.
+
+Original model SHA-256: `be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4`.
+Optimized model SHA-256: `b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662`.
+
+On the fixed 1920-image research corpus, output probabilities and CTC strings
+were identical. The corpus is not a target-site acceptance set; this rewrite
+does not claim improved recognition accuracy. Reproduction and CPU latency/memory
+evidence are in `training/captcha-research`. Upstream licenses remain unchanged.

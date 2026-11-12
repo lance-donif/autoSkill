@@ -1,6 +1,9 @@
 # 验证码模型实验：数据与原始基线
 
-本目录是独立实验产物。两个 autoSkill 工作树的源码、配置和当前模型均未修改。当前生产模型 SHA-256：`be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4`。
+本目录是独立实验产物。准备任务未修改产品源码或原始模型。速度任务仅在独立模型分支更新 ONNX 图；静态检查工作树与原功能工作树的模型未改。
+
+原始模型 SHA-256：`be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4`。
+本分支等价图优化模型 SHA-256：`b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662`。
 
 ## 已完成的数据准备任务
 
@@ -26,11 +29,38 @@
 
 以上不是目标网站准确率，也不能由 12 张或自生成图推断普遍抗干扰能力。
 
-## 本次准备提交的范围
+## 数据准备提交的范围
 
-本次只提交公开来源调查、逐图标签/哈希 manifest、困难样本生成器、只读模型检查及原始模型基线。原始模型、候选模型、图像像素、特征缓存和训练参数都不在本次提交中。`evidence/baseline-results.json` 保存完整分组 exact-match/CER/时延。
+首次准备提交只包含公开来源调查、逐图标签/哈希 manifest、困难样本生成器、只读模型检查及原始模型基线，未包含原始/候选模型、图像像素、特征缓存或训练参数。`evidence/baseline-results.json` 保存完整分组 exact-match/CER/时延。
 
-后续的距离图优化、NumPy 小头和色调恢复实验各自独立冻结、验证和提交；本次不宣称准确率已经改善。
+速度任务与 NumPy 小头、色调恢复等准确率路线分开冻结、验证和提交；当前提交不宣称准确率已经改善。
+
+## 已独立完成的速度任务
+
+`rewrite_distance.py` 将两个 RBF 校正头的距离计算改为完整公式 `||x||² + ||c||² - 2 x cᵀ`，保留特征真实范数，未偷换成 `2 - 2 x cᵀ`。原有 backbone、系数、半径和字符集不变；中心矩阵只作无损转置，新增范数常量由同一中心计算。
+
+- 在固定主 manifest **1920 图**上，输出概率最大绝对误差 **0**、帧 argmax 与 CTC 字符串变化均 **0**；额外 **12 张 Apache 样图**的识别结果也相同。
+- 同 CPU 2 线程，ABBA/BAAB 独立子进程每模型 4 块×32 个固定 dev 输入：warm 推理中位 **16.35→13.74ms（1.19×）**，p95 **25.62→21.85ms**；进程 peak RSS 中位 **168164→101996KiB**。
+- 同 2 线程，process-cold（模块导入/输入准备/初始化/首次推理，不含 Python 启动，OS 缓存未清空）中位 **204.74→196.15ms**；模型初始化 **44.98→44.85ms**，首次推理 **29.49→15.97ms**。
+- ORT 默认线程的中位 **18.72→11.39ms**，块间负载波动更大，只作为本机补充结果。
+- 模型体积 **13055561→13061505 bytes**，此任务优化计算与中间内存，不承诺模型压缩或准确率提高。
+
+证据位于 `evidence/distance-evaluation.json`、`evidence/paired-benchmark.json` 和 `evidence/distance-rewrite.json`。纯数学改写不训练、不重新选择字符标签；数据不是目标站验收集，不据此宣称普遍准确率提升。
+
+### 复现速度任务
+
+保留一份 SHA 为 `be9dd…` 的原始模型在仓库外，避免把当前已优化模型当作 baseline。重写工具会核对原始 SHA。
+
+```bash
+export CAPTCHA_BASELINE_MODEL=/absolute/path/outside-repository/original-captcha-ctc.onnx
+export CAPTCHA_RESEARCH_DIR=/absolute/path/outside-repository/captcha-research
+python training/captcha-research/rewrite_distance.py
+export CAPTCHA_CANDIDATE_MODEL="$CAPTCHA_RESEARCH_DIR/candidates/rbf-distance-matmul.onnx"
+python training/captcha-research/validate_distance.py
+OPENBLAS_NUM_THREADS=1 python training/captcha-research/paired_benchmark.py
+```
+
+`validate_distance.py` 不依赖小头训练产物；它加载固定 manifest，核对逐图数值/字符串与分组 exact-match/CER。benchmark 在独立进程内冷导入科学计算库，不同时保留两个互相争抢线程的 ORT session。原始测量值是一次固定实验的证据，复测时间会随宿主机负载变化。
 
 ## 复现
 

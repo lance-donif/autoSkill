@@ -19,6 +19,7 @@ import onnxruntime as ort
 from PIL import Image, ImageDraw, ImageFont
 
 SOURCE = Path(os.environ.get('CAPTCHA_MODEL_DIR', str(Path.cwd() / 'skills/autoskill/models/captcha')))
+MODEL = Path(os.environ.get('CAPTCHA_BASELINE_MODEL', str(SOURCE / 'captcha-ctc.onnx')))
 OUTPUT = Path(os.environ.get('CAPTCHA_RESEARCH_DIR', str(Path(__file__).resolve().parent)))
 
 
@@ -176,7 +177,7 @@ def benchmark(meta, records):
             options.intra_op_num_threads = threads
             options.inter_op_num_threads = 1
         start = time.perf_counter()
-        session = ort.InferenceSession(str(SOURCE / 'captcha-ctc.onnx'), options, providers=['CPUExecutionProvider'])
+        session = ort.InferenceSession(str(MODEL), options, providers=['CPUExecutionProvider'])
         init_ms = (time.perf_counter() - start) * 1000
         key = session.get_inputs()[0].name
         for _ in range(3):
@@ -215,7 +216,7 @@ def benchmark(meta, records):
 
 if __name__ == '__main__':
     meta = json.loads((SOURCE / 'captcha-ctc.json').read_text())
-    report = {'model': inspect_model(SOURCE / 'captcha-ctc.onnx'), 'metadata': meta,
+    report = {'model': inspect_model(MODEL), 'metadata': meta,
               'environment': {'python': platform.python_version(), 'onnxruntime': ort.__version__,
                               'numpy': np.__version__, 'logical_cpus': os.cpu_count(),
                               'platform': platform.platform()},
