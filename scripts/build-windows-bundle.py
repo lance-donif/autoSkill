@@ -65,6 +65,20 @@ def check_sources(assets: Path) -> dict:
     return recorded
 
 
+def smoke_test(package: Path) -> None:
+    """Start the packaged interpreter with an empty environment and import the packaged app."""
+    import os
+    import subprocess
+
+    python = package / "vendor" / "windows-x64" / "python" / "python.exe"
+    env = {"SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"), "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"}
+    code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema; print(autoskill.__file__)"
+    done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent))
+    located = done.stdout.strip()
+    if done.returncode or not Path(located).resolve().is_relative_to(package.resolve()):
+        raise ValueError("Packaged interpreter cannot start the packaged app: " + (done.stderr.strip() or located)[-400:])
+
+
 def build(assets: Path, output: Path) -> dict:
     if output.exists():
         raise ValueError("Output folder already exists; choose a new one")
@@ -88,7 +102,9 @@ def build(assets: Path, output: Path) -> dict:
     site = vendor / "python" / "Lib" / "site-packages"
     site.mkdir(parents=True)
     pth = next((vendor / "python").glob("python3*._pth"))
-    pth.write_text(f"{pth.stem}.zip\n.\nLib/site-packages\nimport site\n", encoding="ascii")
+    # The embeddable build ignores PYTHONPATH once a ._pth file exists, so the app folder is listed here,
+    # relative to python.exe: vendor/windows-x64/python -> ../../../app.
+    pth.write_text(f"{pth.stem}.zip\n.\nLib/site-packages\n../../../app\nimport site\n", encoding="ascii")
     wheels = []
     for wheel in sorted((assets / "wheels").glob("*.whl")):
         with zipfile.ZipFile(wheel) as archive:
@@ -136,6 +152,7 @@ def build(assets: Path, output: Path) -> dict:
         if (vendor / binary).read_bytes()[:2] != b"MZ":
             raise ValueError("Not a Windows executable: " + binary)
 
+    smoke_test(package)
     files = {p.relative_to(vendor).as_posix(): sha256(p) for p in sorted(vendor.rglob("*")) if p.is_file()}
     (vendor / "runtime-manifest.json").write_text(json.dumps({"files": files}, indent=1), encoding="utf-8")
     manifest = {
