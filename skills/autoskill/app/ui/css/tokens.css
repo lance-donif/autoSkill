@@ -1,0 +1,74 @@
+/* Design tokens. Chart colours follow the validated reference palette; status colours are
+   reserved for pass / blocked / fail and always appear with an icon and a label. */
+:root {
+  color-scheme: light;
+  --plane: #f4f4f1;
+  --surface: #fcfcfb;
+  --surface-2: #f1f0ec;
+  --surface-3: #e8e7e1;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #898781;
+  --line: #e1e0d9;
+  --line-strong: #c3c2b7;
+  --ring: rgba(11, 11, 11, .10);
+  --accent: #2a78d6;
+  --accent-strong: #1c5cab;
+  --accent-wash: #e6f0fc;
+  --on-accent: #ffffff;
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --good-wash: #e4f5e4;
+  --warn: #fab219;
+  --warn-ink: #7a4e00;
+  --warn-wash: #fdf1d3;
+  --bad: #d03b3b;
+  --bad-ink: #a82424;
+  --bad-wash: #fbe6e6;
+  --idle: #898781;
+  --idle-wash: #eeede8;
+  --shadow-1: 0 1px 2px rgba(11, 11, 11, .04), 0 1px 1px rgba(11, 11, 11, .03);
+  --shadow-2: 0 12px 32px rgba(11, 11, 11, .12), 0 2px 6px rgba(11, 11, 11, .06);
+  --side: #17191c;
+  --side-ink: #e9e8e4;
+  --side-ink-2: #9a9993;
+  --side-wash: rgba(255, 255, 255, .07);
+
+  --font: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
+  --t-xs: 12px; --t-sm: 13px; --t-md: 14px; --t-lg: 16px; --t-xl: 20px; --t-2xl: 28px; --t-hero: 56px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --fast: 120ms; --slow: 220ms;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --plane: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232322;
+  --surface-3: #2c2c2a;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --ink-3: #898781;
+  --line: #2c2c2a;
+  --line-strong: #383835;
+  --ring: rgba(255, 255, 255, .10);
+  --accent: #3987e5;
+  --accent-strong: #86b6ef;
+  --accent-wash: #16263a;
+  --good-ink: #4cc24c;
+  --good-wash: #13281a;
+  --warn-ink: #fab219;
+  --warn-wash: #2e2610;
+  --bad-ink: #ee7a7a;
+  --bad-wash: #331a1a;
+  --idle-wash: #262625;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-2: 0 16px 40px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .4);
+  --side: #111112;
+  --side-wash: rgba(255, 255, 255, .06);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --fast: 0ms; --slow: 0ms; }
+}

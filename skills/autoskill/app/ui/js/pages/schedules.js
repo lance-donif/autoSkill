@@ -1,0 +1,159 @@
+// Schedules: run chosen cases at fixed times. Create, edit, pause, delete, run now.
+import { h, icon, replace, api, scope, scopeQuery, go, href, route, statusPill, attempt, toast, fmtTime, fmtUntil, ENGINE } from '../core.js';
+import { empty, errorState, drawer, closeOverlay, confirm } from '../ui.js';
+import { state } from '../shell.js';
+
+const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+export async function render(view) {
+  let tasks;
+  try { tasks = await api('/tasks' + scopeQuery()); } catch (error) {
+    replace(view, h('div', { class: 'card' }, errorState(error, () => render(view))));
+    return;
+  }
+  const refresh = () => render(view);
+  const create = h('button', { class: 'btn primary', disabled: !state.projects.length, onClick: () => editor(null, refresh) }, icon('plus'), '新建定时任务');
+  let body;
+  if (!tasks.length) {
+    body = empty({ glyph: 'clock', title: scope().projects.length ? '所选项目还没有定时任务' : '还没有定时任务',
+      text: '把稳定的回归用例安排在固定时间自动回放，不需要 AI，也不需要人值守。autoSkill 服务需要保持运行。',
+      actions: state.projects.length ? h('button', { class: 'btn primary', onClick: () => editor(null, refresh) }, icon('plus'), '新建定时任务')
+        : h('a', { class: 'btn', href: href('cases') }, '先创建一个项目') });
+  } else {
+    body = h('table', { class: 'table' },
+      h('thead', {}, h('tr', {}, ['启用', '任务', '执行规则', '下次执行', '上次结果', ''].map((t, i) => h('th', { class: i === 5 ? 'actions' : '' }, t)))),
+      h('tbody', {}, tasks.map((task) => {
+        const toggle = h('button', { class: 'switch', role: 'switch', 'aria-checked': String(task.enabled), 'aria-label': `${task.enabled ? '暂停' : '启用'}「${task.title}」` });
+        toggle.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          const done = await attempt(() => api('/tasks/' + task.id, { method: 'PATCH', body: { enabled: !task.enabled } }));
+          if (done) { toast(done.enabled ? `已启用，下次执行：${fmtUntil(done.next_due)}` : '已暂停'); refresh(); }
+        });
+        const now = h('button', { class: 'btn sm', title: '不等到计划时间，现在就执行一次' }, icon('play'), '立即运行');
+        now.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          const run = await attempt(() => api(`/tasks/${task.id}/run`, { method: 'POST', body: {} }), now);
+          if (run) go('runs/' + run.id);
+        });
+        const remove = h('button', { class: 'btn sm icon danger', 'aria-label': `删除「${task.title}」`, title: '删除' }, icon('trash'));
+        remove.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          if (!(await confirm({ title: `删除「${task.title}」？`, text: '任务会被删除，已经产生的执行记录会保留。', action: '删除', danger: true }))) return;
+          if (await attempt(() => api('/tasks/' + task.id, { method: 'DELETE' }))) { toast('已删除'); refresh(); }
+        });
+        return h('tr', { class: 'click', onClick: () => editor(task, refresh) },
+          h('td', { style: 'width:56px' }, toggle),
+          h('td', {}, h('div', { class: 'title' }, task.title),
+            h('div', { class: 'sub' }, `${task.project_name} · ${task.case_ids.length ? task.case_ids.length + ' 条用例' : '全部用例'} · ${ENGINE[task.engine]}`)),
+          h('td', {}, task.rule_text),
+          h('td', { class: 'sub num' }, task.enabled ? [fmtUntil(task.next_due), h('div', { class: 'muted' }, fmtTime(task.next_due))] : '已暂停'),
+          h('td', {}, task.last_status
+            ? h('a', { href: href('runs/' + task.last_run_id), onClick: (event) => event.stopPropagation(), class: 'row' }, statusPill(task.last_status), h('span', { class: 'sub num' }, fmtTime(task.last_finished)))
+            : h('span', { class: 'sub' }, '尚未执行')),
+          h('td', { class: 'actions' }, h('div', { class: 'row', style: 'justify-content:flex-end' }, now, remove)));
+      })));
+  }
+  replace(view,
+    h('div', { class: 'page-head' },
+      h('div', { class: 'grow' }, h('h1', {}, '定时任务'),
+        h('p', { class: 'sub' }, tasks.length ? `${tasks.filter((t) => t.enabled).length} 个启用 · ${tasks.filter((t) => !t.enabled).length} 个暂停。到点自动回放，结果进入执行记录和仪表盘。` : '按固定时间自动回放用例。')),
+      tasks.length > 0 && create),
+    h('section', { class: 'card' }, body));
+  if (route().params.get('new') && state.projects.length) { editor(null, refresh); }
+}
+
+async function editor(task, done) {
+  const projects = state.projects.filter((p) => p.cases && p.cases.total);
+  if (!projects.length) { toast('先让项目里有用例，再安排定时任务', { bad: true }); return; }
+  const rule = task ? task.rule : { kind: 'daily', time: '09:00' };
+  const picked = new Set(task ? task.case_ids : []);
+  let cases = [];
+
+  const title = h('input', { class: 'input', id: 'tk-title', value: task ? task.title : '', placeholder: '例如：每日回归', autofocus: !task });
+  const project = h('select', { class: 'select', id: 'tk-project', disabled: !!task },
+    projects.map((p) => h('option', { value: p.id, selected: task ? task.project_id === p.id : scope().projects[0] === p.id }, p.name)));
+  const engine = h('select', { class: 'select', id: 'tk-engine' },
+    ['playwright', 'selenium'].map((e) => h('option', { value: e, selected: (task ? task.engine : 'playwright') === e }, ENGINE[e])));
+  const kind = h('div', { class: 'seg', role: 'group', 'aria-label': '执行规则' });
+  const detail = h('div', { class: 'stack', style: 'gap:12px' });
+  const caseBox = h('div', { class: 'case-pick' });
+  const allCases = h('input', { class: 'check', type: 'checkbox', checked: !picked.size, id: 'tk-all' });
+  const error = h('p', { class: 'error', role: 'alert', hidden: true });
+  const current = { kind: rule.kind, time: rule.time || '09:00', days: new Set(rule.days || [0, 1, 2, 3, 4]), minutes: rule.minutes || 60,
+    at: rule.at ? new Date(rule.at) : new Date(Date.now() + 3600000) };
+
+  function paintRule() {
+    replace(kind, [['daily', '每天'], ['weekly', '每周'], ['interval', '固定间隔'], ['at', '仅一次']].map(([value, label]) => h('button', {
+      'aria-pressed': String(current.kind === value), onClick: () => { current.kind = value; paintRule(); },
+    }, label)));
+    const time = h('input', { class: 'input', type: 'time', value: current.time, style: 'width:140px', 'aria-label': '执行时间', onChange: (event) => { current.time = event.target.value; } });
+    if (current.kind === 'daily') replace(detail, h('div', { class: 'row' }, '每天', time, '执行'));
+    if (current.kind === 'weekly') {
+      replace(detail, h('div', { class: 'row wrap' }, DAYS.map((label, index) => h('button', {
+        class: 'btn sm' + (current.days.has(index) ? ' primary' : ''), 'aria-pressed': String(current.days.has(index)),
+        onClick: () => { if (current.days.has(index)) current.days.delete(index); else current.days.add(index); paintRule(); },
+      }, label))), h('div', { class: 'row' }, '在', time, '执行'));
+    }
+    if (current.kind === 'interval') {
+      const options = [[15, '15 分钟'], [30, '30 分钟'], [60, '1 小时'], [120, '2 小时'], [360, '6 小时'], [720, '12 小时']];
+      replace(detail, h('div', { class: 'row' }, '每隔', h('select', { class: 'select', style: 'width:160px', 'aria-label': '间隔', onChange: (event) => { current.minutes = Number(event.target.value); } },
+        options.map(([value, label]) => h('option', { value, selected: current.minutes === value }, label))), '执行一次'));
+    }
+    if (current.kind === 'at') {
+      const local = new Date(current.at.getTime() - current.at.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      replace(detail, h('div', { class: 'row' }, '在', h('input', { class: 'input', type: 'datetime-local', value: local, style: 'width:230px', 'aria-label': '执行时间',
+        onChange: (event) => { current.at = new Date(event.target.value); } }), '执行一次'));
+    }
+  }
+  function paintCases() {
+    caseBox.hidden = allCases.checked;
+    replace(caseBox, cases.map((item) => {
+      const box = h('input', { class: 'check', type: 'checkbox', checked: picked.has(item.case_id) });
+      box.addEventListener('change', () => { if (box.checked) picked.add(item.case_id); else picked.delete(item.case_id); });
+      return h('label', { class: 'row' }, box, h('span', { class: 'grow ellipsis' }, item.title), h('span', { class: 'sub mono' }, item.case_id));
+    }));
+  }
+  async function loadCases() {
+    const data = await api('/cases?projects=' + encodeURIComponent(project.value));
+    cases = data.items.filter((item) => item.replayable);
+    paintCases();
+  }
+  project.addEventListener('change', () => { picked.clear(); loadCases(); });
+  allCases.addEventListener('change', paintCases);
+
+  const save = h('button', { class: 'btn primary' }, task ? '保存' : '创建任务');
+  save.addEventListener('click', async () => {
+    error.hidden = true;
+    const body = { title: title.value, project_id: project.value, engine: engine.value, case_ids: allCases.checked ? [] : [...picked],
+      rule: current.kind === 'daily' ? { kind: 'daily', time: current.time }
+        : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort() }
+          : current.kind === 'interval' ? { kind: 'interval', minutes: current.minutes }
+            : { kind: 'at', at: current.at.toISOString() } };
+    if (!allCases.checked && !picked.size) { error.textContent = '请至少选择一条用例，或勾选「全部用例」'; error.hidden = false; return; }
+    try {
+      save.disabled = true;
+      const saved = await api(task ? '/tasks/' + task.id : '/tasks', { method: task ? 'PATCH' : 'POST', body });
+      closeOverlay();
+      toast(`已保存，下次执行：${fmtUntil(saved.next_due)}`);
+      if (route().params.get('new')) go('schedules', { new: null }); else done();
+    } catch (problem) { error.textContent = problem.message; error.hidden = false; } finally { save.disabled = false; }
+  });
+
+  paintRule();
+  drawer({
+    title: task ? '编辑定时任务' : '新建定时任务', subtitle: '时间按这台电脑的时区（北京时间）计算。',
+    body: [
+      h('div', { class: 'field' }, h('label', { for: 'tk-title' }, '任务名称'), title),
+      h('div', { class: 'field' }, h('label', { for: 'tk-project' }, '项目'), project),
+      h('div', { class: 'field' }, h('span', { class: 'label' }, '什么时候执行'), kind, detail),
+      h('div', { class: 'field' }, h('span', { class: 'label' }, '执行哪些用例'),
+        h('label', { class: 'row', for: 'tk-all' }, allCases, '全部用例（以后新增的用例也会包含）'), caseBox,
+        h('span', { class: 'hint' }, '前置用例（如登录）会自动先执行，不需要单独选。')),
+      h('details', { class: 'more' }, h('summary', {}, '回放引擎'),
+        h('div', { class: 'field', style: 'margin-top:12px' }, engine, h('span', { class: 'hint' }, '只影响页面用例；接口用例始终走 HTTP。'))),
+      error,
+    ],
+    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '取消'), save],
+  });
+  loadCases().catch((problem) => toast(problem.message, { bad: true }));
+}

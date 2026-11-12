@@ -16,6 +16,11 @@ from ..replay import ir
 from . import jobs, metrics, scheduler
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+# Windows may map .js to text/plain in the registry; browsers then refuse ES modules.
+import mimetypes  # noqa: E402
+
+for _type, _ext in (("text/javascript", ".js"), ("text/css", ".css"), ("image/svg+xml", ".svg")):
+    mimetypes.add_type(_type, _ext)
 
 
 def scope_of(request: Request) -> metrics.Scope:
@@ -170,6 +175,39 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     @app.get("/api/projects/{project_id}/cases/{case_id}")
     def case(project_id: str, case_id: str):
         return case_view(project_id, projects.case(project_id, case_id))
+
+    @app.get("/api/projects/{project_id}/postman")
+    def postman_file(project_id: str, part: str = "collection"):
+        """Download the Postman collection or environment. Secret values are never included."""
+        from ..replay import postman
+
+        cases = {c["id"]: c for c in projects.cases(project_id)}
+        api_ids = [cid for cid, c in cases.items() if c["kind"] == "api"]
+        if not api_ids:
+            raise ValueError("项目里还没有接口用例")
+        ordered = [cases[cid] for cid, _ in runner.build_plan(api_ids, cases) if cases[cid]["kind"] == "api"]
+        info = projects.get(project_id)
+        collection, environment = postman.export(info["name"], ordered, info["base_url"])
+        chosen = environment if part == "environment" else collection
+        name = f"{project_id}.postman_{'environment' if part == 'environment' else 'collection'}.json"
+        return Response(json.dumps(chosen, ensure_ascii=False, indent=2), media_type="application/json",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @app.get("/api/projects/{project_id}/cases/{case_id}/script")
+    def script_file(project_id: str, case_id: str, engine: str = "playwright"):
+        """Download one UI case as a standalone script, prerequisites included."""
+        from ..replay import codegen
+
+        if engine not in runner.ENGINES:
+            raise ValueError("引擎只能是 playwright 或 selenium")
+        cases = {c["id"]: c for c in projects.cases(project_id)}
+        if case_id not in cases or cases[case_id]["kind"] != "ui" or not ir.is_replayable(cases[case_id]):
+            raise ValueError("这条用例没有可导出的页面步骤")
+        chain = [cases[cid] for cid, _ in runner.build_plan([case_id], cases) if cases[cid]["kind"] == "ui"]
+        source = codegen.script(chain, projects.config(project_id)["base_url"], engine)
+        name = f"{case_id.lower()}_{engine}.py"
+        return Response(source, media_type="text/x-python; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
     @app.put("/api/secrets/{name}")
     async def put_secret(name: str, request: Request):
