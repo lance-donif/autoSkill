@@ -1,4 +1,0 @@
-interface:
-  display_name: "Selenium 接口用例"
-  short_description: "验证 Selenium 索引页面依赖的公开 GitHub Tree API 并保存断言结果"
-  default_prompt: "使用 $selenium-api-cases 验证官方索引页依赖的真实接口，不把静态页面当成业务 API。"

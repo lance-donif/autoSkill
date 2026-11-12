@@ -1,5 +1,0 @@
-case TC-F-002 | actual CUA browser observation
-Before: AX tree showed row checkbox 0 and text `autoSkill synthetic UI todo 001`.
-Action: clicked row checkbox 35.
-After: AX tree showed checkbox 1, `0 items left`, and Clear completed button.
-Result: Pass.

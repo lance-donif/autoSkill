@@ -1,5 +1,0 @@
-case TC-F-003 | actual CUA browser observation
-Before: completed row existed and had checkbox 1.
-Action: clicked Completed link 42.
-After: browser URL was https://todomvc.com/examples/javascript-es5/dist/#/completed; AX tree retained checkbox 1 and the todo text.
-Result: Pass.

@@ -1,6 +1,0 @@
-case TC-F-001 | actual CUA browser observation
-URL: https://todomvc.com/examples/javascript-es5/dist/
-Before: AX tree showed heading todos and focused text field; no list row.
-Action: typed synthetic title into AX field 17 and pressed Return.
-After: AX tree added content list, checkbox 0, text `autoSkill synthetic UI todo 001`, and `1 item left`.
-Result: Pass.

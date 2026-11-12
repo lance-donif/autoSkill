@@ -1,4 +1,0 @@
-interface:
-  display_name: "autoSkill"
-  short_description: "统一管理 UI 与接口用例、版本与导出，生成 Excel 并执行可追溯测试"
-  default_prompt: "使用 $autoskill 分析需求文档，按统一存储规范管理用例，生成 Excel，并在授权测试环境执行测试和输出报告。"

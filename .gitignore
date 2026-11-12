@@ -3,12 +3,10 @@ __pycache__/
 .venv/
 .env
 .env.*
-!.env.example
-qa-workspace/
-*.har
 node_modules/
-.autoskill/
-*.sqlite
-*.sqlite-shm
-*.sqlite-wal
 *.tgz
+*.har
+# bundled runtime: only in the offline package, never in git
+skills/autoskill/vendor/
+# machine-private data and anything a user records
+skills/autoskill/workspace/

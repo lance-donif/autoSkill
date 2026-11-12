@@ -27,7 +27,7 @@ class Quiet(SimpleHTTPRequestHandler):
 
 
 def serve():
-    handler = functools.partial(Quiet, directory=str(ROOT / "examples/todomvc/site"))
+    handler = functools.partial(Quiet, directory=str(ROOT / "skills/autoskill/examples/todomvc-site"))
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, f"http://127.0.0.1:{server.server_port}"
@@ -59,7 +59,7 @@ class BrowserReplayMixin:
         cls.site, cls.base = serve()
         cls.other, cls.other_base = serve()
         cls.config = {"base_url": cls.base, "allowed_origins": [cls.base], "timeout_seconds": 4}
-        cases = json.loads((ROOT / "examples/todomvc/ui-cases.json").read_text(encoding="utf-8"))
+        cases = json.loads((ROOT / "tests/fixtures/todomvc-ui-cases.json").read_text(encoding="utf-8"))
         cls.case = next(c for c in cases if c["id"] == "TC-TODO-UI-002")
         cls.case["extensions"]["automation"]["start_url"] = "/"
         cls.tmp = tempfile.TemporaryDirectory()

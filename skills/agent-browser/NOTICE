@@ -1,5 +1,0 @@
-Vendored unmodified discovery Skill from vercel-labs/agent-browser.
-Source: https://github.com/vercel-labs/agent-browser/blob/main/skills/agent-browser/SKILL.md
-Source Git blob: da0e6dcbf7c5b75c304ae871d864c4504ea30592
-Upstream package source version: 0.42.0; license Apache-2.0 (LICENSE included).
-The CLI and browser are separate runtime dependencies. This file is a discovery stub; load the matching guide through agent-browser skills get core.

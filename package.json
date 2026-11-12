@@ -1,29 +1,21 @@
 {
   "name": "dsh-plugin-autoskill",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "autoSkill: dual AI/script QA engine, case Skills, dashboard and schedules for DeepSeek Harness",
+  "description": "autoSkill: record browser sessions once, replay them without AI. Dashboard and schedules for DeepSeek Harness.",
   "main": "./plugin/index.mjs",
   "exports": {
     ".": "./plugin/index.mjs",
-    "./client": "./lib/client.js",
+    "./client": "./plugin/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [
     "plugin",
-    "lib",
-    "ui",
-    "runtime",
     "skills",
-    "examples",
-    "requirements.txt",
     "cordis.patch.yml",
-    "README.md",
-    "scripts",
-    "reports",
-    "tests"
+    "README.md"
   ],
   "dsh": {
     "bundle": {
@@ -42,18 +34,6 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "node scripts/build-client.mjs",
-    "prepack": "npm run build",
-    "dashboard": "node scripts/start.mjs",
-    "test": "node scripts/test.mjs",
-    "doctor": "node scripts/doctor.mjs"
-  },
-  "peerDependencies": {
-    "@deepseek-ai/dsh-sdk-client": "*"
-  },
-  "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-sdk-client": {
-      "optional": true
-    }
+    "test": "node --test tests/plugin.test.mjs"
   }
 }
