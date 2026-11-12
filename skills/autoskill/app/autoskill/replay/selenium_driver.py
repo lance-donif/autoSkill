@@ -44,7 +44,7 @@ class SeleniumDriver:
         from selenium import webdriver
         from selenium.webdriver.chrome.service import Service
 
-        chrome, chromedriver = paths.chrome(), paths.chromedriver()
+        chrome, chromedriver = paths.chrome(bundled=True), paths.chromedriver()  # the driver must match the browser's version
         if not chrome or not chromedriver:
             raise ValueError("Selenium 回放需要随包的 Chrome 与 chromedriver；未找到，且不会联网下载")
         self.config = config

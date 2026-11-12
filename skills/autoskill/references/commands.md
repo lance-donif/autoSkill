@@ -10,6 +10,7 @@
 | `project list` | 全部项目及用例数、缺少的凭据 |
 | `project show <项目>` | 单个项目的设置 |
 | `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
+| `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
 | `project update <项目> --audio-input <16-bit-PCM.wav\|off> [--assertion-timeout 秒] [--conversation-timeout 秒]` | WAV 复制到项目并作为测试麦克风输入；off 清除；长断言/流式对话可设置独立等待预算 |
 | `plan write <项目> --file 用例.json` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表（Excel，位于同级的 `autoskill-cases` 用例 Skill）：生成、记录结果、把回放结果写回；文件夹或 Excel 可整体替换 |
 | `plan show [--query 关键词] [--module 模块] [--status 结果] [--offset 0] [--limit 30]` | 默认只返回 30 条摘要和总数、下一页偏移；上限 100 条 |

@@ -10,7 +10,7 @@ User-facing text (CLI messages, dashboard, SKILL.md, docs) is Chinese; code comm
 
 ## Commands
 
-Python 3.12+ is required (the bundled runtime is 3.12; check which `python` is on PATH). There is no lint or format configuration.
+Python 3.12+ is required (the bundled runtime is 3.12; check which `python` is on PATH).
 
 ```bash
 pip install -r requirements.txt                                   # Linux: requirements-linux.txt
@@ -18,6 +18,10 @@ python -m unittest discover -s tests -p "test_*.py"               # all Python t
 python -m unittest discover -s tests -p test_flow.py              # one file
 python -m unittest discover -s tests -p test_flow.py -k one_site  # one test
 node --test tests/plugin.test.mjs                                 # DSH plugin contract tests (Node >= 22)
+
+ruff check .                                                      # Python static checks (ruff.toml)
+npm_config_offline=false npx --yes @biomejs/biome@2.6.7 lint      # JS and CSS static checks (biome.json)
+python -m unittest discover -s tests -p test_conventions.py       # project conventions, standard library only
 
 PYTHONPATH=skills/autoskill/app python -m autoskill <command>     # run the CLI from source
 PYTHONPATH=skills/autoskill/app python -m autoskill dashboard --port 8787
@@ -31,6 +35,14 @@ python scripts/build-linux-bundle.py --assets <dir> --output <new dir> --arch x6
 Browser tests need a runtime named by `AUTOSKILL_CHROMIUM`, `AUTOSKILL_CHROMEDRIVER` and `AUTOSKILL_AGENT_BROWSER`. Selenium and recorder tests skip without them; the Playwright tests do not skip and error unless a browser is available. Tests set `AUTOSKILL_HEADED=0` so no window opens, and point `AUTOSKILL_WORKSPACE` at a temp folder.
 
 Use the repository `.venv/bin/python` when it is provisioned; the host `python` may not have Selenium. Real voice fixtures use synthetic PCM WAV input. A managed browser policy that prevents ICE transport must be reported as blocked, never replaced with a mocked success or a machine-policy change.
+
+## Static checks
+
+`.github/workflows/lint.yml` runs the three checks above on every push and pull request. New code must pass them.
+
+- Do not weaken `ruff.toml` or `biome.json`, and do not add blanket suppressions. When a rule is wrong for one line, suppress that line with the rule name and a reason (`# noqa: T201  # the command's JSON output`, `// biome-ignore lint/<group>/<rule>: <reason>`).
+- Neither tool formats this code base; do not run `ruff format` or `biome format` over existing files.
+- `tests/test_conventions.py` holds the rules a general linter cannot see: colours only in `ui/css/tokens.css`, every `var(--token)` defined there, every IR action and assertion named and handled by both script generators, every CLI command documented in `SKILL.md` or `references/commands.md`, English code comments, LF and no tabs.
 
 ## Layout
 
@@ -69,6 +81,8 @@ Use the repository `.venv/bin/python` when it is provisioned; the host `python` 
 - One site (host and port) is one project; creating a project for a known site returns the existing one. A case's `module` is its sub-project. Projects without cases are not listed in the dashboard.
 - Generated assertions should be few and stable: assert the direct result of the action, never volatile data such as totals, order, timestamps or ids.
 - Pages, scripts and styles get no API case; only business requests do.
+- Playwright replay and recording use the user's installed Chrome by default and fall back to the bundled browser when it is missing or will not start (`paths.chrome()`, `autoskill settings --browser`, `AUTOSKILL_BROWSER`). Selenium always uses the bundled browser because the driver must match its version.
+- The dashboard follows Apple platform conventions: one accent colour, neutral grouped backgrounds, translucent materials for menus and the toolbar, floating inspector panels, spring-like motion. Replay preferences live in one place, the toolbar's 回放设置 popover; do not scatter per-button options.
 
 ## Releases
 

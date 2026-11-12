@@ -119,14 +119,52 @@ def _configured_binary(name: str, variable: str) -> tuple[bool, str | None]:
     return False, None
 
 
-def chrome() -> str | None:
+def settings() -> dict:
+    """Choices made for this machine, for example which browser to use (read without creating anything)."""
+    file = workspace() / ".local" / "settings.json"
+    try:
+        return json.loads(file.read_text(encoding="utf-8")) if file.is_file() else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(**values) -> dict:
+    data = {**settings(), **values}
+    (local() / "settings.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return data
+
+
+def browser_mode() -> str:
+    """"system": the user's own Chrome first and ours as the fallback (the default); "bundled": ours only."""
+    mode = os.environ.get("AUTOSKILL_BROWSER") or settings().get("browser")
+    return mode if mode in ("system", "bundled") else "system"
+
+
+def system_chrome() -> str | None:
+    """The Chrome this user already has installed."""
+    if sys.platform == "linux":
+        return _first(*[shutil.which(n) for n in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser")])
+    if sys.platform == "darwin":
+        return _first("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+    roots = [os.environ.get(name) for name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")]
+    return _first(*[Path(root) / "Google/Chrome/Application/chrome.exe" for root in roots if root])
+
+
+def chrome(bundled: bool = False) -> str | None:
+    """The browser to drive. `bundled=True` asks for ours, which is the one that matches the bundled chromedriver."""
     configured, value = _configured_binary("chrome", "AUTOSKILL_CHROMIUM")
     if configured:
         return value
     folder = "chrome-linux-arm64" if runtime_target() == "linux-arm64" else "chrome-linux64"
     relative = folder + "/chrome" if sys.platform == "linux" else "chrome-win64/chrome.exe"
-    system = [shutil.which(n) for n in ("chromium", "chromium-browser", "google-chrome")] if sys.platform == "linux" else []
-    return _first(VENDOR / "chrome" / relative, *system)
+    ours = _first(VENDOR / "chrome" / relative)
+    if bundled or browser_mode() == "bundled":
+        return ours or (system_chrome() if sys.platform == "linux" else None)
+    return system_chrome() or ours
+
+
+def browser_info() -> dict:
+    return {"mode": browser_mode(), "system": system_chrome(), "bundled": chrome(bundled=True), "using": chrome()}
 
 
 def chromedriver() -> str | None:

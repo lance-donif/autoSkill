@@ -1,6 +1,6 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
 import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
-import { empty, errorState, runButton, startRun, drawer, closeOverlay, preferredHeaded, setHeaded } from '../ui.js';
+import { empty, errorState, runButton, startRun, drawer, closeOverlay } from '../ui.js';
 import { state, refreshShell } from '../shell.js';
 
 
@@ -65,15 +65,12 @@ export async function render(view) {
     paintBar();
   }
 
-  const watch = h('button', { class: 'switch', role: 'switch', 'aria-checked': String(preferredHeaded()), 'aria-label': '运行时显示浏览器窗口',
-    onClick: () => { setHeaded(!preferredHeaded()); watch.setAttribute('aria-checked', String(preferredHeaded())); } });
   replace(view,
     h('div', { class: 'page-head' },
       h('div', { class: 'grow' }, h('h1', {}, '项目与用例'),
         h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。`)),
       h('button', { class: 'btn', onClick: () => newProject() }, icon('plus'), '新建项目')),
-    state.projects.length ? h('div', { class: 'toolbar' }, kinds, search, h('span', { class: 'grow' }),
-      h('span', { class: 'row sub', title: '打开：回放时弹出最大化的浏览器窗口；关闭：在后台运行' }, watch, '运行时显示浏览器窗口')) : null,
+    state.projects.length ? h('div', { class: 'toolbar' }, kinds, search) : null,
     list, bar);
   if (!state.projects.length) {
     replace(list, h('div', { class: 'card' }, empty({

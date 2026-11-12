@@ -108,15 +108,16 @@ def launch_problem(error: Exception) -> str:
 
 
 def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False,
-                *, config: dict | None = None, asset_root: Path | None = None) -> list[str]:
+                browser: str | None = None, *, config: dict | None = None, asset_root: Path | None = None) -> list[str]:
     """Start the browser without a proxy fence, with optional login state."""
     from .. import media
 
     browser_args = [*paths.QUIET_CHROME_ARGS, *(["--start-maximized"] if paths.headed() else []),
                     *media.chrome_args(config or {}, asset_root)]
     flags = ["--args", "\n".join(browser_args)]
-    if paths.chrome():
-        flags = ["--executable-path", paths.chrome(), *flags]
+    browser = browser or paths.chrome()
+    if browser:
+        flags = ["--executable-path", browser, *flags]
     if state_file:
         flags = ["--state", str(state_file), *flags]
     if insecure_tls:

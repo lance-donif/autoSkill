@@ -197,4 +197,3 @@ def resolve_upload_assets(asset_root: Path | str, files: Iterable[str]) -> list[
             raise ValueError(f"项目上传文件不存在：{name}")
         found.append(str(file))
     return found
-

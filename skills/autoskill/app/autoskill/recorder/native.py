@@ -754,4 +754,3 @@ def stop_permission_holder(rec: dict) -> None:
     from .permissions import stop_permission_holder as stop
 
     stop(rec)
-

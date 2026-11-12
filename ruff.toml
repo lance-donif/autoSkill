@@ -1,0 +1,46 @@
+# Static checks for Python. Run: ruff check .
+# Lint only. This code base is not auto-formatted, so `ruff format` is not part of the checks.
+# Do not weaken this file to make a finding go away: fix the code, or suppress one line with
+# `# noqa: <rule>  # <reason>` when the code is right and the rule is not.
+target-version = "py312"
+line-length = 200
+extend-exclude = ["skills/autoskill/vendor", "skills/autoskill/workspace"]
+
+[lint]
+select = [
+  "E", "W",      # pycodestyle: one statement per line, no stray whitespace
+  "F",           # undefined names, unused imports and variables
+  "I",           # import order
+  "B",           # likely bugs
+  "UP",          # idioms of the Python version we target
+  "C4", "SIM", "PIE", "RET", "ISC", "PERF", "FURB",  # simpler, clearer equivalents
+  "RUF",         # Ruff's own checks, including unused `noqa` comments
+  "PLE", "PLW",  # pylint errors and warnings
+  "N", "A",      # naming, and names that shadow builtins
+  "ARG",         # unused arguments
+  "BLE", "S110", # a bare `except Exception` or `except: pass` has to say why
+  "DTZ",         # datetimes without a time zone (the scheduler compares times)
+  "ERA",         # commented-out code
+  "PGH",         # blanket `noqa` / `type: ignore`
+  "T20",         # print(): a command's stdout carries one JSON object and nothing else
+  "C90",         # function complexity
+  "D100",        # every module says what it is for
+  "S102", "S307", "S602", "S604", "S605",  # exec, eval, shell=True
+]
+ignore = [
+  "RUF001", "RUF002", "RUF003",  # full-width Chinese punctuation in user-facing text is intended
+  "B008",  # call in an argument default
+  "B905",  # zip() without strict=
+]
+
+[lint.mccabe]
+max-complexity = 15
+
+[lint.isort]
+known-first-party = ["autoskill"]
+
+[lint.per-file-ignores]
+"scripts/**" = ["T201"]                              # maintainer scripts print their result
+"skills/autoskill/scripts/**" = ["T201"]
+"skills/autoskill/examples/**" = ["T201", "D100"]
+"tests/**" = ["E402", "D100", "ARG"]                 # tests put the app on sys.path before importing it

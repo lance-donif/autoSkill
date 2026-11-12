@@ -14,6 +14,7 @@ class PlaywrightDriver:
     name = "playwright"
 
     def __init__(self, config: dict, headless: bool = True, asset_root=None, output_root=None):
+        from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
 
         self.config = config
@@ -27,10 +28,16 @@ class PlaywrightDriver:
         self.headless = headless
         options = {"headless": headless, "args": [*paths.QUIET_CHROME_ARGS, *media.chrome_args(config, self.asset_root),
                                                   *([] if headless else ["--start-maximized"])]}
-        if paths.chrome():
-            options["executable_path"] = paths.chrome()
+        chosen, ours = paths.chrome(), paths.chrome(bundled=True)
+        if chosen:
+            options["executable_path"] = chosen
         try:
-            self.browser = self._pw.chromium.launch(**options)
+            try:
+                self.browser = self._pw.chromium.launch(**options)
+            except PlaywrightError:
+                if not ours or ours == chosen:
+                    raise
+                self.browser = self._pw.chromium.launch(**{**options, "executable_path": ours})  # the user's Chrome would not start
         except Exception:
             self._pw.stop()
             raise

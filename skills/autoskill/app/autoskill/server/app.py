@@ -122,8 +122,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     def status():
         return {"name": "autoSkill", "version": __version__, "projects": len(projects.list_all()),
                 "runtime": {"bundled": paths.VENDOR.is_dir(), "chrome": bool(paths.chrome()),
-                            "selenium": bool(paths.chrome() and paths.chromedriver()),
+                            "selenium": bool(paths.chrome(bundled=True) and paths.chromedriver()),
                             "recorder": bool(paths.agent_browser())},
+                "browser": paths.browser_info(),
                 "skill_path": str(paths.SKILL), "workspace": str(paths.workspace()), "bridge": bridge.enabled(),
                 "instance": os.environ.get("AUTOSKILL_INSTANCE_ID")}
 
@@ -261,6 +262,15 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
             raise ValueError("请填写凭据内容")
         secrets.set_secret(name, value)
         return {"saved": name}
+
+    @app.put("/api/settings")
+    async def put_settings(request: Request):
+        """Which browser to drive: the user's own Chrome with ours as the fallback, or ours only."""
+        choice = (await request.json()).get("browser")
+        if choice not in ("system", "bundled"):
+            raise ValueError("browser 只能是 system 或 bundled")
+        paths.save_settings(browser=choice)
+        return {"browser": paths.browser_info()}
 
     # --- runs --------------------------------------------------------
     @app.post("/api/runs")

@@ -202,6 +202,7 @@ autoskill dashboard                           # 仪表盘（给人看；会一�
 ## 边界
 
 - 浏览器与接口执行不限制站点：导航、刷新、跨站跳转和资源请求走正常网络，不需要 `--allow-origin`。旧的 `allowed_origins` 仅保留兼容，不再控制访问。
+- 浏览器：默认使用本机已安装的 Chrome，找不到或启动不了时自动改用随包浏览器；`autoskill settings --browser bundled` 改为只用随包浏览器（`system` 改回）。Selenium 回放始终使用随包浏览器。
 - 内网自签名证书：`autoskill project update <项目> --insecure-tls on`。
 - 页面很慢：打开页面最多等 90 秒，单步找元素最多等 20 秒；分别用 `--page-load <秒>` 和 `--timeout <秒>` 调整。
 - 用例里的操作（包括删除）都会照常回放，没有额外的开关：执行什么由用户的用例决定。

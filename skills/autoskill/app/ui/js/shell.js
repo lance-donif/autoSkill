@@ -1,6 +1,6 @@
 // The frame around every page: navigation, and the scope bar that says what the numbers below cover.
-import { h, icon, replace, api, route, scope, setScope, isDefaultScope, rangeText, href, RANGES, DEFAULT_RANGE } from './core.js';
-import { menuButton, menuItem } from './ui.js';
+import { h, icon, replace, api, attempt, route, scope, setScope, isDefaultScope, rangeText, href, RANGES, DEFAULT_RANGE, ENGINE } from './core.js';
+import { menuButton, menuItem, preferredEngine, setEngine, preferredHeaded, setHeaded } from './ui.js';
 
 const NAV = [
   ['dashboard', '仪表盘', 'dashboard'],
@@ -59,6 +59,41 @@ function projectText(s) {
   return names.length === 1 ? names[0] : `${names[0]} 等 ${names.length} 个项目`;
 }
 
+/** One place for how cases are replayed: engine, visible window, which browser. */
+function runSettings() {
+  const trigger = h('button', { class: 'btn', title: '回放设置：引擎、浏览器窗口、使用哪个浏览器' }, icon('sliders'), '回放设置');
+  return menuButton(trigger, (menu) => {
+    const browser = state.status?.browser ?? {};
+    const engines = h('div', { class: 'seg', role: 'group', 'aria-label': '页面用例的回放引擎' },
+      ['playwright', 'selenium'].map((engine) => h('button', {
+        'aria-pressed': String(preferredEngine() === engine),
+        onClick: (event) => { setEngine(engine); for (const other of engines.children) other.setAttribute('aria-pressed', String(other === event.currentTarget)); },
+      }, ENGINE[engine])));
+    const toggle = (label, on, onChange) => {
+      const button = h('button', { class: 'switch', role: 'switch', 'aria-checked': String(on), 'aria-label': label });
+      button.addEventListener('click', async () => {
+        const next = button.getAttribute('aria-checked') !== 'true';
+        button.setAttribute('aria-checked', String(next));
+        await onChange(next);
+      });
+      return button;
+    };
+    const row = (title, note, control) => h('div', { class: 'setting-row' },
+      h('div', { class: 'grow' }, h('div', { class: 'setting-title' }, title), h('div', { class: 'setting-note' }, note)), control);
+    menu.classList.add('settings');
+    menu.append(
+      row('回放引擎', '只影响页面用例；接口用例始终走 HTTP', engines),
+      h('div', { class: 'menu-sep' }),
+      row('显示浏览器窗口', '关闭后在后台运行', toggle('显示浏览器窗口', preferredHeaded(), (on) => setHeaded(on))),
+      row('使用本机 Chrome', browser.system ? '启动不了时改用随包浏览器；Selenium 始终用随包浏览器' : '没有找到本机 Chrome，正在使用随包浏览器',
+        toggle('使用本机 Chrome', browser.mode !== 'bundled', async (on) => {
+          const mode = on ? 'system' : 'bundled';
+          const saved = await attempt(() => api('/settings', { method: 'PUT', body: { browser: mode } }));
+          if (saved) state.status = { ...state.status, browser: saved.browser };
+        })));
+  }, true);
+}
+
 export function renderScope() {
   const s = scope();
   const bar = document.getElementById('scope');
@@ -106,5 +141,6 @@ export function renderScope() {
       class: 'btn ghost sm', title: '回到「全部项目 · 近 7 天」',
       onClick: () => setScope({ projects: [], range: DEFAULT_RANGE, from: '', to: '' }),
     }, icon('reset'), '重置'),
-    h('span', { class: 'grow' }));
+    h('span', { class: 'grow' }),
+    runSettings());
 }

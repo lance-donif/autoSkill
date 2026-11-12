@@ -53,7 +53,7 @@ autoskill run <项目>
 
 自检：`autoskill.cmd verify`（按清单校验随包文件）、`autoskill.cmd doctor --launch`（真实启动一次浏览器）。
 
-回放默认弹出最大化的浏览器窗口。想在后台运行：`autoskill.cmd run <项目> --headless`，或关掉仪表盘「项目与用例」页右上方的「运行时显示浏览器窗口」开关（「运行」按钮旁的菜单里也有）。
+回放默认弹出最大化的浏览器窗口。想在后台运行：`autoskill.cmd run <项目> --headless`，或在仪表盘顶部工具栏右侧的「回放设置」里关掉「显示浏览器窗口」。同一处的「使用本机 Chrome」默认打开：优先用你电脑上的 Chrome，找不到或启动不了时改用随包浏览器。
 
 ## 仪表盘
 
@@ -92,6 +92,9 @@ autoskill import <分享包>            # 对方导入
 ```bash
 python -m unittest discover -s tests -p "test_*.py"      # Python 测试
 node --test tests/plugin.test.mjs                        # 插件契约测试
+ruff check .                                             # Python 静态检查（规则见 ruff.toml）
+npx --yes @biomejs/biome@2.6.7 lint                      # JS / CSS 静态检查（规则见 biome.json；本仓库 .npmrc 为离线，需加环境变量 npm_config_offline=false）
+python -m unittest discover -s tests -p test_conventions.py   # 项目约定检查
 python scripts/fetch-windows-assets.py --assets <仓库外目录>            # 维护者：从官方源下载运行时
 python scripts/build-windows-bundle.py --assets <目录> --output <新目录> --zip   # 维护者：组装离线包
 ```

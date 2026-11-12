@@ -151,7 +151,7 @@ def _run_case(client, case: dict, config: dict, variables: dict) -> dict:
             case = {**case, "extensions": {**case.get("extensions", {}), "transport": resolved_transport}}
         if "form" in sent:
             sent["data"] = sent.pop("form")
-        try:  # an expected value may name what this run created, for example "工单-{{RAND}}"
+        try:  # An expected value may name what this run created, for example a title ending in {{RAND}}.
             expected = secrets.resolve(fill(case["assertions"], variables))
             case = {**case, "assertions": expected}
         except KeyError:
