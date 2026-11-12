@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>示例工单系统</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main id="login-view" class="login" hidden>
+    <form id="login-form" class="card" aria-labelledby="login-title">
+      <h1 id="login-title">示例工单系统</h1>
+      <p class="muted">autoSkill 随附的演示站点，数据均为合成数据。</p>
+      <label for="username">账号</label>
+      <input id="username" name="username" autocomplete="username" data-testid="login-username" required>
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" data-testid="login-password" required>
+      <p id="login-error" class="error" role="alert" data-testid="login-error" hidden></p>
+      <button type="submit" data-testid="login-submit">登录</button>
+    </form>
+  </main>
+
+  <div id="app-view" hidden>
+    <header class="bar">
+      <strong>示例工单系统</strong>
+      <span class="spacer"></span>
+      <span id="current-user" data-testid="current-user"></span>
+      <button id="logout" class="ghost" data-testid="logout">退出登录</button>
+    </header>
+    <main class="page">
+      <section class="card">
+        <div class="toolbar">
+          <h2>工单列表</h2>
+          <span id="ticket-total" class="muted" data-testid="ticket-total"></span>
+          <span class="spacer"></span>
+          <label class="inline" for="search">搜索</label>
+          <input id="search" type="search" placeholder="按标题搜索" data-testid="ticket-search">
+          <label class="inline" for="status-filter">状态</label>
+          <select id="status-filter" data-testid="status-filter">
+            <option value="">全部</option>
+            <option value="open">待处理</option>
+            <option value="in_progress">处理中</option>
+            <option value="resolved">已解决</option>
+          </select>
+          <button id="new-ticket" data-testid="new-ticket">新建工单</button>
+        </div>
+        <table>
+          <thead><tr><th>编号</th><th>标题</th><th>优先级</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody id="ticket-rows" data-testid="ticket-rows"></tbody>
+        </table>
+        <p id="empty" class="muted center" data-testid="ticket-empty" hidden>没有符合条件的工单</p>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="ticket-dialog" aria-labelledby="dialog-title">
+    <form id="ticket-form" method="dialog">
+      <h2 id="dialog-title">新建工单</h2>
+      <label for="title">标题</label>
+      <input id="title" name="title" maxlength="120" data-testid="ticket-title">
+      <p id="title-error" class="error" role="alert" data-testid="title-error" hidden></p>
+      <label for="priority">优先级</label>
+      <select id="priority" name="priority" data-testid="ticket-priority">
+        <option value="low">低</option>
+        <option value="medium" selected>中</option>
+        <option value="high">高</option>
+      </select>
+      <label for="description">描述</label>
+      <textarea id="description" name="description" rows="3" data-testid="ticket-description"></textarea>
+      <div class="actions">
+        <button type="button" id="cancel-ticket" class="ghost" data-testid="ticket-cancel">取消</button>
+        <button type="submit" data-testid="ticket-save">保存</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="toast" role="status" data-testid="toast" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>
