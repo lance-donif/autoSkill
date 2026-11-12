@@ -384,8 +384,10 @@ def undo_msys(args) -> None:
         return
 
     def fix(value):
-        if isinstance(value, str) and value.lower().startswith(root.lower() + "/"):
-            return value[len(root):]
+        if isinstance(value, str) and root.lower() in value.lower():
+            import re
+
+            return re.sub(re.escape(root) + "(?=/)", "", value, flags=re.IGNORECASE)
         return value
 
     if args.command == "check":

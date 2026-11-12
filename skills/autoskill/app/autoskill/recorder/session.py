@@ -166,6 +166,15 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         agent.call(session_name(), ["open", "about:blank"], launch=agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors"))), timeout=90)
         agent.call(session_name(), ["network", "har", "start"])
         opened = agent.call(session_name(), ["open", start_url], timeout=90) or {}
+        for attempt in (1, 2):
+            landed = (agent.call(session_name(), ["get", "url"]) or {}).get("url", "")
+            if landed.startswith(("http://", "https://")):
+                break
+            if attempt == 1:  # still on the blank page: open once more
+                opened = agent.call(session_name(), ["open", start_url], timeout=90) or {}
+        else:
+            agent.call(session_name(), ["close"], check=False, timeout=30)
+            raise RecordError("浏览器没有打开目标页面（停在空白页）；确认地址可以访问后重新运行 autoskill record start")
     finally:
         if state_file:
             state_file.unlink(missing_ok=True)
@@ -245,7 +254,10 @@ def browser(argv: list[str]) -> dict:
                 "locators": [ir.describe_locator(loc) for loc in found["locators"]],
                 "use_as_target": [_as_target(loc) for loc in found["locators"]]}
     if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview"):
-        return {"result": agent.call(session_name(), argv)}
+        result = agent.call(session_name(), argv)
+        if command == "wait" and rest and rest[0].isdigit():
+            result = {"waited_ms": int(rest[0])}
+        return {"result": result}
     if command == "open":
         if not rest:
             raise RecordError("open 需要地址")

@@ -189,11 +189,12 @@ class Compiler:
                                 entry["method"], "/".join(segments), rules, module="页面与资源" if static else module,
                                 headers=headers, params=params, json=body, depends_on=sorted(deps),
                                 traffic="static" if static else "business")
-        match = existing.get(self.signature(case))
+        signature = self.signature(case)
+        if signature in {self.signature(c) for c in self.cases}:
+            return None  # the same request repeated within this recording
+        match = existing.get(signature)
         if match and match["assertions"]["status"] == entry["status"]:
             case, outcome = json.loads(json.dumps(match)), "reused"
-        elif self.signature(case) in {self.signature(c) for c in self.cases}:
-            return None  # the same request repeated within this recording
         else:
             self.next_number += 1
             outcome = "new"
@@ -290,5 +291,5 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
         "api_cases": [{"id": c["id"], "title": c["title"], "depends_on": projects.depends_on(c)} for c in compiler.cases],
         "api_traffic": traffic if compiler.cases else "none", "api_new": counts["new"], "api_reused": counts["reused"],
         "login": {k: compiler.auth.get(k) for k in ("ui_case", "api_case") if compiler.auth.get(k)},
-        "secrets": sorted(secrets.references([ui_case, *compiler.cases])), "notes": compiler.notes,
+        "secrets": sorted(secrets.references([ui_case, *compiler.cases])), "notes": list(dict.fromkeys(compiler.notes)),
     }

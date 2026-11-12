@@ -182,6 +182,15 @@ class CompileTests(unittest.TestCase):
             finally:
                 os.environ["AUTOSKILL_WORKSPACE"] = self.tmp.name
 
+    def test_a_repeated_request_is_listed_once_even_when_its_case_already_exists(self):
+        catalogue = {f"k{i}": {"name": str(i)} for i in range(30)}
+        twice = {"log": {"entries": [entry("GET", "/learn.json", 200, catalogue, kind="xhr")] * 2}}
+        first = compiler.build(self.pid, self.rec(), twice, None, "第一次")
+        again = compiler.build(self.pid, self.rec(), twice, None, "第二次")
+        self.assertEqual((first["api_new"], len(first["api_cases"])), (1, 1))
+        self.assertEqual((again["api_new"], again["api_reused"], len(again["api_cases"])), (0, 1, 1))
+        self.assertEqual(len(again["notes"]), len(set(again["notes"])))
+
     def test_no_assertions_is_reported_not_hidden(self):
         rec = self.rec()
         rec["steps"] = rec["steps"][:1]
