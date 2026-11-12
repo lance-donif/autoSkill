@@ -1,0 +1,27 @@
+{
+  "status": "REJECTED_COUNTERFACTUAL_BRIGHT_ONLY_V2",
+  "source_scripts_sha256": {
+    "color_layer_bright_v2.py": "1c4eac5345c5ff4f5c18a1be910404016edd0393cab956832e091264780483f8",
+    "test_color_layer_bright_v2.py": "bc0499180fb43eb532547a72c05e9b95c820b05ee78bcbcf129a167628fa5f64",
+    "counterfactual_color_bright_v2.py": "1cb177d6cc4ce8687cd93e1f1a5f25d7ed1828992a229347d1c8599c45465827"
+  },
+  "repository_copy_sha256": {
+    "color_layer_bright_v2.py": "edcf10cce700bae12937fcf93e62cd1470a48289f5570013a67309bb2c358a15",
+    "test_color_layer_bright_v2.py": "10982900074243e39ecaccf9515cd9069b1debf094dd38d32fda84a8cff7df2d",
+    "counterfactual_color_bright_v2.py": "1cb177d6cc4ce8687cd93e1f1a5f25d7ed1828992a229347d1c8599c45465827"
+  },
+  "copy_changes": [
+    "Import grouping only; no algorithm changes"
+  ],
+  "boundary_tests": {
+    "tests": 3,
+    "result": "PASS",
+    "duration_seconds": 0.037,
+    "model_runs": 0,
+    "timing_note": "Tests followed the prioritized cached statistics report; rule was registered before counterfactual recomputation."
+  },
+  "reconstruction": "New reproduction tool recreates cached prediction bytes and strict-gate groups exactly.",
+  "new_NN_runs": 0,
+  "product_modified": false,
+  "old_v1_freeze_modified": false
+}

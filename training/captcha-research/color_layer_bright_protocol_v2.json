@@ -1,0 +1,60 @@
+{
+  "version": "bright-only-three-layer-v2",
+  "status": "PREDECLARED_BEFORE_COUNTERFACTUAL_RECOMPUTATION",
+  "v1_protocol_sha256": "837f4ce7498959c0e59452ec54b95be4d4728c77fe8d69cebc4cd8ffbac0c290",
+  "v1_predictions": "/workspace/autoSkill-release/captcha-color-research/color-layers-v1/evaluation-once/predictions.jsonl",
+  "v1_predictions_sha256": "af08666cac8d352784cefdf86f07b93d249beea3586f522709527d228beb56d3",
+  "v1_core_sha256": "96b863bf3ba95e7775654a92c9e65db8e9ed1483724b4544c66b053b06cbb8fe",
+  "algorithm": "All v1 physics/math/validation unchanged; after all v1 self-checks, require a1>=128 before recolor/encode. Otherwise retain original baseline.",
+  "brightness_boundary": 128,
+  "boundary_reason": "The existing near-black boundary128 separates requested light-text enhancement from dark foreground. No127/129 alternatives tested.",
+  "counterfactual": "For the one fixed rule, reuse unchanged v1 candidate prediction only if v1 restored and a1>=128; otherwise use fixed original baseline text. No new model calls.",
+  "hard_gate": "Same v1: ordinary dev0prediction changes; four line groups exact/CER no regression; pale first gain>=2; no new empty/exception.",
+  "verification_if_passes": {
+    "counts": 8,
+    "selection": "First dev manifest row per pair below, independent of label/correctness.",
+    "route_category_pairs": [
+      [
+        "restored",
+        "through-line"
+      ],
+      [
+        "restored",
+        "first-symbol-touching"
+      ],
+      [
+        "foreground_abstain",
+        "dark-through-line"
+      ],
+      [
+        "foreground_abstain",
+        "dark-first-symbol-touching"
+      ],
+      [
+        "prior_abstain",
+        "dark-through-line"
+      ],
+      [
+        "prior_abstain",
+        "dark-first-symbol-touching"
+      ],
+      [
+        "not_gated",
+        "plain"
+      ],
+      [
+        "not_gated",
+        "pale"
+      ]
+    ]
+  },
+  "known_selection_scope": "This is a new train/dev-only development iteration prompted by v1 dev behavior, not an independent accuracy validation.",
+  "forbidden": [
+    "threshold grid",
+    "test/public/blind input",
+    "changing frozen v1",
+    "model training",
+    "product or app edits"
+  ],
+  "fallback": "No extra recognition fallback in this research chain; any later runtime fallback needs its own pre-blind protocol."
+}
