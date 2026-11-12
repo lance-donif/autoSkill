@@ -4,13 +4,24 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from functools import wraps
 from pathlib import Path
 
 from . import db, paths, secrets
 from .core import store
+from .locking import named_lock, project_lock
 from .replay import ir
 
 ID = re.compile(r"[a-z0-9][a-z0-9-]{0,47}")
+
+
+def _project_locked(operation):
+    """Keep each project operation coherent across threads and independent CLI processes."""
+    @wraps(operation)
+    def locked(project_id, *args, **kwargs):
+        with project_lock(project_id):
+            return operation(project_id, *args, **kwargs)
+    return locked
 
 
 
@@ -46,9 +57,12 @@ def same_site(url: str) -> str | None:
     """The project that already covers this site (host and port, with or without www); the one with most cases wins."""
     found = []
     for folder in sorted(paths.projects_dir().iterdir()):
+        if not ID.fullmatch(folder.name):
+            continue
         try:
-            if ID.fullmatch(folder.name) and site_of(store.read(folder / "qa-config.json").get("base_url", "")) == site_of(url):
-                found.append((len(cases(folder.name)), folder.name))
+            with project_lock(folder.name):
+                if site_of(store.read(folder / "qa-config.json").get("base_url", "")) == site_of(url):
+                    found.append((len(cases(folder.name)), folder.name))
         except (OSError, ValueError, KeyError):
             continue
     return max(found)[1] if found else None
@@ -62,13 +76,19 @@ def create(name: str, base_url: str, category: str = "", project_id: str | None 
     origin = ir.origin_of(base_url or "")
     if not origin.startswith(("http://", "https://")) or origin.endswith("://"):
         raise ValueError("目标地址需要是完整网址，例如 http://10.0.0.8:8080")
-    if project_id is None:
-        existing = same_site(origin)
-        if existing:  # one site is one project; its areas are sub-projects (the module of each case)
-            return {**get(existing), "reused": True}
-    project_id = project_id or slug(name, base_url)
-    if not ID.fullmatch(project_id):
-        raise ValueError("项目标识只能使用小写字母、数字和短横线")
+    with named_lock("projects", "catalog"):
+        if project_id is None:
+            existing = same_site(origin)
+            if existing:  # one site is one project; its areas are sub-projects (the module of each case)
+                return {**get(existing), "reused": True}
+        project_id = project_id or slug(name, base_url)
+        if not ID.fullmatch(project_id):
+            raise ValueError("项目标识只能使用小写字母、数字和短横线")
+        return _create_project(project_id, name, base_url, category, origin)
+
+
+@_project_locked
+def _create_project(project_id: str, name: str, base_url: str, category: str, origin: str) -> dict:
     folder = paths.projects_dir() / project_id
     if folder.exists():
         raise ValueError(f"项目 {project_id} 已存在")
@@ -91,24 +111,29 @@ def create(name: str, base_url: str, category: str = "", project_id: str | None 
     return get(project_id)
 
 
+@_project_locked
 def meta(project_id: str) -> dict:
     return store.read(path(project_id) / "project.json")
 
 
+@_project_locked
 def config(project_id: str) -> dict:
     return store.read(path(project_id) / "qa-config.json")
 
 
+@_project_locked
 def auth(project_id: str) -> dict:
     file = path(project_id) / "auth.json"
     return store.read(file) if file.is_file() else {}
 
 
+@_project_locked
 def set_auth(project_id: str, value: dict) -> None:
     store.write(path(project_id) / "auth.json", value)
     store.sync_skills(path(project_id))
 
 
+@_project_locked
 def update(project_id: str, **fields) -> dict:
     """Change name, category, extra allowed origins, approvals or timeout."""
     folder = path(project_id)
@@ -140,6 +165,7 @@ def update(project_id: str, **fields) -> dict:
     return get(project_id)
 
 
+@_project_locked
 def cases(project_id: str, active_only: bool = True) -> list[dict]:
     found = store.load_cases(path(project_id))
     return [c for c in found if c["lifecycle"] == "active"] if active_only else found
@@ -169,6 +195,7 @@ def credentials(project_id: str) -> dict:
     return {name: secrets.get_secret(name) for name in sorted(wanted)}
 
 
+@_project_locked
 def reindex(project_id: str) -> None:
     """Rebuild the local index of one project from its files."""
     db.init()
@@ -200,6 +227,7 @@ def reindex(project_id: str) -> None:
             conn.execute("DELETE FROM cases WHERE project_id = ? AND case_id = ?", (project_id, gone))
 
 
+@_project_locked
 def get(project_id: str) -> dict:
     info, cfg, login = meta(project_id), config(project_id), auth(project_id)
     active, known = cases(project_id), credentials(project_id)
@@ -221,7 +249,11 @@ def list_all() -> list[dict]:
     db.init()
     found = []
     for folder in sorted(paths.projects_dir().iterdir()):
-        if (folder / "project.json").is_file() and ID.fullmatch(folder.name):
+        if not ID.fullmatch(folder.name):
+            continue
+        with project_lock(folder.name):
+            if not (folder / "project.json").is_file():
+                continue
             try:
                 reindex(folder.name)
                 found.append(get(folder.name))
@@ -230,11 +262,17 @@ def list_all() -> list[dict]:
     on_disk = {p["id"] for p in found}
     for row in db.rows("SELECT id FROM projects"):
         if row["id"] not in on_disk:  # folder removed by hand: drop its index, keep run history
-            db.execute("DELETE FROM cases WHERE project_id = ?", (row["id"],))
-            db.execute("DELETE FROM projects WHERE id = ?", (row["id"],))
+            with project_lock(row["id"]):
+                if (paths.projects_dir() / row["id"] / "project.json").is_file():
+                    found.append(get(row["id"]))  # a concurrent import or creation finished after the directory listing
+                    continue
+                with db.connect() as conn:
+                    conn.execute("DELETE FROM cases WHERE project_id = ?", (row["id"],))
+                    conn.execute("DELETE FROM projects WHERE id = ?", (row["id"],))
     return found
 
 
+@_project_locked
 def save_cases(project_id: str, incoming: list[dict]) -> list[dict]:
     """Add or replace cases by id (others are kept), then refresh the index."""
     folder = path(project_id)
@@ -263,6 +301,7 @@ def save_cases(project_id: str, incoming: list[dict]) -> list[dict]:
     return saved
 
 
+@_project_locked
 def next_case_id(project_id: str, kind: str) -> str:
     prefix = "TC-UI-" if kind == "ui" else "TC-API-"
     numbers = [int(c["id"][len(prefix):]) for c in cases(project_id, active_only=False)
@@ -270,9 +309,11 @@ def next_case_id(project_id: str, kind: str) -> str:
     return f"{prefix}{max(numbers, default=0) + 1:03d}"
 
 
+@_project_locked
 def delete(project_id: str) -> None:
     folder = path(project_id)
     shutil.rmtree(folder)
-    db.execute("DELETE FROM cases WHERE project_id = ?", (project_id,))
-    db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-    db.execute("DELETE FROM tasks WHERE project_id = ?", (project_id,))
+    with db.connect() as conn:
+        conn.execute("DELETE FROM cases WHERE project_id = ?", (project_id,))
+        conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        conn.execute("DELETE FROM tasks WHERE project_id = ?", (project_id,))

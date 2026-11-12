@@ -16,6 +16,7 @@ import zipfile
 from pathlib import Path
 
 from . import __version__, db, paths, projects, secrets
+from .locking import project_lock
 
 MANIFEST = "autoskill-pack.json"
 SECRETS = "secrets.sealed.json"
@@ -218,11 +219,15 @@ def _install_import(project_id: str, staging: Path, backup: Path) -> dict:
     return info
 
 
-def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo]) -> dict:
+def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo], overwrite: bool) -> dict | None:
     """Use a private staging directory so failures cannot remove another import's files."""
     import shutil
     import tempfile
 
+    target = paths.projects_dir() / project_id
+    with project_lock(project_id):
+        if target.exists() and not overwrite:
+            return None
     folder = paths.local() / "import"
     folder.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix=f"{project_id}-", dir=folder))
@@ -234,7 +239,10 @@ def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zip
             destination.write_bytes(archive.read(member))
         _validate_import(staging)
         (staging / "knowledge").mkdir(exist_ok=True)
-        return _install_import(project_id, staging, backup)
+        with project_lock(project_id):
+            if target.exists() and not overwrite:
+                return None
+            return _install_import(project_id, staging, backup)
     finally:
         if not backup.exists():
             shutil.rmtree(work, ignore_errors=True)
@@ -261,12 +269,12 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
         restored = _restore_pack_secrets(archive, passphrase)
         imported, skipped = [], []
         for project_id, members in grouped.items():
-            target = paths.projects_dir() / project_id
-            if target.exists() and not overwrite:
-                skipped.append({"id": project_id, "reason": "本机已有同名项目；加 --overwrite 用分享包里的版本替换"})
-                continue
             try:
-                imported.append(_import_project(archive, project_id, members))
+                info = _import_project(archive, project_id, members, overwrite)
+                if info is None:
+                    skipped.append({"id": project_id, "reason": "本机已有同名项目；加 --overwrite 用分享包里的版本替换"})
+                else:
+                    imported.append(info)
             except (ValueError, KeyError, OSError, TypeError, AttributeError, sqlite3.Error) as error:
                 skipped.append({"id": project_id, "reason": "内容没有通过校验：" + str(error)[:200]})
     missing = sorted({name for info in imported for name in info["missing_secrets"]})
