@@ -155,6 +155,18 @@ def valid_pointer(ptr):
     )
 
 
+SAFE_CREDENTIAL = re.compile(
+    r"(?:(?:Bearer|Basic|Token)\s+)?(?:\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}|\{\{[A-Za-z_][A-Za-z0-9_]*\}\})"
+)
+
+
+def has_real_assertion(a):
+    """A 2xx/3xx expectation needs more than the status code."""
+    return bool(
+        a.get("json_equals") or a.get("body_contains") or a.get("header_contains") or meaningful_schema(a.get("schema"))
+    )
+
+
 def credential_errors(value, location="data"):
     sensitive = {
         "authorization",
@@ -174,14 +186,16 @@ def credential_errors(value, location="data"):
     errors = []
     if isinstance(value, dict):
         for key, item in value.items():
+            if key == "extract" and isinstance(item, dict) and all(valid_pointer(v) for v in item.values()):
+                continue  # variable name -> JSON pointer, not a credential
             normalized = re.sub(r"[^a-z0-9]", "", key.lower())
             target = location + "." + key
             if (
                 normalized in sensitive
                 or normalized.endswith(("token", "secret", "apikey", "password", "cookie"))
             ) and item not in ("", None):
-                if not isinstance(item, str) or not re.fullmatch(r"\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}", item):
-                    errors.append(target + ": 敏感字段必须使用完整环境变量引用")
+                if not isinstance(item, str) or not SAFE_CREDENTIAL.fullmatch(item):
+                    errors.append(target + ": 敏感字段只能写成 ${ENV:名称} 或 {{变量}} 引用，不能写入真实值")
             errors.extend(credential_errors(item, target))
     elif isinstance(value, list):
         for i, item in enumerate(value):
@@ -245,7 +259,7 @@ def validate(p, check_results=True):
                     errors.append(f"{cid}: 未知需求 {rid}")
             if kind == "api":
                 a = c["assertions"]
-                if not a.get("json_equals") and not meaningful_schema(a.get("schema")) and a["status"] < 400:
+                if not has_real_assertion(a) and a["status"] < 400:
                     errors.append(f"{cid}: 成功响应缺少有效业务或结构断言")
                 if "schema" in a:
                     try:
@@ -943,7 +957,7 @@ def save_cases(p, incoming):
                 if external_schema_refs(a["schema"]):
                     raise ValueError("响应Schema禁止未解析的外部引用")
             if ("schema" in a and not meaningful_schema(a["schema"])) or (
-                a["status"] < 400 and not a.get("json_equals") and not meaningful_schema(a.get("schema"))
+                a["status"] < 400 and not has_real_assertion(a)
             ):
                 raise ValueError("接口用例缺少有效断言")
             if any(not valid_pointer(ptr) for ptr in a.get("json_equals", {})):
