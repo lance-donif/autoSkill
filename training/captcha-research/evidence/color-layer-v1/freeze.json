@@ -1,0 +1,16 @@
+{
+  "status": "REJECTED_FIXED_COLOR_LAYER_GATE",
+  "protocol_sha256": "837f4ce7498959c0e59452ec54b95be4d4728c77fe8d69cebc4cd8ffbac0c290",
+  "scripts_sha256": {
+    "color_layer_core.py": "96b863bf3ba95e7775654a92c9e65db8e9ed1483724b4544c66b053b06cbb8fe",
+    "test_color_layer_core.py": "f0a39376b54351a7c744999fa2c3e60e38cdc71b9d1f1b4e1e769a2356a94478",
+    "evaluate_color_layers.py": "b4ba128241babce02b8dc70927ab55dafef9a7429131b4a54004c322d4feb925"
+  },
+  "evaluation_sha256": "43e3c1b762dd67b9cff2af29fe7227d52fcb2cdfbff957af8128076955fe8c36",
+  "model_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "acceptance_failure": "Dark-first-symbol CER increased from45 to48/200 despite overall dev improvement.",
+  "parameters_changed_after_evaluation": false,
+  "learned_weights_modified": false,
+  "product_modified": false,
+  "test_public_or_blind_images_loaded": 0
+}

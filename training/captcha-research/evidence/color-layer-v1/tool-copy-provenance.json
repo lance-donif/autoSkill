@@ -1,0 +1,26 @@
+{
+  "status": "REJECTED_FIXED_COLOR_LAYER_GATE",
+  "source_scripts_sha256": {
+    "color_layer_core.py": "96b863bf3ba95e7775654a92c9e65db8e9ed1483724b4544c66b053b06cbb8fe",
+    "test_color_layer_core.py": "f0a39376b54351a7c744999fa2c3e60e38cdc71b9d1f1b4e1e769a2356a94478",
+    "evaluate_color_layers.py": "b4ba128241babce02b8dc70927ab55dafef9a7429131b4a54004c322d4feb925"
+  },
+  "repository_copy_sha256": {
+    "color_layer_core.py": "96b863bf3ba95e7775654a92c9e65db8e9ed1483724b4544c66b053b06cbb8fe",
+    "test_color_layer_core.py": "bf2d4082d8b029cfc6603940d5199d633a01d987cf3bc2ea0c7b2fcc2f4bb101",
+    "evaluate_color_layers.py": "dbcde9ad3f3278418cb08575157369d0b239fe8aa73fbd0a18633f25af1975be"
+  },
+  "copy_changes": [
+    "Import grouping only; no executable algorithm changes"
+  ],
+  "lightweight_mathematics_tests": {
+    "tests": 9,
+    "result": "PASS",
+    "duration_seconds": 0.066,
+    "independent_fraction_histograms": 80,
+    "model_runs": 0
+  },
+  "no_image_model_or_cache_files_committed": true,
+  "no_new_inference_during_copy": true,
+  "algorithm": "Physical palette preprocessing only; learned model weights unchanged."
+}
