@@ -13,6 +13,12 @@ ROOT = Path(os.environ.get('CAPTCHA_RESEARCH_DIR', str(Path(__file__).resolve().
 SOURCE = Path(os.environ['CAPTCHA_BASELINE_MODEL'])
 
 
+def model_digest(file):
+    """Record identity without inflating peak RSS by the model's full byte size."""
+    with file.open('rb') as handle:
+        return hashlib.file_digest(handle, 'sha256').hexdigest()
+
+
 def worker(kind, threads):
     cold_started = time.perf_counter()
     import numpy as np
@@ -52,7 +58,7 @@ def worker(kind, threads):
         started = time.perf_counter()
         session.run(None, {key: tensor})
         timings.append((time.perf_counter() - started) * 1000)
-    return {'model': kind, 'model_file': str(file), 'model_sha256': hashlib.sha256(file.read_bytes()).hexdigest(),
+    return {'model': kind, 'model_file': str(file), 'model_sha256': model_digest(file),
             'threads': threads or 'ORT default', 'initialization_ms': initialized_ms,
             'first_inference_ms': first_ms, 'process_cold_imports_prepare_init_first_ms': cold_to_first,
             'warm_inference_ms': timings, 'warm_median_ms': statistics.median(timings),
