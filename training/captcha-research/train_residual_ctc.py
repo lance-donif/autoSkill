@@ -7,6 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
+from residual_cache import require_cache_contract
 from residual_ctc import Adam, TemporalResidual, ctc_loss_and_grad, sequence_edit_distance, teacher_kl_and_grad
 from residual_data import frozen_metadata
 
@@ -98,6 +99,7 @@ def prepare_inputs(root, manifest, cache_dir, protocol):
     metadata = json.loads((cache_dir / 'metadata.json').read_text())
     if metadata['model_sha256'] != protocol['teacher_model_sha256'] or metadata['manifest_sha256'] != sha(manifest):
         raise ValueError('Cache provenance differs from the fixed protocol')
+    require_cache_contract(metadata, protocol)
     if metadata['cache_sha256'] != sha(cache_dir / 'features.npz') or list(cache['ids']) != [row['id'] for row in rows]:
         raise ValueError('Feature bytes or ordering changed')
     meta = frozen_metadata(root)

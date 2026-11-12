@@ -60,4 +60,6 @@ python -m unittest discover -s training/captcha-research -p 'test_residual*.py'
 
 仓库副本将原实验对检查工具的动态导入改为纯 `residual_data.py`，并核对固定 metadata SHA；预处理已与真实产品函数通过逐元素 mock-session 测试，不运行 ORT。历史冻结脚本哈希与副本变更说明见 `evidence/residual-tool-provenance.json`。历史实验文件保持不变；重跑的代码 SHA 和目录路径应记录为新 provenance，不能冒称原冻结执行。
 
+后续独立审查发现旧缓存只校验模型和数据，换 tensor 协议仍可能命中。现仓库工具还校验 tensor 映射、预处理函数/metadata/shape 及 NumPy/Pillow 版本的 contract；缺少 contract 的旧缓存会拒绝复用。复现时需在全新目录重新提取，不能给历史缓存补字段冒充新执行。历史冻结实验使用同一默认映射与预处理，经审查未受影响，原始文件保持不变。
+
 `evidence/residual-ctc/` 包含数据/缓存元信息、RBF 消融、训练摘要、确定性复跑、scale 选择锁、导出冻结和拒绝状态。独立评估结果只用于接受或拒绝，未回流到本任务选参。

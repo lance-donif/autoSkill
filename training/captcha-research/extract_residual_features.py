@@ -9,6 +9,7 @@ import numpy as np
 import onnx
 import onnxruntime as ort
 from onnx import helper
+from residual_cache import cache_contract, require_cache_contract, tensor_names
 from residual_ctc import sequence_edit_distance
 from residual_data import decode_one, frozen_metadata, prepare
 
@@ -37,11 +38,12 @@ def extract(root, manifest, directory, protocol):
     if metadata_file.is_file() and cache_file.is_file():
         old = json.loads(metadata_file.read_text())
         if old['model_sha256'] == model_sha and old['manifest_sha256'] == manifest_sha:
+            require_cache_contract(old, protocol)
             return cache_file
         raise ValueError('Refuse to reuse a cache from different weights or data')
     model = onnx.load(source)
-    names = {'features': protocol['feature_tensor'], 'logits': protocol['baseline_logits_tensor'],
-             'ctc': protocol['ctc_logits_tensor'], 'local': protocol['local_tensor'], 'expanded': protocol['expanded_tensor']}
+    names = tensor_names(protocol)
+    contract = cache_contract(protocol)
     available = {value for node in model.graph.node for value in node.output}
     if any(value not in available for value in names.values()):
         raise ValueError('Required frozen intermediate is missing')
@@ -60,7 +62,7 @@ def extract(root, manifest, directory, protocol):
         image_file = root / row['file']
         if hashlib.sha256(image_file.read_bytes()).hexdigest() != row['png_sha256']:
             raise ValueError('Image bytes changed after the manifest was frozen')
-        tensor = prepare(image_file.read_bytes(), 48, 320)
+        tensor = prepare(image_file.read_bytes(), *contract['preprocessing']['image_shape'][1:])
         result = session.run(list(names.values()), {input_name: tensor})
         for key, value in zip(names, result):
             arrays[key].append(value[0])
@@ -69,7 +71,7 @@ def extract(root, manifest, directory, protocol):
     np.savez_compressed(cache_file, ids=np.asarray([row['id'] for row in rows]),
                         **{key: np.asarray(value, dtype=np.float32) for key, value in arrays.items()})
     metadata = {'model_sha256': model_sha, 'manifest_sha256': manifest_sha, 'cache_sha256': hashlib.sha256(cache_file.read_bytes()).hexdigest(),
-                'rows': len(rows), 'source': str(source), 'tensors': names, 'test_images_loaded': 0, 'external_images_loaded': 0,
+                'rows': len(rows), 'source': str(source), 'tensors': names, 'contract': contract, 'test_images_loaded': 0, 'external_images_loaded': 0,
                 'intra_op_threads': 2, 'inter_op_threads': 1}
     metadata_file.write_text(json.dumps(metadata, indent=2))
     return cache_file
