@@ -1,0 +1,39 @@
+{
+  "manifest_sha256": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+  "total_unique": 1920,
+  "groups": {
+    "('public-fournierp', 'external_test', 'public-noisy')": 1040,
+    "('synthetic-hard-v1', 'train', 'plain')": 120,
+    "('synthetic-hard-v1', 'train', 'pale')": 120,
+    "('synthetic-hard-v1', 'train', 'through-line')": 120,
+    "('synthetic-hard-v1', 'train', 'first-symbol-touching')": 120,
+    "('synthetic-hard-v1', 'dev', 'plain')": 40,
+    "('synthetic-hard-v1', 'dev', 'pale')": 40,
+    "('synthetic-hard-v1', 'dev', 'through-line')": 40,
+    "('synthetic-hard-v1', 'dev', 'first-symbol-touching')": 40,
+    "('synthetic-hard-v1', 'test', 'plain')": 60,
+    "('synthetic-hard-v1', 'test', 'pale')": 60,
+    "('synthetic-hard-v1', 'test', 'through-line')": 60,
+    "('synthetic-hard-v1', 'test', 'first-symbol-touching')": 60
+  },
+  "duplicate_pixel_images_excluded": 2080,
+  "invalid_members_excluded": [],
+  "public_charset": "2345678bcdefgmnpwxy",
+  "public_dimensions": {
+    "(200, 50)": 1040
+  },
+  "font_families": {
+    "train": [
+      "Noto",
+      "OpenSans"
+    ],
+    "dev": [
+      "Liberation"
+    ],
+    "test": [
+      "DejaVu"
+    ]
+  },
+  "split_protocol": "Public source is external-test-only, never training. Synthetic train/dev/test use disjoint font families, seed ranges, labels and pixel hashes. Test metrics are evaluated only after candidate freeze.",
+  "public_license": "NOT VERIFIED: LICEN(S)E mirror note refers to original Kaggle description; HTTPS metadata access failed. No public data used for training."
+}

@@ -1,0 +1,935 @@
+{
+  "model": {
+    "file": "/workspace/autoSkill-static-checks/skills/autoskill/models/captcha/captcha-ctc.onnx",
+    "sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+    "file_bytes": 13055561,
+    "ir_version": 8,
+    "producer": {
+      "2": "onnx.compose.merge_models",
+      "3": "1.0",
+      "4": "",
+      "5": 1
+    },
+    "graph_name": "Extracted from {PaddlePaddle Graph in PIR mode}_Extracted from {PaddlePaddle Graph in PIR mode}",
+    "opsets": [
+      {
+        "1": "",
+        "2": 17
+      },
+      {
+        "1": "",
+        "2": 17
+      }
+    ],
+    "node_count": 449,
+    "operator_counts": {
+      "Conv": 57,
+      "Add": 99,
+      "Identity": 120,
+      "Relu": 12,
+      "MaxPool": 1,
+      "Concat": 2,
+      "ReduceMean": 5,
+      "HardSigmoid": 5,
+      "Mul": 44,
+      "Div": 17,
+      "Erf": 13,
+      "AveragePool": 1,
+      "BatchNormalization": 3,
+      "Sigmoid": 5,
+      "Shape": 1,
+      "Slice": 7,
+      "Reshape": 6,
+      "Transpose": 9,
+      "LayerNormalization": 5,
+      "MatMul": 15,
+      "Squeeze": 7,
+      "Softmax": 3,
+      "ReduceSum": 4,
+      "Sqrt": 2,
+      "Unsqueeze": 2,
+      "Sub": 4
+    },
+    "initializer_count": 248,
+    "initializer_dtype_counts": {
+      "1": 204,
+      "7": 44
+    },
+    "floating_initializer_elements": 3240286,
+    "floating_initializer_raw_bytes": 12961144,
+    "largest_initializers": [
+      {
+        "name": "backbone/conv2d_117.w_0",
+        "dtype": 1,
+        "shape": [
+          768,
+          384,
+          1,
+          1
+        ],
+        "elements": 294912,
+        "raw_bytes": 1179648
+      },
+      {
+        "name": "backbone/conv2d_118.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          768,
+          1,
+          1
+        ],
+        "elements": 294912,
+        "raw_bytes": 1179648
+      },
+      {
+        "name": "backbone/conv2d_121.w_0",
+        "dtype": 1,
+        "shape": [
+          768,
+          384,
+          1,
+          1
+        ],
+        "elements": 294912,
+        "raw_bytes": 1179648
+      },
+      {
+        "name": "backbone/conv2d_122.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          768,
+          1,
+          1
+        ],
+        "elements": 294912,
+        "raw_bytes": 1179648
+      },
+      {
+        "name": "backbone/conv2d_114.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          384,
+          1,
+          1
+        ],
+        "elements": 147456,
+        "raw_bytes": 589824
+      },
+      {
+        "name": "expanded/centres",
+        "dtype": 1,
+        "shape": [
+          1200,
+          120
+        ],
+        "elements": 144000,
+        "raw_bytes": 576000
+      },
+      {
+        "name": "expanded/coefficients",
+        "dtype": 1,
+        "shape": [
+          1200,
+          63
+        ],
+        "elements": 75600,
+        "raw_bytes": 302400
+      },
+      {
+        "name": "backbone/conv2d_90.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          192,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_91.w_0",
+        "dtype": 1,
+        "shape": [
+          192,
+          384,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_94.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          192,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_95.w_0",
+        "dtype": 1,
+        "shape": [
+          192,
+          384,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_98.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          192,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_99.w_0",
+        "dtype": 1,
+        "shape": [
+          192,
+          384,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_102.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          192,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_103.w_0",
+        "dtype": 1,
+        "shape": [
+          192,
+          384,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      },
+      {
+        "name": "backbone/conv2d_106.w_0",
+        "dtype": 1,
+        "shape": [
+          384,
+          192,
+          1,
+          1
+        ],
+        "elements": 73728,
+        "raw_bytes": 294912
+      }
+    ],
+    "first_nodes": [
+      {
+        "inputs": [
+          "backbone/x",
+          "backbone/conv2d_68.w_0"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.conv2d.0.0"
+        ],
+        "name": "backbone/Conv.0",
+        "op": "Conv"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.conv2d.0.0",
+          "backbone/p2o.pd_op.reshape.0.0"
+        ],
+        "outputs": [
+          "backbone/Add.1"
+        ],
+        "name": "backbone/Add.0",
+        "op": "Add"
+      },
+      {
+        "inputs": [
+          "backbone/Add.1"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.add.0.0"
+        ],
+        "name": "backbone/Identity.1",
+        "op": "Identity"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.add.0.0"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.relu.0.0"
+        ],
+        "name": "backbone/Relu.0",
+        "op": "Relu"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.relu.0.0",
+          "backbone/conv2d_69.w_0"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.conv2d.1.0"
+        ],
+        "name": "backbone/Conv.1",
+        "op": "Conv"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.conv2d.1.0",
+          "backbone/p2o.pd_op.reshape.1.0"
+        ],
+        "outputs": [
+          "backbone/Add.3"
+        ],
+        "name": "backbone/Add.2",
+        "op": "Add"
+      },
+      {
+        "inputs": [
+          "backbone/Add.3"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.add.1.0"
+        ],
+        "name": "backbone/Identity.3",
+        "op": "Identity"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.add.1.0"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.relu.1.0"
+        ],
+        "name": "backbone/Relu.1",
+        "op": "Relu"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.relu.1.0",
+          "backbone/conv2d_70.w_0"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.conv2d.2.0"
+        ],
+        "name": "backbone/Conv.2",
+        "op": "Conv"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.conv2d.2.0",
+          "backbone/p2o.pd_op.reshape.2.0"
+        ],
+        "outputs": [
+          "backbone/Add.5"
+        ],
+        "name": "backbone/Add.4",
+        "op": "Add"
+      },
+      {
+        "inputs": [
+          "backbone/Add.5"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.add.2.0"
+        ],
+        "name": "backbone/Identity.5",
+        "op": "Identity"
+      },
+      {
+        "inputs": [
+          "backbone/p2o.pd_op.add.2.0"
+        ],
+        "outputs": [
+          "backbone/p2o.pd_op.relu.2.0"
+        ],
+        "name": "backbone/Relu.2",
+        "op": "Relu"
+      }
+    ],
+    "last_nodes": [
+      {
+        "inputs": [
+          "recognition/p2o.pd_op.transpose.8.0",
+          "expanded/norm"
+        ],
+        "outputs": [
+          "expanded/normalized"
+        ],
+        "name": "expanded/normalized",
+        "op": "Div"
+      },
+      {
+        "inputs": [
+          "expanded/normalized",
+          "expanded/centre_axis"
+        ],
+        "outputs": [
+          "expanded/expanded"
+        ],
+        "name": "expanded/expanded",
+        "op": "Unsqueeze"
+      },
+      {
+        "inputs": [
+          "expanded/expanded",
+          "expanded/centres"
+        ],
+        "outputs": [
+          "expanded/difference"
+        ],
+        "name": "expanded/difference",
+        "op": "Sub"
+      },
+      {
+        "inputs": [
+          "expanded/difference",
+          "expanded/difference"
+        ],
+        "outputs": [
+          "expanded/distance_square"
+        ],
+        "name": "expanded/distance_square",
+        "op": "Mul"
+      },
+      {
+        "inputs": [
+          "expanded/distance_square",
+          "expanded/last_axis"
+        ],
+        "outputs": [
+          "expanded/distance"
+        ],
+        "name": "expanded/distance",
+        "op": "ReduceSum"
+      },
+      {
+        "inputs": [
+          "expanded/distance",
+          "expanded/radii2"
+        ],
+        "outputs": [
+          "expanded/relative_distance"
+        ],
+        "name": "expanded/relative_distance",
+        "op": "Div"
+      },
+      {
+        "inputs": [
+          "expanded/one",
+          "expanded/relative_distance"
+        ],
+        "outputs": [
+          "expanded/support"
+        ],
+        "name": "expanded/support",
+        "op": "Sub"
+      },
+      {
+        "inputs": [
+          "expanded/support"
+        ],
+        "outputs": [
+          "expanded/activation"
+        ],
+        "name": "expanded/activation",
+        "op": "Relu"
+      },
+      {
+        "inputs": [
+          "expanded/activation",
+          "expanded/activation"
+        ],
+        "outputs": [
+          "expanded/basis"
+        ],
+        "name": "expanded/basis",
+        "op": "Mul"
+      },
+      {
+        "inputs": [
+          "expanded/basis",
+          "expanded/coefficients"
+        ],
+        "outputs": [
+          "expanded/correction"
+        ],
+        "name": "expanded/correction",
+        "op": "MatMul"
+      },
+      {
+        "inputs": [
+          "local/logits",
+          "expanded/correction"
+        ],
+        "outputs": [
+          "expanded/logits"
+        ],
+        "name": "expanded/logits",
+        "op": "Add"
+      },
+      {
+        "inputs": [
+          "expanded/logits"
+        ],
+        "outputs": [
+          "recognition/trained_probabilities"
+        ],
+        "name": "",
+        "op": "Softmax"
+      }
+    ]
+  },
+  "metadata": {
+    "schemaVersion": 2,
+    "modelName": "ppocrv6_small_ctc_alnum_63-local-trained-20261019-expanded-20261019",
+    "imageShape": [
+      3,
+      48,
+      320
+    ],
+    "charset": [
+      "",
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+      "f",
+      "g",
+      "h",
+      "i",
+      "j",
+      "k",
+      "l",
+      "m",
+      "n",
+      "o",
+      "p",
+      "q",
+      "r",
+      "s",
+      "t",
+      "u",
+      "v",
+      "w",
+      "x",
+      "y",
+      "z",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U",
+      "V",
+      "W",
+      "X",
+      "Y",
+      "Z"
+    ],
+    "maxWidth": 320,
+    "smoothing": "low",
+    "supportsMath": false
+  },
+  "environment": {
+    "python": "3.12.14",
+    "onnxruntime": "1.19.2",
+    "numpy": "2.0.2",
+    "logical_cpus": 3,
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.41"
+  },
+  "warning": "Synthetic diagnostic only; no representative labeled validation corpus or training checkpoint is available locally.",
+  "baseline": [
+    {
+      "intra_op_threads": 1,
+      "inter_op_threads": 1,
+      "initialization_ms": 61.216385998704936,
+      "warm_inference_median_ms": 65.41178999941621,
+      "warm_inference_p95_ms": 117.2694289998617,
+      "preprocess_inference_decode_median_ms": 48.64756250026403,
+      "synthetic_exact_match": 30,
+      "synthetic_total": 32,
+      "predictions_identical_to_single_thread": true,
+      "input": [
+        {
+          "name": "backbone/x",
+          "type": "tensor(float)",
+          "shape": [
+            "DynamicDimension.0",
+            3,
+            48,
+            320
+          ]
+        }
+      ],
+      "output": [
+        {
+          "name": "recognition/trained_probabilities",
+          "type": "tensor(float)",
+          "shape": [
+            "DynamicDimension.0",
+            40,
+            63
+          ]
+        }
+      ],
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    },
+    {
+      "intra_op_threads": 2,
+      "inter_op_threads": 1,
+      "initialization_ms": 129.6782270001131,
+      "warm_inference_median_ms": 38.35101300137467,
+      "warm_inference_p95_ms": 74.68276399958995,
+      "preprocess_inference_decode_median_ms": 47.21593649992428,
+      "synthetic_exact_match": 30,
+      "synthetic_total": 32,
+      "predictions_identical_to_single_thread": true,
+      "input": [
+        {
+          "name": "backbone/x",
+          "type": "tensor(float)",
+          "shape": [
+            "DynamicDimension.0",
+            3,
+            48,
+            320
+          ]
+        }
+      ],
+      "output": [
+        {
+          "name": "recognition/trained_probabilities",
+          "type": "tensor(float)",
+          "shape": [
+            "DynamicDimension.0",
+            40,
+            63
+          ]
+        }
+      ],
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    },
+    {
+      "intra_op_threads": "ORT default",
+      "inter_op_threads": "ORT default",
+      "initialization_ms": 50.829952997446526,
+      "warm_inference_median_ms": 72.04709900179296,
+      "warm_inference_p95_ms": 127.13824499951443,
+      "preprocess_inference_decode_median_ms": 71.30014300128096,
+      "synthetic_exact_match": 30,
+      "synthetic_total": 32,
+      "predictions_identical_to_single_thread": true,
+      "input": [
+        {
+          "name": "backbone/x",
+          "type": "tensor(float)",
+          "shape": [
+            "DynamicDimension.0",
+            3,
+            48,
+            320
+          ]
+        }
+      ],
+      "output": [
+        {
+          "name": "recognition/trained_probabilities",
+          "type": "tensor(float)",
+          "shape": [
+            "DynamicDimension.0",
+            40,
+            63
+          ]
+        }
+      ],
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    }
+  ],
+  "synthetic_diagnostic": [
+    {
+      "file": "000.png",
+      "expected": "dOwd",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "dOwd"
+    },
+    {
+      "file": "001.png",
+      "expected": "oQKUfZ",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "oQKUfZ"
+    },
+    {
+      "file": "002.png",
+      "expected": "C7UM",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "C7UM"
+    },
+    {
+      "file": "003.png",
+      "expected": "frmbOu",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "frmbOu"
+    },
+    {
+      "file": "004.png",
+      "expected": "ydZe",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "ydZe"
+    },
+    {
+      "file": "005.png",
+      "expected": "vrr1xj",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "vrr1xj"
+    },
+    {
+      "file": "006.png",
+      "expected": "Z5xI",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "Z5xI"
+    },
+    {
+      "file": "007.png",
+      "expected": "TTfG7l",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "TTfG7l"
+    },
+    {
+      "file": "008.png",
+      "expected": "KRWY",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "KRWY"
+    },
+    {
+      "file": "009.png",
+      "expected": "y16DkZ",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "y16DkZ"
+    },
+    {
+      "file": "010.png",
+      "expected": "Scqo",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "Scqo"
+    },
+    {
+      "file": "011.png",
+      "expected": "i33qLU",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "i33qLU"
+    },
+    {
+      "file": "012.png",
+      "expected": "EZGh",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "EZGh"
+    },
+    {
+      "file": "013.png",
+      "expected": "ar4cGG",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "ar4cGG"
+    },
+    {
+      "file": "014.png",
+      "expected": "zSO4",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": false,
+      "prediction": "zSO4"
+    },
+    {
+      "file": "015.png",
+      "expected": "lCqgei",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": false,
+      "prediction": "lCqgei"
+    },
+    {
+      "file": "016.png",
+      "expected": "eJVF",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "eJVF"
+    },
+    {
+      "file": "017.png",
+      "expected": "zyfCut",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "zyfCut"
+    },
+    {
+      "file": "018.png",
+      "expected": "II9T",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "I19T"
+    },
+    {
+      "file": "019.png",
+      "expected": "z4q8u8",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "z4q8u8"
+    },
+    {
+      "file": "020.png",
+      "expected": "KbUx",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "KbUx"
+    },
+    {
+      "file": "021.png",
+      "expected": "yH9T1f",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "yH9T1f"
+    },
+    {
+      "file": "022.png",
+      "expected": "m9q2",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "m9q2"
+    },
+    {
+      "file": "023.png",
+      "expected": "FS2V8z",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "FS2V8z"
+    },
+    {
+      "file": "024.png",
+      "expected": "Ajly",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "Ajly"
+    },
+    {
+      "file": "025.png",
+      "expected": "FNS5u9",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "FNS5u9"
+    },
+    {
+      "file": "026.png",
+      "expected": "viFm",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "viFm"
+    },
+    {
+      "file": "027.png",
+      "expected": "9X2ANV",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "9X2ANV"
+    },
+    {
+      "file": "028.png",
+      "expected": "KLaO",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "KLaO"
+    },
+    {
+      "file": "029.png",
+      "expected": "vQnctu",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "vQnctu"
+    },
+    {
+      "file": "030.png",
+      "expected": "NlJj",
+      "font": "DejaVuSans.ttf",
+      "crossed_lines": true,
+      "prediction": "N1Jj"
+    },
+    {
+      "file": "031.png",
+      "expected": "hQwkga",
+      "font": "DejaVuSansMono.ttf",
+      "crossed_lines": true,
+      "prediction": "hQwkga"
+    }
+  ]
+}

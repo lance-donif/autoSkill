@@ -1,0 +1,260 @@
+{
+  "model_sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+  "dataset_manifest_sha256": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+  "threads": 2,
+  "original": {
+    "sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+    "model_file_bytes": 13055561,
+    "initialization_ms": 126.29361599829281,
+    "first_inference_ms": 95.94277999713086,
+    "groups": {
+      "public-fournierp/external_test/public-noisy": {
+        "exact": 341,
+        "samples": 1040,
+        "edit_errors": 920,
+        "characters": 5200,
+        "exact_match_rate": 0.3278846153846154,
+        "character_error_rate": 0.17692307692307693,
+        "inference_ms_median": 26.00914049980929,
+        "inference_ms_p95": 29.408596001303522,
+        "end_to_end_ms_median": 27.275369000562932,
+        "end_to_end_ms_p95": 30.721127001015702
+      },
+      "public-fournierp/external_test/ALL": {
+        "exact": 341,
+        "samples": 1040,
+        "edit_errors": 920,
+        "characters": 5200,
+        "exact_match_rate": 0.3278846153846154,
+        "character_error_rate": 0.17692307692307693,
+        "inference_ms_median": 26.00914049980929,
+        "inference_ms_p95": 29.408596001303522,
+        "end_to_end_ms_median": 27.275369000562932,
+        "end_to_end_ms_p95": 30.721127001015702
+      },
+      "synthetic-hard-v1/train/plain": {
+        "exact": 105,
+        "samples": 120,
+        "edit_errors": 15,
+        "characters": 600,
+        "exact_match_rate": 0.875,
+        "character_error_rate": 0.025,
+        "inference_ms_median": 26.030174500192516,
+        "inference_ms_p95": 28.456295000069076,
+        "end_to_end_ms_median": 27.119149501231732,
+        "end_to_end_ms_p95": 29.432764000375755
+      },
+      "synthetic-hard-v1/train/ALL": {
+        "exact": 332,
+        "samples": 480,
+        "edit_errors": 208,
+        "characters": 2400,
+        "exact_match_rate": 0.6916666666666667,
+        "character_error_rate": 0.08666666666666667,
+        "inference_ms_median": 26.12904149827955,
+        "inference_ms_p95": 30.7403550032177,
+        "end_to_end_ms_median": 27.255229999354924,
+        "end_to_end_ms_p95": 31.827902999793878
+      },
+      "synthetic-hard-v1/train/pale": {
+        "exact": 113,
+        "samples": 120,
+        "edit_errors": 7,
+        "characters": 600,
+        "exact_match_rate": 0.9416666666666667,
+        "character_error_rate": 0.011666666666666667,
+        "inference_ms_median": 25.785724999877857,
+        "inference_ms_p95": 27.860630998475244,
+        "end_to_end_ms_median": 26.882218997343443,
+        "end_to_end_ms_p95": 29.327565000130562
+      },
+      "synthetic-hard-v1/train/through-line": {
+        "exact": 101,
+        "samples": 120,
+        "edit_errors": 21,
+        "characters": 600,
+        "exact_match_rate": 0.8416666666666667,
+        "character_error_rate": 0.035,
+        "inference_ms_median": 26.333108500693925,
+        "inference_ms_p95": 31.720437000331003,
+        "end_to_end_ms_median": 27.49526200022956,
+        "end_to_end_ms_p95": 32.93086600024253
+      },
+      "synthetic-hard-v1/train/first-symbol-touching": {
+        "exact": 13,
+        "samples": 120,
+        "edit_errors": 165,
+        "characters": 600,
+        "exact_match_rate": 0.10833333333333334,
+        "character_error_rate": 0.275,
+        "inference_ms_median": 26.35009400182753,
+        "inference_ms_p95": 37.05887099931715,
+        "end_to_end_ms_median": 27.54228550111293,
+        "end_to_end_ms_p95": 38.20579999955953
+      },
+      "synthetic-hard-v1/dev/plain": {
+        "exact": 36,
+        "samples": 40,
+        "edit_errors": 4,
+        "characters": 200,
+        "exact_match_rate": 0.9,
+        "character_error_rate": 0.02,
+        "inference_ms_median": 25.772413498998503,
+        "inference_ms_p95": 36.94560599979013,
+        "end_to_end_ms_median": 26.85375550026947,
+        "end_to_end_ms_p95": 38.02347300006659
+      },
+      "synthetic-hard-v1/dev/ALL": {
+        "exact": 100,
+        "samples": 160,
+        "edit_errors": 79,
+        "characters": 800,
+        "exact_match_rate": 0.625,
+        "character_error_rate": 0.09875,
+        "inference_ms_median": 25.90059249996557,
+        "inference_ms_p95": 31.510075001278892,
+        "end_to_end_ms_median": 26.992018500095583,
+        "end_to_end_ms_p95": 32.623562998196576
+      },
+      "synthetic-hard-v1/dev/pale": {
+        "exact": 33,
+        "samples": 40,
+        "edit_errors": 8,
+        "characters": 200,
+        "exact_match_rate": 0.825,
+        "character_error_rate": 0.04,
+        "inference_ms_median": 26.496759499423206,
+        "inference_ms_p95": 29.62939700228162,
+        "end_to_end_ms_median": 27.620037999440683,
+        "end_to_end_ms_p95": 30.79546300068614
+      },
+      "synthetic-hard-v1/dev/through-line": {
+        "exact": 29,
+        "samples": 40,
+        "edit_errors": 12,
+        "characters": 200,
+        "exact_match_rate": 0.725,
+        "character_error_rate": 0.06,
+        "inference_ms_median": 25.675705999674392,
+        "inference_ms_p95": 26.727405002020532,
+        "end_to_end_ms_median": 26.799680499607348,
+        "end_to_end_ms_p95": 27.967956000793492
+      },
+      "synthetic-hard-v1/dev/first-symbol-touching": {
+        "exact": 2,
+        "samples": 40,
+        "edit_errors": 55,
+        "characters": 200,
+        "exact_match_rate": 0.05,
+        "character_error_rate": 0.275,
+        "inference_ms_median": 25.806367999393842,
+        "inference_ms_p95": 30.52716800084454,
+        "end_to_end_ms_median": 26.915206501143984,
+        "end_to_end_ms_p95": 31.451287999516353
+      },
+      "synthetic-hard-v1/test/plain": {
+        "exact": 56,
+        "samples": 60,
+        "edit_errors": 5,
+        "characters": 300,
+        "exact_match_rate": 0.9333333333333333,
+        "character_error_rate": 0.016666666666666666,
+        "inference_ms_median": 21.727575000113575,
+        "inference_ms_p95": 28.67247899848735,
+        "end_to_end_ms_median": 23.128308999730507,
+        "end_to_end_ms_p95": 29.723506999289384
+      },
+      "synthetic-hard-v1/test/ALL": {
+        "exact": 168,
+        "samples": 240,
+        "edit_errors": 95,
+        "characters": 1200,
+        "exact_match_rate": 0.7,
+        "character_error_rate": 0.07916666666666666,
+        "inference_ms_median": 21.48604749891092,
+        "inference_ms_p95": 28.588443998160074,
+        "end_to_end_ms_median": 22.71660500082362,
+        "end_to_end_ms_p95": 29.723506999289384
+      },
+      "synthetic-hard-v1/test/pale": {
+        "exact": 56,
+        "samples": 60,
+        "edit_errors": 5,
+        "characters": 300,
+        "exact_match_rate": 0.9333333333333333,
+        "character_error_rate": 0.016666666666666666,
+        "inference_ms_median": 21.249903000352788,
+        "inference_ms_p95": 28.941781998582883,
+        "end_to_end_ms_median": 22.564658500414225,
+        "end_to_end_ms_p95": 30.092247001448413
+      },
+      "synthetic-hard-v1/test/through-line": {
+        "exact": 50,
+        "samples": 60,
+        "edit_errors": 11,
+        "characters": 300,
+        "exact_match_rate": 0.8333333333333334,
+        "character_error_rate": 0.03666666666666667,
+        "inference_ms_median": 20.00435050103988,
+        "inference_ms_p95": 26.55056600269745,
+        "end_to_end_ms_median": 21.082117500554887,
+        "end_to_end_ms_p95": 27.661453001201153
+      },
+      "synthetic-hard-v1/test/first-symbol-touching": {
+        "exact": 6,
+        "samples": 60,
+        "edit_errors": 74,
+        "characters": 300,
+        "exact_match_rate": 0.1,
+        "character_error_rate": 0.24666666666666667,
+        "inference_ms_median": 23.025317501378595,
+        "inference_ms_p95": 28.40661300069769,
+        "end_to_end_ms_median": 24.065648001851514,
+        "end_to_end_ms_p95": 29.742274000454927
+      }
+    }
+  },
+  "licensed_apache_examples": {
+    "exact": 7,
+    "samples": 12,
+    "CER": 0.2,
+    "warm_median_ms": 23.407271000905894
+  },
+  "process_isolated_baseline": {
+    "ORT default": {
+      "median_ms": 18.72353200087673,
+      "p95_ms": 56.462649001332466,
+      "block_medians_ms": [
+        19.76463550090557,
+        19.154534000335843,
+        13.199299999541836,
+        18.36696550162742
+      ],
+      "cold_imports_prepare_init_first_median_ms": 193.8552065003023,
+      "init_median_ms": 54.09994549881958,
+      "first_inference_median_ms": 25.34024750093522,
+      "peak_rss_median_kib": 168086.0
+    },
+    "2": {
+      "median_ms": 16.353444998458144,
+      "p95_ms": 25.619718002417358,
+      "block_medians_ms": [
+        16.873423001015908,
+        16.419090499766753,
+        16.353444998458144,
+        16.17065899881709
+      ],
+      "cold_imports_prepare_init_first_median_ms": 204.73884400053066,
+      "init_median_ms": 44.978527001148905,
+      "first_inference_median_ms": 29.490051500033587,
+      "peak_rss_median_kib": 168164.0
+    }
+  },
+  "limitations": [
+    "Not target-site acceptance",
+    "Large public dataset license unverified and not used for training",
+    "Public author examples are only12 samples",
+    "Synthetic test split frozen before model-head selection"
+  ],
+  "candidate_models_included": false
+}
