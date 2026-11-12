@@ -62,6 +62,5 @@ setInterval(async () => {
   if (busy()) return;
   const wasActive = state.active;
   await refreshShell();
-  const { page, id } = route();
-  if (state.active > 0 || wasActive > 0 || (page === 'runs' && id) || !state.online) show({ quiet: true });
+  if (state.active > 0 || wasActive > 0 || !state.online) show({ quiet: true });
 }, 2500);

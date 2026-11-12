@@ -143,7 +143,9 @@ def runs(scope: Scope, trigger: str | None = None, status: str | None = None, li
     where, args = scope.where("u.created_at", "u.project_id")
     if trigger:
         where, args = where + " AND u.trigger = ?", [*args, trigger]
-    if status:
+    if status == "active":
+        where += " AND u.status IN ('Queued', 'Running')"
+    elif status:
         where, args = where + " AND u.status = ?", [*args, status]
     base = f"FROM runs u LEFT JOIN projects p ON p.id = u.project_id WHERE u.trigger != 'login' AND {where}"
     total = db.one(f"SELECT COUNT(*) n {base}", args)["n"]

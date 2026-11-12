@@ -4,6 +4,7 @@ import { empty, errorState, drawer, closeOverlay, confirm } from '../ui.js';
 import { state } from '../shell.js';
 
 const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
 
 export async function render(view) {
   let tasks;
@@ -125,8 +126,8 @@ async function editor(task, done) {
   save.addEventListener('click', async () => {
     error.hidden = true;
     const body = { title: title.value, project_id: project.value, engine: engine.value, case_ids: allCases.checked ? [] : [...picked],
-      rule: current.kind === 'daily' ? { kind: 'daily', time: current.time }
-        : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort() }
+      rule: current.kind === 'daily' ? { kind: 'daily', time: current.time, timezone: ZONE }
+        : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort(), timezone: ZONE }
           : current.kind === 'interval' ? { kind: 'interval', minutes: current.minutes }
             : { kind: 'at', at: current.at.toISOString() } };
     if (!allCases.checked && !picked.size) { error.textContent = '请至少选择一条用例，或勾选「全部用例」'; error.hidden = false; return; }
@@ -141,7 +142,7 @@ async function editor(task, done) {
 
   paintRule();
   drawer({
-    title: task ? '编辑定时任务' : '新建定时任务', subtitle: '时间按这台电脑的时区（北京时间）计算。',
+    title: task ? '编辑定时任务' : '新建定时任务', subtitle: `时间按这台电脑的时区（${ZONE}）计算。`,
     body: [
       h('div', { class: 'field' }, h('label', { for: 'tk-title' }, '任务名称'), title),
       h('div', { class: 'field' }, h('label', { for: 'tk-project' }, '项目'), project),

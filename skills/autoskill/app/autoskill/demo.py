@@ -37,6 +37,8 @@ def cases() -> list[dict]:
             "assertions": [
                 {"assertion": "contains", "locators": testid("toast"), "expected": "已创建"},
                 {"assertion": "contains", "locators": testid("ticket-rows"), "expected": "回放创建的工单"},
+                {"assertion": "text", "name": "新工单的优先级显示为「高」",
+                 "locators": _loc(by="css", value="[data-testid=ticket-row]:first-child td:nth-child(3)"), "expected": "高"},
             ],
         }, module="工单", depends_on=["TC-UI-001"]),
         builder.ui_case("TC-UI-003", "标题为空时不能保存", {

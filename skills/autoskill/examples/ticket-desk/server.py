@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import secrets
 import threading
 import time
@@ -47,11 +48,13 @@ class State:
         self.sessions: dict[str, str] = {}
         self.tickets: list[dict] = []
         self.next_id = 1001
+        self.bug = False
         self.reset()
 
     def reset(self) -> None:
         with self.lock:
             self.sessions.clear()
+            self.bug = False
             self.tickets = []
             self.next_id = 1001
             for title, priority, status in SEED:
@@ -208,6 +211,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/test/reset" and method == "POST":
             state.reset()
             return self.send_json(200, {"reset": True})
+        if path == "/api/test/bug" and method == "POST":
+            # Demo aid: switch on a known defect (new tickets ignore the chosen priority)
+            # so that failing cases and their reports can be shown for real.
+            body = self.read_json()
+            state.bug = bool(isinstance(body, dict) and body.get("on"))
+            return self.send_json(200, {"bug": state.bug})
         if path == "/api/test/expire-sessions" and method == "POST":
             return self.send_json(200, {"expired": state.expire_all()})
 
@@ -239,7 +248,8 @@ class Handler(BaseHTTPRequestHandler):
             if errors:
                 return self.error(422, "VALIDATION", fields=errors)
             with state.lock:
-                ticket = dict(state._add(values["title"], values["priority"], values["description"], user["id"]))
+                priority = "medium" if state.bug else values["priority"]
+                ticket = dict(state._add(values["title"], priority, values["description"], user["id"]))
             return self.send_json(201, ticket)
         if path.startswith("/api/tickets/"):
             ticket_id = path.rsplit("/", 1)[-1]
@@ -277,10 +287,16 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
 
 
+class Server(ThreadingHTTPServer):
+    # On Windows SO_REUSEADDR lets a second process bind a port that is already in use;
+    # refuse instead, so "already running" is detected.
+    allow_reuse_address = os.name != "nt"
+
+
 def make_server(port: int = 8790, host: str = "127.0.0.1") -> ThreadingHTTPServer:
     """Create a server bound to loopback. Port 0 picks a free port (used by tests)."""
     handler = type("TicketDeskHandler", (Handler,), {"state": State()})
-    server = ThreadingHTTPServer((host, port), handler)
+    server = Server((host, port), handler)
     server.daemon_threads = True
     return server
 

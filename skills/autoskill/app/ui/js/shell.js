@@ -13,7 +13,7 @@ export const state = { projects: [], status: null, active: 0, online: true };
 export async function refreshShell() {
   try {
     const [projects, status, active] = await Promise.all([
-      api('/projects'), api('/status'), api('/runs?limit=1&status=Running'),
+      api('/projects'), api('/status'), api('/runs?limit=1&status=active'),
     ]);
     state.projects = projects.filter((p) => !p.broken);
     state.status = status;
@@ -40,7 +40,7 @@ export function renderSide() {
       h('span', { class: 'brand-mark' }, icon('spark')),
       h('span', {}, h('div', { class: 'brand-name' }, 'autoSkill'), h('div', { class: 'brand-tag' }, '录一次，到处回放'))),
     h('nav', { class: 'nav', 'aria-label': '主导航' }, NAV.map(([page, label, glyph]) => h('a', {
-      href: href(page), 'aria-current': current === page ? 'page' : null, title: label,
+      href: href(page), 'aria-current': current === page ? 'page' : null, title: label, 'aria-label': label,
     }, icon(glyph), h('span', { class: 'label' }, label),
     page === 'runs' && state.active > 0 && h('span', { class: 'count', title: '正在执行' }, String(state.active))))),
     h('div', { class: 'side-foot' },
@@ -49,7 +49,7 @@ export function renderSide() {
         h('span', { class: 'text' }, state.online ? '本机服务运行中' : '服务已断开')),
       runtime && h('div', { class: 'line', title: '离线运行：不联网、不更新、不上报' },
         icon('lock'), h('span', { class: 'text' }, runtime.bundled ? '随包运行时 · 离线' : '开发环境运行时')),
-      h('button', { onClick: () => { applyTheme(theme() === 'dark' ? 'light' : 'dark'); renderSide(); } },
+      h('button', { 'aria-label': theme() === 'dark' ? '浅色' : '深色', title: '切换深浅色', onClick: () => { applyTheme(theme() === 'dark' ? 'light' : 'dark'); renderSide(); } },
         icon(theme() === 'dark' ? 'sun' : 'moon'), h('span', { class: 'text' }, theme() === 'dark' ? '浅色' : '深色'))));
 }
 

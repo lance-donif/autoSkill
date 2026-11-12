@@ -19,7 +19,7 @@ export const SERIES = [
 function niceMax(value) {
   if (value <= 4) return 4;
   const power = 10 ** Math.floor(Math.log10(value));
-  for (const step of [1, 2, 2.5, 5, 10]) if (value <= step * power) return step * power;
+  for (const step of [1, 1.2, 1.6, 2, 2.4, 3.2, 4, 6, 8, 10]) if (value <= step * power) return step * power;  // all divide by 4 cleanly
   return 10 * power;
 }
 export function bucketLabel(bucket, unit) {

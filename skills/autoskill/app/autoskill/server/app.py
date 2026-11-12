@@ -49,7 +49,7 @@ def case_view(project_id: str, case: dict) -> dict:
     if case["kind"] == "ui":
         automation = case.get("extensions", {}).get("automation") or {}
         view["start_url"] = automation.get("start_url")
-        view["steps"] = [{"text": ir.describe(s), "check": "assertion" in s,
+        view["steps"] = [{"text": s.get("name") or ir.describe(s), "check": "assertion" in s,
                           "locators": [ir.describe_locator(l) for l in ir.locators(s)]}
                          for s in [*automation.get("actions", []), *automation.get("assertions", [])]]
     else:
@@ -83,6 +83,8 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         jobs.sweep()
+        if any(p.get("id") == demo.PROJECT_ID and p.get("base_url") == demo.DEFAULT_URL for p in projects.list_all()):
+            state["demo_site"] = demo_site()  # the example project needs its site
         if start_worker:
             worker.start()
         yield
