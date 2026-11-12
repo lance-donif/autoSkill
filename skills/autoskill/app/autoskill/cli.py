@@ -101,7 +101,8 @@ def parser() -> argparse.ArgumentParser:
     update.add_argument("--category")
     update.add_argument("--allow-origin", action="append", help="额外允许访问的地址，可重复")
     update.add_argument("--approve", action="append", choices=sorted(projects.RISKS), help="允许的高风险操作，可重复")
-    update.add_argument("--timeout", type=int)
+    update.add_argument("--timeout", type=int, help="单步等待元素的秒数，默认 20")
+    update.add_argument("--page-load", type=int, help="等待页面打开的秒数，默认 90；页面本身很慢时调大（10–600）")
     update.add_argument("--insecure-tls", choices=("on", "off"), help="内网自签名证书：on 表示不校验证书")
 
     sub.add_parser("context", help="开始工作前先看这个：登录方式、已有用例、知识库、下一步").add_argument("project")
@@ -271,6 +272,8 @@ def doctor(launch: bool = False) -> dict:
         "modules": {name: importlib.util.find_spec(name) is not None for name in modules},
         "workspace": str(paths.workspace()), "network": "不联网、不下载、不检查更新",
     }
+    if os.environ.get("AUTOSKILL_BRIDGE") == "off":
+        report["executed_by"] = "autoSkill 后台服务（发起命令的进程在受限沙箱里，已自动转交）"
     problems = [name for name, ok in report["modules"].items() if not ok]
     problems += [name for name in ("chrome", "chromedriver", "agent_browser") if not report[name]]
     if launch and not problems:
@@ -293,7 +296,7 @@ def dispatch(args) -> tuple[dict, int]:
         if action == "show":
             return projects.get(args.project), 0
         return projects.update(args.project, name=args.name, category=args.category, allowed_origins=args.allow_origin,
-                               approvals=args.approve, timeout_seconds=args.timeout,
+                               approvals=args.approve, timeout_seconds=args.timeout, page_load_seconds=args.page_load,
                                ignore_https_errors=None if args.insecure_tls is None else args.insecure_tls == "on"), 0
     if command == "context":
         return context(args.project), 0
@@ -377,6 +380,24 @@ def dispatch(args) -> tuple[dict, int]:
     return session.check(args.kind, args.target, args.expected, args.attribute), 0
 
 
+def delegate(args, argv: list[str], reason: str) -> int:
+    """Run this command through the local service and relay exactly what it printed."""
+    from . import bridge
+
+    port, why = bridge.service()
+    if port is None:
+        return emit({"error": bridge.restricted_message(reason, why)}, 2)
+    if args.command == "import":  # the service runs elsewhere: a relative path would mean a different file there
+        argv = [os.path.abspath(a) if a == args.file else a for a in argv]
+    stdin_text = None
+    if args.command == "secret" and args.action == "set" and args.value is None:
+        stdin_text = sys.stdin.readline()
+    reply = bridge.forward(port, argv, stdin_text)
+    sys.stdout.write(reply.get("stdout", ""))
+    sys.stderr.write(reply.get("stderr", ""))
+    return int(reply.get("exit", 2))
+
+
 def undo_msys(args) -> None:
     """Restore arguments Git Bash rewrote from "/x" to "<Git root>/x". Only for values that are never file paths."""
     root = (os.environ.get("AUTOSKILL_MSYS_ROOT") or "").rstrip("/")
@@ -402,13 +423,19 @@ def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
+    argv = list(sys.argv[1:] if argv is None else argv)
     args = parser().parse_args(argv)
     undo_msys(args)
     if getattr(args, "headed", False):
         os.environ["AUTOSKILL_HEADED"] = "1"
-    db.init()
+    mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")  # auto: only when this process cannot do the work itself
+    if args.command != "dashboard" and mode != "off":
+        reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
+        if reason:  # sandboxed: the service the user (or the harness plugin) runs outside the sandbox does the work
+            return delegate(args, argv, reason)
     real_stdout = sys.stdout
     try:
+        db.init()
         if args.command != "dashboard":  # the dashboard is long-running and talks to a person
             sys.stdout = sys.stderr  # anything a library prints goes to stderr; stdout carries the JSON only
         try:
@@ -421,7 +448,15 @@ def main(argv: list[str] | None = None) -> int:
 
         if isinstance(error, (ValueError, PermissionError, RecordError, AgentError)):
             return emit({"error": str(error)}, 2)
-        raise
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
+        if isinstance(error, OSError) or type(error).__module__ == "sqlite3":
+            reason = paths.restricted()
+            message = (f"读写 autoSkill 数据失败（{reason}）" if reason else "读写 autoSkill 数据失败") + f"：{type(error).__name__}: {error}"
+        else:
+            message = f"autoSkill 内部错误：{type(error).__name__}: {error}（详细信息在标准错误输出里）"
+        return emit({"error": message[:600]}, 2)
     return emit(result, code)
 
 

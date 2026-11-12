@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from .. import __version__, db, demo, paths, projects, runner, secrets, sessions
+from .. import __version__, bridge, db, demo, paths, projects, runner, secrets, sessions
 from ..replay import ir
 from . import jobs, metrics, scheduler
 
@@ -87,7 +87,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
             state["demo_site"] = demo_site()  # the example project needs its site
         if start_worker:
             worker.start()
+            bridge.announce(port)
         yield
+        bridge.withdraw()
         worker.close()
         if state["demo_site"]:
             state["demo_site"].shutdown()
@@ -121,7 +123,26 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
                 "runtime": {"bundled": paths.VENDOR.is_dir(), "chrome": bool(paths.chrome()),
                             "selenium": bool(paths.chrome() and paths.chromedriver()),
                             "recorder": bool(paths.agent_browser())},
-                "skill_path": str(paths.SKILL), "instance": os.environ.get("AUTOSKILL_INSTANCE_ID")}
+                "skill_path": str(paths.SKILL), "workspace": str(paths.workspace()), "bridge": bridge.enabled(),
+                "instance": os.environ.get("AUTOSKILL_INSTANCE_ID")}
+
+    @app.post("/api/bridge")
+    def run_command(body: dict, request: Request):
+        """Run one autoskill command for a caller whose own process is sandboxed (see bridge.py).
+
+        Never reachable from a web page: browsers cannot send this header cross-site without a preflight,
+        which this service does not answer, and they always send an Origin header on POST.
+        """
+        if not bridge.enabled():
+            raise HTTPException(403, "后台服务关闭了代为执行功能")
+        if request.headers.get("x-autoskill-bridge") != "1" or request.headers.get("origin"):
+            raise HTTPException(403, "只接受 autoskill 命令行的请求")
+        argv = body.get("argv")
+        if not isinstance(argv, list) or not argv or not all(isinstance(a, str) for a in argv) or len(argv) > 64:
+            raise ValueError("argv 无效")
+        stdin_text = body.get("stdin") if isinstance(body.get("stdin"), str) else None
+        msys_root = body.get("msys_root") if isinstance(body.get("msys_root"), str) else None
+        return bridge.execute(argv, stdin_text, msys_root, bool(body.get("headed")))
 
     @app.get("/api/summary")
     def summary(request: Request, tz: int = 480):

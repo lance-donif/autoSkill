@@ -1,6 +1,6 @@
 # autoSkill 命令参考
 
-所有命令输出一个 JSON 对象；`"error"` 表示没有成功，文字说明原因和下一步。退出码：0 成功，1 有用例失败，2 阻塞或用法错误，3 找不到随包运行时。
+所有命令输出一个 JSON 对象；`"error"` 表示没有成功，文字说明原因和下一步。任何失败（包括没有预料到的内部错误）都以这种形式输出，详细信息另写到标准错误。退出码：0 成功，1 有用例失败，2 阻塞、命令没有成功或用法错误，3 找不到随包运行时。
 
 ## 项目
 
@@ -9,7 +9,7 @@
 | `project create --name 名称 --url 地址 [--category 分类] [--id 标识]` | 新建项目。地址即授权范围；标识默认由名称或主机名生成 |
 | `project list` | 全部项目及用例数、缺少的凭据 |
 | `project show <项目>` | 单个项目的设置 |
-| `project update <项目> [--name] [--category] [--allow-origin 地址]… [--approve 操作]… [--timeout 秒] [--insecure-tls on\|off]` | 修改设置。`--approve` 可取 `write` `delete` `payment` `refund` `message`，给出的列表会替换原有列表（默认只有 `write`） |
+| `project update <项目> [--name] [--category] [--allow-origin 地址]… [--approve 操作]… [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置。`--approve` 可取 `write` `delete` `payment` `refund` `message`，给出的列表会替换原有列表（默认只有 `write`） |
 | `context <项目>` | 登录方式、已保存的登录态、缺少的凭据、用例清单、知识库、建议的下一步 |
 | `cases <项目>` | 用例清单 |
 
@@ -95,4 +95,22 @@
   .local/                 只在本机：凭据、登录态、运行记录、截图、报告
 ```
 
-环境变量 `AUTOSKILL_WORKSPACE` 可以把工作区放到别处。
+环境变量 `AUTOSKILL_WORKSPACE` 可以把工作区放到别处（仪表盘和命令行要用同一个值）。
+
+## 等待时间
+
+| 设置 | 默认 | 作用 |
+| --- | --- | --- |
+| `project update <项目> --page-load 秒` | 90（10–600） | 打开或刷新页面最多等多久，录制和回放都用；「页面与资源可访问」类接口用例也用它 |
+| `project update <项目> --timeout 秒` | 20（3–120） | 单步等待元素出现、接口请求的超时 |
+
+录制时页面在等待时间内没有完全加载，会带着提示继续，不算失败；回放时超过则记为「超时」。
+
+## 在受限沙箱里
+
+命令所在的进程写不了数据目录、或写不了用户目录下的 `.agent-browser`（浏览器控制目录）时，autoskill 判定自己在受限沙箱里，把命令转交给本机正在运行的 autoSkill 后台服务（`dashboard` 进程）执行，原样返回它的输出和退出码。
+
+- 后台服务由 DeepSeek Harness 插件启动，或由用户运行 `autoskill dashboard` 启动；它的端口记在 `workspace/.local/service.json`。
+- 只转交 autoskill 自己的命令；`dashboard`、`pack --full`、`pack --include-secrets`、以及 `--out` 指向数据目录以外的导出不转交。
+- 环境变量 `AUTOSKILL_BRIDGE`：`on` 强制转交（沙箱只拦浏览器、不拦文件时用），`off` 禁止转交；默认自动判断。启动后台服务时设 `AUTOSKILL_BRIDGE_SERVER=off` 可以关闭代为执行。
+- 这个接口只监听本机，只接受命令行发来的请求，网页无法调用。

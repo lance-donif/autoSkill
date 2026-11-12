@@ -16,6 +16,7 @@ class PlaywrightDriver:
         self.config = config
         self.allowed = list(config.get("allowed_origins", []))
         self.timeout_ms = int(float(config.get("timeout_seconds", 20)) * 1000)
+        self.load_ms = int(float(config.get("page_load_seconds", 90)) * 1000)
         self._pw = sync_playwright().start()
         options = {"headless": headless, "args": [*paths.QUIET_CHROME_ARGS, *paths.fence_args(self.allowed)]}
         if paths.chrome():
@@ -65,10 +66,10 @@ class PlaywrightDriver:
 
     # --- page --------------------------------------------------------
     def goto(self, url: str) -> None:
-        self.page.goto(url, wait_until="domcontentloaded")
+        self.page.goto(url, wait_until="domcontentloaded", timeout=self.load_ms)
 
     def reload(self) -> None:
-        self.page.reload(wait_until="domcontentloaded")
+        self.page.reload(wait_until="domcontentloaded", timeout=self.load_ms)
 
     def url(self) -> str:
         return self.page.url

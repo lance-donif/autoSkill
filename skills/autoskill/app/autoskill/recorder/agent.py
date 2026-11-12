@@ -87,6 +87,24 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
     return _strip(reply.get("data"))
 
 
+LAUNCH_SIGNS = ("crashpad", "openprocess", "failed to launch", "chrome exited", "browser process", "os error 5",
+                "access is denied", "拒绝访问", "socket", "daemon")
+
+
+def launch_problem(error: Exception) -> str:
+    """Explain a failed browser start in terms the caller can act on."""
+    text = str(error)
+    reason = paths.restricted()
+    if reason or any(sign in text.lower() for sign in LAUNCH_SIGNS):
+        hint = (f"当前进程受限（{reason}），浏览器在这里起不来；让 autoSkill 后台服务保持运行后重试，或给当前会话完全访问权限" if reason else
+                "浏览器没有启动成功。最常见的原因是命令运行在受限沙箱里（启动进程、证书或用户目录被拦）："
+                "让 autoSkill 后台服务保持运行（DeepSeek Harness 里启用插件，或用户在自己的终端运行 autoskill.cmd dashboard），"
+                "把环境变量 AUTOSKILL_BRIDGE 设为 on 后重试，命令就会交给后台服务执行；或者给当前会话完全访问权限。"
+                "如果不在沙箱里，运行 autoskill doctor --launch 检查随包文件")
+        return f"{hint}。原始信息：{text[:240]}"
+    return text
+
+
 def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False) -> list[str]:
     """Flags for the command that starts the browser: bundled Chrome, fenced network, optional login state."""
     flags = ["--args", ",".join([*paths.QUIET_CHROME_ARGS, *paths.fence_args(allowed_origins)])]

@@ -48,6 +48,42 @@ def local() -> Path:
     return path
 
 
+def service_file() -> Path:
+    """Where a running dashboard announces its port (read without creating anything)."""
+    return workspace() / ".local" / "service.json"
+
+
+def _can_write(folder: Path) -> bool:
+    probe = folder / f".write-test-{os.getpid()}"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        probe.write_text("x", encoding="ascii")
+        probe.unlink()
+    except OSError:
+        return False
+    return True
+
+
+def writable() -> bool:
+    """Can this process keep its data?"""
+    return _can_write(workspace() / ".local")
+
+
+def restricted() -> str:
+    """Why this process cannot do the work itself; "" when it can.
+
+    An agent harness may run commands in a sandbox that only lets them write the session folder. Such a
+    process can neither keep autoSkill's data nor start a browser (the browser controller keeps its
+    sockets under the user's home folder).
+    """
+    if not writable():
+        return f"数据目录不可写：{workspace()}"
+    home = Path(os.environ.get("USERPROFILE") or Path.home()) / ".agent-browser"
+    if not _can_write(home):
+        return f"浏览器控制目录不可写：{home}"
+    return ""
+
+
 def projects_dir() -> Path:
     path = workspace() / "projects"
     path.mkdir(parents=True, exist_ok=True)

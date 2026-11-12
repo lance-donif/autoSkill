@@ -106,16 +106,26 @@ def check(driver, step: dict, timeout: float) -> dict:
     return row
 
 
+def navigate(action, *args) -> None:
+    """Load a page; a load that runs out of time is reported as such, not as a missing element."""
+    try:
+        action(*args)
+    except Exception as error:
+        if "Timeout" in type(error).__name__:
+            raise StepError(TIMEOUT, "页面没有在限定时间内加载完成；页面本身很慢时可以调大：autoskill project update <项目> --page-load <秒>") from None
+        raise
+
+
 def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float) -> bool:
     """Run one action. Returns True when a fallback locator had to be used."""
     op = step["action"]
     if op == "goto":
         url = ir.absolute_url(step["url"], base_url)
         ir.check_origin(url, allowed)
-        driver.goto(url)
+        navigate(driver.goto, url)
         return False
     if op == "reload":
-        driver.reload()
+        navigate(driver.reload)
         return False
     need = op != "wait_hidden"
     locator, fallback = choose_locator(driver, step, timeout, need=need)
@@ -169,7 +179,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
         row = {"index": 0, "text": "打开 " + url, "status": "running", "ms": 0}
         steps.append(row)
         clock = time.monotonic()
-        driver.goto(url)
+        navigate(driver.goto, url)
         row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
         acted = True
         for index, step in enumerate(automation.get("actions", []), 1):

@@ -47,6 +47,8 @@ autoskill record stop --title "新建工单"
 autoskill run <项目>
 ```
 
+智能体的命令被宿主关在沙箱里时（DeepSeek Harness 默认如此：不能写会话目录以外的文件，不能启动浏览器），命令会自动交给在沙箱外运行的仪表盘进程执行，用法不变。所以要么启用 DSH 插件，要么先运行一次 `autoskill.cmd dashboard` 并保持窗口不关。
+
 全部命令见 [`skills/autoskill/references/commands.md`](skills/autoskill/references/commands.md)。
 
 自检：`autoskill.cmd verify`（按清单校验随包文件）、`autoskill.cmd doctor --launch`（真实启动一次浏览器）。
@@ -76,7 +78,7 @@ autoskill import <分享包>            # 对方导入
 
 - 浏览器只能访问项目授权的地址，其他地址在浏览器层面不可达；访问范围、高风险操作（删除、支付等）按项目显式开启。
 - 凭据和登录态只保存在本机，用当前 Windows 用户的 DPAPI 加密；用例、报告、导出文件里只有凭据名称。
-- 仪表盘只监听 127.0.0.1，拒绝跨站写请求。
+- 仪表盘只监听 127.0.0.1，拒绝跨站写请求。它代沙箱里的命令行执行 autoskill 命令的接口只接受命令行请求，网页无法调用；只执行 autoskill 自己的命令，输出文件不能落在数据目录之外。不需要时用 `AUTOSKILL_BRIDGE_SERVER=off` 关闭。
 - 不联网安装，不检查更新，不上报数据。浏览器的后台联网、组件更新、崩溃上报均关闭。
 
 ## 已验证与未验证

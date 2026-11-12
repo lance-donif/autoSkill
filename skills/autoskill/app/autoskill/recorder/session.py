@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -53,6 +54,74 @@ def relative(url: str, base_url: str) -> str:
         parts = urlsplit(url)
         return (parts.path or "/") + (f"?{parts.query}" if parts.query else "") + (f"#{parts.fragment}" if parts.fragment else "")
     return url
+
+
+READY_JS = "JSON.stringify({state: document.readyState, password: !!document.querySelector('input[type=password]')})"
+WEB = ("http://", "https://")
+
+
+def _page_state() -> dict:
+    """Where the browser is and how far the page has loaded. Never raises."""
+    url = (agent.call(session_name(), ["get", "url"], check=False, timeout=30) or {}).get("url", "")
+    info: dict = {}
+    if url.startswith(WEB):
+        raw = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=READY_JS, check=False, timeout=30) or {}).get("result")
+        try:
+            info = json.loads(raw) if isinstance(raw, str) else {}
+        except ValueError:
+            info = {}
+    return {"url": url, "state": info.get("state", ""), "password": bool(info.get("password"))}
+
+
+def _wait_ready(budget: float, problem: str = "") -> dict:
+    """Wait until the page has finished loading, for at most `budget` seconds.
+
+    agent-browser gives up on a navigation after 25 s; a slow page is still loading at that point, so the
+    wait is done here against the page itself.
+    """
+    started = time.monotonic()
+    while True:
+        page = _page_state()
+        if page["state"] == "complete":
+            break
+        if page["url"].startswith("chrome-error:"):
+            raise RecordError("目标页面打不开（地址不可达、域名或证书有问题，或不在项目授权范围内）" + (f"：{problem}" if problem else ""))
+        if time.monotonic() - started >= budget:
+            if not page["url"].startswith(WEB):
+                raise RecordError(f"浏览器在 {budget:.0f} 秒内没有打开目标页面" + (f"：{problem}" if problem else ""))
+            page["slow"] = True  # still loading: carry on with what is there
+            break
+        time.sleep(1)
+    page["seconds"] = round(time.monotonic() - started, 1)
+    return page
+
+
+def _open(url: str, budget: float) -> dict:
+    """Navigate and wait for the page. A navigation that outlives agent-browser's own wait is not a failure."""
+    started = time.monotonic()
+    problem = ""
+    for attempt in (1, 2):
+        try:
+            agent.call(session_name(), ["open", url], timeout=90)
+            problem = ""
+        except agent.AgentError as error:
+            problem = str(error)
+        landed = (agent.call(session_name(), ["get", "url"], check=False, timeout=30) or {}).get("url", "")
+        if problem or landed.startswith(WEB) or landed.startswith("chrome-error:"):
+            break  # loading, loaded or failed; only "returned fine but still blank" is worth a second try
+    page = _wait_ready(max(5.0, budget - (time.monotonic() - started)), problem)
+    page["seconds"] = round(time.monotonic() - started, 1)
+    return page
+
+
+def _settled_snapshot(rec: dict) -> str:
+    """The first snapshot of a page: single-page apps draw their controls a moment after loading."""
+    tree = snapshot(rec)
+    deadline = time.monotonic() + 12
+    while not rec["refs"] and time.monotonic() < deadline:
+        time.sleep(1.5)
+        tree = snapshot(rec)
+    return tree
 
 
 def snapshot(rec: dict, interactive: bool = True) -> str:
@@ -145,8 +214,13 @@ class PageProbe:
 
 def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
     """Open the fenced browser on the project's address and begin recording actions and traffic."""
-    if current(required=False):
-        raise RecordError("已有进行中的录制；先运行 autoskill record stop 或 autoskill record cancel")
+    notes = []
+    previous = current(required=False)
+    if previous:
+        if _page_state()["url"].startswith(WEB):
+            raise RecordError("已有进行中的录制；先运行 autoskill record stop 或 autoskill record cancel")
+        _file().unlink(missing_ok=True)  # its browser is gone, so it can never be finished
+        notes.append(f"上一次没有结束的录制（{len(previous['steps'])} 步）的浏览器已经关闭，无法继续，已丢弃")
     info, config, auth = projects.get(project_id), projects.config(project_id), projects.auth(project_id)
     start_url = ir.absolute_url(url or info["start_url"], config["base_url"])
     ir.check_origin(start_url, config["allowed_origins"])
@@ -163,27 +237,41 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
     agent.call(session_name(), ["close"], check=False, timeout=30)
     try:
-        agent.call(session_name(), ["open", "about:blank"], launch=agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors"))), timeout=90)
-        agent.call(session_name(), ["network", "har", "start"])
-        opened = agent.call(session_name(), ["open", start_url], timeout=90) or {}
-        for attempt in (1, 2):
-            landed = (agent.call(session_name(), ["get", "url"]) or {}).get("url", "")
-            if landed.startswith(("http://", "https://")):
-                break
-            if attempt == 1:  # still on the blank page: open once more
-                opened = agent.call(session_name(), ["open", start_url], timeout=90) or {}
-        else:
+        launch = agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")))
+        try:
+            agent.call(session_name(), ["open", "about:blank"], launch=launch, timeout=90)
+        except agent.AgentError as error:
             agent.call(session_name(), ["close"], check=False, timeout=30)
-            raise RecordError("浏览器没有打开目标页面（停在空白页）；确认地址可以访问后重新运行 autoskill record start")
+            raise RecordError(agent.launch_problem(error)) from None
+        agent.call(session_name(), ["network", "har", "start"])
+        try:
+            page = _open(start_url, float(config.get("page_load_seconds", 90)))
+        except RecordError:
+            agent.call(session_name(), ["close"], check=False, timeout=30)
+            raise
     finally:
         if state_file:
             state_file.unlink(missing_ok=True)
     rec = {"project_id": project_id, "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
            "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login}
-    tree = snapshot(rec)
+    tree = _settled_snapshot(rec)
     _save(rec)
-    return {"recording": True, "project": project_id, "url": opened.get("url", start_url), "title": opened.get("title", ""),
-            "login": note or ("本次录制的就是登录流程" if as_login else "未登录状态"), "snapshot": tree}
+    page = {**page, **_page_state()}  # the app may have moved on (for example to its sign-in page) while drawing
+    result = {"recording": True, "project": project_id, "url": page["url"], "title": PageProbe().title(),
+              "login": note or ("本次录制的就是登录流程" if as_login else "未登录状态"), "snapshot": tree}
+    if page.get("slow"):
+        notes.append(f"页面加载很慢，等了 {page['seconds']:.0f} 秒仍未完全加载，已继续；元素可能还没出齐，必要时再运行 autoskill browser snapshot")
+    elif page["seconds"] >= 20:
+        notes.append(f"页面加载用了 {page['seconds']:.0f} 秒")
+    if relative(page["url"], config["base_url"]).rstrip("/") != rec["start_url"].rstrip("/"):
+        result["redirected"] = f"打开的是 {start_url}，页面跳转到了 {page['url']}"
+    if page["password"] and not as_login and not used_login:
+        result["needs_login"] = ("页面上有密码输入框，看起来要先登录才能继续。运行 autoskill record cancel 放弃这次录制，"
+                                 "再按 SKILL.md「登录」一节用 --as-login 录一次登录；账号密码向用户要，不要猜。"
+                                 "如果要测的就是这个登录页本身，可以直接继续")
+    if notes:
+        result["notes"] = notes
+    return result
 
 
 def _record(rec: dict, step: dict) -> dict:
@@ -263,10 +351,11 @@ def browser(argv: list[str]) -> dict:
             raise RecordError("open 需要地址")
         url = ir.absolute_url(rest[0], config["base_url"])
         ir.check_origin(url, config["allowed_origins"])
-        agent.call(session_name(), ["open", url], timeout=90)
+        _open(url, float(config.get("page_load_seconds", 90)))
         result = _record(rec, {"action": "goto", "url": relative(url, config["base_url"])})
     elif command == "reload":
-        agent.call(session_name(), ["reload"], timeout=90)
+        agent.call(session_name(), ["reload"], timeout=90, check=False)
+        _wait_ready(float(config.get("page_load_seconds", 90)))
         result = _record(rec, {"action": "reload"})
     elif command == "press":
         if not rest:

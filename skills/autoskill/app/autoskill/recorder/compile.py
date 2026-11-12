@@ -278,7 +278,7 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
         compiler.mark_login()
     if compiler.state_variables:
         compiler.auth["state_variables"] = compiler.state_variables
-    if not checks:
+    if not any("assertion" in step for step in rec["steps"]):
         compiler.notes.append("没有记录断言：这条 UI 用例只验证动作可以完成；建议用 autoskill check 补充期望")
     projects.save_cases(project_id, [ui_case, *compiler.cases])
     projects.set_auth(project_id, compiler.auth)

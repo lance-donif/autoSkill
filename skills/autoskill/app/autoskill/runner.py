@@ -137,7 +137,10 @@ class Session:
             except ValueError as error:
                 self.driver_error = str(error)
             except Exception as error:
-                self.driver_error = "浏览器无法启动：" + type(error).__name__
+                reason = paths.restricted()
+                detail = str(error).strip().splitlines()[0][:200] if str(error).strip() else ""
+                self.driver_error = (f"浏览器无法启动：{type(error).__name__}" + (f"（{detail}）" if detail else "")
+                                     + (f"。当前进程受限：{reason}" if reason else "。运行 autoskill doctor --launch 可以单独检查浏览器"))
         return self.driver
 
     def shot(self, case_id: str) -> str:

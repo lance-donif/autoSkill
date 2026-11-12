@@ -55,7 +55,7 @@ class SeleniumDriver:
         if config.get("ignore_https_errors"):
             options.add_argument("--ignore-certificate-errors")
         self.wd = webdriver.Chrome(options=options, service=Service(executable_path=chromedriver, env=paths.child_env()))
-        self.wd.set_page_load_timeout(float(config.get("timeout_seconds", 20)))
+        self.wd.set_page_load_timeout(float(config.get("page_load_seconds", 90)))
         self._seeds: dict[str, str] = {}
 
     # --- lifecycle ---------------------------------------------------

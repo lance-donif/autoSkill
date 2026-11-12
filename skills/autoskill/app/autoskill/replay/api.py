@@ -157,6 +157,8 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
     # what is stored and shown: the case as written (references intact), never resolved secrets
     outcome["request"] = {"method": case["method"], "url": url, "headers": redact(filled.get("headers", {})),
                           "params": redact(filled.get("params", {})), "json": redact(filled.get("json"))}
+    if case.get("extensions", {}).get("traffic") == "resource":
+        sent["timeout"] = float(config.get("page_load_seconds", 90))  # a page's own files may be as slow as the page
     clock = time.monotonic()
     try:
         response = client.request(case["method"], url, **sent)
