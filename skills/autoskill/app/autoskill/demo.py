@@ -22,7 +22,7 @@ def cases() -> list[dict]:
             "actions": [
                 {"action": "fill", "locators": testid("login-username") + label("账号"), "value": "qa_admin"},
                 {"action": "fill", "locators": testid("login-password") + label("密码"), "value": "${ENV:TD_PASSWORD}"},
-                {"action": "click", "locators": button("登录")},
+                {"action": "click", "locators": testid("login-submit") + button("登录")},
             ],
             "assertions": [{"assertion": "text", "locators": testid("current-user"), "expected": "测试管理员"}],
         }, module="登录", category="登录"),
@@ -30,9 +30,9 @@ def cases() -> list[dict]:
             "start_url": "/",
             "actions": [
                 {"action": "click", "locators": testid("new-ticket") + button("新建工单")},
-                {"action": "fill", "locators": label("标题"), "value": "回放创建的工单"},
-                {"action": "select", "locators": label("优先级"), "value": "high"},
-                {"action": "click", "locators": button("保存")},
+                {"action": "fill", "locators": testid("ticket-title") + label("标题"), "value": "回放创建的工单"},
+                {"action": "select", "locators": testid("ticket-priority") + label("优先级"), "value": "high"},
+                {"action": "click", "locators": testid("ticket-save") + button("保存")},
             ],
             "assertions": [
                 {"assertion": "contains", "locators": testid("toast"), "expected": "已创建"},
@@ -41,12 +41,12 @@ def cases() -> list[dict]:
         }, module="工单", depends_on=["TC-UI-001"]),
         builder.ui_case("TC-UI-003", "标题为空时不能保存", {
             "start_url": "/",
-            "actions": [{"action": "click", "locators": testid("new-ticket")}, {"action": "click", "locators": button("保存")}],
+            "actions": [{"action": "click", "locators": testid("new-ticket")}, {"action": "click", "locators": testid("ticket-save") + button("保存")}],
             "assertions": [{"assertion": "text", "locators": testid("title-error"), "expected": "请填写标题"}],
         }, module="工单", depends_on=["TC-UI-001"], risk="read"),
         builder.ui_case("TC-UI-004", "按状态筛选已解决工单", {
             "start_url": "/",
-            "actions": [{"action": "select", "locators": label("状态"), "value": "resolved"}],
+            "actions": [{"action": "select", "locators": testid("status-filter") + label("状态"), "value": "resolved"}],
             "assertions": [
                 {"assertion": "contains", "locators": testid("ticket-rows"), "expected": "帮助文档链接失效"},
                 {"assertion": "count", "locators": _loc(by="css", value="[data-testid=ticket-row] .badge.open"), "expected": 0},

@@ -77,7 +77,7 @@
   }
 
   // ---- recorder side: element -> locator candidates, best first ----
-  const cssEscape = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/[^\w-]/g, '\$&'));
+  const cssEscape = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/[^\w-]/g, '\\$&'));
   const stableId = (id) => id && !/\d{4,}|[:.]|^(ember|react|radix|headlessui|mui|el-id)/i.test(id);
   function cssPath(el) {
     const parts = [];
