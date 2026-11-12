@@ -1,0 +1,12 @@
+{
+  "artifact": "autoSkill-Captcha-Holdout-1200-20261112.zip",
+  "bytes": 3440639,
+  "sha256": "591adc118513ae7cf71fc023282d693db1ad5e925cfb253d84d3613fa49c5996",
+  "images": 1200,
+  "mask_pngs": 1440,
+  "manifest_sha256": "a90f681ea243fdef2786c4954a4622ddf79cc6988311f25ba820f1de5354f70b",
+  "roundtrip_verified_all_entries": true,
+  "third_party_public_images_included": 0,
+  "font_or_model_binaries_included": 0,
+  "evaluation_status": "Already used for the reported holdout; not a pristine test set for future tuning."
+}
