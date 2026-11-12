@@ -99,6 +99,21 @@ def plugin_check(output: Path) -> None:
         raise ValueError("Packaged DSH plugin cannot find the packaged runtime: " + (done.stderr.strip() or done.stdout.strip())[-400:])
 
 
+def _install_wheels(assets: Path, site: Path) -> list[dict]:
+    """Install sorted wheels before assembling browser assets."""
+    wheels = []
+    for wheel in sorted((assets / "wheels").glob("*.whl")):
+        with zipfile.ZipFile(wheel) as archive:
+            meta_name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
+            meta = Parser().parsestr(archive.read(meta_name).decode("utf-8"))
+        if "telemetry" in meta["Name"].lower():
+            raise ValueError("Telemetry dependency found: " + meta["Name"])
+        wheels.append({"name": meta["Name"], "version": meta["Version"], "license": meta.get("License-Expression") or meta.get("License", "")[:60],
+                       "file": wheel.name, "sha256": sha256(wheel)})
+        unzip(wheel, site)
+    return wheels
+
+
 def build(assets: Path, output: Path) -> dict:
     if output.exists():
         raise ValueError("Output folder already exists; choose a new one")
@@ -129,17 +144,7 @@ def build(assets: Path, output: Path) -> dict:
     # The embeddable build ignores PYTHONPATH once a ._pth file exists, so the app folder is listed here,
     # relative to python.exe: vendor/windows-x64/python -> ../../../app.
     pth.write_text(f"{pth.stem}.zip\n.\nLib/site-packages\n../../../app\nimport site\n", encoding="ascii")
-    wheels = []
-    for wheel in sorted((assets / "wheels").glob("*.whl")):
-        with zipfile.ZipFile(wheel) as archive:
-            meta_name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
-            meta = Parser().parsestr(archive.read(meta_name).decode("utf-8"))
-        if "telemetry" in meta["Name"].lower():
-            raise ValueError("Telemetry dependency found: " + meta["Name"])
-        wheels.append({"name": meta["Name"], "version": meta["Version"], "license": meta.get("License-Expression") or meta.get("License", "")[:60],
-                       "file": wheel.name, "sha256": sha256(wheel)})
-        unzip(wheel, site)
-
+    wheels = _install_wheels(assets, site)
     # Chrome for Testing and its matching driver.
     unzip(assets / "chrome" / recorded["sources"]["chrome"]["file"], vendor / "chrome")
     chrome = vendor / "chrome" / "chrome-win64"

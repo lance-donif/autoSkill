@@ -259,12 +259,7 @@ async function caseDrawer(projectId, caseId) {
         h('div', { class: 'sub', style: 'margin:6px 0 4px' }, { headers: '请求头', params: '查询参数', json: '请求体' }[part]),
         h('pre', { class: 'code' }, JSON.stringify(request[part], null, 2))))));
     const rules = item.assertions || {};
-    const rows = [['状态码', rules.status]];
-    for (const [pointer, value] of Object.entries(rules.json_equals || {})) rows.push([`字段 ${pointer}`, JSON.stringify(value)]);
-    for (const [name, value] of Object.entries(rules.header_contains || {})) rows.push([`响应头 ${name} 包含`, value]);
-    for (const value of rules.body_contains || []) rows.push(['响应内容包含', value]);
-    if (rules.schema) rows.push(['响应结构', '与录制时一致（字段和类型）']);
-    if (rules.max_ms) rows.push(['响应时间不超过', rules.max_ms + ' ms']);
+    const rows = apiAssertionRows(rules);
     body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '断言'),
       h('table', { class: 'table kv' }, h('tbody', {}, rows.map(([label, value]) => h('tr', {}, h('td', { class: 'sub' }, label), h('td', { class: 'mono' }, String(value))))))));
     const extract = Object.entries(item.extract || {});
@@ -275,4 +270,14 @@ async function caseDrawer(projectId, caseId) {
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId] }], run); if (started) closeOverlay(); });
   drawer({ title: item.title, subtitle: `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · ${item.module} · 第 ${item.revision} 版`, body, wide: true,
     foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), item.replayable && run] });
+}
+
+function apiAssertionRows(rules) {
+  const rows = [['状态码', rules.status]];
+  for (const [pointer, value] of Object.entries(rules.json_equals || {})) rows.push([`字段 ${pointer}`, JSON.stringify(value)]);
+  for (const [name, value] of Object.entries(rules.header_contains || {})) rows.push([`响应头 ${name} 包含`, value]);
+  for (const value of rules.body_contains || []) rows.push(['响应内容包含', value]);
+  if (rules.schema) rows.push(['响应结构', '与录制时一致（字段和类型）']);
+  if (rules.max_ms) rows.push(['响应时间不超过', rules.max_ms + ' ms']);
+  return rows;
 }

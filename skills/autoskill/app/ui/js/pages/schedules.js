@@ -126,10 +126,7 @@ async function editor(task, done) {
   save.addEventListener('click', async () => {
     error.hidden = true;
     const body = { title: title.value, project_id: project.value, engine: engine.value, case_ids: allCases.checked ? [] : [...picked],
-      rule: current.kind === 'daily' ? { kind: 'daily', time: current.time, timezone: ZONE }
-        : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort(), timezone: ZONE }
-          : current.kind === 'interval' ? { kind: 'interval', minutes: current.minutes }
-            : { kind: 'at', at: current.at.toISOString() } };
+      rule: scheduleRule(current) };
     if (!allCases.checked && !picked.size) { error.textContent = '请至少选择一条用例，或勾选「全部用例」'; error.hidden = false; return; }
     try {
       save.disabled = true;
@@ -157,4 +154,11 @@ async function editor(task, done) {
     foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '取消'), save],
   });
   loadCases().catch((problem) => toast(problem.message, { bad: true }));
+}
+
+function scheduleRule(current) {
+  return current.kind === 'daily' ? { kind: 'daily', time: current.time, timezone: ZONE }
+    : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort(), timezone: ZONE }
+      : current.kind === 'interval' ? { kind: 'interval', minutes: current.minutes }
+        : { kind: 'at', at: current.at.toISOString() };
 }

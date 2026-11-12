@@ -154,6 +154,18 @@ def _safe_members(archive: zipfile.ZipFile) -> dict[str, list[zipfile.ZipInfo]]:
     return grouped
 
 
+def _restore_pack_secrets(archive: zipfile.ZipFile, passphrase: str | None) -> list[str]:
+    """Restore the same valid credential entries while the archive is open."""
+    restored = []
+    if SECRETS in archive.namelist() and passphrase:
+        values = json.loads(decrypt(json.loads(archive.read(SECRETS).decode("utf-8")), passphrase).decode("utf-8"))
+        for name, value in values.items():
+            if secrets.NAME.fullmatch(name) and isinstance(value, str):
+                secrets.set_secret(name, value)
+                restored.append(name)
+    return restored
+
+
 def import_pack(file: str, passphrase: str | None = None, overwrite: bool = False) -> dict:
     """Import projects from a pack. Existing projects are kept unless `overwrite` is set."""
     source = Path(file)
@@ -201,13 +213,7 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
             except (ValueError, KeyError, OSError) as error:
                 shutil.rmtree(staging, ignore_errors=True)
                 skipped.append({"id": project_id, "reason": "内容没有通过校验：" + str(error)[:200]})
-        restored = []
-        if SECRETS in archive.namelist() and passphrase:
-            values = json.loads(decrypt(json.loads(archive.read(SECRETS).decode("utf-8")), passphrase).decode("utf-8"))
-            for name, value in values.items():
-                if secrets.NAME.fullmatch(name) and isinstance(value, str):
-                    secrets.set_secret(name, value)
-                    restored.append(name)
+        restored = _restore_pack_secrets(archive, passphrase)
     missing = sorted({name for pid in imported for name in projects.missing_secrets(pid)})
     hint = ""
     if missing:

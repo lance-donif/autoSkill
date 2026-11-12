@@ -38,6 +38,25 @@ def elf_check(path: Path, arch: str):
     path.chmod(path.stat().st_mode | 0o111)
 
 
+def _install_wheels(assets: Path, site: Path) -> list[dict]:
+    """Install sorted wheels before assembling browser assets."""
+    wheels = []
+    for wheel in sorted((assets / "wheels").glob("*.whl")):
+        with zipfile.ZipFile(wheel) as archive:
+            meta = Parser().parsestr(archive.read(next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))).decode())
+        if "telemetry" in meta["Name"].lower():
+            raise ValueError("Telemetry dependency: " + meta["Name"])
+        unzip(wheel, site)
+        wheels.append({"name": meta["Name"], "version": meta["Version"], "file": wheel.name, "sha256": common.sha256(wheel)})
+    # pip wheel .data/purelib and .data/platlib trees belong in site-packages, not beside them.
+    for data in list(site.glob("*.data")):
+        for kind in ("purelib", "platlib"):
+            if (data / kind).is_dir():
+                shutil.copytree(data / kind, site, dirs_exist_ok=True)
+        shutil.rmtree(data)
+    return wheels
+
+
 def build(assets: Path, output: Path, arch: str) -> dict:
     if output.exists() or output.is_relative_to(ROOT) or assets.is_relative_to(output):
         raise ValueError("Choose a new output folder outside the repository and assets")
@@ -63,20 +82,7 @@ def build(assets: Path, output: Path, arch: str) -> dict:
         archive.extractall(vendor, filter="data")
     site = vendor / "python/lib/python3.12/site-packages"
     site.mkdir(parents=True, exist_ok=True)
-    wheels = []
-    for wheel in sorted((assets / "wheels").glob("*.whl")):
-        with zipfile.ZipFile(wheel) as archive:
-            meta = Parser().parsestr(archive.read(next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))).decode())
-        if "telemetry" in meta["Name"].lower():
-            raise ValueError("Telemetry dependency: " + meta["Name"])
-        unzip(wheel, site)
-        wheels.append({"name": meta["Name"], "version": meta["Version"], "file": wheel.name, "sha256": common.sha256(wheel)})
-    # pip wheel .data/purelib and .data/platlib trees belong in site-packages, not beside them.
-    for data in list(site.glob("*.data")):
-        for kind in ("purelib", "platlib"):
-            if (data / kind).is_dir():
-                shutil.copytree(data / kind, site, dirs_exist_ok=True)
-        shutil.rmtree(data)
+    wheels = _install_wheels(assets, site)
     cft = "linux-arm64" if arch == "arm64" else "linux64"
     for key in ("chrome", "chromedriver"):
         unzip(assets / key / recorded["sources"][key]["file"], vendor / key)

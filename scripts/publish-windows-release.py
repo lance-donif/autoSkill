@@ -23,6 +23,17 @@ def api(method, path, body=None, binary=None):
         return json.loads(raw) if raw else None
 
 
+def _check_archive(archive: Path) -> None:
+    """Check the existing ZIP layout and CRC before reading release metadata."""
+    with zipfile.ZipFile(archive) as bundle:
+        required = {'package.json', 'cordis.patch.yml', 'plugin/index.mjs', 'autoskill/SKILL.md', 'autoskill/autoskill.cmd',
+                    'autoskill/vendor/windows-x64/python/python.exe'}
+        if not required.issubset(bundle.namelist()) or any(n.startswith('autoskill/workspace/') for n in bundle.namelist()):
+            raise ValueError('Incorrect package layout or private workspace included')
+        if bundle.testzip() is not None:
+            raise ValueError('ZIP integrity check failed')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('build', 'proof', 'result'):
@@ -45,13 +56,7 @@ def main():
         if not re.search(r'Ran \d+ tests in [\d.]+s\s+OK', tests):
             raise ValueError('Python regression evidence missing or failed')
     archive = args.build / 'autoSkill-Windows-x64-Offline.zip'
-    with zipfile.ZipFile(archive) as bundle:
-        required = {'package.json', 'cordis.patch.yml', 'plugin/index.mjs', 'autoskill/SKILL.md', 'autoskill/autoskill.cmd',
-                    'autoskill/vendor/windows-x64/python/python.exe'}
-        if not required.issubset(bundle.namelist()) or any(n.startswith('autoskill/workspace/') for n in bundle.namelist()):
-            raise ValueError('Incorrect package layout or private workspace included')
-        if bundle.testzip() is not None:
-            raise ValueError('ZIP integrity check failed')
+    _check_archive(archive)
     manifest = json.loads((args.build / 'package/autoskill/offline-manifest.json').read_text(encoding='utf-8'))
     if manifest.get('autoskill') != version:
         raise ValueError('Offline manifest version mismatch')

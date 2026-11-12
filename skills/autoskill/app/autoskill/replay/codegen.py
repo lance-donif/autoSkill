@@ -100,6 +100,11 @@ def pw_step(step: dict) -> str:
         if op in ("wait_visible", "wait_hidden"):
             return f"{target}.wait_for(state={lit(op[5:])})"
         return f"{target}.{op}()"
+    return _pw_assertion(step, target)
+
+
+def _pw_assertion(step: dict, target: str | None) -> str:
+    """Format one Playwright assertion after its locator has been chosen."""
     op, expected = step["assertion"], step.get("expected")
     table = {
         "visible": "expect({t}).to_be_visible()", "hidden": "expect({t}).to_be_hidden()",

@@ -202,19 +202,7 @@ def credential_errors(value, location="data"):
     return errors
 
 
-def validate(p, check_results=True):
-    import jsonschema
-
-    errors = []
-    try:
-        project = read(p / "project.json")
-        reqs = read(p / "analysis/requirements.json")
-        case_lists = {kind: read(p / "testcases" / filename) for kind, filename in FILES.items()}
-        result_lists = (
-            {kind: read(p / "execution" / f"{kind}-results.json") for kind in FILES} if check_results else {}
-        )
-    except (ValueError, OSError) as e:
-        return ["项目 JSON 文件无法读取: " + type(e).__name__]
+def _validate_project_collections(project, reqs, case_lists, result_lists, errors):
     if not isinstance(project, dict):
         errors.append("project.json 必须是对象")
     elif project.get("schema_version") not in SUPPORTED_VERSIONS:
@@ -228,8 +216,9 @@ def validate(p, check_results=True):
             errors.append(label + ": 必须是数组")
         elif any(not isinstance(item, dict) for item in items):
             errors.append(label + ": 数组元素必须是对象")
-    if errors:
-        return errors
+
+
+def _validation_requirement_ids(reqs, errors):
     req_ids = set()
     for r in reqs:
         if not all(isinstance(r.get(x), str) and r[x].strip() for x in ["id", "module", "title", "source"]):
@@ -238,7 +227,26 @@ def validate(p, check_results=True):
         if r["id"] in req_ids:
             errors.append("需求 ID 重复")
         req_ids.add(r["id"])
-    schema = read(ROOT / "references/case.schema.json")
+    return req_ids
+
+
+def _validate_api_contract(c, cid, errors, jsonschema):
+    a = c["assertions"]
+    if not has_real_assertion(a) and a["status"] < 400:
+        errors.append(f"{cid}: 成功响应缺少有效业务或结构断言")
+    if "schema" in a:
+        try:
+            jsonschema.Draft202012Validator.check_schema(a["schema"])
+        except jsonschema.SchemaError:
+            errors.append(f"{cid}: 响应 schema 非法")
+        if not meaningful_schema(a["schema"]):
+            errors.append(f"{cid}: 响应 schema 没有有效约束")
+        if external_schema_refs(a["schema"]):
+            errors.append(f"{cid}: 响应Schema必须先显式解析外部引用，禁止运行时自动访问")
+    errors.extend(f"{cid}: 非法 JSON Pointer" for ptr in a.get("json_equals", {}) if not valid_pointer(ptr))
+
+
+def _validate_case_catalog(case_lists, req_ids, schema, errors, jsonschema):
     byid = {}
     for kind, items in case_lists.items():
         for c in items:
@@ -255,21 +263,29 @@ def validate(p, check_results=True):
             byid[cid] = c
             errors.extend(f"{cid}: 未知需求 {rid}" for rid in c["requirement_ids"] if rid not in req_ids)
             if kind == "api":
-                a = c["assertions"]
-                if not has_real_assertion(a) and a["status"] < 400:
-                    errors.append(f"{cid}: 成功响应缺少有效业务或结构断言")
-                if "schema" in a:
-                    try:
-                        jsonschema.Draft202012Validator.check_schema(a["schema"])
-                    except jsonschema.SchemaError:
-                        errors.append(f"{cid}: 响应 schema 非法")
-                    if not meaningful_schema(a["schema"]):
-                        errors.append(f"{cid}: 响应 schema 没有有效约束")
-                    if external_schema_refs(a["schema"]):
-                        errors.append(f"{cid}: 响应Schema必须先显式解析外部引用，禁止运行时自动访问")
-                errors.extend(f"{cid}: 非法 JSON Pointer" for ptr in a.get("json_equals", {}) if not valid_pointer(ptr))
-    seen = set()
-    result_schema = read(ROOT / "references/result.schema.json")
+                _validate_api_contract(c, cid, errors, jsonschema)
+    return byid
+
+
+def _validate_result_evidence(p, r, c, cid, status, errors):
+    if r.get("case_content_sha256") != case_fingerprint(c):
+        errors.append(f"{cid}: 用例内容已变化或缺少内容哈希，旧结果不能复用")
+    checks = r["assertions"]
+    if not r["actual"] or not r["evidence"] or not checks:
+        errors.append(f"{cid}: 缺少实际结果、断言或证据")
+    elif status == "Pass" and not all(a["passed"] for a in checks):
+        errors.append(f"{cid}: Pass 包含失败断言")
+    elif status == "Fail" and all(a["passed"] for a in checks):
+        errors.append(f"{cid}: Fail 没有失败断言")
+    for rel in r["evidence"]:
+        try:
+            if not safe_file(p, rel).is_file():
+                errors.append(f"{cid}: 证据不存在")
+        except (ValueError, TypeError):
+            errors.append(f"{cid}: 非法证据路径")
+
+
+def _validate_result_catalog(p, result_lists, result_schema, byid, errors, jsonschema, seen):
     for kind, items in result_lists.items():
         for r in items:
             schema_errors = list(jsonschema.Draft202012Validator(result_schema).iter_errors(r))
@@ -291,23 +307,33 @@ def validate(p, check_results=True):
                 errors.append(f"{cid}: 旧版本结果，先归档后再执行")
             status = r["status"]
             if status in ["Pass", "Fail"]:
-                if r.get("case_content_sha256") != case_fingerprint(c):
-                    errors.append(f"{cid}: 用例内容已变化或缺少内容哈希，旧结果不能复用")
-                checks = r["assertions"]
-                if not r["actual"] or not r["evidence"] or not checks:
-                    errors.append(f"{cid}: 缺少实际结果、断言或证据")
-                elif status == "Pass" and not all(a["passed"] for a in checks):
-                    errors.append(f"{cid}: Pass 包含失败断言")
-                elif status == "Fail" and all(a["passed"] for a in checks):
-                    errors.append(f"{cid}: Fail 没有失败断言")
-                for rel in r["evidence"]:
-                    try:
-                        if not safe_file(p, rel).is_file():
-                            errors.append(f"{cid}: 证据不存在")
-                    except (ValueError, TypeError):
-                        errors.append(f"{cid}: 非法证据路径")
+                _validate_result_evidence(p, r, c, cid, status, errors)
             if status == "Blocked" and not r["reason"]:
                 errors.append(f"{cid}: Blocked 缺少原因")
+
+
+def validate(p, check_results=True):
+    import jsonschema
+
+    errors = []
+    try:
+        project = read(p / "project.json")
+        reqs = read(p / "analysis/requirements.json")
+        case_lists = {kind: read(p / "testcases" / filename) for kind, filename in FILES.items()}
+        result_lists = (
+            {kind: read(p / "execution" / f"{kind}-results.json") for kind in FILES} if check_results else {}
+        )
+    except (ValueError, OSError) as e:
+        return ["项目 JSON 文件无法读取: " + type(e).__name__]
+    _validate_project_collections(project, reqs, case_lists, result_lists, errors)
+    if errors:
+        return errors
+    req_ids = _validation_requirement_ids(reqs, errors)
+    schema = read(ROOT / "references/case.schema.json")
+    byid = _validate_case_catalog(case_lists, req_ids, schema, errors, jsonschema)
+    seen = set()
+    result_schema = read(ROOT / "references/result.schema.json")
+    _validate_result_catalog(p, result_lists, result_schema, byid, errors, jsonschema, seen)
     return errors
 
 
@@ -488,6 +514,60 @@ def case_fingerprint(case):
     ).hexdigest()
 
 
+def _api_response_checks(c, response, jsonschema):
+    checks = [
+        {"name": "HTTP 状态码", "passed": response.status_code == c["assertions"]["status"]}
+    ]
+    a = c["assertions"]
+    extras = c.get("extensions", {}).get("extra_assertions", {})
+    blocked_reason = None
+    if a.get("json_equals") or "schema" in a or extras:
+        try:
+            body = response.json()
+            for ptr, want in a.get("json_equals", {}).items():
+                try:
+                    got = pointer(body, ptr)
+                    passed = json.dumps(got, sort_keys=True, ensure_ascii=False) == json.dumps(
+                        resolved(want), sort_keys=True, ensure_ascii=False
+                    )
+                except (KeyError, IndexError, TypeError, ValueError):
+                    passed = False
+                checks.append({"name": "JSON 字段断言 " + ptr, "passed": passed})
+            if "schema" in a:
+                checks.append(
+                    {
+                        "name": "JSON Schema",
+                        "passed": not list(
+                            jsonschema.Draft202012Validator(a["schema"]).iter_errors(body)
+                        ),
+                    }
+                )
+            if extras:
+                paths = (
+                    {item.get("path") for item in body.get("tree", []) if isinstance(item, dict)}
+                    if isinstance(body, dict)
+                    else set()
+                )
+                for wanted in extras.get("required_paths", []):
+                    if (
+                        wanted not in paths
+                        and isinstance(body, dict)
+                        and body.get("truncated") is True
+                    ):
+                        blocked_reason = "目录响应截断，不能确认完整路径"
+                    checks.append({"name": "目录包含 " + wanted, "passed": wanted in paths})
+                if extras.get("no_nested_paths"):
+                    checks.append(
+                        {
+                            "name": "非递归目录没有嵌套路径",
+                            "passed": not any("/" in x for x in paths if isinstance(x, str)),
+                        }
+                    )
+        except ValueError:
+            checks.append({"name": "响应是有效 JSON", "passed": False})
+    return checks, blocked_reason
+
+
 def run_api(p):
     import httpx
     import jsonschema
@@ -537,56 +617,7 @@ def run_api(p):
                     response = client.request(c["method"], url, **kwargs)
                 except httpx.HTTPError as e:
                     raise ValueError("网络执行受阻: " + type(e).__name__) from None
-                checks = [
-                    {"name": "HTTP 状态码", "passed": response.status_code == c["assertions"]["status"]}
-                ]
-                a = c["assertions"]
-                extras = c.get("extensions", {}).get("extra_assertions", {})
-                blocked_reason = None
-                if a.get("json_equals") or "schema" in a or extras:
-                    try:
-                        body = response.json()
-                        for ptr, want in a.get("json_equals", {}).items():
-                            try:
-                                got = pointer(body, ptr)
-                                passed = json.dumps(got, sort_keys=True, ensure_ascii=False) == json.dumps(
-                                    resolved(want), sort_keys=True, ensure_ascii=False
-                                )
-                            except (KeyError, IndexError, TypeError, ValueError):
-                                passed = False
-                            checks.append({"name": "JSON 字段断言 " + ptr, "passed": passed})
-                        if "schema" in a:
-                            checks.append(
-                                {
-                                    "name": "JSON Schema",
-                                    "passed": not list(
-                                        jsonschema.Draft202012Validator(a["schema"]).iter_errors(body)
-                                    ),
-                                }
-                            )
-                        if extras:
-                            paths = (
-                                {item.get("path") for item in body.get("tree", []) if isinstance(item, dict)}
-                                if isinstance(body, dict)
-                                else set()
-                            )
-                            for wanted in extras.get("required_paths", []):
-                                if (
-                                    wanted not in paths
-                                    and isinstance(body, dict)
-                                    and body.get("truncated") is True
-                                ):
-                                    blocked_reason = "目录响应截断，不能确认完整路径"
-                                checks.append({"name": "目录包含 " + wanted, "passed": wanted in paths})
-                            if extras.get("no_nested_paths"):
-                                checks.append(
-                                    {
-                                        "name": "非递归目录没有嵌套路径",
-                                        "passed": not any("/" in x for x in paths if isinstance(x, str)),
-                                    }
-                                )
-                    except ValueError:
-                        checks.append({"name": "响应是有效 JSON", "passed": False})
+                checks, blocked_reason = _api_response_checks(c, response, jsonschema)
                 if blocked_reason:
                     raise ValueError(blocked_reason)
                 r.update(
@@ -928,6 +959,23 @@ def sync_skills(p):
     shutil.rmtree(p / "case-skills", ignore_errors=True)  # the older per-kind skills are superseded
 
 
+def _validate_saved_api_contract(c, jsonschema):
+    a = c["assertions"]
+    if "schema" in a:
+        try:
+            jsonschema.Draft202012Validator.check_schema(a["schema"])
+        except jsonschema.SchemaError:
+            raise ValueError("响应Schema格式错误") from None
+        if external_schema_refs(a["schema"]):
+            raise ValueError("响应Schema禁止未解析的外部引用")
+    if ("schema" in a and not meaningful_schema(a["schema"])) or (
+        a["status"] < 400 and not has_real_assertion(a)
+    ):
+        raise ValueError("接口用例缺少有效断言")
+    if any(not valid_pointer(ptr) for ptr in a.get("json_equals", {})):
+        raise ValueError("非法 JSON Pointer")
+
+
 def save_cases(p, incoming):
     """Replace a complete case catalog with snapshots and automatic revisions."""
     import jsonschema
@@ -965,20 +1013,7 @@ def save_cases(p, incoming):
         if problems:
             raise ValueError("\n".join(problems))
         if c["kind"] == "api":
-            a = c["assertions"]
-            if "schema" in a:
-                try:
-                    jsonschema.Draft202012Validator.check_schema(a["schema"])
-                except jsonschema.SchemaError:
-                    raise ValueError("响应Schema格式错误") from None
-                if external_schema_refs(a["schema"]):
-                    raise ValueError("响应Schema禁止未解析的外部引用")
-            if ("schema" in a and not meaningful_schema(a["schema"])) or (
-                a["status"] < 400 and not has_real_assertion(a)
-            ):
-                raise ValueError("接口用例缺少有效断言")
-            if any(not valid_pointer(ptr) for ptr in a.get("json_equals", {})):
-                raise ValueError("非法 JSON Pointer")
+            _validate_saved_api_contract(c, jsonschema)
         proposed.append(c)
     for c in old:
         if c["id"] not in seen:
@@ -995,6 +1030,43 @@ def save_cases(p, incoming):
         write(p / "testcases" / filename, [c for c in proposed if c["kind"] == kind])
     sync_skills(p)
     return proposed
+
+
+def _dispatch_project_command(ap, a, p):
+    if a.command == "init":
+        init(p)
+    elif a.command == "validate":
+        require_valid(p)
+        print("校验通过")  # noqa: T201  # Preserve the legacy command output.
+    elif a.command == "coverage":
+        require_valid(p)
+        cov = coverage(p)
+        print(json.dumps(cov, ensure_ascii=False))  # noqa: T201  # Preserve the legacy command output.
+        return 0 if cov["requirements"] and cov["covered"] == cov["requirements"] else 2
+    elif a.command == "run-api":
+        results = run_api(p)
+        return 2 if any(r["status"] != "Pass" for r in results) else 0
+    elif a.command == "export":
+        export(p)
+    elif a.command == "report":
+        report(p)
+    elif a.command == "save-cases":
+        if not a.extra:
+            ap.error("需要完整用例目录 JSON")
+        save_cases(p, read(Path(a.extra)))
+        print("用例已保存，版本和项目技能已同步")  # noqa: T201  # Preserve the legacy command output.
+    elif a.command == "sync-skills":
+        sync_skills(p)
+        print("UI/API 项目用例 Skill 已生成")  # noqa: T201  # Preserve the legacy command output.
+    elif a.command == "search":
+        if not a.extra:
+            ap.error("需要关键词")
+        search(p, a.extra)
+    elif a.command == "import-openapi":
+        if not a.extra:
+            ap.error("需要 OpenAPI JSON 路径")
+        import_openapi(p, Path(a.extra))
+    return 0
 
 
 def main():
@@ -1036,40 +1108,7 @@ def main():
     if not a.project:
         ap.error("需要项目目录")
     p = Path(a.project).resolve()
-    if a.command == "init":
-        init(p)
-    elif a.command == "validate":
-        require_valid(p)
-        print("校验通过")  # noqa: T201  # Preserve the legacy command output.
-    elif a.command == "coverage":
-        require_valid(p)
-        cov = coverage(p)
-        print(json.dumps(cov, ensure_ascii=False))  # noqa: T201  # Preserve the legacy command output.
-        return 0 if cov["requirements"] and cov["covered"] == cov["requirements"] else 2
-    elif a.command == "run-api":
-        results = run_api(p)
-        return 2 if any(r["status"] != "Pass" for r in results) else 0
-    elif a.command == "export":
-        export(p)
-    elif a.command == "report":
-        report(p)
-    elif a.command == "save-cases":
-        if not a.extra:
-            ap.error("需要完整用例目录 JSON")
-        save_cases(p, read(Path(a.extra)))
-        print("用例已保存，版本和项目技能已同步")  # noqa: T201  # Preserve the legacy command output.
-    elif a.command == "sync-skills":
-        sync_skills(p)
-        print("UI/API 项目用例 Skill 已生成")  # noqa: T201  # Preserve the legacy command output.
-    elif a.command == "search":
-        if not a.extra:
-            ap.error("需要关键词")
-        search(p, a.extra)
-    elif a.command == "import-openapi":
-        if not a.extra:
-            ap.error("需要 OpenAPI JSON 路径")
-        import_openapi(p, Path(a.extra))
-    return 0
+    return _dispatch_project_command(ap, a, p)
 
 
 if __name__ == "__main__":

@@ -65,21 +65,7 @@ export async function render(view) {
   const points = fillBuckets(summary.trend.points, summary.trend.unit, start, end);
   const none = r.executions === 0;
 
-  const heroNote = h('div', { class: 'stack', style: 'gap:8px' }, splitBar(r),
-    h('span', { class: 'kpi-note' }, none ? '这个范围内还没有执行'
-      : [h('b', {}, `${fmtNumber(r.passed)} 通过`), ` · ${fmtNumber(r.failed)} 失败 · ${fmtNumber(r.blocked)} 阻塞（不计入通过率）`]));
-
-  const kpis = h('section', { class: 'kpis', 'aria-label': '汇总指标' },
-    kpi({ hero: true, label: '通过率', value: fmtPercent(r.pass_rate), def: DEFINITIONS.rate, note: heroNote,
-      extra: sparkline(points), to: href('runs', { view: 'results' }) }),
-    kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
-      note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
-    kpi({ label: '执行次数', value: fmtNumber(u.total), def: DEFINITIONS.runs,
-      note: [`共 ${fmtNumber(r.executions)} 条次`, u.scheduled ? ` · 定时 ${u.scheduled}` : '', u.active ? ` · ${u.active} 个进行中` : ''], to: href('runs') }),
-    kpi({ label: '失败', value: fmtNumber(r.failed), def: DEFINITIONS.failed,
-      note: r.failed ? [h('b', {}, `${r.still_failing} 条`), ' 当前仍失败'] : '没有失败', to: href('runs', { view: 'results', status: 'Fail' }) }),
-    kpi({ label: '阻塞', value: fmtNumber(r.blocked), def: DEFINITIONS.blocked,
-      note: r.blocked ? '没有验证到结果' : '没有阻塞', to: href('runs', { view: 'results', status: 'Blocked' }) }));
+  const kpis = summaryKpis(r, c, u, s, points, none);
 
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '趋势展示方式' },
     h('button', { 'aria-pressed': String(!showTable), onClick: () => { showTable = false; refresh(); } }, '图表'),
@@ -102,6 +88,24 @@ export async function render(view) {
   replace(view, pageHead(summary), kpis,
     h('div', { class: 'dash-grid' }, trend, tasksCard(summary.tasks)),
     h('div', { class: 'dash-grid even' }, failuresCard(failures, r, view), recentCard(recent)));
+}
+
+function summaryKpis(r, c, u, s, points, none) {
+  const heroNote = h('div', { class: 'stack', style: 'gap:8px' }, splitBar(r),
+    h('span', { class: 'kpi-note' }, none ? '这个范围内还没有执行'
+      : [h('b', {}, `${fmtNumber(r.passed)} 通过`), ` · ${fmtNumber(r.failed)} 失败 · ${fmtNumber(r.blocked)} 阻塞（不计入通过率）`]));
+
+  return h('section', { class: 'kpis', 'aria-label': '汇总指标' },
+    kpi({ hero: true, label: '通过率', value: fmtPercent(r.pass_rate), def: DEFINITIONS.rate, note: heroNote,
+      extra: sparkline(points), to: href('runs', { view: 'results' }) }),
+    kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
+      note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
+    kpi({ label: '执行次数', value: fmtNumber(u.total), def: DEFINITIONS.runs,
+      note: [`共 ${fmtNumber(r.executions)} 条次`, u.scheduled ? ` · 定时 ${u.scheduled}` : '', u.active ? ` · ${u.active} 个进行中` : ''], to: href('runs') }),
+    kpi({ label: '失败', value: fmtNumber(r.failed), def: DEFINITIONS.failed,
+      note: r.failed ? [h('b', {}, `${r.still_failing} 条`), ' 当前仍失败'] : '没有失败', to: href('runs', { view: 'results', status: 'Fail' }) }),
+    kpi({ label: '阻塞', value: fmtNumber(r.blocked), def: DEFINITIONS.blocked,
+      note: r.blocked ? '没有验证到结果' : '没有阻塞', to: href('runs', { view: 'results', status: 'Blocked' }) }));
 }
 
 function runAll(options = {}) {

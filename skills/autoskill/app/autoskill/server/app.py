@@ -96,6 +96,24 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
 
     app = FastAPI(title="autoSkill", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
+    _register_http_handlers(app, port)
+    _register_overview_routes(app)
+    _register_project_routes(app, state)
+    _register_download_routes(app)
+    _register_settings_routes(app)
+    _register_run_creation_route(app)
+    _register_run_detail_routes(app)
+    _register_schedule_routes(app)
+    _register_unknown_route(app)
+
+    ui = paths.APP / "ui"
+    if ui.is_dir():
+        app.mount("/", StaticFiles(directory=ui, html=True), name="ui")
+    return app
+
+
+def _register_http_handlers(app: FastAPI, port: int) -> None:
+    """Register http handlers in their original order."""
     @app.middleware("http")
     async def local_only(request: Request, call_next):
         """Refuse DNS-rebinding hosts and cross-site writes; the API is for this machine's dashboard only."""
@@ -116,7 +134,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     async def bad_request(request: Request, error: ValueError):  # noqa: ARG001  # FastAPI exception handlers require the request parameter.
         return JSONResponse({"detail": str(error)}, status_code=400)
 
-    # --- overview ----------------------------------------------------
+
+def _register_overview_routes(app: FastAPI) -> None:
+    """Register overview routes in their original order."""
     @app.get("/api/status")
     def status():
         return {"name": "autoSkill", "version": __version__, "projects": len(projects.list_all()),
@@ -163,7 +183,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     def cases(request: Request, kind: str | None = None, added: bool = False):
         return metrics.cases(scope_of(request), kind, added)
 
-    # --- projects ----------------------------------------------------
+
+def _register_project_routes(app: FastAPI, state: dict) -> None:
+    """Register project routes in their original order."""
     @app.get("/api/projects")
     def list_projects():
         return projects.list_all()
@@ -202,6 +224,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     def case(project_id: str, case_id: str):
         return case_view(project_id, projects.case(project_id, case_id))
 
+
+def _register_download_routes(app: FastAPI) -> None:
+    """Register download routes in their original order."""
     @app.get("/api/projects/{project_id}/postman")
     def postman_file(project_id: str, part: str = "collection"):
         """Download the Postman collection or environment. Secret values are never included."""
@@ -246,6 +271,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         file = Path(built["markdown" if part == "markdown" else "excel"])
         return FileResponse(file, filename=file.name)
 
+
+def _register_settings_routes(app: FastAPI) -> None:
+    """Register settings routes in their original order."""
     @app.put("/api/secrets/{name}")
     async def put_secret(name: str, request: Request):
         """Store or replace a credential; project settings show it as plain text."""
@@ -264,7 +292,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         paths.save_settings(browser=choice)
         return {"browser": paths.browser_info()}
 
-    # --- runs --------------------------------------------------------
+
+def _register_run_creation_route(app: FastAPI) -> None:
+    """Register run creation route in their original order."""
     @app.post("/api/runs")
     async def start_runs(request: Request):
         """Queue runs: one project, or a batch across projects. Each item is {project_id, case_ids?}."""
@@ -284,6 +314,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         return {"batch_id": batch, "runs": [{"id": r["id"], "project_id": r["project_id"], "total": r["total"]} for r in created],
                 "skipped": skipped}
 
+
+def _register_run_detail_routes(app: FastAPI) -> None:
+    """Register run detail routes in their original order."""
     @app.get("/api/runs/{run_id}")
     def run_detail(run_id: str):
         run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
@@ -327,7 +360,9 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
             raise HTTPException(404, "文件不存在")
         return FileResponse(file, media_type="image/png")
 
-    # --- schedules ---------------------------------------------------
+
+def _register_schedule_routes(app: FastAPI) -> None:
+    """Register schedule routes in their original order."""
     @app.get("/api/tasks")
     def tasks(request: Request):
         return scheduler.list_all(scope_of(request).projects)
@@ -355,14 +390,12 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
             raise ValueError(run.get("reason") or "任务没有启动")
         return {"id": run["id"]}
 
+
+def _register_unknown_route(app: FastAPI) -> None:
+    """Register unknown route in their original order."""
     @app.get("/api/{rest:path}")
     def unknown(rest: str):  # noqa: ARG001  # The callback must bind the route's named rest path parameter.
         raise HTTPException(404, "没有这个接口")
-
-    ui = paths.APP / "ui"
-    if ui.is_dir():
-        app.mount("/", StaticFiles(directory=ui, html=True), name="ui")
-    return app
 
 
 def serve(port: int = 8787) -> None:

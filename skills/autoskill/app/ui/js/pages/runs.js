@@ -92,12 +92,7 @@ async function report(view, runId) {
     return;
   }
   const focus = route().params.get('case');
-  if (reportFor !== runId) {
-    reportFor = runId;
-    openRows.clear();
-    if (focus) openRows.add(focus);
-    else for (const row of run.results) if (!row.prerequisite && row.status !== 'Pass') openRows.add(row.case_id);  // failures open by default
-  }
+  prepareReportRows(run, runId, focus);
   const running = active(run);
   if (running) live.until = Date.now() + 8000;
   const counted = run.results.filter((row) => !row.prerequisite);
@@ -122,22 +117,7 @@ async function report(view, runId) {
     refresh();
   });
 
-  const summary = h('section', { class: 'card run-summary' },
-    h('div', { class: 'card-body' },
-      h('div', { class: 'row wrap', style: 'gap:16px' },
-        statusPill(run.status),
-        h('div', { class: 'grow' }, h('h1', {}, run.project_name),
-          h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 页面用例用 ${ENGINE[run.engine]} 回放 · ${fmtTime(run.created_at)}`)),
-        running ? stop : [h('a', { class: 'btn', href: `/api/projects/${run.project_id}/report`, download: '', title: '用例、步骤、断言和每条用例的最近结果' }, icon('table'), '下载报告'), again, notPassed > 0 && retry]),
-      running
-        ? h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
-          h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
-          h('div', { class: 'row sub' }, h('i', { class: 'spin' }), run.status === 'Queued' ? '排队中，等待前一个运行结束' : `正在执行：${run.current || '准备中'}`,
-            h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`)))
-        : h('div', { class: 'stats' },
-          stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'),
-          stat('用例', run.total), stat('总耗时', fmtDuration(spent))),
-      run.reason && h('div', { class: 'banner bad', style: 'margin-top:16px' }, icon('warn'), run.reason)));
+  const summary = runSummary(run, running, stop, again, notPassed, retry, spent);
 
   const rows = h('section', { class: 'card' },
     h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例结果'),
@@ -153,6 +133,34 @@ async function report(view, runId) {
     const target = view.querySelector(`[data-case="${CSS.escape(focus)}"]`);
     if (target && !view.dataset.scrolled) { target.scrollIntoView({ block: 'center' }); view.dataset.scrolled = runId; }
   }
+}
+
+function prepareReportRows(run, runId, focus) {
+  if (reportFor !== runId) {
+    reportFor = runId;
+    openRows.clear();
+    if (focus) openRows.add(focus);
+    else for (const row of run.results) if (!row.prerequisite && row.status !== 'Pass') openRows.add(row.case_id);  // failures open by default
+  }
+}
+
+function runSummary(run, running, stop, again, notPassed, retry, spent) {
+  return h('section', { class: 'card run-summary' },
+    h('div', { class: 'card-body' },
+      h('div', { class: 'row wrap', style: 'gap:16px' },
+        statusPill(run.status),
+        h('div', { class: 'grow' }, h('h1', {}, run.project_name),
+          h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 页面用例用 ${ENGINE[run.engine]} 回放 · ${fmtTime(run.created_at)}`)),
+        running ? stop : [h('a', { class: 'btn', href: `/api/projects/${run.project_id}/report`, download: '', title: '用例、步骤、断言和每条用例的最近结果' }, icon('table'), '下载报告'), again, notPassed > 0 && retry]),
+      running
+        ? h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
+          h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
+          h('div', { class: 'row sub' }, h('i', { class: 'spin' }), run.status === 'Queued' ? '排队中，等待前一个运行结束' : `正在执行：${run.current || '准备中'}`,
+            h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`)))
+        : h('div', { class: 'stats' },
+          stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'),
+          stat('用例', run.total), stat('总耗时', fmtDuration(spent))),
+      run.reason && h('div', { class: 'banner bad', style: 'margin-top:16px' }, icon('warn'), run.reason)));
 }
 
 function stat(label, value, tone) {
@@ -191,6 +199,24 @@ function resultBody(run, row) {
       h('span', { class: 'mono grow ellipsis', title: req.url }, req.url),
       res && h('span', { class: 'tag' + (res.status < 400 ? ' accent' : '') }, 'HTTP ' + res.status), res && h('span', { class: 'sub num' }, `${fmtDuration(row.duration_ms)} · ${res.bytes} B`)));
   }
+  appendAssertionResults(parts, d);
+  if (d.steps?.length) {
+    parts.push(h('ol', { class: 'steps timeline' }, d.steps.map((step) => h('li', { class: step.status },
+      h('span', { class: 'step-text' }, step.check && h('span', { class: 'tag accent' }, '断言'), step.text,
+        step.fallback ? h('span', { class: 'tag' }, '备选定位') : null),
+      h('span', { class: 'step-sub num' }, step.error || fmtDuration(step.ms))))));
+  }
+  appendRequestDetails(parts, d, row);
+  appendScreenshots(parts, d, run, row);
+  if (row.status !== 'Pass' && !row.prerequisite) {
+    const again = h('button', { class: 'btn sm' }, icon('play'), '只重跑这一条');
+    again.addEventListener('click', () => startRun([{ project_id: run.project_id, case_ids: [row.case_id] }], again));
+    parts.push(h('div', { class: 'row' }, again));
+  }
+  return h('div', { class: 'result-body' }, parts);
+}
+
+function appendAssertionResults(parts, d) {
   if (d.assertions?.length) {
     parts.push(h('table', { class: 'table checks' },
       h('thead', {}, h('tr', {}, ['', '断言', '期望', '实际'].map((t) => h('th', {}, t)))),
@@ -199,12 +225,9 @@ function resultBody(run, row) {
         h('td', {}, check.name, check.fallback ? h('span', { class: 'tag', style: 'margin-left:6px' }, '备选定位') : null),
         h('td', { class: 'mono' }, show(check.expected)), h('td', { class: 'mono' }, show(check.actual)))))));
   }
-  if (d.steps?.length) {
-    parts.push(h('ol', { class: 'steps timeline' }, d.steps.map((step) => h('li', { class: step.status },
-      h('span', { class: 'step-text' }, step.check && h('span', { class: 'tag accent' }, '断言'), step.text,
-        step.fallback ? h('span', { class: 'tag' }, '备选定位') : null),
-      h('span', { class: 'step-sub num' }, step.error || fmtDuration(step.ms))))));
-  }
+}
+
+function appendRequestDetails(parts, d, row) {
   if (d.request) {
     const sections = [['请求头', d.request.headers], ['查询参数', d.request.params], ['请求体', d.request.json]]
       .filter(([, value]) => value && (typeof value !== 'object' || Object.keys(value).length));
@@ -215,18 +238,15 @@ function resultBody(run, row) {
           d.response && h('div', {}, h('div', { class: 'sub io-label' }, '响应体'), h('pre', { class: 'code' }, d.response.body || '（空）')))));
     }
   }
+}
+
+function appendScreenshots(parts, d, run, row) {
   for (const name of d.screenshots || []) {
     const url = `/api/runs/${run.id}/files/${encodeURIComponent(name)}`;
     parts.push(h('a', { class: 'shot', href: url, target: '_blank', rel: 'noreferrer', title: '在新标签页查看原图' },
       h('img', { src: url, alt: `${row.case_title} 结束时的页面截图`, loading: 'lazy' }),
       h('span', { class: 'sub' }, icon('image'), '结束时的页面截图（密码输入框已遮盖）')));
   }
-  if (row.status !== 'Pass' && !row.prerequisite) {
-    const again = h('button', { class: 'btn sm' }, icon('play'), '只重跑这一条');
-    again.addEventListener('click', () => startRun([{ project_id: run.project_id, case_ids: [row.case_id] }], again));
-    parts.push(h('div', { class: 'row' }, again));
-  }
-  return h('div', { class: 'result-body' }, parts);
 }
 
 function show(value) {
