@@ -1,5 +1,8 @@
 {
-  "tag": "v2.0.2",
-  "status": "pending",
-  "note": "Retry Windows CI with normal vendor lookup for restricted subprocesses and verbose progress."
+  "tag": "v2.0.1",
+  "source_commit": "05cb087ded6452fb5a06451e86becf9212dd9748",
+  "status": "failed",
+  "run_id": "43214402769",
+  "recorded_at": "2026-11-12T12:15:54.031657+00:00",
+  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/43214402769"
 }
