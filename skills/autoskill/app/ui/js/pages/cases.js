@@ -188,7 +188,7 @@ async function projectSettings(projectId) {
     const done = await attempt(() => api('/projects/' + projectId, { method: 'PATCH', body: {
       name: name.value, category: category.value,
     } }), save);
-    if (done) { await refreshShell(); closeOverlay(); toast('已保存'); go('cases'); }
+    if (done) { await refreshShell(); closeOverlay(); toast('已保存'); refresh(); }
   });
 
   const secretRows = Object.entries(project.credentials || {}).map(([secret, value]) => {
@@ -197,7 +197,7 @@ async function projectSettings(projectId) {
     const row = h('div', { class: 'row' }, h('span', { class: 'mono', style: 'min-width:150px' }, secret), input, button);
     button.addEventListener('click', async () => {
       const done = await attempt(() => api('/secrets/' + secret, { method: 'PUT', body: { value: input.value } }), button);
-      if (done) { toast(`${secret} 已保存`); refreshShell(); }
+      if (done) { toast(`${secret} 已保存`); await refreshShell(); refresh(); }
     });
     return row;
   });

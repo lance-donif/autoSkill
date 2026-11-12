@@ -27,6 +27,10 @@ async function history(view) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
+  if (offset > 0 && offset >= data.total) {
+    go('runs', { ...Object.fromEntries(params), offset: null });
+    return;
+  }
   const tabs = h('div', { class: 'seg', role: 'group', 'aria-label': '查看方式' },
     h('button', { 'aria-pressed': String(mode === 'runs'), onClick: () => go('runs', { view: null, status: null, offset: null }) }, '按运行'),
     h('button', { 'aria-pressed': String(mode === 'results'), onClick: () => go('runs', { view: 'results', status: null, offset: null }) }, '按用例结果'));

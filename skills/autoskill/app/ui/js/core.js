@@ -171,7 +171,7 @@ export function go(page, params = {}, keepScope = true) {
 export function setScope(patch) {
   const next = { ...scope(), ...patch };
   const { page, id, params } = route();
-  for (const key of ['projects', 'range', 'from', 'to']) params.delete(key);
+  for (const key of ['projects', 'range', 'from', 'to', 'offset']) params.delete(key);
   if (next.projects.length) params.set('projects', next.projects.join(','));
   if (next.range !== DEFAULT_RANGE) params.set('range', next.range);
   if (next.range === 'custom') { params.set('from', next.from); params.set('to', next.to); }
