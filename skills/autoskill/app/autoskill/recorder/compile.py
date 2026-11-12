@@ -14,7 +14,7 @@ from ..replay import ir
 from . import har as harlib
 
 DROP_HEADERS = re.compile(
-    r"^(user-agent|accept.*|referer|origin|host|connection|content-length|content-type|cookie|pragma|"
+    r"^(user-agent|accept.*|referer|origin|host|connection|content-length|cookie|pragma|"
     r"cache-control|sec-.*|upgrade-insecure-requests|if-.*|priority|dnt|te)$", re.IGNORECASE)
 SCHEME = re.compile(r"^(Bearer|Basic|Token)\s+(.+)$", re.IGNORECASE)
 STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.IGNORECASE)
@@ -144,7 +144,10 @@ class Compiler:
         return self.secret(token, header)
 
     def signature(self, case: dict) -> str:
-        parts = [case["method"], case["path"], case.get("params", {}), case.get("json"), case.get("form")]
+        content_type = next((value for name, value in case.get("headers", {}).items() if name.lower() == "content-type"), None)
+        if content_type is None:
+            content_type = "application/json" if "json" in case else "application/x-www-form-urlencoded" if "form" in case else ""
+        parts = [case["method"], case["path"], case.get("params", {}), case.get("json"), case.get("form"), content_type.lower().strip()]
         return json.dumps(parts, sort_keys=True, ensure_ascii=False)
 
     def _business_headers(self, entry: dict, deps: set) -> dict:

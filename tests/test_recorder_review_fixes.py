@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from itertools import count
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qsl
@@ -81,12 +82,30 @@ class RecorderReviewTests(unittest.TestCase):
     def test_hidden_does_not_record_a_visible_element(self):
         rec = {"project_id": self.pid, "steps": [], "refs": {}}
         with patch.object(session, "current", return_value=rec), patch.object(session, "_sync_tabs"), \
-                patch.object(session, "PageProbe") as probe, patch.object(ui.time, "monotonic", side_effect=[0, 1, 2, 9]):
+                patch.object(session, "PageProbe") as probe, patch.object(ui.time, "monotonic", side_effect=count(step=10)):
             probe.return_value.count.return_value = 1
             probe.return_value.read.return_value = True
             with self.assertRaisesRegex(session.RecordError, "断言现在不成立"):
                 session.check("hidden", "#visible", None)
         self.assertEqual(rec["steps"], [])
+
+    def test_json_media_types_are_kept_and_distinguish_reused_requests(self):
+        media_types = ("application/merge-patch+json", "application/json-patch+json", "application/json")
+        cases = self.compile([entry("PATCH", "/thing", {"ok": True}, body={"name": "new"},
+                                    headers={"Content-Type": media_type}, content_type=media_type)
+                              for media_type in media_types])
+        self.assertEqual(len(cases), 3)
+        sent = []
+
+        def handle(request):
+            sent.append(request.headers["content-type"])
+            return httpx.Response(200, json={"ok": True})
+
+        with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+            for case in cases:
+                self.assertEqual(api.run_case(client, case, projects.config(self.pid), {})["status"], "Pass")
+        self.assertEqual(sent, list(media_types))
+        self.assertEqual(len(self.compile([entry("PATCH", "/thing", {"ok": True}, body={"name": "new"})])), 3)
 
 
 if __name__ == "__main__":
