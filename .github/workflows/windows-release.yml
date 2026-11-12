@@ -1,0 +1,106 @@
+name: Build and publish Windows offline release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: windows-offline-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install build and test dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+      - name: Build offline package from official assets
+        shell: pwsh
+        run: |
+          $build = Join-Path $env:RUNNER_TEMP 'autoSkill 发布构建'
+          python scripts/fetch-windows-assets.py --assets "$build/assets" --chrome-version 157.0.8103.78
+          if ($LASTEXITCODE -ne 0) { throw 'Asset fetch failed' }
+          python scripts/build-windows-bundle.py --assets "$build/assets" --output "$build/package" --zip
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          "AUTOSKILL_RELEASE_BUILD=$build" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Verify packaged runtime and launch both browsers offline
+        shell: pwsh
+        run: |
+          $proof = Join-Path $env:RUNNER_TEMP 'autoskill-release-proof'
+          New-Item -ItemType Directory -Force $proof | Out-Null
+          $entry = Join-Path $env:AUTOSKILL_RELEASE_BUILD 'package/autoskill/autoskill.cmd'
+          $savedPath = $env:PATH
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $env:HTTP_PROXY = 'http://127.0.0.1:9'
+          $env:HTTPS_PROXY = 'http://127.0.0.1:9'
+          try {
+            $verify = & $entry verify
+            if ($LASTEXITCODE -ne 0) { throw 'Packaged verify failed' }
+            $verify | Set-Content "$proof/verify.json" -Encoding utf8
+            $doctor = & $entry doctor --launch
+            if ($LASTEXITCODE -ne 0) { throw 'Packaged browser launch failed' }
+            $doctor | Set-Content "$proof/doctor.json" -Encoding utf8
+            if (-not (($doctor -join "`n" | ConvertFrom-Json).ok)) { throw 'Doctor reported missing runtime' }
+          } finally {
+            $env:PATH = $savedPath
+            Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY -ErrorAction SilentlyContinue
+          }
+      - name: Test source against the packaged browser binaries
+        shell: pwsh
+        run: |
+          $proof = Join-Path $env:RUNNER_TEMP 'autoskill-release-proof'
+          $vendor = Join-Path $env:AUTOSKILL_RELEASE_BUILD 'package/autoskill/vendor/windows-x64'
+          $env:AUTOSKILL_CHROMIUM = Join-Path $vendor 'chrome/chrome-win64/chrome.exe'
+          $env:AUTOSKILL_CHROMEDRIVER = Join-Path $vendor 'chromedriver/chromedriver-win64/chromedriver.exe'
+          $env:AUTOSKILL_AGENT_BROWSER = Join-Path $vendor 'agent-browser/agent-browser.exe'
+          python -m unittest discover -s tests -p 'test_*.py' 2>&1 | Tee-Object "$proof/python-tests.txt"
+          if ($LASTEXITCODE -ne 0) { throw 'Python regression failed' }
+          node --test tests/plugin.test.mjs 2>&1 | Tee-Object "$proof/plugin-tests.txt"
+          if ($LASTEXITCODE -ne 0) { throw 'Plugin regression failed' }
+      - name: Upload, check digest, rename, and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: python scripts/publish-windows-release.py --build "$env:AUTOSKILL_RELEASE_BUILD" --proof "$env:RUNNER_TEMP/autoskill-release-proof" --result "$env:RUNNER_TEMP/autoskill-release-result"
+      - name: Record outcome on main for audit and download verification
+        if: always()
+        shell: pwsh
+        env:
+          RELEASE_JOB_STATUS: ${{ job.status }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          git fetch origin main
+          git switch -C main origin/main
+          python scripts/record-release-result.py --result "$env:RUNNER_TEMP/autoskill-release-result" --proof "$env:RUNNER_TEMP/autoskill-release-proof"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add reports docs plugin/COMPATIBILITY.md
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 1) {
+            git commit -m "docs: record $env:RELEASE_TAG release result"
+            git push origin main
+            if ($LASTEXITCODE -ne 0) { throw 'Could not persist release result' }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-release-evidence
+          path: ${{ runner.temp }}/autoskill-release-proof
