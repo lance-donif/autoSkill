@@ -1,0 +1,164 @@
+{
+  "status": "DIAGNOSTIC_ONLY_NO_CONDITIONAL_MODEL_EVALUATED",
+  "groups": {
+    "train/plain": {
+      "samples": 120,
+      "flags": 0,
+      "baseline_correct": 105,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "train/NORMAL": {
+      "samples": 600,
+      "flags": 0,
+      "baseline_correct": 554,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "train/ALL": {
+      "samples": 1200,
+      "flags": 334,
+      "baseline_correct": 904,
+      "baseline_correct_flags": 152,
+      "flag_rate": 0.2783333333333333
+    },
+    "train/ordinary-aug": {
+      "samples": 120,
+      "flags": 0,
+      "baseline_correct": 105,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "train/pale": {
+      "samples": 120,
+      "flags": 0,
+      "baseline_correct": 113,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "train/NOISY": {
+      "samples": 600,
+      "flags": 334,
+      "baseline_correct": 350,
+      "baseline_correct_flags": 152,
+      "flag_rate": 0.5566666666666666
+    },
+    "train/paired-clean": {
+      "samples": 360,
+      "flags": 0,
+      "baseline_correct": 344,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "train/through-line": {
+      "samples": 120,
+      "flags": 82,
+      "baseline_correct": 101,
+      "baseline_correct_flags": 68,
+      "flag_rate": 0.6833333333333333
+    },
+    "train/dark-through-line": {
+      "samples": 120,
+      "flags": 87,
+      "baseline_correct": 92,
+      "baseline_correct_flags": 61,
+      "flag_rate": 0.725
+    },
+    "train/first-symbol-touching": {
+      "samples": 120,
+      "flags": 82,
+      "baseline_correct": 13,
+      "baseline_correct_flags": 9,
+      "flag_rate": 0.6833333333333333
+    },
+    "train/dark-first-symbol-touching": {
+      "samples": 120,
+      "flags": 83,
+      "baseline_correct": 31,
+      "baseline_correct_flags": 14,
+      "flag_rate": 0.6916666666666667
+    },
+    "dev/plain": {
+      "samples": 40,
+      "flags": 0,
+      "baseline_correct": 36,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "dev/NORMAL": {
+      "samples": 200,
+      "flags": 0,
+      "baseline_correct": 178,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "dev/ALL": {
+      "samples": 400,
+      "flags": 105,
+      "baseline_correct": 277,
+      "baseline_correct_flags": 40,
+      "flag_rate": 0.2625
+    },
+    "dev/ordinary-aug": {
+      "samples": 40,
+      "flags": 0,
+      "baseline_correct": 37,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "dev/pale": {
+      "samples": 40,
+      "flags": 0,
+      "baseline_correct": 33,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "dev/NOISY": {
+      "samples": 200,
+      "flags": 105,
+      "baseline_correct": 99,
+      "baseline_correct_flags": 40,
+      "flag_rate": 0.525
+    },
+    "dev/paired-clean": {
+      "samples": 120,
+      "flags": 0,
+      "baseline_correct": 105,
+      "baseline_correct_flags": 0,
+      "flag_rate": 0.0
+    },
+    "dev/through-line": {
+      "samples": 40,
+      "flags": 29,
+      "baseline_correct": 29,
+      "baseline_correct_flags": 19,
+      "flag_rate": 0.725
+    },
+    "dev/dark-through-line": {
+      "samples": 40,
+      "flags": 29,
+      "baseline_correct": 26,
+      "baseline_correct_flags": 17,
+      "flag_rate": 0.725
+    },
+    "dev/first-symbol-touching": {
+      "samples": 40,
+      "flags": 23,
+      "baseline_correct": 2,
+      "baseline_correct_flags": 1,
+      "flag_rate": 0.575
+    },
+    "dev/dark-first-symbol-touching": {
+      "samples": 40,
+      "flags": 24,
+      "baseline_correct": 9,
+      "baseline_correct_flags": 3,
+      "flag_rate": 0.6
+    }
+  },
+  "note": "Normal baseline-correct flags are physical false flags, not measured new recognition errors. No residual is applied.",
+  "model_inference_runs": 0,
+  "training_runs": 0,
+  "test_images_loaded": 0,
+  "external_images_loaded": 0
+}
