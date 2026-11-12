@@ -60,20 +60,13 @@ def publish(files: list[tuple[Path, dict]], notes: str, tag: str, commit: str) -
             if asset["name"] == temporary:
                 api("DELETE", f"/releases/assets/{asset['id']}")
         item = api("POST", release["upload_url"].split("{")[0] + "?name=" + urllib.parse.quote(temporary), binary=path.read_bytes())
+        item["name"] = temporary
         checked = api("GET", f"/releases/assets/{item['id']}")
         if checked["size"] != local["bytes"] or checked.get("digest") != "sha256:" + local["sha256"]:
             raise ValueError("Uploaded size/digest mismatch; prior final assets retained: " + path.name)
         uploaded.append((item, local))
-    # No final asset is removed until *all* new uploads match their local size and digest.
-    for item, local in uploaded:
-        for asset in old:
-            if asset["name"] == local["file"]:
-                api("DELETE", f"/releases/assets/{asset['id']}")
-        api("PATCH", f"/releases/assets/{item['id']}", {"name": local["file"]})
-    release = api("PATCH", f"/releases/{release['id']}", {"name": "autoSkill " + tag, "body": notes,
-                  "draft": False, "prerelease": False, "make_latest": "true"})
-    finals = [api("GET", f"/releases/assets/{item['id']}") for item, _ in uploaded]
-    return release, finals
+    return legacy.replace_assets(release, old, uploaded, {"name": "autoSkill " + tag, "body": notes,
+                                 "draft": False, "prerelease": False, "make_latest": "true"}, request=api)
 
 
 def main():

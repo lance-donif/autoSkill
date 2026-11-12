@@ -6,6 +6,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -21,6 +22,61 @@ def api(method, path, body=None, binary=None):
     with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers, method=method), timeout=600) as response:
         raw = response.read()
         return json.loads(raw) if raw else None
+
+
+def _restore_asset_names(renames: list[tuple[int, str]], request) -> list[str]:
+    """Retry restoration once; an interrupted request may already have renamed its asset."""
+    remaining = renames
+    for _ in range(2):
+        failed = []
+        for asset_id, name in remaining:
+            try:
+                request('PATCH', f'/releases/assets/{asset_id}', {'name': name})
+            except (OSError, ValueError):
+                failed.append((asset_id, name))
+        remaining = failed
+        if not remaining:
+            break
+    return [f'{asset_id}: {name}' for asset_id, name in remaining]
+
+
+def replace_assets(release: dict, old: list[dict], uploaded: list[tuple[dict, dict]], body: dict, *, request=None) -> tuple[dict, list[dict]]:
+    """Retain old bytes until the complete new batch and release metadata are visible."""
+    request = request or api
+    names = {local['file'] for _, local in uploaded}
+    originals = [asset for asset in old if asset['name'] in names]
+    transaction = uuid.uuid4().hex
+    previous_metadata = {key: release[key] for key in ('name', 'body', 'draft', 'prerelease') if key in release}
+    metadata_attempted = False
+    try:
+        for asset in originals:
+            request('PATCH', f"/releases/assets/{asset['id']}", {'name': asset['name'] + '.' + transaction + '.previous'})
+        for item, local in uploaded:
+            request('PATCH', f"/releases/assets/{item['id']}", {'name': local['file']})
+        metadata_attempted = True
+        published = request('PATCH', f"/releases/{release['id']}", body)
+        finals = [request('GET', f"/releases/assets/{item['id']}") for item, _ in uploaded]
+    except BaseException as error:
+        # Restore uploads first so their final names are free for the original asset IDs.
+        renames = [(item['id'], item['name']) for item, _ in uploaded]
+        renames += [(asset['id'], asset['name']) for asset in originals]
+        failures = _restore_asset_names(renames, request)
+        if metadata_attempted and previous_metadata:
+            try:
+                request('PATCH', f"/releases/{release['id']}", previous_metadata)
+            except (OSError, ValueError):
+                failures.append('release metadata')
+        if failures:
+            raise RuntimeError('Release replacement failed; restoration is incomplete for ' + ', '.join(failures)
+                               + '. Previous files were retained, including any .previous backup assets; retry publication or restore their names.') from error
+        raise
+    # Cleanup is after commit: a failure here must never roll back a verified new batch.
+    for asset in originals:
+        try:
+            request('DELETE', f"/releases/assets/{asset['id']}")
+        except (OSError, ValueError) as error:
+            print(f"Previous release backup retained (asset {asset['id']}): {type(error).__name__}")
+    return published, finals
 
 
 def _check_archive(archive: Path) -> None:
@@ -87,21 +143,18 @@ def main():
         if asset['name'] == temporary:
             api('DELETE', f"/releases/assets/{asset['id']}")
     uploaded = api('POST', release['upload_url'].split('{')[0] + '?name=' + urllib.parse.quote(temporary), binary=payload)
+    uploaded['name'] = temporary
     checked = api('GET', f"/releases/assets/{uploaded['id']}")
     if checked['size'] != size or checked.get('digest') != 'sha256:' + digest:
         raise ValueError('Uploaded size/digest mismatch; prior final asset has been retained')
-    for asset in old:
-        if asset['name'] == archive.name:
-            api('DELETE', f"/releases/assets/{asset['id']}")
-    final = api('PATCH', f"/releases/assets/{uploaded['id']}", {'name': archive.name})
+    release, finals = replace_assets(release, old, [(uploaded, {'file': archive.name})],
+                                    {'name': 'autoSkill ' + tag, 'body': notes, 'draft': False,
+                                     'prerelease': False, 'make_latest': 'true'})
+    final = finals[0]
     (args.proof / 'upload-check.json').write_text(json.dumps({
         'asset_id': final['id'], 'name': final['name'], 'bytes': checked['size'],
         'digest': checked['digest'], 'matches_local_archive': True,
     }, indent=2) + '\n', encoding='utf-8')
-    release = api('PATCH', f"/releases/{release['id']}", {'name': 'autoSkill ' + tag, 'body': notes,
-                                                       'draft': False, 'prerelease': False, 'make_latest': 'true'})
-    # A draft asset URL can contain an untagged-* placeholder until publication.
-    final = api('GET', f"/releases/assets/{uploaded['id']}")
     result = {**manifest, 'file': archive.name, 'bytes': size, 'sha256': digest, 'built_from_commit': commit,
               'tag': tag, 'release_id': release['id'], 'release_url': release['html_url'], 'asset_id': final['id'],
               'download_url': final['browser_download_url'], 'windows_verify': verify, 'windows_doctor': doctor,
