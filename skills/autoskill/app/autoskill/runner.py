@@ -196,6 +196,18 @@ class Session:
             self.state_variables()
             if case_id == self.auth.get("api_case"):
                 return self.api_login(case, self.force_login)
+            if not projects.depends_on(case):
+                # A case with no prerequisite is sent without the run's cookies: "rejected when not
+                # signed in" must stay true after a login earlier in the same run. Cookies it sets
+                # are kept for the cases that depend on it.
+                fresh = api.new_client(self.config)
+                try:
+                    outcome = api.run_case(fresh, case, self.config, self.variables)
+                    for cookie in fresh.cookies.jar:
+                        self.client.cookies.jar.set_cookie(cookie)
+                finally:
+                    fresh.close()
+                return outcome
             outcome = api.run_case(self.client, case, self.config, self.variables)
             login = self.cases.get(self.auth.get("api_case", ""))
             if outcome["category"] == "session_expired" and login and needs(case_id, login["id"], self.cases) and not self.relogged:
@@ -297,14 +309,15 @@ def execute(run_id: str, force_login: bool = False) -> dict:
     return db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
 
 
-def spawn(run_id: str, force_login: bool = False) -> None:
-    """Execute a run in its own process."""
+def spawn(run_id: str, force_login: bool = False) -> int:
+    """Execute a run in its own process and return that process id."""
     import subprocess
 
     command = [sys.executable, "-m", "autoskill.runner", run_id, *(["--force-login"] if force_login else [])]
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    subprocess.Popen(command, cwd=str(paths.APP), env=paths.child_env(), creationflags=flags,
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    child = subprocess.Popen(command, cwd=str(paths.APP), env=paths.child_env(), creationflags=flags,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return child.pid
 
 
 if __name__ == "__main__":

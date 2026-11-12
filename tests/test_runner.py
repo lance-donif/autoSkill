@@ -87,6 +87,13 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse(renewed[0]["detail"].get("reused"))
         self.assertEqual(renewed[1]["status"], "Pass")
 
+    def test_anonymous_api_case_stays_anonymous_after_a_login_in_the_same_run(self):
+        _, rows = self.run_cases("TC-UI-002", "TC-API-004", "TC-API-006")
+        by_id = {r["case_id"]: r for r in rows}
+        self.assertEqual(by_id["TC-UI-002"]["status"], "Pass")
+        self.assertEqual(by_id["TC-API-006"]["status"], "Pass", by_id["TC-API-006"]["reason"])
+        self.assertEqual(by_id["TC-API-006"]["detail"]["response"]["status"], 401)
+
     def test_failed_login_blocks_dependents_instead_of_failing_them(self):
         secrets.set_secret("TD_PASSWORD", "wrong-password")
         final, rows = self.run_cases("TC-API-003", "TC-API-006")
