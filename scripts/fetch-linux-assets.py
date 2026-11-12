@@ -24,13 +24,23 @@ def sha256(path: Path) -> str:
 
 def fetch(url: str, target: Path) -> dict:
     target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.is_file():
-        partial = target.with_name(target.name + ".part")
-        with urllib.request.urlopen(url, timeout=120) as response, partial.open("wb") as out:
-            while block := response.read(1 << 20):
-                out.write(block)
-        partial.replace(target)
-    return {"file": target.name, "url": url, "bytes": target.stat().st_size, "sha256": sha256(target)}
+    source = target.with_name(target.name + ".source.json")
+    try:
+        cached = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cached = None
+    if isinstance(cached, dict) and cached.get("url") == url and target.is_file() and cached.get("sha256") == sha256(target):
+        return {"file": target.name, "url": url, "bytes": target.stat().st_size, "sha256": cached["sha256"]}
+    partial = target.with_name(target.name + ".part")
+    with urllib.request.urlopen(url, timeout=120) as response, partial.open("wb") as out:
+        while block := response.read(1 << 20):
+            out.write(block)
+    result = {"file": target.name, "url": url, "bytes": partial.stat().st_size, "sha256": sha256(partial)}
+    partial.replace(target)
+    source_partial = source.with_name(source.name + ".part")
+    source_partial.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    source_partial.replace(source)
+    return result
 
 
 def main():
