@@ -11,8 +11,10 @@ BUSINESS_TYPES = ("fetch", "xhr")
 RESOURCE_TYPES = ("document", "script", "stylesheet")
 SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session|csrf|signature)", re.I)
 ID_KEY = re.compile(r"(id|token|key|code|uuid|no|sn)$", re.I)
+STRICT_ID = re.compile(r"(^|_)id$|[a-z]Id$|(^|_)ID$")  # plainly an identifier: id, user_id, userId
 ENUM_KEY = re.compile(r"^(code|status|state|type|role|result|success|ok|errno|error|priority|level)$", re.I)
 MAX_DEPTH = 4
+SCHEMA_DEPTH = 2  # how deep the structure check goes: deeper detail changes too often to be worth asserting
 
 
 def _headers(items: list) -> dict:
@@ -34,7 +36,7 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
         content = response.get("content", {})
         mime = (content.get("mimeType") or "").split(";")[0].strip().lower()
         kind = (entry.get("_resourceType") or "").lower()
-        body = None
+        body = form = None
         post = request.get("postData") or {}
         body_note = ""
         if post.get("text"):
@@ -43,8 +45,10 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
                     body = json.loads(post["text"])
                 except ValueError:
                     body_note = "请求体不是有效 JSON"
+            elif "x-www-form-urlencoded" in (post.get("mimeType") or "").lower():
+                form = dict(parse_qsl(post["text"], keep_blank_values=True))
             else:
-                body_note = "请求体不是 JSON（表单或文件），需人工确认"
+                body_note = "请求体不是 JSON 或普通表单（例如文件上传），需人工确认"
         parsed = None
         if "json" in mime and content.get("text"):
             try:
@@ -53,7 +57,7 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
                 parsed = None
         found.append({
             "method": request["method"], "path": parts.path or "/", "params": dict(parse_qsl(parts.query, keep_blank_values=True)),
-            "headers": _headers(request.get("headers")), "json": body, "body_note": body_note,
+            "headers": _headers(request.get("headers")), "json": body, "form": form, "body_note": body_note,
             "status": response["status"], "mime": mime, "response": parsed, "text": content.get("text") or "",
             "business": kind in BUSINESS_TYPES or (kind not in RESOURCE_TYPES and "json" in mime),
             "resource": kind in RESOURCE_TYPES,
@@ -104,17 +108,15 @@ def infer_schema(value, depth: int = 0) -> dict:
     """Structure of a response: types and the keys that are always present, without any values."""
     if isinstance(value, bool):
         return {"type": "boolean"}
-    if isinstance(value, int):
-        return {"type": "integer"}
-    if isinstance(value, float):
-        return {"type": "number"}
+    if isinstance(value, (int, float)):
+        return {"type": "number"}  # 10 today may be 10.5 tomorrow
     if isinstance(value, str):
         return {"type": "string"}
     if value is None:
         return {}
     if isinstance(value, list):
         schema: dict = {"type": "array"}
-        if value and depth < MAX_DEPTH:
+        if value and depth < SCHEMA_DEPTH:
             items = merge_schemas([infer_schema(item, depth + 1) for item in value[:SAMPLE]])
             if items:
                 schema["items"] = items
@@ -125,13 +127,13 @@ def infer_schema(value, depth: int = 0) -> dict:
         # scalar fields keeps its required keys below.
         schema = {"type": "object", "minProperties": 1}
         records = list(value.values())[:SAMPLE]
-        if depth < MAX_DEPTH:
+        if depth < SCHEMA_DEPTH:
             common = merge_schemas([infer_schema(v, depth + 1) for v in records])
             if common:
                 schema["additionalProperties"] = common
         return schema
     schema = {"type": "object", "required": sorted(value)}
-    if depth < MAX_DEPTH:
+    if depth < SCHEMA_DEPTH:
         # sensitive fields are required to exist, but nothing about them is written down
         properties = {k: infer_schema(v, depth + 1) for k, v in value.items() if v is not None and not SENSITIVE.search(str(k))}
         properties = {k: v for k, v in properties.items() if v}
@@ -177,6 +179,16 @@ def correlatable(response) -> list[tuple[str, str, object]]:
             continue
         if isinstance(value, str) and (len(value) >= 16 or (ID_KEY.search(key) and len(value) >= 4)):
             found.append((pointer, key, value))
-        elif isinstance(value, int) and ID_KEY.search(key) and value >= 1000:
-            found.append((pointer, key, value))
+        elif isinstance(value, int) and (ID_KEY.search(key) and value >= 1000 or STRICT_ID.search(key) and value >= 1):
+            found.append((pointer, key, value))  # small numbers only where the field is plainly an id
     return found
+
+
+def drop_typeahead(found: list[dict]) -> list[dict]:
+    """Search-as-you-type sends one request per keystroke; only the last says anything about the feature."""
+    seen: dict[str, list] = {}
+    for item in found:
+        if item["method"] == "GET" and item["params"] not in seen.setdefault(item["path"], []):
+            seen[item["path"]].append(item["params"])
+    noisy = {path: variants[-1] for path, variants in seen.items() if len(variants) >= 3}
+    return [item for item in found if item["method"] != "GET" or item["path"] not in noisy or item["params"] == noisy[item["path"]]]

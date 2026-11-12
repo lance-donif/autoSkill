@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'skills/autoskill/app'))
+__import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
 from autoskill import paths, secrets
 
 

@@ -22,6 +22,8 @@ def lit(value) -> str:
     """A Python literal; ${ENV:NAME} becomes os.environ["NAME"]."""
     if not isinstance(value, str):
         return repr(value)
+    if ir.RAND in value:
+        return " + RAND + ".join(lit(part) for part in value.split(ir.RAND))
     parts, last = [], 0
     for match in SECRET.finditer(value):
         if match.start() > last:
@@ -93,6 +95,8 @@ def pw_step(step: dict) -> str:
             return f"{target}.press_sequentially({lit(step['value'])})"
         if op == "select":
             return f"{target}.select_option({lit(step['value'])})"
+        if op == "captcha":  # a standalone script has no captcha model: a person types it
+            return f'{target}.fill(input("请输入验证码："))'
         if op in ("wait_visible", "wait_hidden"):
             return f"{target}.wait_for(state={lit(op[5:])})"
         return f"{target}.{op}()"
@@ -105,6 +109,8 @@ def pw_step(step: dict) -> str:
     }
     if op in table:
         return table[op].format(t=target, e=lit(expected))
+    if op == "min_count":
+        return f"expect({target}.nth({max(int(expected), 1) - 1})).to_be_attached()"
     if op == "url_contains":
         return f"expect(page).to_have_url(re.compile(re.escape({lit(expected)})))"
     if op == "checked":
@@ -152,12 +158,15 @@ def se_step(step: dict) -> str:
             return f"ActionChains(driver).move_to_element(find(driver, {at})).perform()"
         if op in ("check", "uncheck"):
             return f"set_checked(driver, {at}, {op == 'check'})"
+        if op == "captcha":
+            return f'fill(driver, {at}, input("请输入验证码："))'
         return f"wait_until(lambda: shown(driver, {at}) is {op == 'wait_visible'}, {message})"
     op, expected = step["assertion"], lit(step.get("expected"))
     tests = {
         "visible": f"shown(driver, {at})",
         "hidden": f"not shown(driver, {at})",
         "count": f"len(driver.find_elements(By.CSS_SELECTOR, {lit(css)})) == {expected}",
+        "min_count": f"len(driver.find_elements(By.CSS_SELECTOR, {lit(css)})) >= {expected}",
         "text": f"norm(read(driver, {at}, 'text')) == norm({expected})",
         "contains": f"{expected} in read(driver, {at}, 'text')",
         "value": f"read(driver, {at}, 'value') == {expected}",
@@ -183,6 +192,7 @@ from playwright.sync_api import expect, sync_playwright
 BASE_URL = os.environ.get("BASE_URL", @@BASE@@).rstrip("/")
 CLASS_L, CLASS_R = r"(^|\s)", r"(\s|$)"
 TIMEOUT = float(os.environ.get("TIMEOUT", "90"))
+RAND = os.environ.get("RAND") or os.urandom(3).hex()  # unique text for the data this run creates
 '''
 PW_MAIN = '''
 
@@ -192,7 +202,8 @@ def main():
         if os.environ.get("CHROME_BINARY"):
             options["executable_path"] = os.environ["CHROME_BINARY"]
         browser = p.chromium.launch(**options)
-        context = browser.new_context()
+        context = browser.new_context(viewport={"width": 1920, "height": 1080})
+        context.on("dialog", lambda dialog: dialog.accept())
         page = context.new_page()
         try:
 @@CALLS@@
@@ -215,6 +226,7 @@ from selenium.webdriver.support.ui import Select
 
 BASE_URL = os.environ.get("BASE_URL", @@BASE@@).rstrip("/")
 TIMEOUT = float(os.environ.get("TIMEOUT", "10"))
+RAND = os.environ.get("RAND") or os.urandom(3).hex()  # unique text for the data this run creates
 
 
 def wait_until(test, message):
@@ -288,7 +300,8 @@ def main():
     options = webdriver.ChromeOptions()
     if os.environ.get("HEADED") != "1":
         options.add_argument("--headless=new")
-    options.add_argument("--window-size=1366,860")
+    options.add_argument("--window-size=1920,1080")
+    options.set_capability("unhandledPromptBehavior", "accept")
     if os.environ.get("CHROME_BINARY"):
         options.binary_location = os.environ["CHROME_BINARY"]
     if os.environ.get("CHROMEDRIVER"):

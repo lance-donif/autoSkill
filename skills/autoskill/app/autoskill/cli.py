@@ -47,7 +47,7 @@ def context(project_id: str) -> dict:
         steps.append(f"需要登录的操作不用手动登录：autoskill record start {project_id} 会先执行登录用例 {login_case['id']}")
     steps.append(f"回放已有用例：autoskill run {project_id}；查看结果：autoskill dashboard")
     return {
-        "project": {k: info[k] for k in ("id", "name", "category", "base_url", "start_url", "allowed_origins", "approvals")},
+        "project": {k: info[k] for k in ("id", "name", "category", "base_url", "start_url", "allowed_origins")},
         "login": {
             "ui_case": auth.get("ui_case"), "api_case": auth.get("api_case"),
             "title": login_case["title"] if login_case else None,
@@ -99,8 +99,8 @@ def parser() -> argparse.ArgumentParser:
     update.add_argument("project")
     update.add_argument("--name")
     update.add_argument("--category")
-    update.add_argument("--allow-origin", action="append", help="额外允许访问的地址，可重复")
-    update.add_argument("--approve", action="append", choices=sorted(projects.RISKS), help="允许的高风险操作，可重复")
+    update.add_argument("--allow-origin", action="append", help=argparse.SUPPRESS)  # no longer limits anything; old commands still parse
+    update.add_argument("--approve", action="append", help=argparse.SUPPRESS)
     update.add_argument("--timeout", type=int, help="单步等待元素的秒数，默认 20")
     update.add_argument("--page-load", type=int, help="等待页面打开的秒数，默认 90；页面本身很慢时调大（10–600）")
     update.add_argument("--insecure-tls", choices=("on", "off"), help="内网自签名证书：on 表示不校验证书")
@@ -118,7 +118,7 @@ def parser() -> argparse.ArgumentParser:
     login = sub.add_parser("login", help="执行项目的登录用例并保存登录态")
     login.add_argument("project")
     login.add_argument("--force", action="store_true", help="忽略已保存的登录态，重新登录")
-    login.add_argument("--headed", action="store_true", help="显示浏览器窗口并放慢节奏，方便人观看（默认在后台运行，不显示窗口）")
+    login.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
 
     record = sub.add_parser("record", help="录制：start / stop / status / undo / cancel").add_subparsers(dest="action", required=True)
     start = record.add_parser("start")
@@ -126,10 +126,11 @@ def parser() -> argparse.ArgumentParser:
     start.add_argument("--as-login", action="store_true", help="本次录制的是登录流程本身")
     start.add_argument("--no-login", action="store_true", help="以未登录状态开始")
     start.add_argument("--url", help="起始地址，默认项目地址")
-    start.add_argument("--headed", action="store_true", help="显示浏览器窗口并放慢节奏，方便人观看（默认在后台运行，不显示窗口）")
+    start.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
     stop = record.add_parser("stop")
     stop.add_argument("--title", required=True)
-    stop.add_argument("--module", default="")
+    stop.add_argument("--module", "--subproject", default="", help="子项目（模块）：同一站点下的功能区域")
+    stop.add_argument("--plan", help="这次录制执行的是用例表里的哪一条，例如 TC-003；结果会写回用例表")
     stop.add_argument("--category", default="")
     for name in ("status", "undo", "cancel"):
         record.add_parser(name)
@@ -148,7 +149,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--case", action="append", dest="cases", help="用例编号，可重复；省略则回放全部")
     run.add_argument("--engine", choices=runner.ENGINES, default="playwright")
     run.add_argument("--kind", choices=("ui", "api"), help="只回放某一类")
-    run.add_argument("--headed", action="store_true", help="显示浏览器窗口并放慢节奏，方便人观看（默认在后台运行，不显示窗口）")
+    run.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
 
     export = sub.add_parser("export", help="导出：postman / scripts").add_subparsers(dest="action", required=True)
     for name in ("postman", "scripts"):
@@ -173,10 +174,22 @@ def parser() -> argparse.ArgumentParser:
     sub.add_parser("demo", help="安装示例项目（示例工单系统）").add_argument("--url", default=demo.DEFAULT_URL)
     dash = sub.add_parser("dashboard", help="启动仪表盘")
     dash.add_argument("--port", type=int, default=8787)
-    dash.add_argument("--headed", action="store_true", help="从仪表盘发起的回放都显示浏览器窗口")
+    dash.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
     doc = sub.add_parser("doctor", help="检查运行时是否齐全；不联网")
     doc.add_argument("--launch", action="store_true", help="同时真实启动一次浏览器（Playwright 与 Selenium）")
     sub.add_parser("verify", help="按清单校验随包运行时文件的完整性（SHA-256）")
+    plan = sub.add_parser("plan", help="用例表（用例 Skill）：write / show / mark / sync").add_subparsers(dest="action", required=True)
+    writer = plan.add_parser("write", help="把根据需求文档设计的用例写成 Excel 用例表")
+    writer.add_argument("project")
+    writer.add_argument("--file", required=True, help="用例 JSON 文件（数组）")
+    plan.add_parser("show", help="读出用例表：要执行哪些用例、各自的结果")
+    marker = plan.add_parser("mark", help="给一条用例记录执行结果")
+    marker.add_argument("case")
+    marker.add_argument("status", choices=("通过", "失败", "阻塞", "未执行"))
+    marker.add_argument("--note", default="")
+    plan.add_parser("sync", help="把回放结果写回用例表")
+    for command in (login, start, run, dash):
+        command.add_argument("--headless", action="store_true", help="不显示浏览器窗口，在后台运行（默认显示最大化的窗口）")
     return top
 
 
@@ -335,6 +348,14 @@ def dispatch(args) -> tuple[dict, int]:
             if not phrase:
                 raise ValueError("--include-secrets 需要口令：加 --passphrase，或设置环境变量 AUTOSKILL_PASSPHRASE")
         return share.pack(args.projects or None, args.out, phrase), 0
+    if command == "plan":
+        from . import plan
+
+        if action == "write":
+            return plan.write(args.project, args.file), 0
+        if action == "mark":
+            return plan.mark(args.case, args.status, args.note), 0
+        return (plan.sync() if action == "sync" else plan.show()), 0
     if command == "import":
         from . import share
 
@@ -376,14 +397,21 @@ def dispatch(args) -> tuple[dict, int]:
                     raise ValueError("没有符合条件的可回放用例")
             run = runner.create(args.project, chosen, args.engine)
             final = runner.execute(run["id"])
-        return run_summary(final), {"Pass": 0, "Fail": 1}.get(final["status"], 2)
+        summary = run_summary(final)
+        if command == "run":  # the verdicts go back into the case sheet these cases came from
+            from . import plan
+
+            written = plan.sync(quiet=True)
+            if written:
+                summary["plan"] = written
+        return summary, {"Pass": 0, "Fail": 1}.get(final["status"], 2)
     from .recorder import session
 
     if command == "record":
         if action == "start":
             return session.start(args.project, login=not args.no_login, as_login=args.as_login, url=args.url), 0
         if action == "stop":
-            return session.stop(args.title, args.module, args.category), 0
+            return session.stop(args.title, args.module, args.category, args.plan), 0
         return getattr(session, action)(), 0
     if command == "browser":
         return session.browser(args.args), 0
@@ -397,7 +425,7 @@ def delegate(args, argv: list[str], reason: str) -> int:
     port, why = bridge.service()
     if port is None:
         return emit({"error": bridge.restricted_message(reason, why)}, 2)
-    if args.command == "import":  # the service runs elsewhere: a relative path would mean a different file there
+    if getattr(args, "file", None):  # the service runs elsewhere: a relative path would mean a different file there
         argv = [os.path.abspath(a) if a == args.file else a for a in argv]
     stdin_text = None
     if args.command == "secret" and args.action == "set" and args.value is None:
@@ -436,8 +464,8 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     args = parser().parse_args(argv)
     undo_msys(args)
-    if getattr(args, "headed", False):
-        os.environ["AUTOSKILL_HEADED"] = "1"
+    if getattr(args, "headless", False) or getattr(args, "headed", False):
+        os.environ["AUTOSKILL_HEADED"] = "0" if getattr(args, "headless", False) else "1"
     mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")  # auto: only when this process cannot do the work itself
     if args.command != "dashboard" and mode != "off":
         reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()

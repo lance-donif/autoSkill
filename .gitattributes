@@ -9,3 +9,4 @@
 *.pptx binary
 *.zip binary
 *.ico binary
+*.onnx binary

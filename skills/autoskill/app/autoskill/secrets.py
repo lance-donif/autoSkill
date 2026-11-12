@@ -1,9 +1,8 @@
-"""Machine-local secret store. Values never enter cases, logs, reports or share packs.
+"""Machine-local credentials, kept as plain text in workspace/.local/credentials.json so they can be read and edited.
 
-On Windows values are encrypted with DPAPI, so only the same Windows user on the
-same machine can read them. Linux uses Fernet with a local key file (0600).
-Cases refer to a secret by name: ${ENV:NAME}. A
-process environment variable of that name is the fallback.
+Cases refer to a credential by name: ${ENV:NAME}, which keeps the value out of cases and share packs.
+A process environment variable of that name is the fallback. `seal`/`unseal` remain only to read
+what older versions stored encrypted.
 """
 from __future__ import annotations
 
@@ -63,26 +62,38 @@ def unseal(blob: str) -> str:
 
 
 def _file() -> Path:
-    return paths.local() / "secrets.json"
+    return paths.local() / "credentials.json"
+
+
+def _write(data: dict) -> None:
+    _file().write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _load() -> dict:
     file = _file()
-    return json.loads(file.read_text(encoding="utf-8")) if file.is_file() else {}
+    if file.is_file():
+        return json.loads(file.read_text(encoding="utf-8"))
+    data, legacy = {}, paths.local() / "secrets.json"
+    if legacy.is_file():  # an older version sealed each value: carry over what this user can still read, once
+        for name, blob in json.loads(legacy.read_text(encoding="utf-8")).items():
+            try:
+                data[name] = unseal(blob)
+            except (ValueError, OSError):
+                pass  # sealed by another Windows user or machine (a copied folder): not set here
+        _write(data)
+    return data
 
 
 def set_secret(name: str, value: str) -> None:
     if not NAME.fullmatch(name):
         raise ValueError("凭据名称只能使用字母、数字和下划线，且不能以数字开头")
-    data = _load()
-    data[name] = seal(value)
-    _file().write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    _write({**_load(), name: value})
 
 
 def delete_secret(name: str) -> None:
     data = _load()
     if data.pop(name, None) is not None:
-        _file().write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        _write(data)
 
 
 def names() -> list[str]:
@@ -90,13 +101,8 @@ def names() -> list[str]:
 
 
 def get_secret(name: str) -> str | None:
-    blob = _load().get(name)
-    if blob is not None:
-        try:
-            return unseal(blob)
-        except (ValueError, OSError):
-            pass  # sealed by another Windows user or machine (a copied folder): treat as not set here
-    return os.environ.get(name)
+    value = _load().get(name)
+    return value if value is not None else os.environ.get(name)
 
 
 def references(value) -> set[str]:

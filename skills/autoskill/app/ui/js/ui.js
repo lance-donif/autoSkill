@@ -124,7 +124,7 @@ const ENGINE_KEY = 'autoskill.engine';
 export function preferredEngine() { return localStorage.getItem(ENGINE_KEY) || 'playwright'; }
 export function setEngine(engine) { localStorage.setItem(ENGINE_KEY, engine); }
 const HEADED_KEY = 'autoskill.headed';
-export function preferredHeaded() { return localStorage.getItem(HEADED_KEY) === '1'; }
+export function preferredHeaded() { return localStorage.getItem(HEADED_KEY) !== '0'; }  // visible unless switched off
 export function setHeaded(on) { localStorage.setItem(HEADED_KEY, on ? '1' : '0'); }
 
 /** Queue runs and take the user to the live result. `items` = [{project_id, case_ids?}]. */
@@ -155,9 +155,9 @@ export function runButton(label, getItems, { small = false, primary = true } = {
         onPick: () => { setEngine(engine); close(); },
       }));
     }
-    menu.append(h('div', { class: 'menu-sep' }), menuItem('显示浏览器窗口，观看操作过程', {
+    menu.append(h('div', { class: 'menu-sep' }), menuItem('显示浏览器窗口（最大化）', {
       checked: preferredHeaded(), onPick: () => { setHeaded(!preferredHeaded()); close(); },
-    }), h('div', { class: 'menu-title' }, '默认在后台运行、不显示窗口；定时任务始终在后台'));
+    }), h('div', { class: 'menu-title' }, '默认显示；取消勾选后在后台运行、不显示窗口'));
   }, true);
   return h('div', { class: 'row', style: 'gap:4px' }, main, pop);
 }

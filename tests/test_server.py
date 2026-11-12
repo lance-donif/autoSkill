@@ -163,19 +163,18 @@ class ApiGuardTests(Workspace):
             self.assertEqual(client.post("/api/runs", json={}, headers={"Origin": "https://evil.test"}).status_code, 403)
             self.assertEqual(client.post("/api/runs", json={}, headers={"Sec-Fetch-Site": "cross-site"}).status_code, 403)
 
-    def test_show_browser_window_is_chosen_per_run_and_never_for_schedules(self):
-        with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
-            shown = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"], "headed": True}).json()["runs"][0]
-            quiet = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"]}).json()["runs"][0]
-        flag = lambda run_id: db.one("SELECT headed FROM runs WHERE id = ?", (run_id,))["headed"]  # noqa: E731
-        self.assertEqual((flag(shown["id"]), flag(quiet["id"])), (1, 0))
-        task = scheduler.create({"title": "后台", "project_id": PID, "engine": "playwright", "rule": {"kind": "daily", "time": "09:00"}})
-        os.environ["AUTOSKILL_HEADED"] = "1"
+    def test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run(self):
+        os.environ.pop("AUTOSKILL_HEADED", None)  # the product default: a visible window, also for scheduled runs
         try:
+            with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
+                usual = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"]}).json()["runs"][0]
+                quiet = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"], "headed": False}).json()["runs"][0]
+            task = scheduler.create({"title": "定时", "project_id": PID, "engine": "playwright", "rule": {"kind": "daily", "time": "09:00"}})
             fired = scheduler.fire(scheduler.get(task["id"]))
         finally:
-            os.environ.pop("AUTOSKILL_HEADED", None)
-        self.assertEqual(flag(fired["id"]), 0)
+            os.environ["AUTOSKILL_HEADED"] = "0"
+        flag = lambda run_id: db.one("SELECT headed FROM runs WHERE id = ?", (run_id,))["headed"]  # noqa: E731
+        self.assertEqual((flag(usual["id"]), flag(quiet["id"]), flag(fired["id"])), (1, 0, 1))
 
     def test_report_can_be_downloaded_from_the_dashboard(self):
         with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
@@ -185,10 +184,11 @@ class ApiGuardTests(Workspace):
             self.assertIn("attachment", got.headers["content-disposition"])
             self.assertEqual(client.get("/api/projects/nope/report").status_code, 400)
 
-    def test_secrets_are_write_only_and_files_cannot_be_traversed(self):
+    def test_credentials_are_shown_in_project_settings_and_files_cannot_be_traversed(self):
         with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
-            self.assertEqual(client.put("/api/secrets/X_TOKEN", json={"value": "v"}).status_code, 200)
-            self.assertEqual(client.get("/api/secrets/X_TOKEN").status_code, 404)
+            self.assertEqual(client.put("/api/secrets/TD_PASSWORD", json={"value": "plain-pw"}).status_code, 200)
+            self.assertEqual(client.get("/api/projects/" + PID).json()["credentials"], {"TD_PASSWORD": "plain-pw"})
+            self.assertEqual(json.loads((paths.local() / "credentials.json").read_text(encoding="utf-8"))["TD_PASSWORD"], "plain-pw")
             run = runner.create(PID, ["TC-API-006"])
             for name in ("..%2f..%2fsecrets.json", "..%5csecrets.json", "secrets.json"):
                 self.assertEqual(client.get(f"/api/runs/{run['id']}/files/{name}").status_code, 404, name)
@@ -231,6 +231,7 @@ class ShareTests(Workspace):
                 os.environ["AUTOSKILL_WORKSPACE"] = self.tmp.name
 
     def test_a_copied_folder_with_someone_elses_secret_store_still_works(self):
+        (paths.local() / "credentials.json").unlink(missing_ok=True)  # as if only the older, sealed store had been copied
         (paths.local() / "secrets.json").write_text(json.dumps({"TD_PASSWORD": "bm90LWEtZHBhcGktYmxvYg=="}), encoding="utf-8")
         os.environ.pop("TD_PASSWORD", None)
         listed = projects.list_all()

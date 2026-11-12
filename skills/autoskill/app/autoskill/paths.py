@@ -153,8 +153,15 @@ def agent_browser() -> str | None:
 
 
 def headed() -> bool:
-    """Show the browser window (and pace the steps) so a person can watch. Off by default."""
-    return os.environ.get("AUTOSKILL_HEADED") == "1"
+    """Show the browser window, maximised, so a person can watch. On by default; AUTOSKILL_HEADED=0 hides it."""
+    if sys.platform == "linux" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        return False  # a server without a screen has nowhere to show a window
+    return os.environ.get("AUTOSKILL_HEADED") != "0"
+
+
+def case_skill() -> Path:
+    """The swappable skill that holds the test cases to execute; always a folder called autoskill-cases."""
+    return Path(os.environ.get("AUTOSKILL_CASE_SKILL") or SKILL.parent / "autoskill-cases").resolve()
 
 
 def child_env(extra: dict | None = None) -> dict:

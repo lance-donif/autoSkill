@@ -29,12 +29,14 @@ ACTIONS = {
     "select": (True, ("value",)),
     "wait_visible": (True, ()),
     "wait_hidden": (True, ()),
+    "captcha": (True, ("image",)),
 }
 # assertion -> (needs a target element, required fields)
 ASSERTIONS = {
     "visible": (True, ()),
     "hidden": (True, ()),
     "count": (True, ("expected",)),
+    "min_count": (True, ("expected",)),
     "text": (True, ("expected",)),
     "contains": (True, ("expected",)),
     "value": (True, ("expected",)),
@@ -49,13 +51,28 @@ ACTION_NAMES = {
     "dblclick": "双击", "hover": "悬停", "press": "按键", "check": "勾选", "uncheck": "取消勾选",
     "select": "选择", "wait_visible": "等待出现", "wait_hidden": "等待消失",
     "tab_new": "新建标签页", "tab_switch": "切换标签页", "tab_close": "关闭标签页", "tab_sync": "跟随新窗口或关闭返回",
+    "captcha": "识别验证码并填入",
 }
 ASSERTION_NAMES = {
-    "visible": "可见", "hidden": "不可见", "count": "数量为", "text": "文本为", "contains": "文本包含",
+    "visible": "可见", "hidden": "不可见", "count": "数量为", "min_count": "数量至少为", "text": "文本为", "contains": "文本包含",
     "value": "输入值为", "checked": "勾选状态为", "attribute": "属性", "url": "地址为",
     "url_contains": "地址包含", "title": "页面标题为",
 }
 LOCATOR_LABELS = {"testid": "测试标识", "label": "标签", "placeholder": "占位提示", "text": "文字", "css": "选择器"}
+
+
+RAND = "{{RAND}}"
+_rand = ""
+
+
+def set_rand(value: str) -> None:
+    global _rand
+    _rand = value
+
+
+def expand(value):
+    """Fill {{RAND}}: a short text that is new on every run, so data a case creates never collides with an earlier run."""
+    return value.replace(RAND, _rand) if isinstance(value, str) and _rand else value
 
 
 def locators(step: dict) -> list[dict]:
@@ -137,7 +154,7 @@ def _check_step(step: object, table: dict, key: str, where: str) -> None:
         raise ValueError(f"{where}（{step[key]}）缺少定位")
     for locator in target:
         _check_locator(locator, where)
-    if step[key] == "count" and not _is_index(step["expected"]):
+    if step[key] in ("count", "min_count") and not _is_index(step["expected"]):
         raise ValueError(f"{where}：count 断言需要非负整数")
     def tab_id(value):
         return isinstance(value, str) and value.startswith("t") and value[1:].isascii() and value[1:].isdigit() and int(value[1:]) > 0

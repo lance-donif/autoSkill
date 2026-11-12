@@ -53,7 +53,7 @@ def case_view(project_id: str, case: dict) -> dict:
                           "locators": [ir.describe_locator(l) for l in ir.locators(s)]}
                          for s in [*automation.get("actions", []), *automation.get("assertions", [])]]
     else:
-        view["request"] = {k: case.get(k) for k in ("method", "path", "headers", "params", "json") if case.get(k) is not None}
+        view["request"] = {k: case.get(k) for k in ("method", "path", "headers", "params", "json", "form") if case.get(k) is not None}
         view["assertions"] = case.get("assertions")
         view["extract"] = case.get("extensions", {}).get("extract", {})
         view["traffic"] = case.get("extensions", {}).get("traffic", "business")
@@ -142,7 +142,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
             raise ValueError("argv 无效")
         stdin_text = body.get("stdin") if isinstance(body.get("stdin"), str) else None
         msys_root = body.get("msys_root") if isinstance(body.get("msys_root"), str) else None
-        return bridge.execute(argv, stdin_text, msys_root, bool(body.get("headed")))
+        return bridge.execute(argv, stdin_text, msys_root, body.get("headed"))
 
     @app.get("/api/summary")
     def summary(request: Request, tz: int = 480):
@@ -181,6 +181,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     def project(project_id: str):
         info = projects.get(project_id)
         info["session"] = sessions.summary(project_id)
+        info["credentials"] = projects.credentials(project_id)  # plain text: the settings page shows and edits them
         return info
 
     @app.patch("/api/projects/{project_id}")
@@ -246,7 +247,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
 
     @app.put("/api/secrets/{name}")
     async def put_secret(name: str, request: Request):
-        """Write-only: a value can be stored or replaced, never read back."""
+        """Store or replace a credential; project settings show it as plain text."""
         value = (await request.json()).get("value")
         if not isinstance(value, str) or not value:
             raise ValueError("请填写凭据内容")
@@ -265,7 +266,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         for item in items:
             try:
                 created.append(runner.create(item["project_id"], item.get("case_ids") or None, engine, batch_id=batch,
-                                             headed=bool(body.get("headed"))))
+                                             headed=body.get("headed")))
             except ValueError as error:
                 skipped.append({"project_id": item.get("project_id"), "reason": str(error)})
         if not created:
@@ -304,7 +305,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         kept = [c for c in case_ids if c in active]
         if not kept:
             raise ValueError("这些用例已被归档，无法重新运行")
-        created = runner.create(run["project_id"], kept, body.get("engine") or run["engine"], headed=bool(body.get("headed")))
+        created = runner.create(run["project_id"], kept, body.get("engine") or run["engine"], headed=body.get("headed"))
         return {"id": created["id"], "total": created["total"], "dropped": len(case_ids) - len(kept)}
 
     @app.get("/api/runs/{run_id}/files/{name}")

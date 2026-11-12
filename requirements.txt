@@ -9,3 +9,6 @@ pydantic==2.13.4
 tzdata==2026.6
 colorama==0.4.6
 selenium==4.38.0
+onnxruntime==1.19.2
+numpy==2.0.2
+pillow==11.3.0

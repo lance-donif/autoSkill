@@ -19,7 +19,8 @@ class PlaywrightDriver:
         self.timeout_ms = int(float(config.get("timeout_seconds", 20)) * 1000)
         self.load_ms = int(float(config.get("page_load_seconds", 90)) * 1000)
         self._pw = sync_playwright().start()
-        options = {"headless": headless, "args": paths.QUIET_CHROME_ARGS}
+        self.headless = headless
+        options = {"headless": headless, "args": [*paths.QUIET_CHROME_ARGS, *([] if headless else ["--start-maximized"])]}
         if paths.chrome():
             options["executable_path"] = paths.chrome()
         try:
@@ -36,10 +37,11 @@ class PlaywrightDriver:
         """Start a clean browser context, optionally with a saved login state."""
         if self.context:
             self.context.close()
+        # a visible window is maximised and the page fills it; without a window the page is a full-size screen
+        size = {"viewport": {"width": 1920, "height": 1080}} if self.headless else {"no_viewport": True}
         self.context = self.browser.new_context(
-            storage_state=state, viewport={"width": 1366, "height": 860},
-            ignore_https_errors=bool(self.config.get("ignore_https_errors")),
-        )
+            storage_state=state, ignore_https_errors=bool(self.config.get("ignore_https_errors")), **size)
+        self.context.on("dialog", lambda dialog: dialog.accept())  # confirm() before a delete must not cancel it
         self.context.set_default_timeout(self.timeout_ms)
         self.page = self.context.new_page()
         self.tabs = playwright_tabs(self.page)
@@ -113,6 +115,10 @@ class PlaywrightDriver:
         if what == "attribute":
             return node.get_attribute(arg)
         return node.evaluate("el => el.innerText ?? el.textContent ?? ''")
+
+    def image(self, locator: dict) -> bytes:
+        """The element as the user sees it (PNG), for reading a captcha."""
+        return self._one(locator).screenshot()
 
     def act(self, locator: dict, op: str, value) -> None:
         node = self._one(locator)

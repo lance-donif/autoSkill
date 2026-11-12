@@ -83,7 +83,7 @@ def service() -> tuple[int | None, str]:
 def forward(port: int, argv: list[str], stdin_text: str | None = None) -> dict:
     """Ask the service to run the command. Returns {exit, stdout, stderr}."""
     body = {"argv": argv, "stdin": stdin_text, "msys_root": os.environ.get("AUTOSKILL_MSYS_ROOT"),
-            "headed": os.environ.get("AUTOSKILL_HEADED") == "1"}
+            "headed": os.environ.get("AUTOSKILL_HEADED")}
     try:
         return _request(port, "/api/bridge", body, 3600)
     except urllib.error.HTTPError as error:
@@ -122,12 +122,12 @@ def check(argv: list[str]) -> None:
             raise ValueError(f"通过后台服务执行时，输出位置必须在 autoSkill 数据目录内（{root}）；省略输出位置即可使用默认位置")
 
 
-def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | None = None, headed: bool = False) -> dict:
+def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | None = None, headed: str | bool | None = None) -> dict:
     """Server side: run one autoskill command in its own process and return what it printed."""
     check(argv)
     extra = {"AUTOSKILL_BRIDGE": "off", "AUTOSKILL_WORKSPACE": str(paths.workspace())}
-    if headed:
-        extra["AUTOSKILL_HEADED"] = "1"
+    if headed in ("0", "1", True):  # the caller chose; otherwise the service's own setting applies
+        extra["AUTOSKILL_HEADED"] = "0" if headed == "0" else "1"
     if msys_root:
         extra["AUTOSKILL_MSYS_ROOT"] = msys_root
     # The recorder sweeps agent-io. POSIX permits unlinking our still-open output files,

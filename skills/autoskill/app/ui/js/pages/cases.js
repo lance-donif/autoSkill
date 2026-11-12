@@ -1,9 +1,9 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
 import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
-import { empty, errorState, runButton, startRun, drawer, closeOverlay } from '../ui.js';
+import { empty, errorState, runButton, startRun, drawer, closeOverlay, preferredHeaded, setHeaded } from '../ui.js';
 import { state, refreshShell } from '../shell.js';
 
-const RISKS = { write: '写入数据（新建、修改）', delete: '删除数据', payment: '支付', refund: '退款', message: '发送真实消息' };
+
 const selected = new Map();  // "project/case" -> {project_id, case_id}
 let kind = '';
 let query = '';
@@ -65,16 +65,19 @@ export async function render(view) {
     paintBar();
   }
 
+  const watch = h('button', { class: 'switch', role: 'switch', 'aria-checked': String(preferredHeaded()), 'aria-label': '运行时显示浏览器窗口',
+    onClick: () => { setHeaded(!preferredHeaded()); watch.setAttribute('aria-checked', String(preferredHeaded())); } });
   replace(view,
     h('div', { class: 'page-head' },
       h('div', { class: 'grow' }, h('h1', {}, '项目与用例'),
         h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。`)),
       h('button', { class: 'btn', onClick: () => newProject() }, icon('plus'), '新建项目')),
-    state.projects.length ? h('div', { class: 'toolbar' }, kinds, search) : null,
+    state.projects.length ? h('div', { class: 'toolbar' }, kinds, search, h('span', { class: 'grow' }),
+      h('span', { class: 'row sub', title: '打开：回放时弹出最大化的浏览器窗口；关闭：在后台运行' }, watch, '运行时显示浏览器窗口')) : null,
     list, bar);
   if (!state.projects.length) {
     replace(list, h('div', { class: 'card' }, empty({
-      glyph: 'spark', title: '还没有项目', text: '新建一个项目并填写要测试的地址，或先加载示例项目看看效果。',
+      glyph: 'spark', title: '还没有带用例的项目', text: '项目在录到第一条用例后出现在这里。新建一个项目，或先加载示例项目看看效果。',
       actions: [h('button', { class: 'btn primary', onClick: () => newProject() }, icon('plus'), '新建项目'),
         h('a', { class: 'btn', href: '#/dashboard' }, '回到仪表盘加载示例')],
     })));
@@ -103,23 +106,21 @@ function projectCard(project, items, repaint) {
     h('button', { class: 'btn sm icon', 'aria-label': `「${project.name}」设置`, title: '项目设置', onClick: () => projectSettings(project.id) }, icon('edit')));
 
   const banner = missing.length ? h('div', { class: 'card-body', style: 'padding-bottom:0' }, h('div', { class: 'banner' }, icon('lock'),
-    h('span', {}, `缺少凭据 ${missing.join('、')}：依赖它的用例会被阻塞。凭据只保存在本机，不随项目分享。`),
+    h('span', {}, `缺少凭据 ${missing.join('、')}：依赖它的用例会被阻塞。`),
     h('button', { class: 'btn sm', onClick: () => projectSettings(project.id) }, '去填写'))) : null;
 
+  // sub-projects: the areas of one site, taken from each case's module
+  const modules = [...new Set(items.map((item) => item.module))];
+  const groupRow = (module) => modules.length > 1 && h('tr', { class: 'group' }, h('td', { colSpan: 7 },
+    `子项目：${module}`, h('span', { class: 'muted' }, `　${items.filter((item) => item.module === module).length} 条`)));
   let body;
-  if (!project.cases.total) {
-    const prompt = agentPrompt(project);
-    body = empty({ glyph: 'spark', title: '这个项目还没有用例',
-      text: '把下面这句话交给你的 AI 助手，它会操作页面并录制成可回放的用例。',
-      actions: h('button', { class: 'btn primary', onClick: () => copyText(prompt) }, icon('copy'), '复制给 AI 的指令') });
-    body.append(h('pre', { class: 'prompt' }, prompt));
-  } else if (!items.length) {
+  if (!items.length) {
     body = empty({ glyph: 'cases', title: '没有符合条件的用例', text: '换一个类型或搜索词试试。' });
   } else {
     body = h('table', { class: 'table' },
-      h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '模块'),
+      h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '子项目'),
         h('th', {}, '最近结果'), h('th', {}, '最近执行'), h('th', { class: 'actions' }, ''))),
-      h('tbody', {}, items.map((item) => {
+      h('tbody', {}, modules.map((module) => [groupRow(module), items.filter((item) => item.module === module).map((item) => {
         const key = keyOf(item);
         const box = h('input', { class: 'check', type: 'checkbox', checked: selected.has(key), 'aria-label': `选择 ${item.case_id}` });
         box.addEventListener('click', (event) => event.stopPropagation());
@@ -135,7 +136,7 @@ function projectCard(project, items, repaint) {
           h('td', {}, item.last_status ? statusPill(item.last_status) : h('span', { class: 'status idle' }, icon('blocked'), '未执行')),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
           h('td', { class: 'actions' }, run));
-      })));
+      })])));
   }
   return h('section', { class: 'card' }, head, banner, h('div', { style: 'margin-top:12px' }, body));
 }
@@ -153,15 +154,22 @@ function newProject() {
       const project = await api('/projects', { method: 'POST', body: { name: name.value, url: url.value, category: category.value } });
       await refreshShell();
       closeOverlay();
-      toast(`项目「${project.name}」已创建`);
-      go('cases', { projects: project.id, new: null }, false);
+      go('cases', { new: null });
+      const prompt = agentPrompt(project);
+      drawer({
+        title: project.reused ? `这个站点已有项目「${project.name}」，直接使用它` : `项目「${project.name}」已创建`,
+        subtitle: '录到第一条用例后，项目会出现在列表里。',
+        body: [h('p', { class: 'sub' }, '把下面这句话交给你的 AI 助手，它会操作页面并录制成可回放的用例。'), h('pre', { class: 'prompt' }, prompt)],
+        foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),
+          h('button', { class: 'btn primary', onClick: () => copyText(prompt) }, icon('copy'), '复制给 AI 的指令')],
+      });
     } catch (problem) {
       error.textContent = problem.message;
       error.hidden = false;
     } finally { save.disabled = false; }
   });
   drawer({
-    title: '新建项目', subtitle: '填写要测试的地址即表示允许 autoSkill 访问这个地址；其他地址一律不会访问。',
+    title: '新建项目', subtitle: '同一个站点（域名）只建一个项目；站点下的功能区域用子项目区分。',
     body: [
       h('div', { class: 'field' }, h('label', { for: 'np-name' }, '项目名称'), name),
       h('div', { class: 'field' }, h('label', { for: 'np-url' }, '要测试的地址'), url, h('span', { class: 'hint' }, '内网地址即可，例如 http://10.0.0.8:8080。')),
@@ -177,29 +185,22 @@ async function projectSettings(projectId) {
   try { project = await api('/projects/' + projectId); } catch (error) { toast(error.message, { bad: true }); return; }
   const name = h('input', { class: 'input', value: project.name, id: 'ps-name' });
   const category = h('input', { class: 'input', value: project.category, id: 'ps-cat' });
-  const extra = project.allowed_origins.filter((origin) => origin !== project.base_url);
-  const origins = h('input', { class: 'input', value: extra.join(', '), id: 'ps-origins', placeholder: '例如 http://10.0.0.9:9000，多个用逗号分隔' });
-  const approvals = Object.entries(RISKS).map(([value, label]) => {
-    const box = h('input', { class: 'check', type: 'checkbox', checked: project.approvals.includes(value), value });
-    return h('label', { class: 'row' }, box, label);
-  });
+
   const save = h('button', { class: 'btn primary' }, '保存');
   save.addEventListener('click', async () => {
     const done = await attempt(() => api('/projects/' + projectId, { method: 'PATCH', body: {
       name: name.value, category: category.value,
-      allowed_origins: origins.value.split(/[,，\s]+/).filter(Boolean),
-      approvals: approvals.map((row) => row.firstChild).filter((box) => box.checked).map((box) => box.value),
     } }), save);
     if (done) { await refreshShell(); closeOverlay(); toast('已保存'); go('cases'); }
   });
 
-  const secretRows = project.missing_secrets.map((secret) => {
-    const input = h('input', { class: 'input', type: 'password', placeholder: '输入后保存', autocomplete: 'off', 'aria-label': secret });
+  const secretRows = Object.entries(project.credentials || {}).map(([secret, value]) => {
+    const input = h('input', { class: 'input', type: 'text', value: value || '', placeholder: '还没有填写', autocomplete: 'off', 'aria-label': secret });
     const button = h('button', { class: 'btn' }, '保存');
     const row = h('div', { class: 'row' }, h('span', { class: 'mono', style: 'min-width:150px' }, secret), input, button);
     button.addEventListener('click', async () => {
       const done = await attempt(() => api('/secrets/' + secret, { method: 'PUT', body: { value: input.value } }), button);
-      if (done) { replace(row, h('span', { class: 'mono', style: 'min-width:150px' }, secret), statusPill('Pass', '已保存到本机')); refreshShell(); }
+      if (done) { toast(`${secret} 已保存`); refreshShell(); }
     });
     return row;
   });
@@ -220,16 +221,10 @@ async function projectSettings(projectId) {
         h('p', { class: 'sub' }, project.login.ui_case || project.login.api_case
           ? `登录用例：${[project.login.ui_case, project.login.api_case].filter(Boolean).join('、')}。运行依赖登录的用例时会自动先登录，并在本机复用登录态。`
           : '还没有登录用例。让 AI 用 autoskill record start … --as-login 录制一次登录即可。'),
-        session.saved && h('div', { class: 'row' }, h('span', { class: 'sub grow' }, `登录态保存于 ${fmtTime(session.saved_at)}（已加密，仅本机可用）`), forget)),
+        session.saved && h('div', { class: 'row' }, h('span', { class: 'sub grow' }, `登录态保存于 ${fmtTime(session.saved_at)}（只保存在本机）`), forget)),
       h('div', { class: 'stack' }, h('h3', {}, '凭据'),
-        secretRows.length ? secretRows : h('p', { class: 'sub' }, '用例需要的凭据都已保存在本机。'),
-        h('p', { class: 'hint sub' }, '凭据加密保存在本机，只能写入、不能查看，不会进入用例、报告或分享包。')),
-      h('details', { class: 'more' }, h('summary', {}, '访问范围与高风险操作'),
-        h('div', { class: 'stack', style: 'margin-top:12px' },
-          h('div', { class: 'field' }, h('label', { for: 'ps-origins' }, '额外允许访问的地址'), origins,
-            h('span', { class: 'hint' }, `始终允许：${project.base_url}。页面用到其他内网服务（如统一登录）时在这里添加。`)),
-          h('div', { class: 'field' }, h('span', { class: 'label' }, '允许用例执行的操作'), approvals,
-            h('span', { class: 'hint' }, '未勾选的操作类型，相关用例会被阻塞而不是执行。')))),
+        secretRows.length ? secretRows : h('p', { class: 'sub' }, '这个项目的用例没有用到账号密码。'),
+        h('p', { class: 'hint sub' }, '明文保存在本机 workspace/.local/credentials.json，可以直接查看和修改；不随分享包带走。')),
       h('details', { class: 'more' }, h('summary', {}, '导出'),
         h('div', { class: 'row wrap', style: 'margin-top:12px' },
           h('a', { class: 'btn', href: `/api/projects/${projectId}/report`, download: '' }, icon('table'), 'Excel 测试报告'),

@@ -34,7 +34,7 @@ def ui_case(case_id: str, title: str, automation: dict, *, module: str = "", ris
 
 
 def api_case(case_id: str, title: str, method: str, path: str, assertions: dict, *, module: str = "",
-             headers: dict | None = None, params: dict | None = None, json: object = None,
+             headers: dict | None = None, params: dict | None = None, json: object = None, form: dict | None = None,
              extract: dict | None = None, depends_on: list[str] | None = None, category: str = "",
              source: str = "autoskill record", api_source: str = "browser", risk: str | None = None,
              tags: list[str] | None = None, traffic: str = "business") -> dict:
@@ -49,6 +49,8 @@ def api_case(case_id: str, title: str, method: str, path: str, assertions: dict,
         case["params"] = params
     if json is not None:
         case["json"] = json
+    if form:
+        case["form"] = form  # an ordinary form post (application/x-www-form-urlencoded)
     if extract:
         case["extensions"]["extract"] = extract
     case["extensions"]["traffic"] = traffic  # business | resource (page and static files)

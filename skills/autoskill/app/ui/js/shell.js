@@ -15,7 +15,7 @@ export async function refreshShell() {
     const [projects, status, active] = await Promise.all([
       api('/projects'), api('/status'), api('/runs?limit=1&status=active'),
     ]);
-    state.projects = projects.filter((p) => !p.broken);
+    state.projects = projects.filter((p) => !p.broken && p.cases && p.cases.total);  // a project without cases is not shown
     state.status = status;
     state.active = active.total;
     state.online = true;

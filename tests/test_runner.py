@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
+__import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
 from autoskill import db, demo, paths, projects, runner, secrets, sessions  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("ticket_desk", ROOT / "skills/autoskill/examples/ticket-desk/server.py")
@@ -111,16 +112,19 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual((rows[0]["status"], rows[0]["category"]), ("Blocked", "missing_secret"))
         self.assertIn("TD_PASSWORD", rows[0]["reason"])
 
-    def test_nothing_secret_is_stored_in_readable_form(self):
-        self.run_cases("TC-UI-002", "TC-API-004")
-        local = paths.local()
+    def test_credentials_are_plain_on_this_machine_and_stay_out_of_the_shareable_project(self):
+        self.run_cases("TC-API-004")
         token = sessions.load(PID)["variables"]["token"]
         self.assertGreater(len(token), 20)
-        for file in local.rglob("*"):
-            if file.is_file() and file.suffix in (".json", ".db", ".db-wal"):
+        stored = json.loads((paths.local() / "credentials.json").read_text(encoding="utf-8"))
+        self.assertEqual(stored["TD_PASSWORD"], "Passw0rd!demo")  # readable and editable, as project settings show it
+        for file in projects.path(PID).rglob("*"):  # what a share pack carries: names only
+            if file.is_file():
                 data = file.read_bytes()
                 self.assertNotIn(token.encode(), data, file.name)
                 self.assertNotIn(b"Passw0rd!demo", data, file.name)
+        for file in paths.local().rglob("*.db*"):  # run history never holds them either
+            self.assertNotIn(b"Passw0rd!demo", file.read_bytes(), file.name)
 
     def test_dependency_cycles_and_unknown_cases_are_rejected(self):
         cases = {c["id"]: c for c in projects.cases(PID)}

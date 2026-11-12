@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
+__import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
 import jsonschema  # noqa: E402
 
 from autoskill import projects, secrets  # noqa: E402
@@ -137,20 +138,16 @@ class CompileTests(unittest.TestCase):
         self.assertEqual(created["assertions"]["json_equals"], {"/name": "新的", "/status": "open"})
         self.assertEqual(created["risk"], "write")
 
-    def test_a_page_without_api_calls_gets_resource_checks_labelled_as_such(self):
+    def test_a_page_without_api_calls_gets_no_api_cases(self):
         traffic = {"log": {"entries": [
             entry("GET", "/", 200, kind="document", mime="text/html", text="<html><title>纯前端页面</title></html>"),
             entry("GET", "/app.js", 200, kind="script", mime="text/javascript", text="console.log(1)"),
             entry("GET", "/missing.css", 404, kind="stylesheet", mime="text/css", text=""),
         ]}}
         summary = compiler.build(self.pid, self.rec(), traffic, None, "纯页面")
-        self.assertEqual(summary["api_traffic"], "resource")
-        self.assertTrue(any("不是业务接口测试" in note for note in summary["notes"]))
-        made = [c for c in projects.cases(self.pid) if c["kind"] == "api"]
-        self.assertEqual(sorted(c["path"] for c in made), ["/", "/app.js"])  # the 404 is not turned into a passing check
-        self.assertTrue(all(c["extensions"]["traffic"] == "resource" for c in made))
-        page = next(c for c in made if c["path"] == "/")
-        self.assertEqual(page["assertions"]["body_contains"], ["<title>纯前端页面</title>"])
+        # the page case proves the page loads; a plain HTTP request for it is what anti-bot gateways answer with 202
+        self.assertEqual((summary["api_traffic"], summary["api_cases"]), ("none", []))
+        self.assertFalse([c for c in projects.cases(self.pid) if c["kind"] == "api"])
 
     def test_static_data_files_are_not_called_business_apis(self):
         catalogue = {f"k{i}": {"name": str(i)} if i % 2 else {} for i in range(30)}

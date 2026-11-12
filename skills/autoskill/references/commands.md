@@ -9,7 +9,8 @@
 | `project create --name 名称 --url 地址 [--category 分类] [--id 标识]` | 新建项目。地址用于确定起始页面；不限制后续访问站点；标识默认由名称或主机名生成 |
 | `project list` | 全部项目及用例数、缺少的凭据 |
 | `project show <项目>` | 单个项目的设置 |
-| `project update <项目> [--name] [--category] [--allow-origin 地址]… [--approve 操作]… [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置。`--allow-origin` 仅兼容旧配置，不再限制网络。`--approve` 可取 `write` `delete` `payment` `refund` `message`，给出的列表会替换原有列表（默认只有 `write`） |
+| `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
+| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表（Excel，位于同级的 `autoskill-cases` 用例 Skill）：生成、读取、记录结果、把回放结果写回 |
 | `context <项目>` | 登录方式、已保存的登录态、缺少的凭据、用例清单、知识库、建议的下一步 |
 | `cases <项目>` | 用例清单 |
 
@@ -17,7 +18,7 @@
 
 | 命令 | 说明 |
 | --- | --- |
-| `secret set 名称 [值]` | 保存凭据到本机（Windows 用户级加密）。省略值时从标准输入读一行 |
+| `secret set 名称 [值]` | 保存凭据到本机（明文，`workspace/.local/credentials.json`，项目设置里可直接查看和修改）。省略值时从标准输入读一行 |
 | `secret list` / `secret delete 名称` | 只列名称，不显示值 |
 | `login <项目> [--force]` | 执行登录用例并保存登录态；`--force` 忽略已保存的登录态 |
 
@@ -72,7 +73,7 @@
 
 `run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api]`
 
-- 浏览器默认在后台运行、不显示窗口；加 `--headed` 显示窗口并在每步之间稍作停顿（`record start`、`login` 同样支持；`dashboard --headed` 让从仪表盘发起的回放都显示窗口）。
+- 浏览器默认显示最大化的窗口（没有窗口时页面为 1920×1080）；加 `--headless` 在后台运行（`record start`、`run`、`login`、`dashboard` 都支持，也可设置环境变量 `AUTOSKILL_HEADED=0`）。
 - 前置用例自动先执行且每次运行只执行一次；前置没通过时，依赖它的用例记为阻塞。
 - 登录用例：有保存的登录态且仍有效就直接复用，否则重新登录；回放中途发现登录过期会重新登录一次，只读用例自动重试，写操作不自动重发。
 - 没有前置的接口用例不带任何登录信息发送（用来验证「未登录被拒绝」）。

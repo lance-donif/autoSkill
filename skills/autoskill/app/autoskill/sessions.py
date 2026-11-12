@@ -1,6 +1,6 @@
 """Saved login state per project: browser cookies/storage and API variables.
 
-Kept in workspace/.local, encrypted for the current Windows user, never shared.
+Kept as plain JSON in workspace/.local, never shared.
 """
 from __future__ import annotations
 
@@ -21,7 +21,8 @@ def load(project_id: str) -> dict:
     if not file.is_file():
         return {}
     try:
-        return json.loads(secrets.unseal(json.loads(file.read_text(encoding="utf-8"))["sealed"]))
+        data = json.loads(file.read_text(encoding="utf-8"))
+        return json.loads(secrets.unseal(data["sealed"])) if "sealed" in data else data  # older versions sealed it
     except (ValueError, KeyError, OSError):
         return {}  # unreadable on this machine or by this user: treat as logged out
 
@@ -33,8 +34,7 @@ def save(project_id: str, ui: dict | None = None, variables: dict | None = None)
     if variables is not None:
         current["variables"] = {**current.get("variables", {}), **variables}
     current["saved_at"] = db.now()
-    sealed = secrets.seal(json.dumps(current, ensure_ascii=False))
-    _file(project_id).write_text(json.dumps({"sealed": sealed}), encoding="utf-8")
+    _file(project_id).write_text(json.dumps(current, ensure_ascii=False), encoding="utf-8")
 
 
 def clear(project_id: str) -> bool:

@@ -1,9 +1,11 @@
 """One recording at a time: every browser action an agent takes becomes a replayable step."""
 from __future__ import annotations
 
+import base64
 import json
 import re
 import time
+import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -40,7 +42,9 @@ def _file() -> Path:
 def current(required: bool = True) -> dict | None:
     file = _file()
     if file.is_file():
-        return json.loads(file.read_text(encoding="utf-8"))
+        rec = json.loads(file.read_text(encoding="utf-8"))
+        ir.set_rand(rec.get("rand", ""))
+        return rec
     if required:
         raise RecordError("当前没有进行中的录制；先运行 autoskill record start <项目>")
     return None
@@ -272,9 +276,9 @@ def _secret_value(rec: dict, text: str, is_secret_field: bool) -> tuple[str, str
     """Return (text to type, text to record). Secrets are recorded as ${ENV:NAME} only."""
     if secrets.references(text):
         rec["secrets"] = sorted({*rec["secrets"], *secrets.references(text)})
-        return secrets.resolve(text), text
+        return secrets.resolve(ir.expand(text)), text
     if not is_secret_field:
-        return text, text
+        return ir.expand(text), text  # {{RAND}} is typed as this recording's value and recorded as written
     base = rec["project_id"].upper().replace("-", "_") + "_PASSWORD"
     name, n = base, 2
     while secrets.get_secret(name) not in (None, text):
@@ -304,6 +308,33 @@ class PageProbe:
 
     def title(self) -> str:
         return (agent.call(session_name(), ["get", "title"]) or {}).get("title", "")
+
+
+def _fit_window() -> None:
+    """Make the page fill the maximised window (or a full-size screen when no window is shown)."""
+    try:
+        size = [1920, 1080]
+        if paths.headed():
+            got = (agent.call(session_name(), ["eval", "--stdin"],
+                              stdin_text="JSON.stringify([outerWidth, outerHeight, innerWidth, innerHeight])") or {}).get("result")
+            outer_w, outer_h, inner_w, _ = json.loads(got)
+            if outer_w - inner_w < 100:
+                return  # the page already fills the window
+            size = [outer_w - 16, outer_h - 140]
+        agent.call(session_name(), ["set", "viewport", str(size[0]), str(size[1])], check=False)
+    except (agent.AgentError, ValueError, TypeError):
+        pass  # a smaller page is an inconvenience, not a reason to stop
+
+
+def _element_png(locator: dict) -> bytes:
+    """The pixels of an image or canvas as shown, without requesting it again (that would draw a new captcha)."""
+    script = ("(() => { const el = (" + DOM_JS + ")().find(" + json.dumps(locator, ensure_ascii=False) + ")[" + str(locator.get("nth", 0)) + "];"
+              "const c = document.createElement('canvas'); c.width = el.naturalWidth || el.width; c.height = el.naturalHeight || el.height;"
+              "c.getContext('2d').drawImage(el, 0, 0, c.width, c.height); return c.toDataURL('image/png'); })()")
+    result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script, check=False) or {}).get("result")
+    if isinstance(result, str) and result.startswith("data:image/png;base64,"):
+        return base64.b64decode(result.split(",", 1)[1])
+    raise RecordError("读不到验证码图片的像素（目标不是图片或画布，或图片来自其他站点）；这一次请用户手动输入验证码")
 
 
 def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
@@ -337,6 +368,7 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         except agent.AgentError as error:
             agent.call(session_name(), ["close"], check=False, timeout=30)
             raise RecordError(agent.launch_problem(error)) from None
+        _fit_window()
         agent.call(session_name(), ["network", "har", "start"])
         try:
             page = _open(start_url, float(config.get("page_load_seconds", 90)))
@@ -347,7 +379,9 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         if state_file:
             state_file.unlink(missing_ok=True)
     rec = {"project_id": project_id, "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
-           "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login}
+           "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
+           "rand": uuid.uuid4().hex[:6]}
+    ir.set_rand(rec["rand"])
     _observe_tabs(rec)
     tree = _settled_snapshot(rec)
     _save(rec)
@@ -442,7 +476,7 @@ def browser(argv: list[str]) -> dict:
         return {"element": found.get("tag"), "role": found.get("role"), "name": found.get("name"),
                 "locators": [ir.describe_locator(loc) for loc in found["locators"]],
                 "use_as_target": [_as_target(loc) for loc in found["locators"]]}
-    if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview"):
+    if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview", "dialog"):
         result = agent.call(session_name(), argv)
         if command == "wait" and rest and rest[0].isdigit():
             result = {"waited_ms": int(rest[0])}
@@ -466,6 +500,15 @@ def browser(argv: list[str]) -> dict:
         step = {"action": "press", "key": rest[0]}
         if focused and focused.get("locators"):
             step["locators"] = focused["locators"]
+    elif command == "captcha":
+        if len(rest) < 2:
+            raise RecordError("captcha 需要两个目标：验证码图片和输入框，例如 autoskill browser captcha @e4 @e5")
+        from .. import captcha
+
+        picture, field = _target(rec, rest[0], rich=True), _target(rec, rest[1])
+        recognized = captcha.solve(_element_png(picture["locators"][0]))
+        early_change = _act(rec, ["fill", rest[1], recognized])
+        step = {"action": "captcha", "locators": field["locators"], "image": picture["locators"]}
     elif command in TARGETED:
         if not rest:
             raise RecordError(f"{command} 需要目标，例如 @e3")
@@ -486,7 +529,7 @@ def browser(argv: list[str]) -> dict:
             send = [command, rest[0], typed]
         early_change = _act(rec, send)
     else:
-        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe tab click dblclick hover fill type select check uncheck press reload get is wait")
+        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe tab click dblclick hover fill type select check uncheck press reload captcha dialog get is wait")
     change = _observe_tabs(rec, settle=0.6 if command in ("click", "dblclick", "press") else 0)
     if early_change:
         change = {"opened": early_change["opened"] + (change or {}).get("opened", []),
@@ -497,6 +540,8 @@ def browser(argv: list[str]) -> dict:
         if change.get("opened"):
             _wait_ready(float(config.get("page_load_seconds", 90)))
     result = _record(rec, step)
+    if command == "captcha":
+        result["recognized"] = recognized
     result["snapshot"] = snapshot(rec)
     _save(rec)
     return _after(rec, result)
@@ -517,7 +562,7 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     if needs_target:
         if not target:
             raise RecordError(f"{kind} 断言需要目标，例如 @e5、testid=toast 或 CSS 选择器")
-        if kind == "count":
+        if kind in ("count", "min_count"):
             step["locators"] = [_spec(rec, target, rich=True).get("locator") or {"by": "css", "value": target}]
         else:
             found = _target(rec, target, rich=True)["locators"]
@@ -531,7 +576,7 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     if "expected" in required:
         if expected is None:
             raise RecordError(f"{kind} 断言需要期望值")
-        step["expected"] = int(expected) if kind == "count" and expected.isdigit() else expected
+        step["expected"] = int(expected) if kind in ("count", "min_count") and expected.isdigit() else expected
     elif kind == "checked" and expected is not None:
         step["expected"] = expected.lower() not in ("false", "0", "no")
     if kind == "attribute":
@@ -545,7 +590,7 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     return {**_record(rec, step), "actual": outcome["actual"]}
 
 
-def stop(title: str, module: str = "", category: str = "") -> dict:
+def stop(title: str, module: str = "", category: str = "", plan_case: str | None = None) -> dict:
     """Finish the recording: export traffic, close the browser, compile and save the cases."""
     from . import compile as compiler
 
@@ -568,4 +613,8 @@ def stop(title: str, module: str = "", category: str = "") -> dict:
     summary = compiler.build(rec["project_id"], rec, har, state, title.strip(), module, category)
     _file().unlink(missing_ok=True)
     summary["project"] = rec["project_id"]
+    if plan_case:  # this recording carried out a row of the case sheet: its replay result becomes that row's verdict
+        from .. import plan
+
+        summary["plan"] = plan.link(plan_case, rec["project_id"], summary["ui_case"]["id"], summary["ui_case"]["assertions"])
     return summary

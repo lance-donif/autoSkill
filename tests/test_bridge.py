@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
+__import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
 from fastapi.testclient import TestClient  # noqa: E402
 
 from autoskill import paths  # noqa: E402

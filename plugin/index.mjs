@@ -19,7 +19,17 @@ export function findSkillDir(root = PACKAGE_ROOT) {
 }
 export const SKILL_DIR = findSkillDir();
 
+/** autoSkill itself, plus the swappable case skill (always the sibling folder `autoskill-cases`) when one exists. */
 export async function bundledSkills(skillDir = SKILL_DIR) {
+  const skills = [await readSkill(skillDir, true)];
+  const cases = join(dirname(skillDir), 'autoskill-cases');
+  if (existsSync(join(cases, 'SKILL.md'))) {
+    try { skills.push(await readSkill(cases, false)); } catch { /* a hand-made case skill must not stop the plugin */ }
+  }
+  return skills;
+}
+
+async function readSkill(skillDir, entry) {
   const path = join(skillDir, 'SKILL.md');
   const text = await readFile(path, 'utf8');
   const split = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -32,11 +42,13 @@ export async function bundledSkills(skillDir = SKILL_DIR) {
   const id = field('name');
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('Invalid Skill id');
   // The agent has to know where the entry point is; the skill text itself only says "this folder".
-  const where = `> 本技能目录：\`${dirname(path)}\`。下文的 \`autoskill\` 指这个目录里的 \`autoskill.cmd\`（PowerShell / cmd）或 \`autoskill\`（Linux / UOS / Git Bash）。
+  const where = !entry ? `> 本用例目录：\`${dirname(path)}\`。
+
+` : `> 本技能目录：\`${dirname(path)}\`。下文的 \`autoskill\` 指这个目录里的 \`autoskill.cmd\`（PowerShell / cmd）或 \`autoskill\`（Linux / UOS / Git Bash）。
 
 `;
-  return [{ name: id, description: field('description'), content: where + split[2], source: 'bundled', path,
-    resourceBase: { kind: 'directory', path: dirname(path) } }];
+  return { name: id, description: field('description'), content: where + split[2], source: 'bundled', path,
+    resourceBase: { kind: 'directory', path: dirname(path) } };
 }
 
 /** Native bundled Python or an explicitly provisioned source venv; never download at startup. */

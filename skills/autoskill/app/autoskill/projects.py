@@ -11,9 +11,7 @@ from .core import store
 from .replay import ir
 
 ID = re.compile(r"[a-z0-9][a-z0-9-]{0,47}")
-# Creating and editing test data is what a test run does; destructive or external effects need opting in.
-DEFAULT_APPROVALS = ["write"]
-RISKS = {"write": "写入数据", "delete": "删除数据", "payment": "支付", "refund": "退款", "message": "发送消息"}
+
 
 
 def path(project_id: str) -> Path:
@@ -38,6 +36,24 @@ def slug(name: str, base_url: str = "") -> str:
     return candidate
 
 
+def site_of(url: str) -> str:
+    from urllib.parse import urlsplit
+
+    return (urlsplit(url).netloc or "").lower().removeprefix("www.")
+
+
+def same_site(url: str) -> str | None:
+    """The project that already covers this site (host and port, with or without www); the one with most cases wins."""
+    found = []
+    for folder in sorted(paths.projects_dir().iterdir()):
+        try:
+            if ID.fullmatch(folder.name) and site_of(store.read(folder / "qa-config.json").get("base_url", "")) == site_of(url):
+                found.append((len(cases(folder.name)), folder.name))
+        except (OSError, ValueError, KeyError):
+            continue
+    return max(found)[1] if found else None
+
+
 def create(name: str, base_url: str, category: str = "", project_id: str | None = None) -> dict:
     """Create a project. Naming the address to test is what authorises that address."""
     name = (name or "").strip()
@@ -46,6 +62,10 @@ def create(name: str, base_url: str, category: str = "", project_id: str | None 
     origin = ir.origin_of(base_url or "")
     if not origin.startswith(("http://", "https://")) or origin.endswith("://"):
         raise ValueError("目标地址需要是完整网址，例如 http://10.0.0.8:8080")
+    if project_id is None:
+        existing = same_site(origin)
+        if existing:  # one site is one project; its areas are sub-projects (the module of each case)
+            return {**get(existing), "reused": True}
     project_id = project_id or slug(name, base_url)
     if not ID.fullmatch(project_id):
         raise ValueError("项目标识只能使用小写字母、数字和短横线")
@@ -58,8 +78,7 @@ def create(name: str, base_url: str, category: str = "", project_id: str | None 
         meta.update(id=project_id, name=name, category=category.strip(), start_url=base_url)
         store.write(folder / "project.json", meta)
         config = store.read(folder / "qa-config.json")
-        config.update(mode="auto", execution_authorized=True, base_url=origin, allowed_origins=[origin],
-                      approvals=list(DEFAULT_APPROVALS))
+        config.update(mode="auto", execution_authorized=True, base_url=origin, allowed_origins=[origin])
         store.write(folder / "qa-config.json", config)
         store.write(folder / "auth.json", {})
         for junk in ("staging", "testcase-skill", "execution", "output", "input", "versions"):
@@ -107,11 +126,7 @@ def update(project_id: str, **fields) -> dict:
                 raise ValueError(f"「{item}」不是完整网址")
             origins.append(origin)
         cfg["allowed_origins"] = sorted({cfg["base_url"], *origins})
-    if fields.get("approvals") is not None:
-        unknown = set(fields["approvals"]) - set(RISKS)
-        if unknown:
-            raise ValueError("不认识的操作类型：" + "、".join(sorted(unknown)))
-        cfg["approvals"] = sorted(set(fields["approvals"]))
+
     if fields.get("ignore_https_errors") is not None:
         cfg["ignore_https_errors"] = bool(fields["ignore_https_errors"])
     if fields.get("page_load_seconds") is not None:
@@ -143,10 +158,15 @@ def depends_on(item: dict) -> list[str]:
 
 def missing_secrets(project_id: str) -> list[str]:
     """Secret names the project's cases refer to that this machine does not have yet."""
+    return [name for name, value in credentials(project_id).items() if value is None]
+
+
+def credentials(project_id: str) -> dict:
+    """Every credential the project's cases refer to, with the value stored on this machine (None when not set)."""
     wanted = set()
     for item in cases(project_id):
         wanted |= secrets.references(item)
-    return sorted(name for name in wanted if secrets.get_secret(name) is None)
+    return {name: secrets.get_secret(name) for name in sorted(wanted)}
 
 
 def reindex(project_id: str) -> None:
@@ -182,17 +202,17 @@ def reindex(project_id: str) -> None:
 
 def get(project_id: str) -> dict:
     info, cfg, login = meta(project_id), config(project_id), auth(project_id)
-    active = cases(project_id)
+    active, known = cases(project_id), credentials(project_id)
     return {
         "id": project_id, "name": info.get("name") or project_id, "category": info.get("category", ""),
         "base_url": cfg.get("base_url", ""), "start_url": info.get("start_url") or cfg.get("base_url", ""),
-        "allowed_origins": cfg.get("allowed_origins", []), "approvals": cfg.get("approvals", []),
+        "allowed_origins": cfg.get("allowed_origins", []),
         "timeout_seconds": cfg.get("timeout_seconds", 20), "page_load_seconds": cfg.get("page_load_seconds", 90),
         "ignore_https_errors": bool(cfg.get("ignore_https_errors")),
         "cases": {"total": len(active), "ui": sum(c["kind"] == "ui" for c in active),
                   "api": sum(c["kind"] == "api" for c in active)},
         "login": {"ui_case": login.get("ui_case"), "api_case": login.get("api_case")},
-        "missing_secrets": missing_secrets(project_id),
+        "missing_secrets": [name for name, value in known.items() if value is None],
     }
 
 

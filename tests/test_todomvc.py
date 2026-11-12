@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "skills/autoskill/examples/todomvc-site"
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
+__import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
 from autoskill.replay import ir  # noqa: E402
 
 

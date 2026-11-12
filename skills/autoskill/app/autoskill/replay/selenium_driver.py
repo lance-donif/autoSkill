@@ -48,7 +48,8 @@ class SeleniumDriver:
         options.binary_location = chrome
         options.page_load_strategy = "eager"
         _bypass_proxy_for_loopback()
-        for arg in [*paths.QUIET_CHROME_ARGS, "--window-size=1366,860"]:
+        options.set_capability("unhandledPromptBehavior", "accept")  # confirm() before a delete must not cancel it
+        for arg in [*paths.QUIET_CHROME_ARGS, "--window-size=1920,1080" if headless else "--start-maximized"]:
             options.add_argument(arg)
         if headless:
             options.add_argument("--headless=new")
@@ -159,6 +160,10 @@ class SeleniumDriver:
         if what == "attribute":
             return node.get_dom_attribute(arg)
         return self.wd.execute_script("return arguments[0].innerText ?? arguments[0].textContent ?? '';", node)
+
+    def image(self, locator: dict) -> bytes:
+        """The element as the user sees it (PNG), for reading a captcha."""
+        return self._one(locator).screenshot_as_png
 
     def _insert(self, node, text: str, replace: bool) -> None:
         """Type text; `replace` first selects whatever the field already holds."""

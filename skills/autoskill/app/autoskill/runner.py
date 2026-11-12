@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+import uuid
 from pathlib import Path
 
 from . import db, paths, projects, sessions
@@ -19,7 +20,7 @@ ENGINES = ("playwright", "selenium")
 
 def create(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
            trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
-           headed: bool = False) -> dict:
+           headed: bool | None = None) -> dict:
     """Validate the request and queue a run."""
     if engine not in ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
@@ -39,7 +40,7 @@ def create(project_id: str, case_ids: list[str] | None = None, engine: str = "pl
         raise ValueError("项目里还没有可回放的用例；先录制一条")
     run = {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
            "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
-           "total": len(chosen), "created_at": db.now(), "headed": int((bool(headed) or paths.headed()) and trigger != "schedule")}  # schedules never open windows
+           "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed))}
     db.insert("runs", run)
     return run
 
@@ -112,7 +113,9 @@ class Session:
         self.auth = projects.auth(self.pid)
         self.force_login = force_login
         self.saved = sessions.load(self.pid)
-        self.variables: dict = {}
+        self.rand = uuid.uuid4().hex[:6]  # {{RAND}}: new on every run, so data a case creates never collides with earlier runs
+        self.count = 0
+        self.variables: dict = {"RAND": self.rand}
         self.driver = None
         self.driver_error = ""
         self.client = api.new_client(self.config, self.saved.get("ui"))
@@ -146,6 +149,16 @@ class Session:
     def shot(self, case_id: str) -> str:
         return re.sub(r"[^A-Za-z0-9_.-]", "_", case_id) + ".png"
 
+    def replay(self, case: dict, state: dict | None = None) -> dict:
+        """Replay one UI case in a clean context. A misread captcha is not a defect: try again with a fresh image."""
+        actions = case["extensions"]["automation"].get("actions", [])
+        for _ in range(3 if any(step.get("action") == "captcha" for step in actions) else 1):
+            self.driver.reset(state)
+            outcome = ui.run_case(self.driver, case, self.config, evidence_dir(self.run["id"]), self.shot(case["id"]))
+            if outcome["status"] != "Fail":
+                break
+        return outcome
+
     # --- login -------------------------------------------------------
     def ui_login(self, case: dict, force: bool) -> dict:
         driver = self.browser()
@@ -163,8 +176,7 @@ class Session:
                             "steps": [], "screenshots": [], "duration_ms": 0, "reused": True}
             except Exception:
                 pass
-        driver.reset()
-        outcome = ui.run_case(driver, case, self.config, evidence_dir(self.run["id"]), self.shot(case["id"]))
+        outcome = self.replay(case)
         if outcome["status"] == "Pass":
             self.saved["ui"] = driver.storage_state()
             sessions.save(self.pid, ui=self.saved["ui"])
@@ -200,6 +212,8 @@ class Session:
     # --- one case ----------------------------------------------------
     def run_one(self, case: dict) -> dict:
         case_id = case["id"]
+        self.count += 1
+        ir.set_rand(f"{self.rand}{self.count}")  # page cases each get their own value; API cases share the run's
         if case["kind"] == "api":
             self.state_variables()
             if case_id == self.auth.get("api_case"):
@@ -222,8 +236,6 @@ class Session:
                 self.relogged = True
                 if self.api_login(login, force=True)["status"] != "Pass":
                     return blocked("登录已过期，重新登录没有成功", "session_expired")
-                if api.effective_risk(case) != "read":
-                    return blocked("登录已过期，已重新登录；写操作不会自动重发，请重新运行", "session_expired")
                 outcome = api.run_case(self.client, case, self.config, self.variables)
                 outcome["relogin"] = True
             return outcome
@@ -234,17 +246,12 @@ class Session:
             return blocked(self.driver_error, "environment")
         login = self.cases.get(self.auth.get("ui_case", ""))
         signed_in = bool(login) and needs(case_id, login["id"], self.cases)
-        driver.reset(self.saved.get("ui") if signed_in else None)
-        folder = evidence_dir(self.run["id"])
-        outcome = ui.run_case(driver, case, self.config, folder, self.shot(case_id))
+        outcome = self.replay(case, self.saved.get("ui") if signed_in else None)
         if outcome["status"] == "Fail" and signed_in and not self.relogged and not self.still_signed_in(login):
             self.relogged = True
             if self.ui_login(login, force=True)["status"] != "Pass":
                 return blocked("登录已过期，重新登录没有成功", "session_expired")
-            if case.get("risk", "read") != "read":
-                return blocked("登录已过期，已重新登录；写操作不会自动重发，请重新运行", "session_expired")
-            driver.reset(self.saved.get("ui"))
-            outcome = ui.run_case(driver, case, self.config, folder, self.shot(case_id))
+            outcome = self.replay(case, self.saved.get("ui"))
             outcome["relogin"] = True
         return outcome
 
@@ -279,8 +286,7 @@ def execute(run_id: str, force_login: bool = False) -> dict:
     if not run:
         raise ValueError(f"运行 {run_id} 不存在")
     chosen = json.loads(run["case_ids"])
-    if run.get("headed"):
-        os.environ["AUTOSKILL_HEADED"] = "1"  # this process runs one run only
+    os.environ["AUTOSKILL_HEADED"] = "1" if run.get("headed") else "0"  # the choice made when the run was queued
     db.update("runs", run_id, {"status": "Running", "started_at": db.now(), "pid": os.getpid()})
     counts = {"done": 0, "passed": 0, "failed": 0, "blocked": 0}
     final, reason, session = "Pass", "", None

@@ -10,6 +10,7 @@ import json
 import re
 
 from .. import builder, projects, secrets, sessions
+from ..replay import ir
 from . import har as harlib
 
 DROP_HEADERS = re.compile(
@@ -20,7 +21,6 @@ STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.I)
 LOGIN_PATH = re.compile(r"(login|signin|sign-in|auth|token|session)", re.I)
 CHANGING = {"fill", "type", "click", "dblclick", "press", "check", "uncheck", "select"}
 MAX_API_CASES = 30
-MAX_RESOURCE_CASES = 8
 
 
 def split_steps(steps: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -68,10 +68,17 @@ class Compiler:
             wanted |= secrets.references(case)
         self.secret_names = {secrets.get_secret(n): n for n in sorted(wanted) if secrets.get_secret(n)}
         self.next_number = int(projects.next_case_id(project_id, "api")[len("TC-API-"):])
+        self.rand = rec.get("rand") or ""
+
+    def template(self, value):
+        """Text this recording made unique becomes {{RAND}} again, so every replay creates its own data."""
+        return value.replace(self.rand, ir.RAND) if self.rand and isinstance(value, str) else value
 
     # --- values ------------------------------------------------------
-    def variable(self, value: str) -> tuple[str, str] | None:
+    def variable(self, value: str, key: str | None = None) -> tuple[str, str] | None:
         """(name, id of the case that provides it) when the value came from an earlier response."""
+        if len(value) < 4 and key is not None and not harlib.STRICT_ID.search(key):
+            return None  # a short number is an id only where the field says so: page=1 is not ticket 1
         hit = self.pool.get(value)
         if not hit:
             return None
@@ -106,13 +113,13 @@ class Compiler:
             return value
         if isinstance(value, str) and value in self.secret_names:
             return "${ENV:" + self.secret_names[value] + "}"
-        found = self.variable(str(value))
+        found = self.variable(str(value), key)
         if found:
             deps.add(found[1])
             return "{{" + found[0] + "}}"
         if isinstance(value, str) and harlib.SENSITIVE.search(key):
             return self.secret(value, key)
-        return value
+        return self.template(value)
 
     def credential(self, token: str, header: str, deps: set) -> str:
         """Where an auth token comes from at replay time: an earlier response, the login case, or the browser login."""
@@ -137,7 +144,7 @@ class Compiler:
         return self.secret(token, header)
 
     def signature(self, case: dict) -> str:
-        parts = [case["method"], case["path"], case.get("params", {}), case.get("json")]
+        parts = [case["method"], case["path"], case.get("params", {}), case.get("json"), case.get("form")]
         return json.dumps(parts, sort_keys=True, ensure_ascii=False)
 
     def add_business(self, entry: dict, module: str, existing: dict) -> str | None:
@@ -151,7 +158,7 @@ class Compiler:
             found = self.variable(segment) if segment else None
             if found:
                 deps.add(found[1])
-            segments.append("{{" + found[0] + "}}" if found else segment)
+            segments.append("{{" + found[0] + "}}" if found else self.template(segment))
         headers = {}
         for name, value in entry["headers"].items():
             if DROP_HEADERS.match(name):
@@ -164,6 +171,7 @@ class Compiler:
                 headers[shown] = self.scrub(value, name, deps)
         params = self.scrub(entry["params"], "", deps)
         body = self.scrub(entry["json"], "", deps) if entry["json"] is not None else None
+        form = self.scrub(entry["form"], "", deps) if entry.get("form") else None
         signed_in = "authorization" in entry["headers"] or "cookie" in entry["headers"]
         login_ids = {self.auth.get("api_case"), self.login_ui_case, getattr(self, "auth_provider", None)} - {None}
         if signed_in and not (deps & login_ids) and not self.rec.get("as_login"):
@@ -172,9 +180,9 @@ class Compiler:
                 deps.add(fallback)
         rules: dict = {"status": entry["status"]}
         if entry["response"] is not None:
-            fields = harlib.stable_fields(entry["response"], [entry["json"], entry["params"]])
+            fields = harlib.stable_fields(entry["response"], [entry["json"], entry["params"], entry.get("form")])
             if fields:
-                rules["json_equals"] = fields
+                rules["json_equals"] = {pointer: self.template(value) for pointer, value in fields.items()}
             schema = harlib.infer_schema(entry["response"])
             if schema.get("required") or schema.get("minProperties") or schema.get("type") == "array":
                 rules["schema"] = schema
@@ -187,7 +195,7 @@ class Compiler:
             self.notes.append(f'{entry["method"]} {entry["path"]}：响应里没有适合自动断言的稳定字段，只校验了状态码和大致结构；需要更强的校验请人工补充')
         case = builder.api_case(f"TC-API-{self.next_number:03d}", ("读取静态数据 " + entry["path"]) if static else title,
                                 entry["method"], "/".join(segments), rules, module="页面与资源" if static else module,
-                                headers=headers, params=params, json=body, depends_on=sorted(deps),
+                                headers=headers, params=params, json=body, form=form, depends_on=sorted(deps),
                                 traffic="static" if static else "business")
         signature = self.signature(case)
         if signature in {self.signature(c) for c in self.cases}:
@@ -203,24 +211,6 @@ class Compiler:
             self.pool.setdefault(str(value), (len(self.cases) - 1, pointer, key))
         return outcome
 
-    def add_resource(self, entry: dict, existing: dict) -> None:
-        """A page or static file request: real HTTP, replayable, but not a business API."""
-        if entry["method"] != "GET" or entry["status"] != 200 or not entry["mime"]:
-            return
-        rules: dict = {"status": 200, "header_contains": {"content-type": entry["mime"]}}
-        title = re.search(r"<title>([^<]{1,80})</title>", entry["text"] or "", re.I)
-        if title and entry["mime"] == "text/html":
-            rules["body_contains"] = [f"<title>{title[1]}</title>"]
-        case = builder.api_case(f"TC-API-{self.next_number:03d}", f'页面资源可访问 {entry["path"]}', "GET", entry["path"], rules,
-                                module="页面与资源", params=entry["params"], traffic="resource", tags=["resource"])
-        signature = self.signature(case)
-        if signature in {self.signature(c) for c in self.cases}:
-            return
-        if signature in existing:
-            self.cases.append(json.loads(json.dumps(existing[signature])))
-            return
-        self.next_number += 1
-        self.cases.append(case)
 
     def mark_login(self) -> None:
         """In a login recording, the request that returned the session token becomes the API login case."""
@@ -253,7 +243,7 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     captured, notes = harlib.entries(har, base)
     compiler.notes += notes
     existing = {compiler.signature(c): c for c in projects.cases(project_id) if c["kind"] == "api"}
-    business = [e for e in captured if e["business"]]
+    business = harlib.drop_typeahead([e for e in captured if e["business"]])
     counts = {"new": 0, "reused": 0}
     for entry in business[:MAX_API_CASES]:
         if rec.get("used_login") and not rec.get("as_login"):
@@ -267,12 +257,8 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     traffic = "business" if "business" in kinds else "static"
     if traffic == "static" and compiler.cases:
         compiler.notes.append("页面没有调用业务接口，只读取了静态数据文件；这些接口用例验证的是文件可访问且结构正常，不是业务接口测试")
-    if not compiler.cases:
-        traffic = "resource"
-        for entry in [e for e in captured if e["resource"]][:MAX_RESOURCE_CASES]:
-            compiler.add_resource(entry, existing)
-        if compiler.cases:
-            compiler.notes.append("这个页面没有调用业务接口；接口用例是「页面与静态资源可访问」检查，不是业务接口测试")
+    # Pages, scripts and styles get no API case: the page case already proves they load, and a plain HTTP
+    # client asking for them is what anti-bot gateways answer differently (200 in the browser, 202 outside).
     if rec.get("as_login"):
         compiler.auth["ui_case"] = ui_id
         compiler.mark_login()

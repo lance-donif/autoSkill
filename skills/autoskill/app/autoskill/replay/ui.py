@@ -19,7 +19,7 @@ LOCATOR, ASSERTION, TIMEOUT, BLOCKED_ORIGIN, ENVIRONMENT, SECRET = (
 )
 POLL = 0.1
 PRIMARY_GRACE = 1.5  # seconds the best locator gets before fallbacks are considered
-WATCH_PAUSE = 0.6  # seconds between steps when a person is watching the browser window
+WATCH_PAUSE = 0.3  # seconds between steps when a person is watching the browser window
 
 
 class StepError(Exception):
@@ -53,7 +53,7 @@ def _same(expected, actual) -> bool:
 
 def evaluate(driver, step: dict, locator) -> tuple[bool, object]:
     """One reading of an assertion: (passed, actual value)."""
-    op, expected = step["assertion"], step.get("expected")
+    op, expected = step["assertion"], ir.expand(step.get("expected"))
     if op == "url":
         return driver.url() == expected, driver.url()
     if op == "url_contains":
@@ -63,6 +63,8 @@ def evaluate(driver, step: dict, locator) -> tuple[bool, object]:
     count = driver.count(locator)
     if op == "count":
         return count == expected, count
+    if op == "min_count":
+        return count >= expected, count
     if op == "hidden":
         visible = count > locator.get("nth", 0) and driver.read(locator, "visible")
         return not visible, "可见" if visible else "不可见"
@@ -139,7 +141,12 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
     if op == "press":
         driver.press(locator, step["key"])
     elif op in ("fill", "type", "select"):
-        driver.act(locator, op, secrets.resolve(step["value"]))
+        driver.act(locator, op, secrets.resolve(ir.expand(step["value"])))
+    elif op == "captcha":
+        from .. import captcha
+
+        picture, _ = choose_locator(driver, {"locators": step["image"]}, timeout)
+        driver.act(locator, "fill", captcha.solve(driver.image(picture)))
     elif op in ("wait_visible", "wait_hidden"):
         wanted = op == "wait_visible"
         deadline = time.monotonic() + timeout

@@ -7,6 +7,7 @@ Redirects are never followed and nothing is retried.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 
@@ -17,7 +18,6 @@ from . import ir
 VAR = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
 SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session)", re.I)
 MAX_BODY = 64 * 1024
-RISK_NEEDS_APPROVAL = ("delete", "payment", "refund", "message")
 
 
 def fill(value, variables: dict):
@@ -52,25 +52,6 @@ def redact(value, key: str = ""):
         return "<已隐藏>"
     return value
 
-
-def effective_risk(case: dict) -> str:
-    risk = case.get("risk", "read")
-    if case.get("kind") == "api":
-        if case["method"] == "DELETE" and risk in ("read", "write"):
-            return "delete"
-        if case["method"] not in ("GET", "HEAD", "OPTIONS") and risk == "read":
-            return "write"
-    return risk
-
-
-def permitted(case: dict, config: dict) -> str | None:
-    """Return a reason when the project's settings do not allow this case to run."""
-    risk = effective_risk(case)
-    approvals = config.get("approvals", [])
-    if risk == "read" or risk in approvals:
-        return None
-    label = {"write": "写入数据", "delete": "删除数据", "payment": "支付", "refund": "退款", "message": "发送消息"}[risk]
-    return f"项目未允许「{label}」类操作；在项目设置中开启后再运行"
 
 
 def _body_preview(response) -> tuple[object, str]:
@@ -135,16 +116,20 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
 
     outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "assertions": [],
                "request": None, "response": None, "duration_ms": 0, "extracted": []}
+    variables.setdefault("RAND", os.urandom(3).hex())
     try:
-        if case.get("api_source") == "inferred":
-            raise ValueError("这是推测出来的接口，确认来源后才能执行")
-        denied = permitted(case, config)
-        if denied:
-            raise PermissionError(denied)
-        filled = fill({k: case[k] for k in ("path", "headers", "params", "json") if k in case}, variables)
+        filled = fill({k: case[k] for k in ("path", "headers", "params", "json", "form") if k in case}, variables)
         url = store.request_url(config, {"path": filled["path"]})
         ir.check_origin(url, list(config.get("allowed_origins", [])))
-        sent = secrets.resolve({k: filled[k] for k in ("headers", "params", "json") if k in filled})
+        sent = secrets.resolve({k: filled[k] for k in ("headers", "params", "json", "form") if k in filled})
+        if "form" in sent:
+            sent["data"] = sent.pop("form")
+        try:  # an expected value may name what this run created, for example "工单-{{RAND}}"
+            expected = fill(case["assertions"].get("json_equals", {}), variables)
+            if expected:
+                case = {**case, "assertions": {**case["assertions"], "json_equals": expected}}
+        except KeyError:
+            pass
     except KeyError as missing:
         outcome.update(reason=f"缺少变量 {{{{{missing.args[0]}}}}}：提供它的前置用例没有成功", category="missing_variable")
         return outcome
@@ -157,7 +142,8 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
 
     # what is stored and shown: the case as written (references intact), never resolved secrets
     outcome["request"] = {"method": case["method"], "url": url, "headers": redact(filled.get("headers", {})),
-                          "params": redact(filled.get("params", {})), "json": redact(filled.get("json"))}
+                          "params": redact(filled.get("params", {})), "json": redact(filled.get("json")),
+                          **({"form": redact(filled["form"])} if "form" in filled else {})}
     if case.get("extensions", {}).get("traffic") == "resource":
         sent["timeout"] = float(config.get("page_load_seconds", 90))  # a page's own files may be as slow as the page
     clock = time.monotonic()
