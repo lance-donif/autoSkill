@@ -50,11 +50,18 @@ class Site(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+class BrowserSiteServer(ThreadingHTTPServer):
+    # Chrome preconnects while closing/creating several contexts. Windows' small
+    # default accept backlog can reject those connections under CI load.
+    request_queue_size = 64
+    daemon_threads = True
+
+
 @unittest.skipUnless(paths.agent_browser() and paths.chrome() and paths.chromedriver(), 'complete browser runtime required')
 class TabsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = ThreadingHTTPServer(('127.0.0.1', 0), Site)
+        cls.server = BrowserSiteServer(('127.0.0.1', 0), Site)
         threading.Thread(target=cls.server.serve_forever, daemon=True).start()
         cls.base = f'http://127.0.0.1:{cls.server.server_port}'
 

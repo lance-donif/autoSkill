@@ -76,6 +76,10 @@ jobs:
           $env:AUTOSKILL_CHROMEDRIVER = Join-Path $vendor 'chromedriver/chromedriver-win64/chromedriver.exe'
           $env:AUTOSKILL_AGENT_BROWSER = Join-Path $vendor 'agent-browser/agent-browser.exe'
           python scripts/record-release-progress.py --stage testing
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            python -m unittest discover -s tests -p test_tabs.py -k simultaneous_popups -v 2>&1 | Tee-Object "$proof/popup-stress-$attempt.txt"
+            if ($LASTEXITCODE -ne 0) { throw 'Popup/export stress verification failed' }
+          }
           python -m unittest discover -s tests -p 'test_*.py' -v 2>&1 | Tee-Object "$proof/python-tests.txt"
           if ($LASTEXITCODE -ne 0) { throw 'Python regression failed' }
           node --test tests/plugin.test.mjs 2>&1 | Tee-Object "$proof/plugin-tests.txt"

@@ -237,7 +237,17 @@ def find(driver, css, nth=0):
         found[:] = driver.find_elements(By.CSS_SELECTOR, css)
         return len(found) > nth
 
-    wait_until(ready, "找不到元素 " + css)
+    try:
+        wait_until(ready, "找不到元素 " + css)
+    except AssertionError as error:
+        # Keep the actual page identity when a navigation or window selection failed.
+        try:
+            detail = ("；当前页面：" + Tabs.destination(driver.current_url)
+                      + "；标题：" + driver.title
+                      + "；加载状态：" + str(driver.execute_script("return document.readyState")))
+        except Exception as diagnostic:
+            detail = "；页面诊断不可用：" + type(diagnostic).__name__
+        raise AssertionError(str(error) + detail) from None
     return found[nth]
 
 

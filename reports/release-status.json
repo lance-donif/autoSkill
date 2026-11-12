@@ -1,8 +1,5 @@
 {
-  "tag": "v2.0.3",
-  "source_commit": "ec91e5f578cdcad80b32bfc541f7e4e6d9faa15a",
-  "status": "failed",
-  "run_id": "43218892167",
-  "recorded_at": "2026-11-12T12:43:56.129790+00:00",
-  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/43218892167"
+  "tag": "v2.0.4",
+  "status": "pending",
+  "note": "Windows retry: diagnose actual page on exported Selenium failure, increase fixture connection backlog, require three popup/export stress passes before full regression."
 }
