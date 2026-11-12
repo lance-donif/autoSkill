@@ -1,0 +1,74 @@
+{
+  "version": "v3-business-candidate",
+  "status": "ELIGIBLE_FOR_NEW_FULL_STRING_HOLDOUT",
+  "algorithm": "Unchanged frozen bright-only v2, a1>=128 after every v1 self-check; no other algorithm or parameter change.",
+  "function": "recover_bright_layers(png)",
+  "source_files": {
+    "color_layer_bright_v2.py": {
+      "path": "/workspace/autoSkill-release/captcha-color-research/color_layer_bright_v2.py",
+      "sha256": "1c4eac5345c5ff4f5c18a1be910404016edd0393cab956832e091264780483f8"
+    },
+    "color_layer_core.py": {
+      "path": "/workspace/autoSkill-release/captcha-color-research/color_layer_core.py",
+      "sha256": "96b863bf3ba95e7775654a92c9e65db8e9ed1483724b4544c66b053b06cbb8fe"
+    }
+  },
+  "base_model_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "learned_weights_modified": false,
+  "historical_decisions": {
+    "color_v1": "REJECTED_FIXED_COLOR_LAYER_GATE",
+    "bright_v2": "REJECTED_COUNTERFACTUAL_BRIGHT_ONLY_V2",
+    "old_CER_gate_passed": false,
+    "historical_results_rewritten": false,
+    "v1_record": "../color-layers-v1/freeze.json",
+    "v2_record": "../color-layers-v2/freeze.json",
+    "paired_statistics": "../color-layers-v2/paired-dev-statistics.json",
+    "paired_statistics_sha256": "a2b423b8c9deb5f9eae9a310e0570f7a03bde89f05f9ee08dc8d718825fc64c4"
+  },
+  "dev_description": {
+    "baseline_exact": 277,
+    "candidate_exact": 297,
+    "samples": 400,
+    "normal_prediction_changes": 0,
+    "newly_correct": 21,
+    "newly_wrong": 1,
+    "pale_first_exact": [
+      2,
+      18
+    ],
+    "overall_character_errors": [
+      161,
+      131
+    ],
+    "dark_first_character_errors": [
+      45,
+      47
+    ],
+    "dark_first_whole_string_exact": [
+      9,
+      9
+    ]
+  },
+  "prospective_business_acceptance": {
+    "all_blind_categories_exact_no_decrease": true,
+    "overall_blind_exact_strict_increase": true,
+    "ordinary_prediction_changes_max": 0,
+    "pale_first_exact_minimum_gain": 6,
+    "pale_first_samples": 240,
+    "overall_blind_CER_no_increase": true,
+    "per_category_CER": "Diagnostic, fully reported, not a hard gate.",
+    "each_external_source_exact_no_decrease": true,
+    "overall_external_CER_no_increase": true,
+    "new_empty_outputs_max": 0,
+    "new_exceptions_max": 0,
+    "dark_line_negative_controls": "Root/independent evaluator formal protocol before new-data generation."
+  },
+  "acceptance_protocol_owner": "Root and independent evaluator will freeze the final forward protocol before fresh blind4 data generation/prediction.",
+  "runtime_pipeline_freeze_pending": true,
+  "runtime_fallback": "Root-owned integration may retry original tensor only after restored empty output; must be formalized before blind4, not executed here.",
+  "prior_holdout_results_used_to_change_algorithm": false,
+  "old_test_public_or_blind_images_read_by_this_step": 0,
+  "new_model_runs_by_this_step": 0,
+  "product_code_modified_by_this_agent": false,
+  "derived_exclusion_sha256": "e01b72ce3f5e5aa480cfb5fd6593b93a6ed98bccb6d2905f5f50c617cbb30e15"
+}
