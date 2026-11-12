@@ -75,7 +75,12 @@ def names() -> list[str]:
 
 def get_secret(name: str) -> str | None:
     blob = _load().get(name)
-    return unseal(blob) if blob is not None else os.environ.get(name)
+    if blob is not None:
+        try:
+            return unseal(blob)
+        except (ValueError, OSError):
+            pass  # sealed by another Windows user or machine (a copied folder): treat as not set here
+    return os.environ.get(name)
 
 
 def references(value) -> set[str]:

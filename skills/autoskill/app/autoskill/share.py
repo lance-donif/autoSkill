@@ -100,6 +100,37 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
                      "分享包不含任何凭据、登录态和运行记录" + ("；对方首次使用时需要设置：" + "、".join(missing) if missing else ""))}
 
 
+def pack_full(out: str | None = None) -> dict:
+    """Zip the whole skill (runtime, projects, knowledge) so the receiver only has to unzip it.
+
+    Leaves out workspace/.local: secrets, saved logins, run history and screenshots stay on this machine.
+    """
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    target = Path(out) if out else paths.SKILL.parent / f"autoskill-full-{stamp}.zip"
+    if target.is_dir():
+        target = target / f"autoskill-full-{stamp}.zip"
+    if target.resolve().is_relative_to(paths.SKILL.resolve()):
+        raise ValueError("完整包不能输出到 Skill 目录内部，请用 --out 指定其他位置")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    private = (paths.workspace() / ".local").resolve()
+    count = 0
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+        for file in sorted(paths.SKILL.rglob("*")):
+            if not file.is_file() or "__pycache__" in file.parts or file.suffix in (".pyc", ".pyo"):
+                continue
+            resolved = file.resolve()
+            if resolved.is_relative_to(private) or (file.parent == paths.workspace() and file.suffix == ".zip"):
+                continue
+            archive.write(file, (Path("autoskill") / file.relative_to(paths.SKILL)).as_posix())
+            count += 1
+    listed = [{"id": p["id"], "name": p["name"], "cases": p["cases"]} for p in projects.list_all() if not p.get("broken")]
+    needed = sorted({name for p in listed for case in projects.cases(p["id"]) for name in secrets.references(case)})
+    return {"file": str(target), "bytes": target.stat().st_size, "files": count, "projects": listed,
+            "includes_runtime": paths.VENDOR.is_dir(), "secrets_not_included": needed,
+            "note": "对方解压后即可使用，不需要安装任何东西。凭据、登录态、运行记录没有打包"
+                    + ("；对方首次使用时需要设置：" + "、".join(needed) if needed else "")}
+
+
 # --- import ---
 def _safe_members(archive: zipfile.ZipFile) -> dict[str, list[zipfile.ZipInfo]]:
     """Group pack entries by project, refusing anything that could escape the project folder."""

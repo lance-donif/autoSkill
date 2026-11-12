@@ -208,6 +208,28 @@ class ShareTests(Workspace):
             finally:
                 os.environ["AUTOSKILL_WORKSPACE"] = self.tmp.name
 
+    def test_a_copied_folder_with_someone_elses_secret_store_still_works(self):
+        (paths.local() / "secrets.json").write_text(json.dumps({"TD_PASSWORD": "bm90LWEtZHBhcGktYmxvYg=="}), encoding="utf-8")
+        os.environ.pop("TD_PASSWORD", None)
+        listed = projects.list_all()
+        self.assertFalse(any(p.get("broken") for p in listed))  # unreadable secrets are "not set here", not a broken project
+        self.assertEqual(projects.get(PID)["missing_secrets"], ["TD_PASSWORD"])
+        secrets.set_secret("TD_PASSWORD", "Passw0rd!demo")
+        self.assertEqual(self.run_cases("TC-API-002")["status"], "Pass")
+
+    def test_full_pack_contains_the_skill_and_projects_but_nothing_private(self):
+        self.run_cases("TC-API-004")
+        with tempfile.TemporaryDirectory() as out:
+            packed = share.pack_full(out)
+            with zipfile.ZipFile(packed["file"]) as archive:
+                names = archive.namelist()
+        self.assertIn("autoskill/SKILL.md", names)
+        self.assertIn("autoskill/app/autoskill/cli.py", names)
+        self.assertEqual(packed["secrets_not_included"], ["TD_PASSWORD"])
+        self.assertFalse(any(".local" in n or n.endswith((".db", "secrets.json", ".pyc")) for n in names))
+        with self.assertRaisesRegex(ValueError, "不能输出到 Skill 目录内部"):
+            share.pack_full(str(paths.SKILL / "x.zip"))
+
     def test_import_refuses_unsafe_or_invalid_packs(self):
         target = Path(self.tmp.name) / "evil.zip"
         for name in (f"projects/{PID}/../../escape.json", "projects/../x/project.json", f"projects/{PID}/run.cmd",

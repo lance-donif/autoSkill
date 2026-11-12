@@ -158,6 +158,7 @@ def parser() -> argparse.ArgumentParser:
     packer = sub.add_parser("pack", help="把项目（用例、知识库、登录方式）打成一个分享包")
     packer.add_argument("projects", nargs="*", help="项目标识；省略则打包全部项目")
     packer.add_argument("--out", help="输出文件或目录")
+    packer.add_argument("--full", action="store_true", help="打出含运行时的完整包：对方解压即用（约 270 MB）")
     packer.add_argument("--include-secrets", action="store_true", help="把凭据用口令加密后一并带走（团队共用测试账号时）")
     packer.add_argument("--passphrase", help="配合 --include-secrets；省略时从环境变量 AUTOSKILL_PASSPHRASE 读取")
     importer = sub.add_parser("import", help="导入别人给的分享包")
@@ -309,6 +310,8 @@ def dispatch(args) -> tuple[dict, int]:
     if command == "pack":
         from . import share
 
+        if args.full:
+            return share.pack_full(args.out), 0
         phrase = None
         if args.include_secrets:
             phrase = args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE")

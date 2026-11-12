@@ -113,7 +113,8 @@ autoskill run <项目> --kind api               # 只回放接口用例
 autoskill export postman <项目>               # Postman 集合 + 环境（不含凭据值）
 autoskill export scripts <项目>               # 独立的 Playwright / Selenium 脚本
 autoskill report <项目>                       # Excel 用例表 + 执行报告
-autoskill pack                                # 把项目、用例、知识库打成分享包（不含凭据和登录态）
+autoskill pack                                # 把项目、用例、知识库打成分享包（几 KB，不含凭据和登录态）
+autoskill pack --full --out <目录>            # 连同运行时打成完整包，对方解压即用（约 270 MB）
 autoskill import <分享包>                     # 导入别人给的分享包
 autoskill dashboard                           # 仪表盘（给人看；会一直运行，放后台启动或请用户运行）
 ```
