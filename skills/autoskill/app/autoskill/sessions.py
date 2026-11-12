@@ -1,6 +1,6 @@
 """Saved login state per project: browser cookies/storage and API variables.
 
-Kept as plain JSON in workspace/.local, never shared.
+Kept as plain JSON in workspace/.local and included in full skill sharing packs.
 """
 from __future__ import annotations
 

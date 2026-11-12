@@ -1,8 +1,8 @@
 """Share projects: pack what you maintain into one file, import what someone gave you.
 
-A pack carries cases, knowledge and login definitions. It never carries run
-history, saved sessions or evidence, and carries secret values only when asked,
-encrypted with a passphrase.
+Project packs carry cases, knowledge and login definitions, with optional
+passphrase-encrypted credentials. Full skill packs intentionally carry portable
+credentials and saved logins. Neither kind carries run history or evidence.
 """
 from __future__ import annotations
 
@@ -104,8 +104,11 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
 def pack_full(out: str | None = None) -> dict:
     """Zip the whole skill (runtime, projects, knowledge) so the receiver only has to unzip it.
 
-    Leaves out workspace/.local: secrets, saved logins, run history and screenshots stay on this machine.
+    Include portable credentials and saved logins, but leave run history, evidence and process files behind.
     """
+    from . import sessions
+    from .locking import named_lock
+
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")  # noqa: DTZ005  # Pack filenames use the machine's local wall clock.
     target = Path(out) if out else paths.SKILL.parent / f"autoskill-full-{stamp}.zip"
     if target.suffix.lower() != ".zip":  # a folder, existing or not
@@ -113,28 +116,43 @@ def pack_full(out: str | None = None) -> dict:
     if target.resolve().is_relative_to(paths.SKILL.resolve()):
         raise ValueError("完整包不能输出到 Skill 目录内部，请用 --out 指定其他位置")
     target.parent.mkdir(parents=True, exist_ok=True)
-    inside = (paths.SKILL / "workspace").resolve()
+    workspace = paths.workspace()
+    excluded = [(paths.SKILL / "workspace").resolve()]
+    if workspace != paths.SKILL.resolve() and workspace.is_relative_to(paths.SKILL.resolve()):
+        excluded.append(workspace)
+    else:
+        excluded.extend((workspace / "projects", workspace / ".local"))
     count = 0
     listed = [{"id": p["id"], "name": p["name"], "cases": p["cases"]} for p in projects.list_all() if not p.get("broken")]
+    needed = {name for p in listed for case in projects.cases(p["id"]) for name in secrets.references(case)}
+    with named_lock("credentials", "store"):
+        values = {name: value for name in sorted(set(secrets.names()) | needed) if (value := secrets.get_secret(name)) is not None}
+    saved = {file.stem: state for file in sorted((workspace / ".local" / "sessions").glob("*.json"))
+             if (state := sessions.load(file.stem))}
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for file in sorted(paths.SKILL.rglob("*")):
             if not file.is_file() or "__pycache__" in file.parts or file.suffix in (".pyc", ".pyo"):
                 continue
-            if file.resolve().is_relative_to(inside):
-                continue  # the workspace is added below, from wherever it really is, without its private part
+            if any(file.resolve().is_relative_to(folder) for folder in excluded):
+                continue  # actual data is added below at the standard unpacked workspace location
             archive.write(file, (Path("autoskill") / file.relative_to(paths.SKILL)).as_posix())
             count += 1
         for project in listed:
             for relative, file in _files(projects.path(project["id"])):
                 archive.write(file, f"autoskill/workspace/projects/{project['id']}/{relative.as_posix()}")
                 count += 1
-    needed = sorted({name for p in listed for case in projects.cases(p["id"]) for name in secrets.references(case)})
+        archive.writestr("autoskill/workspace/.local/credentials.json", json.dumps(values, ensure_ascii=False, indent=2) + "\n")
+        count += 1
+        for project_id, state in saved.items():
+            archive.writestr(f"autoskill/workspace/.local/sessions/{project_id}.json", json.dumps(state, ensure_ascii=False, indent=2) + "\n")
+            count += 1
+    missing = sorted(needed - set(values))
     return {"file": str(target), "bytes": target.stat().st_size, "files": count, "projects": listed,
-            "includes_runtime": paths.VENDOR.is_dir(), "secrets_not_included": needed,
+            "includes_runtime": paths.VENDOR.is_dir(), "secrets_included": sorted(values), "sessions_included": sorted(saved), "secrets_not_included": missing,
             "note": ("对方解压后即可使用，不需要安装任何东西。" if paths.VENDOR.is_dir() else
                      "这份 Skill 目录里没有随包运行时（不是从完整离线包运行的），对方需要自备运行环境。")
-                    + "凭据、登录态、运行记录没有打包"
-                    + ("；对方首次使用时需要设置：" + "、".join(needed) if needed else "")}
+                    + "完整包包含已保存的凭据和登录态；不包含运行历史、截图和临时进程文件。"
+                    + ("仍需设置缺少的凭据：" + "、".join(missing) if missing else "")}
 
 
 # --- import ---

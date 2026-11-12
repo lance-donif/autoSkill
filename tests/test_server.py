@@ -240,18 +240,36 @@ class ShareTests(Workspace):
         secrets.set_secret("TD_PASSWORD", "Passw0rd!demo")
         self.assertEqual(self.run_cases("TC-API-002")["status"], "Pass")
 
-    def test_full_pack_contains_the_skill_and_projects_but_nothing_private(self):
+    def test_full_pack_shares_credentials_and_logins_without_run_history(self):
+        from unittest.mock import patch
+
+        from autoskill import sessions
+
         self.run_cases("TC-API-004")
-        with tempfile.TemporaryDirectory() as out:
-            packed = share.pack_full(out)
-            with zipfile.ZipFile(packed["file"]) as archive:
-                names = archive.namelist()
+        saved = sessions.load(PID)
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as source:
+            skill = Path(source) / "autoskill"
+            (skill / "app/autoskill").mkdir(parents=True)
+            (skill / "SKILL.md").write_text("Synthetic full-pack fixture", encoding="utf-8")
+            (skill / "app/autoskill/cli.py").write_text("", encoding="utf-8")
+            with patch.object(paths, "SKILL", skill), patch.object(paths, "VENDOR", skill / "vendor"):
+                packed = share.pack_full(out)
+                with zipfile.ZipFile(packed["file"]) as archive:
+                    names = archive.namelist()
+                    credentials = json.loads(archive.read("autoskill/workspace/.local/credentials.json"))
+                    login = json.loads(archive.read(f"autoskill/workspace/.local/sessions/{PID}.json"))
+                with self.assertRaisesRegex(ValueError, "不能输出到 Skill 目录内部"):
+                    share.pack_full(str(paths.SKILL / "x.zip"))
         self.assertIn("autoskill/SKILL.md", names)
         self.assertIn("autoskill/app/autoskill/cli.py", names)
-        self.assertEqual(packed["secrets_not_included"], ["TD_PASSWORD"])
-        self.assertFalse(any(".local" in n or n.endswith((".db", "secrets.json", ".pyc")) for n in names))
-        with self.assertRaisesRegex(ValueError, "不能输出到 Skill 目录内部"):
-            share.pack_full(str(paths.SKILL / "x.zip"))
+        self.assertEqual(credentials["TD_PASSWORD"], "Passw0rd!demo")
+        self.assertEqual(login, saved)
+        self.assertEqual(packed["secrets_included"], ["TD_PASSWORD"])
+        self.assertEqual(packed["sessions_included"], [PID])
+        self.assertEqual(packed["secrets_not_included"], [])
+        self.assertEqual({name for name in names if "/.local/" in name},
+                         {"autoskill/workspace/.local/credentials.json", f"autoskill/workspace/.local/sessions/{PID}.json"})
+        self.assertFalse(any(name.endswith((".db", ".png", ".pyc")) for name in names))
 
     def test_import_refuses_unsafe_or_invalid_packs(self):
         target = Path(self.tmp.name) / "evil.zip"

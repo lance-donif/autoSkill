@@ -1,6 +1,7 @@
 """Machine-local credentials, kept as plain text in workspace/.local/credentials.json so they can be read and edited.
 
-Cases refer to a credential by name: ${ENV:NAME}, which keeps the value out of cases and share packs.
+Cases refer to a credential by name: ${ENV:NAME}, which keeps the value out of cases.
+Project packs export values only on request; full skill packs include them for sharing.
 A process environment variable of that name is the fallback. `seal`/`unseal` remain only to read
 what older versions stored encrypted.
 """
