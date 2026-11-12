@@ -1,0 +1,124 @@
+{
+  "protocol": {
+    "version": "temporal-residual-ctc-v2",
+    "teacher_model_sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+    "export_base_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+    "allowed_source": "synthetic-residual-v2",
+    "allowed_splits": [
+      "train",
+      "dev"
+    ],
+    "forbidden_for_selection": [
+      "external_test",
+      "test",
+      "public-fournierp",
+      "patrick-public-apache2",
+      "captcha-blind-validation-2026-11-12"
+    ],
+    "feature_tensor": "recognition/p2o.pd_op.transpose.8.0",
+    "baseline_logits_tensor": "expanded/logits",
+    "ctc_logits_tensor": "recognition/p2o.pd_op.add.79.0",
+    "local_tensor": "local/correction",
+    "expanded_tensor": "expanded/correction",
+    "seed": 2026111202,
+    "batch_size": 32,
+    "max_epochs": 40,
+    "early_stop_no_loss_improvement_epochs": 10,
+    "minimum_epochs": 15,
+    "gradient_clip_norm": 1.0,
+    "weight_decay": 0.0001,
+    "feature_scale_floor": 0.05,
+    "ablation_scales": [
+      [
+        1.0,
+        1.0
+      ],
+      [
+        0.0,
+        0.0
+      ],
+      [
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0
+      ],
+      [
+        0.5,
+        0.5
+      ]
+    ],
+    "trials": [
+      {
+        "hidden": 32,
+        "radius": 1,
+        "cap": 3.0,
+        "learning_rate": 0.001,
+        "teacher_kl": 1.0,
+        "residual_penalty": 0.02
+      },
+      {
+        "hidden": 48,
+        "radius": 1,
+        "cap": 3.0,
+        "learning_rate": 0.001,
+        "teacher_kl": 2.0,
+        "residual_penalty": 0.02
+      },
+      {
+        "hidden": 48,
+        "radius": 1,
+        "cap": 4.0,
+        "learning_rate": 0.001,
+        "teacher_kl": 2.0,
+        "residual_penalty": 0.05
+      },
+      {
+        "hidden": 64,
+        "radius": 1,
+        "cap": 3.0,
+        "learning_rate": 0.0005,
+        "teacher_kl": 4.0,
+        "residual_penalty": 0.05
+      }
+    ],
+    "selection": {
+      "normal_groups_no_exact_or_cer_regression": true,
+      "normal_baseline_correct_new_wrong_max": 0,
+      "minimum_noise_groups_with_exact_gain": 2,
+      "minimum_total_exact_gain": 1,
+      "zero_residual_baseline_always_retained": true,
+      "test_or_external_metrics_used": false
+    },
+    "ablation_use": "Diagnostic train/dev report only; do not silently change the teacher or select using any external result.",
+    "independent_validation": "Freeze checkpoint SHA before root generates a new hidden final test. Reject on external regression; never tune against the rejected tone evaluation."
+  },
+  "protocol_sha256": "2f9a2284f61c0d06463957844c2dd57935a7a39ace55c2b834d064b86d43f5f5",
+  "manifest_sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+  "cache_metadata": {
+    "model_sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+    "manifest_sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+    "cache_sha256": "9d2d31561018ce5d4785c57d5a0604a91377fdbe20574bd89a621d0949b05e70",
+    "rows": 1600,
+    "source": "/workspace/autoSkill-release/captcha-research/baselines/original-be9dd198/captcha-ctc.onnx",
+    "tensors": {
+      "features": "recognition/p2o.pd_op.transpose.8.0",
+      "logits": "expanded/logits",
+      "ctc": "recognition/p2o.pd_op.add.79.0",
+      "local": "local/correction",
+      "expanded": "expanded/correction"
+    },
+    "test_images_loaded": 0,
+    "external_images_loaded": 0,
+    "intra_op_threads": 2,
+    "inter_op_threads": 1
+  },
+  "code_sha256": {
+    "train_residual_ctc.py": "17505d5daec6bc300d1069dc5c9eae7cb70985c45eedb44686af147ff066085a",
+    "residual_ctc.py": "c1937f7bf3692fd7253b32ec0c5772352f12bb86a2c11d111f369c8102914232"
+  },
+  "test_images_loaded": 0,
+  "external_images_loaded": 0
+}

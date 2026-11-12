@@ -1,0 +1,37 @@
+{
+  "manifest_sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+  "fonts": [
+    {
+      "font_file": "/usr/share/fonts/truetype/open-sans/OpenSans-Regular.ttf",
+      "font_sha256": "e64e508b2aa2880f907e470c4550980ec4c0694d103a43f36150ac3f93189bee",
+      "family": "OpenSans",
+      "splits": [
+        "train"
+      ]
+    },
+    {
+      "font_file": "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+      "font_sha256": "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d",
+      "family": "Noto",
+      "splits": [
+        "train"
+      ]
+    },
+    {
+      "font_file": "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+      "font_sha256": "bade59d822652f76e6941aa87b40a87c13d1cc70db98ededb5011127efafd1d3",
+      "family": "Liberation",
+      "splits": [
+        "dev"
+      ]
+    },
+    {
+      "font_file": "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+      "font_sha256": "5883330d94debd992952cd8f0571b225f478c2d797d3f36c7521b0a5c9bde0f2",
+      "family": "Liberation",
+      "splits": [
+        "dev"
+      ]
+    }
+  ]
+}

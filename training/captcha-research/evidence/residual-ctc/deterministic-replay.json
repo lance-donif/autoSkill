@@ -1,0 +1,8 @@
+{
+  "source_run": "/workspace/autoSkill-release/captcha-research/residual-v2/runs/ctc-main-01",
+  "replay_run": "/workspace/autoSkill-release/captcha-research/residual-v2/runs/ctc-checkpoint-replay-01",
+  "trials": 4,
+  "epochs_compared": 160,
+  "all_non_time_metric_fields_max_error": 0,
+  "checkpoints": 160
+}

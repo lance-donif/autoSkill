@@ -1,0 +1,760 @@
+{
+  "protocol": "Train/dev-only diagnostic, fixed scales, never selected from external results",
+  "trials": [
+    {
+      "local_scale": 1.0,
+      "expanded_scale": 1.0,
+      "metrics": {
+        "train/plain": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/ALL": {
+          "exact": 904,
+          "samples": 1200,
+          "edit_errors": 417,
+          "characters": 6000,
+          "exact_match_rate": 0.7533333333333333,
+          "character_error_rate": 0.0695
+        },
+        "train/ordinary-aug": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/pale": {
+          "exact": 113,
+          "samples": 120,
+          "edit_errors": 7,
+          "characters": 600,
+          "exact_match_rate": 0.9416666666666667,
+          "character_error_rate": 0.011666666666666667
+        },
+        "train/paired-clean": {
+          "exact": 344,
+          "samples": 360,
+          "edit_errors": 16,
+          "characters": 1800,
+          "exact_match_rate": 0.9555555555555556,
+          "character_error_rate": 0.008888888888888889
+        },
+        "train/through-line": {
+          "exact": 101,
+          "samples": 120,
+          "edit_errors": 21,
+          "characters": 600,
+          "exact_match_rate": 0.8416666666666667,
+          "character_error_rate": 0.035
+        },
+        "train/dark-through-line": {
+          "exact": 92,
+          "samples": 120,
+          "edit_errors": 38,
+          "characters": 600,
+          "exact_match_rate": 0.7666666666666667,
+          "character_error_rate": 0.06333333333333334
+        },
+        "train/first-symbol-touching": {
+          "exact": 13,
+          "samples": 120,
+          "edit_errors": 165,
+          "characters": 600,
+          "exact_match_rate": 0.10833333333333334,
+          "character_error_rate": 0.275
+        },
+        "train/dark-first-symbol-touching": {
+          "exact": 31,
+          "samples": 120,
+          "edit_errors": 140,
+          "characters": 600,
+          "exact_match_rate": 0.25833333333333336,
+          "character_error_rate": 0.23333333333333334
+        },
+        "dev/plain": {
+          "exact": 36,
+          "samples": 40,
+          "edit_errors": 4,
+          "characters": 200,
+          "exact_match_rate": 0.9,
+          "character_error_rate": 0.02
+        },
+        "dev/ALL": {
+          "exact": 277,
+          "samples": 400,
+          "edit_errors": 161,
+          "characters": 2000,
+          "exact_match_rate": 0.6925,
+          "character_error_rate": 0.0805
+        },
+        "dev/ordinary-aug": {
+          "exact": 37,
+          "samples": 40,
+          "edit_errors": 3,
+          "characters": 200,
+          "exact_match_rate": 0.925,
+          "character_error_rate": 0.015
+        },
+        "dev/pale": {
+          "exact": 33,
+          "samples": 40,
+          "edit_errors": 8,
+          "characters": 200,
+          "exact_match_rate": 0.825,
+          "character_error_rate": 0.04
+        },
+        "dev/paired-clean": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "dev/through-line": {
+          "exact": 29,
+          "samples": 40,
+          "edit_errors": 12,
+          "characters": 200,
+          "exact_match_rate": 0.725,
+          "character_error_rate": 0.06
+        },
+        "dev/dark-through-line": {
+          "exact": 26,
+          "samples": 40,
+          "edit_errors": 19,
+          "characters": 200,
+          "exact_match_rate": 0.65,
+          "character_error_rate": 0.095
+        },
+        "dev/first-symbol-touching": {
+          "exact": 2,
+          "samples": 40,
+          "edit_errors": 55,
+          "characters": 200,
+          "exact_match_rate": 0.05,
+          "character_error_rate": 0.275
+        },
+        "dev/dark-first-symbol-touching": {
+          "exact": 9,
+          "samples": 40,
+          "edit_errors": 45,
+          "characters": 200,
+          "exact_match_rate": 0.225,
+          "character_error_rate": 0.225
+        }
+      }
+    },
+    {
+      "local_scale": 0.0,
+      "expanded_scale": 0.0,
+      "metrics": {
+        "train/plain": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/ALL": {
+          "exact": 904,
+          "samples": 1200,
+          "edit_errors": 417,
+          "characters": 6000,
+          "exact_match_rate": 0.7533333333333333,
+          "character_error_rate": 0.0695
+        },
+        "train/ordinary-aug": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/pale": {
+          "exact": 113,
+          "samples": 120,
+          "edit_errors": 7,
+          "characters": 600,
+          "exact_match_rate": 0.9416666666666667,
+          "character_error_rate": 0.011666666666666667
+        },
+        "train/paired-clean": {
+          "exact": 344,
+          "samples": 360,
+          "edit_errors": 16,
+          "characters": 1800,
+          "exact_match_rate": 0.9555555555555556,
+          "character_error_rate": 0.008888888888888889
+        },
+        "train/through-line": {
+          "exact": 101,
+          "samples": 120,
+          "edit_errors": 21,
+          "characters": 600,
+          "exact_match_rate": 0.8416666666666667,
+          "character_error_rate": 0.035
+        },
+        "train/dark-through-line": {
+          "exact": 92,
+          "samples": 120,
+          "edit_errors": 38,
+          "characters": 600,
+          "exact_match_rate": 0.7666666666666667,
+          "character_error_rate": 0.06333333333333334
+        },
+        "train/first-symbol-touching": {
+          "exact": 13,
+          "samples": 120,
+          "edit_errors": 165,
+          "characters": 600,
+          "exact_match_rate": 0.10833333333333334,
+          "character_error_rate": 0.275
+        },
+        "train/dark-first-symbol-touching": {
+          "exact": 31,
+          "samples": 120,
+          "edit_errors": 140,
+          "characters": 600,
+          "exact_match_rate": 0.25833333333333336,
+          "character_error_rate": 0.23333333333333334
+        },
+        "dev/plain": {
+          "exact": 36,
+          "samples": 40,
+          "edit_errors": 4,
+          "characters": 200,
+          "exact_match_rate": 0.9,
+          "character_error_rate": 0.02
+        },
+        "dev/ALL": {
+          "exact": 277,
+          "samples": 400,
+          "edit_errors": 161,
+          "characters": 2000,
+          "exact_match_rate": 0.6925,
+          "character_error_rate": 0.0805
+        },
+        "dev/ordinary-aug": {
+          "exact": 37,
+          "samples": 40,
+          "edit_errors": 3,
+          "characters": 200,
+          "exact_match_rate": 0.925,
+          "character_error_rate": 0.015
+        },
+        "dev/pale": {
+          "exact": 33,
+          "samples": 40,
+          "edit_errors": 8,
+          "characters": 200,
+          "exact_match_rate": 0.825,
+          "character_error_rate": 0.04
+        },
+        "dev/paired-clean": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "dev/through-line": {
+          "exact": 29,
+          "samples": 40,
+          "edit_errors": 12,
+          "characters": 200,
+          "exact_match_rate": 0.725,
+          "character_error_rate": 0.06
+        },
+        "dev/dark-through-line": {
+          "exact": 26,
+          "samples": 40,
+          "edit_errors": 19,
+          "characters": 200,
+          "exact_match_rate": 0.65,
+          "character_error_rate": 0.095
+        },
+        "dev/first-symbol-touching": {
+          "exact": 2,
+          "samples": 40,
+          "edit_errors": 55,
+          "characters": 200,
+          "exact_match_rate": 0.05,
+          "character_error_rate": 0.275
+        },
+        "dev/dark-first-symbol-touching": {
+          "exact": 9,
+          "samples": 40,
+          "edit_errors": 45,
+          "characters": 200,
+          "exact_match_rate": 0.225,
+          "character_error_rate": 0.225
+        }
+      }
+    },
+    {
+      "local_scale": 1.0,
+      "expanded_scale": 0.0,
+      "metrics": {
+        "train/plain": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/ALL": {
+          "exact": 904,
+          "samples": 1200,
+          "edit_errors": 417,
+          "characters": 6000,
+          "exact_match_rate": 0.7533333333333333,
+          "character_error_rate": 0.0695
+        },
+        "train/ordinary-aug": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/pale": {
+          "exact": 113,
+          "samples": 120,
+          "edit_errors": 7,
+          "characters": 600,
+          "exact_match_rate": 0.9416666666666667,
+          "character_error_rate": 0.011666666666666667
+        },
+        "train/paired-clean": {
+          "exact": 344,
+          "samples": 360,
+          "edit_errors": 16,
+          "characters": 1800,
+          "exact_match_rate": 0.9555555555555556,
+          "character_error_rate": 0.008888888888888889
+        },
+        "train/through-line": {
+          "exact": 101,
+          "samples": 120,
+          "edit_errors": 21,
+          "characters": 600,
+          "exact_match_rate": 0.8416666666666667,
+          "character_error_rate": 0.035
+        },
+        "train/dark-through-line": {
+          "exact": 92,
+          "samples": 120,
+          "edit_errors": 38,
+          "characters": 600,
+          "exact_match_rate": 0.7666666666666667,
+          "character_error_rate": 0.06333333333333334
+        },
+        "train/first-symbol-touching": {
+          "exact": 13,
+          "samples": 120,
+          "edit_errors": 165,
+          "characters": 600,
+          "exact_match_rate": 0.10833333333333334,
+          "character_error_rate": 0.275
+        },
+        "train/dark-first-symbol-touching": {
+          "exact": 31,
+          "samples": 120,
+          "edit_errors": 140,
+          "characters": 600,
+          "exact_match_rate": 0.25833333333333336,
+          "character_error_rate": 0.23333333333333334
+        },
+        "dev/plain": {
+          "exact": 36,
+          "samples": 40,
+          "edit_errors": 4,
+          "characters": 200,
+          "exact_match_rate": 0.9,
+          "character_error_rate": 0.02
+        },
+        "dev/ALL": {
+          "exact": 277,
+          "samples": 400,
+          "edit_errors": 161,
+          "characters": 2000,
+          "exact_match_rate": 0.6925,
+          "character_error_rate": 0.0805
+        },
+        "dev/ordinary-aug": {
+          "exact": 37,
+          "samples": 40,
+          "edit_errors": 3,
+          "characters": 200,
+          "exact_match_rate": 0.925,
+          "character_error_rate": 0.015
+        },
+        "dev/pale": {
+          "exact": 33,
+          "samples": 40,
+          "edit_errors": 8,
+          "characters": 200,
+          "exact_match_rate": 0.825,
+          "character_error_rate": 0.04
+        },
+        "dev/paired-clean": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "dev/through-line": {
+          "exact": 29,
+          "samples": 40,
+          "edit_errors": 12,
+          "characters": 200,
+          "exact_match_rate": 0.725,
+          "character_error_rate": 0.06
+        },
+        "dev/dark-through-line": {
+          "exact": 26,
+          "samples": 40,
+          "edit_errors": 19,
+          "characters": 200,
+          "exact_match_rate": 0.65,
+          "character_error_rate": 0.095
+        },
+        "dev/first-symbol-touching": {
+          "exact": 2,
+          "samples": 40,
+          "edit_errors": 55,
+          "characters": 200,
+          "exact_match_rate": 0.05,
+          "character_error_rate": 0.275
+        },
+        "dev/dark-first-symbol-touching": {
+          "exact": 9,
+          "samples": 40,
+          "edit_errors": 45,
+          "characters": 200,
+          "exact_match_rate": 0.225,
+          "character_error_rate": 0.225
+        }
+      }
+    },
+    {
+      "local_scale": 0.0,
+      "expanded_scale": 1.0,
+      "metrics": {
+        "train/plain": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/ALL": {
+          "exact": 904,
+          "samples": 1200,
+          "edit_errors": 417,
+          "characters": 6000,
+          "exact_match_rate": 0.7533333333333333,
+          "character_error_rate": 0.0695
+        },
+        "train/ordinary-aug": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/pale": {
+          "exact": 113,
+          "samples": 120,
+          "edit_errors": 7,
+          "characters": 600,
+          "exact_match_rate": 0.9416666666666667,
+          "character_error_rate": 0.011666666666666667
+        },
+        "train/paired-clean": {
+          "exact": 344,
+          "samples": 360,
+          "edit_errors": 16,
+          "characters": 1800,
+          "exact_match_rate": 0.9555555555555556,
+          "character_error_rate": 0.008888888888888889
+        },
+        "train/through-line": {
+          "exact": 101,
+          "samples": 120,
+          "edit_errors": 21,
+          "characters": 600,
+          "exact_match_rate": 0.8416666666666667,
+          "character_error_rate": 0.035
+        },
+        "train/dark-through-line": {
+          "exact": 92,
+          "samples": 120,
+          "edit_errors": 38,
+          "characters": 600,
+          "exact_match_rate": 0.7666666666666667,
+          "character_error_rate": 0.06333333333333334
+        },
+        "train/first-symbol-touching": {
+          "exact": 13,
+          "samples": 120,
+          "edit_errors": 165,
+          "characters": 600,
+          "exact_match_rate": 0.10833333333333334,
+          "character_error_rate": 0.275
+        },
+        "train/dark-first-symbol-touching": {
+          "exact": 31,
+          "samples": 120,
+          "edit_errors": 140,
+          "characters": 600,
+          "exact_match_rate": 0.25833333333333336,
+          "character_error_rate": 0.23333333333333334
+        },
+        "dev/plain": {
+          "exact": 36,
+          "samples": 40,
+          "edit_errors": 4,
+          "characters": 200,
+          "exact_match_rate": 0.9,
+          "character_error_rate": 0.02
+        },
+        "dev/ALL": {
+          "exact": 277,
+          "samples": 400,
+          "edit_errors": 161,
+          "characters": 2000,
+          "exact_match_rate": 0.6925,
+          "character_error_rate": 0.0805
+        },
+        "dev/ordinary-aug": {
+          "exact": 37,
+          "samples": 40,
+          "edit_errors": 3,
+          "characters": 200,
+          "exact_match_rate": 0.925,
+          "character_error_rate": 0.015
+        },
+        "dev/pale": {
+          "exact": 33,
+          "samples": 40,
+          "edit_errors": 8,
+          "characters": 200,
+          "exact_match_rate": 0.825,
+          "character_error_rate": 0.04
+        },
+        "dev/paired-clean": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "dev/through-line": {
+          "exact": 29,
+          "samples": 40,
+          "edit_errors": 12,
+          "characters": 200,
+          "exact_match_rate": 0.725,
+          "character_error_rate": 0.06
+        },
+        "dev/dark-through-line": {
+          "exact": 26,
+          "samples": 40,
+          "edit_errors": 19,
+          "characters": 200,
+          "exact_match_rate": 0.65,
+          "character_error_rate": 0.095
+        },
+        "dev/first-symbol-touching": {
+          "exact": 2,
+          "samples": 40,
+          "edit_errors": 55,
+          "characters": 200,
+          "exact_match_rate": 0.05,
+          "character_error_rate": 0.275
+        },
+        "dev/dark-first-symbol-touching": {
+          "exact": 9,
+          "samples": 40,
+          "edit_errors": 45,
+          "characters": 200,
+          "exact_match_rate": 0.225,
+          "character_error_rate": 0.225
+        }
+      }
+    },
+    {
+      "local_scale": 0.5,
+      "expanded_scale": 0.5,
+      "metrics": {
+        "train/plain": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/ALL": {
+          "exact": 904,
+          "samples": 1200,
+          "edit_errors": 417,
+          "characters": 6000,
+          "exact_match_rate": 0.7533333333333333,
+          "character_error_rate": 0.0695
+        },
+        "train/ordinary-aug": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "train/pale": {
+          "exact": 113,
+          "samples": 120,
+          "edit_errors": 7,
+          "characters": 600,
+          "exact_match_rate": 0.9416666666666667,
+          "character_error_rate": 0.011666666666666667
+        },
+        "train/paired-clean": {
+          "exact": 344,
+          "samples": 360,
+          "edit_errors": 16,
+          "characters": 1800,
+          "exact_match_rate": 0.9555555555555556,
+          "character_error_rate": 0.008888888888888889
+        },
+        "train/through-line": {
+          "exact": 101,
+          "samples": 120,
+          "edit_errors": 21,
+          "characters": 600,
+          "exact_match_rate": 0.8416666666666667,
+          "character_error_rate": 0.035
+        },
+        "train/dark-through-line": {
+          "exact": 92,
+          "samples": 120,
+          "edit_errors": 38,
+          "characters": 600,
+          "exact_match_rate": 0.7666666666666667,
+          "character_error_rate": 0.06333333333333334
+        },
+        "train/first-symbol-touching": {
+          "exact": 13,
+          "samples": 120,
+          "edit_errors": 165,
+          "characters": 600,
+          "exact_match_rate": 0.10833333333333334,
+          "character_error_rate": 0.275
+        },
+        "train/dark-first-symbol-touching": {
+          "exact": 31,
+          "samples": 120,
+          "edit_errors": 140,
+          "characters": 600,
+          "exact_match_rate": 0.25833333333333336,
+          "character_error_rate": 0.23333333333333334
+        },
+        "dev/plain": {
+          "exact": 36,
+          "samples": 40,
+          "edit_errors": 4,
+          "characters": 200,
+          "exact_match_rate": 0.9,
+          "character_error_rate": 0.02
+        },
+        "dev/ALL": {
+          "exact": 277,
+          "samples": 400,
+          "edit_errors": 161,
+          "characters": 2000,
+          "exact_match_rate": 0.6925,
+          "character_error_rate": 0.0805
+        },
+        "dev/ordinary-aug": {
+          "exact": 37,
+          "samples": 40,
+          "edit_errors": 3,
+          "characters": 200,
+          "exact_match_rate": 0.925,
+          "character_error_rate": 0.015
+        },
+        "dev/pale": {
+          "exact": 33,
+          "samples": 40,
+          "edit_errors": 8,
+          "characters": 200,
+          "exact_match_rate": 0.825,
+          "character_error_rate": 0.04
+        },
+        "dev/paired-clean": {
+          "exact": 105,
+          "samples": 120,
+          "edit_errors": 15,
+          "characters": 600,
+          "exact_match_rate": 0.875,
+          "character_error_rate": 0.025
+        },
+        "dev/through-line": {
+          "exact": 29,
+          "samples": 40,
+          "edit_errors": 12,
+          "characters": 200,
+          "exact_match_rate": 0.725,
+          "character_error_rate": 0.06
+        },
+        "dev/dark-through-line": {
+          "exact": 26,
+          "samples": 40,
+          "edit_errors": 19,
+          "characters": 200,
+          "exact_match_rate": 0.65,
+          "character_error_rate": 0.095
+        },
+        "dev/first-symbol-touching": {
+          "exact": 2,
+          "samples": 40,
+          "edit_errors": 55,
+          "characters": 200,
+          "exact_match_rate": 0.05,
+          "character_error_rate": 0.275
+        },
+        "dev/dark-first-symbol-touching": {
+          "exact": 9,
+          "samples": 40,
+          "edit_errors": 45,
+          "characters": 200,
+          "exact_match_rate": 0.225,
+          "character_error_rate": 0.225
+        }
+      }
+    }
+  ],
+  "local_nonzero_values": 0,
+  "expanded_nonzero_values": 0,
+  "baseline_reconstruction_max_abs_error": 0.0,
+  "test_images_loaded": 0,
+  "external_images_loaded": 0
+}

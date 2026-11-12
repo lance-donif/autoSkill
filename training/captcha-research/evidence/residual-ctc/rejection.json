@@ -1,0 +1,15 @@
+{
+  "status": "REJECTED_NOT_PROMOTED",
+  "candidate_sha256": "de5e0cc17b2f1a1232b6ca600c210c2254494fbd301121a8571a3e9f50ac52bd",
+  "source": "Independent evaluation reported by root; not read by training or selection tools.",
+  "independent_blind_exact": {
+    "baseline": 312,
+    "candidate": 310,
+    "samples": 480
+  },
+  "reason": "New blind exact-match regressed, with one fewer correct plain image and one fewer correct through-line image, no first-symbol exact gain; Apache compatibility also lost one image.",
+  "public_compatibility": "Overall improved but insufficient to pass the unchanged no-regression requirement.",
+  "no_parameters_adjusted_after_independent_evaluation": true,
+  "production_model_replaced": false,
+  "retained_production_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662"
+}

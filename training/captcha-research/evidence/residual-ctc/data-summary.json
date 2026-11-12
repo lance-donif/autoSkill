@@ -1,0 +1,32 @@
+{
+  "source_manifest_sha256": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+  "manifest_sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+  "groups": {
+    "('train', 'plain')": 120,
+    "('train', 'ordinary-aug')": 120,
+    "('train', 'pale')": 120,
+    "('train', 'paired-clean')": 360,
+    "('train', 'through-line')": 120,
+    "('train', 'dark-through-line')": 120,
+    "('train', 'first-symbol-touching')": 120,
+    "('train', 'dark-first-symbol-touching')": 120,
+    "('dev', 'plain')": 40,
+    "('dev', 'ordinary-aug')": 40,
+    "('dev', 'pale')": 40,
+    "('dev', 'paired-clean')": 120,
+    "('dev', 'through-line')": 40,
+    "('dev', 'dark-through-line')": 40,
+    "('dev', 'first-symbol-touching')": 40,
+    "('dev', 'dark-first-symbol-touching')": 40
+  },
+  "ordinary_noisy_counts": {
+    "('train', True)": 600,
+    "('train', False)": 600,
+    "('dev', True)": 200,
+    "('dev', False)": 200
+  },
+  "duplicate_images_excluded": 0,
+  "test_images_read": 0,
+  "external_images_read": 0,
+  "note": "No new test generated here. Labels/font families inherited within the original train/dev split."
+}
