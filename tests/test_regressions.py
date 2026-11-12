@@ -56,7 +56,7 @@ class RegressionTests(unittest.TestCase):
     def test_project_case_skills_are_created_and_link_authoritative_data(self):
         qa.sync_skills(self.p)
         for kind in ['ui', 'api']:
-            s = (self.p / 'case-skills' / kind / 'SKILL.md').read_text()
+            s = (self.p / 'case-skills' / kind / 'SKILL.md').read_text(encoding='utf-8')
             self.assertIn('../../testcases/' + qa.FILES[kind], s)
             self.assertIn('case_content_sha256', s)
 if __name__ == '__main__':

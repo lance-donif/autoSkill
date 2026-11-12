@@ -28,7 +28,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(qa.run_api(self.p)[0]['status'],'Pass');self.assertFalse(qa.validate(self.p))
         qa.export(self.p);qa.report(self.p)
         manifest=qa.read(self.p/'output/export-manifest.json');self.assertEqual(manifest['schema_version'],qa.VERSION)
-        for f in (self.p/'execution/logs').glob('*.json'):self.assertNotIn('must-never-be-saved',f.read_text())
+        for f in (self.p/'execution/logs').glob('*.json'):self.assertNotIn('must-never-be-saved',f.read_text(encoding='utf-8'))
         self.assertEqual(qa.coverage(self.p)['ratio'],1)
     def test_no_authorization_means_no_request(self):
         self.cfg['execution_authorized']=False;self.config(self.cfg);n=Handler.count
