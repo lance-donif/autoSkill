@@ -95,6 +95,8 @@ def main():
     }, indent=2) + '\n', encoding='utf-8')
     release = api('PATCH', f"/releases/{release['id']}", {'name': 'autoSkill ' + tag, 'body': notes,
                                                        'draft': False, 'prerelease': False, 'make_latest': 'true'})
+    # A draft asset URL can contain an untagged-* placeholder until publication.
+    final = api('GET', f"/releases/assets/{uploaded['id']}")
     result = {**manifest, 'file': archive.name, 'bytes': size, 'sha256': digest, 'built_from_commit': commit,
               'tag': tag, 'release_id': release['id'], 'release_url': release['html_url'], 'asset_id': final['id'],
               'download_url': final['browser_download_url'], 'windows_verify': verify, 'windows_doctor': doctor,

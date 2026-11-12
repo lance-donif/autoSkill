@@ -8,7 +8,7 @@
   "bytes": 272575984,
   "sha256": "b70ed035233f7c070c4f9f0e54f6d33f0f92c73ca871461079af46d10b88aafc",
   "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.0.5",
-  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/untagged-b768f6e34dd4a54f2cc8/autoSkill-Windows-x64-Offline.zip",
+  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.0.5/autoSkill-Windows-x64-Offline.zip",
   "asset_id": 739526645,
   "verification": {
     "mode": "archive-only",
