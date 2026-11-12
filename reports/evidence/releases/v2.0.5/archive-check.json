@@ -1,0 +1,9 @@
+{
+  "file": "autoSkill-Windows-x64-Offline.zip",
+  "bytes": 272575984,
+  "sha256": "b70ed035233f7c070c4f9f0e54f6d33f0f92c73ca871461079af46d10b88aafc",
+  "source_commit": "a378e686c36f8e644ce5295a2d7808167c671814",
+  "layout_ok": true,
+  "crc_ok": true,
+  "functional_tests_run": false
+}
