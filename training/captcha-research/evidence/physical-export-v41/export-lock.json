@@ -1,0 +1,44 @@
+{
+  "protocol": {
+    "version": "physical-conditional-v4.1-export-01",
+    "weights_sha256": "b9d07631ac888c89dc8f9cef66050253d9141b458bde18d27bb4e85755fdffb1",
+    "selection_sha256": "d60960eee070ba0c5da7ce11abe3efde5852c2276860ffcb96a8e01ed2a95503",
+    "manifest_sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+    "physical_observations_sha256": "27efdadfc63da0dc35a21eb4112ea9c01110f319f1095f6b1250a5231a8efb92",
+    "physical_protocol_sha256": "45397f420c149e1e4fa2f865b5187624dbd9099f34a4fb84265ba6452f1153ed",
+    "teacher_sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+    "export_base_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+    "global_alpha": 1.0,
+    "selected_trial": 2,
+    "selected_epoch": 13,
+    "condition": "Near-black/gray column coverage >=.90 AND dark-gray pixel density <=.50 across valid image columns, with integer Round reconstruction.",
+    "v4_to_v41_train_dev_flag_changes": 0,
+    "application": "Multiply the entire cap*tanh residual after bounding and before addition to unchanged B583 logits.",
+    "required_validation": [
+      "400 actual product input tensors NumPy/ONNX/frozen flag equality",
+      "15 semantic and threshold boundary tensors",
+      "400 actual product solve strings versus frozen NumPy selection",
+      "stratified probability checks and zero-residual control",
+      "every original B583 initializer serialized bytes unchanged"
+    ],
+    "forbidden": [
+      "training",
+      "checkpoint reselection",
+      "new scale grid",
+      "threshold fitting",
+      "external or blind inputs",
+      "production model replacement"
+    ]
+  },
+  "code_sha256": "29e419c30f77e31238757d375c6631e307603007500ed86821a850f44ad12c87",
+  "dependencies_sha256": {
+    "physical_onnx_v41.py": "79417e6b8c04a174687821aa4710f2bb415f07f2228fae53469a163eddd561f3",
+    "diagnose_physical_line_v41.py": "b51cb6f0b75b7c5ebd022890d806d1dd392aa0ab439631d9f75436aae972a341",
+    "export_residual.py": "d5db83e12322ae0458e5c4e88408febebd0439c0d9b51627540690cf7820d6c1",
+    "residual_ctc.py": "c1937f7bf3692fd7253b32ec0c5772352f12bb86a2c11d111f369c8102914232",
+    "train_residual_ctc.py": "17505d5daec6bc300d1069dc5c9eae7cb70985c45eedb44686af147ff066085a"
+  },
+  "selection_sha256": "d60960eee070ba0c5da7ce11abe3efde5852c2276860ffcb96a8e01ed2a95503",
+  "retraining_runs": 0,
+  "reselection_runs": 0
+}

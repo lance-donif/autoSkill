@@ -1,0 +1,165 @@
+{
+  "status": "FROZEN_EXPORT_PARITY_PASSED_PENDING_INDEPENDENT_VALIDATION",
+  "candidate": "/workspace/autoSkill-release/captcha-research/residual-v41/export-01/ctc-physical-residual.onnx",
+  "candidate_sha256": "1e6ac899871225561ff08ee01eed29762266a66034676b0d1bb67dade575e5fe",
+  "weights_sha256": "b9d07631ac888c89dc8f9cef66050253d9141b458bde18d27bb4e85755fdffb1",
+  "teacher_sha256": "be9dd198e7dff674254d96a9a0d6a21d0653bed3e4d8dc9afc3f325cbee3e3b4",
+  "export_base_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "original_initializers_unchanged": 249,
+  "output_names": [
+    "recognition/trained_probabilities"
+  ],
+  "global_alpha": 1.0,
+  "condition_version": "physical-sparse-through-line-v4.1",
+  "selected_dev": {
+    "eligible": true,
+    "groups": {
+      "plain": {
+        "exact": 36,
+        "samples": 40,
+        "edits": 4,
+        "characters": 200,
+        "exact_rate": 0.9,
+        "CER": 0.02
+      },
+      "NORMAL": {
+        "exact": 178,
+        "samples": 200,
+        "edits": 22,
+        "characters": 1000,
+        "exact_rate": 0.89,
+        "CER": 0.022
+      },
+      "ALL": {
+        "exact": 292,
+        "samples": 400,
+        "edits": 139,
+        "characters": 2000,
+        "exact_rate": 0.73,
+        "CER": 0.0695
+      },
+      "ordinary-aug": {
+        "exact": 37,
+        "samples": 40,
+        "edits": 3,
+        "characters": 200,
+        "exact_rate": 0.925,
+        "CER": 0.015
+      },
+      "pale": {
+        "exact": 33,
+        "samples": 40,
+        "edits": 8,
+        "characters": 200,
+        "exact_rate": 0.825,
+        "CER": 0.04
+      },
+      "NOISY": {
+        "exact": 114,
+        "samples": 200,
+        "edits": 117,
+        "characters": 1000,
+        "exact_rate": 0.57,
+        "CER": 0.117
+      },
+      "paired-clean": {
+        "exact": 105,
+        "samples": 120,
+        "edits": 15,
+        "characters": 600,
+        "exact_rate": 0.875,
+        "CER": 0.025
+      },
+      "through-line": {
+        "exact": 29,
+        "samples": 40,
+        "edits": 12,
+        "characters": 200,
+        "exact_rate": 0.725,
+        "CER": 0.06
+      },
+      "dark-through-line": {
+        "exact": 30,
+        "samples": 40,
+        "edits": 13,
+        "characters": 200,
+        "exact_rate": 0.75,
+        "CER": 0.065
+      },
+      "first-symbol-touching": {
+        "exact": 6,
+        "samples": 40,
+        "edits": 48,
+        "characters": 200,
+        "exact_rate": 0.15,
+        "CER": 0.24
+      },
+      "dark-first-symbol-touching": {
+        "exact": 16,
+        "samples": 40,
+        "edits": 36,
+        "characters": 200,
+        "exact_rate": 0.4,
+        "CER": 0.18
+      }
+    },
+    "normal_new_wrong_ids": [],
+    "normal_new_wrong_count": 0,
+    "normal_regressed_groups": [],
+    "line_noise_exact_gains": {
+      "through-line": 0,
+      "dark-through-line": 4,
+      "first-symbol-touching": 4,
+      "dark-first-symbol-touching": 7
+    },
+    "pale_first_symbol_exact_gain": 4,
+    "total_noise_exact_gain": 15,
+    "no_line_pale_preserved": true
+  },
+  "parity": {
+    "product_module": "/workspace/autoSkill-captcha-model/skills/autoskill/app/autoskill/captcha.py",
+    "product_solver_sha256": "18b899e023f29f85da0ab07dd3d10e389f38b85e6fc8ebe9233ecae0f59db6ea",
+    "dev_images": 400,
+    "observed_product_tensors": 400,
+    "condition_bool_changes": 0,
+    "condition_changed_ids": [],
+    "product_solve_sequence_changes": 0,
+    "changed_dev_ids": [],
+    "empty_output_contract_errors": 0,
+    "boundaries": {
+      "examples": 15,
+      "bool_changes": 0,
+      "cases": [
+        "thin-black",
+        "colored-line",
+        "max127",
+        "max128",
+        "range16",
+        "range17",
+        "coverage90",
+        "coverage89",
+        "local-glyph",
+        "dark-rows-24",
+        "dark-rows-25",
+        "dark-rows-48",
+        "all-black",
+        "white-glyphs-dark-background",
+        "all-zero-invalid-tensor"
+      ]
+    },
+    "numeric": {
+      "samples": 16,
+      "candidate_probability_max_abs": 2.980232238769531e-07,
+      "zero_output_probability_max_abs": 2.980232238769531e-07,
+      "zero_output_sequence_changes": 0
+    },
+    "session_threads": {
+      "intra_op": 2,
+      "inter_op": 1
+    },
+    "production_model_files_written": false
+  },
+  "test_images_loaded": 0,
+  "external_images_loaded": 0,
+  "production_model_replaced": false
+}
