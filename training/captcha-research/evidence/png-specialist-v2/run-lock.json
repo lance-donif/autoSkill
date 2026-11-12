@@ -1,0 +1,14 @@
+{
+  "protocol_sha256": "fa49e6103d4b990aa68fc8afde97745c3d616ddbfd55f7557f9e505ca3be1b52",
+  "script_sha256": "19e67866adc9db7040ba1304c696a32970ff40cc6f27c74aaeb0905566ea032c",
+  "core_sha256": "940a13693bf6555310db4ab0d87edc0d081f8c11ece396ff35d419151fd00a3d",
+  "decoders": [
+    "A",
+    "B"
+  ],
+  "source_runs_per_flagged_image": 1,
+  "normalization_or_resize_trials": 1,
+  "test_images_loaded": 0,
+  "external_images_loaded": 0,
+  "training_runs": 0
+}

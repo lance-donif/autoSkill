@@ -1,0 +1,15 @@
+{
+  "A_B_prediction_differences": 37,
+  "source_nonblank_unsupported_frames": 54,
+  "flagged_images_with_unsupported_nonblank_frames": 50,
+  "source_frames": 10975,
+  "flagged_dev_first_symbol_length_errors": {
+    "-2": 5,
+    "0": 11,
+    "-1": 5,
+    "1": 2
+  },
+  "flagged_images": 439,
+  "new_model_runs": 0,
+  "parameters_changed": false
+}
