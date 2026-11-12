@@ -1,0 +1,11 @@
+# Byte-exact checkouts on every platform: upstream fixtures are verified by blob hash,
+# and shipped scripts must not change with the contributor's autocrlf setting.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.xlsx binary
+*.pptx binary
+*.zip binary
+*.ico binary
