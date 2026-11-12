@@ -73,7 +73,7 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
         raise ValueError("口令至少 8 个字符")
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
     target = Path(out) if out else paths.workspace() / f"autoskill-share-{stamp}.zip"
-    if target.is_dir():
+    if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-share-{stamp}.zip"
     target.parent.mkdir(parents=True, exist_ok=True)
     listed, needed = [], set()
@@ -107,27 +107,32 @@ def pack_full(out: str | None = None) -> dict:
     """
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
     target = Path(out) if out else paths.SKILL.parent / f"autoskill-full-{stamp}.zip"
-    if target.is_dir():
+    if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-full-{stamp}.zip"
     if target.resolve().is_relative_to(paths.SKILL.resolve()):
         raise ValueError("完整包不能输出到 Skill 目录内部，请用 --out 指定其他位置")
     target.parent.mkdir(parents=True, exist_ok=True)
-    private = (paths.workspace() / ".local").resolve()
+    inside = (paths.SKILL / "workspace").resolve()
     count = 0
+    listed = [{"id": p["id"], "name": p["name"], "cases": p["cases"]} for p in projects.list_all() if not p.get("broken")]
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for file in sorted(paths.SKILL.rglob("*")):
             if not file.is_file() or "__pycache__" in file.parts or file.suffix in (".pyc", ".pyo"):
                 continue
-            resolved = file.resolve()
-            if resolved.is_relative_to(private) or (file.parent == paths.workspace() and file.suffix == ".zip"):
-                continue
+            if file.resolve().is_relative_to(inside):
+                continue  # the workspace is added below, from wherever it really is, without its private part
             archive.write(file, (Path("autoskill") / file.relative_to(paths.SKILL)).as_posix())
             count += 1
-    listed = [{"id": p["id"], "name": p["name"], "cases": p["cases"]} for p in projects.list_all() if not p.get("broken")]
+        for project in listed:
+            for relative, file in _files(projects.path(project["id"])):
+                archive.write(file, f"autoskill/workspace/projects/{project['id']}/{relative.as_posix()}")
+                count += 1
     needed = sorted({name for p in listed for case in projects.cases(p["id"]) for name in secrets.references(case)})
     return {"file": str(target), "bytes": target.stat().st_size, "files": count, "projects": listed,
             "includes_runtime": paths.VENDOR.is_dir(), "secrets_not_included": needed,
-            "note": "对方解压后即可使用，不需要安装任何东西。凭据、登录态、运行记录没有打包"
+            "note": ("对方解压后即可使用，不需要安装任何东西。" if paths.VENDOR.is_dir() else
+                     "这份 Skill 目录里没有随包运行时（不是从完整离线包运行的），对方需要自备运行环境。")
+                    + "凭据、登录态、运行记录没有打包"
                     + ("；对方首次使用时需要设置：" + "、".join(needed) if needed else "")}
 
 
