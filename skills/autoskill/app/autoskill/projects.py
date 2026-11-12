@@ -110,6 +110,8 @@ def update(project_id: str, **fields) -> dict:
         if unknown:
             raise ValueError("不认识的操作类型：" + "、".join(sorted(unknown)))
         cfg["approvals"] = sorted(set(fields["approvals"]))
+    if fields.get("ignore_https_errors") is not None:
+        cfg["ignore_https_errors"] = bool(fields["ignore_https_errors"])
     if fields.get("timeout_seconds") is not None:
         cfg["timeout_seconds"] = max(3, min(120, int(fields["timeout_seconds"])))
     store.write(folder / "project.json", info)
@@ -180,7 +182,7 @@ def get(project_id: str) -> dict:
         "id": project_id, "name": info.get("name") or project_id, "category": info.get("category", ""),
         "base_url": cfg.get("base_url", ""), "start_url": info.get("start_url") or cfg.get("base_url", ""),
         "allowed_origins": cfg.get("allowed_origins", []), "approvals": cfg.get("approvals", []),
-        "timeout_seconds": cfg.get("timeout_seconds", 20),
+        "timeout_seconds": cfg.get("timeout_seconds", 20), "ignore_https_errors": bool(cfg.get("ignore_https_errors")),
         "cases": {"total": len(active), "ui": sum(c["kind"] == "ui" for c in active),
                   "api": sum(c["kind"] == "api" for c in active)},
         "login": {"ui_case": login.get("ui_case"), "api_case": login.get("api_case")},

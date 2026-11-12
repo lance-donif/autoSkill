@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from . import db, demo, paths, projects, runner, secrets, sessions
@@ -101,6 +102,7 @@ def parser() -> argparse.ArgumentParser:
     update.add_argument("--allow-origin", action="append", help="额外允许访问的地址，可重复")
     update.add_argument("--approve", action="append", choices=sorted(projects.RISKS), help="允许的高风险操作，可重复")
     update.add_argument("--timeout", type=int)
+    update.add_argument("--insecure-tls", choices=("on", "off"), help="内网自签名证书：on 表示不校验证书")
 
     sub.add_parser("context", help="开始工作前先看这个：登录方式、已有用例、知识库、下一步").add_argument("project")
     sub.add_parser("cases", help="列出项目用例").add_argument("project")
@@ -149,6 +151,16 @@ def parser() -> argparse.ArgumentParser:
         item = export.add_parser(name)
         item.add_argument("project")
         item.add_argument("--out", help="输出目录，默认项目目录下")
+
+    packer = sub.add_parser("pack", help="把项目（用例、知识库、登录方式）打成一个分享包")
+    packer.add_argument("projects", nargs="*", help="项目标识；省略则打包全部项目")
+    packer.add_argument("--out", help="输出文件或目录")
+    packer.add_argument("--include-secrets", action="store_true", help="把凭据用口令加密后一并带走（团队共用测试账号时）")
+    packer.add_argument("--passphrase", help="配合 --include-secrets；省略时从环境变量 AUTOSKILL_PASSPHRASE 读取")
+    importer = sub.add_parser("import", help="导入别人给的分享包")
+    importer.add_argument("file")
+    importer.add_argument("--passphrase", help="分享包带有加密凭据时提供")
+    importer.add_argument("--overwrite", action="store_true", help="本机已有同名项目时用分享包里的版本替换")
 
     sub.add_parser("demo", help="安装示例项目（示例工单系统）").add_argument("--url", default=demo.DEFAULT_URL)
     dash = sub.add_parser("dashboard", help="启动仪表盘")
@@ -209,7 +221,8 @@ def dispatch(args) -> tuple[dict, int]:
         if action == "show":
             return projects.get(args.project), 0
         return projects.update(args.project, name=args.name, category=args.category, allowed_origins=args.allow_origin,
-                               approvals=args.approve, timeout_seconds=args.timeout), 0
+                               approvals=args.approve, timeout_seconds=args.timeout,
+                               ignore_https_errors=None if args.insecure_tls is None else args.insecure_tls == "on"), 0
     if command == "context":
         return context(args.project), 0
     if command == "cases":
@@ -222,6 +235,19 @@ def dispatch(args) -> tuple[dict, int]:
             secrets.delete_secret(args.name)
             return {"deleted": args.name}, 0
         return {"secrets": secrets.names()}, 0
+    if command == "pack":
+        from . import share
+
+        phrase = None
+        if args.include_secrets:
+            phrase = args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE")
+            if not phrase:
+                raise ValueError("--include-secrets 需要口令：加 --passphrase，或设置环境变量 AUTOSKILL_PASSPHRASE")
+        return share.pack(args.projects or None, args.out, phrase), 0
+    if command == "import":
+        from . import share
+
+        return share.import_pack(args.file, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite), 0
     if command == "demo":
         return {"installed": demo.install(args.url),
                 "start_demo_site": "python examples/ticket-desk/server.py --port 8790（在 Skill 目录下）"}, 0

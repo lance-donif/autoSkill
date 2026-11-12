@@ -35,7 +35,8 @@ class PlaywrightDriver:
         if self.context:
             self.context.close()
         self.context = self.browser.new_context(
-            service_workers="block", storage_state=state, viewport={"width": 1366, "height": 860}
+            service_workers="block", storage_state=state, viewport={"width": 1366, "height": 860},
+            ignore_https_errors=bool(self.config.get("ignore_https_errors")),
         )
         self.context.set_default_timeout(self.timeout_ms)
         self.context.route("**/*", self._gate)

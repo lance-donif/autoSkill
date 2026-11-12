@@ -143,7 +143,7 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
     agent.call(SESSION, ["close"], check=False, timeout=30)
     try:
-        agent.call(SESSION, ["open", "about:blank"], launch=agent.launch_args(config["allowed_origins"], state_file), timeout=90)
+        agent.call(SESSION, ["open", "about:blank"], launch=agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors"))), timeout=90)
         agent.call(SESSION, ["network", "har", "start"])
         opened = agent.call(SESSION, ["open", start_url], timeout=90) or {}
     finally:

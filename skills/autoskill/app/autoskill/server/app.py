@@ -167,7 +167,8 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         body = await request.json()
         return projects.update(project_id, name=body.get("name"), category=body.get("category"),
                                allowed_origins=body.get("allowed_origins"), approvals=body.get("approvals"),
-                               timeout_seconds=body.get("timeout_seconds"))
+                               timeout_seconds=body.get("timeout_seconds"),
+                               ignore_https_errors=body.get("ignore_https_errors"))
 
     @app.delete("/api/projects/{project_id}/session")
     def forget_session(project_id: str):

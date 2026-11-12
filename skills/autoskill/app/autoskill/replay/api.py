@@ -121,7 +121,8 @@ def new_client(config: dict, state: dict | None = None):
     """An HTTP client that keeps cookies for the run; system proxies are ignored."""
     import httpx
 
-    client = httpx.Client(timeout=float(config.get("timeout_seconds", 20)), follow_redirects=False, trust_env=False)
+    client = httpx.Client(timeout=float(config.get("timeout_seconds", 20)), follow_redirects=False, trust_env=False,
+                          verify=not config.get("ignore_https_errors"))
     for cookie in (state or {}).get("cookies", []):
         client.cookies.set(cookie["name"], cookie["value"], domain=cookie.get("domain", "").lstrip("."), path=cookie.get("path", "/"))
     return client

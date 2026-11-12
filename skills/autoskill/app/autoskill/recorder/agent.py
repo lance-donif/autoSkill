@@ -87,11 +87,13 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
     return _strip(reply.get("data"))
 
 
-def launch_args(allowed_origins: list[str], state_file: Path | None = None) -> list[str]:
+def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False) -> list[str]:
     """Flags for the command that starts the browser: bundled Chrome, fenced network, optional login state."""
     flags = ["--args", ",".join([*paths.QUIET_CHROME_ARGS, *paths.fence_args(allowed_origins)])]
     if paths.chrome():
         flags = ["--executable-path", paths.chrome(), *flags]
     if state_file:
         flags = ["--state", str(state_file), *flags]
+    if insecure_tls:
+        flags = ["--ignore-https-errors", *flags]
     return flags
