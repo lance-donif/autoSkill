@@ -1,0 +1,12 @@
+test_all_paths_include_repeated_characters_and_blank_separation (test_residual_ctc.CTCMarginalTests.test_all_paths_include_repeated_characters_and_blank_separation) ... ok
+test_analytic_logit_gradient_matches_central_finite_difference (test_residual_ctc.CTCMarginalTests.test_analytic_logit_gradient_matches_central_finite_difference) ... ok
+test_impossible_repeated_target_is_rejected (test_residual_ctc.CTCMarginalTests.test_impossible_repeated_target_is_rejected) ... ok
+test_adam_updates_live_arrays_and_clips_gradients (test_residual_ctc.ResidualTests.test_adam_updates_live_arrays_and_clips_gradients) ... ok
+test_adapter_backward_matches_finite_difference (test_residual_ctc.ResidualTests.test_adapter_backward_matches_finite_difference) ... ok
+test_teacher_consistency_zero_and_gradient (test_residual_ctc.ResidualTests.test_teacher_consistency_zero_and_gradient) ... ok
+test_zero_output_projection_is_exactly_the_baseline (test_residual_ctc.ResidualTests.test_zero_output_projection_is_exactly_the_baseline) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.113s
+
+OK
