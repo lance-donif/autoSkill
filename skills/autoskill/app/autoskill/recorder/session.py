@@ -578,11 +578,11 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     if needs_target:
         if not target:
             raise RecordError(f"{kind} 断言需要目标，例如 @e5、testid=toast 或 CSS 选择器")
-        if kind in ("count", "min_count"):
-            step["locators"] = [_spec(rec, target, rich=True).get("locator") or {"by": "css", "value": target}]
+        explicit = _spec(rec, target, rich=True).get("locator")
+        if kind in ("count", "min_count") or (kind == "hidden" and explicit):
+            step["locators"] = [explicit or {"by": "css", "value": target}]
         else:
             found = _target(rec, target, rich=True)["locators"]
-            explicit = _spec(rec, target, rich=True).get("locator")
             given_as_text = bool(explicit) and explicit["by"] == "text"
             if not given_as_text:  # locating an element by the very text being asserted proves nothing
                 found = [loc for loc in found if loc["by"] != "text"] or found

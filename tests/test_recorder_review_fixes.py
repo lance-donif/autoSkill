@@ -15,7 +15,8 @@ import httpx
 
 from autoskill import projects
 from autoskill.recorder import compile as compiler
-from autoskill.replay import api
+from autoskill.recorder import session
+from autoskill.replay import api, ui
 
 BASE = "https://example.test"
 
@@ -63,6 +64,29 @@ class RecorderReviewTests(unittest.TestCase):
                 self.assertEqual(values, {"tag": ["red", "blue", ""], "single": "one", "empty": ""})
                 self.assertEqual(api.run_case(client, case, projects.config(self.pid), {})["status"], "Pass")
         self.assertEqual(sent, [parse_qsl(fields, keep_blank_values=True)] * 2)
+
+    def test_hidden_records_missing_elements_without_describing_them(self):
+        for target, locator in (("#deleted", {"by": "css", "value": "#deleted"}),
+                                ("testid=deleted", {"by": "testid", "value": "deleted"})):
+            with self.subTest(target=target):
+                rec = {"project_id": self.pid, "steps": [], "refs": {}}
+                with patch.object(session, "current", return_value=rec), patch.object(session, "_sync_tabs"), \
+                        patch.object(session, "PageProbe") as probe, patch.object(session, "_describe") as describe:
+                    probe.return_value.count.return_value = 0
+                    result = session.check("hidden", target, None)
+                    self.assertEqual((result["recorded"], result["actual"]), (1, "不可见"))
+                    self.assertEqual(rec["steps"], [{"assertion": "hidden", "locators": [locator]}])
+                    describe.assert_not_called()
+
+    def test_hidden_does_not_record_a_visible_element(self):
+        rec = {"project_id": self.pid, "steps": [], "refs": {}}
+        with patch.object(session, "current", return_value=rec), patch.object(session, "_sync_tabs"), \
+                patch.object(session, "PageProbe") as probe, patch.object(ui.time, "monotonic", side_effect=[0, 1, 2, 9]):
+            probe.return_value.count.return_value = 1
+            probe.return_value.read.return_value = True
+            with self.assertRaisesRegex(session.RecordError, "断言现在不成立"):
+                session.check("hidden", "#visible", None)
+        self.assertEqual(rec["steps"], [])
 
 
 if __name__ == "__main__":
