@@ -1,10 +1,10 @@
 """Persist CI evidence and publication result; no credentials enter repository files."""
 import argparse
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import shutil
+from datetime import UTC, datetime
+from pathlib import Path
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     source = args.result / 'offline-package.json'
     published = os.environ['RELEASE_JOB_STATUS'] == 'success' and source.is_file()
     report = {'tag': tag, 'source_commit': os.environ['RELEASE_COMMIT'], 'status': 'published' if published else 'failed',
-              'run_id': os.environ['RELEASE_RUN_ID'], 'recorded_at': datetime.now(timezone.utc).isoformat(),
+              'run_id': os.environ['RELEASE_RUN_ID'], 'recorded_at': datetime.now(UTC).isoformat(),
               'run_url': f"https://github.com/{os.environ['RELEASE_REPOSITORY']}/actions/runs/{os.environ['RELEASE_RUN_ID']}"}
     evidence = Path('reports/evidence/releases') / tag
     evidence.mkdir(parents=True, exist_ok=True)

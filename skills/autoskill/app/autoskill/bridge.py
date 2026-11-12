@@ -17,7 +17,6 @@ import sys
 import urllib.error
 import urllib.request
 import uuid
-from pathlib import Path
 
 from . import paths
 

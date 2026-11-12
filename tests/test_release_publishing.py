@@ -2,10 +2,10 @@
 import importlib.util
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,7 +49,6 @@ class ReleasePublishingTests(unittest.TestCase):
 
             env = {'RELEASE_TAG': tag, 'RELEASE_COMMIT': 'test', 'RELEASE_REPOSITORY': 'example/repo'}
             argv = ['publish', '--build', str(base), '--proof', str(proof), '--result', str(base / 'result')]
-            with patch.dict(os.environ, env), patch('sys.argv', argv), patch.object(publisher, 'api', fake_api):
-                with self.assertRaisesRegex(ValueError, 'digest mismatch'):
-                    publisher.main()
+            with patch.dict(os.environ, env), patch('sys.argv', argv), patch.object(publisher, 'api', fake_api), self.assertRaisesRegex(ValueError, 'digest mismatch'):
+                publisher.main()
             self.assertFalse(any(method in ('DELETE', 'PATCH') for method, _ in calls))

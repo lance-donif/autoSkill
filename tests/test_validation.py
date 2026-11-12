@@ -1,6 +1,10 @@
-import json, subprocess, sys, unittest, os
-from pathlib import Path
+import os
+import subprocess
+import sys
+import unittest
+
 import test_qa_engine as fixtures
+
 qa = fixtures.qa
 
 class ValidationTests(unittest.TestCase):
@@ -35,7 +39,7 @@ class ValidationTests(unittest.TestCase):
         self.cases([self.c])
         qa.export(self.p)
         w = load_workbook(self.p / 'output/接口测试用例.xlsx')
-        text = ' '.join((str(c.value) for row in w['测试用例'] for c in row))
+        text = ' '.join(str(c.value) for row in w['测试用例'] for c in row)
         w.close()
         self.assertIn('${ENV:QA_REGRESSION_TOKEN}', text)
         self.assertNotIn('PRIVATE_SYNTHETIC_VALUE', text)
@@ -81,6 +85,7 @@ class ValidationTests(unittest.TestCase):
 
     def test_execution_error_cannot_leave_previous_pass_current(self):
         from unittest.mock import patch
+
         import httpx
         qa.run_api(self.p)
         fake=httpx.Response(200,json={'code':0})

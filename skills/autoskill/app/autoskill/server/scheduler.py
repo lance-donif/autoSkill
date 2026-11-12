@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .. import db, projects, runner
 
-UTC = datetime.timezone.utc
+UTC = datetime.UTC
 CLOCK = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
 DAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 

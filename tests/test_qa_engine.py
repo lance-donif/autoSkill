@@ -1,7 +1,12 @@
-import copy, importlib.util, json, tempfile, threading, unittest, os
-from unittest.mock import patch
+import importlib.util
+import os
+import tempfile
+import threading
+import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+from unittest.mock import patch
+
 spec=importlib.util.spec_from_file_location('qa',str(Path(__file__).resolve().parents[1]/'skills/autoskill/scripts/qa.py'))
 qa=importlib.util.module_from_spec(spec);spec.loader.exec_module(qa)
 class Handler(BaseHTTPRequestHandler):

@@ -1,25 +1,25 @@
 """Real recording, both engines and standalone exports across tabs/windows."""
-import copy
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'skills/autoskill/app'))
 __import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
+from test_bridge import Sandbox
+
 from autoskill import paths, projects
-from autoskill.recorder import session, agent
+from autoskill.recorder import session
 from autoskill.replay import codegen, ir, ui
-from autoskill.replay.tabs import Tabs
 from autoskill.replay.playwright_driver import PlaywrightDriver
 from autoskill.replay.selenium_driver import SeleniumDriver
-from test_bridge import Sandbox
+from autoskill.replay.tabs import Tabs
 
 
 class Site(BaseHTTPRequestHandler):

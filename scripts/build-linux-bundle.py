@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 import argparse
-from email.parser import Parser
 import importlib.util
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tarfile
 import zipfile
+from email.parser import Parser
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("windows_bundle", ROOT / "scripts/build-windows-bundle.py")

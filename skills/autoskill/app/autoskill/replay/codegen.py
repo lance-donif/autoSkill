@@ -5,8 +5,8 @@ browser. Secrets are read from environment variables of the same name.
 """
 from __future__ import annotations
 
-import json
 import inspect
+import json
 import re
 from pathlib import Path
 

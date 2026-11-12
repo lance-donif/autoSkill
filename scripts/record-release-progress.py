@@ -1,11 +1,11 @@
 """Best-effort CI progress over Git, including when the caller cannot read the Actions API."""
 import argparse
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import subprocess
 import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
         result = {'tag': os.environ['RELEASE_TAG'], 'source_commit': os.environ['RELEASE_COMMIT'],
                   'status': 'running', 'stage': args.stage, 'run_id': os.environ['RELEASE_RUN_ID'],
                   'run_url': f"https://github.com/{os.environ['RELEASE_REPOSITORY']}/actions/runs/{os.environ['RELEASE_RUN_ID']}",
-                  'recorded_at': datetime.now(timezone.utc).isoformat()}
+                  'recorded_at': datetime.now(UTC).isoformat()}
         target = folder / 'reports/release-status.json'
         target.parent.mkdir(exist_ok=True)
         target.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

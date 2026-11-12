@@ -15,7 +15,6 @@ from ..replay.tabs import Tabs
 from . import agent
 
 
-
 def session_name() -> str:
     """One browser session per workspace: two autoSkill folders on one machine must never share a browser."""
     import hashlib

@@ -9,10 +9,10 @@ from ..replay import ir
 
 BUSINESS_TYPES = ("fetch", "xhr")
 RESOURCE_TYPES = ("document", "script", "stylesheet")
-SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session|csrf|signature)", re.I)
-ID_KEY = re.compile(r"(id|token|key|code|uuid|no|sn)$", re.I)
+SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session|csrf|signature)", re.IGNORECASE)
+ID_KEY = re.compile(r"(id|token|key|code|uuid|no|sn)$", re.IGNORECASE)
 STRICT_ID = re.compile(r"(^|_)id$|[a-z]Id$|(^|_)ID$")  # plainly an identifier: id, user_id, userId
-ENUM_KEY = re.compile(r"^(code|status|state|type|role|result|success|ok|errno|error|priority|level)$", re.I)
+ENUM_KEY = re.compile(r"^(code|status|state|type|role|result|success|ok|errno|error|priority|level)$", re.IGNORECASE)
 MAX_DEPTH = 4
 SCHEMA_DEPTH = 2  # how deep the structure check goes: deeper detail changes too often to be worth asserting
 
@@ -160,7 +160,7 @@ def stable_fields(response, sent) -> dict:
     echoed = {v for _, _, v in leaves(sent)} if sent is not None else set()
     chosen = {}
     for pointer, key, value in leaves(response):
-        if "/0" in pointer or SENSITIVE.search(key) or isinstance(value, str) and len(value) > 80:
+        if "/0" in pointer or SENSITIVE.search(key) or (isinstance(value, str) and len(value) > 80):
             continue
         is_echo = isinstance(value, str) and value in echoed and len(value) >= 2
         is_enum = ENUM_KEY.match(key) and (isinstance(value, (bool, str)) or key.lower() in ("code", "errno", "status"))
@@ -179,7 +179,7 @@ def correlatable(response) -> list[tuple[str, str, object]]:
             continue
         if isinstance(value, str) and (len(value) >= 16 or (ID_KEY.search(key) and len(value) >= 4)):
             found.append((pointer, key, value))
-        elif isinstance(value, int) and (ID_KEY.search(key) and value >= 1000 or STRICT_ID.search(key) and value >= 1):
+        elif isinstance(value, int) and ((ID_KEY.search(key) and value >= 1000) or (STRICT_ID.search(key) and value >= 1)):
             found.append((pointer, key, value))  # small numbers only where the field is plainly an id
     return found
 

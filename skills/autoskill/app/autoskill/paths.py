@@ -1,9 +1,9 @@
 """Where things live. The skill directory is the product; `.local` never leaves the machine."""
 from __future__ import annotations
 
+import json
 import os
 import platform
-import json
 import shutil
 import sys
 from pathlib import Path

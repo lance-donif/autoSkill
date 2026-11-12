@@ -8,12 +8,12 @@ import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import sys
-from urllib.parse import urlsplit, unquote
 import uuid
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]  # the skill directory
 VERSION = "1.1.0"
@@ -62,7 +62,7 @@ RESULT_COLS = [
 
 
 def now():
-    return dt.datetime.now(dt.timezone.utc).isoformat()
+    return dt.datetime.now(dt.UTC).isoformat()
 
 
 def read(p):
@@ -498,6 +498,7 @@ def case_fingerprint(case):
 def run_api(p):
     import httpx
     import jsonschema
+
     from .. import paths
 
     paths.configure_http_environment()

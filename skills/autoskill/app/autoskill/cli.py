@@ -279,6 +279,7 @@ def launch_check() -> dict:
 
 def doctor(launch: bool = False) -> dict:
     import importlib.util
+
     from . import platforms
 
     modules = ("playwright", "selenium", "httpx", "jsonschema", "openpyxl", "fastapi", "uvicorn")

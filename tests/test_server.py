@@ -12,16 +12,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from autoskill import db, demo, paths, projects, reporting, runner, secrets, share  # noqa: E402
-from autoskill.server import jobs, metrics, scheduler  # noqa: E402
-from autoskill.server.app import create_app  # noqa: E402
+from autoskill import db, demo, paths, projects, reporting, runner, secrets, share
+from autoskill.server import jobs, metrics, scheduler
+from autoskill.server.app import create_app
 
 spec = importlib.util.spec_from_file_location("ticket_desk", ROOT / "skills/autoskill/examples/ticket-desk/server.py")
 ticket_desk = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ticket_desk)
-UTC = datetime.timezone.utc
+UTC = datetime.UTC
 PID = demo.PROJECT_ID
 API_ONLY = ["TC-API-002", "TC-API-004", "TC-API-005", "TC-API-006"]
 

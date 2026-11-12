@@ -4,12 +4,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from . import paths
 
@@ -47,7 +47,7 @@ def binary_status(binary: str | None) -> dict:
                               env=paths.child_env(), errors="replace")
         output = (done.stdout + done.stderr).strip()
         result = {"ok": done.returncode == 0, "path": binary, "version": output[:500]}
-        match = re.search(r"(?:Chrom(?:e|ium)|ChromeDriver)\s+(\d+)\.", output, re.I)
+        match = re.search(r"(?:Chrom(?:e|ium)|ChromeDriver)\s+(\d+)\.", output, re.IGNORECASE)
         if match:
             result["major"] = int(match[1])
         if not result["ok"]:

@@ -4,7 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import paths
-from . import ir
 from .tabs import playwright_tabs
 
 

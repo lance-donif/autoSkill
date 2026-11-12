@@ -9,11 +9,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 __import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
-import jsonschema  # noqa: E402
+import jsonschema
 
-from autoskill import projects, secrets  # noqa: E402
-from autoskill.recorder import compile as compiler  # noqa: E402
-from autoskill.recorder import har  # noqa: E402
+from autoskill import projects, secrets
+from autoskill.recorder import compile as compiler
+from autoskill.recorder import har
 
 BASE = "http://127.0.0.1:9"
 TOKEN = "tok-abcdefghijklmnop1234"

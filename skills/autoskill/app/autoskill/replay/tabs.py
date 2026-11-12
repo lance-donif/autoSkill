@@ -7,11 +7,11 @@ class Tabs:
     def destination(url):
         # Popup destinations are hints, never credentials or one-time login parameters.
         import re
-        from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+        from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
         parts = urlsplit(url)
         sensitive = r"token|secret|password|passwd|authorization|api.?key|credential|session|signature|^(code|key|ticket|state)$"
-        query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not re.search(sensitive, k, re.I)]
+        query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not re.search(sensitive, k, re.IGNORECASE)]
         return urlunsplit((parts.scheme, parts.netloc.rsplit('@', 1)[-1], parts.path, urlencode(query), ''))
 
     def __init__(self, handles, activate, create, close, url, ready, current):

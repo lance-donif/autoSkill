@@ -52,7 +52,7 @@ FINISHED = ("Pass", "Fail", "Blocked", "Cancelled")
 
 
 def now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
 
 
 def new_id(prefix: str) -> str:

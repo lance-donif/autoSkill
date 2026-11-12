@@ -11,10 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 os.environ.setdefault("AUTOSKILL_HEADED", "0")
 
-from autoskill import captcha, plan, projects  # noqa: E402
-from autoskill.recorder import compile as compiler  # noqa: E402
-from autoskill.recorder import har  # noqa: E402
-from autoskill.replay import api, codegen, ir  # noqa: E402
+from autoskill import captcha, plan, projects
+from autoskill.recorder import compile as compiler
+from autoskill.recorder import har
+from autoskill.replay import api, codegen, ir
 
 BASE = "http://127.0.0.1:9"
 

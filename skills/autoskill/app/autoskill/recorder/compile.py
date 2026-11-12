@@ -15,10 +15,10 @@ from . import har as harlib
 
 DROP_HEADERS = re.compile(
     r"^(user-agent|accept.*|referer|origin|host|connection|content-length|content-type|cookie|pragma|"
-    r"cache-control|sec-.*|upgrade-insecure-requests|if-.*|priority|dnt|te)$", re.I)
-SCHEME = re.compile(r"^(Bearer|Basic|Token)\s+(.+)$", re.I)
-STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.I)
-LOGIN_PATH = re.compile(r"(login|signin|sign-in|auth|token|session)", re.I)
+    r"cache-control|sec-.*|upgrade-insecure-requests|if-.*|priority|dnt|te)$", re.IGNORECASE)
+SCHEME = re.compile(r"^(Bearer|Basic|Token)\s+(.+)$", re.IGNORECASE)
+STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.IGNORECASE)
+LOGIN_PATH = re.compile(r"(login|signin|sign-in|auth|token|session)", re.IGNORECASE)
 CHANGING = {"fill", "type", "click", "dblclick", "press", "check", "uncheck", "select"}
 MAX_API_CASES = 30
 

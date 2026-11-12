@@ -1,8 +1,8 @@
 """A failed upload for any architecture must keep every existing final attachment."""
 import importlib.util
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +33,6 @@ class PlatformReleaseTests(unittest.TestCase):
                 path = Path(folder) / name
                 path.write_bytes(b"zip")
                 files.append((path, {"file": name, "bytes": 3, "sha256": "good"}))
-            with patch.object(publisher, "api", api):
-                with self.assertRaisesRegex(ValueError, "digest mismatch"):
-                    publisher.publish(files, "notes", "vtest", "commit")
+            with patch.object(publisher, "api", api), self.assertRaisesRegex(ValueError, "digest mismatch"):
+                publisher.publish(files, "notes", "vtest", "commit")
         self.assertFalse(any(method in ("DELETE", "PATCH") for method, _, _ in calls))

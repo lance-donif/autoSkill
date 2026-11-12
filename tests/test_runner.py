@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 __import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
-from autoskill import db, demo, paths, projects, runner, secrets, sessions  # noqa: E402
+from autoskill import db, demo, paths, projects, runner, secrets, sessions
 
 spec = importlib.util.spec_from_file_location("ticket_desk", ROOT / "skills/autoskill/examples/ticket-desk/server.py")
 ticket_desk = importlib.util.module_from_spec(spec)

@@ -3,11 +3,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import urllib.parse
 import urllib.request
 import zipfile
+from pathlib import Path
 
 
 def api(method, path, body=None, binary=None):

@@ -28,8 +28,8 @@ def normalize(stamp: str | None) -> str | None:
     except ValueError:
         raise ValueError("时间范围格式不正确") from None
     if value.tzinfo is None:
-        value = value.replace(tzinfo=datetime.timezone.utc)
-    return value.astimezone(datetime.timezone.utc).isoformat(timespec="milliseconds")
+        value = value.replace(tzinfo=datetime.UTC)
+    return value.astimezone(datetime.UTC).isoformat(timespec="milliseconds")
 
 
 @dataclass
@@ -39,7 +39,7 @@ class Scope:
     end: str | None = None
 
     @classmethod
-    def parse(cls, projects: str | None, start: str | None, end: str | None) -> "Scope":
+    def parse(cls, projects: str | None, start: str | None, end: str | None) -> Scope:
         ids = [p for p in (projects or "").split(",") if p]
         return cls(ids, normalize(start), normalize(end))
 

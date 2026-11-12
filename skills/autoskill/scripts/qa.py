@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 
-from autoskill.core import store as _store  # noqa: E402
-from autoskill.core.store import *  # noqa: E402,F401,F403
+from autoskill.core import store as _store
+from autoskill.core.store import *  # noqa: F403
 
 # Tests and older callers reach module-level helpers that `import *` skips.
 globals().update({name: getattr(_store, name) for name in dir(_store) if not name.startswith("__")})

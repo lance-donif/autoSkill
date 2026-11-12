@@ -16,7 +16,7 @@ from ..core import store
 from . import ir
 
 VAR = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
-SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session)", re.I)
+SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session)", re.IGNORECASE)
 MAX_BODY = 64 * 1024
 
 
