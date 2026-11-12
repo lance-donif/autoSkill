@@ -1,0 +1,114 @@
+{
+  "frozen_unix": 1794501654.5360537,
+  "predictions_loaded_before_freeze": false,
+  "immutable_files": {
+    "plan.json": "ab2d77624c694945ff963264abb3126a93defcba14be49e9925715393b6dbc26",
+    "manifest.jsonl": "fbb367bf9c2f64d5aba10cd7db034182ed9d9155614a120fdf4108207b14f46d",
+    "external-manifest.jsonl": "d96d6fd451cf83140313660f5a2136b16089f7454e5e7c565bd0aadec5998bcb",
+    "evaluation-order.json": "7d3cbdc96e6ca996b36f9716fc42f8a74c30c510099e898c7dd99d90881be919",
+    "labels.json": "114430709777eb803460e86a9c413a06bc149388631c6445394065bafd4cd225",
+    "generate_blind.py": "3c6b87b0c1bb170358ad0012efac91ef30a211981c65ba63f91bcd7cf29c9836",
+    "validate_dataset.py": "643dbe62cfc4b28177e6d030112e16a0cee48c90f91f76d2497c3f890d437ea3",
+    "evaluate_blind.py": "0a92a83aaa37f4e0811affb5b2fbe8ae95de588fc335feb483ffcbd6c2b8e18a",
+    "evaluation-protocol.json": "71f6fa2c7a3a72a8cd314066aaabc27f467f2069b7035f9aa59203b2b71d1775",
+    "font-source-inventory.json": "a079408e401751994aee5753bb6d71adf3730f901c6d1d8ca9d52a9175948d8f",
+    "font-licenses/freefont-copyright.txt": "18834b9bd37876d71e37a5aa9b2e2a003bd66c52e1e3cfbbf7456a6d9b2b7a44",
+    "font-licenses/carlito-copyright.txt": "207ec1cf5426235729d4a5b869377e41b6aacf17abd181480096a1a05ef80b65",
+    "exclusions/ctc-font-inventory.json": "18b4de7958956b4ac773c4e2f30af22112a7b9cc2f6b9a4458861bd90a590ee0",
+    "exclusions/original-1920.jsonl": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+    "exclusions/apache-12.jsonl": "0541138b83ada3b1b17ea952fed45310a81f465a2742266827545ce86f9b8ce9",
+    "exclusions/blind-round1-480.jsonl": "6b19d207406d405690f887cf9fadf2ea985c47a6922096e05b932507cdc5e304",
+    "exclusions/ctc-train-dev-1600.jsonl": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+    "exclusions/blind-round2-480.jsonl": "c964fe23c182a4e77b9fa7b7a7b436107794a4e391305d9a2d7dffedc7027b9b"
+  },
+  "source_manifests": [
+    {
+      "source": "/workspace/autoSkill-release/captcha-research/datasets/manifest.jsonl",
+      "snapshot": "exclusions/original-1920.jsonl",
+      "sha256": "c2c755ea5c67e50808b05b14f044f4868fb49085e57669853d09438c238e6cdf",
+      "records": 1920,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v3-2026-11-12/exclusions/original-1920.jsonl"
+    },
+    {
+      "source": "/workspace/autoSkill-release/captcha-research/datasets/public-apache-manifest.jsonl",
+      "snapshot": "exclusions/apache-12.jsonl",
+      "sha256": "0541138b83ada3b1b17ea952fed45310a81f465a2742266827545ce86f9b8ce9",
+      "records": 12,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v3-2026-11-12/exclusions/apache-12.jsonl"
+    },
+    {
+      "source": "/workspace/autoSkill-release/captcha-blind-validation-2026-11-12/manifest.jsonl",
+      "snapshot": "exclusions/blind-round1-480.jsonl",
+      "sha256": "6b19d207406d405690f887cf9fadf2ea985c47a6922096e05b932507cdc5e304",
+      "records": 480,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v3-2026-11-12/exclusions/blind-round1-480.jsonl"
+    },
+    {
+      "source": "/workspace/autoSkill-release/captcha-research/residual-v2/data/manifest.jsonl",
+      "snapshot": "exclusions/ctc-train-dev-1600.jsonl",
+      "sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+      "records": 1600,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v3-2026-11-12/exclusions/ctc-train-dev-1600.jsonl"
+    },
+    {
+      "source": "/workspace/autoSkill-release/captcha-blind-validation-v2-2026-11-12/manifest.jsonl",
+      "snapshot": "exclusions/blind-round2-480.jsonl",
+      "sha256": "c964fe23c182a4e77b9fa7b7a7b436107794a4e391305d9a2d7dffedc7027b9b",
+      "records": 480,
+      "file": "/workspace/autoSkill-release/captcha-blind-validation-v3-2026-11-12/exclusions/blind-round2-480.jsonl"
+    }
+  ],
+  "excluded_existing_records": 4492,
+  "new_samples": 480,
+  "label_overlap": 0,
+  "pixel_overlap": 0,
+  "seed_overlap": 0,
+  "variant_seed_overlap": 0,
+  "font_sha256_overlap": 0,
+  "font_family_overlap": 0,
+  "duplicate_label_redraws": 0,
+  "pillow_version": "11.3.0",
+  "fonts": [
+    {
+      "path": "/workspace/autoSkill-release/captcha-round3-font-sources-2026-11-12/freefont/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+      "sha256": "ad5b4b55537a7ef413aa7cbae8e6e9104030f4f1588db66d8907e3724298cb85",
+      "copy": "fonts/FreeSans.ttf",
+      "family": "FreeSans",
+      "style": "Regular"
+    },
+    {
+      "path": "/workspace/autoSkill-release/captcha-round3-font-sources-2026-11-12/freefont/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
+      "sha256": "c1dd2270ff624d66a7f1cd23075b5ce05a662f560be06a70a9599065ce008355",
+      "copy": "fonts/FreeSerif.ttf",
+      "family": "FreeSerif",
+      "style": "Regular"
+    },
+    {
+      "path": "/workspace/autoSkill-release/captcha-round3-font-sources-2026-11-12/freefont/usr/share/fonts/truetype/freefont/FreeMono.ttf",
+      "sha256": "442e54fab239e446832900393a88ce2fc4ca1ea1d7932c16f06f472b43991cc7",
+      "copy": "fonts/FreeMono.ttf",
+      "family": "FreeMono",
+      "style": "Regular"
+    },
+    {
+      "path": "/workspace/autoSkill-release/captcha-round3-font-sources-2026-11-12/carlito/usr/share/fonts/truetype/crosextra/Carlito-Regular.ttf",
+      "sha256": "f6418f708baede9789daef5d458c0f53d2a888af9820e8062934e504fedc6595",
+      "copy": "fonts/Carlito-Regular.ttf",
+      "family": "Carlito",
+      "style": "Regular"
+    }
+  ],
+  "groups": {
+    "plain": 120,
+    "pale": 120,
+    "through-line": 120,
+    "first-symbol-touching": 120
+  },
+  "touching_symbols": {
+    "hook": 40,
+    "loop": 40,
+    "slash": 40
+  },
+  "each_noise_image_verified_to_overlap_first_glyph": true,
+  "model_policy": "Original/speed baseline paths/hashes fixed in evaluation-protocol. New candidate path/hash is not supplied or inspected during dataset generation. Require a separate candidate freeze before the single product-solve evaluation; no model execution is authorized in preparation phase."
+}

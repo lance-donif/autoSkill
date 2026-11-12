@@ -1,0 +1,33 @@
+{
+  "fixed_unix": 1794502328.4978654,
+  "authority": "Parent fixed these acceptance conditions before viewing any predictions for this round.",
+  "candidate_sha256": "1e6ac899871225561ff08ee01eed29762266a66034676b0d1bb67dade575e5fe",
+  "dataset_freeze_sha256": "678c595d9819e578cd94628b657e403e09df942c10ad813922e07deb45b1a543",
+  "ordinary_groups": [
+    "blind/plain",
+    "blind/pale"
+  ],
+  "ordinary_required_decoded_string_changes": 0,
+  "blind_groups": [
+    "blind/plain",
+    "blind/pale",
+    "blind/through-line",
+    "blind/first-symbol-touching"
+  ],
+  "per_blind_group_exact_not_lower": true,
+  "per_blind_group_cer_not_higher": true,
+  "first_symbol_touching_min_net_exact_gain": 3,
+  "blind_total_strict_exact_gain_required": true,
+  "external_groups": [
+    "external/public-fournierp",
+    "external/patrick-public-apache2"
+  ],
+  "per_external_source_exact_not_lower": true,
+  "per_external_source_cer_not_higher": true,
+  "all_samples_new_exceptions_or_empty_allowed": 0,
+  "speed_is_not_an_accuracy_acceptance_gate": true,
+  "single_block_latency_descriptive_only": true,
+  "any_failed_condition_rejects_candidate": true,
+  "external_results_for_accept_reject_only_not_tuning": true,
+  "generalization_statement": "An increase of three on120 is a small-sample point estimate, not a claim of general statistical significance."
+}
