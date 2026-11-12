@@ -61,6 +61,8 @@ class Compiler:
         self.cases: list[dict] = []
         self.pool: dict[str, tuple[int, str, str]] = {}  # value -> (case index, pointer, key)
         self.names: dict[tuple[int, str], str] = {}
+        self.cookie_sources: dict[tuple[str, str], str] = {}
+        self.cookie_logins: set[str] = set()
         self.notes: list[str] = []
         self.state_variables: dict = dict(self.auth.get("state_variables", {}))
         wanted = set(rec.get("secrets", []))
@@ -164,10 +166,33 @@ class Compiler:
                 headers[shown] = self.scrub(value, name, deps)
         return headers
 
+    @staticmethod
+    def is_login(entry: dict) -> bool:
+        return entry["method"] == "POST" and bool(LOGIN_PATH.search(entry["path"])) and entry["status"] < 400
+
+    def remember_cookies(self, entry: dict, provider: str) -> None:
+        for name, value in entry.get("cookies", {}).items():
+            self.cookie_sources[(name, value)] = provider
+        if entry.get("cookies") and self.is_login(entry):
+            self.cookie_logins.add(provider)
+
+    def _login_dependencies(self, entry: dict, deps: set) -> None:
+        for cookie in harlib.cookies(entry["headers"].get("cookie", "")).items():
+            if provider := self.cookie_sources.get(cookie):
+                deps.add(provider)
+        signed_in = "authorization" in entry["headers"] or "cookie" in entry["headers"]
+        login_ids = {self.auth.get("api_case"), self.login_ui_case, getattr(self, "auth_provider", None)} - {None}
+        if signed_in and not (deps & (login_ids | self.cookie_logins)) and not self.rec.get("as_login"):
+            fallback = self.auth.get("api_case") or self.login_ui_case
+            if fallback:
+                deps.add(fallback)
+
     def add_business(self, entry: dict, module: str, existing: dict) -> str | None:
         """Build (or reuse) the API case for one captured request. Returns 'new', 'reused' or None."""
         if entry["body_note"]:
             self.notes.append(f'{entry["method"]} {entry["path"]}：{entry["body_note"]}，未生成接口用例')
+            if self.rec.get("as_login") and self.login_ui_case and self.is_login(entry):
+                self.remember_cookies(entry, self.login_ui_case)
             return None
         deps: set = set()
         segments = []
@@ -180,12 +205,7 @@ class Compiler:
         params = self.scrub(entry["params"], "", deps)
         body = self.scrub(entry["json"], "", deps) if entry["json"] is not None else None
         form = self.scrub(entry["form"], "", deps) if entry.get("form") else None
-        signed_in = "authorization" in entry["headers"] or "cookie" in entry["headers"]
-        login_ids = {self.auth.get("api_case"), self.login_ui_case, getattr(self, "auth_provider", None)} - {None}
-        if signed_in and not (deps & login_ids) and not self.rec.get("as_login"):
-            fallback = self.auth.get("api_case") or self.login_ui_case
-            if fallback:
-                deps.add(fallback)
+        self._login_dependencies(entry, deps)
         rules: dict = {"status": entry["status"]}
         if entry["response"] is not None:
             fields = harlib.stable_fields(entry["response"], [entry["json"], entry["params"], entry.get("form")])
@@ -206,15 +226,22 @@ class Compiler:
                                 headers=headers, params=params, json=body, form=form, depends_on=sorted(deps),
                                 traffic="static" if static else "business")
         signature = self.signature(case)
-        if signature in {self.signature(c) for c in self.cases}:
+        repeated = next((c for c in self.cases if self.signature(c) == signature), None)
+        if repeated:
+            self.remember_cookies(entry, repeated["id"])
             return None  # the same request repeated within this recording
         match = existing.get(signature)
         if match and match["assertions"]["status"] == entry["status"]:
             case, outcome = json.loads(json.dumps(match)), "reused"
+            if deps:
+                case["extensions"]["depends_on"] = sorted(set(projects.depends_on(case)) | deps)
+                if case["preconditions"] == "无" or case["preconditions"].startswith("前置用例："):
+                    case["preconditions"] = "前置用例：" + "、".join(case["extensions"]["depends_on"])
         else:
             self.next_number += 1
             outcome = "new"
         self.cases.append(case)
+        self.remember_cookies(entry, case["id"])
         for pointer, key, value in harlib.correlatable(entry["response"]):
             self.pool.setdefault(str(value), (len(self.cases) - 1, pointer, key))
         return outcome
@@ -225,8 +252,9 @@ class Compiler:
         for index, case in enumerate(self.cases):
             if case["method"] == "POST" and LOGIN_PATH.search(case["path"]) and case["assertions"]["status"] < 400:
                 tokens = [v for v, (i, _, key) in self.pool.items() if i == index and harlib.SENSITIVE.search(key)]
-                if tokens:
-                    self.variable(tokens[0])  # make sure the token is extracted even if nothing used it yet
+                if tokens or case["id"] in self.cookie_logins:
+                    if tokens:
+                        self.variable(tokens[0])  # make sure the token is extracted even if nothing used it yet
                     self.auth["api_case"] = case["id"]
                     probe = next((c for c in self.cases[index + 1:] if c["method"] == "GET"
                                   and case["id"] in projects.depends_on(c) and c["assertions"]["status"] == 200), None)
@@ -253,7 +281,12 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     existing = {compiler.signature(c): c for c in projects.cases(project_id) if c["kind"] == "api"}
     business = harlib.drop_typeahead([e for e in captured if e["business"]])
     counts = {"new": 0, "reused": 0}
-    for entry in business[:MAX_API_CASES]:
+    selected = {id(entry) for entry in business[:MAX_API_CASES]}
+    for entry in captured:
+        if id(entry) not in selected:
+            if rec.get("as_login") and compiler.is_login(entry):
+                compiler.remember_cookies(entry, ui_id)
+            continue
         if rec.get("used_login") and not rec.get("as_login"):
             entry["headers"].setdefault("cookie", "")  # recorded while signed in: depends on the login
         outcome = compiler.add_business(entry, module or "接口", existing)

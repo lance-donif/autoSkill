@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 import httpx
 
-from autoskill import projects
+from autoskill import projects, runner
 from autoskill.recorder import compile as compiler
 from autoskill.recorder import session
 from autoskill.replay import api, ui
@@ -106,6 +106,54 @@ class RecorderReviewTests(unittest.TestCase):
                 self.assertEqual(api.run_case(client, case, projects.config(self.pid), {})["status"], "Pass")
         self.assertEqual(sent, list(media_types))
         self.assertEqual(len(self.compile([entry("PATCH", "/thing", {"ok": True}, body={"name": "new"})])), 3)
+
+    def cookie_traffic(self):
+        login = entry("POST", "/api/login", {"success": True}, body={"username": "qa", "password": "example"})
+        login["response"]["headers"] = [{"name": "Set-Cookie", "value": "sid=recorded; Path=/; HttpOnly"}]
+        return [entry("GET", "/api/status", {"logged_in": False}, headers={"Cookie": "visitor=anonymous"}),
+                login, entry("GET", "/api/me", {"role": "admin"}, headers={"Cookie": "sid=recorded"})]
+
+    def test_cookie_login_dependencies_keep_authenticated_and_anonymous_requests_separate(self):
+        cases = self.compile(self.cookie_traffic(), as_login=True)
+        before, login, protected = cases
+        self.assertEqual(projects.depends_on(before), [])
+        self.assertEqual(projects.depends_on(protected), [login["id"]])
+        self.assertEqual(projects.auth(self.pid)["api_case"], login["id"])
+        self.assertNotIn("sid=recorded", json.dumps(cases))
+
+        def handle(request):
+            if request.url.path == "/api/login":
+                return httpx.Response(200, json={"success": True}, headers={"set-cookie": "sid=replayed; Path=/"})
+            if request.url.path == "/api/status":
+                return httpx.Response(200, json={"logged_in": bool(request.headers.get("cookie"))})
+            self.assertEqual(request.headers.get("cookie"), "sid=replayed")
+            return httpx.Response(200, json={"role": "admin"})
+
+        with patch.object(api, "new_client", side_effect=lambda *args: httpx.Client(transport=httpx.MockTransport(handle))):
+            running = runner.Session({"project_id": self.pid, "id": "cookie-test", "engine": "playwright"})
+            try:
+                for case in cases:
+                    self.assertEqual(running.run_one(case)["status"], "Pass")
+                self.assertEqual(running.run_one(before)["status"], "Pass")
+            finally:
+                running.close()
+
+    def test_document_login_cookies_depend_on_the_ui_login(self):
+        login = entry("POST", "/login", {"ok": True}, form="username=qa")
+        login["_resourceType"] = "document"
+        login["response"]["cookies"] = [{"name": "sid", "value": "recorded"}]
+        cases = self.compile([login, entry("GET", "/api/me", {"role": "admin"}, headers={"Cookie": "sid=recorded"})],
+                             as_login=True)
+        self.assertEqual(len(cases), 1)
+        self.assertEqual(projects.depends_on(cases[0]), [projects.auth(self.pid)["ui_case"]])
+
+    def test_reusing_an_older_cookie_case_restores_its_login_dependency(self):
+        cases = self.compile(self.cookie_traffic(), as_login=True)
+        cases[-1]["extensions"].pop("depends_on")
+        projects.save_cases(self.pid, [cases[-1]])
+        updated = self.compile(self.cookie_traffic(), as_login=True)
+        self.assertEqual(len(updated), 3)
+        self.assertEqual(projects.depends_on(updated[-1]), [updated[1]["id"]])
 
 
 if __name__ == "__main__":

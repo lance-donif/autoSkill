@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from http.cookies import CookieError, SimpleCookie
 from urllib.parse import parse_qsl, urlsplit
 
 from ..replay import ir
@@ -32,6 +33,23 @@ def _parameters(text: str) -> dict:
         else:
             result[key] = [result[key], value]
     return result
+
+
+def cookies(text: str) -> dict[str, str]:
+    """Read cookie values only while compiling private traffic; cases retain their producers, not values."""
+    try:
+        parsed = SimpleCookie(text)
+    except CookieError:
+        return {}
+    return {name: value.value for name, value in parsed.items()}
+
+
+def _response_cookies(response: dict) -> dict[str, str]:
+    found = {item["name"]: item["value"] for item in response.get("cookies", [])}
+    for header in response.get("headers", []):
+        if header["name"].lower() == "set-cookie":
+            found.update(cookies(header["value"]))
+    return found
 
 
 def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
@@ -72,6 +90,7 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
             "method": request["method"], "path": parts.path or "/", "params": _parameters(parts.query),
             "headers": _headers(request.get("headers")), "json": body, "form": form, "body_note": body_note,
             "status": response["status"], "mime": mime, "response": parsed, "text": content.get("text") or "",
+            "cookies": _response_cookies(response),
             "business": kind in BUSINESS_TYPES or (kind not in RESOURCE_TYPES and "json" in mime),
             "resource": kind in RESOURCE_TYPES,
         })
