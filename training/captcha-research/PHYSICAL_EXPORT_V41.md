@@ -20,6 +20,8 @@ ONNX 条件从模型输入 tensor 直接计算：有效列排除零 padding；FP
 
 `evidence/physical-export-v41/` 保存导出锁、候选/基底/权重 SHA、原 initializer 核验、400 图产品验证和工具副本 provenance。外部冻结源、模型和报告保持不变。
 
+当前仓库的复现命令使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)，对照原始教师张量及分支；新输出单独记录实际快照身份。
+
 ```bash
 OPENBLAS_NUM_THREADS=1 python training/captcha-research/export_physical_residual_v41.py \
   --root "$CAPTCHA_RESEARCH_DIR" --manifest "$CAPTCHA_RESEARCH_DIR/residual-v2/data/manifest.jsonl" \

@@ -1,11 +1,9 @@
 """Evaluate one fixed palette-recovery chain on the original train/dev only."""
 import argparse
 import hashlib
-import importlib
 import importlib.util
 import json
 import statistics
-import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -15,6 +13,7 @@ from unittest.mock import patch
 import numpy as np
 import onnxruntime as ort
 from color_layer_core import recover_layers
+from historical_solver import load_solver
 
 
 def sha(file):
@@ -52,7 +51,7 @@ def load_data(protocol):
 
 
 class CaptureBaseline:
-    """Let actual product preprocessing run while exposing fixed teacher logits."""
+    """Capture frozen pre-recovery preprocessing while exposing teacher logits."""
 
     def __init__(self):
         self.tensor, self.frames = None, None
@@ -79,11 +78,8 @@ def solve_text(solver, png):
 
 
 def run_product(product, protocol, rows, teacher, physical, output):
-    """Run B583 once per restored image through its actual product solver."""
-    sys.path.insert(0, str(product / 'skills/autoskill/app'))
-    captcha = importlib.import_module('autoskill.captcha')
-    if not Path(captcha.__file__).resolve().is_relative_to(product.resolve()):
-        raise ValueError('The product solver came from another worktree')
+    """Run B583 once per restored image through the frozen historical solver."""
+    captcha = load_solver(product)
     gate = load_gate(protocol)
     meta = json.loads(Path(protocol['base_metadata']).read_text())
     capture, records = CaptureBaseline(), []
@@ -127,7 +123,8 @@ def run_product(product, protocol, rows, teacher, physical, output):
             if index % 200 == 0:
                 stream.flush()
                 print(json.dumps({'phase': 'fixed-color-layers-once', 'completed': index, 'total': len(rows)}), flush=True)  # noqa: T201  # research progress
-    return records, {'product_solver_sha256': sha(Path(captcha.__file__)), 'restored_recognizer_calls': sum(row['restore'] for row in records),
+    return records, {'product_solver_sha256': sha(Path(captcha.__file__)), 'historical_solver': captcha.research_provenance,
+                     'restored_recognizer_calls': sum(row['restore'] for row in records),
                      'base_model_sha256': protocol['base_sha256'], 'threads': {'intra': 2, 'inter': 1}, 'unexpected_exceptions': 0}
 
 

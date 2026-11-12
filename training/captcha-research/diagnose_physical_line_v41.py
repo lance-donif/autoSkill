@@ -1,14 +1,13 @@
 """Measure the fixed v4.1 sparse through-line signal on train/dev product tensors."""
 import argparse
-import importlib
 import json
-import sys
 from collections import defaultdict
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+from historical_solver import load_solver
 
 COVERAGE_THRESHOLD = .90
 MAX_RGB_EXCLUSIVE = 128
@@ -46,7 +45,7 @@ def physical_signal(tensor):
 
 
 class CapturingSession:
-    """Expose cached teacher logits while capturing the real product tensor."""
+    """Expose cached teacher logits while capturing the historical input tensor."""
 
     def __init__(self):
         self.tensor = None
@@ -94,17 +93,14 @@ def diagnostic(root, manifest, cache, product, protocol, output):
     if protocol['fixed_signal'] != expected:
         raise ValueError('The predeclared physical thresholds do not match this implementation')
     rows, logits, meta = load_inputs(root, manifest, cache, protocol)
+    captcha = load_solver(product)
     output.mkdir(parents=True)
     (output / 'protocol.json').write_text(json.dumps(protocol, indent=2) + '\n')
     lock = {'code_sha256': sha(Path(__file__)), 'manifest_sha256': sha(manifest), 'protocol': protocol,
-            'product_solver_sha256': sha(product / 'skills/autoskill/app/autoskill/captcha.py'),
+            'product_solver_sha256': sha(Path(captcha.__file__)), 'historical_solver': captcha.research_provenance,
             'teacher_cache_sha256': sha(cache / 'features.npz'), 'model_inference_runs': 0,
             'training_runs': 0, 'test_images_loaded': 0, 'external_images_loaded': 0}
     (output / 'run-lock.json').write_text(json.dumps(lock, indent=2) + '\n')
-    sys.path.insert(0, str(product / 'skills/autoskill/app'))
-    captcha = importlib.import_module('autoskill.captcha')
-    if not Path(captcha.__file__).resolve().is_relative_to(product.resolve()):
-        raise ValueError('The product solver came from an unexpected worktree')
     session = CapturingSession()
     charset, (_, height, width) = meta['charset'], meta['imageShape']
     groups = defaultdict(lambda: {'samples': 0, 'flags': 0, 'baseline_correct': 0, 'baseline_correct_flags': 0})

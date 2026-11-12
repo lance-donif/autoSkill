@@ -1,9 +1,7 @@
 """Export and validate one frozen sparse-line-conditioned temporal CTC residual."""
 import argparse
-import importlib
 import json
 import shutil
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,6 +10,7 @@ import onnx
 import onnxruntime as ort
 from diagnose_physical_line_v41 import physical_signal
 from export_residual import build_model
+from historical_solver import load_solver
 from physical_onnx_v41 import attach_condition, condition_examples, condition_model
 from residual_ctc import TemporalResidual, log_softmax
 from scale_residual import residual_all
@@ -36,7 +35,7 @@ def export_model(root, weights, destination, *, zero_output=False):
 
 
 class ObservingSession:
-    """Observe a real ORT session's product-preprocessed inputs and probabilities."""
+    """Observe a real ORT session's historical inputs and probabilities."""
 
     def __init__(self, session, observe):
         self.session, self.observe = session, observe
@@ -64,11 +63,8 @@ def validate_boundaries(condition):
 
 
 def validate_product(product, candidate, root, rows, dev, expected, corrected, teacher, flags, zero_candidate):
-    """Run the actual solver and inspect its real tensor on every dev image."""
-    sys.path.insert(0, str(product / 'skills/autoskill/app'))
-    captcha = importlib.import_module('autoskill.captcha')
-    if not Path(captcha.__file__).resolve().is_relative_to(product.resolve()):
-        raise ValueError('The product solver came from an unexpected worktree')
+    """Run the frozen historical solver and inspect every dev input tensor."""
+    captcha = load_solver(product)
     options = ort.SessionOptions()
     options.intra_op_num_threads, options.inter_op_num_threads = 2, 1
     options.log_severity_level = 3
@@ -127,6 +123,7 @@ def validate_product(product, candidate, root, rows, dev, expected, corrected, t
         numeric['zero_output_probability_max_abs'] = max(numeric['zero_output_probability_max_abs'], float(np.abs(probability - reference).max()))
         numeric['zero_output_sequence_changes'] += decode(probability[None], meta['charset'])[0] != decode(teacher[index][None], meta['charset'])[0]
     report = {'product_module': str(captcha.__file__), 'product_solver_sha256': sha(Path(captcha.__file__)),
+              'historical_solver': captcha.research_provenance,
               'dev_images': len(dev), 'observed_product_tensors': counter[0], 'condition_bool_changes': len(flag_changes),
               'condition_changed_ids': flag_changes, 'product_solve_sequence_changes': len(sequence_changes), 'changed_dev_ids': sequence_changes,
               'empty_output_contract_errors': empty_errors, 'boundaries': boundaries, 'numeric': numeric,

@@ -51,6 +51,8 @@ checker、包装模型/源转换图/adapter/B583 的 CPU session load 均通过�
 
 历史 protocol 含固定本机资产路径与 SHA。跨机器复现需要在新的目录、首次预测前重新记录相同算法的本地路径/provenance，不能回写历史协议。命令依次为：
 
+当前仓库的复现命令使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)，保留历史分支输入；新输出单独记录实际快照身份。
+
 ```bash
 OPENBLAS_NUM_THREADS=1 python training/captcha-research/build_conditional_expert.py \
   --protocol /absolute/new-research/protocol.json --output /absolute/new-research/build

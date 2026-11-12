@@ -36,6 +36,8 @@
 
 `color_layer_core.py` 是纯像素算法，`test_color_layer_core.py` 不加载识别模型，`evaluate_color_layers.py` 固定资产 SHA、真实产品 gate/recognizer 和本轮门槛。`evidence/color-layer-v1/` 保存全部分组数量、exact/CER、CPU 成本、源码和协议 SHA、最终失败状态。原图、逐图预测及运行缓存留在仓库外只读目录，未入 Git。
 
+当前仓库的复现命令使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)，保留历史物理条件；新输出单独记录实际快照身份。
+
 ```bash
 python -m unittest discover -s training/captcha-research -p test_color_layer_core.py
 OPENBLAS_NUM_THREADS=1 python training/captcha-research/evaluate_color_layers.py \

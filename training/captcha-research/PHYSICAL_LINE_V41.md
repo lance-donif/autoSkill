@@ -7,3 +7,5 @@
 有效图像左右边缘仍计入分母，padding 不计入像素面积；原始整数由 FP32 `rint(127.5*(tensor+1))` 还原。无有效列的全零非图像 tensor 返回 false 和零覆盖/密度，避免除零。正常真实像素不可能全通道恰好变成产品 padding 的零。
 
 新增四项测试覆盖全黑/深灰底、黑底白字、密度恰好 50% 与超过 50%、padding、127/128、RGB 极差 16/17、全零 tensor。诊断和协议见 `evidence/physical-line-v41/` 及 `physical_line_protocol_v41.json`。没有创建 ORT session、应用残差、训练或读取任何 test/external 图片。ONNX 条件与完整候选的验证另行记录。
+
+当前仓库复现时使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)，保留当时观察的原始 PP48 张量；新输出单独记录实际快照身份，原冻结结果不变。

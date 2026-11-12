@@ -40,6 +40,8 @@ A/B 在全部 train/dev 上有 **37 条字符串不同**，即使表中聚合 ex
 
 `evidence/png-specialist-v2/` 保存完整分组 exact/CER、运行锁、post-pass 描述、源码 SHA 和失败冻结记录。原始 PNG、源模型和逐图预测只在仓库外只读研究目录，未提交二进制。协议包含历史本机路径；跨机复现须在首次预测前为相同算法创建新路径/provenance，不得改写历史协议。
 
+当前仓库的复现命令使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)，保留原 PNG 分支的历史物理条件；新输出单独记录实际快照身份。
+
 ```bash
 python -m unittest discover -s training/captcha-research -p test_png_specialist_core.py
 OPENBLAS_NUM_THREADS=1 python training/captcha-research/evaluate_png_specialist.py \

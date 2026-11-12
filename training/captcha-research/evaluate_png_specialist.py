@@ -1,9 +1,7 @@
 """Evaluate two predeclared decoders from one original-PNG expert pass."""
 import argparse
-import importlib
 import json
 import statistics
-import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,11 +10,12 @@ from unittest.mock import patch
 import onnxruntime as ort
 from build_conditional_expert import load_helper, sha
 from evaluate_conditional_expert import load_data, metrics
+from historical_solver import load_solver
 from png_specialist_core import class_mappings, decode_both, original_png_tensor
 
 
 class CaptureBaseline:
-    """Capture actual product preprocessing while returning verified cached logits."""
+    """Capture frozen pre-recovery preprocessing while returning cached logits."""
 
     def __init__(self):
         self.tensor, self.frames = None, None
@@ -45,11 +44,8 @@ def source_session(protocol):
 
 
 def run(product, protocol, rows, teacher, physical, output):
-    """Use real PP48 gate inputs and one original-PNG source run only when true."""
-    sys.path.insert(0, str(product / 'skills/autoskill/app'))
-    captcha = importlib.import_module('autoskill.captcha')
-    if not Path(captcha.__file__).resolve().is_relative_to(product.resolve()):
-        raise ValueError('The product solver came from another worktree')
+    """Use frozen PP48 gate inputs and one original-PNG source run when true."""
+    captcha = load_solver(product)
     meta = json.loads(Path(protocol['base_metadata']).read_text())
     charset = meta['charset']
     source_charset = json.loads(Path(protocol['source_charset']).read_text())
@@ -94,7 +90,8 @@ def run(product, protocol, rows, teacher, physical, output):
                 stream.flush()
                 print(json.dumps({'phase': 'original-png-fixed-A-B-once', 'completed': index, 'total': len(rows)}), flush=True)  # noqa: T201  # fixed research progress
     return records, {'product_solver': str(captcha.__file__), 'product_solver_sha256': sha(Path(captcha.__file__)),
-                     'baseline': 'Verified frozen B583 teacher text; actual product preprocessing captured without a B583 network run.',
+                     'historical_solver': captcha.research_provenance,
+                     'baseline': 'Verified frozen B583 teacher text; historical preprocessing captured without a B583 network run.',
                      'source_ORT_calls': sum(row['flag'] for row in records), 'source_sha256': protocol['source_sha256'],
                      'threads': {'intra': 2, 'inter': 1}}
 

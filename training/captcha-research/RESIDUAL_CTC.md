@@ -35,6 +35,8 @@
 
 需要原准备任务的 `datasets/manifest.jsonl`、对应像素和固定字体，既有 NumPy/Pillow/ORT，以及小型 `onnx` 包；不需要 Torch/Paddle。下面命令只在全新仓库外目录运行，不覆盖现有冻结证据。图像、特征缓存、epoch NPZ 和候选 ONNX 不进入 Git。
 
+当前仓库的导出验证使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)，使 `--product "$PWD"` 继续匹配原始教师预处理；新输出单独记录实际快照身份。
+
 ```bash
 export CAPTCHA_RESEARCH_DIR=/absolute/path/outside-repository/captcha-research
 export OPENBLAS_NUM_THREADS=1

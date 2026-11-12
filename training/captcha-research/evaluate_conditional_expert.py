@@ -1,9 +1,7 @@
 """Evaluate the single fixed specialist wrapper on original train/dev only."""
 import argparse
-import importlib
 import json
 import statistics
-import sys
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -12,6 +10,7 @@ from unittest.mock import patch
 import numpy as np
 import onnxruntime as ort
 from build_conditional_expert import load_helper, sha
+from historical_solver import load_solver
 
 
 def decode(logits, charset):
@@ -80,7 +79,7 @@ def load_data(protocol):
 
 
 class ObservedSession:
-    """Observe real product inference without changing loader, input or decoder."""
+    """Observe historical solver inference without changing its input or decoder."""
 
     def __init__(self, session, observe):
         self.session, self.observe = session, observe
@@ -118,11 +117,8 @@ def validate_probability(probability, flag, teacher, numeric):
 
 
 def run_product(product, candidate, protocol, rows, teacher, physical, output):
-    """Use the actual solve path once for each allowed image, with fixed options."""
-    sys.path.insert(0, str(product / 'skills/autoskill/app'))
-    captcha = importlib.import_module('autoskill.captcha')
-    if not Path(captcha.__file__).resolve().is_relative_to(product.resolve()):
-        raise ValueError('The product solver came from another worktree')
+    """Use the frozen solve path once per allowed image, with fixed options."""
+    captcha = load_solver(product)
     gate = load_helper(Path(protocol['gate_numpy_helper']))
     charset = json.loads(Path(protocol['base_metadata']).read_text())['charset']
     baseline = decode(teacher, charset)
@@ -172,7 +168,8 @@ def run_product(product, candidate, protocol, rows, teacher, physical, output):
             if index % 200 == 0:
                 stream.flush()
                 print(json.dumps({'phase': 'fixed-train-dev-once', 'completed': index, 'total': len(rows)}), flush=True)  # noqa: T201  # research progress
-    return records, numeric, {'product_solver': str(captcha.__file__), 'product_solver_sha256': sha(Path(captcha.__file__)), 'threads': {'intra': 2, 'inter': 1}}
+    return records, numeric, {'product_solver': str(captcha.__file__), 'product_solver_sha256': sha(Path(captcha.__file__)),
+                              'historical_solver': captcha.research_provenance, 'threads': {'intra': 2, 'inter': 1}}
 
 
 def shutil_copy(source, destination):

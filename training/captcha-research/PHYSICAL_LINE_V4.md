@@ -21,6 +21,8 @@
 
 四项轻量测试覆盖全幅线、普通局部字形、彩线、有效宽度与边缘、亮度 127/128、RGB 极差 16/17、全零 tensor。证据位于 `evidence/physical-line-v4/`，只含协议、元信息、计数和冻结 SHA，不包含图像或候选模型。
 
+当前仓库的复现命令使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)，观察原始 PP48 张量；新输出单独记录实际快照身份。
+
 ```bash
 python -m unittest discover -s training/captcha-research -p test_physical_line.py
 OPENBLAS_NUM_THREADS=1 python training/captcha-research/diagnose_physical_line.py \

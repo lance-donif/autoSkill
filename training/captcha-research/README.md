@@ -96,6 +96,8 @@ OPENBLAS_NUM_THREADS=1 python training/captcha-research/probe_distance_heads.py
 
 从 autoSkill 根目录运行，将工作目录显式指向仓库外。不要向当前 `models/captcha` 写候选模型。
 
+历史物理诊断、专家评估和残差导出使用[冻结的恢复前 solver](HISTORICAL_SOLVER.md)。其 `--product "$PWD"` 命令可在当前仓库执行，新结果明确记录旧源码身份；生产颜色恢复与已有冻结证据不变。
+
 ```bash
 export CAPTCHA_MODEL_DIR="$PWD/skills/autoskill/models/captcha"
 export CAPTCHA_BASELINE_MODEL=/absolute/path/outside-repository/original-captcha-ctc.onnx

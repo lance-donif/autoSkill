@@ -3,13 +3,13 @@ import argparse
 import json
 import os
 import shutil
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 import onnx
 import onnxruntime as ort
+from historical_solver import load_solver
 from onnx import helper, numpy_helper
 from residual_ctc import TemporalResidual, log_softmax
 from residual_data import frozen_metadata, prepare
@@ -76,7 +76,7 @@ def build_model(root, weights, alpha, destination, *, zero_output=False):
 
 
 def validate(root, selection, candidate, zero_candidate, product, manifest, cache):
-    """Require the actual application solve path to match all selected dev strings."""
+    """Require the frozen historical solve path to match all selected dev strings."""
     frozen_metadata(root)
     protocol = json.loads((SCRIPT / 'residual_protocol.json').read_text())
     rows, _, _, dev, features, teacher, mean, scale, charset = prepare_inputs(root, manifest, cache, protocol)
@@ -110,11 +110,7 @@ def validate(root, selection, candidate, zero_candidate, product, manifest, cach
             if zero:
                 numeric['zero_output_sequence_changes'] += decode(observed[None], charset)[0] != decode(logits[None], charset)[0]
         del session
-    sys.path.insert(0, str(product / 'skills/autoskill/app'))
-    from autoskill import captcha
-
-    if not Path(captcha.__file__).resolve().is_relative_to(product.resolve()):
-        raise ValueError('The product solver was imported from an unexpected worktree')
+    captcha = load_solver(product)
     folder = candidate.parent / 'product-solve-validation'
     folder.mkdir()
     shutil.copyfile(candidate, folder / 'captcha-ctc.onnx')
@@ -128,7 +124,7 @@ def validate(root, selection, candidate, zero_candidate, product, manifest, cach
         chosen.intra_op_num_threads, chosen.inter_op_num_threads = 2, 1
         return chosen
 
-    # The real product loader/preprocessing/decoder run unchanged; only the
+    # The frozen product loader/preprocessing/decoder run unchanged; only the
     # validation process's thread budget is capped to the shared two CPUs.
     with patch.object(ort, 'SessionOptions', capped_options):
         for index, row_index in enumerate(dev):
@@ -141,7 +137,8 @@ def validate(root, selection, candidate, zero_candidate, product, manifest, cach
                 observed, empty_errors = '', empty_errors + 1
             if observed != expected[index]:
                 changes.append(rows[row_index]['id'])
-    report = {'numeric': numeric, 'product_module': str(captcha.__file__), 'product_solve_dev_images': len(dev),
+    report = {'numeric': numeric, 'product_module': str(captcha.__file__), 'historical_solver': captcha.research_provenance,
+              'product_solve_dev_images': len(dev),
               'product_solve_sequence_changes': len(changes), 'changed_dev_ids': changes, 'empty_output_contract_errors': empty_errors,
               'test_images_loaded': 0, 'external_images_loaded': 0, 'production_model_files_written': False}
     report['validation_session_threads'] = {'intra_op': 2, 'inter_op': 1}
