@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 __import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
-from autoskill import db, demo, paths, projects, runner, secrets, sessions  # noqa: E402
+from autoskill import builder, db, demo, paths, projects, runner, secrets, sessions  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("ticket_desk", ROOT / "skills/autoskill/examples/ticket-desk/server.py")
 ticket_desk = importlib.util.module_from_spec(spec)
@@ -87,6 +87,42 @@ class RunnerTests(unittest.TestCase):
         _, renewed = self.run_cases("TC-API-002")
         self.assertFalse(renewed[0]["detail"].get("reused"))
         self.assertEqual(renewed[1]["status"], "Pass")
+
+    def test_real_http_crud_chain_runs_prerequisites_and_cleans_up_created_data(self):
+        """A selected final absence check executes every saved CRUD dependency in order."""
+        headers = {"Authorization": "Bearer {{token}}"}
+        definitions = [
+            ("POST", "/api/tickets", {"title": "回放-{{RAND}}", "priority": "low"},
+             {"status": 201, "json_equals": {"/title": "回放-{{RAND}}", "/priority": "low"}}),
+            ("GET", "/api/tickets/{{crud_id}}", None,
+             {"status": 200, "json_equals": {"/title": "回放-{{RAND}}"}}),
+            ("PUT", "/api/tickets/{{crud_id}}", {"title": "替换-{{RAND}}", "priority": "high", "description": "完整替换"},
+             {"status": 200, "json_equals": {"/title": "替换-{{RAND}}", "/description": "完整替换", "/priority": "high"}}),
+            ("PATCH", "/api/tickets/{{crud_id}}", {"title": "修改-{{RAND}}", "status": "resolved"},
+             {"status": 200, "json_equals": {"/title": "修改-{{RAND}}", "/priority": "high", "/status": "resolved"}}),
+            ("DELETE", "/api/tickets/{{crud_id}}", None,
+             {"status": 200, "json_equals": {"/deleted": "{{crud_id}}"}}),
+            ("GET", "/api/tickets/{{crud_id}}", None, {"status": 404}),
+        ]
+        previous = "TC-API-001"
+        wanted = []
+        for index, (method, path, body, assertions) in enumerate(definitions, 20):
+            case_id = f"TC-API-{index:03}"
+            case = builder.api_case(case_id, "完整接口 CRUD " + method, method, path, assertions,
+                                    headers=headers, json=body)
+            case["extensions"]["depends_on"] = [previous]
+            if method == "POST":
+                case["extensions"]["extract"] = {"crud_id": "/id"}
+            projects.save_cases(PID, [case])
+            wanted.append(case_id)
+            previous = case_id
+        final, rows = self.run_cases(wanted[-1])
+        self.assertEqual([row["case_id"] for row in rows], ["TC-API-001", *wanted])
+        self.assertEqual([row["status"] for row in rows], ["Pass"] * 7, rows)
+        self.assertEqual((final["status"], final["total"], final["passed"]), ("Pass", 1, 1))
+        with self.server.RequestHandlerClass.state.lock:
+            self.assertEqual(len(self.server.RequestHandlerClass.state.tickets), 3)
+            self.assertFalse(any("回放-" in item["title"] or "修改-" in item["title"] for item in self.server.RequestHandlerClass.state.tickets))
 
     def test_anonymous_api_case_stays_anonymous_after_a_login_in_the_same_run(self):
         _, rows = self.run_cases("TC-UI-002", "TC-API-004", "TC-API-006")

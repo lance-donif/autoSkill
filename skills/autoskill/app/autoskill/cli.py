@@ -6,7 +6,8 @@ import json
 import os
 import sys
 
-from . import db, demo, paths, projects, runner, secrets, sessions
+from . import capabilities, db, demo, paths, projects, runner, secrets, sessions
+from . import knowledge as knowledge_store
 from .replay import ir
 
 STATUS_TEXT = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消"}
@@ -17,29 +18,52 @@ def emit(value: dict, code: int = 0) -> int:
     return code
 
 
-def knowledge(project_id: str, limit: int = 2400) -> list[dict]:
-    """Knowledge files that hold real content (the placeholders created with a project are skipped)."""
-    found = []
-    folder = projects.path(project_id) / "knowledge"
-    for file in sorted(folder.glob("*")) if folder.is_dir() else []:
-        if file.suffix not in (".md", ".txt", ".json", ".csv"):
-            continue
-        text = file.read_text(encoding="utf-8", errors="replace").strip()
-        if "待补充；未提供不代表不存在" in text and len(text) < 120:
-            continue
-        found.append({"file": f"knowledge/{file.name}", "content": text[:limit], "truncated": len(text) > limit})
-    return found
+def case_page(project_id: str, *, query: str = "", module: str | None = None, kind: str | None = None,
+              offset: int = 0, limit: int = 30, case_id: str | None = None, pool: list[dict] | None = None) -> dict:
+    """Bounded summaries by default; expand only an explicitly selected case."""
+    offset, limit = knowledge_store.bounds(offset, limit)
+    pool = projects.cases(project_id) if pool is None else pool
+    terms = query.casefold().split()
+    matched = [c for c in pool if (module is None or c.get("module", "") == module)
+               and (kind is None or c["kind"] == kind) and (case_id is None or c["id"] == case_id)
+               and all(term in " ".join(str(c.get(key, "")) for key in ("id", "title", "module", "category")).casefold() for term in terms)]
+    matched.sort(key=lambda c: c["id"])
+    if case_id is not None and not matched:
+        raise ValueError(f"项目里没有符合筛选条件的用例 {case_id}")
+    page = matched[offset:offset + limit]
+    items = []
+    for case in page:
+        depends = projects.depends_on(case)
+        item = {"id": case["id"], "kind": case["kind"], "title": case["title"][:200],
+                "module": case.get("module", "")[:120], "depends_on": depends[:10],
+                "replayable": ir.is_replayable(case)}
+        if len(depends) > 10:
+            item["depends_on_total"] = len(depends)
+        items.append(item)
+    returned = len(items)
+    result = {"project": project_id, "cases": items,
+              "summary": {"total": len(pool), "ui": sum(c["kind"] == "ui" for c in pool), "api": sum(c["kind"] == "api" for c in pool)},
+              "pagination": {"total": len(pool), "matched": len(matched), "offset": offset, "limit": limit,
+                             "returned": returned, "has_more": offset + returned < len(matched),
+                             "next_offset": offset + returned if offset + returned < len(matched) else None},
+              "next": "用 --query/--module/--kind 筛选、--offset 翻页；--case 编号 只展开选中的完整用例"}
+    if case_id is not None and page:
+        result["case"] = page[0]
+    return result
 
 
-def context(project_id: str) -> dict:
-    """Everything an agent should know before touching the project, in one answer."""
+def context(project_id: str, *, query: str = "", module: str | None = None,
+            offset: int = 0, limit: int = 30) -> dict:
+    """A bounded project overview; retrieve selected cases/knowledge on demand."""
     info, auth = projects.get(project_id), projects.auth(project_id)
     cases = projects.cases(project_id)
+    page = case_page(project_id, query=query, module=module, offset=offset, limit=limit, pool=cases)
+    notes = knowledge_store.search(project_id, query, limit=5, snippet_chars=120, budget_chars=3000)
     saved = sessions.summary(project_id)
     login_case = next((c for c in cases if c["id"] == auth.get("ui_case")), None)
     steps = []
     if info["missing_secrets"]:
-        steps.append("先补齐凭据：" + "；".join(f"autoskill secret set {n}" for n in info["missing_secrets"]))
+        steps.append("先补齐凭据：" + "；".join(f"autoskill secret set {n}" for n in info["missing_secrets"][:8]))
     if not login_case:
         steps.append("这个项目还没有登录用例。如果被测系统需要登录：autoskill record start "
                      f"{project_id} --as-login，完成登录操作并用 autoskill check 断言登录成功后 record stop；不需要登录则直接录制")
@@ -54,10 +78,9 @@ def context(project_id: str) -> dict:
             "saved_session": saved["saved"], "saved_at": saved["saved_at"],
             "note": "登录由 autoskill 自动完成并在本机复用；不要自己输入账号密码" if login_case else "尚未定义登录方式",
         },
-        "missing_secrets": info["missing_secrets"],
-        "cases": [{"id": c["id"], "kind": c["kind"], "title": c["title"], "module": c["module"],
-                   "depends_on": projects.depends_on(c), "replayable": ir.is_replayable(c)} for c in cases],
-        "knowledge": knowledge(project_id),
+        "missing_secrets": info["missing_secrets"][:30], "missing_secrets_total": len(info["missing_secrets"]),
+        "cases": page["cases"], "case_summary": page["summary"], "case_pagination": page["pagination"],
+        "knowledge": notes["notes"], "knowledge_pagination": notes["pagination"],
         "next_steps": steps,
     }
 
@@ -87,6 +110,10 @@ def parser() -> argparse.ArgumentParser:
     top = argparse.ArgumentParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
     sub = top.add_subparsers(dest="command", required=True)
 
+    caps = sub.add_parser("capabilities", help="机器可读的浏览器能力：执行、录制、双引擎回放与导出；不启动浏览器")
+    caps.add_argument("query", nargs="*", help="可选：命令或能力组，例如 click、network、dialog accept")
+    caps.add_argument("--group", help="仅列出该组；完整组名见不带参数的输出")
+
     project = sub.add_parser("project", help="项目：create / list / show / update").add_subparsers(dest="action", required=True)
     create = project.add_parser("create", help="新建项目；给出要测的地址即授权该地址")
     create.add_argument("--name", required=True)
@@ -104,9 +131,49 @@ def parser() -> argparse.ArgumentParser:
     update.add_argument("--timeout", type=int, help="单步等待元素的秒数，默认 20")
     update.add_argument("--page-load", type=int, help="等待页面打开的秒数，默认 90；页面本身很慢时调大（10–600）")
     update.add_argument("--insecure-tls", choices=("on", "off"), help="内网自签名证书：on 表示不校验证书")
+    update.add_argument("--audio-input", help="明确指定测试麦克风的 16-bit PCM WAV（复制到项目），off 清除")
+    update.add_argument("--assertion-timeout", type=float, help="页面断言等待秒数；AI 长响应可单独调大")
+    update.add_argument("--conversation-timeout", type=float, help="SSE/WebSocket 对话的总等待秒数")
 
-    sub.add_parser("context", help="开始工作前先看这个：登录方式、已有用例、知识库、下一步").add_argument("project")
-    sub.add_parser("cases", help="列出项目用例").add_argument("project")
+    for name, help_text in (("context", "项目概览：登录、用例/知识摘要与下一步（默认最多 30 条用例）"),
+                            ("cases", "分页查找项目用例；--case 编号 展开单条")):
+        listing = sub.add_parser(name, help=help_text)
+        listing.add_argument("project")
+        listing.add_argument("--query", default="")
+        listing.add_argument("--module")
+        listing.add_argument("--offset", type=int, default=0)
+        listing.add_argument("--limit", type=int, default=30)
+        if name == "cases":
+            listing.add_argument("--kind", choices=("ui", "api"))
+            listing.add_argument("--case", dest="case_id")
+
+    notes = sub.add_parser("knowledge", help="显式积累与按需查找项目知识：list / search / show / add").add_subparsers(dest="action", required=True)
+    for name in ("list", "search"):
+        item = notes.add_parser(name)
+        item.add_argument("project")
+        item.add_argument("query", nargs="?" if name == "list" else None, default="")
+        item.add_argument("--offset", type=int, default=0)
+        item.add_argument("--limit", type=int, default=20)
+    note_show = notes.add_parser("show")
+    note_show.add_argument("project")
+    note_show.add_argument("name")
+    note_show.add_argument("--offset", type=int, default=0)
+    note_show.add_argument("--limit", type=int, default=4000, help="正文字符数，上限 16000")
+    note_add = notes.add_parser("add", aliases=("record",), help="显式保存已确认知识并引用来源/用例/运行；不会从失败自动学习")
+    note_add.add_argument("project")
+    note_add.add_argument("--title", required=True)
+    note_add.add_argument("--name", help="可选的新 Markdown 文件名；不能覆盖已有文件")
+    note_content = note_add.add_mutually_exclusive_group(required=True)
+    note_content.add_argument("--content")
+    note_content.add_argument("--file", help="读取 UTF-8 正文")
+    note_add.add_argument("--source", action="append", default=[])
+    note_add.add_argument("--case", action="append", default=[], dest="case_ids")
+    note_add.add_argument("--run", action="append", default=[], dest="run_ids")
+
+    from . import protocols_cli
+
+    api = sub.add_parser("api", help="直接执行/保存 HTTP、SSE 与 WebSocket 协议用例").add_subparsers(dest="api_action", required=True)
+    protocols_cli.register(api)
 
     secret = sub.add_parser("secret", help="本机凭据：set / list / delete").add_subparsers(dest="action", required=True)
     setter = secret.add_parser("set")
@@ -135,7 +202,7 @@ def parser() -> argparse.ArgumentParser:
     for name in ("status", "undo", "cancel"):
         record.add_parser(name)
 
-    browser = sub.add_parser("browser", help="在录制中操作页面：open snapshot click fill select press …")
+    browser = sub.add_parser("browser", add_help=False, help="页面操作与 native 能力；browser help 查看 JSON 能力表")
     browser.add_argument("args", nargs=argparse.REMAINDER)
 
     check = sub.add_parser("check", help="对当前页面做断言；成立才会记录")
@@ -143,6 +210,8 @@ def parser() -> argparse.ArgumentParser:
     check.add_argument("target", nargs="?", help="@e5、testid=名称、text=文字、label=标签、role=button:名称 或 CSS 选择器")
     check.add_argument("expected", nargs="?")
     check.add_argument("--attribute")
+    check.add_argument("--timeout", type=float, help="本条断言最多等待的秒数")
+    check.add_argument("--stable-for", type=float, help="期望连续保持的秒数，用于流式回答完成后稳定性判断")
 
     run = sub.add_parser("run", help="回放用例；前置用例（如登录）自动先执行")
     run.add_argument("project")
@@ -182,7 +251,14 @@ def parser() -> argparse.ArgumentParser:
     writer = plan.add_parser("write", help="把根据需求文档设计的用例写成 Excel 用例表")
     writer.add_argument("project")
     writer.add_argument("--file", required=True, help="用例 JSON 文件（数组）")
-    plan.add_parser("show", help="读出用例表：要执行哪些用例、各自的结果")
+    plan_show = plan.add_parser("show", help="分页查找用例表，默认只列 30 条摘要")
+    plan_show.add_argument("--query", default="")
+    plan_show.add_argument("--module")
+    plan_show.add_argument("--status", choices=("通过", "失败", "阻塞", "未执行"))
+    plan_show.add_argument("--case", dest="case_id")
+    plan_show.add_argument("--offset", type=int, default=0)
+    plan_show.add_argument("--limit", type=int, default=30)
+    plan_show.add_argument("--details", action="store_true", help="展开所选页的步骤/预期；选中单条时信息更完整")
     marker = plan.add_parser("mark", help="给一条用例记录执行结果")
     marker.add_argument("case")
     marker.add_argument("status", choices=("通过", "失败", "阻塞", "未执行"))
@@ -202,7 +278,7 @@ def export_postman(project_id: str, out: str | None) -> dict:
     api_ids = [cid for cid, c in cases.items() if c["kind"] == "api"]
     if not api_ids:
         raise ValueError("项目里还没有接口用例；先录制一条")
-    ordered = [cases[cid] for cid, _ in runner.build_plan(api_ids, cases) if cases[cid]["kind"] == "api"]
+    ordered = [cases[cid] for cid, _ in runner.build_plan(api_ids, cases)]
     info = projects.get(project_id)
     collection, environment = postman.export(info["name"], ordered, info["base_url"])
     folder = Path(out) if out else projects.path(project_id) / "postman"
@@ -311,6 +387,12 @@ def doctor(launch: bool = False) -> dict:
 
 def dispatch(args) -> tuple[dict, int]:
     command, action = args.command, getattr(args, "action", None)
+    if command == "capabilities":
+        return capabilities.catalog(" ".join(args.query), args.group), 0
+    if command == "browser":
+        query = capabilities.help_query(args.args)
+        if query is not None:
+            return capabilities.catalog(query), 0
     if command == "project":
         if action == "create":
             return {"created": projects.create(args.name, args.url, args.category, args.id)}, 0
@@ -318,17 +400,46 @@ def dispatch(args) -> tuple[dict, int]:
             return {"projects": projects.list_all()}, 0
         if action == "show":
             return projects.get(args.project), 0
+        media_config = None
+        if args.audio_input is not None:
+            if args.audio_input == "off":
+                media_config = {}
+            else:
+                from . import artifacts, media
+
+                staged = artifacts.stage_upload(args.project, [args.audio_input])
+                media_config = {"audio_input_file": staged[0]}
+                media.chrome_args({"media": media_config}, projects.path(args.project))
         return projects.update(args.project, name=args.name, category=args.category, allowed_origins=args.allow_origin,
                                approvals=args.approve, timeout_seconds=args.timeout, page_load_seconds=args.page_load,
-                               ignore_https_errors=None if args.insecure_tls is None else args.insecure_tls == "on"), 0
+                               ignore_https_errors=None if args.insecure_tls is None else args.insecure_tls == "on",
+                               media=media_config, assertion_timeout_seconds=args.assertion_timeout,
+                               conversation_timeout_seconds=args.conversation_timeout), 0
     if command == "context":
-        return context(args.project), 0
+        return context(args.project, query=args.query, module=args.module, offset=args.offset, limit=args.limit), 0
     if command == "cases":
-        return {"cases": context(args.project)["cases"]}, 0
+        return case_page(args.project, query=args.query, module=args.module, kind=args.kind, offset=args.offset,
+                         limit=args.limit, case_id=args.case_id), 0
+    if command == "knowledge":
+        if action in ("list", "search"):
+            return knowledge_store.search(args.project, args.query, offset=args.offset, limit=args.limit), 0
+        if action == "show":
+            return knowledge_store.show(args.project, args.name, offset=args.offset, limit=args.limit), 0
+        content = args.content
+        if args.file:
+            with open(args.file, encoding="utf-8-sig") as stream:
+                content = stream.read(knowledge_store.MAX_CONTENT + 1)
+        return knowledge_store.add(args.project, args.title, content, sources=args.source, case_ids=args.case_ids,
+                                   run_ids=args.run_ids, name=args.name), 0
+    if command == "api":
+        from . import protocols_cli
+
+        result = protocols_cli.dispatch(args)
+        return result, {"Pass": 0, "Fail": 1}.get(result.get("status", "Pass"), 2)
     if command == "secret":
         if action == "set":
             secrets.set_secret(args.name, read_secret_value(args))
-            return {"saved": args.name, "note": "已加密保存在本机；不会进入用例、报告或分享包"}, 0
+            return {"saved": args.name, "note": "已在本机明文保存；不会进入用例、报告或默认分享包"}, 0
         if action == "delete":
             secrets.delete_secret(args.name)
             return {"deleted": args.name}, 0
@@ -355,7 +466,8 @@ def dispatch(args) -> tuple[dict, int]:
             return plan.write(args.project, args.file), 0
         if action == "mark":
             return plan.mark(args.case, args.status, args.note), 0
-        return (plan.sync() if action == "sync" else plan.show()), 0
+        return (plan.sync() if action == "sync" else plan.show(query=args.query, module=args.module,
+                status=args.status, case_id=args.case_id, offset=args.offset, limit=args.limit, details=args.details)), 0
     if command == "import":
         from . import share
 
@@ -391,7 +503,7 @@ def dispatch(args) -> tuple[dict, int]:
         else:
             chosen = args.cases
             if args.kind:
-                pool = [c for c in projects.cases(args.project) if c["kind"] == args.kind and ir.is_replayable(c)]
+                pool = [c for c in projects.cases(args.project) if c["kind"] == args.kind and runner.can_queue(c)]
                 chosen = [c["id"] for c in pool if not args.cases or c["id"] in args.cases]
                 if not chosen:
                     raise ValueError("没有符合条件的可回放用例")
@@ -415,7 +527,8 @@ def dispatch(args) -> tuple[dict, int]:
         return getattr(session, action)(), 0
     if command == "browser":
         return session.browser(args.args), 0
-    return session.check(args.kind, args.target, args.expected, args.attribute), 0
+    return session.check(args.kind, args.target, args.expected, args.attribute,
+                         timeout_seconds=args.timeout, stable_for_seconds=args.stable_for), 0
 
 
 def delegate(args, argv: list[str], reason: str) -> int:
@@ -425,8 +538,10 @@ def delegate(args, argv: list[str], reason: str) -> int:
     port, why = bridge.service()
     if port is None:
         return emit({"error": bridge.restricted_message(reason, why)}, 2)
-    if getattr(args, "file", None):  # the service runs elsewhere: a relative path would mean a different file there
-        argv = [os.path.abspath(a) if a == args.file else a for a in argv]
+    try:
+        argv = bridge.prepare_argv(argv)
+    except (ValueError, OSError) as error:
+        return emit({"error": str(error)}, 2)
     stdin_text = None
     if args.command == "secret" and args.action == "set" and args.value is None:
         stdin_text = sys.stdin.readline()
@@ -462,8 +577,22 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     argv = list(sys.argv[1:] if argv is None else argv)
-    args = parser().parse_args(argv)
+    # Everything after `browser` belongs to agent-browser, including global
+    # flags. Put it behind argparse's delimiter without interpreting its values.
+    parse_argv = ["browser", "--", *argv[1:]] if argv[:1] == ["browser"] else argv
+    args = parser().parse_args(parse_argv)
+    if args.command == "browser" and args.args[:1] == ["--"]:
+        args.args = args.args[1:]
     undo_msys(args)
+    # Discovery must work without a writable workspace, active recording,
+    # background service or browser binary, including AUTOSKILL_BRIDGE=on.
+    if (args.command == "capabilities" or (args.command == "browser" and capabilities.help_query(args.args) is not None)
+            or (args.command == "api" and args.api_action == "capabilities")):
+        try:
+            result, code = dispatch(args)
+            return emit(result, code)
+        except ValueError as error:
+            return emit({"error": str(error)}, 2)
     if getattr(args, "headless", False) or getattr(args, "headed", False):
         os.environ["AUTOSKILL_HEADED"] = "0" if getattr(args, "headless", False) else "1"
     mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")  # auto: only when this process cannot do the work itself

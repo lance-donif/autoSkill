@@ -1,0 +1,4 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Inner frame</title></head>
+<body><h3>Inner frame</h3><label>Inner note <input id="inner-note"></label><button id="inner-save" onclick="document.getElementById('inner-result').textContent=document.getElementById('inner-note').value">Save inner note</button><output id="inner-result">empty</output>
+<div id="inner-scroll" style="height:60px;overflow:auto;width:300px"><div style="height:300px"><button id="inner-bottom" style="margin-top:230px">Inner scroll destination</button></div></div><output id="inner-scroll-result">0</output>
+<script>document.getElementById('inner-scroll').onscroll=event=>{document.getElementById('inner-scroll-result').textContent=String(event.target.scrollTop);};</script></body></html>

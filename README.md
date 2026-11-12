@@ -1,6 +1,6 @@
 # autoSkill
 
-**录一次，到处回放。** AI 操作网页时，autoSkill 同步录下页面动作和接口流量，编译成不需要 AI 的回放用例：页面用例可用 Playwright 或 Selenium 回放，接口用例走 HTTP，并可导出 Postman 集合和独立脚本。用例按项目归档，可以定时执行，结果在仪表盘里查看。
+**录一次，到处回放。** AI 操作网页时，autoSkill 同步录下页面动作和接口流量，编译成不需要 AI 的回放用例：页面用例可用 Playwright 或 Selenium 回放，接口支持 HTTP、SSE、WebSocket 与分片音频。纯 HTTP 链可导出 Postman，页面链可导出独立脚本。用例按项目归档，可以定时执行，结果在仪表盘里查看。
 
 它是一个 Skill：任何能读文件、能执行命令的 AI 智能体都可以使用，不绑定某个平台。提供 Windows x64、Linux x64、Linux ARM64（统信 UOS ARM64）三个运行时包。Linux 需要浏览器依赖的系统共享库；UOS 真机尚未验收，见 [平台与第三方支持](docs/平台与第三方支持.md)。
 
@@ -58,7 +58,7 @@ autoskill run <项目>
 ## 仪表盘
 
 - **仪表盘**：默认汇总全部项目，可按项目和时间范围筛选；筛选同时作用于所有数字、图表和列表，并写入网址。每个指标旁有统计口径说明，点击进入同一筛选条件下的明细。
-- **项目与用例**：单条运行、勾选批量运行、整个项目运行；可选 Playwright 或 Selenium，可勾选「显示浏览器窗口」观看操作过程（默认在后台运行，不弹窗口）。
+- **项目与用例**：单条运行、勾选批量运行、整个项目运行；可选 Playwright 或 Selenium，可切换「显示浏览器窗口」观看操作过程（有桌面时默认显示，Linux 无显示环境时使用后台模式）。
 - **执行记录**：实时进度、可取消、只重跑未通过的；每条用例展开可见逐步时间线、逐条断言（期望与实际）、请求与响应、结束时截图。
 - **定时任务**：每天、每周、固定间隔、仅一次；可编辑、暂停、立即运行。仪表盘运行期间才会触发。
 
@@ -101,3 +101,5 @@ python scripts/build-windows-bundle.py --assets <目录> --output <新目录> --
 Linux / UOS 安装与 DSH Web 接入见 [Linux-DSH.md](docs/Linux-DSH.md)，仪表盘入口为 `autoskill/autoskill dashboard`。站点白名单与浏览器代理围栏已按使用者要求移除，旧配置不再限制网络访问。
 
 下载：[最新 Release](https://github.com/lance-donif/autoSkill/releases/latest)。`.github/workflows/release.yml` 在三个原生平台上组装包，核对全部附件 ZIP 结构、CRC、上传大小与 SHA-256 后一起发布。当前按维护者要求跳过完整功能回归与浏览器启动测试。状态见 `reports/release-status.json`。
+
+当前源码的能力扩展、内部 CRUD/流式/音频测试和 5000 条用例的上下文验证见 [能力补齐与内部闭环验证](reports/能力补齐与内部闭环验证.md)。该报告明确区分源码测试、旧 Release 附件与尚未完成的 DSH/UOS/WebRTC 验收。

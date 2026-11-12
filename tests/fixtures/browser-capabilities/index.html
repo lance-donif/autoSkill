@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>autoSkill browser capability lab</title>
+  <style>
+    body { font: 16px system-ui; margin: 16px; max-width: 1100px; }
+    section { border: 1px solid #bbb; padding: 12px; margin: 12px 0; }
+    label { display: inline-block; margin: 4px; }
+    button, input, select { font: inherit; margin: 4px; }
+    #drag-source, #drop-target, #mouse-target { display: inline-block; padding: 16px; background: #def; margin: 4px; }
+    #drop-target { min-width: 150px; background: #fde; }
+    #scroll-box { width: 340px; height: 130px; overflow: auto; border: 2px solid #555; }
+    #scroll-content { height: 700px; width: 700px; padding: 8px; }
+    #scroll-end { margin-top: 570px; }
+    #delayed { display: none; }
+    iframe { width: 650px; height: 270px; border: 2px solid #678; }
+    table { border-collapse: collapse; }
+    td, th { border: 1px solid #aaa; padding: 5px; }
+    .spacer { height: 600px; }
+  </style>
+</head>
+<body>
+  <h1>Browser capability lab</h1>
+  <nav><a id="second-page" href="/second.html">Second page</a> <a id="popup" href="/second.html" target="_blank">Open second tab</a></nav>
+  <section aria-label="Basic inputs">
+    <label>Note <input id="note" data-testid="note" placeholder="Write a note"></label>
+    <label>Private password <input id="password" type="password" autocomplete="current-password"></label>
+    <label>Choice <select id="choice"><option value="one">One</option><option value="two">Two</option></select></label>
+    <label>Multiple <select id="multiple" multiple><option value="a">Alpha</option><option value="b">Beta</option><option value="c">Gamma</option></select></label>
+    <label><input id="checked" type="checkbox">Enabled</label>
+    <button id="hover-target">Hover here</button>
+    <output id="hover-result">not hovered</output>
+    <output id="focus-result">not focused</output>
+    <output id="key-result">no key</output>
+    <button id="reveal">Reveal delayed text</button><span id="delayed">Ready later</span>
+    <button id="remove-dynamic">Remove dynamic text</button><span id="dynamic">Dynamic text</span>
+    <output id="script-result">no script</output>
+  </section>
+  <section aria-label="Pointer and scrolling">
+    <div id="drag-source" draggable="true">Drag source</div><div id="drop-target">Drop target</div>
+    <output id="drop-result">not dropped</output>
+    <button id="mouse-target">Pointer target</button><output id="mouse-result">no pointer</output><output id="mouse-modifier">false</output>
+    <div id="scroll-box"><div id="scroll-content">Scroll inside this box<button id="scroll-end">Scroll destination</button></div></div>
+    <output id="scroll-result">0,0</output>
+  </section>
+  <section aria-label="Dialogs">
+    <button id="confirm">Confirm choice</button><button id="prompt">Prompt value</button><button id="alert">Show alert</button>
+    <output id="dialog-result">no dialog</output>
+  </section>
+  <section aria-label="Files">
+    <label>Upload files <input id="upload" type="file" multiple></label><output id="upload-result">no files</output>
+    <a id="download" href="/download.txt" download="capability.txt">Download fixture</a>
+  </section>
+  <section aria-label="Long asynchronous output">
+    <button id="start-stream">Start simulated AI response</button>
+    <output id="stream-output">idle</output><output id="stream-first"></output><span id="stream-done" hidden>Complete</span>
+  </section>
+  <section aria-label="CRUD">
+    <label>Item title <input id="item-title"></label>
+    <button id="create-item">Create item</button><button id="read-item">Read selected item</button>
+    <button id="update-item">Update selected item</button><button id="delete-item">Delete selected item</button>
+    <output id="crud-result">idle</output><output id="crud-count">0</output>
+    <table><thead><tr><th>Title</th><th>Status</th></tr></thead><tbody id="items"></tbody></table>
+  </section>
+  <section aria-label="Frames"><iframe id="outer-frame" name="outer" src="/outer.html"></iframe></section>
+  <div class="spacer"></div><button id="page-end">Page destination</button>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -18,6 +18,11 @@ from .replay import api, ir, ui
 ENGINES = ("playwright", "selenium")
 
 
+def can_queue(case: dict) -> bool:
+    """Recorded native mutations need a visible blocked result, even without replay support."""
+    return ir.is_replayable(case) or (case.get("kind") == "ui" and bool(ir.replay_blockers(case)))
+
+
 def create(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
            trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
            headed: bool | None = None) -> dict:
@@ -32,8 +37,8 @@ def create(project_id: str, case_ids: list[str] | None = None, engine: str = "pl
             raise ValueError("这些用例不存在或已归档：" + "、".join(unknown))
         chosen = list(dict.fromkeys(case_ids))
     else:
-        chosen = [cid for cid, case in active.items() if ir.is_replayable(case)]
-    not_ready = [cid for cid in chosen if not ir.is_replayable(active[cid])]
+        chosen = [cid for cid, case in active.items() if can_queue(case)]
+    not_ready = [cid for cid in chosen if not can_queue(active[cid])]
     if not_ready:
         raise ValueError("这些用例还没有可回放的步骤：" + "、".join(not_ready))
     if not chosen:
@@ -49,14 +54,14 @@ def evidence_dir(run_id: str) -> Path:
     return paths.local() / "runs" / run_id
 
 
-def make_driver(engine: str, config: dict):
+def make_driver(engine: str, config: dict, *, asset_root: Path | None = None, output_root: Path | None = None):
     if engine == "selenium":
         from .replay.selenium_driver import SeleniumDriver
 
-        return SeleniumDriver(config, headless=not paths.headed())
+        return SeleniumDriver(config, headless=not paths.headed(), asset_root=asset_root, output_root=output_root)
     from .replay.playwright_driver import PlaywrightDriver
 
-    return PlaywrightDriver(config, headless=not paths.headed())
+    return PlaywrightDriver(config, headless=not paths.headed(), asset_root=asset_root, output_root=output_root)
 
 
 def blocked(reason: str, category: str) -> dict:
@@ -109,6 +114,9 @@ class Session:
         self.run = run
         self.pid = run["project_id"]
         self.config = projects.config(self.pid)
+        self.config.update(_asset_root=str(projects.path(self.pid)),
+                           _output_root=str(evidence_dir(run["id"]) / "artifacts"),
+                           _cancel_check=lambda: bool((db.one("SELECT cancel FROM runs WHERE id = ?", (run["id"],)) or {}).get("cancel")))
         self.cases = {c["id"]: c for c in projects.cases(self.pid)}
         self.auth = projects.auth(self.pid)
         self.force_login = force_login
@@ -136,7 +144,8 @@ class Session:
     def browser(self):
         if self.driver is None and not self.driver_error:
             try:
-                self.driver = make_driver(self.run["engine"], self.config)
+                self.driver = make_driver(self.run["engine"], self.config, asset_root=projects.path(self.pid),
+                                          output_root=evidence_dir(self.run["id"]) / "artifacts")
             except ValueError as error:
                 self.driver_error = str(error)
             except Exception as error:
@@ -190,12 +199,12 @@ class Session:
         if not force and wanted and all(name in kept for name in wanted):
             probe = self.cases.get(self.auth.get("api_check_case", ""))
             trial = dict(kept)
-            if not probe or api.run_case(self.client, probe, self.config, trial)["status"] == "Pass":
+            if not probe or self.api_replay(self.client, probe, trial)["status"] == "Pass":
                 self.variables.update({name: kept[name] for name in wanted})
                 return {"status": "Pass", "actual": "已保存的登录信息仍然有效，直接复用", "reason": "", "category": "",
                         "assertions": [{"name": "登录信息有效", "passed": True, "expected": True, "actual": True}],
                         "duration_ms": 0, "reused": True}
-        outcome = api.run_case(self.client, case, self.config, self.variables)
+        outcome = self.api_replay(self.client, case, self.variables)
         if outcome["status"] == "Pass" and wanted:
             self.saved["variables"] = {name: self.variables[name] for name in wanted}
             sessions.save(self.pid, variables=self.saved["variables"])
@@ -208,6 +217,11 @@ class Session:
         for name, source in self.auth.get("state_variables", {}).items():
             if source.get("name") in stored:
                 self.variables[name] = stored[source["name"]]
+
+    def api_replay(self, client, case: dict, variables: dict) -> dict:
+        """Keep each case's protocol/audio artifacts distinct within a run."""
+        config = {**self.config, "_output_root": str(evidence_dir(self.run["id"]) / "artifacts" / self.shot(case["id"])[:-4])}
+        return api.run_case(client, case, config, variables)
 
     # --- one case ----------------------------------------------------
     def run_one(self, case: dict) -> dict:
@@ -224,21 +238,26 @@ class Session:
                 # are kept for the cases that depend on it.
                 fresh = api.new_client(self.config)
                 try:
-                    outcome = api.run_case(fresh, case, self.config, self.variables)
+                    outcome = self.api_replay(fresh, case, self.variables)
                     for cookie in fresh.cookies.jar:
                         self.client.cookies.jar.set_cookie(cookie)
                 finally:
                     fresh.close()
                 return outcome
-            outcome = api.run_case(self.client, case, self.config, self.variables)
+            outcome = self.api_replay(self.client, case, self.variables)
             login = self.cases.get(self.auth.get("api_case", ""))
             if outcome["category"] == "session_expired" and login and needs(case_id, login["id"], self.cases) and not self.relogged:
                 self.relogged = True
                 if self.api_login(login, force=True)["status"] != "Pass":
                     return blocked("登录已过期，重新登录没有成功", "session_expired")
-                outcome = api.run_case(self.client, case, self.config, self.variables)
+                outcome = self.api_replay(self.client, case, self.variables)
                 outcome["relogin"] = True
             return outcome
+        blockers = ir.replay_blockers(case)
+        if blockers:
+            # Preflight before login reuse or browser startup: neither can make an
+            # unsupported recorded mutation disappear or turn it into a Pass.
+            return blocked("用例包含尚无可移植回放实现的原生命令：" + "；".join(blockers), ui.UNSUPPORTED)
         if case_id == self.auth.get("ui_case"):
             return self.ui_login(case, self.force_login)
         driver = self.browser()
@@ -265,7 +284,7 @@ class Session:
             return False
 
 
-DETAIL_KEYS = ("steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted")
+DETAIL_KEYS = ("steps", "assertions", "request", "response", "screenshots", "artifacts", "transport", "metrics", "fallbacks", "reused", "relogin", "extracted")
 
 
 def record(run: dict, case: dict, outcome: dict, prerequisite: bool, started_at: str) -> None:

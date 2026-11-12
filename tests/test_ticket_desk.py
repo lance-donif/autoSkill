@@ -77,6 +77,34 @@ class TicketDeskTests(unittest.TestCase):
         self.call("POST", "/api/test/expire-sessions")
         self.assertEqual(self.call("GET", "/api/me", token=token)[0], 401)
 
+    def test_complete_create_read_put_patch_delete_lifecycle(self):
+        token = self.login()
+        status, created = self.call("POST", "/api/tickets", {"title": "CRUD 初始", "priority": "low"}, token)
+        self.assertEqual(status, 201)
+        path = "/api/tickets/" + created["id"]
+        self.assertEqual(self.call("GET", path, token=token)[1]["title"], "CRUD 初始")
+        status, replaced = self.call("PUT", path, {"title": "CRUD 完整替换", "priority": "high", "description": "替换内容"}, token)
+        self.assertEqual((status, replaced["title"], replaced["description"]), (200, "CRUD 完整替换", "替换内容"))
+        status, changed = self.call("PATCH", path, {"title": "CRUD 局部修改", "status": "resolved"}, token)
+        self.assertEqual((status, changed["priority"], changed["status"]), (200, "high", "resolved"))
+        listed = self.call("GET", "/api/tickets?q=CRUD&status=resolved", token=token)[1]
+        self.assertEqual([row["id"] for row in listed["items"]], [created["id"]])
+        self.assertEqual(self.call("DELETE", path, token=token), (200, {"deleted": created["id"]}))
+        self.assertEqual(self.call("GET", path, token=token)[0], 404)
+        self.assertEqual(self.call("GET", "/api/tickets?q=CRUD", token=token)[1]["total"], 0)
+        self.assertEqual(self.call("DELETE", path, token=token)[0], 404)
+
+    def test_failed_updates_are_atomic_and_viewer_cannot_mutate(self):
+        admin = self.login()
+        created = self.call("POST", "/api/tickets", {"title": "不被错误修改", "priority": "high"}, admin)[1]
+        path = "/api/tickets/" + created["id"]
+        self.assertEqual(self.call("PATCH", path, {"title": "不该写入", "status": "invalid"}, admin)[0], 422)
+        self.assertEqual(self.call("GET", path, token=admin)[1], created)
+        viewer = self.login("qa_viewer", "Passw0rd!view")
+        for method, body in (("PUT", {"title": "覆盖"}), ("PATCH", {"title": "修改"}), ("DELETE", None)):
+            self.assertEqual(self.call(method, path, body, viewer)[0], 403)
+        self.assertEqual(self.call("GET", path, token=admin)[1], created)
+
     def test_static_files_cannot_escape_web_root(self):
         self.assertEqual(self.call("GET", "/../server.py")[0], 404)
 

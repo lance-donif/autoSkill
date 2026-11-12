@@ -9,6 +9,9 @@
   };
   let user = null;
   let searchTimer = null;
+  let editingId = null;
+  let listVersion = 0;
+  let renderedTickets = null;
 
   async function api(method, path, body) {
     const headers = {};
@@ -33,6 +36,7 @@
   }
 
   function showLogin() {
+    listVersion++;
     user = null;
     $('app-view').hidden = true;
     $('login-view').hidden = false;
@@ -43,6 +47,7 @@
     $('app-view').hidden = false;
     $('current-user').textContent = user.name;
     $('new-ticket').hidden = user.role !== 'admin';
+    renderedTickets = null;
     loadTickets();
   }
 
@@ -71,17 +76,34 @@
       button.addEventListener('click', () => resolve(ticket.id));
       actions.append(button);
     }
+    if (user.role === 'admin') {
+      for (const [name, text, callback] of [['edit', '编辑', edit], ['delete', '删除', remove]]) {
+        const button = document.createElement('button');
+        button.className = 'link';
+        button.textContent = text;
+        button.dataset.testid = 'ticket-' + name;
+        button.setAttribute('aria-label', text + ' ' + ticket.id);
+        button.addEventListener('click', () => callback(ticket.id));
+        actions.append(button);
+      }
+    }
     tr.append(status, actions);
     return tr;
   }
 
   async function loadTickets() {
+    const version = ++listVersion;
     const query = new URLSearchParams();
     if ($('status-filter').value) query.set('status', $('status-filter').value);
     if ($('search').value.trim()) query.set('q', $('search').value.trim());
     const result = await api('GET', '/api/tickets' + (query.size ? '?' + query : ''));
-    if (!result.ok) return;
-    $('ticket-rows').replaceChildren(...result.data.items.map(row));
+    if (!result.ok || version !== listVersion) return;
+    // Equivalent overlapping refreshes should preserve the user's current row.
+    const signature = JSON.stringify(result.data.items);
+    if (signature !== renderedTickets) {
+      $('ticket-rows').replaceChildren(...result.data.items.map(row));
+      renderedTickets = signature;
+    }
     $('ticket-total').textContent = '共 ' + result.data.total + ' 条';
     $('empty').hidden = result.data.total > 0;
   }
@@ -91,6 +113,29 @@
     if (result.ok) {
       toast('工单 ' + id + ' 已解决');
       loadTickets();
+    }
+  }
+
+  async function edit(id) {
+    const result = await api('GET', '/api/tickets/' + id);
+    if (!result.ok) return;
+    editingId = id;
+    $('dialog-title').textContent = '编辑工单';
+    $('title').value = result.data.title;
+    $('priority').value = result.data.priority;
+    $('description').value = result.data.description;
+    $('ticket-status').value = result.data.status;
+    $('ticket-status-wrap').hidden = false;
+    $('title-error').hidden = true;
+    $('ticket-dialog').showModal();
+  }
+
+  async function remove(id) {
+    if (!window.confirm('删除工单 ' + id + '？')) return;
+    const result = await api('DELETE', '/api/tickets/' + id);
+    if (result.ok) {
+      toast('工单 ' + id + ' 已删除');
+      await loadTickets();
     }
   }
 
@@ -116,7 +161,10 @@
   });
 
   $('new-ticket').addEventListener('click', () => {
+    editingId = null;
+    $('dialog-title').textContent = '新建工单';
     $('ticket-form').reset();
+    $('ticket-status-wrap').hidden = true;
     $('title-error').hidden = true;
     $('ticket-dialog').showModal();
   });
@@ -125,7 +173,8 @@
   $('ticket-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const body = { title: $('title').value, priority: $('priority').value, description: $('description').value };
-    const result = await api('POST', '/api/tickets', body);
+    if (editingId) body.status = $('ticket-status').value;
+    const result = await api(editingId ? 'PATCH' : 'POST', '/api/tickets' + (editingId ? '/' + editingId : ''), body);
     if (result.status === 422) {
       const reason = (result.data.fields || {}).title;
       $('title-error').textContent = reason === 'too_long' ? '标题不能超过 80 个字' : '请填写标题';
@@ -134,12 +183,14 @@
     }
     if (!result.ok) return;
     $('ticket-dialog').close();
-    toast('工单 ' + result.data.id + ' 已创建');
+    toast('工单 ' + result.data.id + (editingId ? ' 已修改' : ' 已创建'));
     loadTickets();
   });
 
   $('status-filter').addEventListener('change', loadTickets);
   $('search').addEventListener('input', () => {
+    // Invalidate earlier responses before the debounced request is sent.
+    listVersion++;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(loadTickets, 250);
   });

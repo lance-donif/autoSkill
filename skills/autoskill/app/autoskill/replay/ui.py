@@ -8,6 +8,7 @@ same case are judged by identical rules.
 from __future__ import annotations
 
 import time
+import math
 from pathlib import Path
 
 from .. import paths, secrets
@@ -17,6 +18,7 @@ from . import ir
 LOCATOR, ASSERTION, TIMEOUT, BLOCKED_ORIGIN, ENVIRONMENT, SECRET = (
     "locator_not_found", "assertion_failed", "timeout", "unauthorized_origin", "environment", "missing_secret",
 )
+UNSUPPORTED = "unsupported_capability"
 POLL = 0.1
 PRIMARY_GRACE = 1.5  # seconds the best locator gets before fallbacks are considered
 WATCH_PAUSE = 0.3  # seconds between steps when a person is watching the browser window
@@ -28,9 +30,17 @@ class StepError(Exception):
         self.category = category
 
 
+def _pause(driver, seconds: float) -> None:
+    pause = getattr(driver, "pause", None)
+    if pause:
+        pause(seconds)
+    else:
+        time.sleep(seconds)
+
+
 def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     """Return (locator, index) of the first candidate that matches; index > 0 means a fallback was used."""
-    candidates = ir.locators(step)
+    candidates = _resolve(ir.locators(step))
     if not candidates:
         return None, 0
     start = time.monotonic()
@@ -44,16 +54,31 @@ def choose_locator(driver, step: dict, timeout: float, need: bool = True):
             if need:
                 raise StepError(LOCATOR, "页面上找不到：" + " / ".join(ir.describe_locator(c) for c in candidates))
             return candidates[0], 0
-        time.sleep(POLL)
+        _pause(driver, POLL)
 
 
 def _same(expected, actual) -> bool:
     return " ".join(str(expected).split()) == " ".join(str(actual).split())
 
 
+def _resolve(value):
+    """Expand run variables and secret references without changing recorded data."""
+    if isinstance(value, list):
+        return [_resolve(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _resolve(item) for key, item in value.items()}
+    return ir.expand(secrets.resolve(value))
+
+
+def _budget(value, field: str, allow_zero=False) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0 or (not allow_zero and value == 0):
+        raise ValueError(field + " 必须是" + ("非负" if allow_zero else "正") + "有限秒数")
+    return float(value)
+
+
 def evaluate(driver, step: dict, locator) -> tuple[bool, object]:
     """One reading of an assertion: (passed, actual value)."""
-    op, expected = step["assertion"], ir.expand(step.get("expected"))
+    op, expected = step["assertion"], _resolve(step.get("expected"))
     if op == "url":
         return driver.url() == expected, driver.url()
     if op == "url_contains":
@@ -90,19 +115,38 @@ def evaluate(driver, step: dict, locator) -> tuple[bool, object]:
 
 
 def check(driver, step: dict, timeout: float) -> dict:
-    """Poll an assertion until it holds or the timeout passes."""
+    """Poll through the step budget, requiring any declared continuous stability."""
+    timeout = _budget(step.get("timeout_seconds", timeout), "timeout_seconds")
+    stable = _budget(step.get("stable_for_seconds", 0), "stable_for_seconds", allow_zero=True)
+    # A missing secret must not be mistaken for a temporarily changing element.
+    _resolve(step.get("expected"))
     name = step.get("name") or ir.describe(step)
-    locator, fallback = choose_locator(driver, step, min(timeout, PRIMARY_GRACE + 0.5), need=False)
     deadline = time.monotonic() + timeout
+    locator, fallback = choose_locator(driver, step, min(timeout, PRIMARY_GRACE + 0.5), need=False)
+    stable_since = None
+    completed = False
     while True:
         try:
             passed, actual = evaluate(driver, step, locator)
         except Exception as error:  # the element changed mid-read; keep polling
             passed, actual = False, "读取失败：" + type(error).__name__
-        if passed or time.monotonic() >= deadline:
+        now = time.monotonic()
+        if passed:
+            if stable_since is None:
+                stable_since = now
+            completed = now - stable_since >= stable and now <= deadline
+        else:
+            stable_since = None
+        if completed or now >= deadline:
             break
-        time.sleep(POLL)
-    row = {"name": name, "passed": bool(passed), "expected": step.get("expected", True), "actual": actual}
+        _pause(driver, min(POLL, max(0, deadline - now)))
+    sensitive = bool(secrets.references(step.get("expected")))
+    row = {"name": name, "passed": bool(completed), "expected": step.get("expected", True),
+           "actual": "<redacted>" if sensitive else actual}
+    if stable:
+        row["stable_for_seconds"] = stable
+        if not completed and passed:
+            row["reason"] = "结果未在超时前持续稳定到要求的时长"
     if fallback:
         row["fallback"] = True
     return row
@@ -121,6 +165,11 @@ def navigate(action, *args) -> None:
 def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float) -> bool:
     """Run one action. Returns True when a fallback locator had to be used."""
     op = step["action"]
+    timeout = _budget(step.get("timeout_seconds", timeout), "timeout_seconds")
+    if op == "native_step":
+        raise StepError(UNSUPPORTED, step.get("reason") or "此原生命令尚无跨引擎回放实现")
+    if hasattr(driver, "check_health"):
+        driver.check_health()
     if op.startswith("tab_"):
         tab_step = dict(step)
         if op == "tab_new":
@@ -133,15 +182,23 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
         ir.check_origin(url, allowed)
         navigate(driver.goto, url)
         return False
-    if op == "reload":
-        navigate(driver.reload)
+    if op in ("reload", "back", "forward"):
+        navigate(getattr(driver, op))
         return False
+    if op in ("frame", "dialog", "eval", "keyboard", "mouse", "clipboard", "browser_command"):
+        driver.action(_resolve(step), timeout=timeout)
+        return False
+    if op == "wait":
+        # Waiting for hidden/detached elements must not first require presence.
+        locator, fallback = choose_locator(driver, step, 0, need=False)
+        driver.action(_resolve(step), locator=locator, timeout=timeout)
+        return bool(fallback)
     need = op != "wait_hidden"
     locator, fallback = choose_locator(driver, step, timeout, need=need)
     if op == "press":
         driver.press(locator, step["key"])
     elif op in ("fill", "type", "select"):
-        driver.act(locator, op, secrets.resolve(ir.expand(step["value"])))
+        driver.act(locator, op, _resolve(step["value"]))
     elif op == "captcha":
         from .. import captcha
 
@@ -156,7 +213,13 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
                 break
             if time.monotonic() >= deadline:
                 raise StepError(TIMEOUT, f"等待超时：{ir.describe(step)}")
-            time.sleep(POLL)
+            _pause(driver, POLL)
+    elif op in ("focus", "scroll_into_view", "scroll", "upload", "download", "drag"):
+        target, other_fallback = (None, 0)
+        if op == "drag":
+            target, other_fallback = choose_locator(driver, {"locators": step["target_locators"]}, timeout)
+        driver.action(_resolve(step), locator=locator, target=target, timeout=timeout)
+        fallback = fallback or other_fallback
     else:
         driver.act(locator, op, None)
     return bool(fallback)
@@ -181,15 +244,23 @@ def classify(error: Exception) -> tuple[str, str]:
 def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_name: str) -> dict:
     """Replay one UI case on an already opened page and return its result fields."""
     automation = case.get("extensions", {}).get("automation")
-    timeout = float(config.get("timeout_seconds", 20))
+    timeout, assertion_timeout = 20.0, 20.0
     allowed = list(config.get("allowed_origins", []))
     base_url = config.get("base_url", "")
     steps, assertions = [], []
     outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "fallbacks": 0}
     started = time.monotonic()
     acted = False
+    first_download = len(getattr(driver, "downloads", []))
     try:
         ir.validate(automation)
+        timeout = _budget(automation.get("timeout_seconds", config.get("timeout_seconds", 20)), "timeout_seconds")
+        assertion_timeout = _budget(automation.get("assertion_timeout_seconds", config.get("assertion_timeout_seconds", timeout)), "assertion_timeout_seconds")
+        for index, step in enumerate(automation.get("actions", []), 1):
+            if step.get("action") == "native_step":
+                message = step.get("reason") or "此原生命令尚无跨引擎回放实现"
+                steps.append({"index": index, "text": ir.describe(step), "status": "blocked", "ms": 0, "error": message})
+                raise StepError(UNSUPPORTED, message)
         url = ir.absolute_url(automation["start_url"], base_url)
         ir.check_origin(url, allowed)
         row = {"index": 0, "text": "打开 " + url, "status": "running", "ms": 0}
@@ -204,7 +275,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             clock = time.monotonic()
             try:
                 if "assertion" in step:
-                    result = check(driver, step, min(timeout, 5.0))
+                    result = check(driver, step, assertion_timeout)
                     assertions.append(result)
                     outcome["fallbacks"] += int(bool(result.get("fallback")))
                     row["status"] = "done" if result["passed"] else "failed"
@@ -225,15 +296,17 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                 if paths.headed():
                     time.sleep(WATCH_PAUSE)
         for step in automation.get("assertions", []):
-            result = check(driver, step, min(timeout, 5.0))
+            result = check(driver, step, assertion_timeout)
             outcome["fallbacks"] += int(bool(result.get("fallback")))
             assertions.append(result)
+        if hasattr(driver, "check_health"):
+            driver.check_health(final=True)
         if not assertions:
             assertions.append({"name": "全部动作可以完成（未声明断言）", "passed": True, "expected": True, "actual": True})
         failed = [a for a in assertions if not a["passed"]]
         if failed:
             outcome.update(status="Fail", category=ASSERTION, actual="页面结果与预期不一致",
-                           reason="；".join(f'{a["name"]}（实际：{a["actual"]}）' for a in failed)[:500])
+                           reason="；".join(f'{a["name"]}（{a.get("reason") or "实际：" + str(a["actual"])}）' for a in failed)[:500])
         else:
             done = sum(1 for row in steps if not row.get("check"))
             outcome.update(status="Pass", actual=f"{done} 个步骤完成，{len(assertions)} 条断言通过")
@@ -256,5 +329,6 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
         except Exception:
             pass
     outcome.update(steps=steps, assertions=assertions, screenshots=evidence,
+                   downloads=getattr(driver, "downloads", [])[first_download:],
                    duration_ms=round((time.monotonic() - started) * 1000))
     return outcome

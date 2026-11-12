@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from .. import db, paths, projects, secrets
 from ..replay import ir
 from ..replay.tabs import Tabs
-from . import agent
+from . import actions, agent
 
 
 
@@ -22,13 +22,7 @@ def session_name() -> str:
 
     return "autoskill-" + hashlib.sha1(str(paths.workspace()).lower().encode("utf-8")).hexdigest()[:10]
 DOM_JS = (Path(__file__).resolve().parents[1] / "replay" / "dom.js").read_text(encoding="utf-8")
-TARGETED = ("click", "dblclick", "hover", "check", "uncheck", "fill", "type", "select")
-READ_ONLY = ("snapshot", "get", "is", "wait", "screenshot", "scroll", "scrollintoview", "focus", "eval")
-DENIED = ("install", "upgrade", "update", "doctor", "skills", "connect", "dashboard", "auth", "state", "cookies",
-          "storage", "network", "close", "record", "flow", "mcp", "chat", "batch", "pdf", "download", "upload")
-DENIED_FLAGS = ("--provider", "-p", "--proxy", "--cdp", "--auto-connect", "--config", "--executable-path", "--args",
-                "--allowed-domains", "--state", "--profile", "--session", "--headers", "--extension", "--init-script",
-                "--restore", "--capture", "--namespace", "--engine")
+TARGETED = ("click", "dblclick", "hover", "check", "uncheck", "fill", "type", "select", "focus", "scrollintoview")
 
 
 class RecordError(Exception):
@@ -75,6 +69,9 @@ def _observe_tabs(rec: dict, settle: float = 0) -> dict | None:
         rec["tab_map"][native] = f"t{rec['next_tab']}"
         rec["next_tab"] += 1
     ids = rec["tab_map"]
+    if active != old_active:
+        rec["frame_path"] = []
+        rec["refs"] = {}
     base = projects.config(rec["project_id"])["base_url"]
     change = {"opened": [{"id": ids[t["tabId"]], "url": relative(Tabs.destination(t.get("url", "")), base)}
                          for t in tabs if t["tabId"] in opened],
@@ -223,14 +220,16 @@ def _settled_snapshot(rec: dict) -> str:
 
 
 def snapshot(rec: dict, interactive: bool = True) -> str:
-    data = agent.call(session_name(), ["snapshot", *(["-i"] if interactive else [])]) or {}
+    data = actions.frame_snapshot(rec, DOM_JS, interactive) if rec.get("frame_path") else None
+    if data is None:
+        data = agent.call(session_name(), ["snapshot", *(["-i"] if interactive else [])]) or {}
     rec["refs"] = data.get("refs", {})
     return data.get("snapshot", "")
 
 
 def _describe(spec: dict) -> dict | None:
     script = "JSON.stringify((" + DOM_JS + ")().target(" + json.dumps(spec, ensure_ascii=False) + "))"
-    result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script) or {}).get("result")
+    result = (actions.evaluate(session_name(), script) or {}).get("result")
     return json.loads(result) if isinstance(result, str) and result != "null" else None
 
 
@@ -239,6 +238,8 @@ def _spec(rec: dict, token: str, rich: bool = False) -> dict:
         ref = rec["refs"].get(token[1:])
         if not ref:
             raise RecordError(f"引用 {token} 已失效；先运行 autoskill browser snapshot 再操作")
+        if ref.get("selector"):
+            return {"locator": {"by": "css", "value": ref["selector"]}}
         box = agent.call(session_name(), ["get", "box", token], check=False)
         return {"ref": {"role": ref.get("role"), "name": ref.get("name"), "box": box}}
     if rich:
@@ -279,13 +280,37 @@ def _secret_value(rec: dict, text: str, is_secret_field: bool) -> tuple[str, str
         return secrets.resolve(ir.expand(text)), text
     if not is_secret_field:
         return ir.expand(text), text  # {{RAND}} is typed as this recording's value and recorded as written
-    base = rec["project_id"].upper().replace("-", "_") + "_PASSWORD"
+    return ir.expand(text), _secret_ref(rec, text, "PASSWORD")
+
+
+def _secret_ref(rec: dict, text: str, label: str = "VALUE") -> str:
+    """Keep opaque command payloads and sensitive field values out of cases."""
+    if secrets.references(text):
+        rec["secrets"] = sorted({*rec.get("secrets", []), *secrets.references(text)})
+        return text
+    base = re.sub(r"[^A-Za-z0-9_]", "_", rec["project_id"] + "_" + label).upper()
+    if not base or base[0].isdigit():
+        base = "VALUE_" + base
     name, n = base, 2
     while secrets.get_secret(name) not in (None, text):
         name, n = f"{base}_{n}", n + 1
     secrets.set_secret(name, text)
-    rec["secrets"] = sorted({*rec["secrets"], name})
-    return text, "${ENV:" + name + "}"
+    rec["secrets"] = sorted({*rec.get("secrets", []), name})
+    return "${ENV:" + name + "}"
+
+
+def _redact(rec: dict, value):
+    if isinstance(value, str):
+        for name in rec.get("secrets", []):
+            secret = secrets.get_secret(name)
+            if secret:
+                value = value.replace(secret, "${ENV:" + name + "}")
+        return value
+    if isinstance(value, list):
+        return [_redact(rec, item) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact(rec, item) for key, item in value.items()}
+    return value
 
 
 class PageProbe:
@@ -294,7 +319,7 @@ class PageProbe:
     def _read(self, locator: dict, what: str, arg: str | None = None):
         script = ("JSON.stringify((" + DOM_JS + ")().read(" + json.dumps(locator, ensure_ascii=False) + ", "
                   + json.dumps(what) + ", " + json.dumps(arg) + "))")
-        result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script) or {}).get("result")
+        result = (actions.evaluate(session_name(), script) or {}).get("result")
         return json.loads(result) if isinstance(result, str) else None
 
     def count(self, locator: dict) -> int:
@@ -331,14 +356,14 @@ def _element_png(locator: dict) -> bytes:
     script = ("(() => { const el = (" + DOM_JS + ")().find(" + json.dumps(locator, ensure_ascii=False) + ")[" + str(locator.get("nth", 0)) + "];"
               "const c = document.createElement('canvas'); c.width = el.naturalWidth || el.width; c.height = el.naturalHeight || el.height;"
               "c.getContext('2d').drawImage(el, 0, 0, c.width, c.height); return c.toDataURL('image/png'); })()")
-    result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script, check=False) or {}).get("result")
+    result = (actions.evaluate(session_name(), script) or {}).get("result")
     if isinstance(result, str) and result.startswith("data:image/png;base64,"):
         return base64.b64decode(result.split(",", 1)[1])
     raise RecordError("读不到验证码图片的像素（目标不是图片或画布，或图片来自其他站点）；这一次请用户手动输入验证码")
 
 
 def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
-    """Open the fenced browser on the project's address and begin recording actions and traffic."""
+    """Open the project's address and begin recording actions and traffic."""
     notes = []
     previous = current(required=False)
     if previous:
@@ -360,9 +385,15 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         state_file = paths.local() / "recording-state.json"
         state_file.write_text(json.dumps(sessions.load(project_id).get("ui", {})), encoding="utf-8")
         used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
+    rec = {"project_id": project_id, "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
+           "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
+           "rand": uuid.uuid4().hex[:6], "frame_path": []}
+    ir.set_rand(rec["rand"])
     agent.call(session_name(), ["close"], check=False, timeout=30)
     try:
-        launch = agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")))
+        launch = [*agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")),
+                                    config=config, asset_root=projects.path(project_id)),
+                  "--no-auto-dialog"]
         try:
             agent.call(session_name(), ["open", "about:blank"], launch=launch, timeout=90)
         except agent.AgentError as error:
@@ -371,17 +402,14 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         _fit_window()
         agent.call(session_name(), ["network", "har", "start"])
         try:
-            page = _open(start_url, float(config.get("page_load_seconds", 90)))
-        except RecordError:
+            page = actions.with_dialogs(session_name(), rec,
+                                        lambda: _open(start_url, float(config.get("page_load_seconds", 90))))
+        except (RecordError, agent.AgentError):
             agent.call(session_name(), ["close"], check=False, timeout=30)
             raise
     finally:
         if state_file:
             state_file.unlink(missing_ok=True)
-    rec = {"project_id": project_id, "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
-           "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
-           "rand": uuid.uuid4().hex[:6]}
-    ir.set_rand(rec["rand"])
     _observe_tabs(rec)
     tree = _settled_snapshot(rec)
     _save(rec)
@@ -427,6 +455,10 @@ def undo() -> dict:
     if not rec["steps"]:
         raise RecordError("还没有记录任何步骤")
     removed = rec["steps"].pop()
+    if removed.get("action") == "dialog":
+        policy = {key: value for key, value in removed.items() if key != "action"}
+        if rec.get("dialog_policy") == policy:
+            rec.pop("dialog_policy", None)
     _save(rec)
     return {"removed": ir.describe(removed), "remaining": len(rec["steps"]),
             "note": "只撤销了记录；页面上已经发生的操作不会回退"}
@@ -437,14 +469,22 @@ def status() -> dict:
     if not rec:
         return {"recording": False}
     return {"recording": True, "project": rec["project_id"], "started_at": rec["started_at"],
-            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]]}
+            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]],
+            "prepared_dialog": rec.get("dialog_policy"), "frame_path": rec.get("frame_path", []),
+            "artifacts": rec.get("artifacts", [])}
 
 
 def cancel() -> dict:
+    from . import native
+
+    rec = current(required=False)
+    evidence = native.finish_captures(session_name(), rec) if rec else []
+    if rec:
+        native.stop_permission_holder(rec)
     agent.call(session_name(), ["close"], check=False, timeout=30)
     existed = _file().is_file()
     _file().unlink(missing_ok=True)
-    return {"cancelled": existed}
+    return {"cancelled": existed, "artifacts": evidence}
 
 
 def _plain(text: str) -> str:
@@ -452,20 +492,167 @@ def _plain(text: str) -> str:
     return "${ENV:" + text[7:] + "}" if text.startswith("secret:") and secrets.NAME.fullmatch(text[7:]) else text
 
 
+def _native(rec: dict | None, argv: list[str]) -> dict:
+    """Expose native capabilities while keeping unsupported mutations visible."""
+    from . import native
+
+    _, native_command, native_rest = native.split_command(argv)
+    if rec and rec.get("frame_path") and native_command == "snapshot":
+        raise RecordError("选中的 iframe 使用局部快照；原生 snapshot 选项请先 browser frame main")
+    frame_targeted = {"click", "dblclick", "focus", "fill", "type", "press", "key", "keydown", "keyup", "keyboard",
+                      "hover", "check", "uncheck", "select", "scroll", "scrollintoview", "scrollinto", "drag",
+                      "upload", "download", "find", "tap", "swipe", "highlight", "wait", "storage"}
+    targeted_read = native_command in ("get", "is") and native_rest[:1] not in (["url"], ["title"], ["cdp-url"])
+    if rec and rec.get("frame_path") and (native_command in frame_targeted or targeted_read):
+        raise RecordError(f"原生 {native_command} 的这个参数形式不能作用于选中的 iframe，操作尚未执行；"
+                          "请使用可回放的 click/fill/drag/get/is/wait/scroll/eval 参数形式，或先 browser frame main")
+    if rec and argv[:2] in (["set", "geo"], ["set", "geolocation"]):
+        actions.grant_permission("geolocation")
+    outcome = native.execute(session_name(), argv, rec,
+                             store_value=(lambda text, label: _secret_ref(rec, text, label)) if rec else None)
+    if outcome is None:
+        raise RecordError(f"原生浏览器没有处理 {argv[0]}")
+    result = {"result": outcome.get("result")}
+    if rec and rec.get("frame_path"):
+        result["scope"] = "page" if native_command in ("screenshot", "pdf", "record", "trace", "profiler") else "browser"
+    if outcome.get("artifacts"):
+        result["artifacts"] = outcome["artifacts"]
+    if rec:
+        step = outcome.get("step")
+        if native_command == "snapshot":
+            data = outcome.get("result")
+            rec["refs"] = data.get("refs", {}) if isinstance(data, dict) else {}
+        if step and step.get("action") == "browser_command" and step.get("command") == "set" and step.get("args"):
+            rec.setdefault("browser_settings", {})[step["args"][0]] = step
+        if outcome.get("affects_page"):
+            change = _observe_tabs(rec)
+            if change and step:
+                step["tabs"] = change
+        if step:
+            result.update(_record(rec, step))
+            if step.get("action") == "native_step":
+                result.update(replayable=False, warning=step["reason"])
+        if outcome.get("affects_page"):
+            result["snapshot"] = snapshot(rec)
+            result = _after(rec, result)
+        _save(rec)
+    return result
+
+
+def _send_target(token: str, found: dict) -> str:
+    """Native CSS/ref target matching a richer recorder locator."""
+    if token.startswith(("testid=", "text=", "label=", "placeholder=", "role=")):
+        return next((loc["value"] for loc in found["locators"] if loc["by"] == "css"), token)
+    return token
+
+
+def _frame_observation(rec: dict, command: str, rest: list[str]):
+    what, rest = (rest[0], rest[1:]) if rest else ("", [])
+    if not rest or what in ("url", "title", "cdp-url"):
+        return None
+    spec = _spec(rec, rest[0], rich=True)
+    locator = spec.get("locator")
+    if locator is None:
+        locator = _target(rec, rest[0], rich=True)["locators"][-1]
+    script = """(() => {
+      const items=(DOM_SOURCE)().find(LOCATOR), el=items[INDEX];
+      if(WHAT==='count')return items.length;
+      if(!el)return null;
+      if(WHAT==='visible')return !!el.getClientRects().length && getComputedStyle(el).visibility!=='hidden';
+      if(WHAT==='enabled')return !el.disabled && el.getAttribute('aria-disabled')!=='true';
+      if(WHAT==='checked')return !!el.checked;
+      if(WHAT==='text')return el.innerText==null?el.textContent:el.innerText;
+      if(WHAT==='html')return el.innerHTML;
+      if(WHAT==='value')return el.value;
+      if(WHAT==='attr')return el.getAttribute(ARG);
+      if(WHAT==='box'){const b=el.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height};}
+      if(WHAT==='styles'){const style=getComputedStyle(el);return Object.fromEntries([...style].map(k=>[k,style.getPropertyValue(k)]));}
+      return null;
+    })()""".replace("DOM_SOURCE", DOM_JS).replace("LOCATOR", json.dumps(locator)).replace("INDEX", str(locator.get("nth", 0)))
+    script = script.replace("WHAT", json.dumps(what)).replace("ARG", json.dumps(rest[1] if len(rest) > 1 else ""))
+    if what not in ("text", "html", "value", "attr", "count", "box", "styles", "visible", "enabled", "checked"):
+        raise RecordError("当前框架不支持此读取命令；先 browser frame main 使用原生命令")
+    value = (actions.evaluate(session_name(), script) or {}).get("result")
+    if what != "count" and value is None:
+        raise RecordError("当前框架内找不到目标")
+    return {"value" if what == "attr" else what: value}
+
+
+def _dialog(rec: dict, rest: list[str]) -> dict:
+    if rest == ["status"]:
+        return {"result": agent.call(session_name(), ["dialog", "status"]),
+                "prepared": rec.get("dialog_policy")}
+    if not rest or rest[0] not in ("accept", "dismiss") or len(rest) > (2 if rest[0] == "accept" else 1):
+        raise RecordError("用法：browser dialog accept [文字] / dismiss / status；在触发弹窗之前准备处理方式")
+    if rec.get("dialog_policy"):
+        raise RecordError("上一次 dialog 策略尚未被弹窗使用；先触发该弹窗，或 record undo 撤销策略")
+    status = agent.call(session_name(), ["dialog", "status"]) or {}
+    # Native accepts an already-open modal; this is not a reproducible preparation
+    # unless its triggering action is known. Keep such recovery explicit.
+    is_open = any(status.get(key) for key in ("open", "isOpen", "hasDialog", "dialog"))
+    step = {"action": "dialog", "mode": rest[0]}
+    if len(rest) == 2:
+        step["text"] = _secret_ref(rec, _plain(rest[1]), "DIALOG_TEXT")
+    if is_open:
+        send = ["dialog", rest[0]]
+        if "text" in step:
+            send.append(secrets.resolve(ir.expand(step["text"])))
+        value = agent.call(session_name(), send)
+        blocked = {"action": "native_step", "command": "dialog", "args": [rest[0], *([step["text"]] if "text" in step else [])],
+                   "reason": "恢复了已打开的弹窗，无法确定触发动作；请在触发之前录制 dialog 策略", "replayable": False}
+        result = _record(rec, blocked)
+        result.update(result=value, replayable=False, warning=blocked["reason"])
+        return result
+    rec["dialog_policy"] = {key: value for key, value in step.items() if key != "action"}
+    result = _record(rec, step)
+    result["prepared"] = "处理下一次对话框；请继续执行触发它的操作"
+    return result
+
+
 def browser(argv: list[str]) -> dict:
-    """Run one agent-browser command inside the recording and record it when it changes the page."""
-    rec = current()
+    """Run native browser abilities, recording every portable or blocking mutation."""
     if not argv:
         raise RecordError("缺少浏览器命令，例如：autoskill browser click @e3")
+    # autoSkill always emits JSON; a redundant native prefix must not bypass
+    # portable recording/frame bookkeeping.
+    while argv and argv[0] in ("--json", "--json=true"):
+        argv = argv[1:]
+    if not argv:
+        raise RecordError("--json 后缺少浏览器命令")
+    aliases = {"goto": "open", "navigate": "open", "key": "press", "scrollinto": "scrollintoview"}
+    argv = [aliases.get(argv[0], argv[0]), *argv[1:]]
+    rec = current(required=False)
+    if not rec:
+        return _native(None, argv)
+    from . import native
+
+    native.guard_recording(argv, rec)
+    if argv[0] == "dialog":
+        return _dialog(rec, argv[1:])
+    # Native lifecycle/admin guards run before attaching. They preserve an
+    # active recorder instead of switching its browser or losing captured HAR.
+    if argv[0] in ("close", "quit", "exit", "connect", "install", "upgrade", "update", "doctor", "skills",
+                   "session", "sessions", "dashboard", "mcp") or argv[0].startswith("-"):
+        return _native(rec, argv)
+    try:
+        return actions.with_dialogs(session_name(), rec, lambda: _browser(rec, argv))
+    finally:
+        _save(rec)  # consumed dialog policy and artifact ownership survive action errors
+
+
+def _browser(rec: dict, argv: list[str]) -> dict:
     command, rest = argv[0], argv[1:]
-    if command in DENIED or any(a.split("=")[0] in DENIED_FLAGS for a in argv):
-        raise RecordError(f"录制中不能使用 {command}：安装、升级、远程浏览器、网络与登录态由 autoskill 统一管理")
     config = projects.config(rec["project_id"])
     _sync_tabs(rec)
     early_change = None
     if command == "tab":
         return _tab_command(rec, rest)
     if command == "snapshot":
+        options = [value for value in rest if value != "--all"]
+        if options:
+            if rec.get("frame_path"):
+                raise RecordError("选中的 iframe 使用局部快照；复杂原生 snapshot 选项请先 browser frame main")
+            return _native(rec, ["snapshot", *options])
         tree = snapshot(rec, interactive="--all" not in rest)
         _save(rec)
         return {"snapshot": tree}
@@ -476,28 +663,38 @@ def browser(argv: list[str]) -> dict:
         return {"element": found.get("tag"), "role": found.get("role"), "name": found.get("name"),
                 "locators": [ir.describe_locator(loc) for loc in found["locators"]],
                 "use_as_target": [_as_target(loc) for loc in found["locators"]]}
-    if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview", "dialog"):
-        result = agent.call(session_name(), argv)
-        if command == "wait" and rest and rest[0].isdigit():
-            result = {"waited_ms": int(rest[0])}
+    if command in ("get", "is"):
+        result = _frame_observation(rec, command, rest) if rec.get("frame_path") else None
+        if result is None:
+            result = agent.call(session_name(), argv)
         return {"result": result}
     if command == "open":
         if not rest:
             raise RecordError("open 需要地址")
+        if len(rest) != 1:
+            return _native(rec, argv)
         url = ir.absolute_url(rest[0], config["base_url"])
         ir.check_origin(url, config["allowed_origins"])
         _open(url, float(config.get("page_load_seconds", 90)))
         step = {"action": "goto", "url": relative(url, config["base_url"])}
-    elif command == "reload":
-        agent.call(session_name(), ["reload"], timeout=90, check=False)
+        rec["frame_path"] = []
+    elif command in ("reload", "back", "forward"):
+        if rest:
+            return _native(rec, argv)
+        agent.call(session_name(), [command], timeout=90)
         _wait_ready(float(config.get("page_load_seconds", 90)))
-        step = {"action": "reload"}
+        step = {"action": command}
+        rec["frame_path"] = []
     elif command == "press":
-        if not rest:
+        if len(rest) != 1:
             raise RecordError("press 需要按键名，例如 Enter")
         focused = _describe({})
-        early_change = _act(rec, ["press", rest[0]])
-        step = {"action": "press", "key": rest[0]}
+        sensitive = bool((focused or {}).get("secret")) and len(rest[0]) == 1
+        typed, recorded = _secret_value(rec, _plain(rest[0]), sensitive)
+        step = {"action": "keyboard", "operation": "press", "value": recorded} if sensitive else {"action": "press", "key": recorded}
+        input_step = {**step, "value" if sensitive else "key": typed}
+        if not actions.input_action(rec, input_step):
+            early_change = _act(rec, ["press", typed])
         if focused and focused.get("locators"):
             step["locators"] = focused["locators"]
     elif command == "captcha":
@@ -507,12 +704,215 @@ def browser(argv: list[str]) -> dict:
 
         picture, field = _target(rec, rest[0], rich=True), _target(rec, rest[1])
         recognized = captcha.solve(_element_png(picture["locators"][0]))
-        early_change = _act(rec, ["fill", rest[1], recognized])
         step = {"action": "captcha", "locators": field["locators"], "image": picture["locators"]}
+        if not actions.target_action(rec, {"action": "fill", "locators": field["locators"], "value": recognized}):
+            early_change = _act(rec, ["fill", rest[1], recognized])
+    elif command == "frame":
+        if len(rest) != 1:
+            raise RecordError("frame 需要 iframe 选择器、@引用或 main")
+        selector = rest[0]
+        if selector != "main":
+            try:
+                found = _target(rec, selector, rich=True)
+            except RecordError:
+                raise RecordError("录制中的 frame 需要 iframe 的 CSS 选择器或 @引用；原生名称/地址无法保留相对框架路径") from None
+            if found.get("tag") not in ("iframe", "frame"):
+                raise RecordError("frame 的目标必须是 iframe 或 frame 元素")
+            selector = next((loc["value"] for loc in found["locators"] if loc["by"] == "css"), selector)
+        if selector != "main":
+            actions.frame_target(rec, selector)
+        else:
+            agent.call(session_name(), ["frame", "main"])
+        rec["frame_path"] = [] if selector == "main" else [*rec.get("frame_path", []), selector]
+        rec["refs"] = {}
+        step = {"action": "frame", "selector": selector}
+    elif command == "drag":
+        if len(rest) != 2:
+            if len(rest) > 2:
+                return _native(rec, argv)
+            raise RecordError("drag 需要起点和终点目标")
+        source, target = _target(rec, rest[0], rich=True), _target(rec, rest[1], rich=True)
+        step = {"action": "drag", "locators": source["locators"], "target_locators": target["locators"]}
+        if not actions.target_action(rec, step):
+            early_change = _act(rec, ["drag", _send_target(rest[0], source), _send_target(rest[1], target)])
+    elif command == "eval":
+        if len(rest) == 2 and rest[0] in ("-b", "--base64"):
+            try:
+                script = base64.b64decode(rest[1], validate=True).decode("utf-8")
+            except (ValueError, UnicodeDecodeError):
+                raise RecordError("eval 的 base64 不是 UTF-8 JavaScript") from None
+        elif len(rest) == 2 and rest[0] == "--script-file":
+            script = Path(rest[1]).read_text(encoding="utf-8")
+        elif len(rest) == 1 and rest[0] != "--stdin":
+            script = rest[0]
+        else:
+            raise RecordError("eval 需要 JavaScript 表达式/函数、-b BASE64 或 --script-file 文件")
+        script = _plain(script)
+        # An entire named script is already opaque. Mixed ENV substitutions
+        # are resolved into a local script value so literal credentials beside
+        # the substitution cannot accidentally enter a shareable case.
+        reference = script if secrets.REF.fullmatch(script) else _secret_ref(rec, secrets.resolve(script), "EVAL_SCRIPT")
+        rec["secrets"] = sorted({*rec["secrets"], *secrets.references(reference)})
+        value = actions.evaluate(session_name(), actions.expression(ir.expand(secrets.resolve(reference))))
+        step = {"action": "eval", "script": reference}
+    elif command in ("keyboard", "keydown", "keyup"):
+        keyboard = rest if command == "keyboard" else ["down" if command == "keydown" else "up", *rest]
+        if len(keyboard) != 2 or keyboard[0] not in ("type", "inserttext", "press", "down", "up"):
+            return _native(rec, argv)
+        operation, text = keyboard
+        focused = _describe({})
+        typed, recorded = _secret_value(rec, _plain(text), bool((focused or {}).get("secret")) and
+                                        (operation in ("type", "inserttext") or len(text) == 1))
+        send = ["keyboard", operation, typed] if operation in ("type", "inserttext") else [
+            {"press": "press", "down": "keydown", "up": "keyup"}[operation], typed]
+        step = {"action": "keyboard", "operation": operation, "value": recorded}
+        if not actions.input_action(rec, {**step, "value": typed}):
+            early_change = _act(rec, send)
+    elif command == "mouse":
+        if not rest:
+            raise RecordError("mouse 需要 move、down、up 或 wheel")
+        operation, values = rest[0], rest[1:]
+        step = {"action": "mouse", "operation": operation}
+        if operation == "move" and len(values) == 2:
+            step.update(x=actions.number(values[0], "x"), y=actions.number(values[1], "y"))
+        elif operation in ("down", "up") and len(values) <= 1:
+            step["button"] = values[0] if values else "left"
+            if step["button"] not in ("left", "right", "middle"):
+                raise RecordError("鼠标按钮只能是 left、right 或 middle")
+        elif operation == "wheel" and len(values) <= 2:
+            step.update(delta_y=actions.number(values[0], "delta_y") if values else 100,
+                        delta_x=actions.number(values[1], "delta_x") if len(values) == 2 else 0)
+        else:
+            return _native(rec, argv)
+        if not actions.input_action(rec, step):
+            early_change = _act(rec, argv)
+    elif command == "scroll":
+        direction, pixels, target_token = "down", 300, None
+        parts = list(rest)
+        if parts and not parts[0].startswith("-"):
+            direction = parts.pop(0)
+        if direction not in ("up", "down", "left", "right"):
+            raise RecordError("滚动方向只能是 up、down、left 或 right")
+        if parts and not parts[0].startswith("--"):
+            pixels = actions.number(parts.pop(0), "滚动像素", minimum=0)
+        if parts and parts[0] in ("--selector", "-s") and len(parts) == 2:
+            target_token = parts[1]
+        elif parts:
+            return _native(rec, argv)
+        step = {"action": "scroll", "direction": direction, "pixels": pixels}
+        send = ["scroll", direction, str(pixels)]
+        if target_token:
+            found = _target(rec, target_token, rich=True)
+            step["locators"] = found["locators"]
+            send += ["--selector", _send_target(target_token, found)]
+        if rec.get("frame_path"):
+            from ..replay.primitives import scroll_delta
+
+            dx, dy = scroll_delta(direction, pixels)
+            if target_token:
+                locator = next(loc for loc in found["locators"] if loc["by"] == "css")
+                expression = "(" + DOM_JS + ")().find(" + json.dumps(locator) + ")[" + str(locator.get("nth", 0)) + "]"
+            else:
+                expression = "window"
+            actions.evaluate(session_name(), expression + ".scrollBy(" + str(dx) + "," + str(dy) + ")")
+        else:
+            early_change = _act(rec, send)
+    elif command == "wait":
+        if not rest:
+            raise RecordError("wait 需要毫秒数或目标 [--state visible|hidden|attached|detached]")
+        operands, options, index = [], {}, 0
+        while index < len(rest):
+            token = rest[index]
+            if token in ("--timeout", "--stable-for", "--state") and index + 1 < len(rest) and token not in options:
+                options[token] = rest[index + 1]
+                index += 2
+            else:
+                operands.append(token)
+                index += 1
+        timing = {}
+        for flag, field in (("--timeout", "timeout_seconds"), ("--stable-for", "stable_for_seconds")):
+            if flag in options:
+                timing[field] = actions.number(options[flag], flag, minimum=0) / 1000
+        if timing.get("timeout_seconds") == 0:
+            raise RecordError("wait --timeout 必须大于 0 毫秒")
+        if len(operands) == 1 and re.fullmatch(r"\d+(?:\.\d+)?", operands[0]) and "--state" not in options:
+            step = {"action": "wait", "milliseconds": actions.number(operands[0], "等待毫秒", minimum=0), **timing}
+            agent.call(session_name(), ["wait", operands[0]], timeout=max(60, step["milliseconds"] / 1000 + 5))
+        elif len(operands) == 1 and not operands[0].startswith("-"):
+            state = options.get("--state", "visible")
+            if state not in ("visible", "hidden", "attached", "detached"):
+                raise RecordError("wait --state 只能是 visible、hidden、attached 或 detached")
+            token = operands[0]
+            spec = _spec(rec, token, rich=True)
+            # Hidden/detached waits must not require the element to exist now.
+            if token.startswith("@"):
+                found = _target(rec, token, rich=True)
+                selector = next(loc["value"] for loc in found["locators"] if loc["by"] == "css")
+            elif spec.get("locator", {}).get("by") == "css":
+                selector = token
+            else:
+                found = _target(rec, token, rich=True)
+                selector = _send_target(token, found)
+            step = {"action": "wait", "selector": selector, "state": state, **timing}
+            if not timing and not rec.get("frame_path"):
+                agent.call(session_name(), ["wait", selector, "--state", state])
+            else:
+                timeout = float(timing.get("timeout_seconds", config.get("timeout_seconds", 20)))
+                stability = float(timing.get("stable_for_seconds", 0))
+                deadline, since = time.monotonic() + timeout, None
+                probe, locator = PageProbe(), {"by": "css", "value": selector}
+                while True:
+                    exists = probe.count(locator) > 0
+                    visible = exists and bool(probe.read(locator, "visible"))
+                    met = {"attached": exists, "detached": not exists, "visible": visible, "hidden": not visible}[state]
+                    now = time.monotonic()
+                    since = (since if since is not None else now) if met else None
+                    if since is not None and now - since >= stability:
+                        break
+                    if now >= deadline:
+                        raise RecordError("等待条件在时限内没有持续成立：" + ir.describe(step))
+                    time.sleep(min(0.1, max(0, deadline - now)))
+        else:
+            return _native(rec, argv)
+    elif command == "upload":
+        if len(rest) < 2:
+            raise RecordError("upload 需要目标和一个或多个文件")
+        from .. import artifacts
+
+        found = _target(rec, rest[0], rich=True)
+        files = artifacts.stage_upload(rec["project_id"], rest[1:])
+        asset_root = projects.path(rec["project_id"])
+        absolute = artifacts.resolve_upload_assets(asset_root, files)
+        step = {"action": "upload", "locators": found["locators"], "files": files}
+        if not actions.target_action(rec, {**step, "files": absolute}):
+            early_change = _act(rec, ["upload", _send_target(rest[0], found), *absolute])
+    elif command == "download":
+        if len(rest) != 2:
+            raise RecordError("download 需要目标和相对输出名，例如 download @e1 report.csv")
+        from .. import artifacts
+
+        found = _target(rec, rest[0], rich=True)
+        filename = rest[1].replace("\\", "/")
+        # Reuse IR's portable-path check before writing any machine output.
+        step = {"action": "download", "locators": found["locators"], "filename": filename}
+        ir.validate({"start_url": "/", "actions": [step], "assertions": []})
+        output = artifacts.private_output(session_name(), filename, category="downloads", rec=rec)
+        from ..replay.primitives import output_file
+
+        output = output_file(output.parent, output.name)
+        if not actions.target_action(rec, {**step, "output": str(output)}):
+            agent.call(session_name(), ["download", _send_target(rest[0], found), str(output)])
+        rec.setdefault("artifacts", []).append(artifacts.metadata(output, kind="download"))
     elif command in TARGETED:
         if not rest:
             raise RecordError(f"{command} 需要目标，例如 @e3")
-        found = _target(rec, rest[0])  # describe before acting: the element may be gone afterwards
+        expected_args = 2 if command in ("fill", "type", "select") else 1
+        text_args = rest[1:]
+        if command in ("fill", "type") and text_args[:1] == ["--"]:
+            text_args = text_args[1:]
+        if len(text_args) != expected_args - 1:
+            return _native(rec, argv)
+        found = _target(rec, rest[0], rich=True)  # describe before acting: the element may be gone afterwards
         what = f'{found.get("role") or found.get("tag")}「{found.get("name", "")}」'
         if command in ("fill", "type") and not found.get("editable"):
             raise RecordError(f"{rest[0]} 是 {what}，不能输入文字；编号可能来自旧的 snapshot，请用最近一次返回的 snapshot 重新确认")
@@ -520,16 +920,17 @@ def browser(argv: list[str]) -> dict:
             raise RecordError(f"{rest[0]} 是 {what}，不是下拉框；自定义下拉请用 click 打开后再 click 选项")
         if command in ("check", "uncheck") and not found.get("checkable"):
             raise RecordError(f"{rest[0]} 是 {what}，不是复选框或单选框；请用最近一次返回的 snapshot 重新确认")
-        step = {"action": command, "locators": found["locators"]}
-        send = list(argv)
+        step = {"action": "scroll_into_view" if command == "scrollintoview" else command, "locators": found["locators"]}
+        send = [command, _send_target(rest[0], found)]
         if command in ("fill", "type", "select"):
             if len(rest) < 2:
                 raise RecordError(f"{command} 需要内容")
-            typed, step["value"] = _secret_value(rec, _plain(rest[1]), bool(found.get("secret")) and command != "select")
-            send = [command, rest[0], typed]
-        early_change = _act(rec, send)
+            typed, step["value"] = _secret_value(rec, _plain(text_args[0]), bool(found.get("secret")) and command != "select")
+            send += [*(["--"] if command in ("fill", "type") else []), typed]
+        if not actions.target_action(rec, {**step, **({"value": typed} if command in ("fill", "type", "select") else {})}):
+            early_change = _act(rec, send)
     else:
-        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe tab click dblclick hover fill type select check uncheck press reload captcha dialog get is wait")
+        return _native(rec, argv)
     change = _observe_tabs(rec, settle=0.6 if command in ("click", "dblclick", "press") else 0)
     if early_change:
         change = {"opened": early_change["opened"] + (change or {}).get("opened", []),
@@ -542,16 +943,30 @@ def browser(argv: list[str]) -> dict:
     result = _record(rec, step)
     if command == "captcha":
         result["recognized"] = recognized
+    if command == "eval":
+        result["result"] = value
+    if command == "download":
+        result["artifacts"] = rec["artifacts"][-1:]
     result["snapshot"] = snapshot(rec)
     _save(rec)
     return _after(rec, result)
 
 
-def check(kind: str, target: str | None, expected: str | None, attribute: str | None = None) -> dict:
+def check(kind: str, target: str | None, expected: str | None, attribute: str | None = None,
+          *, timeout_seconds: float | None = None, stable_for_seconds: float | None = None) -> dict:
+    rec = current()
+    try:
+        return actions.with_dialogs(session_name(), rec, lambda: _check(rec, kind, target, expected, attribute,
+                                   timeout_seconds=timeout_seconds, stable_for_seconds=stable_for_seconds))
+    finally:
+        _save(rec)
+
+
+def _check(rec: dict, kind: str, target: str | None, expected: str | None, attribute: str | None = None,
+           *, timeout_seconds: float | None = None, stable_for_seconds: float | None = None) -> dict:
     """Verify an expectation on the live page now; only a passing one is recorded."""
     from ..replay import ui
 
-    rec = current()
     _sync_tabs(rec)
     if kind not in ir.ASSERTIONS:
         raise RecordError("断言类型只能是：" + " ".join(ir.ASSERTIONS))
@@ -559,6 +974,10 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     if not needs_target and expected is None:
         target, expected = None, target  # `check url_contains "/orders"`: the one value is the expectation
     step: dict = {"assertion": kind}
+    if timeout_seconds is not None:
+        step["timeout_seconds"] = timeout_seconds
+    if stable_for_seconds is not None:
+        step["stable_for_seconds"] = stable_for_seconds
     if needs_target:
         if not target:
             raise RecordError(f"{kind} 断言需要目标，例如 @e5、testid=toast 或 CSS 选择器")
@@ -586,13 +1005,14 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     ir.validate({"start_url": "/", "actions": [], "assertions": [step]})
     outcome = ui.check(PageProbe(), step, 5.0)
     if not outcome["passed"]:
-        raise RecordError(f"断言现在不成立，没有记录：{ir.describe(step)}；页面实际为「{outcome['actual']}」")
-    return {**_record(rec, step), "actual": outcome["actual"]}
+        raise RecordError(f"断言现在不成立，没有记录：{ir.describe(step)}；页面实际为「{_redact(rec, outcome['actual'])}」")
+    return {**_record(rec, step), "actual": _redact(rec, outcome["actual"])}
 
 
 def stop(title: str, module: str = "", category: str = "", plan_case: str | None = None) -> dict:
     """Finish the recording: export traffic, close the browser, compile and save the cases."""
     from . import compile as compiler
+    from . import native
 
     rec = current()
     if not (title or "").strip():
@@ -601,6 +1021,10 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
         raise RecordError("还没有记录任何步骤；先用 autoskill browser 操作页面，或运行 autoskill record cancel 放弃")
     har_file, state_file = paths.local() / "recording.har", paths.local() / "recording-state.json"
     har, state = {"log": {"entries": []}}, None
+    # A failed encoder/export keeps the recording and browser available for retry.
+    native.finish_captures(session_name(), rec)
+    native.stop_permission_holder(rec)
+    _save(rec)
     try:
         if agent.call(session_name(), ["network", "har", "stop", str(har_file)], check=False) is not None and har_file.is_file():
             har = json.loads(har_file.read_text(encoding="utf-8", errors="replace"))
@@ -613,6 +1037,8 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
     summary = compiler.build(rec["project_id"], rec, har, state, title.strip(), module, category)
     _file().unlink(missing_ok=True)
     summary["project"] = rec["project_id"]
+    if rec.get("artifacts"):
+        summary["artifacts"] = rec["artifacts"]
     if plan_case:  # this recording carried out a row of the case sheet: its replay result becomes that row's verdict
         from .. import plan
 

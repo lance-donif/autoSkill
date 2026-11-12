@@ -181,6 +181,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_PATCH(self) -> None:
         self.route()
 
+    def do_PUT(self) -> None:
+        self.route()
+
+    def do_DELETE(self) -> None:
+        self.route()
+
     def route(self) -> None:
         url = urlsplit(self.path)
         path = url.path
@@ -259,14 +265,24 @@ class Handler(BaseHTTPRequestHandler):
                     return self.error(404, "NOT_FOUND")
                 if method in ("GET", "HEAD"):
                     return self.send_json(200, dict(ticket))
-                if method == "PATCH":
+                if method == "DELETE":
+                    if user["role"] != "admin":
+                        return self.error(403, "FORBIDDEN", message="当前角色不能删除工单")
+                    state.tickets.remove(ticket)
+                    return self.send_json(200, {"deleted": ticket_id})
+                if method in ("PATCH", "PUT"):
                     if user["role"] != "admin":
                         return self.error(403, "FORBIDDEN", message="当前角色不能修改工单")
                     body = self.read_json()
-                    status = body.get("status") if isinstance(body, dict) else None
-                    if status not in STATUSES:
-                        return self.error(422, "VALIDATION", fields={"status": "invalid"})
-                    ticket["status"] = status
+                    if not isinstance(body, dict) or not body or set(body) - {"title", "priority", "description", "status"}:
+                        return self.error(422, "VALIDATION", fields={"body": "invalid"})
+                    candidate = {**ticket, **body} if method == "PATCH" else {"status": "open", **body}
+                    values, errors = validate_ticket(candidate)
+                    if candidate.get("status") not in STATUSES:
+                        errors["status"] = "invalid"
+                    if errors:
+                        return self.error(422, "VALIDATION", fields=errors)
+                    ticket.update(values, status=candidate["status"])
                     return self.send_json(200, dict(ticket))
         self.error(404, "NOT_FOUND")
 

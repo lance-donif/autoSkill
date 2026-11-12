@@ -65,6 +65,14 @@
         <option value="medium" selected>中</option>
         <option value="high">高</option>
       </select>
+      <div id="ticket-status-wrap" hidden>
+        <label for="ticket-status">工单状态</label>
+        <select id="ticket-status" data-testid="ticket-status">
+          <option value="open">待处理</option>
+          <option value="in_progress">处理中</option>
+          <option value="resolved">已解决</option>
+        </select>
+      </div>
       <label for="description">描述</label>
       <textarea id="description" name="description" rows="3" data-testid="ticket-description"></textarea>
       <div class="actions">

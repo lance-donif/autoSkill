@@ -32,7 +32,26 @@ def _convert(value, secrets_seen: set):
     return value
 
 
+def _require_http(cases: list[dict]) -> None:
+    """Collection 2.1 HTTP tests cannot represent stream/conversation completion."""
+    unsupported = []
+    for case in cases:
+        if case.get("kind") != "api":
+            unsupported.append(f"{case.get('id', '?')} (页面前置，{case.get('kind', '?')})")
+            continue
+        transport = case.get("extensions", {}).get("transport", {})
+        if not isinstance(transport, dict):
+            raise ValueError(f"{case.get('id', '?')} 的 transport 必须是对象，无法生成 Postman HTTP 集合")
+        kind = transport.get("type", "http")
+        if kind != "http":
+            unsupported.append(f"{case.get('id', '?')} ({kind})")
+    if unsupported:
+        raise ValueError("Postman Collection v2.1 导出仅支持 HTTP；以下页面前置或协议对话不能转换成普通 HTTP 请求，也不能省略："
+                         + "、".join(unsupported) + "。请使用 autoskill run 执行完整用例链")
+
+
 def test_script(case: dict) -> list[str]:
+    _require_http([case])
     rules = case["assertions"]
     extract = case.get("extensions", {}).get("extract", {})
     lines = [f'pm.test("状态码为 {rules["status"]}", () => pm.response.to.have.status({rules["status"]}));']
@@ -56,6 +75,7 @@ def test_script(case: dict) -> list[str]:
 
 
 def _item(case: dict, secrets_seen: set) -> dict:
+    _require_http([case])
     path = _convert(case["path"], secrets_seen)
     params = _convert(case.get("params", {}), secrets_seen)
     query = [{"key": k, "value": v if isinstance(v, str) else _js(v)} for k, v in params.items()]
@@ -80,6 +100,9 @@ def _item(case: dict, secrets_seen: set) -> dict:
 
 def export(name: str, cases: list[dict], base_url: str) -> tuple[dict, dict]:
     """Return (collection, environment) for the given API cases, in the given order."""
+    # Reject the complete plan before generating anything: silently dropping a
+    # stream prerequisite would make a seemingly successful collection incomplete.
+    _require_http(cases)
     secrets_seen: set[str] = set()
     items = [_item(case, secrets_seen) for case in cases if case.get("kind") == "api"]
     extracted = sorted({k for case in cases for k in case.get("extensions", {}).get("extract", {})})

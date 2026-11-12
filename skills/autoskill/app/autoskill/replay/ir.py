@@ -7,6 +7,8 @@ first one that matches and reports when it had to fall back. The older single
 """
 from __future__ import annotations
 
+import math
+import re
 from urllib.parse import urljoin, urlsplit
 
 LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css")
@@ -14,6 +16,8 @@ LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css")
 ACTIONS = {
     "goto": (False, ("url",)),
     "reload": (False, ()),
+    "back": (False, ()),
+    "forward": (False, ()),
     "tab_new": (False, ("tab", "url")),
     "tab_switch": (False, ("tab",)),
     "tab_close": (False, ("tab", "active")),
@@ -23,6 +27,22 @@ ACTIONS = {
     "click": (True, ()),
     "dblclick": (True, ()),
     "hover": (True, ()),
+    "focus": (True, ()),
+    "drag": (True, ("target_locators",)),
+    "scroll_into_view": (True, ()),
+    "frame": (False, ("selector",)),
+    "dialog": (False, ("mode",)),
+    "eval": (False, ("script",)),
+    "keyboard": (False, ("operation", "value")),
+    "mouse": (False, ("operation",)),
+    "scroll": (False, ("direction", "pixels")),
+    "wait": (False, ()),
+    "upload": (True, ("files",)),
+    "download": (True, ("filename",)),
+    "clipboard": (False, ("operation", "text")),
+    "browser_command": (False, ("command", "args")),
+    # Keep unsupported mutations visible in saved cases, never silently replay them.
+    "native_step": (False, ("command", "args", "reason")),
     "press": (False, ("key",)),
     "check": (True, ()),
     "uncheck": (True, ()),
@@ -52,6 +72,12 @@ ACTION_NAMES = {
     "select": "选择", "wait_visible": "等待出现", "wait_hidden": "等待消失",
     "tab_new": "新建标签页", "tab_switch": "切换标签页", "tab_close": "关闭标签页", "tab_sync": "跟随新窗口或关闭返回",
     "captcha": "识别验证码并填入",
+    "back": "后退", "forward": "前进", "focus": "聚焦", "drag": "拖动",
+    "scroll_into_view": "滚动到元素", "frame": "切换框架", "dialog": "准备下一次对话框",
+    "eval": "执行脚本", "keyboard": "键盘", "mouse": "鼠标", "scroll": "滚动",
+    "wait": "等待", "upload": "上传文件", "download": "下载文件", "clipboard": "写入剪贴板",
+    "native_step": "原生命令（不可回放）",
+    "browser_command": "浏览器设置",
 }
 ASSERTION_NAMES = {
     "visible": "可见", "hidden": "不可见", "count": "数量为", "min_count": "数量至少为", "text": "文本为", "contains": "文本包含",
@@ -111,6 +137,34 @@ def describe(step: dict) -> str:
             return f'在 {where} {text}「{step.get("value")}」'
         if op == "press":
             return f'{text} {step.get("key")}' + (f"（{where}）" if where else "")
+        if op == "drag":
+            target = step.get("target_locators", [])
+            return f'{text} {where} 到 {describe_locator(target[0]) if target else ""}'
+        if op == "frame":
+            return f'{text} {step.get("selector")}'
+        if op == "dialog":
+            return f'{text} {step.get("mode")}' + (f'「{step["text"]}」' if "text" in step else "")
+        if op == "eval":
+            return text  # A script can contain credentials; keep them out of comments/reports.
+        if op == "keyboard":
+            return f'{text} {step.get("operation")}「{step.get("value")}」'
+        if op == "mouse":
+            values = ", ".join(f"{field}={step[field]}" for field in ("x", "y", "button", "delta_x", "delta_y") if field in step)
+            return f'{text} {step.get("operation")} {values}'.strip()
+        if op == "scroll":
+            return f'{text} {step.get("direction")} {step.get("pixels")}px {where}'.strip()
+        if op == "wait":
+            return f'{text} {step["milliseconds"]}ms' if "milliseconds" in step else f'{text} {where} {step.get("state", "visible")}'
+        if op == "upload":
+            return f'{text} {", ".join(step.get("files", []))} 到 {where}'
+        if op == "download":
+            return f'{text} {where} 为 {step.get("filename")}'
+        if op == "clipboard":
+            return text
+        if op == "native_step":
+            return f'{text} {step.get("command")}：{step.get("reason")}'
+        if op == "browser_command":
+            return f'{text} {step.get("command")} {" ".join(step.get("args", [])[:2])}'
         return f"{text} {where}".strip()
     op = step.get("assertion")
     text = ASSERTION_NAMES.get(op, op)
@@ -127,6 +181,22 @@ def describe(step: dict) -> str:
 
 def _is_index(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _is_number(value: object, *, nonnegative: bool = False) -> bool:
+    try:
+        return (isinstance(value, (int, float)) and not isinstance(value, bool)
+                and math.isfinite(value) and (not nonnegative or value >= 0))
+    except OverflowError:
+        return False
+
+
+def _relative_file(value: object) -> bool:
+    """Portable artifact paths never include machine paths or runtime substitutions."""
+    return (isinstance(value, str) and bool(value) and not value.startswith("/")
+            and not re.match(r"^[A-Za-z]:", value) and "\\" not in value and "\x00" not in value
+            and all(part not in ("", ".", "..") for part in value.split("/"))
+            and "${ENV:" not in value and RAND not in value)
 
 
 def _check_locator(locator: object, where: str) -> None:
@@ -149,11 +219,19 @@ def _check_step(step: object, table: dict, key: str, where: str) -> None:
     for field in required:
         if field not in step:
             raise ValueError(f"{where}（{step[key]}）缺少 {field}")
+    if "locators" in step and not isinstance(step["locators"], list):
+        raise ValueError(f"{where}：locators 必须是数组")
+    for field in ("timeout_seconds", "stable_for_seconds"):
+        if field in step and (not _is_number(step[field], nonnegative=True)
+                              or (field == "timeout_seconds" and step[field] == 0)):
+            raise ValueError(f"{where}：{field} 必须是{'正' if field == 'timeout_seconds' else '非负'}有限数值")
     target = locators(step)
     if needs_target and not target:
         raise ValueError(f"{where}（{step[key]}）缺少定位")
     for locator in target:
         _check_locator(locator, where)
+    if key == "action":
+        _check_action_fields(step, where)
     if step[key] in ("count", "min_count") and not _is_index(step["expected"]):
         raise ValueError(f"{where}：count 断言需要非负整数")
     def tab_id(value):
@@ -175,12 +253,107 @@ def _check_step(step: object, table: dict, key: str, where: str) -> None:
             raise ValueError(f"{where}：关闭标签页格式无效")
 
 
+def _check_action_fields(step: dict, where: str) -> None:
+    op = step["action"]
+
+    def text(field: str, *, nonempty: bool = False) -> None:
+        if not isinstance(step.get(field), str) or (nonempty and not step[field]):
+            raise ValueError(f"{where}（{op}）：{field} 必须是{'非空' if nonempty else ''}字符串")
+
+    if op == "drag":
+        targets = step["target_locators"]
+        if not isinstance(targets, list) or not targets:
+            raise ValueError(f"{where}：drag 缺少目标定位 target_locators")
+        for locator in targets:
+            _check_locator(locator, where + " 目标")
+    elif op == "frame":
+        text("selector", nonempty=True)
+    elif op == "dialog":
+        if step["mode"] not in ("accept", "dismiss"):
+            raise ValueError(f"{where}：dialog mode 只能是 accept / dismiss")
+        if "text" in step:
+            text("text")
+            if step["mode"] != "accept":
+                raise ValueError(f"{where}：只有接受对话框时才能提供 text")
+    elif op == "eval":
+        text("script", nonempty=True)
+    elif op == "keyboard":
+        if step["operation"] not in ("type", "inserttext", "press", "down", "up"):
+            raise ValueError(f"{where}：不支持的 keyboard operation")
+        text("value")
+        if step["operation"] in ("press", "down", "up") and not step["value"]:
+            raise ValueError(f"{where}：键名不能为空")
+    elif op == "mouse":
+        operation = step["operation"]
+        if operation not in ("move", "down", "up", "wheel"):
+            raise ValueError(f"{where}：不支持的 mouse operation")
+        if operation == "move" and not all(field in step for field in ("x", "y")):
+            raise ValueError(f"{where}：mouse move 缺少 x / y")
+        if "button" in step and step["button"] not in ("left", "middle", "right"):
+            raise ValueError(f"{where}：鼠标按钮只能是 left / middle / right")
+        for field in ("x", "y", "delta_x", "delta_y"):
+            if field in step and not _is_number(step[field]):
+                raise ValueError(f"{where}：{field} 必须是有限数值")
+    elif op == "scroll":
+        if step["direction"] not in ("up", "down", "left", "right") or not _is_number(step["pixels"], nonnegative=True):
+            raise ValueError(f"{where}：scroll 需要 up / down / left / right 与非负 pixels")
+    elif op == "wait":
+        if "milliseconds" in step:
+            if not _is_number(step["milliseconds"], nonnegative=True) or locators(step) or "state" in step:
+                raise ValueError(f"{where}：wait 毫秒模式需要非负数且不能混用定位或 state")
+        elif not locators(step) or step.get("state", "visible") not in ("visible", "hidden", "attached", "detached"):
+            raise ValueError(f"{where}：wait 需要 milliseconds 或定位与有效 state")
+    elif op == "upload":
+        if not isinstance(step["files"], list) or not step["files"] or not all(_relative_file(name) for name in step["files"]):
+            raise ValueError(f"{where}：upload files 必须是非空的项目相对文件路径数组")
+    elif op == "download":
+        if not _relative_file(step["filename"]):
+            raise ValueError(f"{where}：download filename 必须是输出目录内的相对文件路径")
+    elif op == "clipboard":
+        if step["operation"] != "write":
+            raise ValueError(f"{where}：clipboard 只记录 write；读取是观察操作")
+        text("text")
+    elif op in ("native_step", "browser_command"):
+        text("command", nonempty=True)
+        if not isinstance(step["args"], list) or not all(isinstance(arg, str) for arg in step["args"]):
+            raise ValueError(f"{where}：{op} args 必须是字符串数组")
+        if op == "native_step":
+            text("reason", nonempty=True)
+            if "replayable" in step and step["replayable"] is not False:
+                raise ValueError(f"{where}：native_step 不能标记为可回放")
+        else:
+            from .primitives import normalize_browser_command
+
+            # Templates substitute values, never the command/flag vocabulary.
+            args = list(step["args"])
+            templated = ["${ENV:" in arg or RAND in arg for arg in args]
+            for index, dynamic in enumerate(templated):
+                if not dynamic:
+                    continue
+                replacement = "value"
+                if step["command"] == "set" and index > 0:
+                    setting = args[0]
+                    replacement = {"viewport": "1", "offline": "off", "headers": "{}", "geo": "0", "geolocation": "0",
+                                   "media": "light" if index == 1 else "no-preference"}.get(setting, "value")
+                elif step["command"] == "cookies" and index > 0:
+                    replacement = {"--expires": "1", "--same-site": "Lax", "--url": "https://example.test/",
+                                   "--domain": "example.test", "--path": "/"}.get(args[index - 1], "value")
+                args[index] = replacement
+            normalize_browser_command(step["command"], args)
+
+
 def validate(automation: object) -> None:
-    """Reject anything outside the whitelist. Steps are data; nothing is ever evaluated."""
+    """Validate saved step data, including explicit nonportable native mutations.
+
+    eval is an authorized browser script action; native_step remains nonreplayable.
+    """
     if not isinstance(automation, dict):
         raise ValueError("用例没有可回放的自动化步骤")
     if not isinstance(automation.get("start_url"), str) or not automation["start_url"]:
         raise ValueError("自动化步骤缺少 start_url")
+    for field in ("timeout_seconds", "assertion_timeout_seconds"):
+        if field in automation and (not _is_number(automation[field], nonnegative=True) or automation[field] == 0):
+            raise ValueError(f"{field} 必须是正有限数值")
     actions, assertions = automation.get("actions", []), automation.get("assertions", [])
     if not isinstance(actions, list) or not isinstance(assertions, list):
         raise ValueError("actions 与 assertions 必须是数组")
@@ -197,10 +370,25 @@ def is_replayable(case: dict) -> bool:
     if case.get("kind") == "api":
         return True
     try:
-        validate(case.get("extensions", {}).get("automation"))
+        automation = case.get("extensions", {}).get("automation")
+        validate(automation)
     except ValueError:
         return False
+    if replay_blockers(automation):
+        return False
     return True
+
+
+def replay_blockers(case_or_automation: object) -> list[str]:
+    """Reasons a recorded UI flow must be shown as blocked rather than omitted."""
+    if not isinstance(case_or_automation, dict):
+        return []
+    automation = case_or_automation.get("extensions", {}).get("automation", case_or_automation)
+    if not isinstance(automation, dict) or not isinstance(automation.get("actions", []), list):
+        return []
+    return [f"{step.get('command', 'native')}：{step.get('reason', '没有可移植回放实现')}"
+            for step in automation.get("actions", [])
+            if isinstance(step, dict) and step.get("action") == "native_step"]
 
 
 def absolute_url(url: str, base_url: str) -> str:

@@ -10,6 +10,21 @@
 | 回放结果「页面没有在限定时间内加载完成」 | 页面比等待时间还慢 | `autoskill project update <项目> --page-load <秒>`（默认 90，最大 600） |
 | `读写 autoSkill 数据失败…` | 数据目录写不进去（权限、磁盘、被占用） | 错误里有具体原因；标准错误输出里有详细信息，如实转告用户 |
 | `当前没有进行中的录制` | 还没 `record start`，或上一次已经 `stop` / `cancel` | `autoskill record start <项目>` |
+| 不确定某个上游命令能否回放 | 原生执行和可移植用例是不同的能力 | `autoskill capabilities <命令>` 或 `browser help <命令>`；先看两种引擎/导出布尔值与前提，查询无需录制/运行时 |
+| `replayable=false`、`native_step` 或脚本导出阻塞 | 此原生命令/额外选项执行过，但缺少完整的双引擎与导出语义 | 保留原因；重录为能力表里的可移植语法，或如实报告不支持。不要删除步骤凑通过 |
+| 原生命令要求先 `record stop` / `record cancel` | 命令会换浏览器/会话配置、关闭录制或接管 HAR | 保留则 stop、放弃则 cancel，再执行并重新录制；不能在原生 batch 里绕过 |
+| `browser mcp` 返回 `executed=false` | stdio 服务需要 MCP 客户端持续维护输入输出 | 用返回的 command 配置客户端，或 `browser mcp call <工具> <JSON>` 执行一次；描述符不代表操作已执行 |
+| 视频提示缺少 ffmpeg | 原生视频编码需要本机 ffmpeg | 说明缺依赖；其他浏览器/截图/PDF 功能不依赖它，不联网安装 |
+| trace / profiler 提示正在占用 | 两者使用同一个 CDP Tracing 管道 | 先 stop 当前捕获，再 start 另一种；结束业务录制时会收尾已有捕获 |
+| 弹窗恢复后用例标成不可移植 | 先触发了原生弹窗，之后才选择处理方式 | 重录：先 `browser dialog accept [文字]` 或 `dismiss`，再执行触发操作；选择会按记录回放 |
+| AI 回答还没结束就断言失败 | 普通元素等待预算短，或局部文字先出现 | 断言完成标志；用 `check ... --timeout <秒> --stable-for <秒>`；browser wait 的对应选项单位为毫秒。项目可设 `--assertion-timeout` |
+| SSE/语音对话 HTTP 成功但没有结论 | 状态码不代表流式会话完成 | 用 `api capabilities` 查看协议合同；增加 text/reasoning/结束事件、消息数、音频字节/帧等实际断言，配置总超时、首事件与空闲预算 |
+| 测试麦克风文件无效/找不到 | 文件不是有效的项目内非空 16-bit PCM WAV，或包里缺资源 | `project update <项目> --audio-input <WAV>` 重新验证并复制；单/双声道 8–192 kHz。分享时带项目资源；`off` 清除 |
+| context / plan show 只显示 30 条 | 默认有界摘要避免几千条用例占满上下文 | 看 total/has_more/next_offset；用 `--query`、`--module` 筛选、`--offset` 翻页，选中后 `cases ... --case` 或 `plan show --case ... --details` |
+| 知识正文没有全部返回 | context/search 返回的是片段，show 默认只读 4000 字符 | 先 `knowledge search` 找文件，再 `knowledge show <项目> <文件名> --offset <字符偏移>`；不要一次把所有文档放进上下文 |
+| knowledge add 缺少来源/引用不属于项目 | 没有可追踪依据，或引用了另一个项目的用例/运行 | 给出文档/用户确认来源，或同项目 --case/--run；失败运行不会自动生成业务规则 |
+| export scripts 列出 API 前置用例并拒绝 | 独立页面脚本暂不支持执行接口前置链 | 在 autoSkill 用 run 执行完整混合链；不要删前置步骤导出一个行为不完整的脚本 |
+| export postman 列出 SSE/WebSocket 并拒绝 | 流式/双向协议不能转换成等价的普通 HTTP 集合 | 用 autoSkill run 回放完整协议用例；不要静默删掉流式用例或把状态码当对话断言 |
 | `已有进行中的录制` | 上一次录制没有结束，浏览器还开着（浏览器已经关掉的旧录制会被自动丢弃） | `autoskill record status` 看内容；要保留就 `record stop --title …`，否则 `record cancel` |
 | PowerShell 下 `页面上找不到 <要输入的文字>` | `@e5` 没加引号，被 PowerShell 当成语法吞掉，参数错位 | 写成 `"@e5"` |
 | `引用 @eN 已失效` | 页面变了，编号是旧 snapshot 的 | 用上一条命令返回的 snapshot，或 `autoskill browser snapshot` |
@@ -45,4 +60,5 @@
 - 分开说通过、失败、阻塞的数量；阻塞不是通过。
 - 失败要给出原因（命令输出里的 `detail`）。
 - 没有回放过的用例说「未执行」。
+- `capabilities` 的声明与 `verified=false` 不是通过证据；管理命令返回的执行描述符也不算已执行。
 - 页面没有业务接口时，说明接口用例是资源可访问性检查。

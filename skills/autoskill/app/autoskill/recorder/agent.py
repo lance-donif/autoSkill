@@ -48,7 +48,9 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
     binary = paths.agent_browser()
     if not binary:
         raise AgentError("没有找到随包的 agent-browser；请使用完整离线包（不会联网下载）")
-    command = [binary, "--session", session, *(launch or []), *args, "--json"]
+    # A command may contain the literal-input `--` marker. All global flags
+    # must precede it, otherwise --json becomes input text and output is plain.
+    command = [binary, "--session", session, "--json", *(launch or []), *args]
     folder = _scratch()
     token = uuid.uuid4().hex
     out_path, err_path, in_path = folder / f"{token}.out", folder / f"{token}.err", folder / f"{token}.in"
@@ -105,9 +107,14 @@ def launch_problem(error: Exception) -> str:
     return text
 
 
-def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False) -> list[str]:
+def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False,
+                *, config: dict | None = None, asset_root: Path | None = None) -> list[str]:
     """Start the browser without a proxy fence, with optional login state."""
-    flags = ["--args", ",".join([*paths.QUIET_CHROME_ARGS, *(["--start-maximized"] if paths.headed() else [])])]
+    from .. import media
+
+    browser_args = [*paths.QUIET_CHROME_ARGS, *(["--start-maximized"] if paths.headed() else []),
+                    *media.chrome_args(config or {}, asset_root)]
+    flags = ["--args", "\n".join(browser_args)]
     if paths.chrome():
         flags = ["--executable-path", paths.chrome(), *flags]
     if state_file:

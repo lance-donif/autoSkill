@@ -12,12 +12,13 @@ import contextlib
 import io
 import json
 import os
+import shlex
 import subprocess
 import sys
 import urllib.error
 import urllib.request
 import uuid
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from . import paths
 
@@ -98,14 +99,282 @@ def forward(port: int, argv: list[str], stdin_text: str | None = None) -> dict:
     return {"exit": 2, "stdout": json.dumps({"error": message}, ensure_ascii=False, indent=1) + chr(10), "stderr": ""}
 
 
-def check(argv: list[str]) -> None:
-    """Server side: refuse what must not be done on someone else's behalf."""
+def _parse(argv: list[str]):
+    """Match CLI parsing, including native global flags after ``browser``."""
     from . import cli
 
+    values = ["browser", "--", *argv[1:]] if argv[:1] == ["browser"] else argv
     try:
         with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
-            args = cli.parser().parse_args(argv)
+            args = cli.parser().parse_args(values)
     except SystemExit:
+        return None  # the child prints the usage/help without executing a command
+    if args.command == "browser" and args.args[:1] == ["--"]:
+        args.args = args.args[1:]
+    return args
+
+
+def _reference(value: str) -> bool:
+    from . import secrets
+
+    return bool(secrets.references(value) or value.startswith("secret:") and secrets.NAME.fullmatch(value[7:]))
+
+
+def _project_input(value: str, project_id: str | None) -> Path | None:
+    """Preserve a staged asset name when the native recorder resolves it by project."""
+    if not value.startswith("files/") or not project_id:
+        return None
+    from . import artifacts, projects
+
+    try:
+        return Path(artifacts.resolve_upload_assets(projects.path(project_id), [value])[0])
+    except ValueError:
+        return None
+
+
+def _recording_project() -> str | None:
+    try:
+        info = json.loads((paths.workspace() / ".local/recording.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return info.get("project_id") if isinstance(info, dict) else None
+
+
+def prepare_argv(argv: list[str], cwd: Path | str | None = None) -> list[str]:
+    """Keep explicit input paths anchored to the caller before service forwarding.
+
+    URLs, selectors, text and output names retain their original spelling.
+    Audio paths inside a JSON specification are resolved beside that file by
+    ``protocols_cli``; only the specification path itself is rewritten here.
+    """
+    from .recorder import native
+
+    args = _parse(argv)
+    if args is None:
+        return list(argv)
+    base = Path(cwd).resolve() if cwd is not None else Path.cwd().resolve()
+    project_id = getattr(args, "project", None) or (_recording_project() if args.command == "browser" else None)
+
+    def absolute(value: str) -> str:
+        if _reference(value) or _project_input(value, project_id) is not None:
+            return value
+        file = Path(value).expanduser()
+        return str((file if file.is_absolute() else base / file).resolve())
+
+    if args.command == "browser":
+        if not args.args:
+            return list(argv)
+        return ["browser", *_prepare_browser_inputs(args.args, absolute)]
+    values = list(argv)
+    file = getattr(args, "file", None)
+    if file is not None:
+        if args.command == "import":
+            values[1] = absolute(values[1])
+        else:
+            for index, value in enumerate(values):
+                if value == "--file" and index + 1 < len(values):
+                    values[index + 1] = absolute(values[index + 1])
+                elif value.startswith("--file="):
+                    values[index] = "--file=" + absolute(value.split("=", 1)[1])
+    for index, value in enumerate(values):
+        if value == "--audio-input" and index + 1 < len(values):
+            if args.command != "project" or values[index + 1] != "off":
+                values[index + 1] = absolute(values[index + 1])
+        elif value.startswith("--audio-input="):
+            operand = value.split("=", 1)[1]
+            if args.command != "project" or operand != "off":
+                values[index] = "--audio-input=" + absolute(operand)
+    return values
+
+
+def _prepare_browser_inputs(values: list[str], transform) -> list[str]:
+    from .recorder import native
+
+    prefix, command, rest = native.split_command(native.map_input_paths(values, transform))
+    if command == "batch":
+        for index, item in list(native._batch_items(rest)):
+            rest[index] = shlex.join(_prepare_browser_inputs(item, transform))
+    elif command == "mcp" and rest[:1] == ["call"] and len(rest) >= 3 and rest[2] != "-":
+        try:
+            payload = json.loads(rest[2])
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            suffix = rest[1].removeprefix("agent_browser_")
+            if suffix in ("state_load", "upload"):
+                if isinstance(payload.get("path"), str):
+                    payload["path"] = transform(payload["path"])
+                if isinstance(payload.get("files"), list):
+                    payload["files"] = [transform(value) if isinstance(value, str) else value for value in payload["files"]]
+            elif suffix == "diff_screenshot":
+                for field in ("baseline", "baselinePath"):
+                    if isinstance(payload.get(field), str):
+                        payload[field] = transform(payload[field])
+            if isinstance(payload.get("extraArgs"), list) and all(isinstance(value, str) for value in payload["extraArgs"]):
+                payload["extraArgs"] = native.map_input_paths(["mcp_tool", *payload["extraArgs"]], transform)[1:]
+            if suffix == "batch" and isinstance(payload.get("commands"), list):
+                for index, item in enumerate(payload["commands"]):
+                    if isinstance(item, str):
+                        try:
+                            payload["commands"][index] = shlex.join(_prepare_browser_inputs(shlex.split(item), transform))
+                        except ValueError:
+                            pass
+            rest[2] = json.dumps(payload, ensure_ascii=False)
+    return [*prefix, command, *rest]
+
+
+def _check_output(value: str, *, private: bool = False) -> None:
+    from . import artifacts
+
+    if not isinstance(value, str) or not value or "\x00" in value:
+        raise ValueError("输出路径无效")
+    target = Path(value).expanduser()
+    # A Windows drive on a POSIX host is not a portable relative filename.
+    if PureWindowsPath(value).drive and not target.is_absolute():
+        raise ValueError("输出路径包含当前系统无法解析的盘符")
+    if private and not target.is_absolute():
+        artifacts.relative_name(value)
+        return  # native.private_output resolves the session's actual directory
+    root = (paths.workspace() / ".local" if private else paths.workspace()).resolve()
+    if not (root / target).resolve().is_relative_to(root):
+        label = ".local 私有目录" if private else "autoSkill 数据目录"
+        raise ValueError(f"通过后台服务执行时，输出位置必须在 {label}内（{root}）；使用相对文件名或省略输出位置")
+
+
+def _check_input(value: str, *, base: Path | None = None, project_id: str | None = None, file_only: bool = False) -> Path | None:
+    """Explicit inputs retain the existing bridge's user-specified read policy."""
+    if not isinstance(value, str) or not value or "\x00" in value:
+        raise ValueError("输入文件路径无效")
+    if _reference(value):
+        return None  # state/cookie inputs may name secret content rather than a file
+    staged = _project_input(value, project_id)
+    target = staged or Path(value).expanduser()
+    if PureWindowsPath(value).drive and not target.is_absolute():
+        raise ValueError("输入路径包含当前系统无法解析的盘符")
+    target = (target if target.is_absolute() else (base or paths.workspace()) / target).resolve()
+    if not target.exists() or file_only and not target.is_file():
+        raise ValueError("输入文件不存在或格式不符：" + target.name)
+    return target
+
+
+def _mcp_file_operands(tool: str, payload: dict) -> dict:
+    """Known typed MCP operands; arbitrary tools remain explicitly unverified."""
+    suffix = tool.removeprefix("agent_browser_")
+    outputs, inputs = [], []
+    captures = {"screenshot", "pdf", "download", "record_start", "record_restart", "trace_stop", "profiler_stop",
+                "network_har_stop", "wait_for_download", "state_save"}
+    if suffix in captures and isinstance(payload.get("path"), str):
+        outputs.append(payload["path"])
+    for field in ("screenshotDir", "downloadPath"):
+        if isinstance(payload.get(field), str):
+            outputs.append(payload[field])
+    if suffix in ("state_load", "upload"):
+        if isinstance(payload.get("path"), str):
+            inputs.append(payload["path"])
+        if isinstance(payload.get("files"), list):
+            inputs.extend(value for value in payload["files"] if isinstance(value, str))
+    if suffix == "diff_screenshot":
+        for field in ("output", "outputPath"):
+            if isinstance(payload.get(field), str):
+                outputs.append(payload[field])
+        for field in ("baseline", "baselinePath"):
+            if isinstance(payload.get(field), str):
+                inputs.append(payload[field])
+    return {"outputs": outputs, "inputs": inputs}
+
+
+def _check_browser(values: list[str], stdin_text: str | None = None) -> list[dict]:
+    from .recorder import native
+    from . import secrets
+
+    if not values:
+        return []
+    _, command, rest = native.split_command(values)
+    unverified = []
+    if command == "batch":
+        for _, item in native._batch_items(rest):
+            unverified.extend(_check_browser(item, stdin_text))
+    operands = native.file_operands(values)
+    if command == "mcp" and rest[:1] == ["call"]:
+        payload = None
+        if len(rest) >= 3:
+            try:
+                payload = json.loads(stdin_text if rest[2] == "-" else rest[2])
+            except (ValueError, TypeError):
+                pass  # the child reports malformed arguments, without a false validation claim
+        if isinstance(payload, dict):
+            known = _mcp_file_operands(rest[1], payload)
+            operands = {name: operands[name] + known[name] for name in ("inputs", "outputs")}
+            if isinstance(payload.get("extraArgs"), list) and all(isinstance(value, str) for value in payload["extraArgs"]):
+                extra = native.file_operands(["mcp_tool", *payload["extraArgs"]])
+                operands = {name: operands[name] + extra[name] for name in ("inputs", "outputs")}
+            if rest[1] == "agent_browser_batch" and isinstance(payload.get("commands"), list):
+                for item in payload["commands"]:
+                    if isinstance(item, str):
+                        try:
+                            nested = shlex.split(item)
+                        except ValueError:
+                            continue
+                        unverified.extend(_check_browser(nested, stdin_text))
+        unverified.append({"command": "mcp call", "reason": "仅检查已识别的文件参数；工具 JSON/extraArgs 的完整本机文件行为未验证"})
+    elif command == "plugin" and rest[:1] == ["run"]:
+        unverified.append({"command": "plugin run", "reason": "自定义插件协议不提供通用本机文件参数 schema；文件边界未验证"})
+    for output in operands["outputs"]:
+        reference = "${ENV:" + output[7:] + "}" if output.startswith("secret:") and secrets.NAME.fullmatch(output[7:]) else output
+        _check_output(secrets.resolve(reference))
+    project_id = _recording_project()
+    for source in operands["inputs"]:
+        _check_input(source, project_id=project_id)
+    return unverified
+
+
+def _check_api_request(args) -> None:
+    """Inspect the consumed JSON file fields without executing or staging inputs."""
+    from . import artifacts
+
+    spec, input_root = {}, paths.workspace()
+    if args.file:
+        source = _check_input(args.file, file_only=True)
+        if source is None:
+            raise ValueError("--file 需要明确的 JSON 文件路径；凭据引用用于请求内容")
+        try:
+            spec = json.loads(source.read_text(encoding="utf-8-sig"))
+        except ValueError as error:
+            raise ValueError("--file 必须是 JSON 请求规范") from error
+        if not isinstance(spec, dict):
+            raise ValueError("--file 的 JSON 请求规范必须是对象")
+        input_root = source.parent
+    extensions = spec.get("extensions", {})
+    if not isinstance(extensions, dict):
+        raise ValueError("extensions 必须是对象")
+    transport = spec.get("transport", extensions.get("transport", {}))
+    if isinstance(transport, str):
+        transport = {"type": transport}
+    if not isinstance(transport, dict):
+        raise ValueError("transport 必须是对象")
+    steps = transport.get("steps", [])
+    if not isinstance(steps, list):
+        raise ValueError("transport.steps 必须是数组")
+    for step in steps:
+        if isinstance(step, dict) and "send_audio" in step:
+            audio = step["send_audio"]
+            if not isinstance(audio, dict) or not isinstance(audio.get("file"), str):
+                raise ValueError("send_audio 需要明确的 file 音频文件")
+            _check_input(audio["file"], base=input_root, project_id=args.project, file_only=True)
+    output = transport.get("audio_output")
+    if output is not None:
+        if not isinstance(output, dict):
+            raise ValueError("audio_output 必须是对象")
+        if "filename" in output:
+            artifacts.relative_name(output["filename"])
+    for source in args.audio_input or []:
+        _check_input(source, project_id=args.project, file_only=True)
+
+
+def check(argv: list[str], stdin_text: str | None = None) -> dict | None:
+    """Server side: refuse what must not be done on someone else's behalf."""
+    args = _parse(argv)
+    if args is None:
         return  # not a valid command line (or --help): the child prints the usage text
     if args.command == "dashboard":
         raise ValueError("后台服务已经在运行，不需要再启动 dashboard")
@@ -113,18 +382,21 @@ def check(argv: list[str]) -> None:
         raise ValueError("pack --full 需要在沙箱外直接运行（它要把文件写到 autoSkill 目录之外）")
     if args.command == "pack" and getattr(args, "include_secrets", False):
         raise ValueError("带凭据的分享包需要在沙箱外直接运行 autoskill pack --include-secrets")
-    outputs = [args.out] if getattr(args, "out", None) else []
-    if args.command == "browser" and args.args[:1] == ["screenshot"]:
-        outputs += [a for a in args.args[1:] if not a.startswith("-")]
-    root = paths.workspace().resolve()
-    for out in outputs:
-        if not (root / out).resolve().is_relative_to(root):
-            raise ValueError(f"通过后台服务执行时，输出位置必须在 autoSkill 数据目录内（{root}）；省略输出位置即可使用默认位置")
+    if getattr(args, "out", None):
+        _check_output(args.out)
+    if args.command == "browser":
+        unverified = _check_browser(args.args, stdin_text)
+        if unverified:
+            return {"status": "unverified", "details": unverified}
+    elif args.command == "api" and args.api_action == "request":
+        _check_api_request(args)
+    elif args.command == "project" and getattr(args, "audio_input", None) not in (None, "off"):
+        _check_input(args.audio_input, project_id=args.project, file_only=True)
 
 
 def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | None = None, headed: str | bool | None = None) -> dict:
     """Server side: run one autoskill command in its own process and return what it printed."""
-    check(argv)
+    boundary = check(argv, stdin_text)
     extra = {"AUTOSKILL_BRIDGE": "off", "AUTOSKILL_WORKSPACE": str(paths.workspace())}
     if headed in ("0", "1", True):  # the caller chose; otherwise the service's own setting applies
         extra["AUTOSKILL_HEADED"] = "0" if headed == "0" else "1"
@@ -133,10 +405,18 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
     # The recorder sweeps agent-io. POSIX permits unlinking our still-open output files,
     # so sharing that folder loses the command result as soon as a browser is launched.
     folder = paths.local() / "bridge-io"
-    folder.mkdir(parents=True, exist_ok=True)
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        folder.chmod(0o700)
+    except OSError:
+        pass
     token = uuid.uuid4().hex
     out_path, err_path, in_path = folder / f"b{token}.out", folder / f"b{token}.err", folder / f"b{token}.in"
     in_path.write_text(stdin_text or "", encoding="utf-8")
+    try:
+        in_path.chmod(0o600)
+    except OSError:
+        pass
     try:
         # files, not pipes: the command may leave a browser daemon behind that would keep a pipe open forever
         with out_path.open("wb") as out, err_path.open("wb") as err, in_path.open("rb") as stdin:
@@ -157,7 +437,15 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
                 file.unlink(missing_ok=True)
             except OSError:
                 pass
-    return {"exit": code, "stdout": stdout, "stderr": stderr}
+    if boundary:
+        try:
+            result = json.loads(stdout)
+        except ValueError:
+            result = None
+        if isinstance(result, dict):
+            result["file_boundary_validation"] = boundary
+            stdout = json.dumps(result, ensure_ascii=False, indent=1) + chr(10)
+    return {"exit": code, "stdout": stdout, "stderr": stderr, **({"file_boundary_validation": boundary} if boundary else {})}
 
 
 def announce(port: int) -> None:

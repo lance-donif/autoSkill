@@ -115,14 +115,20 @@
       }
     },
     "extensions": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "automation": {
+          "$ref": "#/$defs/automation"
+        }
+      }
     },
     "api_source": {
       "enum": [
         "openapi",
         "browser",
         "inferred",
-        "source-and-official-docs"
+        "source-and-official-docs",
+        "manual"
       ]
     },
     "source_ref": {
@@ -264,5 +270,1655 @@
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "locator": {
+      "type": "object",
+      "required": [
+        "by"
+      ],
+      "properties": {
+        "by": {
+          "enum": [
+            "testid",
+            "role",
+            "label",
+            "placeholder",
+            "text",
+            "css"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nth": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "by": {
+                "const": "role"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "role"
+            ]
+          },
+          "else": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "tab_id": {
+      "type": "string",
+      "pattern": "^t[1-9][0-9]*$"
+    },
+    "tab_change": {
+      "type": "object",
+      "required": [
+        "active"
+      ],
+      "properties": {
+        "active": {
+          "$ref": "#/$defs/tab_id"
+        },
+        "closed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tab_id"
+          }
+        },
+        "opened": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/tab_id"
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "relative_file": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Portable project/output relative POSIX file name; no absolute path, traversal, backslash, or runtime variable.",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*\\u0000)(?!.*\\$\\{ENV:)(?!.*\\{\\{RAND\\}\\})(?!.*(?:^|/)\\.{1,2}(?:/|$))[^/]+(?:/[^/]+)*$"
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "locators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/locator"
+          }
+        },
+        "target_locators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/locator"
+          }
+        },
+        "selector": {
+          "type": "string",
+          "minLength": 1
+        },
+        "placeholder": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tabs": {
+          "$ref": "#/$defs/tab_change"
+        },
+        "url": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "script": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string"
+        },
+        "tab": {
+          "$ref": "#/$defs/tab_id"
+        },
+        "active": {
+          "$ref": "#/$defs/tab_id"
+        },
+        "image": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/relative_file"
+          }
+        },
+        "filename": {
+          "$ref": "#/$defs/relative_file"
+        },
+        "direction": {
+          "enum": [
+            "up",
+            "down",
+            "left",
+            "right"
+          ]
+        },
+        "pixels": {
+          "type": "number",
+          "minimum": 0
+        },
+        "milliseconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "state": {
+          "enum": [
+            "visible",
+            "hidden",
+            "attached",
+            "detached"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "accept",
+            "dismiss"
+          ]
+        },
+        "button": {
+          "enum": [
+            "left",
+            "middle",
+            "right"
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "delta_x": {
+          "type": "number"
+        },
+        "delta_y": {
+          "type": "number"
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Per-step wait budget; may exceed the project timeout for long model responses."
+        },
+        "stable_for_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Assertion or selector wait must remain satisfied continuously for this duration."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "action": {
+              "const": "goto"
+            }
+          },
+          "required": [
+            "action",
+            "url"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "reload"
+            }
+          },
+          "required": [
+            "action"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "back"
+            }
+          },
+          "required": [
+            "action"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "forward"
+            }
+          },
+          "required": [
+            "action"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "tab_new"
+            }
+          },
+          "required": [
+            "action",
+            "tab",
+            "url"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "tab_switch"
+            }
+          },
+          "required": [
+            "action",
+            "tab"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "tab_close"
+            }
+          },
+          "required": [
+            "action",
+            "tab",
+            "active"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "tab_sync"
+            }
+          },
+          "required": [
+            "action",
+            "tabs"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "fill"
+            }
+          },
+          "required": [
+            "action",
+            "value"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "type"
+            }
+          },
+          "required": [
+            "action",
+            "value"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "click"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "dblclick"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "hover"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "focus"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "press"
+            }
+          },
+          "required": [
+            "action",
+            "key"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "check"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "uncheck"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "select"
+            }
+          },
+          "required": [
+            "action",
+            "value"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "wait_visible"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "wait_hidden"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "captcha"
+            }
+          },
+          "required": [
+            "action",
+            "image"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "drag"
+            }
+          },
+          "required": [
+            "action",
+            "target_locators"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "scroll_into_view"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "frame"
+            }
+          },
+          "required": [
+            "action",
+            "selector"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "dialog"
+            }
+          },
+          "required": [
+            "action",
+            "mode"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "text"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "mode": {
+                    "const": "accept"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "eval"
+            }
+          },
+          "required": [
+            "action",
+            "script"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "keyboard"
+            },
+            "operation": {
+              "enum": [
+                "type",
+                "inserttext",
+                "press",
+                "down",
+                "up"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "operation",
+            "value"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "mouse"
+            },
+            "operation": {
+              "enum": [
+                "move",
+                "down",
+                "up",
+                "wheel"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "operation"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "operation": {
+                    "const": "move"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "x",
+                  "y"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "scroll"
+            }
+          },
+          "required": [
+            "action",
+            "direction",
+            "pixels"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "wait"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "milliseconds"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "locators"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "selector"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "placeholder"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "role"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ],
+              "not": {
+                "required": [
+                  "milliseconds"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "upload"
+            }
+          },
+          "required": [
+            "action",
+            "files"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "download"
+            }
+          },
+          "required": [
+            "action",
+            "filename"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "clipboard"
+            },
+            "operation": {
+              "const": "write"
+            }
+          },
+          "required": [
+            "action",
+            "operation",
+            "text"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "browser_command"
+            },
+            "command": {
+              "enum": [
+                "storage",
+                "cookies",
+                "set"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "command",
+            "args"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "native_step"
+            },
+            "replayable": {
+              "const": false
+            }
+          },
+          "required": [
+            "action",
+            "command",
+            "args",
+            "reason"
+          ]
+        }
+      ]
+    },
+    "assertion": {
+      "type": "object",
+      "properties": {
+        "locators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/locator"
+          }
+        },
+        "target_locators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/locator"
+          }
+        },
+        "selector": {
+          "type": "string",
+          "minLength": 1
+        },
+        "placeholder": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tabs": {
+          "$ref": "#/$defs/tab_change"
+        },
+        "expected": {},
+        "attribute": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Per-step wait budget; may exceed the project timeout for long model responses."
+        },
+        "stable_for_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Assertion or selector wait must remain satisfied continuously for this duration."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "assertion": {
+              "const": "visible"
+            }
+          },
+          "required": [
+            "assertion"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "hidden"
+            }
+          },
+          "required": [
+            "assertion"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "count"
+            },
+            "expected": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "min_count"
+            },
+            "expected": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "text"
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "contains"
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "value"
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "checked"
+            }
+          },
+          "required": [
+            "assertion"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "attribute"
+            }
+          },
+          "required": [
+            "assertion",
+            "attribute",
+            "expected"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "locators"
+                  ]
+                },
+                {
+                  "required": [
+                    "selector"
+                  ]
+                },
+                {
+                  "required": [
+                    "placeholder"
+                  ]
+                },
+                {
+                  "required": [
+                    "role"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "url"
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "url_contains"
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ]
+        },
+        {
+          "properties": {
+            "assertion": {
+              "const": "title"
+            }
+          },
+          "required": [
+            "assertion",
+            "expected"
+          ]
+        }
+      ]
+    },
+    "automation": {
+      "type": "object",
+      "required": [
+        "start_url"
+      ],
+      "description": "Portable UI action data. native_step preserves a mutation with its reason and blocks replay/export. dialog arms the next dialog before its trigger. frame selectors are relative to the current frame; main resets. Upload files are staged project-relative assets; download filenames are relative to private output.",
+      "properties": {
+        "start_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/action"
+              },
+              {
+                "$ref": "#/$defs/assertion"
+              }
+            ]
+          }
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "assertion_timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  }
 }

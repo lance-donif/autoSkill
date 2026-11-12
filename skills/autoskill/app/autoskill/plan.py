@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import paths, projects
+from . import knowledge, paths, projects
 
 COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "用例标题", 32), ("type", "操作类型", 10),
            ("priority", "优先级", 8), ("preconditions", "前置条件", 24), ("steps", "操作步骤", 50), ("expected", "预期结果", 40),
@@ -26,7 +26,8 @@ description: 要执行的测试用例表（Excel）。执行、回放或汇报�
 
 用例在本目录的 Excel 文件里（{file}），共 {count} 条{project}。
 
-1. `autoskill plan show` 读出全部用例。
+1. `autoskill plan show` 默认只读前 30 条摘要。用 `--query 关键词`、`--module 子项目` 或 `--status 未执行` 筛选，
+   用 `--offset 30 --limit 30` 翻页；选中后 `autoskill plan show --case <编号> --details` 才展开操作步骤和预期。
 2. 按用例逐条执行：`autoskill record start <项目>` → 按「操作步骤」操作页面 → 用 `autoskill check` 写上「预期结果」→
    `autoskill record stop --title <用例标题> --subproject <子项目> --plan <用例编号>`。
 3. `autoskill run <项目>` 回放；每条用例的通过、失败、阻塞会自动写回 Excel 的「执行结果」列。
@@ -136,12 +137,41 @@ def write(project_id: str, file: str) -> dict:
             "next": "把 excel 的路径告诉用户；然后按 autoskill plan show 逐条执行，录制结束时加 --plan <用例编号>"}
 
 
-def show() -> dict:
+def show(*, query: str = "", module: str | None = None, status: str | None = None,
+         case_id: str | None = None, offset: int = 0, limit: int = 30, details: bool = True) -> dict:
+    offset, limit = knowledge.bounds(offset, limit)
     book, sheet, columns = _open()
     meta = book["信息"] if "信息" in book.sheetnames else None
     project = str(meta.cell(1, 2).value or "") if meta else ""
+    matched, total, cases = 0, 0, []
+    terms = query.casefold().split()
+    for _, row in _rows(sheet, columns):
+        total += 1
+        if module is not None and row.get("module", "") != module:
+            continue
+        if status is not None and (row.get("status") or "未执行") != status:
+            continue
+        if case_id is not None and row["id"] != case_id:
+            continue
+        if any(term not in " ".join(row.values()).casefold() for term in terms):
+            continue
+        matched += 1
+        if matched <= offset or len(cases) >= limit:
+            continue
+        keys = row if details else ("id", "module", "title", "type", "priority", "status", "replay")
+        cases.append({key: row.get(key, "")[:(4000 if details and case_id else 800 if details else 200)] for key in keys})
+    if case_id is not None and not matched:
+        raise ValueError(f"用例表里没有符合筛选条件的 {case_id}")
+    returned = len(cases)
+    summary = _summary(sheet, columns)
+    book.close()
     return {"skill": str(paths.case_skill()), "excel": str(_file()), "project": project or None,
-            "cases": [row for _, row in _rows(sheet, columns)], "summary": _summary(sheet, columns)}
+            "cases": cases, "summary": summary,
+            "pagination": {"total": total, "matched": matched, "offset": offset, "limit": limit,
+                           "returned": returned, "has_more": offset + returned < matched,
+                           "next_offset": offset + returned if offset + returned < matched else None},
+            "details": details,
+            "next": "用 --query/--module/--status 筛选，--offset 翻页；选中后用 --case 编号 --details 查看步骤与预期"}
 
 
 def _find(sheet, columns, case_id: str) -> int | None:

@@ -30,6 +30,8 @@ python scripts/build-linux-bundle.py --assets <dir> --output <new dir> --arch x6
 
 Browser tests need a runtime named by `AUTOSKILL_CHROMIUM`, `AUTOSKILL_CHROMEDRIVER` and `AUTOSKILL_AGENT_BROWSER`. Selenium and recorder tests skip without them; the Playwright tests do not skip and error unless a browser is available. Tests set `AUTOSKILL_HEADED=0` so no window opens, and point `AUTOSKILL_WORKSPACE` at a temp folder.
 
+Use the repository `.venv/bin/python` when it is provisioned; the host `python` may not have Selenium. Real voice fixtures use synthetic PCM WAV input. A managed browser policy that prevents ICE transport must be reported as blocked, never replaced with a mocked success or a machine-policy change.
+
 ## Layout
 
 - `skills/autoskill/` is the product. `SKILL.md` is the contract the agent reads, `app/autoskill/` the Python package, `app/ui/` the dashboard (plain ES modules, no build step), `models/captcha/` the bundled captcha model. `vendor/` (bundled runtime) and `workspace/` (user data) are git-ignored.
@@ -45,7 +47,11 @@ Browser tests need a runtime named by `AUTOSKILL_CHROMIUM`, `AUTOSKILL_CHROMEDRI
 
 **Case model.** Cases are JSON files validated by `core/store.py` against `references/case.schema.json`. UI steps are an engine-independent IR defined by the `ACTIONS` and `ASSERTIONS` tables in `replay/ir.py`. Adding an action or assertion means touching `ir.py`, `replay/ui.py`, both drivers if it needs a new primitive, both generators in `replay/codegen.py` (`pw_step`, `se_step`), the recorder command in `recorder/session.py`, and `SKILL.md`.
 
-**Replay.** `runner.py` orders the chosen cases with their prerequisites, reuses or renews the login, and records each result. `replay/ui.py` is the single step loop; `playwright_driver.py` and `selenium_driver.py` only supply primitives, so both engines are judged by the same rules. `replay/api.py` replays API cases over HTTP. A run is a row in SQLite (`db.py`) executed in its own process (`python -m autoskill.runner <run_id>`); `server/jobs.py` starts queued runs (`MAX_PARALLEL`, one per project) and `server/scheduler.py` fires scheduled ones.
+**Replay.** `runner.py` orders the chosen cases with their prerequisites, reuses or renews the login, and records each result. `replay/ui.py` is the single step loop; `playwright_driver.py` and `selenium_driver.py` only supply primitives, so both engines are judged by the same rules. `replay/api.py` replays HTTP and `extensions.transport` SSE/WebSocket cases using `replay/transports.py`; `protocols_cli.py` builds manual protocol cases. Streams require configured completion and honor total/idle/first-event budgets. A run is a row in SQLite (`db.py`) executed in its own process (`python -m autoskill.runner <run_id>`); `server/jobs.py` starts queued runs (`MAX_PARALLEL`, one per project) and `server/scheduler.py` fires scheduled ones.
+
+**Capability and export honesty.** `capabilities.py` distinguishes executable, recordable, portable replay and export. Unsupported native mutations remain `native_step`, produce a visible blocked run result and prevent incomplete exports. Do not silently omit required API/UI prerequisites or assets. Private captures use `artifacts.py`; explicit test microphone input uses `media.py` and travels with script assets.
+
+**Context and knowledge.** CLI case/context/sheet output is paginated and generated Skill summaries are bounded, including for thousands of cases. `knowledge.py` saves explicitly requested facts with source/case/run evidence; test outcomes and model output do not automatically become trusted knowledge.
 
 **Three kinds of placeholders.** `${ENV:NAME}` is a credential (`secrets.py`), `{{name}}` is a value extracted from an earlier API response, and `{{RAND}}` is text that is new on every run so created data never collides.
 

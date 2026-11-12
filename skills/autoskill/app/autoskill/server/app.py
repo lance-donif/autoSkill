@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import threading
 from urllib.parse import urlsplit
 
@@ -210,7 +211,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         api_ids = [cid for cid, c in cases.items() if c["kind"] == "api"]
         if not api_ids:
             raise ValueError("项目里还没有接口用例")
-        ordered = [cases[cid] for cid, _ in runner.build_plan(api_ids, cases) if cases[cid]["kind"] == "api"]
+        ordered = [cases[cid] for cid, _ in runner.build_plan(api_ids, cases)]
         info = projects.get(project_id)
         collection, environment = postman.export(info["name"], ordered, info["base_url"])
         chosen = environment if part == "environment" else collection
@@ -228,9 +229,16 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         cases = {c["id"]: c for c in projects.cases(project_id)}
         if case_id not in cases or cases[case_id]["kind"] != "ui" or not ir.is_replayable(cases[case_id]):
             raise ValueError("这条用例没有可导出的页面步骤")
-        chain = [cases[cid] for cid, _ in runner.build_plan([case_id], cases) if cases[cid]["kind"] == "ui"]
-        source = codegen.script(chain, projects.config(project_id)["base_url"], engine)
-        name = f"{case_id.lower()}_{engine}.py"
+        chain = [cases[cid] for cid, _ in runner.build_plan([case_id], cases)]
+        config = projects.config(project_id)
+        source = codegen.script(chain, config["base_url"], engine, config)
+        uploads = any(step.get("action") == "upload" for item in chain
+                      for step in item["extensions"]["automation"].get("actions", []))
+        audio = (config.get("media") or {}).get("audio_input_file")
+        if uploads or audio:
+            raise ValueError("这条脚本依赖上传文件或测试麦克风资源，单个 .py 下载不能带齐资源。请运行 autoskill export scripts "
+                             + project_id + "，并将导出脚本与 assets/ 目录一起保留或移动")
+        name = f"{re.sub(r'[^a-z0-9_.-]', '_', case_id.lower())}_{engine}.py"
         return Response(source, media_type="text/x-python; charset=utf-8",
                         headers={"Content-Disposition": f'attachment; filename="{name}"'})
 

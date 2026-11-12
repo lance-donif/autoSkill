@@ -19,7 +19,10 @@ DROP_HEADERS = re.compile(
 SCHEME = re.compile(r"^(Bearer|Basic|Token)\s+(.+)$", re.I)
 STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.I)
 LOGIN_PATH = re.compile(r"(login|signin|sign-in|auth|token|session)", re.I)
-CHANGING = {"fill", "type", "click", "dblclick", "press", "check", "uncheck", "select"}
+CHANGING = {"fill", "type", "click", "dblclick", "press", "check", "uncheck", "select",
+            "captcha", "drag", "eval", "upload", "download", "dialog", "native_step"}
+OBSERVING = {"goto", "reload", "back", "forward", "hover", "focus", "scroll", "scroll_into_view",
+             "wait", "wait_visible", "wait_hidden", "frame", "tab_new", "tab_switch", "tab_close", "tab_sync"}
 MAX_API_CASES = 30
 
 
@@ -31,8 +34,53 @@ def split_steps(steps: list[dict]) -> tuple[list[dict], list[dict]]:
     return steps[:cut], steps[cut:]
 
 
+def _browser_command_changes(command: str, args: list) -> bool:
+    """Observation subcommands stay read-only; opaque native mutations never do."""
+    if not isinstance(args, list) or any(not isinstance(value, str) for value in args):
+        return True
+    if command in ("get", "is", "snapshot", "read", "screenshot", "pdf"):
+        return False
+    if command == "storage":
+        # storage local/session [key] reads; set/clear (and unknown verbs) write.
+        if not args or args[0] not in ("local", "session"):
+            return True
+        return len(args) > 2 or (len(args) == 2 and args[1] in ("set", "clear", "remove", "delete"))
+    if command == "cookies":
+        return bool(args) and args[0] != "get"
+    if command == "network":
+        return not args or args[0] not in ("request", "requests")
+    if command == "clipboard":
+        return args != ["read"]
+    if command == "state":
+        return not args or args[0] != "save"
+    if command == "mouse":
+        return not args or args[0] not in ("move", "wheel")
+    # set, auth, eval, keyboard, route/state changes and future commands are
+    # active inputs. Their payload may be secret, so do not inspect or execute it.
+    return True
+
+
+def _changes_ui(step: dict) -> bool:
+    op = step.get("action")
+    if not op:  # assertions interleaved with actions are observations
+        return False
+    if op in CHANGING:
+        return True
+    if op == "mouse":
+        # A held-button move already has a preceding down step, which is write.
+        return step.get("operation") not in ("move", "wheel")
+    if op == "clipboard":
+        return step.get("operation") != "read"
+    if op == "browser_command":
+        return _browser_command_changes(step.get("command"), step.get("args"))
+    # Every keyboard operation dispatches active input (including down/up
+    # shortcuts). Unknown future actions also fail closed instead of losing the
+    # existing write-risk label solely because they bypassed click/fill.
+    return op not in OBSERVING
+
+
 def ui_risk(actions: list[dict]) -> str:
-    return "write" if any(step.get("action") in CHANGING for step in actions) else "read"
+    return "write" if any(_changes_ui(step) for step in actions) else "read"
 
 
 def _identifier(text: str) -> str:

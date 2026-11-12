@@ -1,0 +1,126 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>autoSkill local voice transport lab</title>
+<h1>Local voice transport lab</h1>
+<p>This page sends a configured test WAV through two local WebRTC peers. Replies are deterministic fixture data, with no speech recognition model.</p>
+<button id="start" onclick="startConversation()">Start test conversation</button>
+<label>Message <input id="message" value="Hello test voice"></label>
+<button id="send" disabled onclick="sendMessage()">Send message</button>
+<button id="stop" disabled onclick="stopConversation()">Stop conversation</button>
+<button id="capture-microphone" onclick="captureMicrophone()">Check configured WAV microphone</button>
+<p id="microphone">Microphone not checked</p>
+<p id="state">Idle</p>
+<p id="thinking" hidden>Thinking…</p>
+<p id="answer"></p>
+<p id="done" hidden>Conversation complete</p>
+<p id="transport">Waiting for media</p>
+<pre id="diagnostics"></pre>
+<audio id="remote" autoplay muted></audio>
+<script>
+let peers = [], stream, channel, remoteChannel, eventSource, timer, audioContext, tracks = [];
+window.voiceReport = {started:false, stopped:false, sent:0, received:0, packetsSent:0, packetsReceived:0, energy:0, dataMessages:[], firstTokenAt:0, doneAt:0};
+const el = id => document.getElementById(id);
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function captureMicrophone() {
+  let sourceStream, context;
+  try {
+    sourceStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+    context=new AudioContext(); await context.resume();
+    const source=context.createMediaStreamSource(sourceStream), analyser=context.createAnalyser(), gain=context.createGain();
+    gain.gain.value=0; source.connect(analyser); analyser.connect(gain); gain.connect(context.destination);
+    await wait(450);
+    const samples=new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(samples);
+    const rms=Math.sqrt(samples.reduce((sum,value)=>sum+value*value,0)/samples.length);
+    window.micReport={rms,sampleRate:context.sampleRate,channels:sourceStream.getAudioTracks()[0].getSettings().channelCount};
+    el('microphone').textContent=rms>0.005?'WAV audio captured':'Audio input was silent';
+  } catch(error) { el('microphone').textContent='Error: '+error.message; }
+  finally {
+    if(sourceStream){for(const track of sourceStream.getTracks())track.stop();window.micReport={...window.micReport,tracksEnded:sourceStream.getTracks().every(track=>track.readyState==='ended')};}
+    if(context)await context.close();
+  }
+}
+function iceComplete(peer) {
+  if (peer.iceGatheringState === 'complete') return Promise.resolve();
+  return new Promise((resolve,reject) => {
+    const timeout = setTimeout(() => reject(new Error('Local ICE gathering timed out')), 5000);
+    const listen = () => { if (peer.iceGatheringState === 'complete') { clearTimeout(timeout); peer.removeEventListener('icegatheringstatechange',listen); resolve(); } };
+    peer.addEventListener('icegatheringstatechange',listen);
+  });
+}
+async function stats() {
+  const report = window.voiceReport;
+  let sent=0, received=0, packetsSent=0, packetsReceived=0, energy=0;
+  for (const peer of peers) for (const entry of (await peer.getStats()).values()) {
+    if (entry.kind !== 'audio') continue;
+    if (entry.type === 'outbound-rtp') { sent += entry.bytesSent || 0; packetsSent += entry.packetsSent || 0; }
+    if (entry.type === 'inbound-rtp') { received += entry.bytesReceived || 0; packetsReceived += entry.packetsReceived || 0; energy += entry.totalAudioEnergy || 0; }
+  }
+  Object.assign(report,{sent,received,packetsSent,packetsReceived,energy});
+  el('diagnostics').textContent = JSON.stringify(report);
+  if (received > 0 && packetsReceived > 0 && energy > 0) el('transport').textContent = 'Audio RTP received';
+}
+async function startConversation() {
+  try {
+    el('state').textContent='Starting'; el('done').hidden=true; el('start').disabled=true;
+    // No external ICE servers or services participate in this fixture.
+    stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+    const left = new RTCPeerConnection({iceServers:[]}), right = new RTCPeerConnection({iceServers:[]});
+    peers=[left,right]; tracks=[...stream.getTracks()];
+    for (const track of stream.getAudioTracks()) {
+      left.addTrack(track,stream);
+      const clone=track.clone(); tracks.push(clone); right.addTrack(clone,new MediaStream([clone]));
+    }
+    left.ontrack = event => { el('remote').srcObject = event.streams[0]; };
+    channel = left.createDataChannel('conversation');
+    right.ondatachannel = event => {
+      remoteChannel=event.channel;
+      remoteChannel.onmessage = event => {
+        const value=JSON.parse(event.data); window.voiceReport.dataMessages.push('peer:'+value.type);
+        if (value.type === 'user') beginReply(value.text);
+      };
+    };
+    channel.onmessage = event => {
+      const value=JSON.parse(event.data); window.voiceReport.dataMessages.push('client:'+value.type);
+      if (value.type === 'token') { if (!window.voiceReport.firstTokenAt) window.voiceReport.firstTokenAt=performance.now(); el('answer').textContent += value.text; }
+      if (value.type === 'done') { window.voiceReport.doneAt=performance.now(); el('thinking').hidden=true; el('done').hidden=false; el('state').textContent='Done'; }
+    };
+    await left.setLocalDescription(await left.createOffer()); await iceComplete(left);
+    await right.setRemoteDescription(left.localDescription);
+    await right.setLocalDescription(await right.createAnswer()); await iceComplete(right);
+    await left.setRemoteDescription(right.localDescription);
+    const deadline=performance.now()+7000;
+    while(channel.readyState !== 'open') { if(performance.now()>deadline) throw new Error('Local data channel timed out'); await wait(30); }
+    window.voiceReport.started=true;
+    window.voiceReport.microphoneSettings=stream.getAudioTracks()[0].getSettings();
+    el('state').textContent='Connected'; el('send').disabled=false; el('stop').disabled=false;
+    timer=setInterval(()=>stats().catch(error=>{el('diagnostics').textContent=String(error)}),100);
+  } catch(error) {
+    el('state').textContent='Error: '+error.message; window.voiceReport.error=error.message;
+    window.voiceReport.peers=peers.map(peer=>({connection:peer.connectionState,ice:peer.iceConnectionState,gathering:peer.iceGatheringState,local:peer.localDescription&&peer.localDescription.sdp,remote:peer.remoteDescription&&peer.remoteDescription.sdp}));
+    el('diagnostics').textContent=JSON.stringify(window.voiceReport);
+  }
+}
+function sendMessage() {
+  if (!channel || channel.readyState !== 'open') throw new Error('No open conversation');
+  el('answer').textContent=''; el('done').hidden=true; el('thinking').hidden=false; el('state').textContent='Thinking';
+  window.voiceReport.firstTokenAt=0; window.voiceReport.doneAt=0;
+  channel.send(JSON.stringify({type:'user',text:el('message').value}));
+}
+function beginReply(text) {
+  // SSE intentionally stays open through the thinking phase. Completion is an
+  // explicit done event, not the first token or a quiet network interval.
+  eventSource=new EventSource('/events?delay_ms=2400&text='+encodeURIComponent(text));
+  eventSource.addEventListener('token',event=>remoteChannel.send(JSON.stringify({type:'token',text:JSON.parse(event.data).text})));
+  eventSource.addEventListener('done',event=>{remoteChannel.send(JSON.stringify({type:'done'}));eventSource.close();});
+  eventSource.onerror=()=>{el('state').textContent='Stream error';};
+}
+async function stopConversation() {
+  if(eventSource)eventSource.close(); clearInterval(timer);
+  await stats();
+  if(channel)channel.close(); if(remoteChannel)remoteChannel.close();
+  for(const track of tracks)track.stop(); for(const peer of peers)peer.close();
+  window.voiceReport.stopped=true; window.voiceReport.tracksEnded=tracks.every(track=>track.readyState==='ended');
+  el('state').textContent='Stopped'; el('send').disabled=true; el('stop').disabled=true;
+  el('diagnostics').textContent=JSON.stringify(window.voiceReport);
+}
+</script>

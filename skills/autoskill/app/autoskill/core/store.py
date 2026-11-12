@@ -916,6 +916,8 @@ def sync_skills(p):
         "",
         "```",
         f"autoskill context {pid}          # 登录方式、缺少的凭据、用例清单、知识库",
+        f"autoskill cases {pid} --limit 30 --offset 0  # 按页查看；用 --query 或 --module 筛选",
+        f"autoskill knowledge search {pid} <关键词>  # 按需检索项目知识，不全量加载",
         f"autoskill run {pid}              # 回放全部用例；前置用例自动先执行",
         f"autoskill run {pid} --case <编号>",
         f"autoskill record start {pid}     # 录制新场景，结束时 autoskill record stop --title <标题>",
@@ -926,10 +928,12 @@ def sync_skills(p):
         "| 编号 | 类型 | 标题 | 前置 |",
         "| --- | --- | --- | --- |",
     ]
-    for c in cases:
+    for c in cases[:30]:
         depends = "、".join(c.get("extensions", {}).get("depends_on", []))
-        title = str(c["title"]).replace("|", "\\|")
+        title = str(c["title"]).replace("|", "\\|").replace("\n", " ")[:160]
         lines.append(f"| {c['id']} | {'页面' if c['kind'] == 'ui' else '接口'} | {title} | {depends} |")
+    if len(cases) > 30:
+        lines.extend(["", f"共 {len(cases)} 条用例，上表只显示前 30 条。通过 cases 命令分页或查询，再按编号读取需要执行的用例。"])
     (p / "SKILL.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     shutil.rmtree(p / "case-skills", ignore_errors=True)  # the older per-kind skills are superseded
 

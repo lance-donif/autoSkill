@@ -133,6 +133,20 @@ def update(project_id: str, **fields) -> dict:
         cfg["page_load_seconds"] = max(10, min(600, int(fields["page_load_seconds"])))
     if fields.get("timeout_seconds") is not None:
         cfg["timeout_seconds"] = max(3, min(120, int(fields["timeout_seconds"])))
+    for key in ("assertion_timeout_seconds", "conversation_timeout_seconds"):
+        if fields.get(key) is not None:
+            import math
+            value = float(fields[key])
+            if isinstance(fields[key], bool) or not math.isfinite(value) or value <= 0:
+                raise ValueError(key + " 必须是有限正数")
+            cfg[key] = value
+    if fields.get("media") is not None:
+        from . import media
+        value = fields["media"]
+        if not isinstance(value, dict):
+            raise ValueError("media 必须是对象")
+        media.chrome_args({"media": value}, folder)
+        cfg["media"] = value
     store.write(folder / "project.json", info)
     store.write(folder / "qa-config.json", cfg)
     store.sync_skills(folder)
@@ -208,6 +222,8 @@ def get(project_id: str) -> dict:
         "base_url": cfg.get("base_url", ""), "start_url": info.get("start_url") or cfg.get("base_url", ""),
         "allowed_origins": cfg.get("allowed_origins", []),
         "timeout_seconds": cfg.get("timeout_seconds", 20), "page_load_seconds": cfg.get("page_load_seconds", 90),
+        "assertion_timeout_seconds": cfg.get("assertion_timeout_seconds", cfg.get("timeout_seconds", 20)),
+        "conversation_timeout_seconds": cfg.get("conversation_timeout_seconds", 600), "media": cfg.get("media", {}),
         "ignore_https_errors": bool(cfg.get("ignore_https_errors")),
         "cases": {"total": len(active), "ui": sum(c["kind"] == "ui" for c in active),
                   "api": sum(c["kind"] == "api" for c in active)},

@@ -7,13 +7,14 @@ Redirects are never followed and nothing is retried.
 from __future__ import annotations
 
 import json
+import asyncio
 import os
 import re
 import time
 
 from .. import paths, secrets
 from ..core import store
-from . import ir
+from . import ir, transports
 
 VAR = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
 SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session)", re.I)
@@ -111,6 +112,27 @@ def new_client(config: dict, state: dict | None = None):
 
 
 def run_case(client, case: dict, config: dict, variables: dict) -> dict:
+    """Judge unredacted values, then keep credential values out of the durable result."""
+    values = [secrets.get_secret(name) for name in secrets.references(case)]
+    values += [value for name, value in variables.items() if SENSITIVE.search(name) and isinstance(value, str)]
+    known = sorted({str(value) for value in values if value not in (None, "")}, key=len, reverse=True)
+    outcome = _run_case(client, case, config, variables)
+    def hide(value):
+        if isinstance(value, dict):
+            return {key: hide(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [hide(item) for item in value]
+        if isinstance(value, str):
+            for secret in known:
+                if value == secret:
+                    return "<已隐藏>"
+                if len(secret) >= 4:
+                    value = value.replace(secret, "<已隐藏>")
+        return value
+    return hide(outcome)
+
+
+def _run_case(client, case: dict, config: dict, variables: dict) -> dict:
     """Send one API case and judge it. `variables` is updated with anything the case extracts."""
     import httpx
 
@@ -119,15 +141,19 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
     variables.setdefault("RAND", os.urandom(3).hex())
     try:
         filled = fill({k: case[k] for k in ("path", "headers", "params", "json", "form") if k in case}, variables)
-        url = store.request_url(config, {"path": filled["path"]})
+        url = store.request_url(config, {"path": secrets.resolve(filled["path"])})
         ir.check_origin(url, list(config.get("allowed_origins", [])))
         sent = secrets.resolve({k: filled[k] for k in ("headers", "params", "json", "form") if k in filled})
+        transport = case.get("extensions", {}).get("transport")
+        if transport:
+            resolved_transport = secrets.resolve(fill(transport, variables))
+            transports.validate(resolved_transport)
+            case = {**case, "extensions": {**case.get("extensions", {}), "transport": resolved_transport}}
         if "form" in sent:
             sent["data"] = sent.pop("form")
         try:  # an expected value may name what this run created, for example "工单-{{RAND}}"
-            expected = fill(case["assertions"].get("json_equals", {}), variables)
-            if expected:
-                case = {**case, "assertions": {**case["assertions"], "json_equals": expected}}
+            expected = secrets.resolve(fill(case["assertions"], variables))
+            case = {**case, "assertions": expected}
         except KeyError:
             pass
     except KeyError as missing:
@@ -148,7 +174,20 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
         sent["timeout"] = float(config.get("page_load_seconds", 90))  # a page's own files may be as slow as the page
     clock = time.monotonic()
     try:
-        response = client.request(case["method"], url, **sent)
+        if transports.kind(case) in ("sse", "websocket"):
+            response, metrics, artifacts = transports.execute(client, case, url, sent, config)
+            outcome.update(transport=transports.kind(case), metrics=metrics, artifacts=artifacts)
+        else:
+            if "timeout_seconds" in case.get("extensions", {}):
+                sent["timeout"] = float(case["extensions"]["timeout_seconds"])
+            response = client.request(case["method"], url, **sent)
+    except transports.ProtocolError as error:
+        outcome.update(status="Fail" if error.category != "cancelled" else "Blocked", reason=str(error), category=error.category,
+                       duration_ms=round((time.monotonic() - clock) * 1000))
+        return outcome
+    except (TimeoutError, asyncio.TimeoutError):
+        outcome.update(reason="对话未在总等待时间内完成", category="timeout", duration_ms=round((time.monotonic() - clock) * 1000))
+        return outcome
     except httpx.TimeoutException:
         outcome.update(reason="请求超时，目标服务没有在限定时间内响应", category="timeout",
                        duration_ms=round((time.monotonic() - clock) * 1000))
@@ -157,12 +196,27 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
         outcome.update(reason="无法连接目标服务：" + type(error).__name__, category="environment",
                        duration_ms=round((time.monotonic() - clock) * 1000))
         return outcome
+    except ImportError as error:
+        outcome.update(reason="缺少协议执行依赖：" + str(error), category="environment")
+        return outcome
+    except Exception as error:
+        if type(error).__module__.startswith("websocket"):
+            outcome.update(reason="WebSocket 连接失败：" + type(error).__name__, category="environment",
+                           duration_ms=round((time.monotonic() - clock) * 1000))
+            return outcome
+        if isinstance(error, ValueError):
+            outcome.update(reason=str(error), category="environment", duration_ms=round((time.monotonic() - clock) * 1000))
+            return outcome
+        raise
     elapsed = round((time.monotonic() - clock) * 1000)
     parsed, preview = _body_preview(response)
     outcome["response"] = {"status": response.status_code, "headers": redact(dict(response.headers)),
                            "body": preview, "bytes": len(response.content)}
     outcome["duration_ms"] = elapsed
     outcome["assertions"] = rows = _checks(case, response, parsed, elapsed)
+    if transports.kind(case) in ("sse", "websocket"):
+        established = response.status_code == 101 if transports.kind(case) == "websocket" else 200 <= response.status_code < 300
+        rows.extend(transports.checks(case["extensions"]["transport"], parsed, handshake_only=not established))
     failed = [row for row in rows if not row["passed"]]
     if failed:
         expired = response.status_code in (401, 403) and case["assertions"]["status"] not in (401, 403)
