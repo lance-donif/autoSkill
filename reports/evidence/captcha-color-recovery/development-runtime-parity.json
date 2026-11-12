@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "images": 400,
+  "restorations": 42,
+  "inference_calls": 400,
+  "actual_exact": 297,
+  "normal_string_changes": 0,
+  "counterfactual_sequence_changes": [],
+  "pixel_and_route_changes": [],
+  "source_sha256": {
+    "captcha.py": "ae7c69e1b5adc163771e360e6e92c08369518dd34e9e741073388e7736029ae0",
+    "captcha_image.py": "202432c2ada74a8eb30d06b8b62b126f574e98f246252ccc750680e15d5dca57"
+  },
+  "model_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "meta_sha256": "3d8291576201fe63a270da934fda8159e0d5c9229d2cf781da4e72017bba13de",
+  "expected_predictions_sha256": "33845e20c922f652650da75ba430b2ec0d9f71ec319df7bf56829440dde9e727",
+  "manifest_sha256": "519b4c8ddabaac5294317538fa617495d0e1f4d5b5f88e2db7a221055cff528c",
+  "script_sha256": "6a4bc650bd1d106711a247d7da4da1a2a76ffe37f1d6ab96a6562dddd0071046",
+  "test_or_external_images_read": 0
+}

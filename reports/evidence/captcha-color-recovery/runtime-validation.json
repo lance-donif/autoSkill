@@ -1,0 +1,38 @@
+{
+  "status": "RUNTIME_VALIDATED_PENDING_FRESH_HOLDOUT",
+  "python_full_regression": {
+    "total": 145,
+    "passed": 144,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 163.245,
+    "failure": "test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run",
+    "baseline_same_failure": true
+  },
+  "node_plugin": {
+    "passed": 8,
+    "total": 8
+  },
+  "ruff": 0,
+  "biome_errors": 0,
+  "biome_warnings": 0,
+  "conventions": {
+    "passed": 7,
+    "total": 7
+  },
+  "new_runtime_tests": 7,
+  "source_sha256": {
+    "captcha.py": "ae7c69e1b5adc163771e360e6e92c08369518dd34e9e741073388e7736029ae0",
+    "captcha_image.py": "202432c2ada74a8eb30d06b8b62b126f574e98f246252ccc750680e15d5dca57"
+  },
+  "protected_sha256": {
+    "ruff.toml": "4e6b4a27e57fdc8ca49321c0c34d7539afd037864e196e81d0ddae1e7e0024c7",
+    "biome.json": "cb328d325da450368bdc35fcc4c687cc83ff6ea95de914b3688d2ac7cdc27f27",
+    "tests/test_conventions.py": "c42598ec2aab48361e3b7a5731cc04a3bbcfae959b72371bf5a246832bf095ce"
+  },
+  "production_model_sha256": "b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d272e1759662",
+  "new_learned_weights": false,
+  "fresh_holdout": "Not generated or evaluated; independent business protocol registered separately.",
+  "actual_DSH_Windows_UOS_validation": false
+}
