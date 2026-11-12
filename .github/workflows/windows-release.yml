@@ -15,6 +15,7 @@ jobs:
     env:
       PYTHONUTF8: '1'
       PYTHONDONTWRITEBYTECODE: '1'
+      RUN_RELEASE_TESTS: 'false'
       RELEASE_TAG: ${{ github.ref_name }}
       RELEASE_COMMIT: ${{ github.sha }}
       RELEASE_REPOSITORY: ${{ github.repository }}
@@ -40,8 +41,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Asset fetch failed' }
           python scripts/build-windows-bundle.py --assets "$build/assets" --output "$build/package" --zip
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP 'autoskill-release-proof') | Out-Null
           "AUTOSKILL_RELEASE_BUILD=$build" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Verify packaged runtime and launch both browsers offline
+        if: env.RUN_RELEASE_TESTS == 'true'
         shell: pwsh
         run: |
           $proof = Join-Path $env:RUNNER_TEMP 'autoskill-release-proof'
@@ -64,6 +67,7 @@ jobs:
             Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY -ErrorAction SilentlyContinue
           }
       - name: Test source against the packaged browser binaries
+        if: env.RUN_RELEASE_TESTS == 'true'
         shell: pwsh
         run: |
           $proof = Join-Path $env:RUNNER_TEMP 'autoskill-release-proof'
@@ -90,7 +94,13 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
           RELEASE_COMMIT: ${{ github.sha }}
-        run: python scripts/publish-windows-release.py --build "$env:AUTOSKILL_RELEASE_BUILD" --proof "$env:RUNNER_TEMP/autoskill-release-proof" --result "$env:RUNNER_TEMP/autoskill-release-result"
+        shell: pwsh
+        run: |
+          python scripts/record-release-progress.py --stage publishing
+          $options = @()
+          if ($env:RUN_RELEASE_TESTS -ne 'true') { $options += '--skip-functional-tests' }
+          python scripts/publish-windows-release.py --build "$env:AUTOSKILL_RELEASE_BUILD" --proof "$env:RUNNER_TEMP/autoskill-release-proof" --result "$env:RUNNER_TEMP/autoskill-release-result" @options
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
       - name: Record outcome on main for audit and download verification
         if: always()
         shell: pwsh

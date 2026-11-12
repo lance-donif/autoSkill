@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,9 +24,16 @@ class ReleasePublishingTests(unittest.TestCase):
             (proof / 'doctor.json').write_text(json.dumps({'ok': True, 'browser_launch': {'playwright': 'ok', 'selenium': 'ok'}}))
             (proof / 'python-tests.txt').write_text('Ran 117 tests in 100.0s\n\nOK (skipped=2)\n')
             archive = base / 'autoSkill-Windows-x64-Offline.zip'
-            archive.write_bytes(b'new package')
+            with zipfile.ZipFile(archive, 'w') as bundle:
+                for name in ('package.json', 'cordis.patch.yml', 'plugin/index.mjs', 'autoskill/SKILL.md',
+                             'autoskill/autoskill.cmd', 'autoskill/vendor/windows-x64/python/python.exe'):
+                    bundle.writestr(name, b'fixture')
             calls = []
-            tag = 'v' + json.loads((ROOT / 'package.json').read_text())['version']
+            version = json.loads((ROOT / 'package.json').read_text())['version']
+            tag = 'v' + version
+            manifest = base / 'package/autoskill/offline-manifest.json'
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(json.dumps({'autoskill': version}))
 
             def fake_api(method, path, body=None, binary=None):
                 calls.append((method, path))

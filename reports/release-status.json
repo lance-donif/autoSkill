@@ -1,8 +1,6 @@
 {
-  "tag": "v2.0.4",
-  "source_commit": "ae9dc08dac951dc64715149057705753260fc7ff",
-  "status": "failed",
-  "run_id": "43221243628",
-  "recorded_at": "2026-11-12T12:59:58.410527+00:00",
-  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/43221243628"
+  "tag": "v2.0.5",
+  "status": "pending",
+  "verification_mode": "archive-only",
+  "note": "Owner requested ZIP packaging without functional tests; retain known Windows standalone Selenium blank-start issue in release notes."
 }

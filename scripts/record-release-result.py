@@ -24,8 +24,12 @@ def main():
         shutil.copytree(args.proof, evidence, dirs_exist_ok=True)
     if published:
         data = json.loads(source.read_text(encoding='utf-8'))
+        check_text = ('ZIP 结构、CRC、大小与 SHA-256 校验通过；按维护者要求未运行功能测试'
+                      if data.get('verification', {}).get('mode') == 'archive-only'
+                      else 'Windows CI verify、doctor --launch 和回归通过')
         shutil.copyfile(source, 'reports/offline-package.json')
         report.update({k: data[k] for k in ('bytes', 'sha256', 'release_url', 'download_url', 'asset_id')})
+        report['verification'] = data.get('verification')
         path = Path('reports/交付验证报告.md')
         text = path.read_text(encoding='utf-8')
         text = text.replace('分支：`rebuild/replay-studio`（基于 `main` 的 `bf43edc`）', '源码现位于 `main`；以下开发阶段记录保留其原有验证边界')
@@ -35,10 +39,10 @@ def main():
                 lines[index] = f"| 源码 | `main` / `{tag}`（构建提交 `{data['built_from_commit']}`） | Skill 本体在 `skills/autoskill/`，DSH 插件在 `plugin/` |"
             if line.startswith('| Windows x64 完整离线包 |'):
                 lines[index] = (f"| Windows x64 完整离线包 | `{data['file']}`（Release {tag}） | {data['bytes']:,} 字节。"
-                                f"SHA-256：`{data['sha256']}`；Windows CI verify、doctor --launch 和回归通过，DSH 智能体未验收 |")
+                                f"SHA-256：`{data['sha256']}`；{check_text}，DSH 智能体未验收 |")
         text = '\n'.join(lines) + '\n'
         note = (f"\n最新发布 {tag}：构建自 `{data['built_from_commit']}`，大小 {data['bytes']:,} 字节，SHA-256 `{data['sha256']}`。"
-                'Windows CI 完成包内校验、两种浏览器真实启动和回归；默认 DSH 沙箱智能体尚未验收，其他历史结果保持原有边界。\n')
+                f'{check_text}；默认 DSH 沙箱智能体尚未验收，其他历史结果保持原有边界。\n')
         text = text.replace('## 6. 未验证', note + '\n## 6. 未验证', 1)
         path.write_text(text, encoding='utf-8')
         # Only source-side audit documents change after packaging. Keep shipped plugin docs
@@ -46,7 +50,7 @@ def main():
         for filename in ('docs/需求与验收清单.md',):
             path = Path(filename)
             with path.open('a', encoding='utf-8') as stream:
-                stream.write(f"\n发布 {tag} 的 Windows 包经 CI 校验和启动验证，证据见 `reports/evidence/releases/{tag}/`。"
+                stream.write(f"\n发布 {tag}：{check_text}，证据见 `reports/evidence/releases/{tag}/`。"
                              '默认 DSH 沙箱智能体验收仍未完成。\n')
     Path('reports/release-status.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(report, ensure_ascii=False))

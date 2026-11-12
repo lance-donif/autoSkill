@@ -100,4 +100,4 @@ python scripts/build-windows-bundle.py --assets <目录> --output <新目录> --
 
 Linux 源码部署与 DSH Web 接入见 [Linux-DSH.md](docs/Linux-DSH.md)。站点白名单与浏览器代理围栏已按使用者要求移除，旧配置不再限制网络访问。
 
-Windows 完整包下载：[最新 Release](https://github.com/lance-donif/autoSkill/releases/latest)。发布流程在 Windows CI 中构建离线包，先完成运行时校验、两种浏览器真实启动和回归，再核对上传附件的大小与 SHA-256 并发布。状态见 `reports/release-status.json`。
+Windows 完整包下载：[最新 Release](https://github.com/lance-donif/autoSkill/releases/latest)。发布流程在 Windows CI 中构建离线包，核对 ZIP 结构、CRC、上传附件大小与 SHA-256 后发布。当前按维护者要求跳过功能回归与浏览器启动测试；工作流的 RUN_RELEASE_TESTS 可重新启用这些检查。状态见 `reports/release-status.json`。
