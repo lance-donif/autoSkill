@@ -35,6 +35,8 @@ class SeleniumDriver:
         options = webdriver.ChromeOptions()
         options.binary_location = chrome
         options.page_load_strategy = "eager"
+        # chromedriver is reached over loopback; never route that through HTTP(S)_PROXY from the environment
+        options.ignore_local_proxy_environment_variables()
         for arg in [*paths.QUIET_CHROME_ARGS, *paths.fence_args(self.allowed), "--window-size=1366,860"]:
             options.add_argument(arg)
         if headless:

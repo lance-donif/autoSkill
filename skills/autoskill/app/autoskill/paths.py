@@ -88,6 +88,7 @@ def agent_browser() -> str | None:
 def child_env(extra: dict | None = None) -> dict:
     env = {k: v for k, v in os.environ.items() if not k.startswith("AGENT_BROWSER_")}
     env.update(OFFLINE_ENV)
+    env["PYTHONPATH"] = str(APP)  # child processes import this copy of autoskill, wherever it was unpacked
     env.update(extra or {})
     return env
 

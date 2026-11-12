@@ -1,116 +1,176 @@
-"""Maintainer assembly from supplied local assets. No network access or installers."""
+"""Maintainer-only: assemble the Windows x64 offline package from assets fetched by fetch-windows-assets.py.
+
+No network access. The result is a folder (and a zip) that runs on a machine
+with nothing installed: its own Python, Chrome, chromedriver, agent-browser and
+libraries. End users never run this script.
+"""
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import shutil
+import tarfile
 import zipfile
 from email.parser import Parser
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SKILL = ROOT / "skills" / "autoskill"
+# Chrome locale packs kept in the package; the rest only translate the browser's own menus.
+LOCALES = ("en-US.pak", "zh-CN.pak")
+# Parts of Chrome for Testing that install, update or report: not needed to automate a page.
+CHROME_DROP = ("setup.exe", "elevation_service.exe", "elevated_tracing_service.exe", "notification_helper.exe",
+               "chrome_proxy.exe", "chrome_pwa_launcher.exe", "chrome_wer.dll", "PrivacySandboxAttestationsPreloaded",
+               "MEIPreload", "first_party_sets.db")
+SKIP_NAMES = {"__pycache__", "vendor", "workspace", ".local"}
+SKIP_SUFFIXES = {".pyc", ".pyo"}
 
 
-def sha(path):
+def sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open('rb') as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b''):
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
 
 
-def unpack(archive, destination):
-    with zipfile.ZipFile(archive) as z:
-        for member in z.infolist():
+def unzip(archive: Path, destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as bundle:
+        for member in bundle.infolist():
             if not (destination / member.filename).resolve().is_relative_to(destination.resolve()):
-                raise ValueError('Unsafe archive member')
-        z.extractall(destination)
+                raise ValueError("Unsafe archive member: " + member.filename)
+        bundle.extractall(destination)
 
 
-def copy_app(destination):
-    package = json.loads((ROOT / 'package.json').read_text())
-    destination.mkdir(parents=True)
-    for name in ['package.json', '.npmrc', *package['files']]:
-        src, dst = ROOT / name, destination / name
-        if src.is_dir():
-            shutil.copytree(src, dst, ignore=shutil.ignore_patterns('vendor', '__pycache__', '*.pyc', '.env', '*.sqlite*'))
-        else:
-            shutil.copy2(src, dst)
+def copy_tree(source: Path, destination: Path) -> None:
+    def ignore(folder, names):
+        return [n for n in names if n in SKIP_NAMES or Path(n).suffix in SKIP_SUFFIXES]
+
+    shutil.copytree(source, destination, ignore=ignore)
 
 
-def build(assets, output):
-    if output.exists() or output.is_relative_to(ROOT) or assets.is_relative_to(output):
-        raise ValueError('Use a new output directory outside the source and assets')
-    agent_metadata = json.loads((assets / 'node_modules/agent-browser/package.json').read_text())
-    if agent_metadata.get('version') != '0.42.0':
-        raise ValueError('Agent Browser guide/runtime must match the pinned 0.42.0 version')
-    metadata = json.loads((assets / 'download-sources.json').read_text())
-    expected = next(line.split()[0] for line in metadata['node_checksums'].splitlines() if line.split()[-1] == metadata['node_file'])
-    if sha(assets / 'node.zip') != expected:
-        raise ValueError('Official Node checksum mismatch')
-    copy_app(output)
-    skill = output / 'skills/autoskill'
-    vendor = skill / 'vendor/windows-x64'
+def check_sources(assets: Path) -> dict:
+    """Every downloaded archive must still match the hash recorded when it was fetched."""
+    recorded = json.loads((assets / "download-sources.json").read_text(encoding="utf-8"))
+    folders = {"python": "python", "chrome": "chrome", "chromedriver": "chromedriver", "agent_browser": "agent-browser"}
+    for key, folder in folders.items():
+        item = recorded["sources"][key]
+        if sha256(assets / folder / item["file"]) != item["sha256"]:
+            raise ValueError("Downloaded archive changed since it was fetched: " + item["file"])
+    for wheel in recorded["wheels"]:
+        if sha256(assets / "wheels" / wheel["file"]) != wheel["sha256"]:
+            raise ValueError("Wheel changed since it was fetched: " + wheel["file"])
+    return recorded
+
+
+def build(assets: Path, output: Path) -> dict:
+    if output.exists():
+        raise ValueError("Output folder already exists; choose a new one")
+    if output.is_relative_to(ROOT) or assets.is_relative_to(output):
+        raise ValueError("Build outside the repository and outside the assets folder")
+    recorded = check_sources(assets)
+    package = output / "autoskill"
+    output.mkdir(parents=True)
+    copy_tree(SKILL, package)
+    for extra in ("plugin", "cordis.patch.yml", "package.json"):
+        source = ROOT / extra
+        target = output / "dsh-plugin" / extra
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, target) if source.is_dir() else shutil.copy2(source, target)
+
+    vendor = package / "vendor" / "windows-x64"
     vendor.mkdir(parents=True)
-    unpack(assets / 'python-embed.zip', vendor / 'python')
-    unpack(assets / 'chrome.zip', vendor / 'chrome')
-    unpack(assets / 'node.zip', vendor / 'node-unpack')
-    node_root = next((vendor / 'node-unpack').iterdir())
-    (vendor / 'node').mkdir()
-    for name in ['node.exe', 'LICENSE', 'README.md']:
-        if (node_root / name).exists():
-            shutil.copy2(node_root / name, vendor / 'node' / name)
-    shutil.rmtree(vendor / 'node-unpack')  # npm, installers and updater tools are not shipped.
-    site = vendor / 'python/Lib/site-packages'
+
+    # Python: the official embeddable build, pointed at our site-packages only.
+    unzip(assets / "python" / recorded["sources"]["python"]["file"], vendor / "python")
+    site = vendor / "python" / "Lib" / "site-packages"
     site.mkdir(parents=True)
+    pth = next((vendor / "python").glob("python3*._pth"))
+    pth.write_text(f"{pth.stem}.zip\n.\nLib/site-packages\nimport site\n", encoding="ascii")
     wheels = []
-    for wheel in sorted((assets / 'pinned-wheels').glob('*.whl')):
+    for wheel in sorted((assets / "wheels").glob("*.whl")):
         with zipfile.ZipFile(wheel) as archive:
-            meta = Parser().parsestr(archive.read(next(n for n in archive.namelist() if n.endswith('.dist-info/METADATA'))).decode())
-        wheels.append({'name': meta['Name'], 'version': meta['Version'], 'file': wheel.name, 'sha256': sha(wheel)})
-        unpack(wheel, site)
-    if any('telemetry' in w['name'].lower() for w in wheels):
-        raise ValueError('Telemetry dependency found')
-    (vendor / 'python/python312._pth').write_text('python312.zip\n.\nLib/site-packages\n../app\nimport site\n')
-    shutil.copytree(assets / 'node_modules', vendor / 'node_modules', symlinks=False,
-                    ignore=shutil.ignore_patterns('.bin'))
-    agent = vendor / 'node_modules/agent-browser'
-    for path in (agent / 'bin').iterdir():
-        if path.name != 'agent-browser-win32-x64.exe':
-            path.unlink()
-    shutil.rmtree(agent / 'scripts', ignore_errors=True)
-    (vendor / 'agent-browser-config.json').write_text('{}\n')
-    # The only PATH-visible entry invokes our offline policy wrapper, never the raw CLI.
-    bin_dir = vendor / 'node_modules/.bin'
-    bin_dir.mkdir()
-    (bin_dir / 'agent-browser.cmd').write_text('@echo off\r\n"%~dp0..\\..\\node\\node.exe" "%~dp0..\\..\\app\\scripts\\agent-browser-offline.mjs" %*\r\nexit /b %errorlevel%\r\n')
-    guide = skill / 'references/agent-browser-core.offline'
-    shutil.copytree(agent / 'skill-data/core', guide, dirs_exist_ok=True)
-    copy_app(vendor / 'app')
-    # App root has its own main Skill copy for schema discovery; copy the local guide there too.
-    shutil.copytree(guide, vendor / 'app/skills/autoskill/references/agent-browser-core.offline', dirs_exist_ok=True)
-    # App uses the enclosing vendor dependencies. It must not recursively embed runtimes.
-    binaries = ['python/python.exe', 'node/node.exe', 'chrome/chrome-win64/chrome.exe',
-                'node_modules/agent-browser/bin/agent-browser-win32-x64.exe']
-    for name in binaries:
-        if (vendor / name).read_bytes()[:2] != b'MZ':
-            raise ValueError('Not a Windows executable: ' + name)
-    runtime_files = {p.relative_to(vendor).as_posix(): sha(p) for p in sorted(vendor.rglob('*')) if p.is_file()}
-    (vendor / 'runtime-manifest.json').write_text(json.dumps({'files': runtime_files}, indent=2))
-    (output / 'requirements-windows.lock').write_text('\n'.join(f"{w['name']}=={w['version']}" for w in wheels) + '\n')
-    manifest = {'target': 'Windows x64 / Windows 10+', 'python': '3.12.10',
-                'node': metadata['node_file'], 'browser': metadata['chrome_version'],
-                'agent_browser': '0.42.0', 'dsh_sdk': '0.0.1-rc.1', 'wheels': wheels,
-                'source_archives': {name: sha(assets / name) for name in ['python-embed.zip', 'node.zip', 'chrome.zip']},
-                'network_install': False, 'windows_execution_verified': False,
-                'files': {p.relative_to(output).as_posix(): sha(p) for p in sorted(output.rglob('*')) if p.is_file()}}
-    (output / 'offline-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+            meta_name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
+            meta = Parser().parsestr(archive.read(meta_name).decode("utf-8"))
+        if "telemetry" in meta["Name"].lower():
+            raise ValueError("Telemetry dependency found: " + meta["Name"])
+        wheels.append({"name": meta["Name"], "version": meta["Version"], "license": meta.get("License-Expression") or meta.get("License", "")[:60],
+                       "file": wheel.name, "sha256": sha256(wheel)})
+        unzip(wheel, site)
+
+    # Chrome for Testing and its matching driver.
+    unzip(assets / "chrome" / recorded["sources"]["chrome"]["file"], vendor / "chrome")
+    chrome = vendor / "chrome" / "chrome-win64"
+    for pak in (chrome / "locales").iterdir():
+        if pak.name not in LOCALES:
+            pak.unlink()
+    for name in CHROME_DROP:
+        target = chrome / name
+        if target.is_dir():
+            shutil.rmtree(target)
+        elif target.exists():
+            target.unlink()
+    unzip(assets / "chromedriver" / recorded["sources"]["chromedriver"]["file"], vendor / "chromedriver")
+
+    # agent-browser: only the Windows binary and its licence; no installer scripts, no other platforms.
+    agent = vendor / "agent-browser"
+    agent.mkdir()
+    with tarfile.open(assets / "agent-browser" / recorded["sources"]["agent_browser"]["file"]) as tar:
+        wanted = {"package/bin/agent-browser-win32-x64.exe": "agent-browser.exe", "package/LICENSE": "LICENSE"}
+        for member in tar.getmembers():
+            if member.name in wanted and member.isfile():
+                (agent / wanted[member.name]).write_bytes(tar.extractfile(member).read())
+        guide = package / "references" / "agent-browser-core.offline"
+        for member in tar.getmembers():  # keep the offline guide in step with the binary's version
+            prefix = "package/skill-data/core/"
+            if member.name.startswith(prefix) and member.isfile():
+                target = (guide / member.name[len(prefix):]).resolve()
+                if target.is_relative_to(guide.resolve()):
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(tar.extractfile(member).read())
+
+    for binary in ("python/python.exe", "chrome/chrome-win64/chrome.exe", "chromedriver/chromedriver-win64/chromedriver.exe",
+                   "agent-browser/agent-browser.exe"):
+        if (vendor / binary).read_bytes()[:2] != b"MZ":
+            raise ValueError("Not a Windows executable: " + binary)
+
+    files = {p.relative_to(vendor).as_posix(): sha256(p) for p in sorted(vendor.rglob("*")) if p.is_file()}
+    (vendor / "runtime-manifest.json").write_text(json.dumps({"files": files}, indent=1), encoding="utf-8")
+    manifest = {
+        "target": "Windows 10/11 x64", "autoskill": json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"],
+        "python": recorded["python_version"], "chrome_for_testing": recorded["chrome_version"],
+        "chromedriver": recorded["chrome_version"], "agent_browser": recorded["agent_browser_version"],
+        "wheels": wheels, "sources": recorded["sources"], "network_install": False, "telemetry": False, "auto_update": False,
+        "runtime_files": len(files),
+    }
+    (package / "offline-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return manifest
 
 
-if __name__ == '__main__':
+def zip_folder(folder: Path, target: Path) -> dict:
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        for file in sorted(folder.rglob("*")):
+            if file.is_file():
+                archive.write(file, file.relative_to(folder).as_posix())
+    return {"file": target.name, "bytes": target.stat().st_size, "sha256": sha256(target)}
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--assets', type=Path, required=True)
-    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument("--assets", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True, help="new folder outside the repository")
+    parser.add_argument("--zip", action="store_true", help="also write autoSkill-Windows-x64-Offline.zip next to the folder")
     args = parser.parse_args()
-    result = build(args.assets.resolve(), args.output.resolve())
-    print(json.dumps({k: v for k, v in result.items() if k != 'files'}, indent=2))
+    output = args.output.resolve()
+    manifest = build(args.assets.resolve(), output)
+    summary = {k: manifest[k] for k in ("autoskill", "python", "chrome_for_testing", "agent_browser", "runtime_files")}
+    summary["folder_mb"] = round(sum(f.stat().st_size for f in output.rglob("*") if f.is_file()) / 1e6, 1)
+    if args.zip:
+        summary["zip"] = zip_folder(output, output.parent / "autoSkill-Windows-x64-Offline.zip")
+    print(json.dumps(summary, ensure_ascii=False, indent=1))
+
+
+if __name__ == "__main__":
+    main()
