@@ -21,6 +21,19 @@ def _headers(items: list) -> dict:
     return {h["name"].lower(): h["value"] for h in items or []}
 
 
+def _parameters(text: str) -> dict:
+    """Keep repeated query/form fields as lists, leaving single values compatible with older cases."""
+    result: dict = {}
+    for key, value in parse_qsl(text, keep_blank_values=True):
+        if key not in result:
+            result[key] = value
+        elif isinstance(result[key], list):
+            result[key].append(value)
+        else:
+            result[key] = [result[key], value]
+    return result
+
+
 def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
     """Normalised requests to the project's own origin, in recorded order, plus notes on what was left out."""
     found, notes, skipped_origins = [], [], set()
@@ -46,7 +59,7 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
                 except ValueError:
                     body_note = "请求体不是有效 JSON"
             elif "x-www-form-urlencoded" in (post.get("mimeType") or "").lower():
-                form = dict(parse_qsl(post["text"], keep_blank_values=True))
+                form = _parameters(post["text"])
             else:
                 body_note = "请求体不是 JSON 或普通表单（例如文件上传），需人工确认"
         parsed = None
@@ -56,7 +69,7 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
             except ValueError:
                 parsed = None
         found.append({
-            "method": request["method"], "path": parts.path or "/", "params": dict(parse_qsl(parts.query, keep_blank_values=True)),
+            "method": request["method"], "path": parts.path or "/", "params": _parameters(parts.query),
             "headers": _headers(request.get("headers")), "json": body, "form": form, "body_note": body_note,
             "status": response["status"], "mime": mime, "response": parsed, "text": content.get("text") or "",
             "business": kind in BUSINESS_TYPES or (kind not in RESOURCE_TYPES and "json" in mime),
