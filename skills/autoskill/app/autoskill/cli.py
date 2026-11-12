@@ -13,7 +13,7 @@ STATUS_TEXT = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancell
 
 
 def emit(value: dict, code: int = 0) -> int:
-    print(json.dumps(value, ensure_ascii=False, indent=1))
+    print(json.dumps(value, ensure_ascii=False, indent=1))  # noqa: T201  # CLI stdout must contain exactly one JSON object.
     return code
 
 
@@ -269,7 +269,7 @@ def launch_check() -> dict:
                     report[engine] = "ok" if "工单" in driver.title() else "页面标题不符：" + driver.title()
                 finally:
                     driver.close()
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001  # Doctor must report every browser startup failure without aborting its checks.
                 report[engine] = "启动失败：" + (str(error) or type(error).__name__)[:1800]
     finally:
         server.shutdown()
@@ -488,7 +488,7 @@ def main(argv: list[str] | None = None) -> int:
             result, code = dispatch(args)
         finally:
             sys.stdout = real_stdout
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001  # Unexpected command failures must still produce one JSON response.
         from .recorder.agent import AgentError
         from .recorder.session import RecordError
 

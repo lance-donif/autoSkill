@@ -16,7 +16,7 @@ _loaded = None
 
 
 def _model():
-    global _loaded
+    global _loaded  # noqa: PLW0603  # Reuse the lazily loaded model session across recognitions.
     if _loaded is None:
         try:
             import onnxruntime

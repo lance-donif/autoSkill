@@ -45,7 +45,7 @@ def unzip(archive: Path, destination: Path) -> None:
 
 
 def copy_tree(source: Path, destination: Path) -> None:
-    def ignore(folder, names):
+    def ignore(_folder, names):
         return [n for n in names if n in SKIP_NAMES or Path(n).suffix in SKIP_SUFFIXES]
 
     shutil.copytree(source, destination, ignore=ignore)
@@ -71,9 +71,12 @@ def smoke_test(package: Path) -> None:
     import subprocess
 
     python = package / "vendor" / "windows-x64" / "python" / "python.exe"
-    env = {"SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"), "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"}
+    env = {
+        "SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"),  # noqa: SIM112  # Preserve the canonical Windows key on case-sensitive hosts.
+        "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1",
+    }
     code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema; print(autoskill.__file__)"
-    done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent))
+    done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent), check=False)
     located = done.stdout.strip()
     if done.returncode or not Path(located).resolve().is_relative_to(package.resolve()):
         raise ValueError("Packaged interpreter cannot start the packaged app: " + (done.stderr.strip() or located)[-400:])
@@ -90,7 +93,7 @@ def plugin_check(output: Path) -> None:
             "console.log(JSON.stringify({skill: m.SKILL_DIR, python: s.python, bundled: s.bundled}));")
     url = (output / "plugin" / "index.mjs").resolve().as_uri()
     env = {k: v for k, v in __import__("os").environ.items() if k != "AUTOSKILL_DEV_PYTHON"}
-    done = subprocess.run([node, "--input-type=module", "-e", code, url], capture_output=True, text=True, env=env, encoding="utf-8")
+    done = subprocess.run([node, "--input-type=module", "-e", code, url], capture_output=True, text=True, env=env, encoding="utf-8", check=False)
     found = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
     if not found or found.get("python") != found.get("bundled") or not Path(found["skill"]).resolve().is_relative_to(output.resolve()):
         raise ValueError("Packaged DSH plugin cannot find the packaged runtime: " + (done.stderr.strip() or done.stdout.strip())[-400:])

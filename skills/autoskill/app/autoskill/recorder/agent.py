@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import subprocess
 import uuid
+from contextlib import suppress
 from pathlib import Path
 
 from .. import paths
@@ -14,10 +15,9 @@ class AgentError(Exception):
 
 
 def _discard(file: Path) -> None:
-    try:
+    # The browser daemon may still hold this handle; later calls sweep leftovers.
+    with suppress(OSError):
         file.unlink(missing_ok=True)
-    except OSError:
-        pass  # the browser daemon started by this command still holds the handle; swept later
 
 
 def _scratch() -> Path:
@@ -58,7 +58,7 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
         with out_path.open("wb") as out, err_path.open("wb") as err:
             stdin = in_path.open("rb") if stdin_text is not None else subprocess.DEVNULL
             try:
-                done = subprocess.run(command, stdin=stdin, stdout=out, stderr=err, env=paths.child_env(),
+                done = subprocess.run(command, stdin=stdin, stdout=out, stderr=err, env=paths.child_env(), check=False,
                                       timeout=timeout, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             except subprocess.TimeoutExpired:
                 raise AgentError("浏览器命令超时") from None
@@ -105,7 +105,7 @@ def launch_problem(error: Exception) -> str:
     return text
 
 
-def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False,
+def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False,  # noqa: ARG001  # Keep the legacy keyword without restricting origins.
                 browser: str | None = None) -> list[str]:
     """Start the browser without a proxy fence, with optional login state."""
     flags = ["--args", ",".join([*paths.QUIET_CHROME_ARGS, *(["--start-maximized"] if paths.headed() else [])])]

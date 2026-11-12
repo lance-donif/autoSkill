@@ -47,7 +47,7 @@ class SlowSite(BaseHTTPRequestHandler):
         try:
             self.wfile.write(body)
         except OSError:
-            pass  # the browser went away
+            return  # the browser went away
 
 
 def serve():

@@ -30,7 +30,7 @@ class Site(BaseHTTPRequestHandler):
         try:
             super().handle()
         except ConnectionError:
-            pass  # Closing a tab can reset an idle HTTP connection on Windows.
+            return  # Closing a tab can reset an idle HTTP connection on Windows.
 
     def do_GET(self):
         if self.path.startswith('/child'):
@@ -110,7 +110,7 @@ class TabsTests(unittest.TestCase):
                     file.write_text(source)
                     env = {**paths.child_env(), 'CHROME_BINARY': paths.chrome(), 'CHROMEDRIVER': paths.chromedriver(),
                            'NO_PROXY': 'localhost,127.0.0.1,::1', 'no_proxy': 'localhost,127.0.0.1,::1', 'TIMEOUT': '5'}
-                    run = subprocess.run([sys.executable, str(file)], env=env, capture_output=True, text=True, timeout=45)
+                    run = subprocess.run([sys.executable, str(file)], env=env, capture_output=True, text=True, timeout=45, check=False)
                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
 
     def test_target_blank_record_replay_and_standalone_exports(self):

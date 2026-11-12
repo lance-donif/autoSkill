@@ -12,6 +12,7 @@ a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
 button:disabled { cursor: not-allowed; }
+/* biome-ignore lint/complexity/noImportantStyles: The hidden attribute must override component display rules. */
 [hidden] { display: none !important; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; border-radius: var(--r-sm); }
 ::selection { background: var(--accent-wash); }

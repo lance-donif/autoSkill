@@ -8,6 +8,7 @@ const PAGE = 50;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'ui' ? '页面' : '接口');
 const active = (run) => ['Queued', 'Running'].includes(run.status);
 
+// biome-ignore lint/suspicious/useAwait: Preserve the asynchronous render contract and its existing promise adoption.
 export async function render(view, { id }) {
   if (id) return report(view, id);
   return history(view);
@@ -190,7 +191,7 @@ function resultBody(run, row) {
       h('span', { class: 'mono grow ellipsis', title: req.url }, req.url),
       res && h('span', { class: 'tag' + (res.status < 400 ? ' accent' : '') }, 'HTTP ' + res.status), res && h('span', { class: 'sub num' }, `${fmtDuration(row.duration_ms)} · ${res.bytes} B`)));
   }
-  if (d.assertions && d.assertions.length) {
+  if (d.assertions?.length) {
     parts.push(h('table', { class: 'table checks' },
       h('thead', {}, h('tr', {}, ['', '断言', '期望', '实际'].map((t) => h('th', {}, t)))),
       h('tbody', {}, d.assertions.map((check) => h('tr', { class: check.passed ? '' : 'bad' },
@@ -198,7 +199,7 @@ function resultBody(run, row) {
         h('td', {}, check.name, check.fallback ? h('span', { class: 'tag', style: 'margin-left:6px' }, '备选定位') : null),
         h('td', { class: 'mono' }, show(check.expected)), h('td', { class: 'mono' }, show(check.actual)))))));
   }
-  if (d.steps && d.steps.length) {
+  if (d.steps?.length) {
     parts.push(h('ol', { class: 'steps timeline' }, d.steps.map((step) => h('li', { class: step.status },
       h('span', { class: 'step-text' }, step.check && h('span', { class: 'tag accent' }, '断言'), step.text,
         step.fallback ? h('span', { class: 'tag' }, '备选定位') : null),

@@ -71,7 +71,7 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
         raise ValueError("还没有可以分享的项目")
     if passphrase is not None and len(passphrase) < 8:
         raise ValueError("口令至少 8 个字符")
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")  # noqa: DTZ005  # Pack filenames use the machine's local wall clock.
     target = Path(out) if out else paths.workspace() / f"autoskill-share-{stamp}.zip"
     if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-share-{stamp}.zip"
@@ -105,7 +105,7 @@ def pack_full(out: str | None = None) -> dict:
 
     Leaves out workspace/.local: secrets, saved logins, run history and screenshots stay on this machine.
     """
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")  # noqa: DTZ005  # Pack filenames use the machine's local wall clock.
     target = Path(out) if out else paths.SKILL.parent / f"autoskill-full-{stamp}.zip"
     if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-full-{stamp}.zip"

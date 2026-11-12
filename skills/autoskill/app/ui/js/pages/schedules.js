@@ -62,8 +62,9 @@ export async function render(view) {
   if (route().params.get('new') && state.projects.length) { editor(null, refresh); }
 }
 
+// biome-ignore lint/suspicious/useAwait: Preserve the async editor contract without waiting for its background case load.
 async function editor(task, done) {
-  const projects = state.projects.filter((p) => p.cases && p.cases.total);
+  const projects = state.projects.filter((p) => p.cases?.total);
   if (!projects.length) { toast('先让项目里有用例，再安排定时任务', { bad: true }); return; }
   const rule = task ? task.rule : { kind: 'daily', time: '09:00' };
   const picked = new Set(task ? task.case_ids : []);

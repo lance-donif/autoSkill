@@ -27,6 +27,7 @@ class PlatformReleaseTests(unittest.TestCase):
             if path == "/releases/assets/21":
                 return {"size": 3, "digest": "sha256:bad"}
             self.fail("Unexpected mutation " + method + " " + path)
+            return None
         with tempfile.TemporaryDirectory() as folder:
             files = []
             for name in ("windows.zip", "linux.zip"):

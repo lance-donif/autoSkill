@@ -50,7 +50,7 @@ def case_view(project_id: str, case: dict) -> dict:
         automation = case.get("extensions", {}).get("automation") or {}
         view["start_url"] = automation.get("start_url")
         view["steps"] = [{"text": s.get("name") or ir.describe(s), "check": "assertion" in s,
-                          "locators": [ir.describe_locator(l) for l in ir.locators(s)]}
+                          "locators": [ir.describe_locator(locator) for locator in ir.locators(s)]}
                          for s in [*automation.get("actions", []), *automation.get("assertions", [])]]
     else:
         view["request"] = {k: case.get(k) for k in ("method", "path", "headers", "params", "json", "form") if case.get(k) is not None}
@@ -81,7 +81,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     state: dict = {"demo_site": None}
 
     @contextlib.asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI):  # noqa: ARG001  # FastAPI passes its app to the lifespan callback.
         jobs.sweep()
         if any(p.get("id") == demo.PROJECT_ID and p.get("base_url") == demo.DEFAULT_URL for p in projects.list_all()):
             state["demo_site"] = demo_site()  # the example project needs its site
@@ -113,7 +113,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         return response
 
     @app.exception_handler(ValueError)
-    async def bad_request(request: Request, error: ValueError):
+    async def bad_request(request: Request, error: ValueError):  # noqa: ARG001  # FastAPI exception handlers require the request parameter.
         return JSONResponse({"detail": str(error)}, status_code=400)
 
     # --- overview ----------------------------------------------------
@@ -356,7 +356,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         return {"id": run["id"]}
 
     @app.get("/api/{rest:path}")
-    def unknown(rest: str):
+    def unknown(rest: str):  # noqa: ARG001  # The callback must bind the route's named rest path parameter.
         raise HTTPException(404, "没有这个接口")
 
     ui = paths.APP / "ui"
@@ -368,5 +368,5 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
 def serve(port: int = 8787) -> None:
     import uvicorn
 
-    print(f"autoSkill 仪表盘：http://127.0.0.1:{port}  （Ctrl+C 停止）", flush=True)
+    print(f"autoSkill 仪表盘：http://127.0.0.1:{port}  （Ctrl+C 停止）", flush=True)  # noqa: T201  # The interactive server prints its startup address.
     uvicorn.run(create_app(port), host="127.0.0.1", port=port, log_level="warning")

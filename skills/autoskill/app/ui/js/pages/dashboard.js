@@ -106,7 +106,7 @@ export async function render(view) {
 
 function runAll(options = {}) {
   const s = scope();
-  const targets = (s.projects.length ? state.projects.filter((p) => s.projects.includes(p.id)) : state.projects).filter((p) => p.cases && p.cases.total);
+  const targets = (s.projects.length ? state.projects.filter((p) => s.projects.includes(p.id)) : state.projects).filter((p) => p.cases?.total);
   const label = targets.length > 1 ? `运行 ${targets.length} 个项目` : '运行全部用例';
   return runButton(label, () => targets.map((p) => ({ project_id: p.id })), options);
 }
@@ -114,7 +114,7 @@ function runAll(options = {}) {
 function pageHead() {
   return h('div', { class: 'page-head' },
     h('div', { class: 'grow' }, h('h1', {}, '仪表盘'), h('p', { class: 'sub' }, '下面所有数字、图表和列表都按上方的项目与时间范围统计。')),
-    state.projects.some((p) => p.cases && p.cases.total) && runAll());
+    state.projects.some((p) => p.cases?.total) && runAll());
 }
 
 function tasksCard(tasks) {
@@ -134,7 +134,7 @@ function tasksCard(tasks) {
     body);
 }
 
-function failuresCard(failures, r, view) {
+function failuresCard(failures, r, _view) {
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '失败列表范围' },
     h('button', { 'aria-pressed': String(!currentOnly), onClick: () => { currentOnly = false; refresh(); } }, '范围内全部'),
     h('button', { 'aria-pressed': String(currentOnly), onClick: () => { currentOnly = true; refresh(); } }, '当前仍失败'));

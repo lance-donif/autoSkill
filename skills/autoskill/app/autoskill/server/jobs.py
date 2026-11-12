@@ -85,5 +85,5 @@ class Worker:
                 scheduler.tick()
                 sweep()
                 start_queued()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110  # Durable queue state lets the worker retry any failed pass without losing its thread.
                 pass  # state is durable; the next pass retries

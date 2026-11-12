@@ -1,11 +1,11 @@
 // DeepSeek Harness client entry (loaded as shipped; no build step).
 // Two panels, both showing the local dashboard: overview and schedules.
 window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) => {
-  var module = { exports: {} };
-  var exports = module.exports;
+  const module = { exports: {} };
+  const exports = module.exports;
   const React = require('react');
   exports.inject = ['slots', 'layout'];
-  exports.apply = function (ctx, config = {}) {
+  exports.apply = (ctx, config = {}) => {
     const port = config.port ?? 8787;
     if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid autoSkill port');
     const origin = 'http://127.0.0.1:' + port;

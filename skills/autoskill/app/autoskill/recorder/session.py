@@ -197,7 +197,7 @@ def _open(url: str, budget: float) -> dict:
     """Navigate and wait for the page. A navigation that outlives agent-browser's own wait is not a failure."""
     started = time.monotonic()
     problem = ""
-    for attempt in (1, 2):
+    for _attempt in (1, 2):
         try:
             agent.call(session_name(), ["open", url], timeout=90)
             problem = ""

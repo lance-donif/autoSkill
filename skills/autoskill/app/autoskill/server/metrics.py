@@ -24,7 +24,7 @@ def normalize(stamp: str | None) -> str | None:
     if not stamp:
         return None
     try:
-        value = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+        value = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))  # noqa: FURB162  # Preserve the existing accepted timestamp syntax.
     except ValueError:
         raise ValueError("时间范围格式不正确") from None
     if value.tzinfo is None:

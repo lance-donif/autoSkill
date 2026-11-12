@@ -46,6 +46,7 @@ class ReleasePublishingTests(unittest.TestCase):
                 if path == '/releases/assets/11':
                     return {'id': 11, 'size': archive.stat().st_size, 'digest': 'sha256:wrong'}
                 self.fail('Unexpected mutation: ' + str((method, path)))
+                return None
 
             env = {'RELEASE_TAG': tag, 'RELEASE_COMMIT': 'test', 'RELEASE_REPOSITORY': 'example/repo'}
             argv = ['publish', '--build', str(base), '--proof', str(proof), '--result', str(base / 'result')]

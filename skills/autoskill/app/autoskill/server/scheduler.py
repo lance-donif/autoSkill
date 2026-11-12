@@ -35,7 +35,7 @@ def next_due(rule: dict, now: datetime.datetime, previous: datetime.datetime | N
         return now + step
     if kind == "at":
         try:
-            value = datetime.datetime.fromisoformat(str(rule.get("at", "")).replace("Z", "+00:00"))
+            value = datetime.datetime.fromisoformat(str(rule.get("at", "")).replace("Z", "+00:00"))  # noqa: FURB162  # Preserve the existing accepted timestamp syntax.
         except ValueError:
             raise ValueError("执行时间格式不正确") from None
         if value.tzinfo is None or value <= now:

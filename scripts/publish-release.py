@@ -94,7 +94,7 @@ def main():
     checksum = args.proof / "SHA256SUMS.txt"
     checksum.write_text("".join(p["sha256"] + "  " + p["file"] + "\n" for p in packages), encoding="ascii")
     checksum_data = {"file": checksum.name, "bytes": checksum.stat().st_size, "sha256": hashlib.sha256(checksum.read_bytes()).hexdigest()}
-    files = list(zip(archives, packages)) + [(checksum, checksum_data)]
+    files = [*zip(archives, packages), (checksum, checksum_data)]
     (args.proof / "archive-check.json").write_text(json.dumps(packages, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     notes = (f"## autoSkill {tag}\n\n提供 3 个按操作系统和 CPU 划分的安装包，另附 SHA256SUMS.txt：\n\n"
              "| 安装包 | 用途 |\n| --- | --- |\n"

@@ -39,8 +39,8 @@ def test_script(case: dict) -> list[str]:
     for name, wanted in rules.get("header_contains", {}).items():
         lines.append(f"pm.test({_js('响应头 ' + name + ' 包含 ' + str(wanted))}, () => "
                      f"pm.expect((pm.response.headers.get({_js(name)}) || '').toLowerCase()).to.include({_js(str(wanted).lower())}));")
-    for wanted in rules.get("body_contains", []):
-        lines.append(f"pm.test({_js('响应内容包含 ' + wanted[:40])}, () => pm.expect(pm.response.text()).to.include({_js(wanted)}));")
+    lines.extend(f"pm.test({_js('响应内容包含 ' + wanted[:40])}, () => pm.expect(pm.response.text()).to.include({_js(wanted)}));"
+                 for wanted in rules.get("body_contains", []))
     if "max_ms" in rules:
         lines.append(f'pm.test("响应时间不超过 {rules["max_ms"]} ms", () => pm.expect(pm.response.responseTime).to.be.at.most({rules["max_ms"]}));')
     if rules.get("json_equals") or "schema" in rules or extract:

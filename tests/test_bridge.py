@@ -61,7 +61,7 @@ class Sandbox(unittest.TestCase):
     def cli(self, *argv, sandboxed=True, **extra):
         home = {"USERPROFILE": str(self.home)} if sandboxed else {}
         done = subprocess.run([sys.executable, "-m", "autoskill", *argv], env=self.env(**home, **extra), capture_output=True,
-                              text=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=120)
+                              text=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=120, check=False)
         return done.returncode, done.stdout, done.stderr
 
     def start_service(self) -> int:
@@ -78,6 +78,7 @@ class Sandbox(unittest.TestCase):
                 pass
             time.sleep(0.25)
         self.fail("the service did not start")
+        return None
 
 
 class RestrictedProcessTests(Sandbox):

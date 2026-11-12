@@ -269,6 +269,7 @@ class Handler(BaseHTTPRequestHandler):
                     ticket["status"] = status
                     return self.send_json(200, dict(ticket))
         self.error(404, "NOT_FOUND")
+        return None
 
     def static(self, path: str) -> None:
         if self.command not in ("GET", "HEAD"):
@@ -285,6 +286,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(data)
+        return None
 
 
 class Server(ThreadingHTTPServer):

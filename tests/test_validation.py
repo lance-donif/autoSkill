@@ -23,7 +23,11 @@ class ValidationTests(unittest.TestCase):
                 self.assertTrue(qa.validate(self.p))
 
     def test_literal_credential_rejected_before_export(self):
-        for field, value in [('headers', {'Authorization': 'Bearer QA_SYNTHETIC_SECRET'}), ('json', {'nested': {'password': 'QA_SYNTHETIC_SECRET'}}), ('extensions', {'access_token': 'QA_SYNTHETIC_SECRET'})]:
+        for field, value in [
+            ('headers', {'Authorization': 'Bearer QA_SYNTHETIC_SECRET'}),
+            ('json', {'nested': {'password': 'QA_SYNTHETIC_SECRET'}}),
+            ('extensions', {'access_token': 'QA_SYNTHETIC_SECRET'}),
+        ]:
             with self.subTest(field=field):
                 c = dict(self.c, **{field: value})
                 self.cases([c])
@@ -54,7 +58,7 @@ class ValidationTests(unittest.TestCase):
                     self.assertTrue(qa.validate(self.p))
                     qa.write(self.p / rel, before)
         qa.write(self.p / 'testcases/api-cases.json', {'cases': []})
-        result = subprocess.run([sys.executable, str(qa.ROOT / 'scripts/qa.py'), 'validate', str(self.p)], capture_output=True, text=True)
+        result = subprocess.run([sys.executable, str(qa.ROOT / 'scripts/qa.py'), 'validate', str(self.p)], capture_output=True, text=True, check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn('Traceback', result.stderr)
 
@@ -70,17 +74,22 @@ class ValidationTests(unittest.TestCase):
     def test_auth_header_variants_are_not_exported(self):
         for key in ['X-Api-Key','X-Auth-Token','client_secret']:
             with self.subTest(key=key):
-                self.c['headers']={key:'QA_SYNTHETIC_SECRET'};self.cases([self.c]);self.assertTrue(qa.validate(self.p))
+                self.c['headers']={key:'QA_SYNTHETIC_SECRET'}
+                self.cases([self.c])
+                self.assertTrue(qa.validate(self.p))
 
     def test_external_response_schema_is_rejected_without_request(self):
         self.c['assertions']={'status':200,'schema':{'type':'object','required':['code'],'properties':{'code':{'$ref':'https://external.invalid/schema'}}}}
-        self.cases([self.c]);self.assertTrue(qa.validate(self.p))
-        with self.assertRaises(ValueError):qa.run_api(self.p)
+        self.cases([self.c])
+        self.assertTrue(qa.validate(self.p))
+        with self.assertRaises(ValueError):
+            qa.run_api(self.p)
 
     def test_save_rejects_bad_schema_before_mutating_cases(self):
         before=(self.p/'testcases/api-cases.json').read_bytes()
         self.c['assertions']={'status':200,'schema':{'type':5}}
-        with self.assertRaises(ValueError):qa.save_cases(self.p,[self.c])
+        with self.assertRaises(ValueError):
+            qa.save_cases(self.p,[self.c])
         self.assertEqual((self.p/'testcases/api-cases.json').read_bytes(),before)
 
     def test_execution_error_cannot_leave_previous_pass_current(self):

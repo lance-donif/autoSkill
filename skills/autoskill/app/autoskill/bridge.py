@@ -142,7 +142,7 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
             try:
                 done = subprocess.run([sys.executable, "-m", "autoskill", *argv], stdin=stdin, stdout=out, stderr=err,
                                       env=paths.child_env(extra), cwd=str(paths.workspace()), timeout=3500,
-                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
                 code = done.returncode
             except subprocess.TimeoutExpired:
                 code = None
@@ -152,10 +152,8 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
         stderr = err_path.read_text(encoding="utf-8", errors="replace")[-2000:]
     finally:
         for file in (out_path, err_path, in_path):
-            try:
+            with contextlib.suppress(OSError):
                 file.unlink(missing_ok=True)
-            except OSError:
-                pass
     return {"exit": code, "stdout": stdout, "stderr": stderr}
 
 

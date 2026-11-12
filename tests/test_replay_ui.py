@@ -28,7 +28,7 @@ class Quiet(SimpleHTTPRequestHandler):
         try:
             super().handle()
         except ConnectionError:  # the browser closed a keep-alive socket
-            pass
+            return
 
 
 def serve():

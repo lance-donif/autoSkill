@@ -131,9 +131,7 @@ def meaningful_schema(value):
         return True
     if any(meaningful_schema(v) for v in value.get("allOf", [])):
         return True
-    if any(key in value for key in ("anyOf", "oneOf")):
-        return True
-    return False
+    return any(key in value for key in ("anyOf", "oneOf"))
 
 
 def external_schema_refs(value):
@@ -195,9 +193,8 @@ def credential_errors(value, location="data"):
             if (
                 normalized in sensitive
                 or normalized.endswith(("token", "secret", "apikey", "password", "cookie"))
-            ) and item not in ("", None):
-                if not isinstance(item, str) or not SAFE_CREDENTIAL.fullmatch(item):
-                    errors.append(target + ": 敏感字段只能写成 ${ENV:名称} 或 {{变量}} 引用，不能写入真实值")
+            ) and item not in ("", None) and (not isinstance(item, str) or not SAFE_CREDENTIAL.fullmatch(item)):
+                errors.append(target + ": 敏感字段只能写成 ${ENV:名称} 或 {{变量}} 引用，不能写入真实值")
             errors.extend(credential_errors(item, target))
     elif isinstance(value, list):
         for i, item in enumerate(value):
@@ -256,9 +253,7 @@ def validate(p, check_results=True):
             if cid in byid:
                 errors.append(f"{cid}: 用例 ID 重复")
             byid[cid] = c
-            for rid in c["requirement_ids"]:
-                if rid not in req_ids:
-                    errors.append(f"{cid}: 未知需求 {rid}")
+            errors.extend(f"{cid}: 未知需求 {rid}" for rid in c["requirement_ids"] if rid not in req_ids)
             if kind == "api":
                 a = c["assertions"]
                 if not has_real_assertion(a) and a["status"] < 400:
@@ -272,9 +267,7 @@ def validate(p, check_results=True):
                         errors.append(f"{cid}: 响应 schema 没有有效约束")
                     if external_schema_refs(a["schema"]):
                         errors.append(f"{cid}: 响应Schema必须先显式解析外部引用，禁止运行时自动访问")
-                for ptr in a.get("json_equals", {}):
-                    if not valid_pointer(ptr):
-                        errors.append(f"{cid}: 非法 JSON Pointer")
+                errors.extend(f"{cid}: 非法 JSON Pointer" for ptr in a.get("json_equals", {}) if not valid_pointer(ptr))
     seen = set()
     result_schema = read(ROOT / "references/result.schema.json")
     for kind, items in result_lists.items():
@@ -428,8 +421,8 @@ def pointer(v, ptr):
         raise ValueError("非法 JSON Pointer")
     if ptr == "":
         return v
-    for token in ptr[1:].split("/"):
-        token = token.replace("~1", "/").replace("~0", "~")
+    for encoded_token in ptr[1:].split("/"):
+        token = encoded_token.replace("~1", "/").replace("~0", "~")
         if isinstance(v, list):
             if not re.fullmatch(r"0|[1-9][0-9]*", token):
                 raise KeyError(token)
@@ -618,7 +611,7 @@ def run_api(p):
                 r["evidence"] = [rel]
             except ValueError as e:
                 r.update(status="Blocked", actual="", reason=str(e), assertions=[], evidence=[])
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  # Record unexpected executor failures without losing run results.
                 r.update(
                     status="Blocked",
                     actual="",
@@ -630,7 +623,7 @@ def run_api(p):
             write(p / "execution/api-results.json", results)
     write(p / "execution/api-results.json", results)
     require_valid(p)
-    print(json.dumps(dict(collections.Counter(r["status"] for r in results)), ensure_ascii=False))
+    print(json.dumps(dict(collections.Counter(r["status"] for r in results)), ensure_ascii=False))  # noqa: T201  # Preserve the legacy command output.
     return results
 
 
@@ -692,7 +685,7 @@ def export(p):
             for cell in ws[ws.max_row]:
                 cell.data_type = "s"
         ws.auto_filter.ref = ws.dimensions
-        for i, (key, label) in enumerate(cols, 1):
+        for i, (key, _label) in enumerate(cols, 1):
             ws.column_dimensions[ws.cell(1, i).column_letter].width = (
                 46 if key in ["steps", "expected", "actual", "extensions", "json", "assertions"] else 24
             )
@@ -782,7 +775,7 @@ def export(p):
             ],
         },
     )
-    print("Excel 和导出清单已生成")
+    print("Excel 和导出清单已生成")  # noqa: T201  # Preserve the legacy command output.
 
 
 def report(p):
@@ -845,7 +838,7 @@ def report(p):
         read(p / "qa-config.json").get("cleanup_status", "未提供清理状态"),
     ]
     (p / "output/测试执行报告.md").write_text("\n".join(text) + "\n", encoding="utf-8")
-    print("报告已生成")
+    print("报告已生成")  # noqa: T201  # Preserve the legacy command output.
 
 
 def import_openapi(p, f):
@@ -878,7 +871,7 @@ def import_openapi(p, f):
                 }
             )
     write(p / "analysis/api-inventory.json", inv)
-    print(f"导入 {len(inv)} 个接口；引用需分析阶段解析")
+    print(f"导入 {len(inv)} 个接口；引用需分析阶段解析")  # noqa: T201  # Preserve the legacy command output.
 
 
 def search(p, query):
@@ -886,7 +879,7 @@ def search(p, query):
         if f.is_file() and f.suffix in [".md", ".json", ".csv", ".txt"]:
             for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
                 if query.casefold() in line.casefold():
-                    print(f"{f.relative_to(p)}:{i}: {line}")
+                    print(f"{f.relative_to(p)}:{i}: {line}")  # noqa: T201  # Preserve the legacy command output.
 
 
 def sync_skills(p):
@@ -1026,7 +1019,7 @@ def main():
     ap.add_argument("extra", nargs="?")
     a = ap.parse_args()
     if a.command == "doctor":
-        print(
+        print(  # noqa: T201  # Preserve the legacy command output.
             json.dumps(
                 {
                     "python": sys.version.split()[0],
@@ -1047,11 +1040,11 @@ def main():
         init(p)
     elif a.command == "validate":
         require_valid(p)
-        print("校验通过")
+        print("校验通过")  # noqa: T201  # Preserve the legacy command output.
     elif a.command == "coverage":
         require_valid(p)
         cov = coverage(p)
-        print(json.dumps(cov, ensure_ascii=False))
+        print(json.dumps(cov, ensure_ascii=False))  # noqa: T201  # Preserve the legacy command output.
         return 0 if cov["requirements"] and cov["covered"] == cov["requirements"] else 2
     elif a.command == "run-api":
         results = run_api(p)
@@ -1064,10 +1057,10 @@ def main():
         if not a.extra:
             ap.error("需要完整用例目录 JSON")
         save_cases(p, read(Path(a.extra)))
-        print("用例已保存，版本和项目技能已同步")
+        print("用例已保存，版本和项目技能已同步")  # noqa: T201  # Preserve the legacy command output.
     elif a.command == "sync-skills":
         sync_skills(p)
-        print("UI/API 项目用例 Skill 已生成")
+        print("UI/API 项目用例 Skill 已生成")  # noqa: T201  # Preserve the legacy command output.
     elif a.command == "search":
         if not a.extra:
             ap.error("需要关键词")
@@ -1083,5 +1076,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except (ValueError, KeyError, OSError, ImportError, TypeError) as e:
-        print("错误: " + str(e), file=sys.stderr)
+        print("错误: " + str(e), file=sys.stderr)  # noqa: T201  # Preserve the legacy command output.
         sys.exit(1)

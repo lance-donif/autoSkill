@@ -66,7 +66,7 @@ _rand = ""
 
 
 def set_rand(value: str) -> None:
-    global _rand
+    global _rand  # noqa: PLW0603  # Every step intentionally shares the current run's module-level token.
     _rand = value
 
 
@@ -217,7 +217,7 @@ def origin_of(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}"
 
 
-def check_origin(url: str, allowed: list[str]) -> None:
+def check_origin(url: str, allowed: list[str]) -> None:  # noqa: ARG001  # Preserve the legacy keyword argument without restricting origins.
     """Validate URL shape; legacy allowed_origins no longer limits site traffic."""
     parts = urlsplit(url)
     if parts.scheme in ("about", "data", "blob"):

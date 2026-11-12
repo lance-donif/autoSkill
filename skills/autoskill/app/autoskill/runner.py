@@ -130,8 +130,8 @@ class Session:
                 time.sleep(1.5)  # leave the last page on screen for a moment
             try:
                 self.driver.close()
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001  # Driver cleanup must not replace the case result with a cleanup failure.
+                return
 
     def browser(self):
         if self.driver is None and not self.driver_error:
@@ -139,7 +139,7 @@ class Session:
                 self.driver = make_driver(self.run["engine"], self.config)
             except ValueError as error:
                 self.driver_error = str(error)
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001  # Any browser startup failure becomes the run's environment result.
                 reason = paths.restricted()
                 detail = str(error).strip().splitlines()[0][:200] if str(error).strip() else ""
                 self.driver_error = (f"浏览器无法启动：{type(error).__name__}" + (f"（{detail}）" if detail else "")
@@ -174,7 +174,7 @@ class Session:
                     return {"status": "Pass", "actual": "已保存的登录态仍然有效，直接复用", "reason": "", "category": "",
                             "assertions": [{"name": "登录态有效", "passed": True, "expected": True, "actual": True}],
                             "steps": [], "screenshots": [], "duration_ms": 0, "reused": True}
-            except Exception:
+            except Exception:  # noqa: BLE001, S110  # An unusable saved login must fall back to replaying the login case.
                 pass
         outcome = self.replay(case)
         if outcome["status"] == "Pass":
@@ -261,7 +261,7 @@ class Session:
             self.driver.reset(self.saved.get("ui"))
             self.driver.goto(ir.absolute_url(automation["start_url"], self.config["base_url"]))
             return all(ui.check(self.driver, step, 3.0)["passed"] for step in automation.get("assertions", []))
-        except Exception:
+        except Exception:  # noqa: BLE001  # Any failed login probe means the saved session cannot be reused.
             return False
 
 
@@ -302,10 +302,8 @@ def execute(run_id: str, force_login: bool = False) -> dict:
             db.update("runs", run_id, {"current": label})
             started_at = db.now()
             broken = next((d for d in projects.depends_on(case) if outcomes.get(d) != "Pass"), None)
-            if broken:
-                outcome = blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed")
-            else:
-                outcome = session.run_one(case)
+            outcome = (blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed")
+                       if broken else session.run_one(case))
             outcomes[case_id] = outcome["status"]
             record(run, case, outcome, prerequisite, started_at)
             if not prerequisite:
@@ -316,7 +314,7 @@ def execute(run_id: str, force_login: bool = False) -> dict:
             final = "Fail" if counts["failed"] else "Blocked" if counts["blocked"] else "Pass"
     except ValueError as error:
         final, reason = "Blocked", str(error)
-    except Exception as error:  # never leave a run stuck in Running
+    except Exception as error:  # noqa: BLE001  # Unexpected runner failures must finalize the durable run instead of leaving it Running.
         final, reason = "Blocked", "运行器出错：" + type(error).__name__
     finally:
         if session:
