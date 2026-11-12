@@ -7,6 +7,7 @@ first one that matches and reports when it had to fall back. The older single
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from urllib.parse import urljoin, urlsplit
 
 LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css")
@@ -62,17 +63,17 @@ LOCATOR_LABELS = {"testid": "测试标识", "label": "标签", "placeholder": "�
 
 
 RAND = "{{RAND}}"
-_rand = ""
+_rand = ContextVar("autoskill_rand", default="")
 
 
 def set_rand(value: str) -> None:
-    global _rand  # noqa: PLW0603  # Every step intentionally shares the current run's module-level token.
-    _rand = value
+    _rand.set(value)
 
 
 def expand(value):
     """Fill {{RAND}}: a short text that is new on every run, so data a case creates never collides with an earlier run."""
-    return value.replace(RAND, _rand) if isinstance(value, str) and _rand else value
+    token = _rand.get()
+    return value.replace(RAND, token) if isinstance(value, str) and token else value
 
 
 def locators(step: dict) -> list[dict]:

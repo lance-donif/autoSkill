@@ -19,6 +19,7 @@ import urllib.request
 import uuid
 
 from . import paths
+from .task_context import session_id as current_session_id
 
 RESTRICTED = (
     "当前命令运行在受限沙箱里（{reason}），在这里不能保存数据，也不能启动浏览器。{why}"
@@ -81,8 +82,15 @@ def service() -> tuple[int | None, str]:
 
 def forward(port: int, argv: list[str], stdin_text: str | None = None) -> dict:
     """Ask the service to run the command. Returns {exit, stdout, stderr}."""
-    body = {"argv": argv, "stdin": stdin_text, "msys_root": os.environ.get("AUTOSKILL_MSYS_ROOT"),
-            "headed": os.environ.get("AUTOSKILL_HEADED")}
+    identity = current_session_id()
+    # A dashboard started before the upgrade may ignore the new JSON field but still forward argv.
+    forwarded = list(argv)
+    while forwarded and (forwarded[0] == "--session" or forwarded[0].startswith("--session=")):
+        forwarded = forwarded[2:] if forwarded[0] == "--session" else forwarded[1:]
+    body = {"argv": ["--session=" + (identity or ""), *forwarded], "stdin": stdin_text, "msys_root": os.environ.get("AUTOSKILL_MSYS_ROOT"),
+            "headed": os.environ.get("AUTOSKILL_HEADED"), "session_id": identity}
+    if "AUTOSKILL_CASE_SKILL" in os.environ:
+        body["case_skill"] = str(paths.case_skill()) if os.environ["AUTOSKILL_CASE_SKILL"] else ""
     try:
         return _request(port, "/api/bridge", body, 3600)
     except urllib.error.HTTPError as error:
@@ -121,10 +129,17 @@ def check(argv: list[str]) -> None:
             raise ValueError(f"通过后台服务执行时，输出位置必须在 autoSkill 数据目录内（{root}）；省略输出位置即可使用默认位置")
 
 
-def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | None = None, headed: str | bool | None = None) -> dict:
+def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | None = None, headed: str | bool | None = None,
+            session_id: str | None = None, case_skill: str | None = None) -> dict:
     """Server side: run one autoskill command in its own process and return what it printed."""
     check(argv)
-    extra = {"AUTOSKILL_BRIDGE": "off", "AUTOSKILL_WORKSPACE": str(paths.workspace())}
+    if session_id is not None and not isinstance(session_id, str):
+        raise ValueError("会话标识需要是文字")
+    extra = {"AUTOSKILL_BRIDGE": "off", "AUTOSKILL_WORKSPACE": str(paths.workspace()), "AUTOSKILL_SESSION": session_id or ""}
+    if case_skill is not None:
+        if not isinstance(case_skill, str):
+            raise ValueError("用例 Skill 目录需要是路径文字")
+        extra["AUTOSKILL_CASE_SKILL"] = case_skill
     if headed in ("0", "1", True):  # the caller chose; otherwise the service's own setting applies
         extra["AUTOSKILL_HEADED"] = "0" if headed == "0" else "1"
     if msys_root:

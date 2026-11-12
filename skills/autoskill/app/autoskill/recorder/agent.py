@@ -1,6 +1,7 @@
 """Call the bundled agent-browser binary under a fixed offline policy."""
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import uuid
@@ -20,12 +21,11 @@ def _discard(file: Path) -> None:
         file.unlink(missing_ok=True)
 
 
-def _scratch() -> Path:
-    """Machine-private folder for command output; leftovers from earlier calls are swept here."""
-    folder = paths.local() / "agent-io"
+def _scratch(session: str) -> Path:
+    """Each call owns its output directory; never sweep another live command's handles."""
+    key = hashlib.sha256(session.encode("utf-8")).hexdigest()[:32]
+    folder = paths.local() / "agent-io" / key / uuid.uuid4().hex
     folder.mkdir(parents=True, exist_ok=True)
-    for stale in folder.iterdir():
-        _discard(stale)
     return folder
 
 
@@ -49,7 +49,7 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
     if not binary:
         raise AgentError("没有找到随包的 agent-browser；请使用完整离线包（不会联网下载）")
     command = [binary, "--session", session, *(launch or []), *args, "--json"]
-    folder = _scratch()
+    folder = _scratch(session)
     token = uuid.uuid4().hex
     out_path, err_path, in_path = folder / f"{token}.out", folder / f"{token}.err", folder / f"{token}.in"
     try:
@@ -70,6 +70,8 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
     finally:
         for file in (out_path, err_path, in_path):
             _discard(file)
+        with suppress(OSError):
+            folder.rmdir()
     try:
         reply = json.loads(raw) if raw else None
     except ValueError:

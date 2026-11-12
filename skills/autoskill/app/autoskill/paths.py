@@ -208,8 +208,14 @@ def headed() -> bool:
 
 
 def case_skill() -> Path:
-    """The swappable skill that holds the test cases to execute; always a folder called autoskill-cases."""
-    return Path(os.environ.get("AUTOSKILL_CASE_SKILL") or SKILL.parent / "autoskill-cases").resolve()
+    """Keep the legacy default sheet, with a separate default sheet for each named AI session."""
+    from . import task_context
+
+    if os.environ.get("AUTOSKILL_CASE_SKILL"):
+        return Path(os.environ["AUTOSKILL_CASE_SKILL"]).resolve()
+    if task_context.session_id() is not None:
+        return local() / "case-plans" / task_context.session_key() / "autoskill-cases"
+    return (SKILL.parent / "autoskill-cases").resolve()
 
 
 def child_env(extra: dict | None = None) -> dict:

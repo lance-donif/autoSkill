@@ -163,7 +163,7 @@ def _register_overview_routes(app: FastAPI) -> None:
             raise ValueError("argv 无效")
         stdin_text = body.get("stdin") if isinstance(body.get("stdin"), str) else None
         msys_root = body.get("msys_root") if isinstance(body.get("msys_root"), str) else None
-        return bridge.execute(argv, stdin_text, msys_root, body.get("headed"))
+        return bridge.execute(argv, stdin_text, msys_root, body.get("headed"), body.get("session_id"), body.get("case_skill"))
 
     @app.get("/api/summary")
     def summary(request: Request, tz: int = 480):

@@ -6,7 +6,8 @@ import json
 import os
 import sys
 
-from . import db, demo, paths, projects, runner, secrets, sessions
+from . import db, demo, paths, projects, runner, secrets, sessions, task_context
+from .locking import session_lock
 from .replay import ir
 
 STATUS_TEXT = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消"}
@@ -85,6 +86,7 @@ def read_secret_value(args) -> str:
 
 def parser() -> argparse.ArgumentParser:
     top = argparse.ArgumentParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
+    top.add_argument("--session", help="AI 测试会话标识；同一任务每条命令使用同一个值，也可设 AUTOSKILL_SESSION")
     sub = top.add_subparsers(dest="command", required=True)
 
     project = sub.add_parser("project", help="项目：create / list / show / update").add_subparsers(dest="action", required=True)
@@ -440,7 +442,7 @@ def _dispatch_execution(args) -> tuple[dict, int]:
         chosen = [auth[k] for k in ("ui_case", "api_case") if auth.get(k)]
         if not chosen:
             raise ValueError(f"项目还没有登录用例；用 autoskill record start {args.project} --as-login 录制一次登录")
-        run = runner.create(args.project, chosen, "playwright", trigger="login")
+        run = runner.create(args.project, chosen, "playwright", trigger="login", force_login=args.force)
         final = runner.execute(run["id"], force_login=args.force)
     else:
         chosen = args.cases
@@ -497,7 +499,11 @@ def dispatch(args) -> tuple[dict, int]:
         "login": _dispatch_execution,
         "run": _dispatch_execution,
     }
-    return handlers.get(args.command, _dispatch_recording)(args)
+    handler = handlers.get(args.command, _dispatch_recording)
+    if args.command in ("record", "browser", "check"):
+        with session_lock():
+            return handler(args)
+    return handler(args)
 
 
 def delegate(args, argv: list[str], reason: str) -> int:
@@ -537,6 +543,7 @@ def undo_msys(args) -> None:
         args.args = [fix(a) for a in args.args]
     elif args.command == "record" and getattr(args, "url", None):
         args.url = fix(args.url)
+    args.session = fix(args.session)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -546,6 +553,13 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     args = parser().parse_args(argv)
     undo_msys(args)
+    identity = args.session if args.session is not None else task_context.session_id()
+    with task_context.use_session(identity):
+        return _main(args, argv)
+
+
+def _main(args, argv: list[str]) -> int:
+    """Execute one command after the caller's session identity has been selected."""
     if getattr(args, "headless", False) or getattr(args, "headed", False):
         os.environ["AUTOSKILL_HEADED"] = "0" if getattr(args, "headless", False) else "1"
     mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")  # auto: only when this process cannot do the work itself

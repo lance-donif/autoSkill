@@ -65,7 +65,22 @@ dsh web --no-open
 
 > 使用 autoSkill 测试这个网址，只做正常访问和查询。先运行 project list，再按技能说明新建项目、录制、断言、回放。
 
-升级前先在 DSH 停用插件，确认仪表盘退出；备份并保留旧目录的 `autoskill/workspace/`（包括 `.local`），再换包、重新启用。跨系统凭据不能直接迁移：Windows 用 DPAPI，Linux 用 Fernet，本机密钥 `.local/encryption.key`（0600）；换机后需重新设置凭据或安全迁移整套本机数据。
+多个 AI 会话可以共用同一个插件和仪表盘。给每个测试任务指定不同的会话标识，并让它的所有命令都带上全局前缀，例如：
+
+```sh
+autoskill/autoskill --session "订单任务-甲" record start <项目>
+autoskill/autoskill --session "库存任务-乙" record start <项目>
+autoskill/autoskill --session "订单任务-甲" browser snapshot
+autoskill/autoskill --session "库存任务-乙" browser snapshot
+```
+
+也可在每个任务自己的命令进程中设置 `AUTOSKILL_SESSION`；不要给整个 DSH 服务统一设置一个值后让所有任务共用它。标识可使用任意文字，内部按哈希隔离浏览器、录制状态与默认用例表。`record stop`、`check`、`plan` 和 `run` 都延续同一标识；取消一项任务不会关闭另一项任务的浏览器。项目和已保存用例仍然共享，同项目保存自动排队，不同会话可并行操作。未指定会话时保留旧命令的默认录制行为。
+
+回放全局默认并行 2 个任务，可在服务和命令环境中设置 `AUTOSKILL_MAX_PARALLEL` 调大；同项目回放会复用共享登录态，因此按顺序执行。多个会话的录制浏览器仍可同时操作同一个项目。
+
+本机后台转交会传递调用者的会话身份，不使用仪表盘进程恰好继承的 `AUTOSKILL_SESSION`。这项隔离已通过本地 CLI 与真实 HTTP 转交测试；它不代表已经完成 DSH 智能体实机验收。
+
+升级前先在 DSH 停用插件，确认仪表盘退出；备份并保留旧目录的 `autoskill/workspace/`（包括 `.local`），再换包、重新启用。当前凭据明文保存在 `workspace/.local/credentials.json`，项目设置中可查看和修改；Windows DPAPI、Linux Fernet 仅用于兼容读取旧版本的加密存储。项目分享和完整包迁移按技能中的 `pack` 命令说明执行。
 
 ## 从源码部署
 

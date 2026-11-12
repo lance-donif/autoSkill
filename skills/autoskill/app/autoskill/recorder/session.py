@@ -1,7 +1,8 @@
-"""One recording at a time: every browser action an agent takes becomes a replayable step."""
+"""One recording per AI session: every browser action becomes a replayable step."""
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import re
 import time
@@ -9,17 +10,20 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .. import db, paths, projects, secrets
+from .. import db, paths, projects, secrets, task_context
+from ..locking import project_lock
 from ..replay import ir
 from ..replay.tabs import Tabs
 from . import agent
 
 
 def session_name() -> str:
-    """One browser session per workspace: two autoSkill folders on one machine must never share a browser."""
-    import hashlib
-
-    return "autoskill-" + hashlib.sha1(str(paths.workspace()).lower().encode("utf-8")).hexdigest()[:10]
+    """Separate browser daemons by workspace and task while preserving the legacy default name."""
+    identity = task_context.session_id()
+    if identity is None:
+        return "autoskill-" + hashlib.sha1(str(paths.workspace()).lower().encode("utf-8")).hexdigest()[:10]
+    value = json.dumps([str(paths.workspace()), identity], ensure_ascii=False).encode("utf-8")
+    return "autoskill-" + hashlib.sha256(value).hexdigest()[:20]
 DOM_JS = (Path(__file__).resolve().parents[1] / "replay" / "dom.js").read_text(encoding="utf-8")
 TARGETED = ("click", "dblclick", "hover", "check", "uncheck", "fill", "type", "select")
 READ_ONLY = ("snapshot", "get", "is", "wait", "screenshot", "scroll", "scrollintoview", "focus", "eval")
@@ -34,8 +38,16 @@ class RecordError(Exception):
     pass
 
 
+def recording_dir() -> Path:
+    folder = paths.local()
+    if task_context.session_id() is not None:
+        folder = folder / "recordings" / task_context.session_key()
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
 def _file() -> Path:
-    return paths.local() / "recording.json"
+    return recording_dir() / "recording.json"
 
 
 def current(required: bool = True) -> dict | None:
@@ -337,7 +349,7 @@ def _element_png(locator: dict) -> bytes:
 
 
 def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
-    """Open the fenced browser on the project's address and begin recording actions and traffic."""
+    """Open this task's browser on the project's address and record actions and traffic."""
     notes = []
     previous = current(required=False)
     if previous:
@@ -356,7 +368,7 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         if runner.execute(run["id"])["status"] != "Pass":
             reason = (db.one("SELECT reason FROM results WHERE run_id = ? ORDER BY id DESC", (run["id"],)) or {}).get("reason", "")
             raise RecordError("自动登录没有成功，录制未开始：" + (reason or "请检查登录用例和凭据"))
-        state_file = paths.local() / "recording-state.json"
+        state_file = recording_dir() / "recording-state.json"
         state_file.write_text(json.dumps(sessions.load(project_id).get("ui", {})), encoding="utf-8")
         used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
     agent.call(session_name(), ["close"], check=False, timeout=30)
@@ -381,7 +393,7 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
     finally:
         if state_file:
             state_file.unlink(missing_ok=True)
-    rec = {"project_id": project_id, "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
+    rec = {"project_id": project_id, "session_id": task_context.session_id(), "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
            "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
            "rand": uuid.uuid4().hex[:6]}
     ir.set_rand(rec["rand"])
@@ -615,7 +627,7 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
         raise RecordError("请用 --title 给这条用例起一个说明业务含义的名字")
     if not rec["steps"]:
         raise RecordError("还没有记录任何步骤；先用 autoskill browser 操作页面，或运行 autoskill record cancel 放弃")
-    har_file, state_file = paths.local() / "recording.har", paths.local() / "recording-state.json"
+    har_file, state_file = recording_dir() / "recording.har", recording_dir() / "recording-state.json"
     har, state = {"log": {"entries": []}}, None
     try:
         if agent.call(session_name(), ["network", "har", "stop", str(har_file)], check=False) is not None and har_file.is_file():
@@ -626,7 +638,8 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
         agent.call(session_name(), ["close"], check=False, timeout=30)
         har_file.unlink(missing_ok=True)  # raw traffic and cookies never stay on disk
         state_file.unlink(missing_ok=True)
-    summary = compiler.build(rec["project_id"], rec, har, state, title.strip(), module, category)
+    with project_lock(rec["project_id"]):
+        summary = compiler.build(rec["project_id"], rec, har, state, title.strip(), module, category)
     _file().unlink(missing_ok=True)
     summary["project"] = rec["project_id"]
     if plan_case:  # this recording carried out a row of the case sheet: its replay result becomes that row's verdict

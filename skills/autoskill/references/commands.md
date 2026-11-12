@@ -2,6 +2,14 @@
 
 所有命令输出一个 JSON 对象；`"error"` 表示没有成功，文字说明原因和下一步。任何失败（包括没有预料到的内部错误）都以这种形式输出，详细信息另写到标准错误。退出码：0 成功，1 有用例失败，2 阻塞、命令没有成功或用法错误，3 找不到随包运行时。
 
+## 会话
+
+所有命令都支持全局前缀：`autoskill --session "会话标识" <命令> ...`，也可设置任务进程的 `AUTOSKILL_SESSION`。命令行参数优先；省略两者时使用原来的默认会话。标识允许任意文字，文件和浏览器名称使用其哈希，不把原文当路径。
+
+多个 AI 任务各自使用不同标识，从 `record start`、`browser`、`check` 到 `record stop`、`plan`、`run` 保持一致。各会话拥有独立的录制、浏览器和默认 Excel 用例表；取消一个会话不影响其他会话。同一会话的录制命令顺序执行，不同会话可以并行；同项目的用例保存自动串行，项目和保存后的用例仍然共享。
+
+直接从 Python 调用时，可用 `from autoskill.task_context import use_session` 和 `with use_session("任务甲"):` 选择上下文；`use_session(None)` 明确选择默认会话并屏蔽当前环境变量。后台转交会明确传递调用方身份，未指定身份的旧调用仍使用默认会话。
+
 ## 项目
 
 | 命令 | 说明 |
@@ -11,7 +19,7 @@
 | `project show <项目>` | 单个项目的设置 |
 | `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
-| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表（Excel，位于同级的 `autoskill-cases` 用例 Skill）：生成、读取、记录结果、把回放结果写回 |
+| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、把回放结果写回；默认会话位于同级 `autoskill-cases`，命名会话拥有独立默认目录，以命令返回的路径为准 |
 | `context <项目>` | 登录方式、已保存的登录态、缺少的凭据、用例清单、知识库、建议的下一步 |
 | `cases <项目>` | 用例清单 |
 
@@ -37,7 +45,7 @@
 | `record stop --title 标题 [--module 模块] [--category 分类]` | 结束并生成用例 |
 | `record cancel` | 放弃，不生成用例 |
 
-同一时间只能有一个录制。
+每个会话维护自己的录制；不同会话可以同时录制。
 
 ### 标签页与新窗口
 
@@ -75,6 +83,7 @@
 `run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api]`
 
 - 浏览器默认显示最大化的窗口（没有窗口时页面为 1920×1080）；加 `--headless` 在后台运行（`record start`、`run`、`login`、`dashboard` 都支持，也可设置环境变量 `AUTOSKILL_HEADED=0`）。
+- 全局默认同时回放 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的回放共享登录态，会自动排队。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
 - 前置用例自动先执行且每次运行只执行一次；前置没通过时，依赖它的用例记为阻塞。
 - 登录用例：有保存的登录态且仍有效就直接复用，否则重新登录；回放中途发现登录过期会重新登录一次，只读用例自动重试，写操作不自动重发。
 - 没有前置的接口用例不带任何登录信息发送（用来验证「未登录被拒绝」）。
@@ -108,9 +117,14 @@
 <Skill 目录>/workspace/
   projects/<项目>/        可以分享：project.json、qa-config.json、auth.json、testcases/、knowledge/
   .local/                 只在本机：凭据、登录态、运行记录、截图、报告
+    recording.json        默认会话的录制状态（兼容旧版本）
+    recordings/<哈希>/    命名会话的录制状态和临时文件
+    case-plans/<哈希>/autoskill-cases/  命名会话的默认 Excel 用例 Skill
 ```
 
 环境变量 `AUTOSKILL_WORKSPACE` 可以把工作区放到别处（仪表盘和命令行要用同一个值）。
+
+`AUTOSKILL_CASE_SKILL` 可以显式指定用例 Skill 目录，优先于默认和命名会话的目录选择；需要不同任务各自使用自己的表时，使用不同目录或保留各会话的默认目录。通过后台服务执行时，调用方显式设置的值会原样选择目录（相对路径按调用方位置解析）；空值恢复该会话的默认目录，未设置则沿用服务配置。
 
 ## 等待时间
 
