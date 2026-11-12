@@ -28,8 +28,11 @@ def main():
         report.update({k: data[k] for k in ('bytes', 'sha256', 'release_url', 'download_url', 'asset_id')})
         path = Path('reports/交付验证报告.md')
         text = path.read_text(encoding='utf-8')
+        text = text.replace('分支：`rebuild/replay-studio`（基于 `main` 的 `bf43edc`）', '源码现位于 `main`；以下开发阶段记录保留其原有验证边界')
         lines = text.splitlines()
         for index, line in enumerate(lines):
+            if line.startswith('| 源码 |'):
+                lines[index] = f"| 源码 | `main` / `{tag}`（构建提交 `{data['built_from_commit']}`） | Skill 本体在 `skills/autoskill/`，DSH 插件在 `plugin/` |"
             if line.startswith('| Windows x64 完整离线包 |'):
                 lines[index] = (f"| Windows x64 完整离线包 | `{data['file']}`（Release {tag}） | {data['bytes']:,} 字节。"
                                 f"SHA-256：`{data['sha256']}`；Windows CI verify、doctor --launch 和回归通过，DSH 智能体未验收 |")
@@ -38,7 +41,9 @@ def main():
                 'Windows CI 完成包内校验、两种浏览器真实启动和回归；默认 DSH 沙箱智能体尚未验收，其他历史结果保持原有边界。\n')
         text = text.replace('## 6. 未验证', note + '\n## 6. 未验证', 1)
         path.write_text(text, encoding='utf-8')
-        for filename in ('plugin/COMPATIBILITY.md', 'docs/需求与验收清单.md'):
+        # Only source-side audit documents change after packaging. Keep shipped plugin docs
+        # byte-identical to the tag from which the verified archive was built.
+        for filename in ('docs/需求与验收清单.md',):
             path = Path(filename)
             with path.open('a', encoding='utf-8') as stream:
                 stream.write(f"\n发布 {tag} 的 Windows 包经 CI 校验和启动验证，证据见 `reports/evidence/releases/{tag}/`。"
