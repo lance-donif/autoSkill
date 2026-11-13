@@ -1,5 +1,5 @@
 // Entry point: routing, the shared frame, and a quiet refresh while runs are in progress.
-import { route, onChange, h, replace, live, toast } from './core.js';
+import { route, scope, onChange, h, replace, live, toast } from './core.js';
 import { refreshShell, renderSide, renderScope, applyTheme, state } from './shell.js';
 import { skeletonRows, errorState } from './ui.js';
 import { loadPreferences, onPreferences, preferredTheme } from './preferences.js';
@@ -15,34 +15,37 @@ const PAGES = {
 const view = document.getElementById('view');
 let token = 0;
 let lastKey = '';
+let lastScope = '';
 
 async function show({ quiet = false } = {}) {
   const { page, id } = route();
   const mine = ++token;
   const key = page + '/' + (id || '');
   const fresh = key !== lastKey;
-  renderSide();
-  renderScope();
+  const currentScope = JSON.stringify(scope());
+  if (fresh) renderSide();
+  if (fresh || currentScope !== lastScope) renderScope();
   if (!PAGES[page]) { location.hash = '#/dashboard'; return; }
-  if (fresh) {
+  if (!view.childElementCount) {
     replace(view, h('div', { class: 'card' }, skeletonRows(6)));
-    window.scrollTo(0, 0);
-  } else if (!quiet) {
-    view.classList.add('stale');  // filters changed: keep the previous render in place while the new one loads
   }
+  view.setAttribute('aria-busy', 'true');
   try {
     const module = await PAGES[page]();
     if (mine !== token) return;
-    const holder = quiet || !fresh ? document.createElement('div') : view;
+    const holder = document.createElement('div');
     await module.render(holder, { id, quiet });
     if (mine !== token) return;
-    if (holder !== view) view.replaceChildren(...holder.childNodes);
+    if (!fresh && module.commit) module.commit(view, holder, { id, quiet });
+    else view.replaceChildren(...holder.childNodes);
+    if (fresh) window.scrollTo(0, 0);
     lastKey = key;
+    lastScope = currentScope;
   } catch (error) {
     if (mine !== token) return;
     replace(view, h('div', { class: 'card' }, errorState(error, () => show())));
   } finally {
-    if (mine === token) view.classList.remove('stale');
+    if (mine === token) view.removeAttribute('aria-busy');
   }
 }
 

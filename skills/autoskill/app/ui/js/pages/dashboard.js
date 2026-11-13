@@ -45,16 +45,9 @@ export async function render(view) {
   try {
     [summary, failures, recent] = await Promise.all([
       api('/summary' + scopeQuery()),
-      currentOnly ? api('/results' + scopeQuery({ limit: 6, status: 'Fail', current: true })) : null,
+      loadFailures(currentOnly),
       api('/runs' + scopeQuery({ limit: 6, exclude_load: true })),
     ]);
-    if (!currentOnly) {
-      const [failed, blocked] = await Promise.all([
-        api('/results' + scopeQuery({ limit: 6, status: 'Fail' })), api('/results' + scopeQuery({ limit: 6, status: 'Blocked' })),
-      ]);
-      failures = { total: failed.total + blocked.total,
-        items: [...failed.items, ...blocked.items].sort((a, b) => (a.started_at < b.started_at ? 1 : -1)).slice(0, 6) };
-    }
   } catch (error) {
     replace(view, pageHead(null), h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
@@ -68,12 +61,18 @@ export async function render(view) {
   const kpis = summaryKpis(r, c, u, s, points, none);
 
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '趋势展示方式' },
-    h('button', { 'aria-pressed': String(!showTable), onClick: () => { showTable = false; refresh(); } }, '图表'),
-    h('button', { 'aria-pressed': String(showTable), onClick: () => { showTable = true; refresh(); } }, '表格'));
+    h('button', { 'aria-pressed': String(!showTable), onClick: () => changeTrend(false) }, '图表'),
+    h('button', { 'aria-pressed': String(showTable), onClick: () => changeTrend(true) }, '表格'));
   const pickDay = (point) => {
     const day = point.bucket.slice(0, 10);
     go('runs', { view: 'results', range: 'custom', from: day, to: day });
   };
+  const chartBody = h('div', { class: 'card-body' }, showTable ? trendTable(points, summary.trend.unit) : trendChart(points, summary.trend.unit, pickDay));
+  function changeTrend(table) {
+    showTable = table;
+    for (const [index, button] of [...toggle.children].entries()) button.setAttribute('aria-pressed', String(table === (index === 1)));
+    replace(chartBody, table ? trendTable(points, summary.trend.unit) : trendChart(points, summary.trend.unit, pickDay));
+  }
   const trend = h('section', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', { class: 'grow' }, h('h2', { class: 'row' }, '执行趋势', definition(DEFINITIONS.trend)),
@@ -83,7 +82,7 @@ export async function render(view) {
       ? empty({ glyph: 'runs', title: '这个范围内还没有执行',
         text: isDefaultScope(s) ? '运行一次用例，这里就会出现趋势。' : '换一个时间范围或项目，或者现在运行一次。',
         actions: [runAll({ primary: true }), !isDefaultScope(s) && h('button', { class: 'btn', onClick: () => setScope({ projects: [], range: DEFAULT_RANGE, from: '', to: '' }) }, icon('reset'), '重置筛选')] })
-      : h('div', { class: 'card-body' }, showTable ? trendTable(points, summary.trend.unit) : trendChart(points, summary.trend.unit, pickDay)));
+      : chartBody);
 
   replace(view, pageHead(summary), kpis,
     h('div', { class: 'dash-grid' }, trend, tasksCard(summary.tasks)),
@@ -141,27 +140,61 @@ function tasksCard(tasks) {
     body);
 }
 
-function failuresCard(failures, r, _view) {
-  const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '失败列表范围' },
-    h('button', { 'aria-pressed': String(!currentOnly), onClick: () => { currentOnly = false; refresh(); } }, '范围内全部'),
-    h('button', { 'aria-pressed': String(currentOnly), onClick: () => { currentOnly = true; refresh(); } }, '当前仍失败'));
-  const body = failures.items.length
+async function loadFailures(current) {
+  if (current) return api('/results' + scopeQuery({ limit: 6, status: 'Fail', current: true }));
+  const [failed, blocked] = await Promise.all([
+    api('/results' + scopeQuery({ limit: 6, status: 'Fail' })), api('/results' + scopeQuery({ limit: 6, status: 'Blocked' })),
+  ]);
+  return { total: failed.total + blocked.total,
+    items: [...failed.items, ...blocked.items].sort((a, b) => (a.started_at < b.started_at ? 1 : -1)).slice(0, 6) };
+}
+
+function failuresBody(failures, r, current) {
+  return [failures.items.length
     ? h('div', { class: 'list' }, failures.items.map((item) => h('a', { class: 'list-row', href: href('runs/' + item.run_id, { case: item.case_id }) },
       statusPill(item.status),
       h('span', { class: 'grow' },
         h('div', { class: 'primary-text ellipsis' }, item.case_title),
         h('div', { class: 'secondary-text ellipsis' }, `${item.project_name} · ${CATEGORY[item.category] || '未分类'} · ${item.reason || item.actual}`)),
       h('span', { class: 'secondary-text num' }, fmtTime(item.started_at)))))
-    : empty({ glyph: 'check', title: currentOnly ? '没有仍在失败的用例' : '没有失败或阻塞',
-      text: r.executions ? '这个范围内没有失败或阻塞记录；业务验证度见上方汇总。' : '这个范围内还没有执行。' });
+    : empty({ glyph: 'check', title: current ? '没有仍在失败的用例' : '没有失败或阻塞',
+      text: r.executions ? '这个范围内没有失败或阻塞记录；业务验证度见上方汇总。' : '这个范围内还没有执行。' }),
+  failures.total > failures.items.length && h('div', { class: 'card-body', style: 'padding-top:8px' },
+    h('a', { class: 'card-link', href: href('runs', { view: 'results', status: 'Fail' }) }, '查看全部', icon('right')))];
+}
+
+function failuresCard(failures, r) {
+  let request = 0;
+  const initialScope = scopeQuery();
+  const subtitle = h('p', { class: 'sub' });
+  const content = h('div', { dataset: { dashboardFailures: '' } }, failuresBody(failures, r, currentOnly));
+  const note = () => { subtitle.textContent = currentOnly ? `最近一次执行仍为失败的用例 ${r.still_failing} 条` : `范围内共 ${r.failed + r.blocked} 条次`; };
+  async function choose(current) {
+    currentOnly = current;
+    const mine = ++request;
+    for (const [index, button] of [...toggle.children].entries()) button.setAttribute('aria-pressed', String(current === (index === 1)));
+    content.setAttribute('aria-busy', 'true');
+    try {
+      const data = await loadFailures(current);
+      if (mine !== request || !content.isConnected || initialScope !== scopeQuery()) return;
+      replace(content, failuresBody(data, r, current));
+      note();
+    } catch (error) {
+      if (mine === request && content.isConnected) replace(content, errorState(error, () => choose(current)));
+    } finally {
+      if (mine === request) content.removeAttribute('aria-busy');
+    }
+  }
+  const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '失败列表范围' },
+    h('button', { 'aria-pressed': String(!currentOnly), onClick: () => choose(false) }, '范围内全部'),
+    h('button', { 'aria-pressed': String(currentOnly), onClick: () => choose(true) }, '当前仍失败'));
+  note();
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', { class: 'grow' }, h('h2', {}, '失败与阻塞'),
-        h('p', { class: 'sub' }, currentOnly ? `最近一次执行仍为失败的用例 ${r.still_failing} 条` : `范围内共 ${r.failed + r.blocked} 条次`)),
+        subtitle),
       toggle),
-    body,
-    failures.total > failures.items.length && h('div', { class: 'card-body', style: 'padding-top:8px' },
-      h('a', { class: 'card-link', href: href('runs', { view: 'results', status: 'Fail' }) }, '查看全部', icon('right'))));
+    content);
 }
 
 function recentCard(recent) {

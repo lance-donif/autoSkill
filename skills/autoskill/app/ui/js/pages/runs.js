@@ -23,6 +23,23 @@ export async function render(view, { id }) {
   return history(view);
 }
 
+/** Keep the history controls mounted when only their result list changes. */
+export function commit(view, next, { id }) {
+  const current = view.querySelector('[data-history-region="content"]');
+  const incoming = next.querySelector('[data-history-region="content"]');
+  if (id || !current || !incoming) { view.replaceChildren(...next.childNodes); return; }
+  const oldToolbar = view.querySelector('[data-history-region="toolbar"]');
+  const newToolbar = next.querySelector('[data-history-region="toolbar"]');
+  if (oldToolbar.dataset.historyMode === newToolbar.dataset.historyMode) {
+    const pressed = new Map([...newToolbar.querySelectorAll('button')].map((button) => [button.textContent, button.getAttribute('aria-pressed')]));
+    for (const button of oldToolbar.querySelectorAll('button')) button.setAttribute('aria-pressed', pressed.get(button.textContent));
+  } else oldToolbar.replaceWith(newToolbar);
+  view.querySelector('.page-head p').textContent = next.querySelector('.page-head p').textContent;
+  for (const name of ['notices', 'content', 'selection']) {
+    view.querySelector(`[data-history-region="${name}"]`).replaceChildren(...next.querySelector(`[data-history-region="${name}"]`).childNodes);
+  }
+}
+
 // ---- lists: runs, or individual case results (the drill-down behind the dashboard figures) ----
 async function history(view) {
   const { params } = route();
@@ -82,8 +99,10 @@ async function history(view) {
   replace(view,
     h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '执行记录'),
       h('p', { class: 'sub' }, mode === 'results' ? `范围内共 ${data.total} 条用例结果（不含自动执行的前置）` : `范围内共 ${data.total} 次运行`))),
-    h('div', { class: 'toolbar' }, tabs, filter),
-    deletionNotice(), h('section', { class: 'card' }, body, pager), selectionBar);
+    h('div', { class: 'toolbar', dataset: { historyRegion: 'toolbar', historyMode: mode } }, tabs, filter),
+    h('div', { dataset: { historyRegion: 'notices' } }, deletionNotice()),
+    h('section', { class: 'card', dataset: { historyRegion: 'content' } }, body, pager),
+    h('div', { dataset: { historyRegion: 'selection' } }, selectionBar));
 }
 
 function updateSelection(items, params, mode) {
