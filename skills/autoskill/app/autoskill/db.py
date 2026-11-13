@@ -11,7 +11,7 @@ import json
 import sqlite3
 import uuid
 
-from . import paths
+from . import maintenance, paths
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects (
@@ -75,6 +75,12 @@ def new_id(prefix: str) -> str:
 
 @contextlib.contextmanager
 def connect():
+    with maintenance.access(paths.workspace()), _connection() as conn:
+        yield conn
+
+
+@contextlib.contextmanager
+def _connection():
     conn = sqlite3.connect(paths.local() / "autoskill.db", timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

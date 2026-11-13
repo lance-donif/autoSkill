@@ -53,6 +53,9 @@ def workspace() -> Path:
 
 def local() -> Path:
     """Machine-private data: sessions, secrets, run history, evidence."""
+    from . import maintenance
+
+    maintenance.check(workspace())
     path = workspace() / ".local"
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -141,9 +144,12 @@ def settings() -> dict:
 
 
 def save_settings(**values) -> dict:
-    data = {**settings(), **values}
-    (local() / "settings.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return data
+    from . import maintenance
+
+    with maintenance.access(workspace()):
+        data = {**settings(), **values}
+        (local() / "settings.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return data
 
 
 def browser_mode() -> str:
