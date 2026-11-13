@@ -62,6 +62,21 @@ class FeatureDashboardTests(DashboardWorkspace):
         all_mapped = list(all_book["编号映射"].values)
         self.assertEqual({row[1] for row in all_mapped[1:]}, {"TC-BEGIN", "TC-CHECK", "TC-SLOW", "TC-CHANGING", "TC-UI"})
 
+    def test_diagnostics_run_real_checks_and_show_missing_runtime_honestly(self):
+        self.open("diagnostics")
+        self.page.get_by_role("button", name="检查运行环境", exact=True).click()
+        expect(self.page.get_by_role("table", name="Python 依赖状态", exact=True)).to_be_visible(timeout=15000)
+        expect(self.page.get_by_role("table", name="Python 依赖状态", exact=True)).to_contain_text("playwright")
+        self.page.get_by_label("选择执行器", exact=True).select_option("ai-eval")
+        self.page.get_by_role("button", name="检查执行器", exact=True).click()
+        table = self.page.get_by_role("table", name="执行器检查结果", exact=True)
+        expect(table).to_contain_text("ai-eval", timeout=15000)
+        expect(table).to_contain_text("可用")
+        self.page.get_by_role("button", name="校验离线包文件", exact=True).click()
+        expect(self.page.get_by_role("alert").filter(has_text="运行时清单")).to_be_visible(timeout=15000)
+        expect(self.page.get_by_role("button", name="校验离线包文件", exact=True)).to_be_enabled()
+        self.evidence("diagnostics.png")
+
     def test_knowledge_materials_download_and_uploaded_share_use_real_files(self):
         self.open("project-materials?project=" + self.pid)
         self.page.get_by_role("button", name="新建知识", exact=True).first.click()

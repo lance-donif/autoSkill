@@ -13,6 +13,7 @@ const NAV = [
   ['runs', '执行记录', 'runs'],
   ['schedules', '定时任务', 'clock'],
   ['data', '数据管理', 'folder'],
+  ['diagnostics', '运行诊断', 'sliders'],
 ];
 export const state = { projects: [], status: null, active: 0, online: true };
 

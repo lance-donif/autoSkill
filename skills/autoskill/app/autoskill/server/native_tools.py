@@ -1,13 +1,16 @@
-"""Download bound native evidence and rerun original asset versions from the dashboard."""
+"""Download native evidence, rerun frozen assets and execute environment diagnostics asynchronously."""
 from __future__ import annotations
 
+import copy
 import hashlib
+import threading
+import uuid
 from pathlib import PurePosixPath
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
-from .. import native_run
+from .. import cli, db, engines, native_run
 from . import jobs
 
 
@@ -31,7 +34,52 @@ def _native_file(run_id: str, name: str):
     return target
 
 
+def _diagnose(body: dict) -> dict:
+    if body["kind"] == "doctor":
+        return cli.doctor(body.get("launch", False))
+    if body["kind"] == "verify":
+        return cli.verify()
+    return {"engines": engines.probe(body.get("engine"))}
+
+
 def register(app: FastAPI) -> None:
+    diagnostics: dict[str, dict] = {}
+    diagnostic_lock = threading.Lock()
+
+    def diagnostic(identity: str) -> dict:
+        with diagnostic_lock:
+            value = diagnostics.get(identity)
+            if value is None:
+                raise HTTPException(404, "诊断任务不存在，服务重启后请重新检查")
+            return copy.deepcopy(value)
+
+    def execute(identity: str, body: dict) -> None:
+        try:
+            result = {"status": "Completed", "result": _diagnose(body), "error": None}
+        except Exception as error:  # noqa: BLE001  # Diagnostics must retain a readable result even when a third-party tool fails.
+            result = {"status": "Failed", "result": None, "error": str(error)}
+        with diagnostic_lock:
+            diagnostics[identity].update(result, finished_at=db.now())
+
+    @app.post("/api/diagnostics")
+    def start(body: dict):
+        if set(body) - {"kind", "launch", "engine"} or body.get("kind") not in ("doctor", "verify", "engines"):
+            raise ValueError("诊断 kind 需要是 doctor、verify 或 engines")
+        if "launch" in body and type(body["launch"]) is not bool:
+            raise ValueError("launch 必须为布尔值")
+        if "engine" in body and not isinstance(body["engine"], str):
+            raise ValueError("engine 必须是引擎标识")
+        identity = "diagnostic-" + uuid.uuid4().hex
+        value = {"id": identity, "kind": body["kind"], "status": "Running", "created_at": db.now(), "finished_at": None, "result": None, "error": None}
+        with diagnostic_lock:
+            diagnostics[identity] = value
+        threading.Thread(target=execute, args=(identity, copy.deepcopy(body)), daemon=True, name=identity).start()
+        return diagnostic(identity)
+
+    @app.get("/api/diagnostics/{diagnostic_id}")
+    def status(diagnostic_id: str):
+        return diagnostic(diagnostic_id)
+
     @app.get("/api/native-runs/{run_id}/files/{name:path}")
     def native_file(run_id: str, name: str):
         file = _native_file(run_id, name)

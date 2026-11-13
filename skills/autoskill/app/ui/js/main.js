@@ -12,6 +12,7 @@ const PAGES = {
   'native-assets': () => import('./pages/native-assets.js'),
   'native-runs': () => import('./pages/native-runs.js'),
   workflows: () => import('./pages/workflows.js'),
+  diagnostics: () => import('./pages/diagnostics.js'),
   runs: () => import('./pages/runs.js'),
   schedules: () => import('./pages/schedules.js'),
   data: () => import('./pages/data.js'),
