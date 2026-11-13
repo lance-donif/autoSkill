@@ -4,6 +4,7 @@ import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt
 import { empty, errorState, startRun, confirm, preferredHeaded } from '../ui.js';
 import { splitBar } from '../charts.js';
 import { refreshShell } from '../shell.js';
+import { downloadRunHtml } from './run-export.js';
 
 const PAGE = 50;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'ui' ? '页面' : '接口');
@@ -296,12 +297,7 @@ async function report(view, runId) {
 
   const summary = runSummary(run, running, stop, again, notPassed, retry, spent, runDeleteButton([run]));
 
-  const rows = h('section', { class: 'card' },
-    h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例结果'),
-      h('p', { class: 'sub' }, run.results.some((row) => row.prerequisite) ? '带「前置」标记的用例是为了满足依赖自动执行的，不计入统计。' : '点开一条查看每一步和每条断言。'))),
-    run.results.length
-      ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row)))
-      : empty({ glyph: 'clock', title: running ? '正在准备' : '没有结果', text: running ? '浏览器启动后，结果会一条条出现在这里。' : (run.reason || '这次运行没有产生结果。') }));
+  const rows = reportRows(run);
 
   replace(view,
     h('a', { class: 'back', href: href('runs', { ...Object.fromEntries(route().params), case: null }) }, icon('right'), '执行记录'),
@@ -314,39 +310,68 @@ async function report(view, runId) {
   }
 }
 
+function reportRows(run, offline = false) {
+  const running = active(run);
+  return h('section', { class: 'card' },
+    h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例结果'),
+      h('p', { class: 'sub' }, run.results.some((row) => row.prerequisite) ? '带「前置」标记的用例是为了满足依赖自动执行的，不计入统计。' : '点开一条查看每一步和每条断言。'))),
+    run.results.length
+      ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row, offline)))
+      : empty({ glyph: 'clock', title: running ? '正在准备' : '没有结果', text: running ? '浏览器启动后，结果会一条条出现在这里。' : (run.reason || '这次运行没有产生结果。') }));
+}
+
+const resultKey = (row) => String(row.id ?? row.case_id);
+
 function prepareReportRows(run, runId, focus) {
   if (reportFor !== runId) {
     reportFor = runId;
     openRows.clear();
-    if (focus) openRows.add(focus);
-    else for (const row of run.results) if (!row.prerequisite && row.status !== 'Pass') openRows.add(row.case_id);  // failures open by default
+    for (const row of run.results) {
+      if (focus ? row.case_id === focus : !row.prerequisite && row.status !== 'Pass') openRows.add(resultKey(row));
+    }
   }
 }
 
 function testReportControl(run) {
   const receipt = run.test_report;
   if (receipt?.status === 'ready') {
-    return h('a', { class: 'btn', href: receipt.download_url, download: '', title: '本次任务的用例、步骤、断言与实际结果' }, icon('table'), '下载本次用例 Excel');
+    return [h('a', { class: 'btn', href: receipt.download_url, download: '', title: '本次任务的用例、步骤、断言与实际结果' }, icon('table'), '下载本次用例 Excel'),
+      receipt.markdown_download_url && h('a', { class: 'btn', href: receipt.markdown_download_url, download: '', title: '本次任务的简单字段、结果汇总和主要问题' }, icon('table'), '下载 Markdown 汇总')];
   }
   if (receipt?.status !== 'failed') return null;
   const retry = h('button', { class: 'btn', onClick: async () => {
     const result = await attempt(() => api('/task-reports/' + encodeURIComponent(receipt.report_id) + '/retry', { method: 'POST' }), retry);
     if (result) {
-      toast(result.status === 'ready' ? '测试用例 Excel 已生成' : result.error || result.reason || '报告尚未生成', { bad: result.status === 'failed' });
+      toast(result.status === 'ready' ? '测试报告已生成' : result.error || result.reason || '报告尚未生成', { bad: result.status === 'failed' });
       refresh();
     }
-  } }, icon('reset'), '重试导出 Excel');
-  return [h('span', { class: 'sub', title: receipt.error }, 'Excel 导出未完成'), retry];
+  } }, icon('reset'), '重试导出报告');
+  return [h('span', { class: 'sub', title: receipt.error }, '报告导出未完成'), retry];
 }
 
-function runSummary(run, running, stop, again, notPassed, retry, spent, remove) {
+function htmlReportControl(run) {
+  const button = h('button', { class: 'btn', onClick: async () => {
+    const result = await attempt(() => downloadRunHtml(run, offlineReport(run)), button);
+    if (result) toast(result.warnings.length ? `HTML 已生成，${result.warnings.length} 张截图未能嵌入，原因已写入报告` : 'HTML 报告已生成，可离线查看全部明细', { bad: result.warnings.length > 0 });
+  } }, icon('globe'), '下载 HTML 报告');
+  return button;
+}
+
+function offlineReport(run) {
+  const spent = run.results.reduce((sum, row) => sum + row.duration_ms, 0);
+  return h('main', { class: 'view report-document', id: 'view' },
+    runSummary(run, active(run), null, null, 0, null, spent, null, true), reportRows(run, true));
+}
+
+function runSummary(run, running, stop, again, notPassed, retry, spent, remove, offline = false) {
   return h('section', { class: 'card run-summary' },
     h('div', { class: 'card-body' },
       h('div', { class: 'row wrap', style: 'gap:16px' },
         statusPill(run.status, deleting(run) ? '正在取消并删除' : null),
-        h('div', { class: 'grow' }, h('h1', {}, run.project_name),
-          h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 页面用例用 ${ENGINE[run.engine]} 回放 · ${fmtTime(run.created_at)}`)),
-        !deleting(run) && (running ? stop : [testReportControl(run), again, notPassed > 0 && retry]), remove),
+        h('div', { class: 'grow report-heading' }, h('h1', {}, run.project_name),
+          h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 执行引擎 ${ENGINE[run.engine] || run.engine || '未记录'} · ${fmtTime(run.created_at)}`)),
+        !offline && htmlReportControl(run),
+        !offline && !deleting(run) && (running ? stop : [testReportControl(run), again, notPassed > 0 && retry]), remove),
       running
         ? h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
@@ -362,10 +387,11 @@ function stat(label, value, tone) {
   return h('div', { class: 'stat' + (tone ? ' ' + tone : '') }, h('span', { class: 'stat-value' }, String(value)), h('span', { class: 'stat-label' }, label));
 }
 
-function resultRow(run, row) {
-  const open = openRows.has(row.case_id);
+function resultRow(run, row, offline = false) {
+  const key = resultKey(row);
+  const open = offline || openRows.has(key);
   const head = h('button', { class: 'result-head', 'aria-expanded': String(open), onClick: () => {
-    if (open) openRows.delete(row.case_id); else openRows.add(row.case_id);
+    if (open) openRows.delete(key); else openRows.add(key);
     refresh();
   } },
   icon('right', 'icon-svg caret'), statusPill(row.status),
@@ -376,10 +402,10 @@ function resultRow(run, row) {
     row.detail.relogin ? h('span', { class: 'tag', style: 'margin-left:6px' }, '已自动重新登录') : null,
     row.detail.fallbacks ? h('span', { class: 'tag', style: 'margin-left:6px', title: '首选定位没有匹配，用了备选定位' }, '定位已降级') : null),
   kindTag(row.kind), h('span', { class: 'sub num', style: 'min-width:72px;text-align:right' }, fmtDuration(row.duration_ms)));
-  return h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id } }, head, open && resultBody(run, row));
+  return h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id, result: key } }, head, open && resultBody(run, row, offline));
 }
 
-function resultBody(run, row) {
+function resultBody(run, row, offline = false) {
   const d = row.detail;
   const parts = [];
   if (row.status !== 'Pass') {
@@ -403,7 +429,7 @@ function resultBody(run, row) {
   }
   appendRequestDetails(parts, d, row);
   appendScreenshots(parts, d, run, row);
-  if (row.status !== 'Pass' && !row.prerequisite) {
+  if (!offline && row.status !== 'Pass' && !row.prerequisite) {
     const again = h('button', { class: 'btn sm' }, icon('play'), '只重跑这一条');
     again.addEventListener('click', () => startRun([{ project_id: run.project_id, case_ids: [row.case_id] }], again));
     parts.push(h('div', { class: 'row' }, again));
@@ -449,5 +475,5 @@ function show(value) {
   if (value === false) return '否';
   if (value == null) return '—';
   const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
-  return text.length > 160 ? text.slice(0, 160) + '…' : text;
+  return text.length > 160 ? h('details', { class: 'more' }, h('summary', {}, text.slice(0, 160) + '…'), h('pre', { class: 'code' }, text)) : text;
 }
