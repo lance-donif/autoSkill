@@ -87,6 +87,8 @@ autoskill import <分享包>            # 对方导入
 
 ## 开发
 
+系统分层、自动维护、既有资产迁移与可插拔引擎的审查结论见 [架构审查与演进方案](docs/架构审查与演进方案.md)。其中目标设计与当前实现分别标注。
+
 需要本机 Python 3.12+ 和 `requirements.txt` 中的库，以及 Chrome for Testing 与 chromedriver（通过环境变量 `AUTOSKILL_CHROMIUM`、`AUTOSKILL_CHROMEDRIVER`、`AUTOSKILL_AGENT_BROWSER` 指定）。
 
 ```bash
