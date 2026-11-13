@@ -1,6 +1,6 @@
 {
   "target": "windows-x64",
-  "autoskill": "2.2.0",
+  "autoskill": "2.2.1",
   "python": "3.12.10",
   "chrome_for_testing": "157.0.8103.78",
   "chromedriver": "157.0.8103.78",
@@ -409,22 +409,22 @@
   "auto_update": false,
   "runtime_files": 5703,
   "file": "autoSkill-Windows-x64-Offline.zip",
-  "bytes": 326620821,
-  "sha256": "d6813cb05e68c9d8443f13c4a34c17fed58e007c1b053f557943050c18be108e",
+  "bytes": 326918936,
+  "sha256": "29131c0653c22660479e3296ca46c7b74a3254433fcecc1a0a394679a7e6e26f",
   "ui_files": {
     "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+    "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
     "autoskill/app/ui/js/shell.js": "9801abac4c50ac4dea3316edbb16cc16a6845af9d20edf3b435920d4e3081cb7",
     "autoskill/app/ui/js/main.js": "e67c525113a4ce57d83d019e49627378ccb27d271312699852f24b97776274be",
-    "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
-    "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
     "autoskill/app/ui/js/ui.js": "9ae63dcd3c2b718d6c3bc169c5a8092d3dc36f226dfb1978cd90a76d135446c7",
-    "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
-    "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
+    "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
     "autoskill/app/ui/css/views.css": "c24e34cbe57248e0f60532f0e8b8bd33de0559a0c25680b29d4f6f3c878a4dad",
+    "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
     "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+    "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
+    "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
     "autoskill/app/ui/js/pages/schedules.js": "ff820b8682880dd25497271c066840dc4992fc8cd037043ed3be52283fe522c5",
     "autoskill/app/ui/js/pages/runs.js": "fad9e9a1feb702960faa940472c7c6ed4391d82943068a5b0dad70ae7b1d71c7",
-    "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
     "autoskill/app/ui/js/pages/dashboard.js": "d22b94be60357e6f5c9586adb09576d17a8589cc7d39cb00f61d634e8e8ccac4"
   },
   "verification": {
@@ -433,12 +433,12 @@
     "zip_crc_ok": true,
     "uploaded_digest_verified": true
   },
-  "asset_id": 741802137,
-  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.0/autoSkill-Windows-x64-Offline.zip",
+  "asset_id": 741839767,
+  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.1/autoSkill-Windows-x64-Offline.zip",
   "packages": [
     {
       "target": "windows-x64",
-      "autoskill": "2.2.0",
+      "autoskill": "2.2.1",
       "python": "3.12.10",
       "chrome_for_testing": "157.0.8103.78",
       "chromedriver": "157.0.8103.78",
@@ -847,22 +847,22 @@
       "auto_update": false,
       "runtime_files": 5703,
       "file": "autoSkill-Windows-x64-Offline.zip",
-      "bytes": 326620821,
-      "sha256": "d6813cb05e68c9d8443f13c4a34c17fed58e007c1b053f557943050c18be108e",
+      "bytes": 326918936,
+      "sha256": "29131c0653c22660479e3296ca46c7b74a3254433fcecc1a0a394679a7e6e26f",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+        "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
         "autoskill/app/ui/js/shell.js": "9801abac4c50ac4dea3316edbb16cc16a6845af9d20edf3b435920d4e3081cb7",
         "autoskill/app/ui/js/main.js": "e67c525113a4ce57d83d019e49627378ccb27d271312699852f24b97776274be",
-        "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
-        "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
         "autoskill/app/ui/js/ui.js": "9ae63dcd3c2b718d6c3bc169c5a8092d3dc36f226dfb1978cd90a76d135446c7",
-        "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
-        "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
+        "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
         "autoskill/app/ui/css/views.css": "c24e34cbe57248e0f60532f0e8b8bd33de0559a0c25680b29d4f6f3c878a4dad",
+        "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
         "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+        "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
+        "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
         "autoskill/app/ui/js/pages/schedules.js": "ff820b8682880dd25497271c066840dc4992fc8cd037043ed3be52283fe522c5",
         "autoskill/app/ui/js/pages/runs.js": "fad9e9a1feb702960faa940472c7c6ed4391d82943068a5b0dad70ae7b1d71c7",
-        "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
         "autoskill/app/ui/js/pages/dashboard.js": "d22b94be60357e6f5c9586adb09576d17a8589cc7d39cb00f61d634e8e8ccac4"
       },
       "verification": {
@@ -872,12 +872,12 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 741802137,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.0/autoSkill-Windows-x64-Offline.zip"
+      "asset_id": 741839767,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.1/autoSkill-Windows-x64-Offline.zip"
     },
     {
       "target": "linux-x64",
-      "autoskill": "2.2.0",
+      "autoskill": "2.2.1",
       "python": "3.12.10",
       "python_distribution": "astral-sh/python-build-standalone",
       "chrome_for_testing": "157.0.8103.78",
@@ -1238,22 +1238,22 @@
       "uos_hardware_verified": false,
       "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
       "file": "autoSkill-Linux-x64-Offline.zip",
-      "bytes": 409824706,
-      "sha256": "be588cf7665a5107bb26610ebe938df5497da2e20e44626f5d20fce7cffda5a0",
+      "bytes": 410316419,
+      "sha256": "d02cd00d4937509db757eb45fd785cb4df32edd261513e46b342aab4c7639c75",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+        "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
         "autoskill/app/ui/js/shell.js": "9801abac4c50ac4dea3316edbb16cc16a6845af9d20edf3b435920d4e3081cb7",
         "autoskill/app/ui/js/main.js": "e67c525113a4ce57d83d019e49627378ccb27d271312699852f24b97776274be",
-        "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
-        "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
         "autoskill/app/ui/js/ui.js": "9ae63dcd3c2b718d6c3bc169c5a8092d3dc36f226dfb1978cd90a76d135446c7",
-        "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
-        "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
+        "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
         "autoskill/app/ui/css/views.css": "c24e34cbe57248e0f60532f0e8b8bd33de0559a0c25680b29d4f6f3c878a4dad",
+        "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
         "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+        "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
+        "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
         "autoskill/app/ui/js/pages/schedules.js": "ff820b8682880dd25497271c066840dc4992fc8cd037043ed3be52283fe522c5",
         "autoskill/app/ui/js/pages/runs.js": "fad9e9a1feb702960faa940472c7c6ed4391d82943068a5b0dad70ae7b1d71c7",
-        "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
         "autoskill/app/ui/js/pages/dashboard.js": "d22b94be60357e6f5c9586adb09576d17a8589cc7d39cb00f61d634e8e8ccac4"
       },
       "verification": {
@@ -1263,12 +1263,12 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 741802611,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.0/autoSkill-Linux-x64-Offline.zip"
+      "asset_id": 741840482,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.1/autoSkill-Linux-x64-Offline.zip"
     },
     {
       "target": "linux-arm64",
-      "autoskill": "2.2.0",
+      "autoskill": "2.2.1",
       "python": "3.12.10",
       "python_distribution": "astral-sh/python-build-standalone",
       "chrome_for_testing": "157.0.8103.78",
@@ -1629,22 +1629,22 @@
       "uos_hardware_verified": false,
       "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
       "file": "autoSkill-Linux-arm64-Offline.zip",
-      "bytes": 384087535,
-      "sha256": "eda3287e9f7a6b2d3ce0c08464f48627c7030f83c917b88dc155d5b57ad62988",
+      "bytes": 384579459,
+      "sha256": "91641224f77475317f016f7856b6bc8e98c1b450a55ab996bfd2a56e03f699d8",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+        "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
         "autoskill/app/ui/js/shell.js": "9801abac4c50ac4dea3316edbb16cc16a6845af9d20edf3b435920d4e3081cb7",
         "autoskill/app/ui/js/main.js": "e67c525113a4ce57d83d019e49627378ccb27d271312699852f24b97776274be",
-        "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
-        "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
         "autoskill/app/ui/js/ui.js": "9ae63dcd3c2b718d6c3bc169c5a8092d3dc36f226dfb1978cd90a76d135446c7",
-        "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
-        "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
+        "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
         "autoskill/app/ui/css/views.css": "c24e34cbe57248e0f60532f0e8b8bd33de0559a0c25680b29d4f6f3c878a4dad",
+        "autoskill/app/ui/css/components.css": "f137e066b07e326b25a5a426a9f29159c2ab0feafe3d27032cab96d110a87bdd",
         "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+        "autoskill/app/ui/css/base.css": "3d621867b5979772490deced53a96b06cc1dc41ee67536ed71d54b199d19fea9",
+        "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
         "autoskill/app/ui/js/pages/schedules.js": "ff820b8682880dd25497271c066840dc4992fc8cd037043ed3be52283fe522c5",
         "autoskill/app/ui/js/pages/runs.js": "fad9e9a1feb702960faa940472c7c6ed4391d82943068a5b0dad70ae7b1d71c7",
-        "autoskill/app/ui/js/pages/cases.js": "3b77d6ec4e253c65d66950d0f106c0a913961226e0b7edd6de029d38051790c2",
         "autoskill/app/ui/js/pages/dashboard.js": "d22b94be60357e6f5c9586adb09576d17a8589cc7d39cb00f61d634e8e8ccac4"
       },
       "verification": {
@@ -1654,21 +1654,21 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 741803256,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.0/autoSkill-Linux-arm64-Offline.zip"
+      "asset_id": 741840992,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.1/autoSkill-Linux-arm64-Offline.zip"
     }
   ],
   "package_count": 3,
-  "tag": "v2.2.0",
-  "built_from_commit": "476b845dae5a11ab2382d34f1992cc972898861c",
-  "release_id": 443706968,
-  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.2.0",
+  "tag": "v2.2.1",
+  "built_from_commit": "19aa395e5b455e9e57114a5cb529ba8ecc19b7f6",
+  "release_id": 443716055,
+  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.2.1",
   "checksum_asset": {
     "file": "SHA256SUMS.txt",
     "bytes": 298,
-    "sha256": "df6504d36e8a769b1d00cdcaf43c0c2ed4f15378e3f3dc7d89175c92d9f76b1e",
-    "asset_id": 741804058,
-    "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.0/SHA256SUMS.txt"
+    "sha256": "67716bf41e693966da04f2e981dd71398fb80d7db7fb65d0ee7abcfc375edcb1",
+    "asset_id": 741841359,
+    "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.2.1/SHA256SUMS.txt"
   },
   "real_dsh_agent_sandbox_verified": false,
   "uos_hardware_verified": false
