@@ -1,6 +1,7 @@
 """Keep program files separate from the user's complete, portable data directory."""
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import platform
@@ -279,9 +280,24 @@ def configure_http_environment() -> None:
     httpx 0.28 expects bare IPv6 addresses here; [::1] produces an invalid URL
     pattern. Both spellings refer to the same host, so normalize without changing bypass scope.
     """
-    current = os.environ.get("no_proxy") or os.environ.get("NO_PROXY") or ""
+    current = os.environ.get("no_proxy", os.environ.get("NO_PROXY", ""))
     entries = [part.strip() for part in current.split(",") if part.strip()]
-    normalized = [part[1:-1] if part.startswith("[") and part.endswith("]") else part for part in entries]
+    normalized = [_http_bypass_entry(part) for part in entries]
     # Local fixtures and the local dashboard must still work with an offline/invalid system proxy.
     bypass = ",".join(dict.fromkeys([*normalized, "localhost", "127.0.0.1", "::1"]))
     os.environ["NO_PROXY"] = os.environ["no_proxy"] = bypass
+
+
+def _http_bypass_entry(entry: str) -> str:
+    if not entry.startswith("[") or "]" not in entry:
+        return entry
+    address, _, suffix = entry[1:].partition("]")
+    try:
+        ipaddress.IPv6Address(address)
+    except ValueError:
+        return entry
+    if not suffix:
+        return address
+    if suffix.startswith(":") and suffix[1:].isdigit():
+        return "all://[" + address + "]" + suffix
+    return entry

@@ -7,7 +7,8 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
-import { bundledSkills, runtimeSpec, runtimeContext, findSkillDir, PACKAGE_ROOT, SKILL_DIR } from '../plugin/index.mjs';
+import { spawnSync } from 'node:child_process';
+import { bundledSkills, runtimeSpec, runtimeContext, pythonProxyEnvironment, findSkillDir, PACKAGE_ROOT, SKILL_DIR } from '../plugin/index.mjs';
 
 test('registers autoSkill and case-writing rules with independent resource bases', async () => {
   const skills = await bundledSkills();
@@ -37,6 +38,32 @@ test('dashboard is started by argv with offline switches, never through a shell'
   assert.ok(existsSync(join(spec.env.PYTHONPATH, 'autoskill', 'cli.py')));
   for (const key of ['DO_NOT_TRACK', 'PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD', 'PIP_NO_INDEX', 'SE_OFFLINE']) assert.ok(spec.env[key], key);
   assert.ok(spec.env.AUTOSKILL_WORKSPACE.endsWith('ws'));
+});
+
+test('Python proxy spelling preserves host policy, domain ports and lowercase precedence', () => {
+  const host = { NO_PROXY: 'ignored.invalid', no_proxy: 'localhost,::1,[::1],.business.invalid,exact.invalid:8443,[2001:db8::2]:8443' };
+  const before = { ...host };
+  assert.deepEqual(pythonProxyEnvironment(host), {
+    NO_PROXY: 'localhost,::1,.business.invalid,exact.invalid:8443,all://[2001:db8::2]:8443',
+    no_proxy: 'localhost,::1,.business.invalid,exact.invalid:8443,all://[2001:db8::2]:8443',
+  });
+  assert.deepEqual(host, before);
+  assert.deepEqual(pythonProxyEnvironment({ NO_PROXY: 'business.invalid', no_proxy: '' }), { NO_PROXY: '', no_proxy: '' });
+});
+
+test('actual Python launch environment constructs synchronous and async HTTPX clients', { skip: !process.env.AUTOSKILL_VALIDATION_PYTHON }, () => {
+  const original = { NO_PROXY: process.env.NO_PROXY, no_proxy: process.env.no_proxy };
+  try {
+    process.env.NO_PROXY = process.env.no_proxy = 'localhost,127.0.0.1,::1,[::1],business.invalid:8443';
+    const spec = runtimeSpec({ python: process.env.AUTOSKILL_VALIDATION_PYTHON });
+    const child = spawnSync(spec.python, ['-c', 'import asyncio,httpx\nwith httpx.Client(): pass\nasync def check():\n async with httpx.AsyncClient(): pass\nasyncio.run(check())\nprint("constructed")'],
+      { env: { ...process.env, ...spec.env }, encoding: 'utf8' });
+    assert.equal(child.status, 0, child.stderr);
+    assert.equal(child.stdout.trim(), 'constructed');
+    assert.equal(process.env.no_proxy, 'localhost,127.0.0.1,::1,[::1],business.invalid:8443');
+  } finally {
+    for (const [key, value] of Object.entries(original)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
 });
 
 test('registered commands bind the same custom workspace and port as the service', async () => {

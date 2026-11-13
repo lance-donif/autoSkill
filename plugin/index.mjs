@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { isIP } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -69,6 +70,20 @@ export function runtimeContext(spec) {
   return Buffer.from(JSON.stringify({ version: 1, workspace: workspaceFor(spec), port: spec.port, host: 'dsh' })).toString('base64url');
 }
 
+/** Python HTTPX needs bare IPv6; keep DSH's separate undici environment unchanged. */
+export function pythonProxyEnvironment(environment = process.env) {
+  const current = environment.no_proxy ?? environment.NO_PROXY;
+  if (current === undefined) return {};
+  const entries = current.split(',').map((entry) => {
+    const value = entry.trim();
+    const literal = value.match(/^\[([^\]]+)\](?::(\d+))?$/);
+    if (!literal || isIP(literal[1]) !== 6) return value;
+    return literal[2] ? `all://[${literal[1]}]:${literal[2]}` : literal[1];
+  }).filter(Boolean);
+  const bypass = [...new Set(entries)].join(',');
+  return { NO_PROXY: bypass, no_proxy: bypass };
+}
+
 /** Native bundled Python or an explicitly provisioned source venv; never download at startup. */
 export function runtimeSpec(config = {}, skillDir = SKILL_DIR) {
   const port = config.port ?? 8787;
@@ -79,7 +94,7 @@ export function runtimeSpec(config = {}, skillDir = SKILL_DIR) {
   const python = config.python ?? (process.platform === 'linux'
     ? process.env.AUTOSKILL_DEV_PYTHON ?? (existsSync(bundled) ? bundled : existsSync(linux) ? linux : null)
     : existsSync(bundled) ? bundled : process.env.AUTOSKILL_DEV_PYTHON ?? null);
-  const env = { PYTHONPATH: join(skillDir, 'app'), PYTHONUTF8: '1', PYTHONDONTWRITEBYTECODE: '1',
+  const env = { ...pythonProxyEnvironment(), PYTHONPATH: join(skillDir, 'app'), PYTHONUTF8: '1', PYTHONDONTWRITEBYTECODE: '1',
     DO_NOT_TRACK: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', PIP_NO_INDEX: '1', SE_OFFLINE: 'true', SE_AVOID_STATS: 'true' };
   if (python === bundled) env.PYTHONNOUSERSITE = '1';
   if (config.workspace || process.env.AUTOSKILL_WORKSPACE) env.AUTOSKILL_WORKSPACE = resolve(config.workspace || process.env.AUTOSKILL_WORKSPACE);

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import httpx
 
-from .. import secrets
+from .. import paths, secrets
 from . import ai_audio, ai_journal, ai_judging, ai_oracles, ai_protocols
 
 
@@ -215,6 +215,7 @@ async def _conversation(sample, spec, case_id, user_id, cancelled, emit, prepare
     started, history, turns = time.monotonic(), [], []
     context = {"user_id": user_id, "case_id": case_id, "conversation_id": uuid.uuid4().hex, **sample.get("context", {})}
     pending = deque(sample.get("turns", [sample]))
+    paths.configure_http_environment()
     async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
         while pending:
             turn, number = pending.popleft(), len(turns) + 1
