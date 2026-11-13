@@ -197,7 +197,10 @@ def launch_problem(error: Exception) -> str:
 def launch_args(allowed_origins: list[str], state_file: Path | None = None, insecure_tls: bool = False,  # noqa: ARG001  # Keep the legacy keyword without restricting origins.
                 browser: str | None = None) -> list[str]:
     """Start the browser without a proxy fence, with optional login state."""
-    flags = ["--args", ",".join([*paths.QUIET_CHROME_ARGS, *(["--start-maximized"] if paths.headed() else [])])]
+    # Let agent-browser create about:blank through CDP. Chrome 151 can crash in its
+    # automatic new-tab startup path before the recording observer attaches.
+    flags = ["--args", ",".join(["--no-startup-window", *paths.QUIET_CHROME_ARGS,
+                               *(["--start-maximized"] if paths.headed() else [])])]
     browser = browser or paths.chrome()
     if browser:
         flags = ["--executable-path", browser, *flags]
