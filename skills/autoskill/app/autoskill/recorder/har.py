@@ -7,19 +7,14 @@ from http.cookies import CookieError, SimpleCookie
 from urllib.parse import parse_qsl, urlsplit
 
 from ..replay import ir
+from . import traffic
 
-BUSINESS_TYPES = ("fetch", "xhr")
-RESOURCE_TYPES = ("document", "script", "stylesheet")
 SENSITIVE = re.compile(r"(authorization|cookie|token|secret|password|passwd|api[-_]?key|credential|session|csrf|signature)", re.IGNORECASE)
 ID_KEY = re.compile(r"(id|token|key|code|uuid|no|sn)$", re.IGNORECASE)
 STRICT_ID = re.compile(r"(^|_)id$|[a-z]Id$|(^|_)ID$")  # plainly an identifier: id, user_id, userId
 ENUM_KEY = re.compile(r"^(code|status|state|type|role|result|success|ok|errno|error|priority|level)$", re.IGNORECASE)
 MAX_DEPTH = 4
 SCHEMA_DEPTH = 2  # how deep the structure check goes: deeper detail changes too often to be worth asserting
-
-
-def _headers(items: list) -> dict:
-    return {h["name"].lower(): h["value"] for h in items or []}
 
 
 def _parameters(text: str) -> dict:
@@ -59,27 +54,29 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
         request, response = entry["request"], entry["response"]
         url = request["url"]
         parts = urlsplit(url)
-        if parts.scheme not in ("http", "https") or request["method"] == "OPTIONS" or not response.get("status"):
+        category = traffic.category(entry)
+        if parts.scheme not in ("http", "https") or traffic.protocol(entry) == "websocket" or category == "cors_preflight" or not response.get("status"):
             continue
         if ir.origin_of(url) != base_origin:
             skipped_origins.add(ir.origin_of(url))
             continue
         content = response.get("content", {})
         mime = (content.get("mimeType") or "").split(";")[0].strip().lower()
-        kind = (entry.get("_resourceType") or "").lower()
         body = form = None
         post = request.get("postData") or {}
         body_note = ""
-        if post.get("text"):
-            if "json" in (post.get("mimeType") or "").lower():
+        request_headers = traffic.headers(request.get("headers"))
+        post_mime = (post.get("mimeType") or request_headers.get("content-type", "")).lower()
+        if post or entry.get("_has_post_data") or "multipart/form-data" in post_mime or request_headers.get("content-length", "0") not in ("", "0"):
+            if "json" in post_mime and "text" in post:
                 try:
                     body = json.loads(post["text"])
                 except ValueError:
                     body_note = "请求体不是有效 JSON"
-            elif "x-www-form-urlencoded" in (post.get("mimeType") or "").lower():
+            elif "x-www-form-urlencoded" in post_mime and "text" in post:
                 form = _parameters(post["text"])
             else:
-                body_note = "请求体不是 JSON 或普通表单（例如文件上传），需人工确认"
+                body_note = "已保留实际可用请求正文；当前 HTTP 用例编译器尚不支持此正文格式或缺少完整正文，不生成空请求"
         parsed = None
         if "json" in mime and content.get("text"):
             try:
@@ -88,11 +85,11 @@ def entries(har: dict, base_origin: str) -> tuple[list[dict], list[str]]:
                 parsed = None
         found.append({
             "method": request["method"], "path": parts.path or "/", "params": _parameters(parts.query),
-            "headers": _headers(request.get("headers")), "json": body, "form": form, "body_note": body_note,
+            "headers": request_headers, "json": body, "form": form, "body_note": body_note,
             "status": response["status"], "mime": mime, "response": parsed, "text": content.get("text") or "",
             "cookies": _response_cookies(response),
-            "business": kind in BUSINESS_TYPES or (kind not in RESOURCE_TYPES and "json" in mime),
-            "resource": kind in RESOURCE_TYPES,
+            "business": category == "business",
+            "resource": category not in ("business", "authentication"),
         })
     if skipped_origins:
         notes.append("未生成用例的其他站点请求：" + "、".join(sorted(skipped_origins)))

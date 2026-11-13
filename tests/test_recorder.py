@@ -149,13 +149,12 @@ class CompileTests(unittest.TestCase):
         self.assertEqual((summary["api_traffic"], summary["api_cases"]), ("none", []))
         self.assertFalse([c for c in projects.cases(self.pid) if c["kind"] == "api"])
 
-    def test_static_data_files_are_not_called_business_apis(self):
+    def test_explicit_xhr_json_is_not_misclassified_from_its_filename(self):
         catalogue = {f"k{i}": {"name": str(i)} if i % 2 else {} for i in range(30)}
         traffic = {"log": {"entries": [entry("GET", "/learn.json", 200, catalogue, kind="xhr")]}}
         summary = compiler.build(self.pid, self.rec(), traffic, None, "静态数据")
         case = next(c for c in projects.cases(self.pid) if c["kind"] == "api")
-        self.assertEqual((summary["api_traffic"], case["extensions"]["traffic"], case["title"]), ("static", "static", "读取静态数据 /learn.json"))
-        self.assertTrue(any("不是业务接口测试" in note for note in summary["notes"]))
+        self.assertEqual((summary["api_traffic"], case["extensions"]["traffic"], case["title"]), ("business", "business", "查询 /learn.json"))
         self.assertTrue(any("只校验了状态码和大致结构" in note for note in summary["notes"]))
 
     def test_summary_counts_every_recorded_step_and_assertion(self):

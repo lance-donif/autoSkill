@@ -20,6 +20,7 @@ from urllib.parse import quote_plus, urlsplit
 from . import db, domain, native_assets
 from .engines.ai_protocols import pointer
 from .locking import project_lock
+from .recorder import traffic
 
 CAPTURE_ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9._-]*")
 BODY_FLAGS = {"-d", "--data", "--data-raw", "--data-binary", "--data-urlencode", "--json"}
@@ -135,23 +136,24 @@ def _normal_request(entry: dict, number: int) -> dict:
     post = request.get("postData") or {}
     content = response.get("content") or {}
     mime = content.get("mimeType", "").lower()
+    protocol = traffic.protocol(entry)
+    websocket = protocol == "websocket"
     body = _json(post.get("text", ""))
     response_json = _json(content.get("text", "")) if "json" in mime and not content.get("encoding") else None
     return {"number": number, "request": request, "response": response, "body_json": body, "response_json": response_json,
             "resource_type": entry.get("_resourceType", ""), "started_at": entry.get("startedDateTime"),
-            "protocol": "sse" if "text/event-stream" in mime else "http", "transport_status": response.get("status"),
+            "protocol": protocol, "transport_status": response.get("status"),
             "capture_source": entry.get("_capture_source", "har"), "request_headers_source": entry.get("_request_headers_source", entry.get("_capture_source", "har")),
             "response_body_source": entry.get("_body_source", entry.get("_capture_source", "har")), "body_complete": entry.get("_body_complete"),
+            "request_body_complete": entry.get("_request_body_complete"), "request_body_note": entry.get("_request_body_note", ""),
+            "capture_errors": copy.deepcopy(entry.get("_capture_errors", [])),
+            **({"websocket": copy.deepcopy(entry.get("_websocket") or {"frames": entry.get("_webSocketMessages", [])})} if websocket else {}),
             "cdp": copy.deepcopy(entry.get("_cdp")), "source_links": copy.deepcopy(entry.get("_source_links", [])),
             "business_status": "Unverified"}
 
 
 def _business(entry: dict) -> bool:
-    request, response = entry.get("request", {}), entry.get("response", {})
-    kind = entry.get("_resourceType", "").lower()
-    mime = response.get("content", {}).get("mimeType", "").lower()
-    return (urlsplit(request.get("url", "")).scheme in ("http", "https") and request.get("method") != "OPTIONS"
-            and (kind in ("xhr", "fetch") or (kind not in ("document", "script", "stylesheet") and ("json" in mime or "event-stream" in mime))))
+    return traffic.category(entry) in ("business", "authentication")
 
 
 def _question(body, mapping: dict) -> tuple[str, str, bool]:
@@ -185,7 +187,7 @@ def _candidates(requests: list[dict]) -> list[int]:
 
 
 def _capture(project_id: str, requests: list[dict], source: bytes, source_name: str, details: dict, expected_head: str | None = None,
-             *, attachments: dict[str, bytes] | None = None, primary: str | None = None) -> dict:
+             *, attachments: dict[str, bytes] | None = None, primary: str | None = None, capture_scope: dict | None = None) -> dict:
     capture_id = "capture-" + uuid.uuid4().hex
     prefix = f"conversations/{capture_id}"
     blobs = {source_name: source, **(attachments or {})}
@@ -193,16 +195,18 @@ def _capture(project_id: str, requests: list[dict], source: bytes, source_name: 
     primary_source = next(ref for ref in sources if ref["path"] == f"{prefix}/{primary or source_name}")
     value = {"schema": 1, "id": capture_id, "project_id": project_id, "created_at": db.now(), "requests": requests,
              "source": primary_source, "sources": sources,
-             "origin": details, "business_status": "Unverified", "conversation_candidates": _candidates(requests)}
+             "origin": details, "business_status": "Unverified", "conversation_candidates": _candidates(requests),
+             **({"capture_scope": capture_scope} if capture_scope else {})}
     with project_lock(project_id):
         current = domain.manifest(project_id)
         expected = current["head"] if expected_head is None else expected_head
         changes = {f"{prefix}/{name}": data for name, data in blobs.items()}
         changes[f"{prefix}/capture.json"] = value
         committed = domain.commit(project_id, changes, expected,
-                                  reason="保存原始对话请求与响应证据")
+                                  reason="保存业务通信请求与响应来源证据")
     return {"id": capture_id, "head": committed["head"], "path": f"{prefix}/capture.json", "requests": len(requests),
-            "conversation_candidates": value["conversation_candidates"], "source_sha256": value["source"]["sha256"]}
+            "conversation_candidates": value["conversation_candidates"], "source_sha256": value["source"]["sha256"],
+            **({"capture_scope": capture_scope} if capture_scope else {})}
 
 
 def _request_key(entry: dict) -> tuple[str, str, str]:
@@ -216,10 +220,18 @@ def _request_key(entry: dict) -> tuple[str, str, str]:
     return request.get("method", "").upper(), url, domain.content_hash(normalized)
 
 
+def _body_known(entry: dict) -> bool:
+    post = entry.get("request", {}).get("postData") or {}
+    if "text" not in post:
+        return False
+    return "multipart/form-data" not in str(post.get("mimeType", "")).lower()
+
+
 def _combined_entries(har: dict, evidence: dict, *, business_only: bool = True) -> list[dict]:
     """Join deterministic request occurrences while keeping each original source immutable."""
     cdp = []
     by_key = defaultdict(deque)
+    by_address = defaultdict(list)
     for index, raw in enumerate(evidence.get("entries", [])):
         if business_only and not _business(raw):
             continue
@@ -227,15 +239,23 @@ def _combined_entries(har: dict, evidence: dict, *, business_only: bool = True) 
         entry["_source_links"] = [{"source": "source.cdp.json", "entry": index}]
         cdp.append(entry)
         by_key[_request_key(entry)].append(entry)
+        by_address[_request_key(entry)[:2]].append(entry)
     result, used = [], set()
     for index, entry in enumerate(har.get("log", {}).get("entries", [])):
         if business_only and not _business(entry):
             continue
-        candidates = by_key[_request_key(entry)]
-        if candidates:
-            selected = candidates.popleft()
+        identity = _request_key(entry)
+        candidates = by_key[identity]
+        while candidates and id(candidates[0]) in used:
+            candidates.popleft()
+        selected = candidates.popleft() if candidates else next((candidate for candidate in by_address[identity[:2]] if id(candidate) not in used and
+                                                                 (not _body_known(entry) or not _body_known(candidate))), None)
+        if selected is not None:
             used.add(id(selected))
             selected["_source_links"].append({"source": "source.har", "entry": index})
+            if "postData" not in selected["request"] and "postData" in entry["request"]:
+                selected["request"]["postData"] = copy.deepcopy(entry["request"]["postData"])
+                selected["_request_body_source"] = "har"
             content = selected.get("response", {}).get("content", {})
             original = entry.get("response", {}).get("content", {})
             if not content.get("text") and original.get("text"):
@@ -268,27 +288,32 @@ def _ordered_entries(entries: list[dict]) -> list[dict]:
 
 
 def _network_sources(evidence: dict) -> dict[str, bytes]:
-    if not evidence:
+    if not evidence.get("source") and not evidence.get("entries") and not evidence.get("events_path"):
         return {}
     sources = {"source.cdp.json": domain.canonical_bytes(evidence)}
     if evidence.get("events_path"):
-        sources["source.cdp.jsonl"] = Path(evidence["events_path"]).read_bytes()
+        keys, replies = traffic.event_keys(evidence.get("entries", []))
+        with Path(evidence["events_path"]).open(encoding="utf-8") as events:
+            sources["source.cdp.jsonl"] = "".join(line for line in events if traffic.selected_event(json.loads(line), keys, replies)).encode("utf-8")
     return sources
 
 
 def capture(project_id: str, rec: dict, har: dict) -> dict:
-    """Archive business traffic before a recorder removes its temporary raw HAR."""
-    evidence = rec.get("conversation_evidence") or {}
-    entries = _combined_entries(har, evidence)
+    """Archive selected exchanges, with honest source scope, before temporary capture files are removed."""
+    har = traffic.filtered_har(har)
+    evidence = traffic.filtered_cdp(rec.get("conversation_evidence") or {})
+    scope = {"policy": traffic.POLICY, "complete_network_log": False,
+             "sources": {"har": har["log"]["_autoskill_capture_scope"], "cdp": evidence["capture_scope"]}}
+    entries = _combined_entries(har, evidence, business_only=False)
     if not entries:
-        return {"requests": 0, "conversation_candidates": []}
+        return {"requests": 0, "conversation_candidates": [], "capture_scope": scope}
     requests = [_normal_request(entry, number) for number, entry in enumerate(entries, 1)]
     details = {"kind": "recording", "session_id": rec.get("session_id"), "started_at": rec.get("started_at"), "start_url": rec.get("start_url"),
                "steps": copy.deepcopy(rec.get("steps", [])),
                "network_capture": {key: evidence.get(key) for key in ("source", "available", "error")}}
     attachments = _network_sources(evidence)
     primary = "source.cdp.json" if any(entry.get("_capture_source") == "cdp_network" for entry in entries) else None
-    return _capture(project_id, requests, domain.canonical_bytes(har), "source.har", details, attachments=attachments, primary=primary)
+    return _capture(project_id, requests, domain.canonical_bytes(har), "source.har", details, attachments=attachments, primary=primary, capture_scope=scope)
 
 
 def import_source(project_id: str, source: str | Path, *, source_format: str | None = None, name: str = "", expected_head: str | None = None) -> dict:
@@ -296,8 +321,9 @@ def import_source(project_id: str, source: str | Path, *, source_format: str | N
     data = file.read_bytes()
     kind = source_format or ("har" if file.suffix.lower() in (".har", ".json") else "curl")
     if kind == "har":
-        value = json.loads(data)
-        entries = [entry for entry in value.get("log", {}).get("entries", []) if _business(entry)]
+        value = traffic.filtered_har(json.loads(data))
+        entries = value["log"]["entries"]
+        data = domain.canonical_bytes(value)
     elif kind == "curl":
         entries = [{"request": parse_curl(data.decode("utf-8")), "response": {}}]
     else:
@@ -305,7 +331,8 @@ def import_source(project_id: str, source: str | Path, *, source_format: str | N
     if not entries:
         raise ValueError("来源中没有可保存的业务 HTTP 请求")
     requests = [_normal_request(entry, number) for number, entry in enumerate(entries, 1)]
-    return _capture(project_id, requests, data, "source." + kind, {"kind": kind, "name": name or file.name}, expected_head)
+    scope = {"policy": traffic.POLICY, "complete_network_log": False, "sources": {"har": value["log"]["_autoskill_capture_scope"]}} if kind == "har" else None
+    return _capture(project_id, requests, data, "source." + kind, {"kind": kind, "name": name or file.name}, expected_head, capture_scope=scope)
 
 
 def get(project_id: str, capture_id: str, head: str | None = None) -> dict:

@@ -12,15 +12,14 @@ import re
 from .. import builder, projects, secrets, sessions
 from ..replay import ir
 from . import har as harlib
+from . import traffic
 
 DROP_HEADERS = re.compile(
     r"^(user-agent|accept.*|referer|origin|host|connection|content-length|cookie|pragma|"
     r"cache-control|sec-.*|upgrade-insecure-requests|if-.*|priority|dnt|te)$", re.IGNORECASE)
 SCHEME = re.compile(r"^(Bearer|Basic|Token)\s+(.+)$", re.IGNORECASE)
-STATIC_FILE = re.compile(r"\.(json|xml|txt|csv|ya?ml|map)$", re.IGNORECASE)
 LOGIN_PATH = re.compile(r"(login|signin|sign-in|auth|token|session)", re.IGNORECASE)
 CHANGING = {"fill", "type", "click", "dblclick", "press", "check", "uncheck", "select"}
-MAX_API_CASES = 30
 CONTAINERS = {"data", "result", "response", "items", "records", "rows", "list", "payload", "body", "attributes"}
 PATH_ACTIONS = {"create", "update", "delete", "list", "detail", "search", "new", "get"}
 
@@ -89,6 +88,7 @@ class Compiler:
         self.cookie_sources: dict[tuple[str, str], str] = {}
         self.cookie_logins: set[str] = set()
         self.notes: list[str] = []
+        self.uncompiled: list[dict] = []
         self.state_variables: dict = dict(self.auth.get("state_variables", {}))
         wanted = set(rec.get("secrets", []))
         for case in projects.cases(project_id):
@@ -265,6 +265,7 @@ class Compiler:
         """Build (or reuse) the API case for one captured request. Returns 'new', 'reused' or None."""
         if entry["body_note"]:
             self.notes.append(f'{entry["method"]} {entry["path"]}：{entry["body_note"]}，未生成接口用例')
+            self.uncompiled.append({"protocol": "http", "method": entry["method"], "path": entry["path"], "reason": entry["body_note"]})
             if self.rec.get("as_login") and self.login_ui_case and self.is_login(entry):
                 self.remember_cookies(entry, self.login_ui_case)
             return None
@@ -285,13 +286,12 @@ class Compiler:
         rules = self._observed_rules(entry)
         verb = {"GET": "查询", "POST": "提交", "PUT": "修改", "PATCH": "修改", "DELETE": "删除"}.get(entry["method"], entry["method"])
         title = f'{verb} {"/".join(segments)}' + (f'（返回 {entry["status"]}）' if entry["status"] >= 400 else "")
-        static = entry["method"] == "GET" and bool(STATIC_FILE.search(entry["path"])) and not params
         if "json_equals" not in rules and not rules.get("schema", {}).get("required"):
             self.notes.append(f'{entry["method"]} {entry["path"]}：响应里没有适合自动断言的稳定字段，只校验了状态码和大致结构；需要更强的校验请人工补充')
-        case = builder.api_case(f"TC-API-{self.next_number:03d}", ("读取静态数据 " + entry["path"]) if static else title,
-                                entry["method"], "/".join(segments), rules, module="页面与资源" if static else module,
+        case = builder.api_case(f"TC-API-{self.next_number:03d}", title,
+                                entry["method"], "/".join(segments), rules, module=module,
                                 headers=headers, params=params, json=body, form=form, depends_on=sorted(deps),
-                                traffic="static" if static else "business")
+                                traffic="business")
         case["extensions"]["oracle"] = {"source": "observation", "verification": "unverified",
                                          "note": "规则来自录制响应，只能作为回归基线；业务预期需与需求或独立数据核对"}
         signature = self.signature(case)
@@ -358,7 +358,7 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     existing = {compiler.signature(c): c for c in projects.cases(project_id) if c["kind"] == "api"}
     business = harlib.drop_typeahead([e for e in captured if e["business"]])
     counts = {"new": 0, "reused": 0}
-    selected = {id(entry) for entry in business[:MAX_API_CASES]}
+    selected = {id(entry) for entry in business}
     for entry in captured:
         if id(entry) not in selected:
             if rec.get("as_login") and compiler.is_login(entry):
@@ -369,12 +369,11 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
         outcome = compiler.add_business(entry, module or "接口", existing)
         if outcome:
             counts[outcome] += 1
-    if len(business) > MAX_API_CASES:
-        compiler.notes.append(f"接口请求较多，只为前 {MAX_API_CASES} 个生成了用例")
-    kinds = {c["extensions"].get("traffic") for c in compiler.cases}
-    traffic = "business" if "business" in kinds else "static"
-    if traffic == "static" and compiler.cases:
-        compiler.notes.append("页面没有调用业务接口，只读取了静态数据文件；这些接口用例验证的是文件可访问且结构正常，不是业务接口测试")
+    for entry in har.get("log", {}).get("entries", []):
+        if traffic.protocol(entry) == "websocket":
+            compiler.uncompiled.append({"protocol": "websocket", "reason": "握手和帧已保存为来源证据；当前编译器不把 WebSocket 转成 REST 用例"})
+    if compiler.uncompiled:
+        compiler.notes.append("部分业务通信仅保存来源证据，尚未生成可执行接口用例；详见 api_uncompiled")
     # Pages, scripts and styles get no API case: the page case already proves they load, and a plain HTTP
     # client asking for them is what anti-bot gateways answer differently (200 in the browser, 202 outside).
     if rec.get("as_login"):
@@ -395,7 +394,8 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
                     "recording_status": ui_case["extensions"].get("recording_result", {}).get("status", "Unverified"),
                     "depends_on": projects.depends_on(ui_case)},
         "api_cases": [{"id": c["id"], "title": c["title"], "depends_on": projects.depends_on(c)} for c in compiler.cases],
-        "api_traffic": traffic if compiler.cases else "none", "api_new": counts["new"], "api_reused": counts["reused"],
+        "api_traffic": "business" if compiler.cases else "none", "api_new": counts["new"], "api_reused": counts["reused"],
+        "api_uncompiled": compiler.uncompiled,
         "login": {k: compiler.auth.get(k) for k in ("ui_case", "api_case") if compiler.auth.get(k)},
         "secrets": sorted(secrets.references([ui_case, *compiler.cases])), "notes": list(dict.fromkeys(compiler.notes)),
     }

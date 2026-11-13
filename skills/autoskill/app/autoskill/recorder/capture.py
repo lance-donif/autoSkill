@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import base64
 import contextlib
+import copy
 import json
 import os
 import shutil
@@ -15,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .. import paths
-from . import agent
+from . import agent, traffic
 
 _children: dict[int, subprocess.Popen] = {}
 
@@ -119,6 +120,8 @@ class Observer:
         if session:
             message['sessionId'] = session
         self.pending[self.sequence] = (method, session, entry)
+        if entry is not None:
+            entry.setdefault('_capture_reply_ids', []).append(self.sequence)
         self.ws.send(json.dumps(message))
 
     def log(self, message: dict) -> None:
@@ -148,6 +151,7 @@ class Observer:
         request = params['request']
         headers = _headers(request.get('headers', {}))
         entry = {'_capture_source': 'cdp_network', '_resourceType': params.get('type', '').lower(),
+                 '_initiator': copy.deepcopy(params.get('initiator', {})),
                  '_cdp': {'session_id': session, 'request_id': params['requestId'], 'hop': len(hops),
                           'target_id': self.targets.get(session, {}).get('targetId')},
                  'startedDateTime': datetime.fromtimestamp(params.get('wallTime', time.time()), UTC).isoformat(),
@@ -155,6 +159,11 @@ class Observer:
                  'response': {}, '_loading_state': 'pending', '_body_complete': False}
         if 'postData' in request:
             entry['request']['postData'] = {'mimeType': _header(headers, 'content-type'), 'text': request['postData']}
+        if 'postDataEntries' in request:
+            entry['request']['postDataEntries'] = copy.deepcopy(request['postDataEntries'])
+        if request.get('hasPostData'):
+            entry['_has_post_data'] = True
+            entry['_request_body_complete'] = None
         hops.append(entry)
         self.entries.append(entry)
         self._assign_extras(key)
@@ -201,8 +210,44 @@ class Observer:
         entry['_loading_state'] = 'failed' if failed else 'finished'
         if failed:
             entry['_loading_error'] = params.get('errorText', 'loadingFailed')
-        if entry['_resourceType'] in ('fetch', 'xhr', 'eventsource'):
+        if traffic.category(entry) in ('business', 'authentication') and entry['_resourceType'] != 'websocket':
             self.send('Network.getResponseBody', {'requestId': params['requestId']}, session, entry)
+
+    def _websocket(self, session: str, method: str, params: dict) -> None:
+        key = (session, params['requestId'])
+        hops = self.requests.setdefault(key, [])
+        if not hops:
+            entry = {'_capture_source': 'cdp_network', '_resourceType': 'websocket',
+                     '_cdp': {'session_id': session, 'request_id': params['requestId'], 'hop': 0,
+                              'target_id': self.targets.get(session, {}).get('targetId')},
+                     'startedDateTime': datetime.now(UTC).isoformat(),
+                     'request': {'method': 'GET', 'url': params.get('url', ''), 'headers': []},
+                     'response': {}, '_loading_state': 'pending', '_body_complete': False,
+                     '_websocket': {'frames': []}}
+            hops.append(entry)
+            self.entries.append(entry)
+        entry = hops[-1]
+        details = entry.setdefault('_websocket', {'frames': []})
+        if method == 'Network.webSocketCreated':
+            entry['request']['url'] = params['url']
+            entry['_initiator'] = copy.deepcopy(params.get('initiator', {}))
+        elif method == 'Network.webSocketWillSendHandshakeRequest':
+            entry['request']['headers'] = _headers(params['request'].get('headers', {}))
+            details['handshake_request'] = copy.deepcopy(params)
+            if params.get('wallTime'):
+                entry['startedDateTime'] = datetime.fromtimestamp(params['wallTime'], UTC).isoformat()
+        elif method == 'Network.webSocketHandshakeResponseReceived':
+            self._set_response(entry, params['response'])
+            details['handshake_response'] = copy.deepcopy(params)
+            entry['_loading_state'] = 'open'
+        elif method in ('Network.webSocketFrameSent', 'Network.webSocketFrameReceived'):
+            details['frames'].append({'direction': 'sent' if method.endswith('Sent') else 'received', **copy.deepcopy(params)})
+        elif method == 'Network.webSocketClosed':
+            details['closed'] = copy.deepcopy(params)
+            entry['_loading_state'] = 'closed'
+            entry['_body_complete'] = True
+        elif method == 'Network.webSocketFrameError':
+            details.setdefault('errors', []).append(copy.deepcopy(params))
 
     def _reply(self, message: dict) -> None:
         pending = self.pending.pop(message['id'], None)
@@ -218,7 +263,14 @@ class Observer:
         if 'error' in message:
             entry.setdefault('_capture_errors', []).append({'method': method, 'error': message['error'].get('message', '')})
         elif method == 'Network.getRequestPostData':
-            entry['request']['postData'] = {'mimeType': _header(entry['request']['headers'], 'content-type'), 'text': result.get('postData', '')}
+            observed = result.get('postData', '')
+            existing = entry['request'].get('postData', {}).get('text', '')
+            entry['request']['postData'] = {'mimeType': _header(entry['request']['headers'], 'content-type'),
+                                          'text': observed if len(observed) >= len(existing) else existing}
+            multipart = 'multipart/form-data' in _header(entry['request']['headers'], 'content-type').lower()
+            entry['_request_body_complete'] = None if multipart or len(existing) > len(observed) else True
+            if multipart:
+                entry['_request_body_note'] = 'CDP 请求正文可能省略文件字节；保留实际可用内容，不推断为完整上传文件'
         elif method == 'Network.streamResourceContent':
             self._data(entry, result.get('bufferedData', ''), buffered=True)
         elif method == 'Network.getResponseBody':
@@ -237,6 +289,8 @@ class Observer:
             self._attached(params)
         elif method == 'Network.requestWillBeSent':
             self._request(session, params)
+        elif method and method.startswith('Network.webSocket') and params.get('requestId'):
+            self._websocket(session, method, params)
         elif method in ('Network.requestWillBeSentExtraInfo', 'Network.responseReceivedExtraInfo'):
             table = self.extras if method == 'Network.requestWillBeSentExtraInfo' else self.response_extras
             table.setdefault(key, []).append(params)
@@ -263,8 +317,18 @@ class Observer:
                     content.update(text=base64.b64encode(body).decode('ascii'), encoding='base64')
                 content['size'] = len(body)
                 entry['_body_complete'] = entry['_loading_state'] == 'finished'
+        selected, scope = traffic.selected(self.entries)
+        events = self.folder / 'events.jsonl'
+        if events.is_file():
+            keys, replies = traffic.event_keys(selected)
+            temporary = events.with_suffix('.filtered.tmp')
+            with events.open(encoding='utf-8') as source, temporary.open('w', encoding='utf-8') as target:
+                for line in source:
+                    if traffic.selected_event(json.loads(line), keys, replies):
+                        target.write(line)
+            temporary.replace(events)
         return {'token': self.token, 'source': 'cdp_network', 'available': self.ready,
-                'entries': self.entries, 'error': error, 'events_path': str(self.folder / 'events.jsonl')}
+                'entries': selected, 'capture_scope': scope, 'error': error, 'events_path': str(events)}
 
     def run(self) -> None:
         import websocket

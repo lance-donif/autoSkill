@@ -116,7 +116,9 @@ class ConversationCaptureTests(unittest.TestCase):
         captured = conversation_capture.capture(PID, {"session_id": "fixture"}, har)
         stored = conversation_capture.get(PID, captured["id"])
         self.assertEqual(stored["requests"][0]["request"], har["log"]["entries"][0]["request"])
-        self.assertEqual(json.loads(domain.read_file(PID, stored["source"]["path"])), har)
+        archived = json.loads(domain.read_file(PID, stored["source"]["path"]))
+        self.assertEqual(archived["log"]["entries"], har["log"]["entries"])
+        self.assertFalse(archived["log"]["_autoskill_capture_scope"]["complete_network_log"])
         self.assertEqual(stored["requests"][0]["business_status"], "Unverified")
         asset = conversation_capture.build_asset(PID, captured["id"])
         spec = json.loads(domain.read_file(PID, f"native-assets/{asset['id']}/files/spec.json"))
@@ -184,10 +186,11 @@ class ConversationCaptureTests(unittest.TestCase):
     def test_static_resources_do_not_create_conversation_assets(self):
         result = conversation_capture.capture(PID, {}, {"log": {"entries": [{"_resourceType": "script", "request": {"url": self.base + "/app.js", "method": "GET"},
                                                                            "response": {"content": {"mimeType": "application/javascript"}}}]}})
-        self.assertEqual(result, {"requests": 0, "conversation_candidates": []})
+        self.assertEqual((result["requests"], result["conversation_candidates"]), (0, []))
+        self.assertEqual(result["capture_scope"]["sources"]["har"]["excluded_by_reason"], {"page_resource": 1})
         self.assertIsNone(domain.manifest(PID)["head"])
 
-    def test_cdp_headers_and_stream_body_keep_independent_original_sources(self):
+    def test_cdp_headers_and_stream_body_keep_independent_selected_sources(self):
         full = self.har("sse")
         har = copy.deepcopy(full)
         for entry in har["log"]["entries"]:
@@ -200,20 +203,27 @@ class ConversationCaptureTests(unittest.TestCase):
             entry["request"]["headers"].append({"name": "Cookie", "value": "synthetic=network-observed"})
         cdp.insert(0, {"_resourceType": "script", "request": {"method": "GET", "url": self.base + "/chat.js"}, "response": {}})
         events = self.root / "raw-events.jsonl"
-        events.write_text('{"method":"Network.requestWillBeSentExtraInfo"}\n', encoding="utf-8")
+        retained_event = '{"method":"Network.requestWillBeSentExtraInfo","sessionId":"fixture","params":{"requestId":"0"}}\n'
+        excluded_event = '{"method":"Network.requestWillBeSentExtraInfo","sessionId":"fixture","params":{"requestId":"script"}}\n'
+        events.write_text(excluded_event + retained_event, encoding="utf-8")
         evidence = {"source": "cdp_network", "available": True, "entries": cdp, "error": "", "events_path": str(events)}
+        before = copy.deepcopy((har, evidence))
         captured = conversation_capture.capture(PID, {"conversation_evidence": evidence}, har)
         stored = conversation_capture.get(PID, captured["id"])
         self.assertEqual(captured["requests"], 2)
         self.assertTrue(stored["source"]["path"].endswith("source.cdp.json"))
         prefix = f"conversations/{captured['id']}/"
-        self.assertEqual(json.loads(domain.read_file(PID, prefix + "source.har")), har)
-        self.assertEqual(json.loads(domain.read_file(PID, prefix + "source.cdp.json")), evidence)
-        self.assertEqual(domain.read_file(PID, prefix + "source.cdp.jsonl"), events.read_bytes())
+        self.assertEqual(json.loads(domain.read_file(PID, prefix + "source.har"))["log"]["entries"], har["log"]["entries"])
+        cdp_source = json.loads(domain.read_file(PID, prefix + "source.cdp.json"))
+        self.assertEqual(cdp_source["entries"], cdp[1:])
+        self.assertEqual(cdp_source["capture_scope"]["excluded_by_reason"], {"page_resource": 1})
+        self.assertEqual(domain.read_file(PID, prefix + "source.cdp.jsonl"), retained_event.encode())
+        self.assertEqual((har, evidence), before)
+        self.assertEqual(events.read_text(), excluded_event + retained_event)
         request = stored["requests"][0]
         self.assertEqual(request["capture_source"], "cdp_network")
         self.assertTrue(request["body_complete"])
-        self.assertEqual(request["source_links"], [{"source": "source.cdp.json", "entry": 1}, {"source": "source.har", "entry": 0}])
+        self.assertEqual(request["source_links"], [{"source": "source.cdp.json", "entry": 0}, {"source": "source.har", "entry": 0}])
         self.assertIn("event: done", request["response"]["content"]["text"])
         self.assertTrue(any(header["name"] == "Cookie" for header in request["request"]["headers"]))
         asset = conversation_capture.build_asset(PID, captured["id"], mapping={"conversation_response_pointer": "/conversation_id", "turn_overrides": [{"expected": 700}, {"expected": 200}]})
