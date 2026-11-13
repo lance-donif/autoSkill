@@ -57,10 +57,16 @@ def _path(case: dict, project: dict) -> tuple[list[str], list[str]]:
     return [root, PENDING_FUNCTION], ["【待确认：真实业务功能归属】；占位分组不代表已确认需求。"]
 
 
-def _paths(groups: list[dict], project: dict) -> None:
+def _paths(groups: list[dict], project: dict, display_paths: dict | None = None) -> None:
     for group in groups:
         group["business_path"], group["gaps"] = _path(group["definition"], project)
         group["original_business_path"] = list(group["business_path"])
+        if display_paths is not None and group["definition"]["id"] in display_paths:
+            declared = display_paths[group["definition"]["id"]]
+            if not isinstance(declared, list) or not declared or not all(isinstance(part, str) and part for part in declared):
+                raise ValueError("报告文件夹路径格式无效")
+            group["business_path"] = list(declared)
+            group["gaps"] = ["按本次导出时冻结的文件夹完整路径分组；原始业务归属及定义哈希见编号映射。"]
     roots = {group["business_path"][0] for group in groups}
     if len(roots) > 1:
         for group in groups:
@@ -70,8 +76,12 @@ def _paths(groups: list[dict], project: dict) -> None:
     for group in groups:
         path = group["business_path"]
         if tuple(path) in parents:
-            group["business_path"] = [*path, PENDING_FUNCTION]
-            group["gaps"].append("【待确认：此用例所属末级功能项】；已有父分组下包含其他功能，未推断本用例归属。")
+            if display_paths is not None and group["definition"]["id"] in display_paths:
+                group["business_path"] = [*path, "【本级用例】"]
+                group["gaps"].append("本级用例是直接归属此文件夹的用例，不属于子文件夹；仅为导出分组标签。")
+            else:
+                group["business_path"] = [*path, PENDING_FUNCTION]
+                group["gaps"].append("【待确认：此用例所属末级功能项】；已有父分组下包含其他功能，未推断本用例归属。")
 
 
 def _prefixes(groups: list[dict]) -> dict[tuple, str]:
@@ -287,7 +297,7 @@ def _row(group: dict, identity: str, data: list[dict]) -> dict:
 
 def rows(snapshot: dict) -> tuple[list[dict], list[dict]]:
     groups = task_report_data.logical_cases(snapshot)
-    _paths(groups, snapshot["project"])
+    _paths(groups, snapshot["project"], snapshot.get("sources", {}).get("report_business_paths"))
     prefixes = _prefixes(groups)
     sequences, data, result = defaultdict(int), [], []
     for group in groups:

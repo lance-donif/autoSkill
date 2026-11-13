@@ -184,9 +184,42 @@ class CaseFolderTests(unittest.TestCase):
         self.addCleanup(book.close)
         self.assertEqual(book.worksheets[0].max_column, 14)
         self.assertEqual({row[1] for row in book["编号映射"].iter_rows(min_row=2, values_only=True)}, {self.cases[1]["id"], "TC-API-003"})
+        paths = {row[1]: json.loads(row[3]) for row in book["编号映射"].iter_rows(min_row=2, values_only=True)}
+        self.assertEqual(paths[self.cases[1]["id"]], ["Folders", "待导出", "【本级用例】"])
+        self.assertEqual(paths["TC-API-003"], ["Folders", "待导出", "子目录"])
         self.assertEqual({row[0] for row in book["用例与结果"].iter_rows(min_row=2, values_only=True)}, {self.cases[1]["id"], "TC-API-003"})
         self.assertEqual({row[8] for row in book["用例与结果"].iter_rows(min_row=2, values_only=True)}, {"未执行"})
         self.assertEqual(set(case_folders.selection(PID, "root")["case_ids"]), {case["id"] for case in projects.cases(PID)})
+
+    def test_project_export_keeps_full_folder_paths_and_original_definition_hashes(self):
+        definitions = [builder.api_case(f"TC-API-{number:03}", f"Same module {number}", "GET", f"/{number}",
+                      {"status": 200, "json_equals": {"/ok": True}}, module="同一业务模块") for number in range(1, 5)]
+        projects.save_cases(PID, definitions)
+        _, first = self.create("父甲")
+        _, second = self.create("父乙")
+        _, child_a = self.create("同名子目录", first)
+        _, child_b = self.create("同名子目录", second)
+        for identity, folder in (("TC-API-001", first), ("TC-API-002", child_a), ("TC-API-003", child_b), ("TC-API-004", None)):
+            case_folders.move_cases(PID, [identity], folder, expected_revision=self.snapshot()["revision"])
+        original = {case["id"]: case for case in projects.cases(PID)}
+        before = {file.name: file.read_bytes() for file in (projects.path(PID) / "testcases").iterdir()}
+        receipt = reporting.export_cases(PID, list(original))
+        book = load_workbook(receipt["excel"], data_only=False)
+        self.addCleanup(book.close)
+        mapping = {row[1]: row for row in book["编号映射"].iter_rows(min_row=2, values_only=True)}
+        expected = {"TC-API-001": ["Folders", "父甲", "【本级用例】"], "TC-API-002": ["Folders", "父甲", "同名子目录"],
+                    "TC-API-003": ["Folders", "父乙", "同名子目录"], "TC-API-004": ["Folders", "【项目根目录用例】"]}
+        self.assertEqual({identity: json.loads(row[3]) for identity, row in mapping.items()}, expected)
+        self.assertEqual({row[2] for row in mapping.values()}, {execution_inputs.content_hash(case) for case in original.values()})
+        self.assertTrue(all(json.loads(row[4]) == ["Folders", "同一业务模块"] for row in mapping.values()))
+        self.assertEqual(before, {file.name: file.read_bytes() for file in (projects.path(PID) / "testcases").iterdir()})
+        self.assertEqual(book.worksheets[0].max_column, 14)
+        selected = case_folders.selection(PID, first)
+        subtree = reporting.export_cases(PID, selected["case_ids"], organization=selected)
+        child_book = load_workbook(subtree["excel"], data_only=False)
+        self.addCleanup(child_book.close)
+        child_mapping = {row[1]: json.loads(row[3]) for row in child_book["编号映射"].iter_rows(min_row=2, values_only=True)}
+        self.assertEqual(child_mapping, {identity: expected[identity] for identity in ("TC-API-001", "TC-API-002")})
 
     def test_empty_folder_export_is_readable_and_root_http_exports_entire_project(self):
         current, empty = self.create("空表")

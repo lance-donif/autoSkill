@@ -333,8 +333,28 @@ def _verify_task_workbook(file: Path, expected: list[dict], functional: list[dic
             check.close()
 
 
+def _export_paths(project: dict, case_ids: list[str], organization: dict) -> dict:
+    """Freeze display paths from folder identities without rewriting source case definitions."""
+    nodes = {folder["id"]: folder for folder in organization["folders"]}
+    display = {}
+    for identity in case_ids:
+        if identity not in organization["assignments"]:
+            raise ValueError("导出范围的文件夹归属已变化，请刷新后重试")
+        folder_id, names, visited = organization["assignments"][identity], [], set()
+        while folder_id is not None:
+            if folder_id in visited or folder_id not in nodes:
+                raise ValueError("导出的文件夹结构无效，请刷新后重试")
+            visited.add(folder_id)
+            node = nodes[folder_id]
+            names.append(node["name"])
+            folder_id = node["parent_id"]
+        display[identity] = [project["name"], *reversed(names)] if names else [project["name"], "【项目根目录用例】"]
+    return display
+
+
 def export_cases(project_id: str, case_ids: list[str], *, organization: dict | None = None) -> dict:
     """Export a precise current definition selection through the fourteen-column task template."""
+    from . import case_folders
     from .locking import project_lock
 
     with project_lock(project_id):
@@ -355,11 +375,14 @@ def export_cases(project_id: str, case_ids: list[str], *, organization: dict | N
             items.append({"definition": case, "result": result, "run_id": result["run_id"] if result else "", "evidence_valid": valid,
                           "note": "最近记录与当前定义或证据不符，仅保留历史观察，不能宣称当前业务通过。" if result and not valid else ""})
         info = projects.get(project_id)
+        folder_export = organization is not None
+        organization = organization if folder_export else case_folders.list_folders(project_id)
+        display_paths = _export_paths(info, selected, organization)
         identity = "export-" + uuid.uuid4().hex
         snapshot = {"schema": 1, "kind": "project_export", "task_id": identity, "project_id": project_id,
-                    "project": {key: info[key] for key in ("id", "name", "base_url")}, "title": "按文件夹导出测试用例" if organization else "项目测试用例导出",
+                    "project": {key: info[key] for key in ("id", "name", "base_url")}, "title": "按文件夹导出测试用例" if folder_export else "项目测试用例导出",
                     "status": "Exported", "session_id": "", "run_ids": list(dict.fromkeys(run_ids)), "cases": items, "results": results,
-                    "sources": {"organization": organization} if organization else {},
+                    "sources": {"organization": organization, "report_business_paths": display_paths},
                     "notes": ["仅导出所选范围的当前用例定义；包含从未执行的用例，不自动加入范围外的依赖，也不重新执行测试。"],
                     "metadata": {"case_ids": selected, "organization": organization or {}}}
         destination = projects.path(project_id) / "reports" / f"{identity}.xlsx"
