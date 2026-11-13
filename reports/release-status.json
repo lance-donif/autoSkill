@@ -2,8 +2,8 @@
   "tag": "v2.2.3",
   "source_commit": "41b59f3681d9e2229f3bbeef0ef96daebf2507bc",
   "status": "running",
-  "stage": "building",
+  "stage": "publishing",
   "run_id": "43370469901",
   "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/43370469901",
-  "recorded_at": "2026-11-13T05:12:36.450496+00:00"
+  "recorded_at": "2026-11-13T05:15:43.130046+00:00"
 }
