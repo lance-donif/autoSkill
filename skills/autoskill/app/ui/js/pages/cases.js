@@ -5,6 +5,7 @@ import { runtimeFields, credentialControls } from '../project-settings.js';
 import { state, refreshShell } from '../shell.js';
 import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
+import { editCase } from '../case-editor.js';
 
 
 const selected = new Map();  // "project/case" -> {project_id, case_id}
@@ -134,7 +135,7 @@ function projectCard(project, allItems, repaint, folderResult) {
   } else {
     body = h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '子项目'),
-        h('th', {}, '最近结果'), h('th', {}, '最近执行'), h('th', { class: 'actions' }, ''))),
+        h('th', {}, '当前结果'), h('th', {}, '最近执行'), h('th', { class: 'actions' }, ''))),
       h('tbody', {}, modules.map((module) => [groupRow(module), items.filter((item) => item.module === module).map((item) => {
         const key = keyOf(item);
         const box = h('input', { class: 'check', type: 'checkbox', checked: selected.has(key), 'aria-label': `选择 ${item.case_id}` });
@@ -148,7 +149,7 @@ function projectCard(project, allItems, repaint, folderResult) {
             h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : '')),
           h('td', {}, kindTag(item.kind)),
           h('td', { class: 'sub' }, item.module),
-          h('td', {}, item.last_status ? statusPill(item.last_status) : h('span', { class: 'status idle' }, icon('blocked'), '未执行')),
+          h('td', {}, caseStatus(item)),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
           h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
             loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }), run, caseDeleteButton([item], { small: true })));
@@ -317,6 +318,10 @@ async function caseDrawer(projectId, caseId) {
   let item;
   try { item = await api(`/projects/${projectId}/cases/${encodeURIComponent(caseId)}`); } catch (error) { toast(error.message, { bad: true }); return; }
   const body = [];
+  if (item.current_status === null) body.push(h('div', { class: 'banner info' }, icon('info'), h('span', {},
+    '当前版本尚待验证，请手动运行检查。', item.last_status && '历史执行结果不代表当前版本已经验证。')));
+  if (item.current_status === 'Unverified') body.push(h('div', { class: 'banner info' }, icon('info'),
+    '当前版本已经执行，业务预期尚未验证。请确认技术断言覆盖手工维护的业务预期。'));
   if (item.depends_on.length) {
     body.push(h('div', { class: 'banner info' }, icon('link'), h('span', {}, `前置用例：${item.depends_on.join('、')}。运行这条用例时会自动先执行。`)));
   }
@@ -351,8 +356,15 @@ async function caseDrawer(projectId, caseId) {
   drawer({ title: item.title, subtitle: `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · ${item.module} · 第 ${item.revision} 版`, body, wide: true,
     foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
       h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),
+      h('button', { class: 'btn', onClick: () => editCase(projectId, caseId, () => caseDrawer(projectId, caseId)) }, icon('edit'), '编辑用例'),
       h('button', { class: 'btn', onClick: () => moveCases([{ project_id: projectId, case_id: caseId }]) }, icon('folder'), '移动到文件夹'),
       loadTestButton('压测这条用例', () => [{ project_id: projectId, case_ids: [caseId] }]), item.replayable && run] });
+}
+
+function caseStatus(item) {
+  const current = item.current_status === undefined ? item.last_status : item.current_status;
+  return h('div', { class: 'stack', style: 'gap:4px' }, statusPill(current),
+    item.current_status === null && item.last_status && h('span', { class: 'sub' }, '历史：', statusPill(item.last_status)));
 }
 
 function apiAssertionRows(rules) {

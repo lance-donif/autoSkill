@@ -83,12 +83,19 @@ export async function api(path, options = {}) {
   }
   let data = null;
   try { data = await response.json(); } catch { /* empty body */ }
-  if (!response.ok) throw new ApiError((data && typeof data.detail === 'string' && data.detail) || `请求没有成功（${response.status}）`);
+  if (!response.ok) {
+    const error = new ApiError((data && typeof data.detail === 'string' && data.detail) || `请求没有成功（${response.status}）`);
+    error.status = response.status;
+    error.code = data?.code;
+    error.details = data;
+    throw error;
+  }
   return data;
 }
 
 export const STATUS = {
   Pass: ['pass', '通过', 'check'], Fail: ['fail', '失败', 'x'], Blocked: ['blocked', '阻塞', 'blocked'],
+  Unverified: ['idle', '业务未验证', 'info'],
   Running: ['running', '执行中', null], Queued: ['queued', '排队中', 'clock'], Cancelled: ['cancelled', '已取消', 'stop'],
 };
 export function statusPill(status, label) {

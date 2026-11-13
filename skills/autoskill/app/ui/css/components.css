@@ -5,6 +5,7 @@
   background: var(--fill); color: var(--ink);
   transition: background var(--fast), transform var(--fast) var(--ease), opacity var(--fast);
 }
+.case-editor .btn { max-width: 100%; height: auto; min-height: 32px; white-space: normal; }
 .btn:hover:not(:disabled) { background: var(--fill-strong); }
 .btn:active:not(:disabled) { transform: scale(.97); }
 .btn:disabled { opacity: .4; }
@@ -133,6 +134,19 @@
 .drawer-head { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-5) var(--s-5) var(--s-4); border-bottom: 1px solid var(--line); }
 .drawer-body { flex: 1; overflow: auto; padding: var(--s-5); display: grid; gap: var(--s-5); align-content: start; }
 .drawer-foot { display: flex; justify-content: flex-end; gap: var(--s-2); padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); }
+.drawer-foot { flex-wrap: wrap; align-items: center; }
+.editor-section { gap: var(--s-3); min-width: 0; }
+.editor-group { min-width: 0; border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-4); display: grid; gap: var(--s-3); }
+.editor-group legend { font-size: var(--t-sm); font-weight: 600; padding: 0 var(--s-2); color: var(--ink-2); }
+.value-editor { min-width: 0; display: grid; gap: var(--s-2); }
+.value-editor .input, .value-editor .select { max-width: 100%; }
+.value-type { width: auto; flex: none; }
+.value-children { display: grid; gap: var(--s-3); min-width: 0; }
+.value-child { border-left: 2px solid var(--line); padding-left: var(--s-3); min-width: 0; display: grid; gap: var(--s-2); }
+.editor-departure { position: sticky; top: 0; z-index: 1; }
+.case-editor .drawer-body > * { min-width: 0; }
+.case-editor textarea.input { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical; }
+.case-editor .label { overflow-wrap: anywhere; }
 .dialog { position: fixed; z-index: 51; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(480px, calc(100vw - 32px)); background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-2); animation: rise var(--slow) var(--ease); }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, -50%) scale(.95); } }
 #toasts { position: fixed; z-index: 60; left: 50%; bottom: var(--s-6); transform: translateX(-50%); display: grid; gap: var(--s-2); justify-items: center; }

@@ -6,18 +6,20 @@ export { preferredEngine, setEngine, preferredHeaded, setHeaded } from './prefer
 const layer = () => document.getElementById('layer');
 let closeCurrent = null;
 
-function open(panel, onClose) {
-  if (closeCurrent) closeCurrent();
+function open(panel, onClose, beforeClose) {
+  if (closeCurrent && closeCurrent() === false) return null;
   const previous = document.activeElement;
   const scrim = h('div', { class: 'scrim', onClick: () => close() });
   const onKey = (event) => { if (event.key === 'Escape') close(); };
   function close() {
+    if (beforeClose && beforeClose() === false) return false;
     document.removeEventListener('keydown', onKey);
     scrim.remove();
     panel.remove();
     closeCurrent = null;
     if (previous?.focus) previous.focus();
     if (onClose) onClose();
+    return true;
   }
   document.addEventListener('keydown', onKey);
   layer().append(scrim, panel);
@@ -26,17 +28,16 @@ function open(panel, onClose) {
   if (first) first.focus();
   return close;
 }
-export function closeOverlay() { if (closeCurrent) closeCurrent(); }
+export function closeOverlay() { return closeCurrent ? closeCurrent() : true; }
 
-export function drawer({ title, subtitle, body, foot, wide, onClose }) {
+export function drawer({ title, subtitle, body, foot, wide, onClose, beforeClose }) {
   const panel = h('aside', { class: 'drawer' + (wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('div', { class: 'drawer-head' },
       h('div', { class: 'grow' }, h('h2', {}, title), subtitle && h('p', { class: 'sub' }, subtitle)),
       h('button', { class: 'btn ghost icon', 'aria-label': '关闭', onClick: () => closeOverlay() }, icon('x'))),
     h('div', { class: 'drawer-body' }, body),
     foot && h('div', { class: 'drawer-foot' }, foot));
-  open(panel, onClose);
-  return panel;
+  return open(panel, onClose, beforeClose) ? panel : null;
 }
 
 export function dialog({ title, body, actions }) {
