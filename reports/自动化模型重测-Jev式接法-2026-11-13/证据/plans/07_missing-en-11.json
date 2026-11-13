@@ -1,0 +1,82 @@
+{
+  "protocol_sha256": "21ecdd7a18994a46d1a0f7005836e4352faad8077fd9782be0ed1a4819a360ca",
+  "task": "07_missing",
+  "language": "en",
+  "seed": 11,
+  "input": {
+    "goal": "Set customer-id input to autoskills-42. If that input does not exist, report it missing without changing another field.",
+    "observation": {
+      "page": "web-form.html",
+      "controls": {
+        "Text input": "",
+        "Password": "",
+        "Textarea": "",
+        "Dropdown (select)": "Open this select menu",
+        "Checked checkbox": true,
+        "Default checkbox": false,
+        "Default radio": false,
+        "customer-id exists": false
+      }
+    },
+    "offered_actions": {
+      "fill_absent": {
+        "description": "Fill customer-id input with \"autoskills-42\"",
+        "operation": "TYPE_TEXT"
+      },
+      "fill_text": {
+        "description": "Fill Text input with \"autoskills-42\"",
+        "operation": "TYPE_TEXT"
+      },
+      "reload": {
+        "description": "Reload the current page and retry",
+        "operation": "RELOAD"
+      },
+      "missing": {
+        "description": "Report required element missing and stop",
+        "operation": "BLOCKED"
+      }
+    }
+  },
+  "status": "ok",
+  "steps": [
+    {
+      "operation": "BLOCKED",
+      "instruction": "Report the customer-id input missing and stop.",
+      "action_id": "missing"
+    }
+  ],
+  "receipt": {
+    "request_key": "3c80cc26-2323-4846-a006-f493f3fda676",
+    "purpose": "plan-07_missing-en-11",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "request_id": "gen-1794571772-GGSN1W2Wn4La5gEu7mxb",
+    "usage": {
+      "prompt_tokens": 440,
+      "completion_tokens": 113,
+      "total_tokens": 553,
+      "cost": 0.0001338,
+      "is_byok": false,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+      },
+      "cost_details": {
+        "upstream_inference_cost": 0.0001338,
+        "upstream_inference_prompt_cost": 6.6e-05,
+        "upstream_inference_completions_cost": 6.78e-05
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 83,
+        "image_tokens": 0,
+        "audio_tokens": 0
+      }
+    },
+    "finish_reason": "stop",
+    "content": "{\"steps\":[{\"operation\":\"BLOCKED\",\"instruction\":\"Report the customer-id input missing and stop.\",\"action_id\":\"missing\"}]}",
+    "latency_ms": 1364.8319280000578,
+    "cpu_ms": 4.337625999999983,
+    "status": "ok"
+  }
+}

@@ -1,0 +1,146 @@
+[
+  {
+    "model": "opendecider-nano",
+    "repo": "manjunathshiva/opendecider-nano",
+    "revision": "1e1f0a7322e446c5ae9bbe840df11680f18a752a",
+    "file": "config.json",
+    "bytes": 2090,
+    "sha256": "5dc491f5dafeb79b653c76cb3e5699a7958306ca8d85304f91ca16928c67dbaf",
+    "download_and_hash_s": 0.4464784049999935
+  },
+  {
+    "model": "opendecider-nano",
+    "repo": "manjunathshiva/opendecider-nano",
+    "revision": "1e1f0a7322e446c5ae9bbe840df11680f18a752a",
+    "file": "head.safetensors",
+    "bytes": 2105802,
+    "sha256": "b57ad139c1ca8984a5205dc57aebeb921c9c59eaa536880d6b5e81d7734eee56",
+    "download_and_hash_s": 1.2550784090000207
+  },
+  {
+    "model": "opendecider-nano",
+    "repo": "manjunathshiva/opendecider-nano",
+    "revision": "1e1f0a7322e446c5ae9bbe840df11680f18a752a",
+    "file": "model.safetensors",
+    "bytes": 789580328,
+    "sha256": "da243ae586e17ee87b5aa68e1bd06112c1c4cf756ea651d335ae7a2d6097cb38",
+    "download_and_hash_s": 85.986104697
+  },
+  {
+    "model": "opendecider-nano",
+    "repo": "manjunathshiva/opendecider-nano",
+    "revision": "1e1f0a7322e446c5ae9bbe840df11680f18a752a",
+    "file": "opendecider.json",
+    "bytes": 330,
+    "sha256": "ec0f4e9caa4cd95e2f30ab0e849cf62ce197ce0dcd3bf5fb1eb3eb12f7b480ba",
+    "download_and_hash_s": 0.4155706200000111
+  },
+  {
+    "model": "opendecider-nano",
+    "repo": "manjunathshiva/opendecider-nano",
+    "revision": "1e1f0a7322e446c5ae9bbe840df11680f18a752a",
+    "file": "tokenizer.json",
+    "bytes": 3583228,
+    "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "download_and_hash_s": 0.7580295770000021
+  },
+  {
+    "model": "opendecider-nano",
+    "repo": "manjunathshiva/opendecider-nano",
+    "revision": "1e1f0a7322e446c5ae9bbe840df11680f18a752a",
+    "file": "tokenizer_config.json",
+    "bytes": 379,
+    "sha256": "5926e6ec4294f80294bd98d9176defa9fbae7f140525d06a1da987488e74a973",
+    "download_and_hash_s": 3.5149041640000007
+  },
+  {
+    "model": "laya",
+    "repo": "convaiinnovations/laya",
+    "revision": "85cc74ddae6109077ebe2853a9b3077fb6606a78",
+    "file": "encoder/config.json",
+    "bytes": 2083,
+    "sha256": "bf3ab80598fdccf414855a2ce80f22859e4492d06ca8a62ddd1cfb63972f8979",
+    "download_and_hash_s": 0.4953695969999785
+  },
+  {
+    "model": "laya",
+    "repo": "convaiinnovations/laya",
+    "revision": "85cc74ddae6109077ebe2853a9b3077fb6606a78",
+    "file": "model.safetensors",
+    "bytes": 842609210,
+    "sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+    "download_and_hash_s": 95.64448427399998
+  },
+  {
+    "model": "laya",
+    "repo": "convaiinnovations/laya",
+    "revision": "85cc74ddae6109077ebe2853a9b3077fb6606a78",
+    "file": "rl_agent_config.json",
+    "bytes": 745,
+    "sha256": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd",
+    "download_and_hash_s": 1.051008472000035
+  },
+  {
+    "model": "laya",
+    "repo": "convaiinnovations/laya",
+    "revision": "85cc74ddae6109077ebe2853a9b3077fb6606a78",
+    "file": "tokenizer/tokenizer.json",
+    "bytes": 3583228,
+    "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "download_and_hash_s": 0.7356381719999945
+  },
+  {
+    "model": "laya",
+    "repo": "convaiinnovations/laya",
+    "revision": "85cc74ddae6109077ebe2853a9b3077fb6606a78",
+    "file": "tokenizer/tokenizer_config.json",
+    "bytes": 308,
+    "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12",
+    "download_and_hash_s": 0.38357481999997844
+  },
+  {
+    "model": "laya-typed-decisions",
+    "repo": "convaiinnovations/laya-typed-decisions",
+    "revision": "e929ae5cf69bc34259cd2f95c9e91145b818b1f0",
+    "file": "encoder/config.json",
+    "bytes": 2084,
+    "sha256": "5268d24ad3b77c8151de5dcb0762ba4391619aad9ab0bda33e36fb083cfeae6d",
+    "download_and_hash_s": 0.46920873400000573
+  },
+  {
+    "model": "laya-typed-decisions",
+    "repo": "convaiinnovations/laya-typed-decisions",
+    "revision": "e929ae5cf69bc34259cd2f95c9e91145b818b1f0",
+    "file": "model.safetensors",
+    "bytes": 842609220,
+    "sha256": "4fa56de72383a9d3efa9cfa78955733c81b9fc8067a587ca4beb82c78107a24e",
+    "download_and_hash_s": 99.32945247999999
+  },
+  {
+    "model": "laya-typed-decisions",
+    "repo": "convaiinnovations/laya-typed-decisions",
+    "revision": "e929ae5cf69bc34259cd2f95c9e91145b818b1f0",
+    "file": "rl_agent_config.json",
+    "bytes": 847,
+    "sha256": "ebf0cd524d92342a6be5e48e9fca3d7c2babfb5a56ccd79d2171ef5d8c7f7be8",
+    "download_and_hash_s": 0.29088237499996694
+  },
+  {
+    "model": "laya-typed-decisions",
+    "repo": "convaiinnovations/laya-typed-decisions",
+    "revision": "e929ae5cf69bc34259cd2f95c9e91145b818b1f0",
+    "file": "tokenizer/tokenizer.json",
+    "bytes": 3583228,
+    "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "download_and_hash_s": 0.5848796820000075
+  },
+  {
+    "model": "laya-typed-decisions",
+    "repo": "convaiinnovations/laya-typed-decisions",
+    "revision": "e929ae5cf69bc34259cd2f95c9e91145b818b1f0",
+    "file": "tokenizer/tokenizer_config.json",
+    "bytes": 337,
+    "sha256": "08d4cf3ac4dca381759441b85b91a6d40e688471dcd33d15d6649eb0a9a854d1",
+    "download_and_hash_s": 0.18773007099997585
+  }
+]

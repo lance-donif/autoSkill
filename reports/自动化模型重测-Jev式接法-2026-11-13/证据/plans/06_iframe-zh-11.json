@@ -1,0 +1,77 @@
+{
+  "protocol_sha256": "21ecdd7a18994a46d1a0f7005836e4352faad8077fd9782be0ed1a4819a360ca",
+  "task": "06_iframe",
+  "language": "zh",
+  "seed": 11,
+  "input": {
+    "goal": "将 iframe1 内的 working 输入框填为 autoskills-42，不要填写 email。",
+    "observation": {
+      "page": "iframes.html",
+      "controls": {
+        "main frame working exists": false,
+        "iframe1 working": "",
+        "iframe1 email": ""
+      }
+    },
+    "offered_actions": {
+      "fill_frame": {
+        "description": "Fill working input inside iframe1 with \"autoskills-42\"",
+        "operation": "TYPE_TEXT"
+      },
+      "fill_main": {
+        "description": "Fill working input in main frame with \"autoskills-42\"",
+        "operation": "TYPE_TEXT"
+      },
+      "fill_email": {
+        "description": "Fill email input inside iframe1 with \"test@example.com\"",
+        "operation": "TYPE_TEXT"
+      },
+      "missing": {
+        "description": "Report required element missing and stop",
+        "operation": "BLOCKED"
+      }
+    }
+  },
+  "status": "ok",
+  "steps": [
+    {
+      "operation": "TYPE_TEXT",
+      "instruction": "Fill the working input inside iframe1 with autoskills-42.",
+      "action_id": "fill_frame"
+    }
+  ],
+  "receipt": {
+    "request_key": "9232cca3-2eb1-4251-b80b-df74ae081765",
+    "purpose": "plan-06_iframe-zh-11",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "request_id": "gen-1794571791-lSTW1lY3eQohoJiaP8mb",
+    "usage": {
+      "prompt_tokens": 418,
+      "completion_tokens": 153,
+      "total_tokens": 571,
+      "cost": 0.0001545,
+      "is_byok": false,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+      },
+      "cost_details": {
+        "upstream_inference_cost": 0.0001545,
+        "upstream_inference_prompt_cost": 6.27e-05,
+        "upstream_inference_completions_cost": 9.18e-05
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 117,
+        "image_tokens": 0,
+        "audio_tokens": 0
+      }
+    },
+    "finish_reason": "stop",
+    "content": "{\"steps\":[{\"operation\":\"TYPE_TEXT\",\"instruction\":\"Fill the working input inside iframe1 with autoskills-42.\",\"action_id\":\"fill_frame\"}]}",
+    "latency_ms": 1820.9613839999292,
+    "cpu_ms": 2.9113389999999573,
+    "status": "ok"
+  }
+}

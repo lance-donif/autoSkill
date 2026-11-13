@@ -1,0 +1,17 @@
+{
+  "name": "plan-direct",
+  "protocol_sha256": "21ecdd7a18994a46d1a0f7005836e4352faad8077fd9782be0ed1a4819a360ca",
+  "episodes": 16,
+  "passed": 16,
+  "blocked": 0,
+  "peak_host_rss_mib": 31.6015625,
+  "load_s": 0,
+  "memory_scope": "Whole worker process across modes, including load; excludes Chromium/Node and remote service",
+  "versions": {
+    "torch": "2.15.0+cpu",
+    "transformers": "5.22.2",
+    "opendecider": "0.9.0",
+    "laya": "0.4.31",
+    "playwright": "1.62.0"
+  }
+}

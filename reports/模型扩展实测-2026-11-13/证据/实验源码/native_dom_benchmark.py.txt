@@ -1,0 +1,118 @@
+"""Exploratory adapter correction: observed labels and available native targets.
+
+The original catalog-format trials remain immutable. This added protocol changes
+both label rendering and availability filtering, so it is not a format-only test.
+"""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import resource
+import time
+
+import extension_benchmark as trial
+
+ROOT=trial.ROOT
+RESULTS=trial.RESULTS
+
+
+def observed_page(observed,ordered):
+    page=trial.native_page(observed,ordered)
+    values=observed['controls']
+    labels={'fill_text':'Text input','fill_password':'Password','fill_area':'Textarea',
+        'check_default':'Default checkbox','radio_default':'Default radio','uncheck_checked':'Checked checkbox',
+        'submit':'Submit','reveal':'Reveal a new input','add_box':'Add a box',
+        'fill_revealed':'revealed input','fill_frame':'working (inside iframe1)',
+        'fill_main':'working (main frame)','fill_email':'email (inside iframe1)',
+        'fill_absent':'customer-id','cancel_confirm':'test confirm (dismiss dialog)',
+        'accept_confirm':'test confirm (accept dialog)','accept_alert':'alert (accept dialog)'}
+    actions=[]
+    for entry in page['actions']:
+        action=entry['id']
+        if action=='fill_main' and values.get('main frame working exists') is False:continue
+        if action=='fill_absent' and values.get('customer-id exists') is False:continue
+        if action=='fill_revealed' and values.get('revealed_visible') is False:continue
+        if action in labels:entry['label']=labels[action]
+        if action in ('accept_confirm','cancel_confirm','accept_alert'):entry['role']='link'
+        actions.append(entry)
+    page['actions']=actions
+    return page
+
+
+class Selector(trial.Selector):
+    def __init__(self):super().__init__('laya-browser')
+
+    def predict(self,state,ordered,mode,plan_step=None):
+        if mode!='native_dom':return super().predict(state,ordered,mode,plan_step)
+        parsed=json.loads(state)
+        page=observed_page(parsed['observed'],ordered)
+        kind={'TYPE_TEXT':'fill','SELECT':'select','CLICK':'click','WAIT':'wait','BLOCKED':'blocked','RELOAD':'reload'}
+        texts={'fill_text':trial.v2.base.PAYLOAD,'fill_password':trial.v2.base.PASSWORD,
+            'fill_area':trial.v2.base.AREA,'fill_revealed':'ready','fill_frame':trial.v2.base.PAYLOAD,
+            'fill_main':trial.v2.base.PAYLOAD,'fill_email':'test@example.com'}
+        history=[{'action':trial.v2.base.ACTIONS.get(h['action'],h['action']),
+            'kind':kind.get(trial.v2.OPERATION.get(h['action'])),
+            'text':None if h.get('error') else texts.get(h['action']),
+            'page_changed':h['changed']} for h in parsed['recent_actions']]
+        state,questions,targets,controls=self.native.build_request(page,parsed['goal'],history)
+        singles={qid:next(iter(q['criteria'])) for qid,q in questions.items() if len(q['criteria'])==1}
+        submitted={qid:q for qid,q in questions.items() if qid not in singles}
+        start=time.perf_counter();cpu0=time.process_time()
+        answers=self.native.predict_chunked(self.model,state,submitted)
+        answers.update({qid:{'choice':key,'deterministic':True} for qid,key in singles.items()})
+        op=answers['operation']['choice']
+        if op in targets:selected=targets[op][answers[op.lower()+'_target']['choice']]['id']
+        elif op in controls:selected=controls[op]['id']
+        elif op in ('DONE','BLOCKED'):selected='__done__' if op=='DONE' else 'missing'
+        else:raise ValueError('Unmapped native operation: '+op)
+        return {'selected_action':selected,'operation':op,'response':{'answers':answers},'questions':questions,
+            'criteria':{},'native_state':state,'native_page':page,'question_count':len(submitted),
+            'local_forward_calls':1,'backend_forward_calls':1,
+            'deterministic_target':op in targets and len(targets[op])==1,
+            'inference_ms':(time.perf_counter()-start)*1000,'inference_cpu_ms':(time.process_time()-cpu0)*1000}
+
+
+def freeze():
+    original=trial.protocol_hash()
+    obj={'version':'3.1-exploratory','parent_protocol_sha256':original,
+        'reason':'Catalog strings were passed as element labels; native training uses observed labels. Keep original failures and add a separate correction trial.',
+        'changes':['plain observed control labels','fill/click/select history kinds and bound historical text',
+            'drop main-frame/required/dynamic input candidates only when actual observation reports absent/hidden'],
+        'unchanged':'same model weights, goals, budgets, verdicts, host frame/dialog macros, seed and candidate order before availability filtering',
+        'scope':'16 extra English/Chinese rounds, native format plus availability correction, post-initial-results exploratory; no main planning',
+        'dataset':trial.v2.DATASET,'source_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'created_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}
+    target=ROOT/'native-dom-protocol.json';assert not target.exists()
+    target.write_text(json.dumps(obj,ensure_ascii=False,sort_keys=True,indent=2))
+
+
+def protocol_hash():
+    raw=(ROOT/'native-dom-protocol.json').read_bytes();obj=json.loads(raw)
+    assert obj['parent_protocol_sha256']==trial.protocol_hash()
+    assert hashlib.sha256(Path(__file__).read_bytes()).hexdigest()==obj['source_sha256']
+    return hashlib.sha256(raw).hexdigest()
+
+
+def run():
+    digest=protocol_hash();output=RESULTS/'native-dom-episodes.jsonl';assert not output.exists()
+    selector=Selector()
+    for _ in range(2):selector.predict('Goal: Fill Text input. Observed: Text input is empty.',
+        ['fill_text','fill_area','submit','missing'],'history')
+    rows=[]
+    with trial.v2.base.sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,
+            args=['--no-sandbox','--disable-dev-shm-usage','--disable-background-networking'])
+        with output.open('w') as out:
+            for task,language,seed in trial.v2.DATASET:
+                result=trial.v2.run_episode(browser,selector,'native_dom',task,language,seed,digest)
+                rows.append(result);out.write(json.dumps(result,ensure_ascii=False)+'\n');out.flush()
+                print(json.dumps({k:result[k] for k in ['model','mode','task','language','expected_behavior_satisfied','reason','e2e_ms']}),flush=True)
+        browser.close()
+    meta={'model':'laya-browser','mode':'native_dom','rounds':len(rows),'passed':sum(r['expected_behavior_satisfied'] for r in rows),
+        'protocol_sha256':digest,'load_s':selector.load_s,'peak_worker_rss_mib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024}
+    (RESULTS/'native-dom-meta.json').write_text(json.dumps(meta,indent=2));print('DONE',json.dumps(meta),flush=True)
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['freeze','run']);a=p.parse_args()
+    freeze() if a.command=='freeze' else run()

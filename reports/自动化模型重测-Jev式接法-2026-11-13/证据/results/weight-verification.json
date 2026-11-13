@@ -1,0 +1,25 @@
+{
+  "unchanged_from_v1": true,
+  "files": [
+    {
+      "model": "opendecider-nano",
+      "file": "head.safetensors",
+      "sha256": "b57ad139c1ca8984a5205dc57aebeb921c9c59eaa536880d6b5e81d7734eee56"
+    },
+    {
+      "model": "opendecider-nano",
+      "file": "model.safetensors",
+      "sha256": "da243ae586e17ee87b5aa68e1bd06112c1c4cf756ea651d335ae7a2d6097cb38"
+    },
+    {
+      "model": "laya",
+      "file": "model.safetensors",
+      "sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c"
+    },
+    {
+      "model": "laya-typed-decisions",
+      "file": "model.safetensors",
+      "sha256": "4fa56de72383a9d3efa9cfa78955733c81b9fc8067a587ca4beb82c78107a24e"
+    }
+  ]
+}

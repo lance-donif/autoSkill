@@ -1,0 +1,256 @@
+[
+  {
+    "selected_action": "missing",
+    "response": {
+      "answers": {
+        "next_action": {
+          "choice": "D"
+        }
+      },
+      "receipts": [
+        {
+          "qid": "next_action",
+          "request": {
+            "model": "qwen3.5-0.8b-q4_0",
+            "temperature": 0,
+            "max_tokens": 32,
+            "stream": false,
+            "cache_prompt": false,
+            "chat_template_kwargs": {
+              "enable_thinking": false
+            },
+            "response_format": {
+              "type": "json_schema",
+              "json_schema": {
+                "name": "action",
+                "strict": true,
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "choice": {
+                      "type": "string",
+                      "enum": [
+                        "A",
+                        "B",
+                        "C",
+                        "D"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "choice"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "messages": [
+              {
+                "role": "system",
+                "content": "Choose the next browser action to fulfill the user's goal using the observed state. Do not repeat completed actions. Submit only when all requested fields are correct. Report missing only if a required element is absent. Return JSON {\"choice\":\"A\"} using one offered key."
+              },
+              {
+                "role": "user",
+                "content": "Goal: Fill Text input. Observed: Text input is empty.\nOffered choices: {\"A\": \"Fill Text input with \\\"autoskills-42\\\"\", \"B\": \"Fill Textarea with \\\"cpu-test\\\"\", \"C\": \"Click Submit to submit form\", \"D\": \"Report required element missing and stop\"}"
+              }
+            ]
+          },
+          "response": {
+            "choices": [
+              {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "{\"choice\":\"D\"}"
+                }
+              }
+            ],
+            "created": 1794574551,
+            "model": "/workspace/autoskills-evaluation/extension/models/qwen3.5-0.8b/Qwen3.5-0.8B-Q4_0.gguf",
+            "system_fingerprint": "b12360-2d8a32502",
+            "object": "chat.completion",
+            "usage": {
+              "completion_tokens": 6,
+              "prompt_tokens": 137,
+              "total_tokens": 143,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              }
+            },
+            "id": "chatcmpl-5HKrnTZQFUR1Eq4xYBmDjhcHGa9cfSxM",
+            "timings": {
+              "cache_n": 0,
+              "prompt_n": 137,
+              "prompt_ms": 1213.732,
+              "prompt_per_token_ms": 8.859357664233576,
+              "prompt_per_second": 112.87500041195256,
+              "predicted_n": 6,
+              "predicted_ms": 262.73,
+              "predicted_per_token_ms": 52.54600000000001,
+              "predicted_per_second": 19.03094431545693
+            }
+          }
+        }
+      ],
+      "backend_cpu_ms": 2830.0,
+      "usage": {
+        "backend_forward_calls": 1
+      },
+      "precision": "Q4_0",
+      "readout": "constrained JSON generation; thinking disabled"
+    },
+    "questions": {
+      "next_action": {
+        "type": "choice",
+        "instructions": "Choose the next browser action to fulfill the user's goal using the observed state. Do not repeat completed actions. Submit only when all requested fields are correct. Report missing only if a required element is absent.",
+        "criteria": {
+          "A": "Fill Text input with \"autoskills-42\"",
+          "B": "Fill Textarea with \"cpu-test\"",
+          "C": "Click Submit to submit form",
+          "D": "Report required element missing and stop"
+        }
+      }
+    },
+    "criteria": {
+      "A": "Fill Text input with \"autoskills-42\"",
+      "B": "Fill Textarea with \"cpu-test\"",
+      "C": "Click Submit to submit form",
+      "D": "Report required element missing and stop"
+    },
+    "operation": "BLOCKED",
+    "question_count": 1,
+    "local_forward_calls": 1,
+    "deterministic_target": false,
+    "inference_ms": 1483.0753050000567,
+    "inference_cpu_ms": 2831.502431,
+    "backend_forward_calls": 1
+  },
+  {
+    "selected_action": "missing",
+    "response": {
+      "answers": {
+        "next_action": {
+          "choice": "D"
+        }
+      },
+      "receipts": [
+        {
+          "qid": "next_action",
+          "request": {
+            "model": "qwen3.5-0.8b-q4_0",
+            "temperature": 0,
+            "max_tokens": 32,
+            "stream": false,
+            "cache_prompt": false,
+            "chat_template_kwargs": {
+              "enable_thinking": false
+            },
+            "response_format": {
+              "type": "json_schema",
+              "json_schema": {
+                "name": "action",
+                "strict": true,
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "choice": {
+                      "type": "string",
+                      "enum": [
+                        "A",
+                        "B",
+                        "C",
+                        "D"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "choice"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "messages": [
+              {
+                "role": "system",
+                "content": "Choose the next browser action to fulfill the user's goal using the observed state. Do not repeat completed actions. Submit only when all requested fields are correct. Report missing only if a required element is absent. Return JSON {\"choice\":\"A\"} using one offered key."
+              },
+              {
+                "role": "user",
+                "content": "Goal: Fill Text input. Observed: Text input is empty.\nOffered choices: {\"A\": \"Fill Text input with \\\"autoskills-42\\\"\", \"B\": \"Fill Textarea with \\\"cpu-test\\\"\", \"C\": \"Click Submit to submit form\", \"D\": \"Report required element missing and stop\"}"
+              }
+            ]
+          },
+          "response": {
+            "choices": [
+              {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "{\"choice\":\"D\"}"
+                }
+              }
+            ],
+            "created": 1794574553,
+            "model": "/workspace/autoskills-evaluation/extension/models/qwen3.5-0.8b/Qwen3.5-0.8B-Q4_0.gguf",
+            "system_fingerprint": "b12360-2d8a32502",
+            "object": "chat.completion",
+            "usage": {
+              "completion_tokens": 6,
+              "prompt_tokens": 137,
+              "total_tokens": 143,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              }
+            },
+            "id": "chatcmpl-BYhBxtkqzpj60CJR1nKzT2rZgFZJn1Ci",
+            "timings": {
+              "cache_n": 0,
+              "prompt_n": 137,
+              "prompt_ms": 1462.292,
+              "prompt_per_token_ms": 10.673664233576641,
+              "prompt_per_second": 93.68853826732281,
+              "predicted_n": 6,
+              "predicted_ms": 278.177,
+              "predicted_per_token_ms": 55.635400000000004,
+              "predicted_per_second": 17.974167526431014
+            }
+          }
+        }
+      ],
+      "backend_cpu_ms": 3260.0,
+      "usage": {
+        "backend_forward_calls": 1
+      },
+      "precision": "Q4_0",
+      "readout": "constrained JSON generation; thinking disabled"
+    },
+    "questions": {
+      "next_action": {
+        "type": "choice",
+        "instructions": "Choose the next browser action to fulfill the user's goal using the observed state. Do not repeat completed actions. Submit only when all requested fields are correct. Report missing only if a required element is absent.",
+        "criteria": {
+          "A": "Fill Text input with \"autoskills-42\"",
+          "B": "Fill Textarea with \"cpu-test\"",
+          "C": "Click Submit to submit form",
+          "D": "Report required element missing and stop"
+        }
+      }
+    },
+    "criteria": {
+      "A": "Fill Text input with \"autoskills-42\"",
+      "B": "Fill Textarea with \"cpu-test\"",
+      "C": "Click Submit to submit form",
+      "D": "Report required element missing and stop"
+    },
+    "operation": "BLOCKED",
+    "question_count": 1,
+    "local_forward_calls": 1,
+    "deterministic_target": false,
+    "inference_ms": 1749.9691289995098,
+    "inference_cpu_ms": 3262.148166,
+    "backend_forward_calls": 1
+  }
+]

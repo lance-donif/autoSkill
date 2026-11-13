@@ -1,0 +1,38 @@
+[
+  {
+    "model": "verdict-small",
+    "repo": "Manav2op/verdict-small",
+    "revision": "085a41e0ea269f00483dd202a286cfb68f7aa63a",
+    "file": "config.json",
+    "bytes": 756,
+    "sha256": "86b060dde794ff01a1a69ae82c9be1e59eff692f3011ec10d4d9f89e65337568",
+    "download_and_hash_s": 0.5949763629996596
+  },
+  {
+    "model": "verdict-small",
+    "repo": "Manav2op/verdict-small",
+    "revision": "085a41e0ea269f00483dd202a286cfb68f7aa63a",
+    "file": "onnx/model_quantized.onnx",
+    "bytes": 118070929,
+    "sha256": "2d1e4fc7da536425e6ec017a803ec6164b7f4331254be84d022fb94adc4b5179",
+    "download_and_hash_s": 11.841592439000124
+  },
+  {
+    "model": "verdict-small",
+    "repo": "Manav2op/verdict-small",
+    "revision": "085a41e0ea269f00483dd202a286cfb68f7aa63a",
+    "file": "tokenizer.json",
+    "bytes": 17082987,
+    "sha256": "f0ce1e901d4fad64a397355e6887839a3a617f2da68f49c393dd6a7388c1f7db",
+    "download_and_hash_s": 2.675934361000145
+  },
+  {
+    "model": "verdict-small",
+    "repo": "Manav2op/verdict-small",
+    "revision": "085a41e0ea269f00483dd202a286cfb68f7aa63a",
+    "file": "tokenizer_config.json",
+    "bytes": 407,
+    "sha256": "2a8b7939d87c3a5696b4553cf47baa1142a90b009eaf2d447e305309c1e5eb9a",
+    "download_and_hash_s": 0.5448477310001181
+  }
+]

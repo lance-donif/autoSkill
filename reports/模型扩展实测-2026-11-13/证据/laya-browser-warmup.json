@@ -1,0 +1,114 @@
+[
+  {
+    "selected_action": "fill_text",
+    "response": {
+      "model": "laya-rl-agent",
+      "answers": {
+        "next_action": {
+          "type": "choice",
+          "choice": "A",
+          "probabilities": {
+            "A": 0.2826,
+            "B": 0.2175,
+            "C": 0.2773,
+            "D": 0.2226
+          },
+          "confidence": 0.0052,
+          "answer_confidence": 0.2826,
+          "action": {
+            "act_probability": 1.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 105,
+        "output_tokens": 0,
+        "state_tokens": 13,
+        "state_tokens_dropped": 0,
+        "truncated": false,
+        "truncated_questions": []
+      }
+    },
+    "questions": {
+      "next_action": {
+        "type": "choice",
+        "instructions": "Choose the next browser action to fulfill the user's goal using the observed state. Do not repeat completed actions. Submit only when all requested fields are correct. Report missing only if a required element is absent.",
+        "criteria": {
+          "A": "Fill Text input with \"autoskills-42\"",
+          "B": "Fill Textarea with \"cpu-test\"",
+          "C": "Click Submit to submit form",
+          "D": "Report required element missing and stop"
+        }
+      }
+    },
+    "criteria": {
+      "A": "Fill Text input with \"autoskills-42\"",
+      "B": "Fill Textarea with \"cpu-test\"",
+      "C": "Click Submit to submit form",
+      "D": "Report required element missing and stop"
+    },
+    "operation": "TYPE_TEXT",
+    "question_count": 1,
+    "local_forward_calls": 1,
+    "deterministic_target": false,
+    "inference_ms": 189.4324860004417,
+    "inference_cpu_ms": 370.84259399999905,
+    "backend_forward_calls": 1
+  },
+  {
+    "selected_action": "fill_text",
+    "response": {
+      "model": "laya-rl-agent",
+      "answers": {
+        "next_action": {
+          "type": "choice",
+          "choice": "A",
+          "probabilities": {
+            "A": 0.2826,
+            "B": 0.2175,
+            "C": 0.2773,
+            "D": 0.2226
+          },
+          "confidence": 0.0052,
+          "answer_confidence": 0.2826,
+          "action": {
+            "act_probability": 1.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 105,
+        "output_tokens": 0,
+        "state_tokens": 13,
+        "state_tokens_dropped": 0,
+        "truncated": false,
+        "truncated_questions": []
+      }
+    },
+    "questions": {
+      "next_action": {
+        "type": "choice",
+        "instructions": "Choose the next browser action to fulfill the user's goal using the observed state. Do not repeat completed actions. Submit only when all requested fields are correct. Report missing only if a required element is absent.",
+        "criteria": {
+          "A": "Fill Text input with \"autoskills-42\"",
+          "B": "Fill Textarea with \"cpu-test\"",
+          "C": "Click Submit to submit form",
+          "D": "Report required element missing and stop"
+        }
+      }
+    },
+    "criteria": {
+      "A": "Fill Text input with \"autoskills-42\"",
+      "B": "Fill Textarea with \"cpu-test\"",
+      "C": "Click Submit to submit form",
+      "D": "Report required element missing and stop"
+    },
+    "operation": "TYPE_TEXT",
+    "question_count": 1,
+    "local_forward_calls": 1,
+    "deterministic_target": false,
+    "inference_ms": 242.3529640000197,
+    "inference_cpu_ms": 480.486367000001,
+    "backend_forward_calls": 1
+  }
+]

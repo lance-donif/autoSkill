@@ -1,0 +1,16 @@
+[
+  {
+    "model": "laya-multilingual",
+    "file": "tokenizer/tokenizer_config.json",
+    "normalization": "laya.agent._fix_tokenizer_config list->extra_N dict for transformers 5 compatibility",
+    "only_semantic_change": "container representation; special token strings unchanged",
+    "downloaded_sha256": "424b69444bf7b5809dc2cd2e36d0bd71b8055124dd24274d6db3c655d38205e7",
+    "runtime_sha256": "6c6b2d8e3c84ce0e671c129cd6b374b235d6f9863042a5836358d00a89bbb5a1",
+    "exact_expected_json_transform_verified": true,
+    "special_token_ids": {
+      "<start_of_turn>": 106,
+      "<end_of_turn>": 107
+    },
+    "tokenizer_json_unchanged": true
+  }
+]

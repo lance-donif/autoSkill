@@ -1,0 +1,14 @@
+{
+  "formal_trials": 224,
+  "controls": 16,
+  "workbook_cases": 224,
+  "screenshot_links": 224,
+  "successful_outcomes_independently_rechecked": true,
+  "paired_new_main_requests": 42,
+  "original_plans_unchanged": true,
+  "old_reports_unchanged": true,
+  "new_weights_sha256_verified": true,
+  "sdk_tokenizer_representation_normalization_exactly_verified": true,
+  "credential_scan_passed": true,
+  "protocol_sha256": "9967210147082c2551712d9b260ddf2f40174b98cc69dbdec2a124f4b5ec6e37"
+}

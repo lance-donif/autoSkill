@@ -1,0 +1,47 @@
+[
+  {
+    "model": "laya-browser",
+    "repo": "cklxx/laya-browser",
+    "revision": "645cf366a2ae35f1086e8c20eff48f909bb49206",
+    "file": "encoder/config.json",
+    "bytes": 1968,
+    "sha256": "252795756225d703e1913d5647eb542ded520cfd6684f232cc8f4a5ccb6faf9d",
+    "download_and_hash_s": 0.34248240899978555
+  },
+  {
+    "model": "laya-browser",
+    "repo": "cklxx/laya-browser",
+    "revision": "645cf366a2ae35f1086e8c20eff48f909bb49206",
+    "file": "model.safetensors",
+    "bytes": 643835524,
+    "sha256": "82844f2528b9915f8408146384409ccc99f860f56ba0e37d19d0d5775b098e52",
+    "download_and_hash_s": 63.26053767299982
+  },
+  {
+    "model": "laya-browser",
+    "repo": "cklxx/laya-browser",
+    "revision": "645cf366a2ae35f1086e8c20eff48f909bb49206",
+    "file": "rl_agent_config.json",
+    "bytes": 561,
+    "sha256": "b78796b604532688de6749c61912503cc89b2f998a07b06ef27c280989a34eea",
+    "download_and_hash_s": 0.35648507200039603
+  },
+  {
+    "model": "laya-browser",
+    "repo": "cklxx/laya-browser",
+    "revision": "645cf366a2ae35f1086e8c20eff48f909bb49206",
+    "file": "tokenizer/tokenizer.json",
+    "bytes": 34363188,
+    "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f",
+    "download_and_hash_s": 4.325742609000372
+  },
+  {
+    "model": "laya-browser",
+    "repo": "cklxx/laya-browser",
+    "revision": "645cf366a2ae35f1086e8c20eff48f909bb49206",
+    "file": "tokenizer/tokenizer_config.json",
+    "bytes": 624,
+    "sha256": "f2ff584a8f78ac9f3b6fd0afcf9ab310e41c2d445ef628f9ab4b0d594e992b7a",
+    "download_and_hash_s": 0.35801018600068346
+  }
+]

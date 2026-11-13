@@ -1,0 +1,328 @@
+"""Deliver the CPU expansion results, cases, issues, and reproducible evidence."""
+from collections import Counter
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import statistics
+import zipfile
+
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+
+import extension_benchmark as trial
+import native_dom_benchmark as native_trial
+import make_report as old
+from report_retest_v2 import stats, REASONS
+
+ROOT=trial.ROOT
+RESULTS=trial.RESULTS
+OUT=Path('/workspace/autoSkill/reports/模型扩展实测-2026-11-13')
+LABELS={'laya-browser':'Laya Browser','laya-multilingual':'Laya Multilingual',
+    'verdict-small':'Verdict Small','qwen3.5-0.8b':'Qwen3.5 0.8B Q4',
+    'kev-0.8b':'Kev 0.8B','deepseek-v4.1-flash':'DeepSeek 主模型','plan_direct':'DeepSeek 一次规划'}
+MODES={'history':'整任务＋页面状态＋历史','planned':'DeepSeek 拆步＋局部选择','native':'作者格式＋宿主动作目录（初测）',
+       'native_dom':'控件名称＋可用元素（补测）',
+       'baseline':'逐步决策','plan_direct':'一次规划后直接执行'}
+
+
+def read(name):
+    return [json.loads(x) for x in (RESULTS/(name+'-episodes.jsonl')).read_text().splitlines()]
+
+
+def formatted(value, places=2):
+    return '—' if value is None else f'{value:.{places}f}'
+
+
+def workbook(rows, summary):
+    wb=Workbook();ws=wb.active;ws.title='功能测试用例'
+    ws.append(['用例标识','用例名称','功能需求追踪','测试说明','前置条件','测试步骤','预期结果','用例编制人',
+        '实际结果','测试结论','测试执行人','验证环境','备注','截图'])
+    def group(name,level):
+        row=ws.max_row+1;ws.cell(row,1,name);ws.merge_cells(start_row=row,start_column=1,end_row=row,end_column=12)
+        for cells in ws.iter_rows(min_row=row,max_row=row,max_col=14):
+            for c in cells:c.fill=PatternFill('solid',fgColor=['FFD966','A9D18E','F4B183'][level-1]);c.font=Font(name='宋体',bold=True)
+        ws.row_dimensions[row].height=23
+    group('autoSkill',1);group('浏览器操作',2)
+    mapping=[]
+    for i,task in enumerate(trial.v2.base.TASKS):
+        title=old.TITLES[i];group(title,3)
+        for number,r in enumerate([x for x in rows if x['task']==task],1):
+            cid=f'FT-{old.PREFIXES[i]}-{number:03}';r['report_case_id']=cid
+            steps,expected=old.case_text(task)
+            label=LABELS[r['model']]+' / '+MODES[r['mode']]
+            actual=REASONS.get(r['reason'],r['reason'])+f"；执行 {r['e2e_ms']/1000:.3f} 秒。"
+            if r.get('error'):actual+=' '+r['error']
+            if r['planner_reused']:
+                actual+=f" 复用规划实测 {r['planner_latency_ms']/1000:.3f} 秒；规划＋本次执行算术合计 {r['total_with_shared_plan_ms']/1000:.3f} 秒。"
+            version='v3.1 探索' if r['mode']=='native_dom' else 'v3'
+            note=f"协议 {version}；{r['language']}；种子 {r['seed']}；模型/模式/任务/语言共同定位证据；保留所有失败步骤。"
+            if r['mode']=='planned':note+='局部输入为英文原子指令，不含主模型 action_id；唯一候选由代码分派，不计推理。'
+            if r['mode']=='native':note+='作者格式化代码接宿主动作描述；发现与训练所用控件名称存在差异，本条结果保留。'
+            if r['mode']=='native_dom':note+='探索补测：控件名称、历史 kind/value 和按实际观察过滤不可用输入框；保留原始模式全部失败。'
+            if task=='07_missing':note+='正确报告缺失是预期失败处理，不是原填写任务完成。'
+            result='通过' if r['expected_behavior_satisfied'] else ('阻塞' if r['execution_status']=='Blocked' else '失败')
+            precision=json.loads((ROOT/'protocol.json').read_text())['precisions'].get(r['model'],'远程模型')
+            ws.append([cid,'autoSkill-浏览器操作-'+title,title,'验证 '+label+' 完成原任务并通过独立结果校验。',
+                '相同固定 HTML、新浏览器上下文、相同候选动作和值、相同原始目标判据。',steps,expected,
+                '【待确认：用例编制人】',actual,result,'自动化脚本（本会话执行）',
+                f'Linux x86_64；Chromium / Playwright；CPU 2 线程；{precision}；DeepSeek 远程 API。',note,
+                '证据/results/'+r['screenshot'] if r.get('screenshot') else ''])
+            index=ws.max_row;ws.row_dimensions[index].height=170
+            ws.cell(index,10).fill=PatternFill('solid',fgColor={'通过':'E2F0D9','失败':'FCE4D6','阻塞':'FFF2CC'}[result])
+            if r.get('screenshot'):ws.cell(index,14).hyperlink='证据/results/'+r['screenshot']
+            mapping.append({'id':cid,**{k:r[k] for k in ['model','mode','task','language','seed']}})
+    for i,width in enumerate([25,43,24,48,42,76,70,28,87,13,28,46,91,43],1):
+        ws.column_dimensions[get_column_letter(i)].width=width
+    for row in ws:
+        for c in row:
+            c.font=Font(name='宋体',size=11,bold=c.row==1 or c.font.bold)
+            c.alignment=Alignment(wrap_text=True,vertical='top')
+    for c in ws[1]:c.fill=PatternFill('solid',fgColor='BFBFBF')
+    ws.row_dimensions[1].height=28;ws.freeze_panes='C2'
+    ms=wb.create_sheet('指标汇总')
+    ms.append(['配置','符合预期','总轮次','正向完成','正向轮次','正确缺失','阻塞','执行中位数/秒','推理中位数/毫秒','本地决策调用','零调用步骤','EN 通过','ZH 通过'])
+    for config,s in summary.items():
+        ms.append([config,s['passed'],s['n'],s['positive_passed'],s['positive_n'],s['missing_passed'],s['blocked'],
+            s['execution_median_s'],s['inference_median_ms'],s['local_calls'],s['no_local_call_steps'],s['en_passed'],s['zh_passed']])
+    for row in ms:
+        for c in row:c.font=Font(name='宋体',size=11);c.alignment=Alignment(wrap_text=True,vertical='top')
+    for i in range(1,14):ms.column_dimensions[get_column_letter(i)].width=28 if i>1 else 44
+    ms.freeze_panes='B2'
+    path=OUT/'测试用例与结果.xlsx';wb.save(path)
+    check=load_workbook(path);assert len([r for r in check.worksheets[0].iter_rows() if str(r[0].value).startswith('FT-')])==len(rows)
+    check.close()
+    (OUT/'用例证据映射.json').write_text(json.dumps(mapping,ensure_ascii=False,indent=2))
+
+
+def main():
+    digest=trial.protocol_hash()
+    native_digest=native_trial.protocol_hash()
+    controls=read('oracle');assert len(controls)==16 and all(r['expected_behavior_satisfied'] for r in controls)
+    groups={name:read(name) for name in [*trial.MODELS,'main','plan-direct']}
+    configurations={}
+    for name in trial.MODELS:
+        modes=[*trial.MODES,'native'] if name=='laya-browser' else trial.MODES
+        for mode in modes:
+            configurations[name+'/'+mode]=[r for r in groups[name] if r['mode']==mode]
+    configurations['deepseek-v4.1-flash/baseline']=groups['main']
+    configurations['plan_direct/plan_direct']=groups['plan-direct']
+    configurations['laya-browser/native_dom']=read('native-dom')
+    assert all(len(v)==16 for v in configurations.values())
+    rows=[r for rs in configurations.values() for r in rs]
+    assert len(rows)==224 and {r['protocol_sha256'] for r in rows}=={digest,native_digest}
+    summary={k:stats(rs) for k,rs in configurations.items()}
+    (RESULTS/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+    OUT.mkdir(parents=True,exist_ok=True)
+    workbook(rows,summary)
+    meta={name:json.loads((RESULTS/(name+'-meta.json')).read_text()) for name in trial.MODELS}
+    native_meta=json.loads((RESULTS/'native-dom-meta.json').read_text())
+    meta['laya-browser']['peak_worker_rss_mib']=max(meta['laya-browser']['peak_worker_rss_mib'],native_meta['peak_worker_rss_mib'])
+    s=summary
+    ranking=sorted(trial.MODELS,key=lambda m:(s[m+'/planned']['positive_passed'],s[m+'/planned']['passed']),reverse=True)
+    accuracy=[];positive=[];languages=[];resources=[];timings=[];paired=[]
+    for name in ranking:
+        a,b=s[name+'/history'],s[name+'/planned']
+        native=str(s[name+'/native']['passed'])+'/16' if name=='laya-browser' else '—'
+        corrected=str(s[name+'/native_dom']['passed'])+'/16' if name=='laya-browser' else '—'
+        accuracy.append(f"| {LABELS[name]} | {a['passed']}/16 | {b['passed']}/16 | {b['passed']-a['passed']:+d} | {native} | {corrected} |")
+        positive.append(f"| {LABELS[name]} | {a['positive_passed']}/14 | {b['positive_passed']}/14 | {b['missing_passed']}/2 |")
+        languages.append(f"| {LABELS[name]} | {a['en_passed']}/8 | {a['zh_passed']}/8 | {b['en_passed']}/8 | {b['zh_passed']}/8 |")
+        m=meta[name]
+        resources.append(f"| {LABELS[name]} | {m['load_s']:.2f} | {m['peak_worker_rss_mib']:.0f} | {m['peak_qwen_server_rss_mib']:.0f} | {formatted(a['inference_median_ms'],0)} / {formatted(b['inference_median_ms'],0)} | {formatted(a['inference_cpu_percent'],0)} / {formatted(b['inference_cpu_percent'],0)} |")
+        for mode in trial.MODES+(['native','native_dom'] if name=='laya-browser' else []):
+            v=s[name+'/'+mode]
+            timings.append(f"| {LABELS[name]} / {MODES[mode]} | {v['execution_median_s']:.2f} | {v['total_with_plan_median_s']:.2f} | {v['local_calls']} | {v['no_local_call_steps']}/{v['decisions']} | {v['planned_called_matches']}/{v['planned_called_steps']} | {v['blocked']} |")
+        direct={(r['task'],r['language']):r for r in groups['main']}
+        shared=[r for r in configurations[name+'/planned'] if r['expected_behavior_satisfied'] and r['task']!='07_missing' and direct[r['task'],r['language']]['expected_behavior_satisfied']]
+        if shared:
+            local=sum(r['total_with_shared_plan_ms'] for r in shared)/1000
+            main_time=sum(direct[r['task'],r['language']]['e2e_ms'] for r in shared)/1000
+            paired.append(f"| {LABELS[name]} | {len(shared)} | {local:.2f} | {main_time:.2f} | {main_time/local:.2f} |")
+    previous=json.loads((trial.ORIGINAL_ROOT/'results/summary.json').read_text())
+    previous_rows=[]
+    for name,label in [('opendecider-nano','OpenDecider Nano'),('laya-typed-decisions','Laya Typed Decisions'),('laya','Laya 基础版')]:
+        v=previous[name+'/planned']
+        previous_rows.append(f"| {label}（上轮） | {v['passed']}/16 | {v['positive_passed']}/14 |")
+    for name in ranking:
+        v=s[name+'/planned'];previous_rows.append(f"| {LABELS[name]}（本轮） | {v['passed']}/16 | {v['positive_passed']}/14 |")
+    passed=sum(r['expected_behavior_satisfied'] for r in rows)
+    blocked=sum(r['execution_status']=='Blocked' for r in rows)
+    failed=len(rows)-passed-blocked
+    best=ranking[0];best_stats=s[best+'/planned']
+    headline=f"本批拆步模式中，{LABELS[best]} 的结果为 {best_stats['passed']}/16，正向任务 {best_stats['positive_passed']}/14。"
+    old_best=previous['opendecider-nano/planned']['passed']
+    comparison=(f"本轮共同拆步协议的最高结果比上轮 OpenDecider Nano 的 {old_best}/16 多 {best_stats['passed']-old_best} 轮；这是同一固定任务集的跨批观察，仍需重复验证。"
+        if best_stats['passed']>old_best else f"五款新候选在共同拆步协议下均未超过上轮 OpenDecider Nano 的 {old_best}/16，当前没有据此换型的证据。")
+    kev_stats=s['kev-0.8b/planned']
+    kev_bad=[r for r in configurations['kev-0.8b/planned'] if not r['expected_behavior_satisfied']]
+    kev_details='；'.join(f"{r['task']}/{r['language']}："+' → '.join(x.get('selected_action','响应错误') for x in r['steps']) for r in kev_bad)
+    main_s=s['deepseek-v4.1-flash/baseline'];direct_s=s['plan_direct/plan_direct']
+    returned=sorted({step.get('response',{}).get('model') for r in groups['main'] for step in r['steps'] if step.get('response',{}).get('model')})
+    scenarios='\n'.join(f"| {i+1:02} | {old.TITLES[i]} | {definition['budget']} |" for i,definition in enumerate(trial.v2.base.TASKS.values()))
+    report=f'''# autoSkill 五款候选模型 CPU 实测报告
+
+{headline} 五款均使用真实本地权重运行；结果只代表这批固定任务。主模型仍为 `deepseek-v4.1-flash`。
+
+{comparison}
+
+本轮主模型回执实际标识：`{' / '.join(returned)}`；无静默重试或小模型失败后兜底。每个计分工作进程仅加载一次，先做两次不计分预热；加载时间单列，任务耗时不含模型加载和最终截图保存。
+
+## 结果
+
+| 模型 | 整任务＋历史 | DeepSeek 拆步＋局部选择 | 拆步净增通过数 | 作者格式＋动作目录 | 控件名＋可用元素补测 |
+|---|---:|---:|---:|---:|---:|
+{chr(10).join(accuracy)}
+
+本轮新测 DeepSeek 逐步决策 **{main_s['passed']}/16**；复用同一批 DeepSeek 计划直接执行 **{direct_s['passed']}/16**；执行器控制 **16/16**。前两组计入正式结果，控制组另列。正式结果共 **224 轮**：通过 {passed}、失败 {failed}、阻塞 {blocked}；其中原协议 208 轮、另附探索补测 16 轮。加工具控制共实际运行 **240 轮**。
+
+每组 16 轮由 8 个场景各跑英文、中文一次组成，其中 2 轮故意找不存在的元素。下表拆开正向完成和正确报告缺失，避免把失败处理当填表成功。
+
+| 模型 | 整任务正向完成 | 拆步正向完成 | 拆步正确缺失处理 |
+|---|---:|---:|---:|
+{chr(10).join(positive)}
+
+| 场景 | 原任务 | 最大动作数 |
+|---|---|---:|
+{scenarios}
+
+每轮使用全新浏览器上下文、同一 seed=11 候选顺序；最终值、提交参数、弹窗顺序、iframe 上下文和其他字段是否被误改均按原判据验证。完整表单不能因为仅点到提交按钮而通过。
+
+## 与上一轮比较
+
+同一套页面、候选、数据、执行预算和最终判据；拆步模式复用上轮实际 DeepSeek 返回的 16 份计划，SHA256 校验后使用。下表属于跨批观察，尚未重复多种随机种子，不能当统计显著性结论。
+
+| 模型 / DeepSeek 拆步模式 | 全部符合预期 | 正向完成 |
+|---|---:|---:|
+{chr(10).join(previous_rows)}
+
+Kev 拆步推理中位数为 {kev_stats['inference_median_ms']/1000:.2f} 秒；上轮 OpenDecider Nano 为 {previous['opendecider-nano/planned']['inference_median_ms']/1000:.2f} 秒。Kev 本轮工作进程峰值 {meta['kev-0.8b']['peak_worker_rss_mib']/1024:.2f} GiB。完成率的少量增加同时伴随资源成本，不能只按通过数推荐替换。
+
+## 耗时与资源
+
+所有小模型为 CPU。实际配额 2 核、内存限制 8 GiB，浏览器 Chromium、Playwright，单模型顺序运行。Laya 两款和 Kev 为 FP32；Verdict 为 ONNX INT8；Qwen 为 GGUF Q4_0。混合精度适合评估部署成本，但不能据此声称等精度架构速度排名。
+
+小模型计分进程启用 HF/Transformers 离线模式，本地权重与页面快照不依赖联网。主模型逐步决策以及上轮计划生成使用远程 API，因此这不构成整套系统完全离线运行的证明。
+
+| 模型 | 加载/秒 | Python 工作进程峰值 RSS/MiB | Qwen 服务采样峰值 RSS/MiB | 推理中位数：整任务/拆步，ms | 推理 CPU：整任务/拆步，% |
+|---|---:|---:|---:|---:|---:|
+{chr(10).join(resources)}
+
+RSS 含模型加载；Laya Browser 另起进程补测，表中取两个工作进程峰值的最大值，原始加载和资源回执分别保留。Qwen 权重在独立 C++ 服务，必须同时查看服务列，不能只把 Python 客户端算作模型内存。服务列是调用前后采样，未宣称内核高水位。CPU% 按 CPU 时间/墙钟时间计算，多线程可超过 100%；Qwen 含服务 CPU，其他包含本进程推理。所有内存列均不含 Chromium/Node 和远程 DeepSeek。
+
+| 模型 / 接法 | 执行中位数/秒 | 含复用规划的算术中位数/秒 | 小模型决策调用 | 零推理步骤/全部步骤 | 实际推理与计划一致/推理步骤 | 阻塞 |
+|---|---:|---:|---:|---:|---:|---:|
+{chr(10).join(timings)}
+
+规划时间来自上轮真实 API 回执；“含规划”仅把该实测值与本次执行相加，没有重新发起规划请求。缺失、等待、重载或唯一目标能由宿主确定时不调用小模型，故这类步骤不计模型准确率。计划执行失败和错误选择仍保留，未用主模型答案修正局部选择。
+
+只比较双方都完成的正向任务，可减少失败早停造成的速度错觉：
+
+| 拆步模型 | 共同成功正向轮数 | 规划＋执行算术总秒数 | 本轮 DeepSeek 逐步总秒数 | 后者/前者 |
+|---|---:|---:|---:|---:|
+{chr(10).join(paired)}
+
+本轮主模型逐步总耗时 {main_s['execution_total_s']:.2f} 秒；同批计划直接执行总耗时 {direct_s['execution_total_s']:.2f} 秒，规划＋执行算术合计 {direct_s['total_with_plan_s']:.2f} 秒。各局部模型成功集合不同，不能直接用上表证明完整系统等质量提速。
+
+## 中英文
+
+| 模型 | 整任务 EN | 整任务 ZH | 拆步 EN 原任务 | 拆步 ZH 原任务 |
+|---|---:|---:|---:|---:|
+{chr(10).join(languages)}
+
+拆步模式的原子指令已由 DeepSeek 统一成英文，所以其 ZH 列验证“中文主任务经主模型拆解后的整条链路”，不单独证明小模型中文理解能力。
+
+## 各模型实际接法
+
+- Laya Browser：共同整任务/局部选择协议共 32 轮；作者 `laya_browser.py` 格式接宿主动作目录另 16 轮。后者把动作描述作为控件名称，与训练格式存在差异，故保留全部初测数据，再另加控件名称/实际可用元素 16 轮修正补测。补测还把历史 kind 改为 fill/click/select，并填入已执行动作绑定值；按真实观察排除不存在的主框架字段、customer-id 和尚未可见的动态输入框。没有按最终判据或主模型答案过滤候选。补测是看到初测结果后发现适配差异而追加的探索，不能作为事前冻结的纯格式因果实验；改动同时包含名称和候选可用性。iframe/弹窗仍是宿主宏，没有宣称跑了完整 Jev Browse 产品。
+- Laya Multilingual：`laya` 官方加载，CPU eager，固定权重、2 线程，沿用共同问题协议。SDK 0.4.31 自动将 tokenizer_config 的 extra_special_tokens 列表改成 extra_N 映射以兼容 Transformers 5；已核对完整 JSON 恰好只发生这一表示转换。原始文件、运行时文件、前后 SHA 和 token ID（106、107）分别保存；tokenizer.json 和权重未变。未把这项已确认的 SDK 规范化错误描述为权重变化或模型测试失败。
+- Verdict Small：官方 INT8 ONNX，E5 `query:` / `passage:` 前缀，attention-mask 均值池化与 L2 归一化，cosine×20；512 token 截断，缓存选项嵌入，未缓存答案。它测的是候选语义匹配，不能当完整推理代理。
+- Qwen3.5 0.8B：官方 GGUF Q4_0，llama.cpp b12360 CPU，4096 上下文，关闭 thinking，JSON schema 约束选择一个候选；每步真实生成并解析 JSON，未使用主模型答案或规则替代生成。
+- Kev 0.8B：作者固定 GitHub 源码，原版 LoRA adapter＋`head.pt` 指针头＋固定 Qwen3.5 0.8B Base，CPU FP32。没有把普通 Qwen 生成当作 Kev。
+
+来源：[Laya Browser](https://huggingface.co/cklxx/laya-browser)、[Laya Multilingual](https://huggingface.co/convaiinnovations/laya-multilingual)、[Verdict Small](https://huggingface.co/Manav2op/verdict-small)、[Qwen GGUF](https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF)、[Kev 模型](https://huggingface.co/jaredpalmer/kev-0.8b)、[Kev 源码](https://github.com/jaredpalmer/kev)。实际固定 revision 和每个权重的 SHA256 在证据 `*-artifacts.json`，运行依赖版本在各模型 meta.json。
+
+## 解释边界与建议
+
+Kev 拆步失败记录：{kev_details or '无'}。这些错误仍计为失败；主模型给定了操作类型，也不能保证小模型选对控件。
+
+测试通过 autoSkill 原有 `ui.perform`、PlaywrightDriver 和 `ui.check` 路径执行，未给生产内核增加模型 SDK。iframe、弹窗和缺失元素使用上一轮相同宿主适配器。候选动作、选择器、填写值由宿主提供；这里不验证任意网站导航、截图识别、自动发现 DOM、验证码或在线实时 Selenium 网站。
+
+小模型不接收评分 oracle，也不接收计划的 action_id；后者仅用于直接执行对照和事后诊断。计划按命令实际分派是否成功推进，不按小模型是否选对推进；同样的步数上限与连续两次无进展停止规则沿用上轮。失败早停不会改为成功，正确报告缺失也单列。
+
+对于本批边界明确的任务，使用一次规划加确定性执行作为当前优先方案；需要每步观察和恢复时再用主模型做条件重规划。本批模型结果可筛选候选，但尚不足以直接替换主模型：每种语言仅 8 轮，未做多轮重复和真实业务页面验证。浏览器格式接法与共同单题接法的差值只说明这个模型与该适配器组合，不能推成所有小模型采用 Jev 格式都会提升。
+
+协议 SHA256：`{digest}`；项目基线：`{json.loads((ROOT/'protocol.json').read_text())['environment']['project_commit']}`。旧两轮报告保持原字节。
+
+探索补测协议 SHA256：`{native_digest}`。Laya Browser 动作目录格式 {s['laya-browser/native']['passed']}/16；名称和可用性修正后 {s['laya-browser/native_dom']['passed']}/16，正向 {s['laya-browser/native_dom']['positive_passed']}/14。完整差异见独立协议和每步 native_page/native_state。
+
+交付：[用例 Excel](测试用例与结果.xlsx)、[简报](测试简报.md)、[失败与阻塞清单](Bug清单.md)、[原始证据](证据/results/summary.json)、[复现说明](复现说明.md)。
+'''
+    (OUT/'详细报告.md').write_text(report)
+    (OUT/'测试简报.md').write_text(f'''# 五款自动化模型 CPU 测试简报
+
+日期：2026-11-13；项目：autoSkill；主模型：deepseek-v4.1-flash；范围：8 场景×中英文、五款候选两种共同接法及 Laya Browser 原生补测。
+
+正式结果 224 轮（其中 16 轮为适配修正探索补测）：通过 {passed}、失败 {failed}、阻塞 {blocked}；另有工具控制 16/16。
+
+{headline} 本轮 DeepSeek 逐步决策 {main_s['passed']}/16、一次规划直接执行 {direct_s['passed']}/16。主要问题是候选动作误选与多步状态判断；单看失败早停耗时不能判为提速。
+
+[测试用例 Excel](测试用例与结果.xlsx) · [详细报告](详细报告.md) · [Bug 清单](Bug清单.md)
+''')
+    issues=['# 失败与阻塞清单','',
+        '本清单记录外置模型实验中的失败与阻塞，不把小模型误选直接认定为 autoSkill 产品缺陷。较早失败不因后续成功而删除。','']
+    for key,rs in configurations.items():
+        bad=[r for r in rs if not r['expected_behavior_satisfied']]
+        if not bad:continue
+        issues += ['## '+key,'']
+        for r in bad:
+            actions=' → '.join(x.get('selected_action','[响应错误]') for x in r['steps'])
+            errors=[x.get('execution_error') or x.get('error') for x in r['steps'] if x.get('execution_error') or x.get('error')]
+            category='执行阻塞' if r['execution_status']=='Blocked' else ('选择导致执行错误' if errors else '任务结果未满足')
+            issues += [f"- **{r['report_case_id']}** `{r['task']}/{r['language']}`；{category}；{REASONS.get(r['reason'],r['reason'])}。动作：`{actions}`。"+
+                (' 错误：'+str(errors[0]) if errors else '')+f" [截图](证据/results/{r.get('screenshot','')})"]
+        issues.append('')
+    issues += ['## 产品执行对照','',f"工具控制 16/16；DeepSeek 计划直接执行 {direct_s['passed']}/16；未从这些固定页面测试中确认需修改生产代码的执行器缺陷。"]
+    (OUT/'Bug清单.md').write_text('\n'.join(issues)+'\n')
+    evidence=OUT/'证据';evidence.mkdir(exist_ok=True)
+    shutil.copytree(RESULTS,evidence/'results',dirs_exist_ok=True)
+    shutil.copytree(ROOT.parent/'fixtures',evidence/'fixtures',dirs_exist_ok=True)
+    shutil.copy2(ROOT/'protocol.json',evidence/'protocol.json')
+    shutil.copy2(ROOT/'native-dom-protocol.json',evidence/'native-dom-protocol.json')
+    shutil.copy2(ROOT/'runtime-normalizations.json',evidence/'runtime-normalizations.json')
+    shutil.copy2(ROOT/'models/laya-multilingual/tokenizer/tokenizer_config.json',evidence/'laya-multilingual-runtime-tokenizer_config.json')
+    shutil.copy2(trial.ORIGINAL_ROOT/'results/summary.json',evidence/'上轮指标汇总.json')
+    for p in ROOT.glob('*-artifacts.json'):shutil.copy2(p,evidence/p.name)
+    for p in ROOT.glob('*-probe.json'):shutil.copy2(p,evidence/p.name)
+    for p in ROOT.glob('*-warmup.json'):shutil.copy2(p,evidence/p.name)
+    for name in ['qwen-props.json','qwen-server.log']:
+        if (ROOT/name).exists():shutil.copy2(ROOT/name,evidence/name)
+    shutil.copytree(trial.ORIGINAL_PLANS,evidence/'plans',dirs_exist_ok=True)
+    shutil.copy2(trial.ORIGINAL_ROOT/'plan-manifest.json',evidence/'plan-manifest.json')
+    sources=evidence/'实验源码';sources.mkdir(exist_ok=True)
+    paths=[Path(trial.__file__),Path(__file__),Path(native_trial.__file__),Path(trial.v2.__file__),Path(trial.v2.project.__file__),Path(trial.v2.base.__file__),ROOT.parent/'extension_download.py',ROOT.parent/'verify_extension.py',ROOT.parent/'preview_extension.py']
+    for p in paths:shutil.copy2(p,sources/(p.name+'.txt'))
+    with zipfile.ZipFile(evidence/'外部模型适配器源码.zip','w',zipfile.ZIP_DEFLATED) as archive:
+        for p in sorted((ROOT/'vendor/kev-src').rglob('*.py')):archive.write(p,'kev-src/'+str(p.relative_to(ROOT/'vendor/kev-src')))
+        for p in sorted((ROOT/'sources').iterdir()):archive.write(p,'sources/'+p.name)
+    (OUT/'复现说明.md').write_text('''# 复现说明
+
+1. 使用 autoSkill c11671395ec4424d98fe5628f61350105a5c6e3d，Python 3.12、Chromium。保留项目原有执行接口。
+2. 将“证据/实验源码”中的 `.py.txt` 还原为 `.py`，放在同一外部目录；下载协议与 artifact 清单所列固定权重。解压模型源码包到 extension/vendor 与 extension/sources。
+3. 使用证据内 fixtures 固定 HTML；页面版本 a393610d6d42bbbf28c30b6bc4212682a58bbb6c，不访问实时页面。原始下载脚本和项目执行适配器仍在 `/workspace/autoskills-evaluation`。
+4. 把本交付 plans 与 plan-manifest 放到 retest-v2，保留原回执；新实验目录改为全新目录，重新冻结协议，不能覆盖旧轮次。安装元数据文件记录的依赖版本，torch 用 CPU wheel。
+5. 顺序执行 extension_benchmark.py 的 oracle、plan-direct、main、五个模型命令；--probe 仅用于计分前接口检查。之后另运行 native_dom_benchmark.py freeze/run 进行适配修正补测；两份协议及原始失败都保留。main 凭证从受限本机配置读取，不在交付里；要测新的主模型必须使用自己的有效凭证。
+6. 模型任务严格串行；2 线程；统一预热；观察顺序、预算、停止与最终判据见 protocol.json。调用 report_extension.py 生成交付。原调用日志、独立判据、截图和用例映射可交叉复核。
+
+证据不含模型权重或 API 密钥；复用旧计划无需再次调用 API。完整生产离线重放本身不需要小模型；本实验只比较宿主的 AI 决策能力和接法。
+''')
+    receipt={'created_utc':datetime.now(timezone.utc).isoformat(),'formal_rounds':224,'original_protocol_rounds':208,'exploratory_rounds':16,'control_rounds':16,
+        'passed':passed,'failed':failed,'blocked':blocked,'protocol_sha256':digest,
+        'files':{str(p.relative_to(OUT)):hashlib.file_digest(p.open('rb'),'sha256').hexdigest() for p in sorted(OUT.rglob('*')) if p.is_file() and p.name!='交付核验.json'}}
+    (OUT/'交付核验.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
+    print(json.dumps({'out':str(OUT),'rounds':len(rows),'passed':passed,'failed':failed,'blocked':blocked,'best':best,'summary':summary},ensure_ascii=False,indent=2))
+
+
+if __name__=='__main__':main()

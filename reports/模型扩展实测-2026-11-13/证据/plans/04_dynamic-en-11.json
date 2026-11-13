@@ -1,0 +1,91 @@
+{
+  "protocol_sha256": "21ecdd7a18994a46d1a0f7005836e4352faad8077fd9782be0ed1a4819a360ca",
+  "task": "04_dynamic",
+  "language": "en",
+  "seed": 11,
+  "input": {
+    "goal": "Click Reveal a new input, wait for the hidden input to become visible, then fill it with ready.",
+    "observation": {
+      "page": "dynamic.html",
+      "controls": {
+        "reveal_clicked": false,
+        "revealed_visible": false,
+        "revealed_value": ""
+      }
+    },
+    "offered_actions": {
+      "reveal": {
+        "description": "Click Reveal a new input",
+        "operation": "CLICK"
+      },
+      "wait": {
+        "description": "Wait until revealed input is visible",
+        "operation": "WAIT"
+      },
+      "fill_revealed": {
+        "description": "Fill revealed input with \"ready\"",
+        "operation": "TYPE_TEXT"
+      },
+      "add_box": {
+        "description": "Click Add a box",
+        "operation": "CLICK"
+      },
+      "missing": {
+        "description": "Report required element missing and stop",
+        "operation": "BLOCKED"
+      }
+    }
+  },
+  "status": "ok",
+  "steps": [
+    {
+      "operation": "CLICK",
+      "instruction": "Click Reveal a new input.",
+      "action_id": "reveal"
+    },
+    {
+      "operation": "WAIT",
+      "instruction": "Wait until the revealed input is visible.",
+      "action_id": "wait"
+    },
+    {
+      "operation": "TYPE_TEXT",
+      "instruction": "Fill the revealed input with \"ready\".",
+      "action_id": "fill_revealed"
+    }
+  ],
+  "receipt": {
+    "request_key": "9592b34a-ffe2-4e5b-b617-90af41d03b62",
+    "purpose": "plan-04_dynamic-en-11",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "request_id": "gen-1794571763-Sj2uvxq30L22BRc4rLQW",
+    "usage": {
+      "prompt_tokens": 416,
+      "completion_tokens": 253,
+      "total_tokens": 669,
+      "cost": 0.0002142,
+      "is_byok": false,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+      },
+      "cost_details": {
+        "upstream_inference_cost": 0.0002142,
+        "upstream_inference_prompt_cost": 6.24e-05,
+        "upstream_inference_completions_cost": 0.0001518
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 177,
+        "image_tokens": 0,
+        "audio_tokens": 0
+      }
+    },
+    "finish_reason": "stop",
+    "content": "{\"steps\":[{\"operation\":\"CLICK\",\"instruction\":\"Click Reveal a new input.\",\"action_id\":\"reveal\"},{\"operation\":\"WAIT\",\"instruction\":\"Wait until the revealed input is visible.\",\"action_id\":\"wait\"},{\"operation\":\"TYPE_TEXT\",\"instruction\":\"Fill the revealed input with \\\"ready\\\".\",\"action_id\":\"fill_revealed\"}]}",
+    "latency_ms": 2442.1615559999736,
+    "cpu_ms": 5.384835000000033,
+    "status": "ok"
+  }
+}

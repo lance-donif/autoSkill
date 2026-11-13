@@ -1,0 +1,284 @@
+{
+  "actions": {
+    "accept_alert": "Open alert and accept dialog",
+    "accept_confirm": "Open test confirm and accept dialog",
+    "add_box": "Click Add a box",
+    "cancel_confirm": "Open test confirm and dismiss dialog",
+    "check_default": "Check Default checkbox",
+    "fill_absent": "Fill customer-id input with \"autoskills-42\"",
+    "fill_area": "Fill Textarea with \"cpu-test\"",
+    "fill_email": "Fill email input inside iframe1 with \"test@example.com\"",
+    "fill_frame": "Fill working input inside iframe1 with \"autoskills-42\"",
+    "fill_main": "Fill working input in main frame with \"autoskills-42\"",
+    "fill_password": "Fill Password with \"S3cret-42!\"",
+    "fill_revealed": "Fill revealed input with \"ready\"",
+    "fill_text": "Fill Text input with \"autoskills-42\"",
+    "missing": "Report required element missing and stop",
+    "radio_default": "Select Default radio",
+    "reload": "Reload the current page and retry",
+    "reveal": "Click Reveal a new input",
+    "select_two": "Choose Two in Dropdown (select)",
+    "submit": "Click Submit to submit form",
+    "uncheck_checked": "Uncheck Checked checkbox",
+    "wait": "Wait until revealed input is visible"
+  },
+  "baseline_instructions": "Choose the next browser action to fulfill the user's goal using the observed state. Do not repeat completed actions. Submit only when all requested fields are correct. Report missing only if a required element is absent.",
+  "dataset": [
+    [
+      "01_text_submit",
+      "en",
+      11
+    ],
+    [
+      "02_password_select",
+      "en",
+      11
+    ],
+    [
+      "03_checkbox_radio",
+      "en",
+      11
+    ],
+    [
+      "04_dynamic",
+      "en",
+      11
+    ],
+    [
+      "05_dialogs",
+      "en",
+      11
+    ],
+    [
+      "06_iframe",
+      "en",
+      11
+    ],
+    [
+      "07_missing",
+      "en",
+      11
+    ],
+    [
+      "08_full_form",
+      "en",
+      11
+    ],
+    [
+      "01_text_submit",
+      "zh",
+      11
+    ],
+    [
+      "02_password_select",
+      "zh",
+      11
+    ],
+    [
+      "03_checkbox_radio",
+      "zh",
+      11
+    ],
+    [
+      "04_dynamic",
+      "zh",
+      11
+    ],
+    [
+      "05_dialogs",
+      "zh",
+      11
+    ],
+    [
+      "06_iframe",
+      "zh",
+      11
+    ],
+    [
+      "07_missing",
+      "zh",
+      11
+    ],
+    [
+      "08_full_form",
+      "zh",
+      11
+    ]
+  ],
+  "dtype": "float32",
+  "evidence": "Append provider and step events immediately; preserve API/parser blocks; no silent retries",
+  "execution": "Same task budgets and two-unchanged-action stopping as v1; same helpers, candidates and independent verdicts",
+  "fallback": "No runtime main fallback in the local ablations; measure unassisted execution before proposing cascades",
+  "history_limit": 4,
+  "language": "Original English/Chinese goal preserved in non-planned modes; atomic instructions standardized to English by the main model",
+  "local_models": [
+    "laya",
+    "laya-typed-decisions",
+    "opendecider-nano"
+  ],
+  "main_model": "deepseek-v4.1-flash",
+  "modes": [
+    "baseline",
+    "history",
+    "split",
+    "planned"
+  ],
+  "operation": {
+    "accept_alert": "CLICK",
+    "accept_confirm": "CLICK",
+    "add_box": "CLICK",
+    "cancel_confirm": "CLICK",
+    "check_default": "CLICK",
+    "fill_absent": "TYPE_TEXT",
+    "fill_area": "TYPE_TEXT",
+    "fill_email": "TYPE_TEXT",
+    "fill_frame": "TYPE_TEXT",
+    "fill_main": "TYPE_TEXT",
+    "fill_password": "TYPE_TEXT",
+    "fill_revealed": "TYPE_TEXT",
+    "fill_text": "TYPE_TEXT",
+    "missing": "BLOCKED",
+    "radio_default": "CLICK",
+    "reload": "RELOAD",
+    "reveal": "CLICK",
+    "select_two": "SELECT",
+    "submit": "CLICK",
+    "uncheck_checked": "CLICK",
+    "wait": "WAIT"
+  },
+  "operation_descriptions": {
+    "BLOCKED": "A required element is absent; report it missing.",
+    "CLICK": "Click a button, checkbox, radio or dialog control.",
+    "DONE": "All requested outcomes have already been observed.",
+    "RELOAD": "Reload this page.",
+    "SELECT": "Choose a dropdown option.",
+    "TYPE_TEXT": "Enter text in an editable field.",
+    "WAIT": "Wait for an expected control to become visible."
+  },
+  "operation_question": "Which operation advances the goal now? Use current values and recent actions; avoid completed steps.",
+  "plan_advancement": "Advance after successful command dispatch, without checking against main action_id or evaluation gold; errors keep the same step",
+  "plan_time": "Report measured execution and shared measured planning time separately; execution+planning is arithmetic, not a newly observed network round trip",
+  "planned": "Main plans are generated once for each task/language, frozen and reused by all local models and direct-plan control; local input excludes main action_id",
+  "planner_max_tokens": 4096,
+  "planner_system": "Plan one bounded browser task from its goal and actual initial observation.\nReturn only JSON: {\"steps\":[{\"operation\":\"TYPE_TEXT|SELECT|CLICK|WAIT|RELOAD|BLOCKED\",\"instruction\":\"one standalone atomic instruction in English\",\"action_id\":\"one offered action ID\"}]}.\nEach step must be one concrete operation. Use the goal's exact values. Include every required outcome and order constraint.\nUse current values to omit already satisfied work. Report a required element missing when the observation establishes absence.\nDo not change unrelated fields or invent requirements. Do not add an unrequested submission.\nFor the local selector, each instruction must be understandable alone without reading another step.\nNever put action IDs or candidate letters into the instruction. The action_id is retained separately for a direct-plan control.\nProduce at most 10 steps. Only offered actions may be used. Do not output explanations or assertions of success.",
+  "progress_question": "Does the observed state establish every requested outcome? An action intention is not a completed outcome.",
+  "project_commit": "c11671395ec4424d98fe5628f61350105a5c6e3d",
+  "schedule": "Interleave all four local modes with a fixed rotation within each task; separate model processes",
+  "scope": "External host ablation through autoSkill primitives on official Selenium HTML fixtures, Playwright only, no Jev model inference or full DSH acceptance",
+  "selector_max_tokens": 2048,
+  "single_target": "One target is resolved by code, because local SDK Choice requires at least two options",
+  "source_hashes": {
+    "/workspace/autoskills-evaluation/benchmark.py": "0afc5563aec35f236a5979283bfd3d2f0c04d3bfbe09350048e41dd39085da06",
+    "/workspace/autoskills-evaluation/project_benchmark.py": "4f93a3670645068f83790e7aa5a5c0b31b9d8a36c649bd34bda29c13b01aa3fa",
+    "/workspace/autoskills-evaluation/retest_v2.py": "9a4617917da9bb38b9b20eb8ef8eae3003d34a137f98f4bb6b1f806a9c6227cf"
+  },
+  "split_done": "DONE gets independent verification; rejected DONE is recorded as a no-op with a repair hint",
+  "split_progress": "Goal-progress head is diagnostic; never overrides an independent business oracle",
+  "target_question": "For operation {operation}, which offered target fulfills the current goal? Do not repeat a satisfied field.",
+  "task_definitions": {
+    "01_text_submit": {
+      "actions": [
+        "fill_text",
+        "fill_area",
+        "submit",
+        "missing"
+      ],
+      "budget": 5,
+      "en": "Set Text input to autoskills-42, then submit the form.",
+      "page": "web-form.html",
+      "zh": "将 Text input 填为 autoskills-42，然后提交表单。"
+    },
+    "02_password_select": {
+      "actions": [
+        "fill_password",
+        "select_two",
+        "fill_text",
+        "submit",
+        "missing"
+      ],
+      "budget": 6,
+      "en": "Set Password to S3cret-42!, choose Two in Dropdown (select), then submit.",
+      "page": "web-form.html",
+      "zh": "将 Password 填为 S3cret-42!，在 Dropdown (select) 中选 Two，然后提交。"
+    },
+    "03_checkbox_radio": {
+      "actions": [
+        "check_default",
+        "radio_default",
+        "uncheck_checked",
+        "missing"
+      ],
+      "budget": 5,
+      "en": "Check Default checkbox and select Default radio. Keep Checked checkbox checked.",
+      "page": "web-form.html",
+      "zh": "勾选 Default checkbox，选中 Default radio，保留 Checked checkbox 的勾选状态。"
+    },
+    "04_dynamic": {
+      "actions": [
+        "reveal",
+        "wait",
+        "fill_revealed",
+        "add_box",
+        "missing"
+      ],
+      "budget": 6,
+      "en": "Click Reveal a new input, wait for the hidden input to become visible, then fill it with ready.",
+      "page": "dynamic.html",
+      "zh": "点击 Reveal a new input，等隐藏输入框显示后填入 ready。"
+    },
+    "05_dialogs": {
+      "actions": [
+        "cancel_confirm",
+        "accept_confirm",
+        "accept_alert",
+        "missing"
+      ],
+      "budget": 4,
+      "en": "First open test confirm and cancel it, staying on this page. Then open test confirm again and accept to navigate.",
+      "page": "alerts.html",
+      "zh": "先打开 test confirm 并取消，留在本页；再打开一次 test confirm 并确认跳转。"
+    },
+    "06_iframe": {
+      "actions": [
+        "fill_frame",
+        "fill_main",
+        "fill_email",
+        "missing"
+      ],
+      "budget": 4,
+      "en": "Set working input inside iframe1 to autoskills-42. Do not fill email.",
+      "page": "iframes.html",
+      "zh": "将 iframe1 内的 working 输入框填为 autoskills-42，不要填写 email。"
+    },
+    "07_missing": {
+      "actions": [
+        "fill_absent",
+        "fill_text",
+        "reload",
+        "missing"
+      ],
+      "budget": 4,
+      "en": "Set customer-id input to autoskills-42. If that input does not exist, report it missing without changing another field.",
+      "page": "web-form.html",
+      "zh": "将 customer-id 输入框填为 autoskills-42；如果它不存在，请报告缺失，不要改动其他字段。"
+    },
+    "08_full_form": {
+      "actions": [
+        "fill_text",
+        "fill_password",
+        "fill_area",
+        "select_two",
+        "check_default",
+        "radio_default",
+        "submit",
+        "missing"
+      ],
+      "budget": 10,
+      "en": "Set Text input to autoskills-42, Password to S3cret-42!, Textarea to cpu-test, Dropdown (select) to Two; check Default checkbox, select Default radio, then submit. Keep Checked checkbox checked.",
+      "page": "web-form.html",
+      "zh": "Text input 填 autoskills-42，Password 填 S3cret-42!，Textarea 填 cpu-test，Dropdown (select) 选 Two，勾选 Default checkbox，选 Default radio，然后提交。保留 Checked checkbox 的勾选。"
+    }
+  },
+  "threads": 2,
+  "version": 2
+}

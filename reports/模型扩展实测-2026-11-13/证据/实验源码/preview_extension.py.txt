@@ -1,0 +1,39 @@
+"""Render workbook samples from saved cells; this is an HTML preview, not Excel."""
+import html
+from pathlib import Path
+
+from openpyxl import load_workbook
+from playwright.sync_api import sync_playwright
+
+OUT=Path('/workspace/autoSkill/reports/模型扩展实测-2026-11-13')
+
+
+def main():
+    wb=load_workbook(OUT/'测试用例与结果.xlsx')
+    ws=wb.worksheets[0]
+    cases=[list(row) for row in ws.iter_rows(min_row=2) if str(row[0].value).startswith('FT-')]
+    samples=[next(row for row in cases if row[9].value=='通过'),next(row for row in cases if row[9].value=='失败'),
+             next(row for row in cases if row[2].value=='完整表单')]
+    parts=['<!doctype html><meta charset="utf-8"><style>body{font:16px "Noto Serif CJK SC",serif;margin:28px;color:#222}table{border-collapse:collapse;width:1500px;table-layout:fixed;margin:12px 0 28px}td,th{border:1px solid #aaa;padding:8px;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere}th{background:#bfbfbf}h2{font-size:21px}</style><h1>工作簿内容抽样预览</h1><p>从保存后的 XLSX 读取；以下为分栏 HTML 内容与样式抽样，不是 Excel 应用截图。工作簿字体为宋体；本机预览使用 Noto Serif CJK SC。</p>']
+    for index,row in enumerate(samples,1):
+        parts.append('<h2>'+html.escape(str(row[0].value))+' · '+html.escape(str(row[2].value))+'</h2>')
+        for start,end in [(0,4),(4,8),(8,14)]:
+            parts.append('<table><tr>'+''.join('<th>'+html.escape(str(ws.cell(1,i+1).value))+'</th>' for i in range(start,end))+'</tr><tr>')
+            for cell in row[start:end]:
+                color=cell.fill.fgColor.rgb if cell.fill.patternType=='solid' else '00FFFFFF'
+                color=color[-6:] if isinstance(color,str) else 'FFFFFF'
+                parts.append('<td style="background:#'+color+'">'+html.escape(str(cell.value or ''))+'</td>')
+            parts.append('</tr></table>')
+    directory=OUT/'证据/内容预览';directory.mkdir(exist_ok=True)
+    source=directory/'工作簿抽样.html';source.write_text(''.join(parts))
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+        page=browser.new_page(viewport={'width':1580,'height':1100},device_scale_factor=1)
+        page.set_content(source.read_text(),wait_until='load')
+        page.screenshot(path=str(directory/'工作簿抽样.png'),full_page=True)
+        browser.close()
+    wb.close()
+    print(directory/'工作簿抽样.png')
+
+
+if __name__=='__main__':main()

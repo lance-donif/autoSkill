@@ -1,0 +1,133 @@
+"""Read back expansion traces, independent outcomes, delivery hashes, and secrets."""
+import hashlib
+import json
+import os
+from pathlib import Path
+from urllib.parse import parse_qs
+import zipfile
+
+from openpyxl import load_workbook
+
+import extension_benchmark as trial
+import native_dom_benchmark as native_trial
+
+OUT=Path('/workspace/autoSkill/reports/模型扩展实测-2026-11-13')
+
+
+def digest(path):
+    return hashlib.file_digest(path.open('rb'),'sha256').hexdigest()
+
+
+def recheck_business(record):
+    task=record['task'];extra=record['extra'];obs=record['final_observation'];values=obs['controls']
+    if task in ['01_text_submit','02_password_select','08_full_form']:
+        assert obs['page']=='submitted-form.html'
+        assert 'Received!' in values['body']
+        query=parse_qs(values['query'],keep_blank_values=True)
+        if task in ['01_text_submit','08_full_form']:
+            assert query['my-text']==[trial.v2.base.PAYLOAD]
+        if task in ['02_password_select','08_full_form']:
+            assert query['my-password']==[trial.v2.base.PASSWORD] and query['my-select']==['2']
+        if task=='08_full_form':
+            assert query['my-textarea']==[trial.v2.base.AREA]
+            before=extra['pre_submit']['controls']
+            assert all(before[k] for k in ['Default checkbox','Default radio','Checked checkbox'])
+    elif task=='03_checkbox_radio':
+        assert all(values[k] for k in ['Default checkbox','Default radio','Checked checkbox'])
+    elif task=='04_dynamic':
+        assert values['revealed_visible'] and values['revealed_value']=='ready'
+    elif task=='05_dialogs':
+        assert obs['page']=='simpleTest.html'
+        assert extra['cancelled']>=1 and extra['accepted']>=1
+        assert extra['dialogs'][0]['accepted'] is False
+    elif task=='06_iframe':
+        assert values['iframe1 working']==trial.v2.base.PAYLOAD and values['iframe1 email']==''
+    elif task=='07_missing':
+        assert extra['reported_missing'] and not values['customer-id exists']
+        assert all(values[k]=='' for k in ['Text input','Password','Textarea'])
+
+
+def main():
+    protocol=trial.protocol_hash();native_protocol=native_trial.protocol_hash();identities=set();rows=[];controls=[]
+    for path in trial.RESULTS.glob('*-episodes.jsonl'):
+        group=[json.loads(x) for x in path.read_text().splitlines()]
+        expected=48 if path.name.startswith('laya-browser-') else (32 if path.name.removesuffix('-episodes.jsonl') in trial.MODELS else 16)
+        assert len(group)==expected,(path.name,len(group))
+        for r in group:
+            key=tuple(r[k] for k in ['model','mode','task','language','seed'])
+            assert key not in identities;identities.add(key)
+            assert r['protocol_sha256']==(native_protocol if r['mode']=='native_dom' else protocol)
+            (controls if r['mode']=='oracle' else rows).append(r)
+            assert abs(r['total_with_shared_plan_ms']-r['e2e_ms']-r['planner_latency_ms'])<.001
+            if r['expected_behavior_satisfied']:
+                assert r['extra']['kernel_assertions'] and all(x['passed'] for x in r['extra']['kernel_assertions'])
+                recheck_business(r)
+            for step in r['steps']:
+                assert 'action_id' not in step['input_state'] and 'valid_actions' not in step['input_state']
+                assert 'valid_actions' not in json.dumps(step.get('questions',{}))
+                if 'decision_correct' in step:
+                    assert step['decision_correct']==(step['selected_action'] in step['valid_actions'])
+                if r['mode']=='planned':
+                    assert json.loads(step['input_state'])['goal']==step['atomic_instruction']
+                if r['model'] in trial.MODELS and step.get('local_forward_calls')==0:
+                    assert step.get('question_count')==0
+            assert (trial.RESULTS/r['screenshot']).is_file()
+    assert len(rows)==224 and len(controls)==16 and all(r['expected_behavior_satisfied'] for r in controls)
+    mapping=json.loads((OUT/'用例证据映射.json').read_text())
+    assert len(mapping)==224 and len({r['id'] for r in mapping})==224
+    for r in mapping:assert tuple(r[k] for k in ['model','mode','task','language','seed']) in identities
+    book=load_workbook(OUT/'测试用例与结果.xlsx')
+    links=0
+    for row in book.worksheets[0].iter_rows(min_row=2):
+        if str(row[0].value).startswith('FT-'):
+            assert row[13].hyperlink and (OUT/row[13].hyperlink.target).is_file()
+            links+=1
+    book.close();assert links==224
+    requests={};responses={}
+    for line in (trial.RESULTS/'api-events.jsonl').read_text().splitlines():
+        e=json.loads(line);target=requests if e['event']=='request' else responses
+        assert e['request_key'] not in target;target[e['request_key']]=e
+    assert set(requests)==set(responses)
+    old_reports=['自动化模型实测-2026-11-13','自动化模型重测-Jev式接法-2026-11-13']
+    for name in old_reports:
+        directory=OUT.parent/name
+        receipt=json.loads((directory/'交付核验.json').read_text())
+        for file,entry in receipt['files'].items():
+            expected=entry['sha256'] if isinstance(entry,dict) else entry
+            assert digest(directory/file)==expected,(name,file)
+    for artifact in trial.ROOT.glob('*-artifacts.json'):
+        entries=json.loads(artifact.read_text())
+        if not isinstance(entries,list):continue
+        for entry in entries:
+            path=trial.ROOT/'models'/entry['model']/entry['file']
+            if entry['model']=='laya-multilingual' and entry['file']=='tokenizer/tokenizer_config.json':
+                original=trial.ROOT/'sources/laya-multilingual-tokenizer_tokenizer_config.json-downloaded'
+                assert digest(original)==entry['sha256']
+                expected=json.loads(original.read_text())
+                expected['extra_special_tokens']={f'extra_{i}':token for i,token in enumerate(expected['extra_special_tokens'])}
+                assert json.loads(path.read_text())==expected
+                normalized=json.loads((trial.ROOT/'runtime-normalizations.json').read_text())[0]
+                assert digest(path)==normalized['runtime_sha256']
+            else:
+                assert digest(path)==entry['sha256'],str(path)
+    config=json.loads(Path('/workspace/.autoskills-evaluation-api.json').read_text())
+    secrets=[config['api_key'].encode()]
+    if os.environ.get('GH_TOKEN'):secrets.append(os.environ['GH_TOKEN'].encode())
+    for path in OUT.rglob('*'):
+        if not path.is_file():continue
+        if path.suffix in ('.zip','.xlsx'):
+            with zipfile.ZipFile(path) as archive:
+                for member in archive.namelist():
+                    assert not any(secret in archive.read(member) for secret in secrets),(path,member)
+        else:
+            assert not any(secret in path.read_bytes() for secret in secrets),str(path)
+    result={'formal_trials':len(rows),'controls':len(controls),'workbook_cases':224,'screenshot_links':links,
+        'successful_outcomes_independently_rechecked':True,'paired_new_main_requests':len(requests),
+        'original_plans_unchanged':True,'old_reports_unchanged':True,'new_weights_sha256_verified':True,
+        'sdk_tokenizer_representation_normalization_exactly_verified':True,
+        'credential_scan_passed':True,'protocol_sha256':protocol}
+    (trial.RESULTS/'readback-verification.json').write_text(json.dumps(result,indent=2))
+    print(json.dumps(result))
+
+
+if __name__=='__main__':main()

@@ -1,0 +1,377 @@
+"""CPU-only, candidate-action Selenium-fixture benchmark (not an autoskills integration).
+
+Models receive the same compact browser observation, user goal and available actions.
+Selectors, values, browser execution, waiting and validation are supplied by this harness.
+The oracle is a fixture check, NOT the autoskills/Luna baseline.
+"""
+import os
+os.environ.update(USE_TF="0", HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
+                  TOKENIZERS_PARALLELISM="false", OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
+                  LAYA_CPU_AMP="0")
+
+import argparse
+import hashlib
+import importlib.metadata
+import json
+from pathlib import Path
+import platform
+import random
+import resource
+import statistics
+import time
+from urllib.parse import parse_qs, urlparse
+
+import psutil
+from playwright.sync_api import sync_playwright
+
+ROOT = Path(__file__).resolve().parent
+ORIGIN = "http://127.0.0.1:8765"
+PAYLOAD = "autoskills-42"
+PASSWORD = "S3cret-42!"
+AREA = "cpu-test"
+INSTRUCTIONS = ("Choose the next browser action to fulfill the user's goal using the observed state. "
+                "Do not repeat completed actions. Submit only when all requested fields are correct. "
+                "Report missing only if a required element is absent.")
+ACTIONS = {
+    "fill_text": f'Fill Text input with "{PAYLOAD}"',
+    "fill_password": f'Fill Password with "{PASSWORD}"',
+    "fill_area": f'Fill Textarea with "{AREA}"',
+    "select_two": "Choose Two in Dropdown (select)",
+    "check_default": "Check Default checkbox",
+    "radio_default": "Select Default radio",
+    "uncheck_checked": "Uncheck Checked checkbox",
+    "submit": "Click Submit to submit form",
+    "missing": "Report required element missing and stop",
+    "reveal": "Click Reveal a new input",
+    "wait": "Wait until revealed input is visible",
+    "fill_revealed": 'Fill revealed input with "ready"',
+    "add_box": "Click Add a box",
+    "cancel_confirm": "Open test confirm and dismiss dialog",
+    "accept_confirm": "Open test confirm and accept dialog",
+    "accept_alert": "Open alert and accept dialog",
+    "fill_frame": f'Fill working input inside iframe1 with "{PAYLOAD}"',
+    "fill_main": f'Fill working input in main frame with "{PAYLOAD}"',
+    "fill_email": 'Fill email input inside iframe1 with "test@example.com"',
+    "fill_absent": f'Fill customer-id input with "{PAYLOAD}"',
+    "reload": "Reload the current page and retry",
+}
+TASKS = {
+    "01_text_submit": dict(page="web-form.html", budget=5,
+        en=f'Set Text input to {PAYLOAD}, then submit the form.',
+        zh=f'将 Text input 填为 {PAYLOAD}，然后提交表单。',
+        actions=["fill_text", "fill_area", "submit", "missing"]),
+    "02_password_select": dict(page="web-form.html", budget=6,
+        en=f'Set Password to {PASSWORD}, choose Two in Dropdown (select), then submit.',
+        zh=f'将 Password 填为 {PASSWORD}，在 Dropdown (select) 中选 Two，然后提交。',
+        actions=["fill_password", "select_two", "fill_text", "submit", "missing"]),
+    "03_checkbox_radio": dict(page="web-form.html", budget=5,
+        en='Check Default checkbox and select Default radio. Keep Checked checkbox checked.',
+        zh='勾选 Default checkbox，选中 Default radio，保留 Checked checkbox 的勾选状态。',
+        actions=["check_default", "radio_default", "uncheck_checked", "missing"]),
+    "04_dynamic": dict(page="dynamic.html", budget=6,
+        en='Click Reveal a new input, wait for the hidden input to become visible, then fill it with ready.',
+        zh='点击 Reveal a new input，等隐藏输入框显示后填入 ready。',
+        actions=["reveal", "wait", "fill_revealed", "add_box", "missing"]),
+    "05_dialogs": dict(page="alerts.html", budget=4,
+        en='First open test confirm and cancel it, staying on this page. Then open test confirm again and accept to navigate.',
+        zh='先打开 test confirm 并取消，留在本页；再打开一次 test confirm 并确认跳转。',
+        actions=["cancel_confirm", "accept_confirm", "accept_alert", "missing"]),
+    "06_iframe": dict(page="iframes.html", budget=4,
+        en=f'Set working input inside iframe1 to {PAYLOAD}. Do not fill email.',
+        zh=f'将 iframe1 内的 working 输入框填为 {PAYLOAD}，不要填写 email。',
+        actions=["fill_frame", "fill_main", "fill_email", "missing"]),
+    "07_missing": dict(page="web-form.html", budget=4,
+        en=f'Set customer-id input to {PAYLOAD}. If that input does not exist, report it missing without changing another field.',
+        zh=f'将 customer-id 输入框填为 {PAYLOAD}；如果它不存在，请报告缺失，不要改动其他字段。',
+        actions=["fill_absent", "fill_text", "reload", "missing"]),
+    "08_full_form": dict(page="web-form.html", budget=10,
+        en=f'Set Text input to {PAYLOAD}, Password to {PASSWORD}, Textarea to {AREA}, Dropdown (select) to Two; check Default checkbox, select Default radio, then submit. Keep Checked checkbox checked.',
+        zh=f'Text input 填 {PAYLOAD}，Password 填 {PASSWORD}，Textarea 填 {AREA}，Dropdown (select) 选 Two，勾选 Default checkbox，选 Default radio，然后提交。保留 Checked checkbox 的勾选。',
+        actions=["fill_text", "fill_password", "fill_area", "select_two", "check_default", "radio_default", "submit", "missing"]),
+}
+
+
+def fixture_route(route):
+    url = urlparse(route.request.url)
+    if f"{url.scheme}://{url.netloc}" != ORIGIN:
+        route.abort()
+        return
+    path = ROOT / "fixtures" / url.path.lstrip("/")
+    if path.is_file() and path.suffix == ".html":
+        route.fulfill(status=200, content_type="text/html", body=path.read_bytes())
+    else:
+        route.fulfill(status=404, body="Fixture asset not needed by this test")
+
+
+def observe(page, task, extra):
+    name = urlparse(page.url).path.lstrip("/")
+    if name == "web-form.html":
+        values = page.evaluate("""() => {
+            const q = s => document.querySelector(s);
+            return {'Text input':q('[name=my-text]').value,
+                    Password:q('[name=my-password]').value,
+                    Textarea:q('[name=my-textarea]').value,
+                    'Dropdown (select)':q('[name=my-select]').selectedOptions[0].text,
+                    'Checked checkbox':q('#my-check-1').checked,
+                    'Default checkbox':q('#my-check-2').checked,
+                    'Default radio':q('#my-radio-2').checked,
+                    'customer-id exists':!!q('#customer-id, [name=customer-id]')};
+        }""")
+    elif name == "dynamic.html":
+        values = dict(reveal_clicked=extra.get("reveal_clicked", False),
+                      revealed_visible=page.locator("#revealed").is_visible(),
+                      revealed_value=page.locator("#revealed").input_value())
+    elif name == "alerts.html":
+        values = dict(links=["test confirm", "alert"],
+                      confirmations_cancelled=extra.get("cancelled", 0),
+                      confirmations_accepted=extra.get("accepted", 0))
+    elif name == "iframes.html":
+        frame = page.frame(name="iframe1-name")
+        values = {"main frame working exists":page.locator("#working").count() > 0,
+                  "iframe1 working":frame.locator("#working").input_value(),
+                  "iframe1 email":frame.locator("#email").input_value()}
+    else:
+        values = {"body":page.locator("body").inner_text()[:200], "query":urlparse(page.url).query}
+    return {"page":name, "controls":values}
+
+
+def correct_actions(task_id, obs, extra):
+    """Evaluation-only oracle, never supplied to a model. Multiple valid orders allowed."""
+    v = obs["controls"]
+    if task_id == "07_missing":
+        return ["missing"]
+    if task_id in ("01_text_submit", "02_password_select", "03_checkbox_radio", "08_full_form"):
+        needs = []
+        if task_id in ("01_text_submit", "08_full_form") and v.get("Text input") != PAYLOAD:
+            needs.append("fill_text")
+        if task_id in ("02_password_select", "08_full_form"):
+            if v.get("Password") != PASSWORD: needs.append("fill_password")
+            if v.get("Dropdown (select)") != "Two": needs.append("select_two")
+        if task_id == "08_full_form" and v.get("Textarea") != AREA:
+            needs.append("fill_area")
+        if task_id in ("03_checkbox_radio", "08_full_form"):
+            if not v.get("Default checkbox"): needs.append("check_default")
+            if not v.get("Default radio"): needs.append("radio_default")
+        return needs or ["submit"]
+    if task_id == "04_dynamic":
+        if not extra.get("reveal_clicked"): return ["reveal"]
+        if not v.get("revealed_visible"): return ["wait", "fill_revealed"]
+        return ["fill_revealed"]
+    if task_id == "05_dialogs":
+        return ["cancel_confirm"] if not extra.get("cancelled") else ["accept_confirm"]
+    return ["fill_frame"]
+
+
+def execute(page, action, extra):
+    if action == "fill_text": page.locator("[name=my-text]").fill(PAYLOAD)
+    elif action == "fill_password": page.locator("[name=my-password]").fill(PASSWORD)
+    elif action == "fill_area": page.locator("[name=my-textarea]").fill(AREA)
+    elif action == "select_two": page.locator("[name=my-select]").select_option("2")
+    elif action == "check_default": page.locator("#my-check-2").check()
+    elif action == "radio_default": page.locator("#my-radio-2").check()
+    elif action == "uncheck_checked": page.locator("#my-check-1").uncheck()
+    elif action == "submit":
+        extra["pre_submit"] = observe(page, None, extra)
+        page.get_by_role("button", name="Submit", exact=True).click()
+    elif action == "reveal":
+        page.locator("#reveal").click()
+        extra["reveal_clicked"] = True
+    elif action == "wait": page.locator("#revealed").wait_for(state="visible", timeout=2500)
+    elif action == "fill_revealed": page.locator("#revealed").fill("ready")
+    elif action == "add_box": page.locator("#adder").click()
+    elif action in ("cancel_confirm", "accept_confirm", "accept_alert"):
+        accept = action != "cancel_confirm"
+        def handle(dialog):
+            extra.setdefault("dialogs", []).append({"type":dialog.type,"message":dialog.message,"accepted":accept})
+            dialog.accept() if accept else dialog.dismiss()
+        page.once("dialog", handle)
+        page.locator("#alert" if action == "accept_alert" else "#confirm").click()
+        if action == "cancel_confirm":
+            extra["cancelled"] = extra.get("cancelled", 0) + 1
+        elif action == "accept_confirm":
+            extra["accepted"] = extra.get("accepted", 0) + 1
+    elif action == "fill_frame": page.frame_locator("#iframe1").locator("#working").fill(PAYLOAD)
+    elif action == "fill_main": page.locator("#working").fill(PAYLOAD)
+    elif action == "fill_email": page.frame_locator("#iframe1").locator("#email").fill("test@example.com")
+    elif action == "fill_absent": page.locator("#customer-id, [name=customer-id]").fill(PAYLOAD)
+    elif action == "reload": page.reload(wait_until="domcontentloaded")
+    elif action == "missing": extra["reported_missing"] = True
+    else: raise ValueError(action)
+
+
+def verdict(task_id, page, obs, extra):
+    """Return (terminal, expected_behavior_satisfied, reason). Final DOM/URL is authoritative."""
+    v = obs["controls"]
+    if extra.get("reported_missing"):
+        valid = (task_id == "07_missing" and not v["customer-id exists"] and
+                 v["Text input"] == "" and v["Password"] == "" and v["Textarea"] == "")
+        return True, valid, "correct_missing_report" if valid else "incorrect_missing_report"
+    if obs["page"] == "submitted-form.html":
+        query = parse_qs(urlparse(page.url).query, keep_blank_values=True)
+        pre = extra["pre_submit"]["controls"]
+        good = page.locator("#message").inner_text() == "Received!"
+        if task_id in ("01_text_submit", "08_full_form"): good &= query.get("my-text") == [PAYLOAD]
+        if task_id in ("02_password_select", "08_full_form"):
+            good &= query.get("my-password") == [PASSWORD] and query.get("my-select") == ["2"]
+        if task_id == "08_full_form":
+            good &= query.get("my-textarea") == [AREA] and pre["Default checkbox"] and pre["Default radio"] and pre["Checked checkbox"]
+        return True, bool(good), "validated_submission" if good else "premature_or_wrong_submission"
+    if task_id == "03_checkbox_radio" and v.get("Default checkbox") and v.get("Default radio") and v.get("Checked checkbox"):
+        return True, True, "validated_checkbox_radio"
+    if task_id == "04_dynamic" and v.get("revealed_visible") and v.get("revealed_value") == "ready" and extra.get("reveal_clicked"):
+        return True, True, "validated_dynamic_input"
+    if task_id == "05_dialogs" and obs["page"] != "alerts.html":
+        ok = obs["page"] == "simpleTest.html" and extra.get("cancelled", 0) >= 1 and extra.get("accepted", 0) >= 1
+        return True, bool(ok), "validated_both_dialogs" if ok else "accepted_before_cancelled"
+    if task_id == "06_iframe" and v.get("iframe1 working") == PAYLOAD and v.get("iframe1 email") == "":
+        return True, True, "validated_iframe"
+    return False, False, "unfinished"
+
+
+class Decider:
+    def __init__(self, name):
+        self.name = name
+        self.model = None
+        start = time.perf_counter()
+        if name != "oracle":
+            import torch
+            torch.set_num_threads(2)
+            torch.set_num_interop_threads(1)
+            torch.manual_seed(20261113)
+            if name == "opendecider-nano":
+                import opendecider
+                self.model = opendecider.load(str(ROOT / "models" / name), device="cpu", dtype="float32")
+                self.model.impl.enc.config.reference_compile = False
+            elif name.startswith("laya"):
+                import laya
+                self.model = laya.load(str(ROOT / "models" / name), device="cpu", backend="eager")
+            else:
+                raise ValueError(name)
+        self.load_s = time.perf_counter() - start
+
+    def predict(self, state, ordered_actions, valid):
+        criteria = {chr(65+i): ACTIONS[action] for i, action in enumerate(ordered_actions)}
+        question = {"next_action":{"type":"choice", "instructions":INSTRUCTIONS, "criteria":criteria}}
+        start = time.perf_counter()
+        cpu0 = time.process_time()
+        if self.name == "oracle":
+            selected = next(a for a in ordered_actions if a in valid)
+            response = {"answers":{"next_action":{"choice":chr(65+ordered_actions.index(selected)), "probabilities":{}}}}
+        elif self.name == "opendecider-nano":
+            response = self.model.system_one(state, question)
+        else:
+            response = self.model.predict(state, question)
+        ms = (time.perf_counter() - start)*1000
+        cpu_ms = (time.process_time() - cpu0)*1000
+        key = response["answers"]["next_action"]["choice"]
+        return ordered_actions[ord(key)-65], response, ms, cpu_ms, criteria
+
+
+def run_episode(browser, decider, task_id, language, seed):
+    task = TASKS[task_id]
+    context = browser.new_context(viewport={"width":1280,"height":900}, service_workers="block")
+    context.route("**/*", fixture_route)
+    page = context.new_page()
+    page.set_default_timeout(1600)
+    ordered = list(task["actions"])
+    random.Random(seed * 100 + int(task_id[:2])).shuffle(ordered)
+    extra, steps = {}, []
+    start = time.perf_counter()
+    cpu0 = time.process_time()
+    success, reason = False, "budget_exhausted"
+    unchanged = 0
+    try:
+        page.goto(f"{ORIGIN}/{task['page']}", wait_until="load")
+        for step in range(task["budget"]):
+            obs = observe(page, task, extra)
+            valid = correct_actions(task_id, obs, extra)
+            state = "Goal: " + task[language] + "\nObserved: " + json.dumps(obs,ensure_ascii=False,separators=(",",":"))
+            action, response, ms, cpu_ms, criteria = decider.predict(state, ordered, valid)
+            record = dict(step=step, state=state, criteria=criteria, selected_action=action,
+                          valid_actions=valid, decision_correct=action in valid,
+                          inference_ms=ms, inference_cpu_ms=cpu_ms, response=response)
+            steps.append(record)
+            t_action = time.perf_counter()
+            try:
+                execute(page, action, extra)
+            except Exception as exc:
+                record["execution_error"] = f"{type(exc).__name__}: {str(exc).splitlines()[0]}"
+            record["execution_ms"] = (time.perf_counter() - t_action)*1000
+            after = observe(page, task, extra)
+            record["after"] = after
+            terminal, success, reason_now = verdict(task_id,page,after,extra)
+            if terminal:
+                reason = reason_now
+                break
+            unchanged = unchanged+1 if after == obs else 0
+            if unchanged >= 2:
+                reason = "two_actions_without_state_progress"
+                break
+        elapsed = (time.perf_counter() - start)*1000
+        return dict(model=decider.name,task=task_id,language=language,seed=seed,
+                    expected_behavior_satisfied=success,reason=reason,e2e_ms=elapsed,
+                    host_cpu_ms=(time.process_time()-cpu0)*1000,
+                    inference_ms=sum(s["inference_ms"] for s in steps),
+                    final_url=page.url,extra=extra,steps=steps)
+    finally:
+        context.close()
+
+
+def freeze():
+    plan = dict(protocol_version=1, tasks=TASKS, actions=ACTIONS, instructions=INSTRUCTIONS,
+                english_seeds=[11,22,33],chinese_seeds=[11],threads=2,dtype="float32",
+                boundary="candidate actions with host-generated selectors and values; not autonomous or autoskills-integrated")
+    raw=json.dumps(plan,ensure_ascii=False,sort_keys=True,indent=2).encode()
+    (ROOT/"results"/"protocol.json").write_bytes(raw)
+    return hashlib.sha256(raw).hexdigest()
+
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--model",required=True,choices=["oracle","opendecider-nano","laya","laya-typed-decisions"])
+    args=ap.parse_args()
+    protocol_hash=freeze()
+    decider=Decider(args.model)
+    meta=dict(model=args.model,protocol_sha256=protocol_hash,load_and_import_s=decider.load_s,
+              platform=platform.platform(),utc_started=time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
+              versions={n:importlib.metadata.version(n) for n in ["torch","transformers","opendecider","laya","playwright"]},
+              cuda_available=False,threads=2,inference_dtype="float32",offline_hub=True)
+    if args.model != "oracle":
+        state='Goal: Set Text input to autoskills-42, then submit.\nObserved: Text input is empty; Submit is available.'
+        ordered=["fill_text","fill_area","submit","missing"]
+        warm=[]
+        for _ in range(3):
+            _,_,ms,_,_=decider.predict(state,ordered,["fill_text"])
+            warm.append(ms)
+        samples=[]
+        for _ in range(20):
+            action,response,ms,cpu_ms,criteria=decider.predict(state,ordered,["fill_text"])
+            samples.append(dict(inference_ms=ms,cpu_ms=cpu_ms,action=action))
+        meta["microbenchmark"]={"state":state,"criteria":criteria,"warmup_ms":warm,"samples":samples}
+    results=[]
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path="/usr/bin/chromium",headless=True,
+            args=["--no-sandbox","--disable-dev-shm-usage","--disable-background-networking"])
+        meta["browser_version"]=browser.version
+        output=ROOT/"results"/(args.model+"-episodes.jsonl")
+        with output.open("w") as out:
+            episodes=[(lang,seed,task) for lang,seeds in [("en",[11,22,33]),("zh",[11])]
+                      for seed in seeds for task in TASKS]
+            for lang,seed,task in episodes:
+                record=run_episode(browser,decider,task,lang,seed)
+                results.append(record)
+                out.write(json.dumps(record,ensure_ascii=False)+"\n");out.flush()
+                print(json.dumps({k:v for k,v in record.items() if k not in ("steps","extra")},ensure_ascii=False),flush=True)
+        browser.close()
+    meta["peak_host_rss_mib"]=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
+    meta["final_host_rss_mib"]=psutil.Process().memory_info().rss/(1024**2)
+    meta["expected_behavior_satisfied"]=sum(r["expected_behavior_satisfied"] for r in results)
+    meta["episodes"]=len(results)
+    (ROOT/"results"/(args.model+"-meta.json")).write_text(json.dumps(meta,ensure_ascii=False,indent=2))
+    print("DONE",json.dumps({k:v for k,v in meta.items() if k != "microbenchmark"}),flush=True)
+    if args.model == "oracle" and not all(r["expected_behavior_satisfied"] for r in results):
+        raise SystemExit("Fixture validation failed; do not interpret model results")
+
+
+if __name__ == "__main__":
+    main()

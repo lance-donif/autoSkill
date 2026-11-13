@@ -1,0 +1,96 @@
+{
+  "changes": [
+    "plain observed control labels",
+    "fill/click/select history kinds and bound historical text",
+    "drop main-frame/required/dynamic input candidates only when actual observation reports absent/hidden"
+  ],
+  "created_utc": "2026-11-13T12:56:24Z",
+  "dataset": [
+    [
+      "01_text_submit",
+      "en",
+      11
+    ],
+    [
+      "02_password_select",
+      "en",
+      11
+    ],
+    [
+      "03_checkbox_radio",
+      "en",
+      11
+    ],
+    [
+      "04_dynamic",
+      "en",
+      11
+    ],
+    [
+      "05_dialogs",
+      "en",
+      11
+    ],
+    [
+      "06_iframe",
+      "en",
+      11
+    ],
+    [
+      "07_missing",
+      "en",
+      11
+    ],
+    [
+      "08_full_form",
+      "en",
+      11
+    ],
+    [
+      "01_text_submit",
+      "zh",
+      11
+    ],
+    [
+      "02_password_select",
+      "zh",
+      11
+    ],
+    [
+      "03_checkbox_radio",
+      "zh",
+      11
+    ],
+    [
+      "04_dynamic",
+      "zh",
+      11
+    ],
+    [
+      "05_dialogs",
+      "zh",
+      11
+    ],
+    [
+      "06_iframe",
+      "zh",
+      11
+    ],
+    [
+      "07_missing",
+      "zh",
+      11
+    ],
+    [
+      "08_full_form",
+      "zh",
+      11
+    ]
+  ],
+  "parent_protocol_sha256": "9967210147082c2551712d9b260ddf2f40174b98cc69dbdec2a124f4b5ec6e37",
+  "reason": "Catalog strings were passed as element labels; native training uses observed labels. Keep original failures and add a separate correction trial.",
+  "scope": "16 extra English/Chinese rounds, native format plus availability correction, post-initial-results exploratory; no main planning",
+  "source_sha256": "5dd9de520499990b819a90b10db05f2a1382063b8aef11283a8e9750c4eb3743",
+  "unchanged": "same model weights, goals, budgets, verdicts, host frame/dialog macros, seed and candidate order before availability filtering",
+  "version": "3.1-exploratory"
+}

@@ -1,0 +1,14 @@
+{
+  "protocol_sha256": "21ecdd7a18994a46d1a0f7005836e4352faad8077fd9782be0ed1a4819a360ca",
+  "formal_trials": 224,
+  "controls": 16,
+  "passed": 81,
+  "blocked": 0,
+  "unique_report_rows": 224,
+  "immutable_sources_and_plans": true,
+  "successful_trials_have_kernel_assertions": true,
+  "no_evaluation_labels_in_provider_inputs": true,
+  "paired_api_requests": 58,
+  "credential_scan_passed": true,
+  "scope": "Trace/readback verification; original browser checks provide semantic verdicts"
+}

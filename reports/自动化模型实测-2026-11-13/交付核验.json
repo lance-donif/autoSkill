@@ -1,0 +1,46 @@
+{
+  "kind": "external_host_evaluation_delivery",
+  "status": "ready",
+  "model_experiments": 152,
+  "success": 61,
+  "failure": 90,
+  "blocked": 1,
+  "workbook_validator_ok": true,
+  "case_groups": 8,
+  "browser_regression_passed": 8,
+  "selenium_skipped": 6,
+  "locator_regression_passed": 5,
+  "evidence_archive_verified": true,
+  "credentials_excluded": true,
+  "files": {
+    "模型实测分析报告.md": {
+      "bytes": 11083,
+      "sha256": "9c3ccafca3d7af82696cdc39ca3c6eb5d9353e28a4c3f20a6279c076bbd94c93"
+    },
+    "自动化模型测试用例.xlsx": {
+      "bytes": 24983,
+      "sha256": "c10897441c3577882c624a17d0455e8f6cd33eb3fc9aaf6b233038d815bb3c95"
+    },
+    "模型实测证据.zip": {
+      "bytes": 269657,
+      "sha256": "3bf40b789eb5258c1dacaa6341363767ff75c5d689d760812700cfd1db31674a"
+    },
+    "测试汇总.md": {
+      "bytes": 912,
+      "sha256": "7b0332b59738cd9c4d82484e305a3afb567d853f5bdfd88355e45c826bb97c43"
+    },
+    "问题清单.md": {
+      "bytes": 6936,
+      "sha256": "62ad5855f7098657c6ea14d958630ee15d4d96fe005b18449451e21d6c8e40ae"
+    },
+    "Jev-browse实现调研.md": {
+      "bytes": 10587,
+      "sha256": "80dd0442e92bd12dec3b2c9508f8a8464ecf5aa8cdcc88dec5c0657365aa1371"
+    },
+    "Jev-browse调研源码.zip": {
+      "bytes": 104584,
+      "sha256": "35a5134b043f7a48831fd5961a01319f1264341ebb08824b2e37f396fdb9680d"
+    }
+  },
+  "research_scope": "Public source review only; no Jev API call or new candidate-model rerun"
+}
