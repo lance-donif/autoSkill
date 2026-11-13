@@ -149,7 +149,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
   }
 
   function sessionStore(sessionId, notify) {
-    let snapshot = { data: null, error: null, loading: false, actions: {}, reports: {}, cursors: {} };
+    let snapshot = { data: null, error: null, loading: false, actions: {}, reports: {} };
     const listeners = new Set();
     const requests = new Set();
     let generation = 0;
@@ -209,7 +209,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       reading = current;
       publish({ loading: !snapshot.data });
       try {
-        const data = await json('context', { session_id: sessionId, ...snapshot.cursors }, undefined, current.controller.signal);
+        const data = await json('context', { session_id: sessionId }, undefined, current.controller.signal);
         receiveContext(data, current);
       } catch (error) {
         if (currentRead(current)) publish({ error: message(error), loading: false });
@@ -220,7 +220,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       const next = { ...action, state, result, error: result.error?.message || null };
       publish({ actions: { ...snapshot.actions, [key]: next } });
       if (state === 'completed') stopReading();
-      if (state === 'completed' && action.operation === 'binding.select') publish({ cursors: {}, data: null });
+      if (state === 'completed' && action.operation === 'binding.select') publish({ data: null });
       if (state === 'completed' && action.operation === 'report.retry') publish({ reports: { ...snapshot.reports, [action.payload.report_id]: undefined } });
       notifyAction(next);
       void refresh();
@@ -296,11 +296,6 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
         } } });
         return queryAction(key);
       },
-      page: (kind, cursor) => {
-        stopReading();
-        publish({ cursors: { ...snapshot.cursors, [kind === 'runs' ? 'runs_cursor' : 'cursor']: cursor } });
-        void refresh();
-      },
       reset: () => {
         generation += 1;
         stopReading();
@@ -308,7 +303,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
         requests.clear();
         const actions = {};
         for (const [key, action] of Object.entries(snapshot.actions)) actions[key] = action.state === 'pending' ? { ...action, state: 'unknown' } : action;
-        publish({ data: null, error: null, reports: {}, actions, cursors: {} });
+        publish({ data: null, error: null, reports: {}, actions });
         void refresh();
       },
       dispose: () => {
@@ -431,53 +426,6 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       raw ? h('details', {}, h('summary', {}, '查看工具输入与结果'), h('pre', { style: STYLE.pre }, raw)) : null);
   }
 
-  function pageControls(store, snapshot, kind) {
-    const cursor = snapshot.data?.[kind]?.page?.next_cursor;
-    const current = snapshot.cursors[kind === 'runs' ? 'runs_cursor' : 'cursor'];
-    return h('div', { style: STYLE.row }, cursor ? button('下一页' + (kind === 'runs' ? '执行记录' : '任务'), () => store.page(kind, cursor)) : null,
-      current ? button('回到首页', () => store.page(kind, null)) : null);
-  }
-
-  function bindingChoices(autoskill, snapshot) {
-    const data = snapshot.data;
-    return h('div', {}, h('p', {}, data.status === 'selection_required' ? '请选择本次要查看的任务。' : '本会话任务'),
-      list(data.bindings?.items).map((binding) => {
-        const id = binding.id;
-        const active = data.selection?.binding_id === id;
-        const action = snapshot.actions[actionKey('binding.select', { binding_id: id })];
-        return h('div', { key: id, style: STYLE.row },
-          button((active ? '当前：' : '') + (binding.label || binding.project_id || binding.task_session_id || id), () => {
-            void autoskill.store.command('binding.select', { binding_id: id, expected_revision: data.selection?.revision }, id);
-          }, active || ['pending', 'unknown'].includes(action?.state)), actionNotice(autoskill.store, action));
-      }), pageControls(autoskill.store, snapshot, 'bindings'));
-  }
-
-  function TaskDock({ autoskill }) {
-    const snapshot = useSnapshot(autoskill.store);
-    const data = snapshot.data;
-    const binding = data?.binding || {};
-    const flow = data?.workflow;
-    return h('section', { style: STYLE.card, 'aria-label': 'autoSkill 会话任务' },
-      h('div', { style: STYLE.row }, h('strong', {}, 'autoSkill 任务'), button('刷新', () => { void autoskill.store.refresh(); })),
-      snapshot.loading ? h('p', {}, '正在读取本会话任务…') : null,
-      snapshot.error ? h('p', { role: 'status' }, snapshot.error) : null,
-      data ? bindingChoices(autoskill, snapshot) : null,
-      data && !list(data.bindings?.items).length ? h('p', { style: STYLE.muted }, '当前会话尚未绑定 autoSkill 任务。') : null,
-      data && ['stale_cycle', 'reference_missing'].includes(data.status) ? h('p', { role: 'status' }, label(data.status)) : null,
-      flow ? h('p', {}, '工作流：' + label(flow.lifecycle) + '；业务验证：' + label(flow.business_status || flow.conclusion)) : null,
-      flow?.current_phase ? h('p', {}, '当前阶段：' + label(flow.current_phase)) : null,
-      flow?.counts ? h('p', { style: STYLE.muted }, Object.entries(flow.counts).map(([state, count]) => label(state) + ' ' + count).join(' · ')) : null,
-      list(data?.runs?.items).map((run) => {
-        const identity = { ...binding, binding_id: binding.id, host_session_id: autoskill.store.sessionId, run_id: run.id, project_id: run.project_id || binding.project_id };
-        return h('div', { key: identity.run_id, style: { marginTop: 8 } },
-          h('p', {}, '执行 ' + identity.run_id + '：' + label(runStatus(run)) + (run.business_status ? '；业务验证：' + label(run.business_status) : '')),
-          identityControls(autoskill, snapshot, identity, run));
-      }), pageControls(autoskill.store, snapshot, 'runs'),
-      list(data?.reports).map((report) => reportControls(autoskill.store, snapshot, report, binding.id)),
-      Object.values(snapshot.actions).filter((action) => action.state === 'unknown').map((action) => h('div', { key: action.request_id },
-        h('p', {}, '待确认操作：' + action.operation + '（' + action.request_id + '）'), actionNotice(autoskill.store, action))));
-  }
-
   exports.inject = ['slots', 'layout', 'sessions', 'conversation'];
   exports.apply = (ctx, config = {}) => {
     const port = config.port ?? 8787;
@@ -505,9 +453,6 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       ctx.effect(() => ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key }, Panel)), 'autoskill: ' + key);
       ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: key, order: 30, label: () => title }, Icon)), 'autoskill: nav ' + key);
     }
-    ctx.effect(() => ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-      name: 'conversation.input.dock', id: 'autoskill-tasks', order: 30, inject,
-    }, TaskDock)), 'autoskill: task dock');
     for (const key of ['autoskill_read', 'autoskill_task']) ctx.effect(() => ctx.slots.inject('tool.call.toolview', () =>
       ctx.slots.register({ name: 'tool.call.toolview', key, inject }, ToolCard)), 'autoskill: ' + key);
     ctx.on('connection/reset', () => { nav.reset(); for (const store of stores.values()) store.reset(); });

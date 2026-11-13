@@ -120,8 +120,9 @@ test('client registers dashboard and schedules panels pointing at the loopback d
   const ctx = { effect: (fn) => fn(), on: () => () => undefined,
     slots: { inject: (_, fn) => fn(), register: (options, component) => { records.push({ options, component }); return () => undefined; } } };
   plugin.apply(ctx, { port: 8788 });
-  assert.equal(records.length, 7);
-  await records.find((entry) => entry.options.name === 'conversation.input.dock').options.inject('session-a').autoskill.navigation.refreshHost();
+  assert.equal(records.length, 6);
+  assert.equal(records.some((entry) => entry.options.name === 'conversation.input.dock'), false);
+  await records.find((entry) => entry.options.key === 'autoskill_read').options.inject('session-a').autoskill.navigation.refreshHost();
   const panels = records.filter((r) => r.options.name === 'main');
   const urls = panels.map((panel) => new URL(panel.component().props.src));
   assert.deepEqual(urls.map((url) => url.origin), ['http://127.0.0.1:8788', 'http://127.0.0.1:8788']);
@@ -138,8 +139,8 @@ test('client registers dashboard and schedules panels pointing at the loopback d
   clock.now = 1700000000000;
   clock.random = 0.5;
   plugin.apply(ctx, { port: 8788 });
-  await records.slice(7).find((entry) => entry.options.name === 'conversation.input.dock').options.inject('session-a').autoskill.navigation.refreshHost();
-  const reactivated = records.slice(7).filter((r) => r.options.name === 'main').map((panel) => new URL(panel.component().props.src));
+  await records.slice(6).find((entry) => entry.options.key === 'autoskill_read').options.inject('session-a').autoskill.navigation.refreshHost();
+  const reactivated = records.slice(6).filter((r) => r.options.name === 'main').map((panel) => new URL(panel.component().props.src));
   assert.notEqual(reactivated[0].searchParams.get('activation'), loadId);
   assert.equal(reactivated[0].searchParams.get('activation'), reactivated[1].searchParams.get('activation'));
   assert.deepEqual(reactivated.map((url) => [url.origin, url.searchParams.get('embed'), url.hash]),

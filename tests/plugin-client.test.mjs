@@ -56,10 +56,9 @@ function harness(fetcher, hostOrigin = 'http://127.0.0.1:8788') {
   };
   const plugin = registration.factory((name) => { assert.equal(name, 'react'); return React; });
   plugin.apply(ctx, { port: 8788 });
-  const dock = slots.find((entry) => entry.options.name === 'conversation.input.dock');
   const taskCard = slots.find((entry) => entry.options.key === 'autoskill_task');
-  const injected = (sessionId = 'session-a') => dock.options.inject(sessionId);
-  return { slots, requests, notifications, panels, events, timers, dock, taskCard, injected,
+  const injected = (sessionId = 'session-a') => taskCard.options.inject(sessionId);
+  return { slots, requests, notifications, panels, events, timers, taskCard, injected,
     dispose: () => { for (const dispose of disposers.reverse()) dispose(); } };
 }
 
@@ -80,13 +79,22 @@ function click(tree, title) {
   match.props.onClick();
 }
 
-test('native cards and the list dock register without replacing voice activity', () => {
+function reportCard(app, props, reportId) {
+  return app.taskCard.component({ ...props, phase: 'result', toolName: 'autoskill_read', block: {
+    content: [{ type: 'text', text: JSON.stringify(wire({}, { identity: { host_session_id: 'session-a', binding_id: 'binding-a', report_id: reportId } })) }],
+  } });
+}
+
+test('native cards and sidebar panels register without any conversation task dock or passive polling', () => {
   const app = harness();
   assert.deepEqual(app.slots.filter((slot) => slot.options.name === 'tool.call.toolview').map((slot) => slot.options.key), ['autoskill_read', 'autoskill_task']);
-  assert.equal(app.slots.filter((slot) => slot.options.name === 'conversation.input.dock').length, 1);
+  assert.equal(app.slots.some((slot) => slot.options.name === 'conversation.input.dock'), false);
   assert.equal(app.slots.some((slot) => slot.options.name === 'conversation.input.activity'), false);
   assert.notEqual(app.injected('session-a').autoskill.store, app.injected('session-b').autoskill.store);
   assert.equal(app.injected('session-a').autoskill.store, app.injected('session-a').autoskill.store);
+  assert.deepEqual(app.slots.filter((slot) => slot.options.name === 'sidebar.panellist').map((slot) => slot.options.id), ['autoskill-dashboard', 'autoskill-schedules']);
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.timers.size, 0);
   app.dispose();
 });
 
@@ -180,7 +188,7 @@ test('completion notifications name the real result and stay with the original s
   off(); app.dispose();
 });
 
-test('a completed workflow retains its violated business conclusion in the notification and dock', async () => {
+test('a completed workflow retains its violated business conclusion in notifications and native tool output', async () => {
   let lifecycle = 'active';
   const app = harness(() => response(context('session-a', {
     workflow: { workflow_id: 'flow-a', cycle_id: 'cycle-a', lifecycle, conclusion: 'violated', current_phase: 'knowledge', counts: { done: 5 } },
@@ -192,8 +200,10 @@ test('a completed workflow retains its violated business conclusion in the notif
   await props.autoskill.store.refresh();
   assert.equal(app.notifications.length, 1);
   assert.match(app.notifications[0].text, /已完成.*不符合预期/);
-  assert.match(text(app.dock.component(props)), /不符合预期/);
-  assert.match(text(app.dock.component(props)), /沉淀知识/);
+  const view = app.taskCard.component({ ...props, phase: 'result', toolName: 'autoskill_read', block: {
+    content: [{ type: 'text', text: JSON.stringify(wire({ conclusion: 'violated' }, { identity: { host_session_id: 'session-a', workflow_id: 'flow-a' } })) }],
+  } });
+  assert.match(text(view), /不符合预期/);
   off(); app.dispose();
 });
 
@@ -262,8 +272,7 @@ test('binding choice includes the observed selection revision and never claims n
   const props = app.injected();
   const off = props.autoskill.store.subscribe(() => undefined);
   await setImmediate();
-  click(app.dock.component(props), '第二任务');
-  await setImmediate();
+  await props.autoskill.store.command('binding.select', { binding_id: 'binding-b', expected_revision: props.autoskill.store.getSnapshot().data.selection.revision }, 'binding-b');
   const sent = JSON.parse(app.requests.find((request) => request.options.method === 'POST').options.body);
   assert.equal(sent.operation, 'binding.select');
   assert.equal(sent.payload.binding_id, 'binding-b');
@@ -282,10 +291,10 @@ test('report links appear only after same-report verification and include a real
   const props = app.injected();
   const off = props.autoskill.store.subscribe(() => undefined);
   await setImmediate();
-  assert.equal(nodes(app.dock.component(props), (node) => node.tag === 'a').length, 0);
-  click(app.dock.component(props), '校验并获取报告');
+  assert.equal(nodes(reportCard(app, props, reportId), (node) => node.tag === 'a').length, 0);
+  click(reportCard(app, props, reportId), '校验并获取报告');
   await setImmediate();
-  const links = nodes(app.dock.component(props), (node) => node.tag === 'a');
+  const links = nodes(reportCard(app, props, reportId), (node) => node.tag === 'a');
   assert.deepEqual(links.map(text), ['下载 Excel', '下载 Markdown 汇总', '下载 Bug 清单']);
   for (const link of links) {
     const url = new URL(link.props.href, 'http://dsh.test/nested/');
@@ -304,7 +313,7 @@ test('changed or missing artifacts never inherit ready state from the context li
   const off = props.autoskill.store.subscribe(() => undefined);
   await setImmediate();
   await props.autoskill.store.verifyReport('run_a');
-  const view = app.dock.component(props);
+  const view = reportCard(app, props, 'run_a');
   assert.equal(nodes(view, (node) => node.tag === 'a').length, 0);
   assert.match(text(view), /文件已变化/);
   assert.match(text(view), /重试导出报告/);
@@ -319,7 +328,7 @@ test('an older verified receipt keeps its two real links without inventing a Bug
   const off = props.autoskill.store.subscribe(() => undefined);
   await setImmediate();
   await props.autoskill.store.verifyReport('run_old');
-  assert.deepEqual(nodes(app.dock.component(props), (node) => node.tag === 'a').map(text), ['下载 Excel', '下载 Markdown 汇总']);
+  assert.deepEqual(nodes(reportCard(app, props, 'run_old'), (node) => node.tag === 'a').map(text), ['下载 Excel', '下载 Markdown 汇总']);
   off(); app.dispose();
 });
 
@@ -339,18 +348,13 @@ test('unknown tool history can query its own receipt without issuing a new task'
   app.dispose();
 });
 
-test('binding and run pagination use independent cursors without changing the selected binding', async () => {
+test('native tool card reads never select a task or claim workflow work', async () => {
   const app = harness(({ url }) => response(context(url.searchParams.get('session_id'))));
   const store = app.injected().autoskill.store;
   const off = store.subscribe(() => undefined);
   await setImmediate();
-  store.page('bindings', 'bindings-next');
-  await setImmediate();
-  store.page('runs', 'runs-next');
-  await setImmediate();
-  const last = app.requests.at(-1).url;
-  assert.equal(last.searchParams.get('cursor'), 'bindings-next');
-  assert.equal(last.searchParams.get('runs_cursor'), 'runs-next');
+  await store.refresh();
+  reportCard(app, app.injected(), 'run_a');
   assert.equal(store.getSnapshot().data.selection.binding_id, 'binding-a');
   assert.equal(app.requests.filter((request) => request.options.method === 'POST').length, 0);
   off(); app.dispose();
