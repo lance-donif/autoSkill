@@ -83,7 +83,7 @@ Browser tests need a runtime named by `AUTOSKILL_CHROMIUM`, `AUTOSKILL_CHROMEDRI
 
 - No guard rails on the user's own cases: no access-scope settings, no risk approvals, no feature limits. Do not reintroduce them. The legacy `scripts/qa.py` path in `core/store.py` still has an approvals check; `autoskill run` and the dashboard do not use it.
 - Credentials and saved logins are plain text on the local machine and shown in project settings. Sharing them in `pack --full` is intentional; describe what the pack includes accurately, without adding approvals or a passphrase requirement. `seal`/`unseal` in `secrets.py` exist only to read stores written by older versions.
-- Browser windows are visible and maximised by default, including scheduled runs (`paths.headed()`); `--headless` or `AUTOSKILL_HEADED=0` hides them.
+- Browser recording, replay, login and host tasks use the selected data root's saved `dashboard.headed` choice through `paths.headed()`. Explicit `--headed` / `--headless` or `AUTOSKILL_HEADED=1/0` overrides that default. Without a saved choice, windows are visible and maximised; Linux without a display defaults to headless. Scheduled replay tasks retain their explicit per-task choice; legacy tasks without one follow the saved dashboard preference. Do not force visible windows in host prompts.
 - One site (host and port) is one project; creating a project for a known site returns the existing one. A case's `module` is its sub-project. Projects without cases are not listed in the dashboard.
 - Generated assertions should be few and stable: assert the direct result of the action, never volatile data such as totals, order, timestamps or ids.
 - Pages, scripts and styles get no API case; only business requests do.

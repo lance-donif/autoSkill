@@ -233,10 +233,16 @@ def agent_browser() -> str | None:
 
 
 def headed() -> bool:
-    """Show the browser window, maximised, so a person can watch. On by default; AUTOSKILL_HEADED=0 hides it."""
+    """Resolve an explicit process choice, then this data root's saved browser preference."""
+    explicit = os.environ.get("AUTOSKILL_HEADED")
+    if explicit in ("0", "1"):
+        return explicit == "1"
+    dashboard = settings().get("dashboard", {})
+    if isinstance(dashboard, dict) and type(dashboard.get("headed")) is bool:
+        return dashboard["headed"]
     if sys.platform == "linux" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         return False  # a server without a screen has nowhere to show a window
-    return os.environ.get("AUTOSKILL_HEADED") != "0"
+    return True
 
 
 def case_skill() -> Path:

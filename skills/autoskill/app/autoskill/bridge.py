@@ -161,8 +161,13 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
         if not isinstance(case_skill, str):
             raise ValueError("用例 Skill 目录需要是路径文字")
         extra["AUTOSKILL_CASE_SKILL"] = case_skill
-    if headed in ("0", "1", True):  # the caller chose; otherwise the service's own setting applies
-        extra["AUTOSKILL_HEADED"] = "0" if headed == "0" else "1"
+    if headed is not None:
+        if type(headed) is bool:
+            extra["AUTOSKILL_HEADED"] = "1" if headed else "0"
+        elif headed in ("0", "1"):
+            extra["AUTOSKILL_HEADED"] = headed
+        else:
+            raise ValueError("显示浏览器窗口需要是布尔值或 0/1")
     if msys_root:
         extra["AUTOSKILL_MSYS_ROOT"] = msys_root
     # The recorder sweeps agent-io. POSIX permits unlinking our still-open output files,

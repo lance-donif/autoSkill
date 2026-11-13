@@ -213,7 +213,7 @@ autoskill run <项目>                          # 全部用例；前置用例（
 autoskill run <项目> --case TC-UI-002         # 指定用例，可重复 --case
 autoskill run <项目> --engine selenium        # 页面用例换 Selenium 回放（默认 Playwright）
 autoskill run <项目> --kind api               # 只回放接口用例
-autoskill run <项目> --headless               # 不显示浏览器窗口（默认显示最大化的窗口，让用户看到操作过程）
+autoskill run <项目> --headless               # 本次显式隐藏窗口；省略时沿用已保存的回放窗口偏好
 autoskill export postman <项目>               # Postman 集合 + 环境（不含凭据值）
 autoskill export scripts <项目>               # 独立的 Playwright / Selenium 脚本
 autoskill report <项目>                       # Excel 用例表 + 执行报告
@@ -244,7 +244,7 @@ autoskill dashboard                           # 仪表盘（给人看；会一�
 
 项目知识先从 `context`、`knowledge list/read` 按需读取（业务规则、角色、测试数据、历史缺陷）；工作流中通过 knowledge 阶段提交关联来源与证据的事实，形成可追溯版本。旧项目 `knowledge/*.md` 继续作为兼容资料读取。只记录确认过的事实，不把密码写入说明文档。
 
-浏览器默认**显示最大化的窗口**，让用户看到操作过程（录制、回放、定时任务都一样）；只有用户要求在后台运行时才加 `--headless`。
+录制、回放、登录和 DSH 对话任务都沿用当前数据目录保存的「回放设置 → 显示浏览器窗口」；用户已关闭时，不加参数也会在后台运行。没有保存的偏好时默认显示最大化窗口，无桌面的 Linux 默认隐藏。用户明确要求本次覆盖时使用 `--headed` 或 `--headless`；显式 `AUTOSKILL_HEADED=1/0` 也优先于保存的偏好。不要为正常任务强加 `--headed`。定时任务使用其单独保存的窗口选择，旧任务没有单独选择时沿用回放偏好。
 
 ## 边界
 
