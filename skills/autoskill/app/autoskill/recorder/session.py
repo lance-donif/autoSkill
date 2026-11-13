@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import json
 import re
@@ -15,6 +16,7 @@ from ..locking import project_lock
 from ..replay import ir
 from ..replay.tabs import Tabs
 from . import agent, capture
+from .context import AttachedPage
 
 
 def session_name() -> str:
@@ -123,6 +125,9 @@ def _observe_tabs(rec: dict, settle: float = 0) -> dict | None:
     rec.update(live_tabs=live, active_tab=active,
                tab_info=[{"id": ids[t["tabId"]], "active": t["tabId"] == active,
                           "url": t.get("url", ""), "title": t.get("title", "")} for t in tabs])
+    if active != old_active:
+        rec["context"] = []
+        rec["refs"] = {}
     return change if opened or closed or active != old_active else None
 
 
@@ -270,12 +275,19 @@ def _settled_snapshot(rec: dict) -> str:
 
 
 def snapshot(rec: dict, interactive: bool = True) -> str:
+    if rec.get("context"):
+        with AttachedPage(session_name(), rec) as attached:
+            tree, rec["refs"] = attached.snapshot(interactive)
+        return tree
     data = agent.call(session_name(), ["snapshot", *(["-i"] if interactive else [])]) or {}
     rec["refs"] = data.get("refs", {})
     return data.get("snapshot", "")
 
 
-def _describe(spec: dict) -> dict | None:
+def _describe(spec: dict, rec: dict | None = None) -> dict | None:
+    if rec and rec.get("context"):
+        with AttachedPage(session_name(), rec) as attached:
+            return attached.target(spec)
     script = "JSON.stringify((" + DOM_JS + ")().target(" + json.dumps(spec, ensure_ascii=False) + "))"
     result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script) or {}).get("result")
     return json.loads(result) if isinstance(result, str) and result != "null" else None
@@ -286,11 +298,15 @@ def _spec(rec: dict, token: str, rich: bool = False) -> dict:
         ref = rec["refs"].get(token[1:])
         if not ref:
             raise RecordError(f"引用 {token} 已失效；先运行 autoskill browser snapshot 再操作")
+        if "locators" in ref:
+            if ref.get("context", []) != rec.get("context", []):
+                raise RecordError(f"引用 {token} 来自其他定位上下文；请重新运行 browser snapshot")
+            return {"locator": ref["locators"][0]}
         box = agent.call(session_name(), ["get", "box", token], check=False)
         return {"ref": {"role": ref.get("role"), "name": ref.get("name"), "box": box}}
     if rich:
         kind, _, value = token.partition("=")
-        if kind in ("testid", "text", "label", "placeholder") and value:
+        if kind in ("testid", "text", "label", "placeholder", "xpath", "css") and value:
             return {"locator": {"by": kind, "value": value}}
         if kind == "role" and value:
             role, _, name = value.partition(":")
@@ -308,14 +324,18 @@ def _as_target(locator: dict) -> str:
 
 
 def _target(rec: dict, token: str, rich: bool = False) -> dict:
-    found = _describe(_spec(rec, token, rich))
+    spec = _spec(rec, token, rich)
+    found = _describe(spec, rec)
     if not found or not found.get("locators"):
-        hint = "先运行 autoskill browser snapshot --all 找到它的 @编号，或改用 CSS 选择器"
+        hint = "先运行 autoskill browser snapshot --all 找到它的 @编号，或改用 CSS / xpath= 定位"
         if token.startswith("text="):
             hint = "text= 要求与元素的完整文字完全一致（不是包含）；" + hint
         elif token.startswith("testid="):
             hint = "页面上没有 data-testid 为这个值的元素；" + hint
         raise RecordError(f"页面上找不到 {token}；{hint}")
+    explicit = spec.get("locator")
+    if explicit and explicit["by"] == "xpath":
+        found["locators"] = [explicit, *[loc for loc in found["locators"] if loc != explicit]]
     return found
 
 
@@ -340,7 +360,17 @@ def _secret_value(rec: dict, text: str, is_secret_field: bool) -> tuple[str, str
 class PageProbe:
     """Reads the live page through agent-browser so assertions are judged by the replay rules."""
 
+    def __init__(self, rec: dict | None = None, attached=None):
+        self.rec, self.attached = rec or {}, attached
+        self.context = copy.deepcopy(self.rec.get("context", []))
+
     def _read(self, locator: dict, what: str, arg: str | None = None):
+        context = locator.get("context", self.context)
+        if self.attached:
+            return self.attached.read(locator, what, arg, context)
+        if context:
+            with AttachedPage(session_name(), self.rec) as attached:
+                return attached.read(locator, what, arg, context)
         script = ("JSON.stringify((" + DOM_JS + ")().read(" + json.dumps(locator, ensure_ascii=False) + ", "
                   + json.dumps(what) + ", " + json.dumps(arg) + "))")
         result = (agent.call(session_name(), ["eval", "--stdin"], stdin_text=script) or {}).get("result")
@@ -375,8 +405,11 @@ def _fit_window() -> None:
         pass  # a smaller page is an inconvenience, not a reason to stop
 
 
-def _element_png(locator: dict) -> bytes:
+def _element_png(locator: dict, rec: dict | None = None) -> bytes:
     """The pixels of an image or canvas as shown, without requesting it again (that would draw a new captcha)."""
+    if rec and rec.get("context"):
+        with AttachedPage(session_name(), rec) as attached:
+            return attached.image(locator)
     script = ("(() => { const el = (" + DOM_JS + ")().find(" + json.dumps(locator, ensure_ascii=False) + ")[" + str(locator.get("nth", 0)) + "];"
               "const c = document.createElement('canvas'); c.width = el.naturalWidth || el.width; c.height = el.naturalHeight || el.height;"
               "c.getContext('2d').drawImage(el, 0, 0, c.width, c.height); return c.toDataURL('image/png'); })()")
@@ -504,7 +537,7 @@ def status() -> dict:
     if not rec:
         return {"recording": False}
     return {"recording": True, "project": rec["project_id"], "started_at": rec["started_at"],
-            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]]}
+            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]], "context": rec.get("context", [])}
 
 
 def cancel() -> dict:
@@ -525,11 +558,110 @@ def _plain(text: str) -> str:
     return "${ENV:" + text[7:] + "}" if text.startswith("secret:") and secrets.NAME.fullmatch(text[7:]) else text
 
 
+def _rich_target(token: str) -> bool:
+    return token.partition("=")[0] in ("xpath", "css", "testid", "text", "label", "placeholder", "role")
+
+
+def _scoped_act(rec: dict, command: str, locator: dict, value=None) -> dict | None:
+    """Dispatch once on the exact recorded target, without switching the daemon's implicit frame."""
+    from playwright.sync_api import Error as PlaywrightError
+
+    active = rec.get("active_tab")
+
+    def dispatch():
+        try:
+            with AttachedPage(session_name(), rec) as attached:
+                attached.act(locator, command, value)
+        except PlaywrightError:
+            change = _observe_tabs(rec)
+            if not change or rec["tab_map"].get(active) not in change["closed"]:
+                raise
+            return change
+        return None
+
+    return _operation(rec, "browser_action", {"command": command, "locator": locator,
+                                             "context": rec.get("context", [])}, dispatch)
+
+
+def _context_command(rec: dict, command: str, rest: list[str]) -> dict:
+    path = copy.deepcopy(rec.get("context", []))
+    if command == "context":
+        if len(rest) > 1 or (rest and rest[0] not in ("show", "parent", "top")):
+            raise RecordError("用法：browser context show / parent / top")
+        if rest == ["top"]:
+            path = []
+        elif rest == ["parent"]:
+            path = path[:-1]
+    else:
+        if len(rest) != 1:
+            raise RecordError(f"用法：browser {command} <目标>，例如 browser {command} '#container'")
+        found = _target(rec, rest[0], rich=True)
+        path.append({"kind": command, "locators": found["locators"]})
+    trial = {**rec, "context": path}
+    with AttachedPage(session_name(), trial) as attached:
+        root = attached.root()
+        root.dispose()
+    rec["context"], rec["refs"] = path, {}
+    tree = snapshot(rec)
+    _save(rec)
+    return {"context": path, "snapshot": tree,
+            "note": "后续操作和断言使用此定位上下文；browser context top 返回主文档"}
+
+
+def _scoped_read(rec: dict, command: str, rest: list[str]) -> dict:
+    """Read-only browser commands must inspect the same scope as actions and assertions."""
+    if command in ("get", "is"):
+        if len(rest) < 2:
+            raise RecordError(f"用法：browser {command} <属性> <目标>")
+        what, target = rest[:2]
+    else:
+        if len(rest) != 1:
+            raise RecordError(f"用法：browser {command} <目标>")
+        what, target = command, rest[0]
+    spec = _spec(rec, target, rich=True)
+    with AttachedPage(session_name(), rec) as attached:
+        locator = spec.get("locator")
+        if locator is None:
+            found = attached.target(spec)
+            if not found:
+                raise RecordError("当前定位上下文中找不到目标：" + target)
+            locator = found["locators"][0]
+        if command == "get" and what in ("text", "value", "count", "attribute", "attr"):
+            attribute = rest[2] if len(rest) > 2 else None
+            if what in ("attribute", "attr") and not attribute:
+                raise RecordError("get attr 需要属性名")
+            return {what: attached.read(locator, "attribute" if what == "attr" else what, attribute)}
+        if command == "is" and what in ("visible", "checked"):
+            return {what: bool(attached.read(locator, what))}
+        if command == "wait":
+            from ..replay import ui
+
+            outcome = ui.check(PageProbe(rec, attached), {"assertion": "visible", "locators": [locator],
+                                                        "context": rec.get("context", [])}, 20)
+            if not outcome["passed"]:
+                raise RecordError("等待当前上下文中的目标出现超时：" + target)
+            return {"visible": True}
+        node = attached.element(locator)
+        try:
+            if command == "get" and what == "html":
+                return {"html": node.inner_html()}
+            if command == "get" and what == "box":
+                return {"box": node.bounding_box()}
+            if command == "is" and what in ("enabled", "editable"):
+                return {what: getattr(node, "is_" + what)()}
+            if command == "scrollintoview":
+                node.scroll_into_view_if_needed()
+                return {"scrolled": True}
+            raise RecordError("当前上下文不支持这个读取参数；请使用 get text/value/count/attr/html/box 或 is visible/checked/enabled/editable")
+        finally:
+            node.dispose()
+
+
 def _targeted_step(rec: dict, command: str, rest: list[str], argv: list[str]) -> tuple[dict, dict | None]:
     """Describe and validate a target before sending its recorded action."""
     if not rest:
         raise RecordError(f"{command} 需要目标，例如 @e3")
-    found = _target(rec, rest[0])  # describe before acting: the element may be gone afterwards
+    found = _target(rec, rest[0], rich=True)  # describe before acting: the element may be gone afterwards
     what = f'{found.get("role") or found.get("tag")}「{found.get("name", "")}」'
     if command in ("fill", "type") and not found.get("editable"):
         raise RecordError(f"{rest[0]} 是 {what}，不能输入文字；编号可能来自旧的 snapshot，请用最近一次返回的 snapshot 重新确认")
@@ -538,13 +670,16 @@ def _targeted_step(rec: dict, command: str, rest: list[str], argv: list[str]) ->
     if command in ("check", "uncheck") and not found.get("checkable"):
         raise RecordError(f"{rest[0]} 是 {what}，不是复选框或单选框；请用最近一次返回的 snapshot 重新确认")
     step = {"action": command, "locators": found["locators"]}
+    if rec.get("context"):
+        step["context"] = copy.deepcopy(rec["context"])
     send = list(argv)
     if command in ("fill", "type", "select"):
         if len(rest) < 2:
             raise RecordError(f"{command} 需要内容")
         typed, step["value"] = _secret_value(rec, _plain(rest[1]), bool(found.get("secret")) and command != "select")
         send = [command, rest[0], typed]
-    early_change = _act(rec, send)
+    early_change = (_scoped_act(rec, command, found["locators"][0], send[2] if len(send) > 2 else None)
+                    if rec.get("context") or _rich_target(rest[0]) else _act(rec, send))
     return step, early_change
 
 
@@ -558,6 +693,8 @@ def _browser_action(rec: dict, command: str, rest: list[str], argv: list[str], c
         url = ir.absolute_url(rest[0], config["base_url"])
         ir.check_origin(url, config["allowed_origins"])
         _operation(rec, "browser_open", {"url": url}, lambda: _open(url, float(config.get("page_load_seconds", 90))))
+        rec["context"] = []
+        rec["refs"] = {}
         step = {"action": "goto", "url": relative(url, config["base_url"])}
     elif command == "reload":
         _operation(rec, "browser_reload", {}, lambda: agent.call(session_name(), ["reload"], timeout=90))
@@ -566,24 +703,34 @@ def _browser_action(rec: dict, command: str, rest: list[str], argv: list[str], c
     elif command == "press":
         if not rest:
             raise RecordError("press 需要按键名，例如 Enter")
-        focused = _describe({})
-        early_change = _act(rec, ["press", rest[0]])
+        focused = _describe({}, rec)
+        if rec.get("context"):
+            if not focused or not focused.get("locators"):
+                raise RecordError("当前定位上下文没有聚焦的元素；请先点击或填写目标")
+            early_change = _scoped_act(rec, "press", focused["locators"][0], rest[0])
+        else:
+            early_change = _act(rec, ["press", rest[0]])
         step = {"action": "press", "key": rest[0]}
         if focused and focused.get("locators"):
             step["locators"] = focused["locators"]
+        if rec.get("context"):
+            step["context"] = copy.deepcopy(rec["context"])
     elif command == "captcha":
         if len(rest) < 2:
             raise RecordError("captcha 需要两个目标：验证码图片和输入框，例如 autoskill browser captcha @e4 @e5")
         from .. import captcha
 
-        picture, field = _target(rec, rest[0], rich=True), _target(rec, rest[1])
-        recognized = captcha.solve(_element_png(picture["locators"][0]))
-        early_change = _act(rec, ["fill", rest[1], recognized])
+        picture, field = _target(rec, rest[0], rich=True), _target(rec, rest[1], rich=True)
+        recognized = captcha.solve(_element_png(picture["locators"][0], rec))
+        early_change = (_scoped_act(rec, "fill", field["locators"][0], recognized)
+                        if rec.get("context") or _rich_target(rest[1]) else _act(rec, ["fill", rest[1], recognized]))
         step = {"action": "captcha", "locators": field["locators"], "image": picture["locators"]}
+        if rec.get("context"):
+            step["context"] = copy.deepcopy(rec["context"])
     elif command in TARGETED:
         step, early_change = _targeted_step(rec, command, rest, argv)
     else:
-        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe tab click dblclick hover fill type select check uncheck press reload captcha dialog get is wait")
+        raise RecordError(f"录制不支持 {command}；可用：open snapshot describe tab frame shadow context click dblclick hover fill type select check uncheck press reload captcha dialog get is wait")
     return step, early_change, recognized
 
 
@@ -599,6 +746,8 @@ def browser(argv: list[str]) -> dict:
     _sync_tabs(rec)
     if command == "tab":
         return _tab_command(rec, rest)
+    if command in ("frame", "shadow", "context"):
+        return _context_command(rec, command, rest)
     if command == "snapshot":
         tree = snapshot(rec, interactive="--all" not in rest)
         _save(rec)
@@ -609,8 +758,13 @@ def browser(argv: list[str]) -> dict:
         found = _target(rec, rest[0], rich=True)
         return {"element": found.get("tag"), "role": found.get("role"), "name": found.get("name"),
                 "locators": [ir.describe_locator(loc) for loc in found["locators"]],
-                "use_as_target": [_as_target(loc) for loc in found["locators"]]}
+                "locator_definitions": found["locators"], "context": rec.get("context", []),
+                "use_as_target": [_as_target(loc) for loc in found["locators"] if not loc.get("xpath_anchor") and not loc.get("nth")]}
     if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview", "dialog"):
+        is_targeted = ((command in ("get", "is") and rest and rest[0] not in ("url", "title", "cdp-url"))
+                       or command == "scrollintoview" or (command == "wait" and rest and not rest[0].isdigit()))
+        if is_targeted and (rec.get("context") or any(_rich_target(token) for token in rest)):
+            return {"result": _scoped_read(rec, command, rest)}
         result = agent.call(session_name(), argv)
         if command == "wait" and rest and rest[0].isdigit():
             result = {"waited_ms": int(rest[0])}
@@ -645,17 +799,24 @@ def _assertion_locators(rec: dict, kind: str, target: str) -> list[dict]:
         found = [explicit]  # a missing explicit target is an assertion failure, not a lost assertion
     if not (explicit and explicit["by"] == "text"):
         found = [loc for loc in found if loc["by"] != "text"] or found
-    if explicit and explicit["by"] == "css" and all(loc != explicit for loc in found):
+    if explicit and explicit["by"] in ("css", "xpath") and all(loc != explicit for loc in found):
         found = [explicit, *found]
     return found
+
+
+def _check_live(rec: dict, step: dict, timeout: float) -> dict:
+    from ..replay import ui
+
+    if rec.get("context"):
+        with AttachedPage(session_name(), rec) as attached:
+            return ui.check(PageProbe(rec, attached), step, timeout)
+    return ui.check(PageProbe(), step, timeout)
 
 
 def check(kind: str, target: str | None, expected: str | None, attribute: str | None = None, *,
           timeout_seconds: float | None = None, stable_for_seconds: float = 0, mode: str = "eventually",
           transition_from: dict | None = None) -> dict:
     """Persist the declared oracle and its observation even when the live business result fails."""
-    from ..replay import ui
-
     rec = current()
     _sync_tabs(rec)
     if kind not in ir.ASSERTIONS:
@@ -668,6 +829,8 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
         if not target:
             raise RecordError(f"{kind} 断言需要目标，例如 @e5、testid=toast 或 CSS 选择器")
         step["locators"] = _assertion_locators(rec, kind, target)
+        if rec.get("context"):
+            step["context"] = copy.deepcopy(rec["context"])
     if "expected" in required:
         if expected is None:
             raise RecordError(f"{kind} 断言需要期望值")
@@ -690,7 +853,7 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     ir.validate({"start_url": "/", "actions": [], "assertions": [step]})
     timeout = float(projects.config(rec["project_id"]).get("timeout_seconds", 20))
     intent = _intent(rec, "check", {"check": step}, side_effect=False)
-    outcome = ui.check(PageProbe(), step, timeout)
+    outcome = _check_live(rec, step, timeout)
     step["recording_result"] = {**outcome, "observed_at": db.now()}
     recorded = _record(rec, step)
     _receipt(intent, {"check": step, **outcome, **recorded}, status="succeeded" if outcome["passed"] else "failed")

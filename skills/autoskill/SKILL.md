@@ -131,6 +131,8 @@ autoskill run <项目>                                                      # 5 
 | 文字验证码 | `browser captcha <验证码图片> <输入框>`（本地模型识别字母数字并填入；回放时重新识别） |
 | 页面弹出确认框 | `browser dialog accept` / `browser dialog dismiss`（回放时确认框自动点确定） |
 | 只是查看，不记录 | `browser snapshot`（可操作元素）、`browser snapshot --all`（含标题、文字、表格）、`browser get text @e3`、`browser get url`、`browser wait 800` |
+| 进入嵌套区域 | `browser frame <目标>` 进入 iframe；`browser shadow <宿主>` 进入开放的 Shadow DOM；可交替多层进入 |
+| 返回或查看区域 | `browser context parent` 返回一层；`browser context top` 返回主文档；`browser context show` 查看当前路径 |
 | 录错了一步 | `autoskill record undo`（只撤销记录，页面不会回退） |
 | 放弃这次录制 | `autoskill record cancel` |
 
@@ -156,7 +158,9 @@ autoskill check attribute <目标> "期望值" --attribute class
 autoskill check url_contains "/orders/"   # url、title 不需要目标
 ```
 
-`<目标>` 最稳妥的两种写法：`@e编号`（来自 `browser snapshot --all`）和 CSS 选择器（如 `.todo-count`）。也可以写 `testid=名称`、`label=标签`、`role=button:名称`、`text=文字`——其中 `text=` 要求与元素的**完整文字完全一致**，`testid=` 只在元素确实有这个 `data-testid` 时可用。snapshot 不显示 testid；想知道某个元素有哪些可用写法，运行 `autoskill browser describe @e5`，它会列出可直接使用的目标。断言不成立时保留 Fail、原 expected 与实际 actual；依据独立需求诊断差异，只有需求明确变化才维护 oracle，不能按错误现状改绿或删除断言。
+`<目标>` 可以写 `@e编号`（来自 `browser snapshot --all`）、CSS 选择器（如 `.todo-count`）、`xpath=//button[@id='save']`、`testid=名称`、`label=标签`、`role=button:名称`、`text=文字`。其中 `text=` 要求与元素的**完整文字完全一致**，`testid=` 只在元素确实有这个 `data-testid` 时可用。snapshot 不显示 testid；想知道某个元素有哪些可用写法，运行 `autoskill browser describe @e5`，它会列出可直接使用的目标及结构化 `locator_definitions`。明确输入的 XPath 保留为主定位；录制自动生成的 XPath 经真实 DOM 唯一命中检查后放在末位备选，不会替换稳定的 testid、标签等定位。
+
+iframe 和 Shadow DOM 按当前区域逐层进入，`snapshot`、`describe`、操作和元素断言都使用同一范围，保存的步骤带完整上下文路径。跨域 iframe 由浏览器驱动进入；XPath 不能跨 iframe 或 Shadow 边界。开放 Shadow DOM 内优先使用编号、CSS 或语义定位，自动 XPath 另存当前根内唯一的 `xpath_anchor` 元素锚点并使用相对表达式，不要把带锚点的定位截成单独 XPath。封闭 Shadow DOM 明确不支持；区域不存在不能当作元素隐藏或数量为零。打开地址或切换标签页回到主文档，刷新会重新解析原路径。`get url/title` 和地址断言始终指当前标签页顶层地址。断言不成立时保留 Fail、原 expected 与实际 actual；依据独立需求诊断差异，只有需求明确变化才维护 oracle，不能按错误现状改绿或删除断言。
 
 期望值应来自需求或业务规则，而不是「页面现在显示什么就写什么」：后者只能当回归基线，发现不了页面本来就有的错误。
 

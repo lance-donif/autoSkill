@@ -121,6 +121,18 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 每个会话维护自己的录制；不同会话可以同时录制。
 
+目标支持 CSS、`@e编号`、`testid=`、`label=`、`placeholder=`、`text=`、`role=button:名称` 与 `xpath=//button[@id='save']`。显式 XPath 是主定位；录制时自动生成的 XPath 经唯一性验证后追加为末位备选。`browser describe <目标>` 返回可用写法、完整 `locator_definitions` 和 `context`，不会从离线 CSS 猜 XPath。
+
+| 命令 | 说明 |
+| --- | --- |
+| `browser frame <目标>` | 从当前区域进入 iframe，支持同域、跨域及嵌套 |
+| `browser shadow <宿主>` | 进入开放的 Shadow DOM；可与 iframe 交替嵌套 |
+| `browser context show` | 查看当前有序上下文路径与该区域元素清单 |
+| `browser context parent` | 返回一层；旧元素编号失效 |
+| `browser context top` | 返回当前标签页的主文档 |
+
+上下文选择不新增业务操作步骤，后续操作和断言保存其路径。打开地址或切换标签页回到主文档；刷新保留路径，读取和操作都重新解析，不能沿用已失效的 frame 或元素句柄。`snapshot`、`describe`、元素 `get/is/wait` 和验证码读取跟随当前区域；`get url/title` 及地址断言仍指顶层标签页。XPath 不能穿透边界；Shadow 根内自动 XPath 带唯一 CSS `xpath_anchor` 和相对表达式，必须完整保留。没有开放根、区域丢失或定位表达式无效时明确失败，不能当作 `hidden` 或 `count=0` 通过。封闭 Shadow DOM 不支持。
+
 自动编译的业务候选范围是 HTTP、WebSocket、SSE；页面文档、JS、CSS、图片、字体、source map、自动预检，以及明确的 Cloudflare RUM / Google Analytics 等遥测端点不生成业务接口用例。用途不明的浏览器 Ping/beacon 标为未分类观察，不因名称包含 track 等词就排除真实业务请求。`record stop` 以 `business-traffic-v2` 返回业务投影的 HAR/CDP 保留、排除计数和 `api_compile_scope` 编译数量；自动生成的响应规则仍是未验证观察，业务目标与预期需来自独立需求。录制器实际提供的原 HAR 字节另存为 `source.original.har`，未筛选的 CDP 条目及事件另存为 `source.original.cdp.json/jsonl`，保留其中遥测与页面资源，不把业务投影冒充完整原始流量；均不承诺覆盖浏览器全部网络。认证、参数、请求体、响应及流式消息按实际可获取内容保留，不能获取的上传文件字节不会伪造。普通 HTTP 编译器不能完整表示的 multipart、WebSocket 等在 `api_uncompiled` 说明；捕获成功不等于已生成可回放用例。需要显式验证特殊接口时，可从原始来源提取请求并使用 `conversation import` 的 cURL 输入与独立映射，不改变浏览器网络访问。
 
 ### 标签页与新窗口
