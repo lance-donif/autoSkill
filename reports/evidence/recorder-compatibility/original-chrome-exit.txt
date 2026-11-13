@@ -1,0 +1,12 @@
+Original Chrome process 38537, own isolated diagnostic daemon.
+--- SIGSEGV {si_signo=SIGSEGV, si_code=SEGV_MAPERR, si_addr=NULL} ---
+rt_tgsigqueueinfo(38537, 38537, SIGSEGV, {si_signo=SIGSEGV, si_code=SEGV_MAPERR, si_addr=NULL}) = 0
+--- SIGSEGV {si_signo=SIGSEGV, si_code=SEGV_MAPERR, si_addr=NULL} ---
+tgkill(38537, 38537, SIGABRT)           = 0
+--- SIGABRT {si_signo=SIGABRT, si_code=SI_TKILL, si_pid=38537, si_uid=1000} ---
+rt_tgsigqueueinfo(38537, 38537, SIGABRT, {si_signo=SIGABRT, si_code=SI_TKILL, si_pid=38537, si_uid=1000}) = 0
+--- SIGABRT {si_signo=SIGABRT, si_code=SI_TKILL, si_pid=38537, si_uid=1000} ---
+tgkill(38537, 38537, SIGABRT)           = 0
+tgkill(38537, 38537, SIGABRT)           = 0
+--- SIGABRT {si_signo=SIGABRT, si_code=SI_TKILL, si_pid=38537, si_uid=1000} ---
++++ killed by SIGABRT +++
