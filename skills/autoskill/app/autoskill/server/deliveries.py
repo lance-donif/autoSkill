@@ -71,6 +71,20 @@ def ack_delivery(delivery_id: str, token: str, receipt: dict) -> dict:
         return _get(conn, delivery_id)
 
 
+def release_delivery(delivery_id: str, token: str, reason: str) -> dict:
+    """Release a claim only when host preparation failed before any prompt was dispatched."""
+    if not reason.strip():
+        raise ValueError("需要记录调用宿主之前失败的原因")
+    with db.connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = _get(conn, delivery_id)
+        if not token or row["state"] != "dispatching" or row["token"] != token:
+            raise ValueError("只有当前投递者能释放尚未派发的任务")
+        conn.execute("UPDATE host_outbox SET state = 'pending', owner = '', token = '', lease_until = NULL, reason = ?, updated_at = ? WHERE id = ?",
+                     (reason, db.now(), delivery_id))
+        return _get(conn, delivery_id)
+
+
 def resolve_delivery(delivery_id: str, receipt: dict | None = None, retry: bool = False, reason: str = "") -> dict:
     """Recovery supplies host evidence; delivery completion never asserts workflow success."""
     if receipt and retry:

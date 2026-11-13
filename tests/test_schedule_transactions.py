@@ -84,6 +84,17 @@ class ScheduleTransactions(unittest.TestCase):
         self.assertEqual(resolved["state"], "pending")
         self.assertEqual(scheduler.claim_delivery(item["id"], "replacement-host")["attempts"], 2)
 
+    def test_pre_dispatch_failure_releases_only_the_current_claim(self):
+        scheduler.create(self.spec)
+        scheduler.tick(self.later())
+        item = scheduler.pending_deliveries()["items"][0]
+        claim = scheduler.claim_delivery(item["id"], "host-one")
+        with self.assertRaises(ValueError):
+            scheduler.release_delivery(item["id"], "wrong-token", "准备会话失败")
+        released = scheduler.release_delivery(item["id"], claim["token"], "准备会话失败，尚未调用 prompt")
+        self.assertEqual(released["state"], "pending")
+        self.assertEqual(released["token"], "")
+
     def _prepared(self, task, trigger):
         return {"id": db.new_id("run"), "project_id": self.pid, "engine": "playwright", "status": "Queued",
                 "case_ids": [], "created_at": db.now(), "task_id": task["id"], "trigger": trigger}

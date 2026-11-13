@@ -8,7 +8,7 @@ import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .. import db, projects, runner, task_context
-from .deliveries import ack_delivery, claim_delivery, pending_deliveries, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
+from .deliveries import ack_delivery, claim_delivery, pending_deliveries, release_delivery, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
 
 UTC = datetime.UTC
 CLOCK = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
