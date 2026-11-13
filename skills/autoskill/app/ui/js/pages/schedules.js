@@ -26,7 +26,7 @@ export async function render(view) {
         const toggle = h('button', { class: 'switch', role: 'switch', 'aria-checked': String(task.enabled), 'aria-label': `${task.enabled ? '暂停' : '启用'}「${task.title}」` });
         toggle.addEventListener('click', async (event) => {
           event.stopPropagation();
-          const done = await attempt(() => api('/tasks/' + task.id, { method: 'PATCH', body: { enabled: !task.enabled } }));
+          const done = await attempt(() => api('/tasks/' + task.id, { method: 'PATCH', body: { enabled: !task.enabled, expected_revision: task.revision } }));
           if (done) { toast(done.enabled ? `已启用，下次执行：${fmtUntil(done.next_due)}` : '已暂停'); refresh(); }
         });
         const now = h('button', { class: 'btn sm', title: '不等到计划时间，现在就执行一次' }, icon('play'), '立即运行');
@@ -101,7 +101,8 @@ async function editor(task, done) {
         options.map(([value, label]) => h('option', { value, selected: current.minutes === value }, label))), '执行一次'));
     }
     if (current.kind === 'at') {
-      const local = new Date(current.at.getTime() - current.at.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const local = Number.isFinite(current.at.getTime())
+        ? new Date(current.at.getTime() - current.at.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
       replace(detail, h('div', { class: 'row' }, '在', h('input', { class: 'input', type: 'datetime-local', value: local, style: 'width:230px', 'aria-label': '执行时间',
         onChange: (event) => { current.at = new Date(event.target.value); } }), '执行一次'));
     }
@@ -125,10 +126,10 @@ async function editor(task, done) {
   const save = h('button', { class: 'btn primary' }, task ? '保存' : '创建任务');
   save.addEventListener('click', async () => {
     error.hidden = true;
-    const body = { title: title.value, project_id: project.value, engine: engine.value, case_ids: allCases.checked ? [] : [...picked],
-      rule: scheduleRule(current) };
     if (!allCases.checked && !picked.size) { error.textContent = '请至少选择一条用例，或勾选「全部用例」'; error.hidden = false; return; }
     try {
+      const body = { title: title.value, project_id: project.value, engine: engine.value, case_ids: allCases.checked ? [] : [...picked],
+        rule: scheduleRule(current), ...(task ? { expected_revision: task.revision } : {}) };
       save.disabled = true;
       const saved = await api(task ? '/tasks/' + task.id : '/tasks', { method: task ? 'PATCH' : 'POST', body });
       closeOverlay();
@@ -157,6 +158,7 @@ async function editor(task, done) {
 }
 
 function scheduleRule(current) {
+  if (current.kind === 'at' && !Number.isFinite(current.at.getTime())) throw new Error('请选择有效的执行时间');
   return current.kind === 'daily' ? { kind: 'daily', time: current.time, timezone: ZONE }
     : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort(), timezone: ZONE }
       : current.kind === 'interval' ? { kind: 'interval', minutes: current.minutes }
