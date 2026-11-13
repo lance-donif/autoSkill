@@ -1,0 +1,1256 @@
+[
+  {
+    "target": "windows-x64",
+    "autoskill": "2.3.0",
+    "python": "3.12.10",
+    "chrome_for_testing": "157.0.8103.78",
+    "chromedriver": "157.0.8103.78",
+    "agent_browser": "0.42.0",
+    "wheels": [
+      {
+        "name": "annotated-doc",
+        "version": "0.0.6",
+        "license": "MIT",
+        "file": "annotated_doc-0.0.6-py3-none-any.whl",
+        "sha256": "361ca0950cc7082f53fa69e9328409f40a62c61e57e0a47e1825a08078a58a53"
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "license": "MIT",
+        "file": "annotated_types-0.8.0-py3-none-any.whl",
+        "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0"
+      },
+      {
+        "name": "anyio",
+        "version": "4.16.0",
+        "license": "MIT",
+        "file": "anyio-4.16.0-py3-none-any.whl",
+        "sha256": "c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026"
+      },
+      {
+        "name": "attrs",
+        "version": "26.1.0",
+        "license": "MIT",
+        "file": "attrs-26.1.0-py3-none-any.whl",
+        "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+      },
+      {
+        "name": "certifi",
+        "version": "2026.10.23",
+        "license": "MPL-2.0",
+        "file": "certifi-2026.10.23-py3-none-any.whl",
+        "sha256": "e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1"
+      },
+      {
+        "name": "cffi",
+        "version": "2.1.1",
+        "license": "MIT-0",
+        "file": "cffi-2.1.1-cp312-cp312-win_amd64.whl",
+        "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a"
+      },
+      {
+        "name": "click",
+        "version": "8.5.1",
+        "license": "BSD-3-Clause",
+        "file": "click-8.5.1-py3-none-any.whl",
+        "sha256": "8bb5376d2006950386f8c6427613334a2acadc5f559cb80e638d00b4df957e37"
+      },
+      {
+        "name": "colorama",
+        "version": "0.4.6",
+        "license": "",
+        "file": "colorama-0.4.6-py2.py3-none-any.whl",
+        "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
+      },
+      {
+        "name": "coloredlogs",
+        "version": "15.0.1",
+        "license": "MIT",
+        "file": "coloredlogs-15.0.1-py2.py3-none-any.whl",
+        "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934"
+      },
+      {
+        "name": "et_xmlfile",
+        "version": "2.0.0",
+        "license": "MIT",
+        "file": "et_xmlfile-2.0.0-py3-none-any.whl",
+        "sha256": "7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa"
+      },
+      {
+        "name": "fastapi",
+        "version": "0.141.1",
+        "license": "MIT",
+        "file": "fastapi-0.141.1-py3-none-any.whl",
+        "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
+      },
+      {
+        "name": "flatbuffers",
+        "version": "25.12.19",
+        "license": "Apache 2.0",
+        "file": "flatbuffers-25.12.19-py2.py3-none-any.whl",
+        "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"
+      },
+      {
+        "name": "greenlet",
+        "version": "3.5.6",
+        "license": "MIT AND PSF-2.0",
+        "file": "greenlet-3.5.6-cp312-cp312-win_amd64.whl",
+        "sha256": "7ac4abb3877c43af320392c664774eef6fa2cc063c79a55fc02d844a3cbe7395"
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "license": "MIT",
+        "file": "h11-0.16.0-py3-none-any.whl",
+        "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86"
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "license": "BSD-3-Clause",
+        "file": "httpcore-1.0.9-py3-none-any.whl",
+        "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55"
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "license": "BSD-3-Clause",
+        "file": "httpx-0.28.1-py3-none-any.whl",
+        "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"
+      },
+      {
+        "name": "humanfriendly",
+        "version": "10.0",
+        "license": "MIT",
+        "file": "humanfriendly-10.0-py2.py3-none-any.whl",
+        "sha256": "1697e1a8a8f550fd43c2865cd84542fc175a61dcb779b6fee18cf6b6ccba1477"
+      },
+      {
+        "name": "idna",
+        "version": "3.20",
+        "license": "BSD-3-Clause",
+        "file": "idna-3.20-py3-none-any.whl",
+        "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+      },
+      {
+        "name": "jsonschema",
+        "version": "4.26.0",
+        "license": "MIT",
+        "file": "jsonschema-4.26.0-py3-none-any.whl",
+        "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce"
+      },
+      {
+        "name": "jsonschema-specifications",
+        "version": "2025.9.1",
+        "license": "MIT",
+        "file": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
+      },
+      {
+        "name": "mpmath",
+        "version": "1.3.0",
+        "license": "BSD",
+        "file": "mpmath-1.3.0-py3-none-any.whl",
+        "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+      },
+      {
+        "name": "numpy",
+        "version": "2.0.2",
+        "license": "Copyright (c) 2005-2024, NumPy Developers.\n        All right",
+        "file": "numpy-2.0.2-cp312-cp312-win_amd64.whl",
+        "sha256": "cfd41e13fdc257aa5778496b8caa5e856dc4896d4ccf01841daee1d96465467a"
+      },
+      {
+        "name": "onnxruntime",
+        "version": "1.19.2",
+        "license": "MIT License",
+        "file": "onnxruntime-1.19.2-cp312-cp312-win_amd64.whl",
+        "sha256": "190103273ea4507638ffc31d66a980594b237874b65379e273125150eb044857"
+      },
+      {
+        "name": "openpyxl",
+        "version": "3.1.5",
+        "license": "MIT",
+        "file": "openpyxl-3.1.5-py2.py3-none-any.whl",
+        "sha256": "5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2"
+      },
+      {
+        "name": "outcome",
+        "version": "1.3.0.post0",
+        "license": "MIT OR Apache-2.0",
+        "file": "outcome-1.3.0.post0-py2.py3-none-any.whl",
+        "sha256": "e771c5ce06d1415e356078d3bdd68523f284b4ce5419828922b6871e65eda82b"
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "license": "Apache-2.0 OR BSD-2-Clause",
+        "file": "packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      },
+      {
+        "name": "pillow",
+        "version": "11.3.0",
+        "license": "MIT-CMU",
+        "file": "pillow-11.3.0-cp312-cp312-win_amd64.whl",
+        "sha256": "a6444696fce635783440b7f7a9fc24b3ad10a9ea3f0ab66c5905be1c19ccf17d"
+      },
+      {
+        "name": "playwright",
+        "version": "1.62.0",
+        "license": "Apache-2.0",
+        "file": "playwright-1.62.0-py3-none-win_amd64.whl",
+        "sha256": "92c0d98ed04eb35af557b709875edba415b1f548bdb22ddb5bb3e1e6c835c2f1"
+      },
+      {
+        "name": "protobuf",
+        "version": "7.36.2",
+        "license": "3-Clause BSD License",
+        "file": "protobuf-7.36.2-cp310-abi3-win_amd64.whl",
+        "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353"
+      },
+      {
+        "name": "pycparser",
+        "version": "3.12",
+        "license": "BSD-3-Clause",
+        "file": "pycparser-3.12-py3-none-any.whl",
+        "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.4",
+        "license": "MIT",
+        "file": "pydantic-2.13.4-py3-none-any.whl",
+        "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba"
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.46.4",
+        "license": "MIT",
+        "file": "pydantic_core-2.46.4-cp312-cp312-win_amd64.whl",
+        "sha256": "e9c26f834c65f5752f3f06cb08cb86a913ceb7274d0db6e267808a708b46bc89"
+      },
+      {
+        "name": "pyee",
+        "version": "13.0.1",
+        "license": "MIT",
+        "file": "pyee-13.0.1-py3-none-any.whl",
+        "sha256": "af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228"
+      },
+      {
+        "name": "pyreadline3",
+        "version": "3.5.6",
+        "license": "BSD",
+        "file": "pyreadline3-3.5.6-py3-none-any.whl",
+        "sha256": "8449b734232e42a5dcd74048e39b60db2839a4c38cf3ae2bf7707d58b5389c0d"
+      },
+      {
+        "name": "PySocks",
+        "version": "1.7.1",
+        "license": "BSD",
+        "file": "PySocks-1.7.1-py3-none-any.whl",
+        "sha256": "2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5"
+      },
+      {
+        "name": "referencing",
+        "version": "0.37.0",
+        "license": "MIT",
+        "file": "referencing-0.37.0-py3-none-any.whl",
+        "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+      },
+      {
+        "name": "rpds-py",
+        "version": "2026.9.1",
+        "license": "MIT",
+        "file": "rpds_py-2026.9.1-cp312-cp312-win_amd64.whl",
+        "sha256": "5ce8943f79c2210f7abcc28e86367b03b28d95027fd01c46d2472373ae70c86f"
+      },
+      {
+        "name": "selenium",
+        "version": "4.38.0",
+        "license": "Apache-2.0",
+        "file": "selenium-4.38.0-py3-none-any.whl",
+        "sha256": "ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd"
+      },
+      {
+        "name": "sniffio",
+        "version": "1.3.1",
+        "license": "MIT OR Apache-2.0",
+        "file": "sniffio-1.3.1-py3-none-any.whl",
+        "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2"
+      },
+      {
+        "name": "socksio",
+        "version": "1.0.0",
+        "license": "UNKNOWN",
+        "file": "socksio-1.0.0-py3-none-any.whl",
+        "sha256": "95dc1f15f9b34e8d7b16f06d74b8ccf48f609af32ab33c608d08761c5dcbb1f3"
+      },
+      {
+        "name": "sortedcontainers",
+        "version": "2.4.0",
+        "license": "Apache 2.0",
+        "file": "sortedcontainers-2.4.0-py2.py3-none-any.whl",
+        "sha256": "a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"
+      },
+      {
+        "name": "starlette",
+        "version": "1.6.0",
+        "license": "BSD-3-Clause",
+        "file": "starlette-1.6.0-py3-none-any.whl",
+        "sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c"
+      },
+      {
+        "name": "sympy",
+        "version": "1.14.0",
+        "license": "BSD",
+        "file": "sympy-1.14.0-py3-none-any.whl",
+        "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"
+      },
+      {
+        "name": "trio",
+        "version": "0.35.0",
+        "license": "MIT OR Apache-2.0",
+        "file": "trio-0.35.0-py3-none-any.whl",
+        "sha256": "9a062a029487c1bdbcc1b2543b729a0bde857ce478b1512c84f391f628e0c5c9"
+      },
+      {
+        "name": "trio-websocket",
+        "version": "0.12.2",
+        "license": "",
+        "file": "trio_websocket-0.12.2-py3-none-any.whl",
+        "sha256": "df605665f1db533f4a386c94525870851096a223adcb97f72a07e8b4beba45b6"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "license": "PSF-2.0",
+        "file": "typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.5",
+        "license": "MIT",
+        "file": "typing_inspection-0.4.5-py3-none-any.whl",
+        "sha256": "bc210535442b39e1bf2805e0c7a17dfd6a4ace760c84c7f7d16245d23a6b1c39"
+      },
+      {
+        "name": "tzdata",
+        "version": "2026.6",
+        "license": "Apache-2.0",
+        "file": "tzdata-2026.6-py2.py3-none-any.whl",
+        "sha256": "0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec"
+      },
+      {
+        "name": "urllib3",
+        "version": "2.8.0",
+        "license": "MIT",
+        "file": "urllib3-2.8.0-py3-none-any.whl",
+        "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.52.1",
+        "license": "BSD-3-Clause",
+        "file": "uvicorn-0.52.1-py3-none-any.whl",
+        "sha256": "e4403f9d93188cf9d1088e9f40e3acd12630e2df8675316704379a7fc20fff6a"
+      },
+      {
+        "name": "websocket-client",
+        "version": "1.9.2",
+        "license": "Apache-2.0",
+        "file": "websocket_client-1.9.2-py3-none-any.whl",
+        "sha256": "e1a673830a9c7bfa47b1cd3d5e4178f4c9651d80a4eab02c9c23a1c3ec6250ce"
+      },
+      {
+        "name": "websockets",
+        "version": "16.0",
+        "license": "BSD-3-Clause",
+        "file": "websockets-16.0-cp312-cp312-win_amd64.whl",
+        "sha256": "5569417dc80977fc8c2d43a86f78e0a5a22fee17565d78621b6bb264a115d4ea"
+      },
+      {
+        "name": "wsproto",
+        "version": "1.3.2",
+        "license": "MIT",
+        "file": "wsproto-1.3.2-py3-none-any.whl",
+        "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+      }
+    ],
+    "sources": {
+      "python": {
+        "file": "python-embed.zip",
+        "url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+        "bytes": 11133606,
+        "sha256": "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
+      },
+      "chrome": {
+        "file": "chrome.zip",
+        "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.78/win64/chrome-win64.zip",
+        "bytes": 209854321,
+        "sha256": "5f6ec40206407112702e163bf694d07f9fdc8ccbd346c70ce61fa62f716493f9"
+      },
+      "chromedriver": {
+        "file": "chromedriver.zip",
+        "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.78/win64/chromedriver-win64.zip",
+        "bytes": 11537069,
+        "sha256": "1aef985d02c9118d0034c23bb627e380b05a46950f9e17bb060a4b171056f8f0"
+      },
+      "agent_browser": {
+        "file": "agent-browser.tgz",
+        "url": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.42.0.tgz",
+        "bytes": 59645044,
+        "sha256": "3c2546296646b858a29da3c0a2f0f891c322ab32941c84b251f63c0dd803dd98"
+      }
+    },
+    "network_install": false,
+    "telemetry": false,
+    "auto_update": false,
+    "runtime_files": 5703,
+    "file": "autoSkill-Windows-x64-Offline.zip",
+    "bytes": 327173824,
+    "sha256": "a0f58ad399273dd3958712e9033825b40774976f6bd7f81d093a1d9307ab676e",
+    "ui_files": {
+      "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+      "autoskill/app/ui/js/shell.js": "27c79b1f4c404788dff5e463f7ef26cdd06b84577bbc0699552f7dd77eca1c87",
+      "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+      "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
+      "autoskill/app/ui/js/main.js": "02b203caa448d8770e5802ebe1f22bbe8d671c0202f2ad729e2701b8b031b89e",
+      "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+      "autoskill/app/ui/js/preferences.js": "22b3b4e6fc221573bdce0e3aeb69cb79f8df3c1604a2bec31c74cdc31f6509f5",
+      "autoskill/app/ui/js/folders.js": "5876f329c2a1a8740c9eff0c50f86fe32505a09bbbfbda7f6482831c5a445de2",
+      "autoskill/app/ui/js/ui.js": "034aa29b8ed8997b5da8bcc54f7fdc7d43c58e581408a188e453ac27c62955c9",
+      "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
+      "autoskill/app/ui/css/components.css": "a949dec6b2fa3c31acc4da2080dcb2f1d36daa9a599bc4c0b59a2b661576139c",
+      "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+      "autoskill/app/ui/css/base.css": "aa607dba35d03ee629c0c730c66729d0e9a1eb2082b570c9f8c2d3e9c1aeb54a",
+      "autoskill/app/ui/css/views.css": "b1e1e2a37e566f8017c6fadb72fff72662107f09929f3917f5523cfb406b9c17",
+      "autoskill/app/ui/js/pages/runs.js": "8561e8edef40a17d6041a17726002e454b201b7406f5f7d638a6a42b8f645c80",
+      "autoskill/app/ui/js/pages/schedules.js": "e640ea0b40439c92f844fbcfa51fe7a52010e67efb5cf07e6c88b48feff23b1e",
+      "autoskill/app/ui/js/pages/workflows.js": "617264e7abdf0ab0aa8cd36bc5f39fca9a65c24e0a264ed134df9393be803ad3",
+      "autoskill/app/ui/js/pages/native-runs.js": "b7b4c98abc93c151fc9ad355384ea5bde92b882e6a92f02604fdd06aa765a347",
+      "autoskill/app/ui/js/pages/cases.js": "95fa77327f76c899b0387205239d3ab7b41c33bc846e6f160b72a5f31ab2a740",
+      "autoskill/app/ui/js/pages/dashboard.js": "d94570083408c26c283fb92ce30afed5080d7b78f932530fdda4c9e889edab39",
+      "autoskill/app/ui/js/pages/load-tests.js": "9625699a41c3c945cef582fbcd4c3fb82ead8c59aa185356f9eedac9f467eae5",
+      "autoskill/app/ui/js/pages/case-plans.js": "f96e8403921d791f91cd4ec1641b3f6ed9351dcdaab3c086850cc6508f3de433",
+      "autoskill/app/ui/js/pages/diagnostics.js": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
+      "autoskill/app/ui/js/pages/run-export.js": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
+      "autoskill/app/ui/js/pages/conversations.js": "ad334af2366fdffedcedeefb7a7f67fe8452c79996bc9520945e72b4e40bf5d5",
+      "autoskill/app/ui/js/pages/native-assets.js": "c425189794a56c626b5d378120dfbd7bcdc7badd1500c7966a68990ded2386ef",
+      "autoskill/app/ui/js/pages/project-materials.js": "de016979a5d37f1fd12b1c915b541cb5c4d4d68e9254748796d0338d19224783",
+      "autoskill/app/ui/js/pages/data.js": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee"
+    },
+    "verification": {
+      "mode": "archive-only",
+      "functional_tests_run": false,
+      "zip_crc_ok": true,
+      "ui_source_verified": true
+    }
+  },
+  {
+    "target": "linux-x64",
+    "autoskill": "2.3.0",
+    "python": "3.12.10",
+    "python_distribution": "astral-sh/python-build-standalone",
+    "chrome_for_testing": "157.0.8103.78",
+    "chromedriver": "157.0.8103.78",
+    "agent_browser": "0.42.0",
+    "wheels": [
+      {
+        "name": "PySocks",
+        "version": "1.7.1",
+        "file": "PySocks-1.7.1-py3-none-any.whl",
+        "sha256": "2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5"
+      },
+      {
+        "name": "annotated-doc",
+        "version": "0.0.6",
+        "file": "annotated_doc-0.0.6-py3-none-any.whl",
+        "sha256": "361ca0950cc7082f53fa69e9328409f40a62c61e57e0a47e1825a08078a58a53"
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "file": "annotated_types-0.8.0-py3-none-any.whl",
+        "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0"
+      },
+      {
+        "name": "anyio",
+        "version": "4.16.0",
+        "file": "anyio-4.16.0-py3-none-any.whl",
+        "sha256": "c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026"
+      },
+      {
+        "name": "attrs",
+        "version": "26.1.0",
+        "file": "attrs-26.1.0-py3-none-any.whl",
+        "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+      },
+      {
+        "name": "certifi",
+        "version": "2026.10.23",
+        "file": "certifi-2026.10.23-py3-none-any.whl",
+        "sha256": "e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1"
+      },
+      {
+        "name": "cffi",
+        "version": "2.1.1",
+        "file": "cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "c1453022f490d2459a11819d83ad1d586e9ff65a12ac3e705ffebd46d3685dcf"
+      },
+      {
+        "name": "click",
+        "version": "8.5.1",
+        "file": "click-8.5.1-py3-none-any.whl",
+        "sha256": "8bb5376d2006950386f8c6427613334a2acadc5f559cb80e638d00b4df957e37"
+      },
+      {
+        "name": "colorama",
+        "version": "0.4.6",
+        "file": "colorama-0.4.6-py2.py3-none-any.whl",
+        "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
+      },
+      {
+        "name": "coloredlogs",
+        "version": "15.0.1",
+        "file": "coloredlogs-15.0.1-py2.py3-none-any.whl",
+        "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934"
+      },
+      {
+        "name": "cryptography",
+        "version": "50.0.0",
+        "file": "cryptography-50.0.0-cp311-abi3-manylinux_2_28_x86_64.whl",
+        "sha256": "b42a28c1844fd9de8f3f7d540e36b66f3a9c83fceac7170ebc7a6a19edd9dcae"
+      },
+      {
+        "name": "et_xmlfile",
+        "version": "2.0.0",
+        "file": "et_xmlfile-2.0.0-py3-none-any.whl",
+        "sha256": "7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa"
+      },
+      {
+        "name": "fastapi",
+        "version": "0.141.1",
+        "file": "fastapi-0.141.1-py3-none-any.whl",
+        "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
+      },
+      {
+        "name": "flatbuffers",
+        "version": "25.12.19",
+        "file": "flatbuffers-25.12.19-py2.py3-none-any.whl",
+        "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"
+      },
+      {
+        "name": "greenlet",
+        "version": "3.5.6",
+        "file": "greenlet-3.5.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "975736b002ed080d124cf81a79cb7e05cb26d6b3f5c7a7b651c0fcce70353aa1"
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "file": "h11-0.16.0-py3-none-any.whl",
+        "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86"
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "file": "httpcore-1.0.9-py3-none-any.whl",
+        "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55"
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "file": "httpx-0.28.1-py3-none-any.whl",
+        "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"
+      },
+      {
+        "name": "humanfriendly",
+        "version": "10.0",
+        "file": "humanfriendly-10.0-py2.py3-none-any.whl",
+        "sha256": "1697e1a8a8f550fd43c2865cd84542fc175a61dcb779b6fee18cf6b6ccba1477"
+      },
+      {
+        "name": "idna",
+        "version": "3.20",
+        "file": "idna-3.20-py3-none-any.whl",
+        "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+      },
+      {
+        "name": "jsonschema",
+        "version": "4.26.0",
+        "file": "jsonschema-4.26.0-py3-none-any.whl",
+        "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce"
+      },
+      {
+        "name": "jsonschema-specifications",
+        "version": "2025.9.1",
+        "file": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
+      },
+      {
+        "name": "mpmath",
+        "version": "1.3.0",
+        "file": "mpmath-1.3.0-py3-none-any.whl",
+        "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+      },
+      {
+        "name": "numpy",
+        "version": "2.0.2",
+        "file": "numpy-2.0.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "0123ffdaa88fa4ab64835dcbde75dcdf89c453c922f18dced6e27c90d1d0ec5a"
+      },
+      {
+        "name": "onnxruntime",
+        "version": "1.19.2",
+        "file": "onnxruntime-1.19.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "477b93df4db467e9cbf34051662a4b27c18e131fa1836e05974eae0d6e4cf29b"
+      },
+      {
+        "name": "openpyxl",
+        "version": "3.1.5",
+        "file": "openpyxl-3.1.5-py2.py3-none-any.whl",
+        "sha256": "5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2"
+      },
+      {
+        "name": "outcome",
+        "version": "1.3.0.post0",
+        "file": "outcome-1.3.0.post0-py2.py3-none-any.whl",
+        "sha256": "e771c5ce06d1415e356078d3bdd68523f284b4ce5419828922b6871e65eda82b"
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "file": "packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      },
+      {
+        "name": "pillow",
+        "version": "11.3.0",
+        "file": "pillow-11.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "676b2815362456b5b3216b4fd5bd89d362100dc6f4945154ff172e206a22c024"
+      },
+      {
+        "name": "playwright",
+        "version": "1.62.0",
+        "file": "playwright-1.62.0-py3-none-manylinux1_x86_64.whl",
+        "sha256": "ba33bae6a13b3d9d354c751cb618af357d20fe1d57767cbcce52079bbef17ad3"
+      },
+      {
+        "name": "protobuf",
+        "version": "7.36.2",
+        "file": "protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl",
+        "sha256": "89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2"
+      },
+      {
+        "name": "pycparser",
+        "version": "3.12",
+        "file": "pycparser-3.12-py3-none-any.whl",
+        "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.4",
+        "file": "pydantic-2.13.4-py3-none-any.whl",
+        "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba"
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.46.4",
+        "file": "pydantic_core-2.46.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "926c9541b14b12b1681dca8a0b75feb510b06c6341b70a8e500c2fdcff837cce"
+      },
+      {
+        "name": "pyee",
+        "version": "13.0.1",
+        "file": "pyee-13.0.1-py3-none-any.whl",
+        "sha256": "af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228"
+      },
+      {
+        "name": "referencing",
+        "version": "0.37.0",
+        "file": "referencing-0.37.0-py3-none-any.whl",
+        "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+      },
+      {
+        "name": "rpds-py",
+        "version": "2026.9.1",
+        "file": "rpds_py-2026.9.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "addeda51556dac7c1a2f14cda62db8b621cd12afba3091d03a96c72932387eab"
+      },
+      {
+        "name": "selenium",
+        "version": "4.38.0",
+        "file": "selenium-4.38.0-py3-none-any.whl",
+        "sha256": "ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd"
+      },
+      {
+        "name": "sniffio",
+        "version": "1.3.1",
+        "file": "sniffio-1.3.1-py3-none-any.whl",
+        "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2"
+      },
+      {
+        "name": "socksio",
+        "version": "1.0.0",
+        "file": "socksio-1.0.0-py3-none-any.whl",
+        "sha256": "95dc1f15f9b34e8d7b16f06d74b8ccf48f609af32ab33c608d08761c5dcbb1f3"
+      },
+      {
+        "name": "sortedcontainers",
+        "version": "2.4.0",
+        "file": "sortedcontainers-2.4.0-py2.py3-none-any.whl",
+        "sha256": "a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"
+      },
+      {
+        "name": "starlette",
+        "version": "1.6.0",
+        "file": "starlette-1.6.0-py3-none-any.whl",
+        "sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c"
+      },
+      {
+        "name": "sympy",
+        "version": "1.14.0",
+        "file": "sympy-1.14.0-py3-none-any.whl",
+        "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"
+      },
+      {
+        "name": "trio",
+        "version": "0.35.0",
+        "file": "trio-0.35.0-py3-none-any.whl",
+        "sha256": "9a062a029487c1bdbcc1b2543b729a0bde857ce478b1512c84f391f628e0c5c9"
+      },
+      {
+        "name": "trio-websocket",
+        "version": "0.12.2",
+        "file": "trio_websocket-0.12.2-py3-none-any.whl",
+        "sha256": "df605665f1db533f4a386c94525870851096a223adcb97f72a07e8b4beba45b6"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "file": "typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.5",
+        "file": "typing_inspection-0.4.5-py3-none-any.whl",
+        "sha256": "bc210535442b39e1bf2805e0c7a17dfd6a4ace760c84c7f7d16245d23a6b1c39"
+      },
+      {
+        "name": "tzdata",
+        "version": "2026.6",
+        "file": "tzdata-2026.6-py2.py3-none-any.whl",
+        "sha256": "0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec"
+      },
+      {
+        "name": "urllib3",
+        "version": "2.8.0",
+        "file": "urllib3-2.8.0-py3-none-any.whl",
+        "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.52.1",
+        "file": "uvicorn-0.52.1-py3-none-any.whl",
+        "sha256": "e4403f9d93188cf9d1088e9f40e3acd12630e2df8675316704379a7fc20fff6a"
+      },
+      {
+        "name": "websocket-client",
+        "version": "1.9.2",
+        "file": "websocket_client-1.9.2-py3-none-any.whl",
+        "sha256": "e1a673830a9c7bfa47b1cd3d5e4178f4c9651d80a4eab02c9c23a1c3ec6250ce"
+      },
+      {
+        "name": "websockets",
+        "version": "16.0",
+        "file": "websockets-16.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+        "sha256": "9b5aca38b67492ef518a8ab76851862488a478602229112c4b0d58d63a7a4d5c"
+      },
+      {
+        "name": "wsproto",
+        "version": "1.3.2",
+        "file": "wsproto-1.3.2-py3-none-any.whl",
+        "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+      }
+    ],
+    "sources": {
+      "python": {
+        "file": "python.tar.gz",
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250529/cpython-3.12.10+20250529-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+        "bytes": 34392187,
+        "sha256": "f50d08e0304b15d752b22932047135c1dc02f81977b284e51288be9d90627bca"
+      },
+      "chrome": {
+        "file": "chrome.zip",
+        "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.78/linux64/chrome-linux64.zip",
+        "bytes": 203266906,
+        "sha256": "9223832977a13db3646201b1341c1f9cf08afa3ceae92540116d7b0c062364fb"
+      },
+      "chromedriver": {
+        "file": "chromedriver.zip",
+        "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.78/linux64/chromedriver-linux64.zip",
+        "bytes": 12046554,
+        "sha256": "0c27ff9aac902d3f7d2d01dde2235c1ff9c320bb8914b3624f4c79d52abacaea"
+      },
+      "agent_browser": {
+        "file": "agent-browser.tgz",
+        "url": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.42.0.tgz",
+        "bytes": 59645044,
+        "sha256": "3c2546296646b858a29da3c0a2f0f891c322ab32941c84b251f63c0dd803dd98"
+      }
+    },
+    "network_install": false,
+    "telemetry": false,
+    "auto_update": false,
+    "runtime_files": 10812,
+    "system_dependencies_bundled": false,
+    "glibc_minimum_runtime": "2.28",
+    "uos_hardware_verified": false,
+    "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
+    "file": "autoSkill-Linux-x64-Offline.zip",
+    "bytes": 410571179,
+    "sha256": "b3a845f99e31aa2bb42bf8542aee17c57f56583a424d8a17db6ad93b4fc0f3dd",
+    "ui_files": {
+      "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+      "autoskill/app/ui/js/shell.js": "27c79b1f4c404788dff5e463f7ef26cdd06b84577bbc0699552f7dd77eca1c87",
+      "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+      "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
+      "autoskill/app/ui/js/main.js": "02b203caa448d8770e5802ebe1f22bbe8d671c0202f2ad729e2701b8b031b89e",
+      "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+      "autoskill/app/ui/js/preferences.js": "22b3b4e6fc221573bdce0e3aeb69cb79f8df3c1604a2bec31c74cdc31f6509f5",
+      "autoskill/app/ui/js/folders.js": "5876f329c2a1a8740c9eff0c50f86fe32505a09bbbfbda7f6482831c5a445de2",
+      "autoskill/app/ui/js/ui.js": "034aa29b8ed8997b5da8bcc54f7fdc7d43c58e581408a188e453ac27c62955c9",
+      "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
+      "autoskill/app/ui/css/components.css": "a949dec6b2fa3c31acc4da2080dcb2f1d36daa9a599bc4c0b59a2b661576139c",
+      "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+      "autoskill/app/ui/css/base.css": "aa607dba35d03ee629c0c730c66729d0e9a1eb2082b570c9f8c2d3e9c1aeb54a",
+      "autoskill/app/ui/css/views.css": "b1e1e2a37e566f8017c6fadb72fff72662107f09929f3917f5523cfb406b9c17",
+      "autoskill/app/ui/js/pages/runs.js": "8561e8edef40a17d6041a17726002e454b201b7406f5f7d638a6a42b8f645c80",
+      "autoskill/app/ui/js/pages/schedules.js": "e640ea0b40439c92f844fbcfa51fe7a52010e67efb5cf07e6c88b48feff23b1e",
+      "autoskill/app/ui/js/pages/workflows.js": "617264e7abdf0ab0aa8cd36bc5f39fca9a65c24e0a264ed134df9393be803ad3",
+      "autoskill/app/ui/js/pages/native-runs.js": "b7b4c98abc93c151fc9ad355384ea5bde92b882e6a92f02604fdd06aa765a347",
+      "autoskill/app/ui/js/pages/cases.js": "95fa77327f76c899b0387205239d3ab7b41c33bc846e6f160b72a5f31ab2a740",
+      "autoskill/app/ui/js/pages/dashboard.js": "d94570083408c26c283fb92ce30afed5080d7b78f932530fdda4c9e889edab39",
+      "autoskill/app/ui/js/pages/load-tests.js": "9625699a41c3c945cef582fbcd4c3fb82ead8c59aa185356f9eedac9f467eae5",
+      "autoskill/app/ui/js/pages/case-plans.js": "f96e8403921d791f91cd4ec1641b3f6ed9351dcdaab3c086850cc6508f3de433",
+      "autoskill/app/ui/js/pages/diagnostics.js": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
+      "autoskill/app/ui/js/pages/run-export.js": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
+      "autoskill/app/ui/js/pages/conversations.js": "ad334af2366fdffedcedeefb7a7f67fe8452c79996bc9520945e72b4e40bf5d5",
+      "autoskill/app/ui/js/pages/native-assets.js": "c425189794a56c626b5d378120dfbd7bcdc7badd1500c7966a68990ded2386ef",
+      "autoskill/app/ui/js/pages/project-materials.js": "de016979a5d37f1fd12b1c915b541cb5c4d4d68e9254748796d0338d19224783",
+      "autoskill/app/ui/js/pages/data.js": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee"
+    },
+    "verification": {
+      "mode": "archive-only",
+      "functional_tests_run": false,
+      "zip_crc_ok": true,
+      "ui_source_verified": true
+    }
+  },
+  {
+    "target": "linux-arm64",
+    "autoskill": "2.3.0",
+    "python": "3.12.10",
+    "python_distribution": "astral-sh/python-build-standalone",
+    "chrome_for_testing": "157.0.8103.78",
+    "chromedriver": "157.0.8103.78",
+    "agent_browser": "0.42.0",
+    "wheels": [
+      {
+        "name": "PySocks",
+        "version": "1.7.1",
+        "file": "PySocks-1.7.1-py3-none-any.whl",
+        "sha256": "2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5"
+      },
+      {
+        "name": "annotated-doc",
+        "version": "0.0.6",
+        "file": "annotated_doc-0.0.6-py3-none-any.whl",
+        "sha256": "361ca0950cc7082f53fa69e9328409f40a62c61e57e0a47e1825a08078a58a53"
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "file": "annotated_types-0.8.0-py3-none-any.whl",
+        "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0"
+      },
+      {
+        "name": "anyio",
+        "version": "4.16.0",
+        "file": "anyio-4.16.0-py3-none-any.whl",
+        "sha256": "c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026"
+      },
+      {
+        "name": "attrs",
+        "version": "26.1.0",
+        "file": "attrs-26.1.0-py3-none-any.whl",
+        "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+      },
+      {
+        "name": "certifi",
+        "version": "2026.10.23",
+        "file": "certifi-2026.10.23-py3-none-any.whl",
+        "sha256": "e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1"
+      },
+      {
+        "name": "cffi",
+        "version": "2.1.1",
+        "file": "cffi-2.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+        "sha256": "68e62fe11f30d5ca8289242866f0a5291402d8529ca2178ab8afc5c9694ae890"
+      },
+      {
+        "name": "click",
+        "version": "8.5.1",
+        "file": "click-8.5.1-py3-none-any.whl",
+        "sha256": "8bb5376d2006950386f8c6427613334a2acadc5f559cb80e638d00b4df957e37"
+      },
+      {
+        "name": "colorama",
+        "version": "0.4.6",
+        "file": "colorama-0.4.6-py2.py3-none-any.whl",
+        "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
+      },
+      {
+        "name": "coloredlogs",
+        "version": "15.0.1",
+        "file": "coloredlogs-15.0.1-py2.py3-none-any.whl",
+        "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934"
+      },
+      {
+        "name": "cryptography",
+        "version": "50.0.0",
+        "file": "cryptography-50.0.0-cp311-abi3-manylinux_2_28_aarch64.whl",
+        "sha256": "a1b30560f2acc95aa8b2e06e716a13dbfc97314747b80d9707e307f77b40d6b3"
+      },
+      {
+        "name": "et_xmlfile",
+        "version": "2.0.0",
+        "file": "et_xmlfile-2.0.0-py3-none-any.whl",
+        "sha256": "7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa"
+      },
+      {
+        "name": "fastapi",
+        "version": "0.141.1",
+        "file": "fastapi-0.141.1-py3-none-any.whl",
+        "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
+      },
+      {
+        "name": "flatbuffers",
+        "version": "25.12.19",
+        "file": "flatbuffers-25.12.19-py2.py3-none-any.whl",
+        "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"
+      },
+      {
+        "name": "greenlet",
+        "version": "3.5.6",
+        "file": "greenlet-3.5.6-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl",
+        "sha256": "e85880b538e59a59f55117b81f208a6660ad5ac328aad9305f812d9b8bc67a0f"
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "file": "h11-0.16.0-py3-none-any.whl",
+        "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86"
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "file": "httpcore-1.0.9-py3-none-any.whl",
+        "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55"
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "file": "httpx-0.28.1-py3-none-any.whl",
+        "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"
+      },
+      {
+        "name": "humanfriendly",
+        "version": "10.0",
+        "file": "humanfriendly-10.0-py2.py3-none-any.whl",
+        "sha256": "1697e1a8a8f550fd43c2865cd84542fc175a61dcb779b6fee18cf6b6ccba1477"
+      },
+      {
+        "name": "idna",
+        "version": "3.20",
+        "file": "idna-3.20-py3-none-any.whl",
+        "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+      },
+      {
+        "name": "jsonschema",
+        "version": "4.26.0",
+        "file": "jsonschema-4.26.0-py3-none-any.whl",
+        "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce"
+      },
+      {
+        "name": "jsonschema-specifications",
+        "version": "2025.9.1",
+        "file": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
+      },
+      {
+        "name": "mpmath",
+        "version": "1.3.0",
+        "file": "mpmath-1.3.0-py3-none-any.whl",
+        "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+      },
+      {
+        "name": "numpy",
+        "version": "2.0.2",
+        "file": "numpy-2.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "sha256": "c05e238064fc0610c840d1cf6a13bf63d7e391717d247f1bf0318172e759e692"
+      },
+      {
+        "name": "onnxruntime",
+        "version": "1.19.2",
+        "file": "onnxruntime-1.19.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+        "sha256": "d2d366fbcc205ce68a8a3bde2185fd15c604d9645888703785b61ef174265168"
+      },
+      {
+        "name": "openpyxl",
+        "version": "3.1.5",
+        "file": "openpyxl-3.1.5-py2.py3-none-any.whl",
+        "sha256": "5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2"
+      },
+      {
+        "name": "outcome",
+        "version": "1.3.0.post0",
+        "file": "outcome-1.3.0.post0-py2.py3-none-any.whl",
+        "sha256": "e771c5ce06d1415e356078d3bdd68523f284b4ce5419828922b6871e65eda82b"
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "file": "packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      },
+      {
+        "name": "pillow",
+        "version": "11.3.0",
+        "file": "pillow-11.3.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+        "sha256": "97f07ed9f56a3b9b5f49d3661dc9607484e85c67e27f3e8be2c7d28ca032fec7"
+      },
+      {
+        "name": "playwright",
+        "version": "1.62.0",
+        "file": "playwright-1.62.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "sha256": "db2d76613a57ad844362ce42f7d0c2fa26b19a4f7a46d4f76b891c631e6e5aff"
+      },
+      {
+        "name": "protobuf",
+        "version": "7.36.2",
+        "file": "protobuf-7.36.2-cp310-abi3-manylinux2014_aarch64.whl",
+        "sha256": "e11e1f0180583a2af89db6a2ecd9e8dc40aa6d2988ca175bfd0e6d12ea72d74e"
+      },
+      {
+        "name": "pycparser",
+        "version": "3.12",
+        "file": "pycparser-3.12-py3-none-any.whl",
+        "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.4",
+        "file": "pydantic-2.13.4-py3-none-any.whl",
+        "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba"
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.46.4",
+        "file": "pydantic_core-2.46.4-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "sha256": "8233f2947cf85404441fd7e0085f53b10c93e0ee78611099b5c7237e36aacbf7"
+      },
+      {
+        "name": "pyee",
+        "version": "13.0.1",
+        "file": "pyee-13.0.1-py3-none-any.whl",
+        "sha256": "af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228"
+      },
+      {
+        "name": "referencing",
+        "version": "0.37.0",
+        "file": "referencing-0.37.0-py3-none-any.whl",
+        "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+      },
+      {
+        "name": "rpds-py",
+        "version": "2026.9.1",
+        "file": "rpds_py-2026.9.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "sha256": "2693b2728bbcc48d09a981a356954b0c47c53ff25b545856f28a889ea619f69a"
+      },
+      {
+        "name": "selenium",
+        "version": "4.38.0",
+        "file": "selenium-4.38.0-py3-none-any.whl",
+        "sha256": "ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd"
+      },
+      {
+        "name": "sniffio",
+        "version": "1.3.1",
+        "file": "sniffio-1.3.1-py3-none-any.whl",
+        "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2"
+      },
+      {
+        "name": "socksio",
+        "version": "1.0.0",
+        "file": "socksio-1.0.0-py3-none-any.whl",
+        "sha256": "95dc1f15f9b34e8d7b16f06d74b8ccf48f609af32ab33c608d08761c5dcbb1f3"
+      },
+      {
+        "name": "sortedcontainers",
+        "version": "2.4.0",
+        "file": "sortedcontainers-2.4.0-py2.py3-none-any.whl",
+        "sha256": "a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"
+      },
+      {
+        "name": "starlette",
+        "version": "1.6.0",
+        "file": "starlette-1.6.0-py3-none-any.whl",
+        "sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c"
+      },
+      {
+        "name": "sympy",
+        "version": "1.14.0",
+        "file": "sympy-1.14.0-py3-none-any.whl",
+        "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"
+      },
+      {
+        "name": "trio",
+        "version": "0.35.0",
+        "file": "trio-0.35.0-py3-none-any.whl",
+        "sha256": "9a062a029487c1bdbcc1b2543b729a0bde857ce478b1512c84f391f628e0c5c9"
+      },
+      {
+        "name": "trio-websocket",
+        "version": "0.12.2",
+        "file": "trio_websocket-0.12.2-py3-none-any.whl",
+        "sha256": "df605665f1db533f4a386c94525870851096a223adcb97f72a07e8b4beba45b6"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "file": "typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.5",
+        "file": "typing_inspection-0.4.5-py3-none-any.whl",
+        "sha256": "bc210535442b39e1bf2805e0c7a17dfd6a4ace760c84c7f7d16245d23a6b1c39"
+      },
+      {
+        "name": "tzdata",
+        "version": "2026.6",
+        "file": "tzdata-2026.6-py2.py3-none-any.whl",
+        "sha256": "0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec"
+      },
+      {
+        "name": "urllib3",
+        "version": "2.8.0",
+        "file": "urllib3-2.8.0-py3-none-any.whl",
+        "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.52.1",
+        "file": "uvicorn-0.52.1-py3-none-any.whl",
+        "sha256": "e4403f9d93188cf9d1088e9f40e3acd12630e2df8675316704379a7fc20fff6a"
+      },
+      {
+        "name": "websocket-client",
+        "version": "1.9.2",
+        "file": "websocket_client-1.9.2-py3-none-any.whl",
+        "sha256": "e1a673830a9c7bfa47b1cd3d5e4178f4c9651d80a4eab02c9c23a1c3ec6250ce"
+      },
+      {
+        "name": "websockets",
+        "version": "16.0",
+        "file": "websockets-16.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+        "sha256": "e0334872c0a37b606418ac52f6ab9cfd17317ac26365f7f65e203e2d0d0d359f"
+      },
+      {
+        "name": "wsproto",
+        "version": "1.3.2",
+        "file": "wsproto-1.3.2-py3-none-any.whl",
+        "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+      }
+    ],
+    "sources": {
+      "python": {
+        "file": "python.tar.gz",
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250529/cpython-3.12.10+20250529-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+        "bytes": 27092008,
+        "sha256": "235d0666528a8e948896f68c08964dc8dd14a54c68e5cbd4924594d2e20f81b9"
+      },
+      "chrome": {
+        "file": "chrome.zip",
+        "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.78/linux-arm64/chrome-linux-arm64.zip",
+        "bytes": 203144198,
+        "sha256": "f354d666822a11d8fe99e923c44be77dd226fab2750c5b5947e6318818bf10f1"
+      },
+      "chromedriver": {
+        "file": "chromedriver.zip",
+        "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.78/linux-arm64/chromedriver-linux-arm64.zip",
+        "bytes": 11113499,
+        "sha256": "54b2a50b393dd44463242eca9ee2d35a63baa7baf2fd5882daada15fd1f5a5be"
+      },
+      "agent_browser": {
+        "file": "agent-browser.tgz",
+        "url": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.42.0.tgz",
+        "bytes": 59645044,
+        "sha256": "3c2546296646b858a29da3c0a2f0f891c322ab32941c84b251f63c0dd803dd98"
+      }
+    },
+    "network_install": false,
+    "telemetry": false,
+    "auto_update": false,
+    "runtime_files": 10811,
+    "system_dependencies_bundled": false,
+    "glibc_minimum_runtime": "2.28",
+    "uos_hardware_verified": false,
+    "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
+    "file": "autoSkill-Linux-arm64-Offline.zip",
+    "bytes": 384834238,
+    "sha256": "f3d8db00ce0a4e4e7221ae6a975e99cc5ae8aa31c9dd78ccbc7175e743dec01b",
+    "ui_files": {
+      "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+      "autoskill/app/ui/js/shell.js": "27c79b1f4c404788dff5e463f7ef26cdd06b84577bbc0699552f7dd77eca1c87",
+      "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+      "autoskill/app/ui/js/core.js": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
+      "autoskill/app/ui/js/main.js": "02b203caa448d8770e5802ebe1f22bbe8d671c0202f2ad729e2701b8b031b89e",
+      "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+      "autoskill/app/ui/js/preferences.js": "22b3b4e6fc221573bdce0e3aeb69cb79f8df3c1604a2bec31c74cdc31f6509f5",
+      "autoskill/app/ui/js/folders.js": "5876f329c2a1a8740c9eff0c50f86fe32505a09bbbfbda7f6482831c5a445de2",
+      "autoskill/app/ui/js/ui.js": "034aa29b8ed8997b5da8bcc54f7fdc7d43c58e581408a188e453ac27c62955c9",
+      "autoskill/app/ui/js/charts.js": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
+      "autoskill/app/ui/css/components.css": "a949dec6b2fa3c31acc4da2080dcb2f1d36daa9a599bc4c0b59a2b661576139c",
+      "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+      "autoskill/app/ui/css/base.css": "aa607dba35d03ee629c0c730c66729d0e9a1eb2082b570c9f8c2d3e9c1aeb54a",
+      "autoskill/app/ui/css/views.css": "b1e1e2a37e566f8017c6fadb72fff72662107f09929f3917f5523cfb406b9c17",
+      "autoskill/app/ui/js/pages/runs.js": "8561e8edef40a17d6041a17726002e454b201b7406f5f7d638a6a42b8f645c80",
+      "autoskill/app/ui/js/pages/schedules.js": "e640ea0b40439c92f844fbcfa51fe7a52010e67efb5cf07e6c88b48feff23b1e",
+      "autoskill/app/ui/js/pages/workflows.js": "617264e7abdf0ab0aa8cd36bc5f39fca9a65c24e0a264ed134df9393be803ad3",
+      "autoskill/app/ui/js/pages/native-runs.js": "b7b4c98abc93c151fc9ad355384ea5bde92b882e6a92f02604fdd06aa765a347",
+      "autoskill/app/ui/js/pages/cases.js": "95fa77327f76c899b0387205239d3ab7b41c33bc846e6f160b72a5f31ab2a740",
+      "autoskill/app/ui/js/pages/dashboard.js": "d94570083408c26c283fb92ce30afed5080d7b78f932530fdda4c9e889edab39",
+      "autoskill/app/ui/js/pages/load-tests.js": "9625699a41c3c945cef582fbcd4c3fb82ead8c59aa185356f9eedac9f467eae5",
+      "autoskill/app/ui/js/pages/case-plans.js": "f96e8403921d791f91cd4ec1641b3f6ed9351dcdaab3c086850cc6508f3de433",
+      "autoskill/app/ui/js/pages/diagnostics.js": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
+      "autoskill/app/ui/js/pages/run-export.js": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
+      "autoskill/app/ui/js/pages/conversations.js": "ad334af2366fdffedcedeefb7a7f67fe8452c79996bc9520945e72b4e40bf5d5",
+      "autoskill/app/ui/js/pages/native-assets.js": "c425189794a56c626b5d378120dfbd7bcdc7badd1500c7966a68990ded2386ef",
+      "autoskill/app/ui/js/pages/project-materials.js": "de016979a5d37f1fd12b1c915b541cb5c4d4d68e9254748796d0338d19224783",
+      "autoskill/app/ui/js/pages/data.js": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee"
+    },
+    "verification": {
+      "mode": "archive-only",
+      "functional_tests_run": false,
+      "zip_crc_ok": true,
+      "ui_source_verified": true
+    }
+  }
+]
