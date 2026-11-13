@@ -39,7 +39,7 @@ export async function sdkHost(t, cwd) {
   for (const name of ['dsh-system-prompt', 'dsh-tools', 'dsh-session-projection', 'dsh-agent',
     'dsh-session', 'dsh-llm', 'dsh-agent-loop', 'dsh-fs-local', 'dsh-working-directory',
     'dsh-subprocess-local', 'dsh-sandbox-local', 'dsh-sandbox-policy', 'dsh-ptc-runtime-node',
-    'dsh-tool-executor-native', 'dsh-commands', 'dsh-tool-present']) {
+    'dsh-tool-executor-native', 'dsh-commands', 'dsh-tool-present', 'dsh-skill']) {
     const module = await sdk(name);
     const config = name === 'dsh-sandbox-policy' ? { mode: 'danger-full-access', workspaceRoot: cwd }
       : name === 'dsh-fs-local' ? { cwd }
@@ -322,25 +322,32 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     assert.equal(requests.filter((request) => request.method === 'POST' && request.path === '/api/execution-requests').length, 1);
   });
 
-  test('real DSH CommandsService slash reads and selection never open a model turn or claim present', { skip: sdkSkip }, async (t) => {
+  test('real DSH CommandsService exposes only parameterless skill activation and queues full instructions without waking a model', { skip: sdkSkip }, async (t) => {
     const { kernel, ctx, owner, service } = await toolFixture(t);
     const before = await kernel.snapshot();
     const signal = new AbortController().signal;
-    const status = await ctx.commands.execute(owner, '/autoskill-status', [], signal);
-    assert.equal(status.result.kind, 'success');
-    assert.equal(JSON.parse(status.result.text).status, 'selection_required');
-    const report = await ctx.commands.execute(owner, '/autoskill-report ' + kernel.run.test_report.report_id, [], signal);
-    assert.equal(report.result.kind, 'success', report.result.text);
-    const receipt = JSON.parse(report.result.text);
-    assert.equal(receipt.data.host_files.status, 'verified');
-    assert.equal(receipt.data.host_files.presented, false);
-    assert.deepEqual(await kernel.snapshot(), before, 'human read commands must not create kernel work or reports');
-    const select = await ctx.commands.execute(owner, '/autoskill-use ' + kernel.bindings.A.id, [], signal);
-    assert.equal(select.result.kind, 'success', select.result.text);
-    assert.equal((await service.context(owner)).binding.id, kernel.bindings.A.id);
+    const { bundledSkills } = await import('../plugin/index.mjs');
+    const skill = (await bundledSkills())[0];
+    ctx.skills.register(skill);
+    const commands = await ctx.commands.list(owner);
+    const entries = commands.filter((entry) => entry.name.startsWith('autoskill'));
+    assert.deepEqual(entries.map((entry) => entry.name), ['autoskill-use']);
+    assert.equal(entries[0].input, undefined);
+    const activated = await ctx.commands.execute(owner, '/autoskill-use', [], signal);
+    assert.equal(activated.result.kind, 'success', activated.result.text);
+    assert.equal(owner.inbox.nextStep.length, 1);
+    assert.equal(owner.inbox.nextStep[0].source.kind, 'skill-invocation');
+    assert.equal(owner.inbox.nextStep[0].source.name, 'autoskill');
+    assert.equal(owner.inbox.nextStep[0].content[0].text, skill.content);
+    assert.equal(owner.status, 'idle');
+    assert.deepEqual(await kernel.snapshot(), before, 'skill activation must not create kernel work or reports');
+    assert.equal((await service.context(owner)).status, 'selection_required');
+    const invalid = await ctx.commands.execute(owner, '/autoskill-use status', [], signal);
+    assert.equal(invalid.result.kind, 'error');
+    assert.equal(owner.inbox.nextStep.length, 1, 'rejected arguments never enqueue another invocation');
     const events = owner.session.snapshotEvents();
-    assert.equal(events.filter((event) => event.type === 'command/run').length, 3);
-    assert.equal(events.filter((event) => event.type === 'command/done').length, 3);
+    assert.equal(events.filter((event) => event.type === 'command/run').length, 2);
+    assert.equal(events.filter((event) => event.type === 'command/done').length, 2);
     assert.equal(events.some((event) => ['turn/start', 'model/request', 'deliverables/presented', 'user/message'].includes(event.type)), false);
   });
 

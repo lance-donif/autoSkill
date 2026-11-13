@@ -20,7 +20,7 @@ export function attachHostBackend(ctx, spec, options = {}) {
   });
   ctx.inject(['tools'], (host) => registerTools(host, service));
   ctx.inject(['agents'], (host) => attachContext(host, service));
-  ctx.inject(['commands'], (host) => registerCommands(host, service));
+  ctx.inject(['commands', 'skills', 'workingDirectory'], (host) => registerCommands(host));
   ctx.inject(['connection'], (host) => registerRoutes(host, service));
   return service;
 }
