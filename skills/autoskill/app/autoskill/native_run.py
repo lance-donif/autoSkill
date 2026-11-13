@@ -162,6 +162,65 @@ def _run_adapter(run: dict, manifest: dict, folder: Path) -> dict:
             adapter.cleanup(prepared)
 
 
+def _evidence_folder(run: dict) -> Path:
+    folder = paths.local().resolve() / "runs" / run["id"] / "native"
+    if folder.resolve() != folder:
+        raise ValueError("原生证据目录不属于当前运行，不能通过链接替换运行目录")
+    return folder
+
+
+def _file_identity(stat) -> tuple:
+    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+
+
+def _evidence_reference(folder: Path, reference) -> dict:
+    supplied = {"path": reference} if isinstance(reference, str) else reference
+    if not isinstance(supplied, dict) or not isinstance(supplied.get("path"), str) or not supplied["path"]:
+        raise ValueError("原生证据引用需要非空文件路径")
+    path = Path(supplied["path"])
+    if ".." in path.parts:
+        raise ValueError("原生证据引用不能离开当前运行目录")
+    file = (path if path.is_absolute() else folder / path).resolve(strict=True)
+    if not file.is_relative_to(folder) or file == folder / "outcome.json" or not file.is_file():
+        raise ValueError("原生证据必须是当前运行目录内的报告或附件，不能引用汇总文件自身")
+    name = file.relative_to(folder).as_posix()
+    with file.open("rb") as stream:
+        before = os.fstat(stream.fileno())
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        after = os.fstat(stream.fileno())
+    if _file_identity(before) != _file_identity(after) or _file_identity(after) != _file_identity(file.stat()):
+        raise ValueError("原生证据在绑定期间发生变化：" + name)
+    if "sha256" in supplied and supplied["sha256"] != digest:
+        raise ValueError("原生证据摘要与适配器记录不一致：" + name)
+    if "size" in supplied and (type(supplied["size"]) is not int or supplied["size"] != after.st_size):
+        raise ValueError("原生证据大小与适配器记录不一致：" + name)
+    return {**supplied, "path": name, "sha256": digest, "size": after.st_size}
+
+
+def _invalid_evidence(outcome: dict, error: Exception) -> dict:
+    reason = "原生执行证据未能完整绑定：" + str(error)
+    return {**outcome, "reported_status": outcome.get("reported_status", outcome["status"]),
+            "reported_evidence": outcome.get("reported_evidence", outcome.get("evidence", [])),
+            "status": "Blocked" if outcome["status"] == "Pass" else outcome["status"],
+            "reason": "；".join(filter(None, [outcome.get("reason"), reason])),
+            "evidence": [], "evidence_status": "invalid", "evidence_error": reason}
+
+
+def _bind_evidence(run: dict, outcome: dict) -> dict:
+    """Bind completed adapter evidence once; readers must never repair historical references."""
+    try:
+        references = outcome.get("evidence", [])
+        if not isinstance(references, list):
+            raise ValueError("原生证据引用需要是数组")
+        if not references and outcome["status"] == "Pass":
+            raise ValueError("成功执行没有提供可核查的原生报告")
+        folder = _evidence_folder(run)
+        frozen = [_evidence_reference(folder, reference) for reference in references]
+        return {**outcome, "evidence": frozen, "evidence_status": "bound" if frozen else "unavailable"}
+    except (OSError, ValueError, TypeError, RuntimeError) as error:
+        return _invalid_evidence(outcome, error)
+
+
 def _record(run: dict, outcome: dict) -> dict:
     cases = outcome.get("cases", [])
     if not cases and outcome["status"] == "Blocked":
@@ -179,7 +238,8 @@ def _record(run: dict, outcome: dict) -> dict:
         detail = {**case, "input_hash": run["input_hash"], "engine": run["engine"],
                   "business_status": business, "business_verified": business == "Pass",
                   "verification": case.get("verification", "verified" if business == "Pass" else "failed" if business == "Fail" else "unverified"),
-                  "evidence": outcome.get("evidence", [])}
+                  "evidence": outcome.get("evidence", []),
+                  **{key: outcome[key] for key in ("evidence_status", "evidence_error") if key in outcome}}
         db.insert("results", {"run_id": run["id"], "project_id": run["project_id"], "case_id": str(case.get("id", index)),
                               "case_title": case.get("title", str(index)), "kind": "native", "engine": run["engine"],
                               "status": status, "reason": case.get("reason", ""), "category": "native", "actual": "",
@@ -192,16 +252,23 @@ def _record(run: dict, outcome: dict) -> dict:
 
 def execute_claimed(run: dict) -> dict:
     """Called only after runner acquired the row and installed the task context."""
-    folder = paths.local() / "runs" / run["id"] / "native"
-    folder.mkdir(parents=True, exist_ok=True)
+    folder = None
     try:
+        destination = _evidence_folder(run)
+        destination.mkdir(parents=True, exist_ok=True)
+        folder = destination
         outcome = ({"status": "Cancelled", "reason": "", "cases": []} if _cancelled(run["id"])
                    else _run_adapter(run, _frozen(run), folder))
     except (OSError, ValueError, KeyError, TypeError) as error:
         outcome = {"status": "Blocked", "reason": str(error), "cases": [], "execution_status": "blocked", "verification": "unverified"}
     except Exception as error:  # noqa: BLE001  # A third-party adapter failure must finish the durable run and preserve diagnostics.
         outcome = {"status": "Blocked", "reason": "原生适配器出错：" + type(error).__name__, "cases": [], "execution_status": "blocked"}
-    write_json(folder / "outcome.json", outcome)
+    outcome = _bind_evidence(run, outcome)
+    if folder is not None:
+        try:
+            write_json(_evidence_folder(run) / "outcome.json", outcome)
+        except (OSError, ValueError, RuntimeError) as error:
+            outcome = _invalid_evidence(outcome, error)
     counts = _record(run, outcome)
     db.finish_run(run["id"], os.getpid(), counts, outcome["status"], outcome.get("reason", ""))
     return db.one("SELECT * FROM runs WHERE id = ?", (run["id"],))
