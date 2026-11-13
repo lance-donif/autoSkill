@@ -8,12 +8,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 from openpyxl import Workbook, load_workbook
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, db, plan, projects, reporting, runner
+from autoskill import builder, plan, projects, reporting, runner
+from autoskill.replay import api
 
 
 class PlanReviewTests(unittest.TestCase):
@@ -39,8 +41,18 @@ class PlanReviewTests(unittest.TestCase):
         pid = project_id or self.pid
         case = projects.case(pid, self.case_id)
         run = runner.create(pid, [self.case_id])
-        runner.record(run, case, {"status": status, "reason": reason}, False, db.now())
-        db.update("runs", run["id"], {"status": status, "finished_at": db.now()})
+        expected = case["assertions"]["status"]
+        response_status = expected if status == "Pass" else 200 if expected != 200 else 500
+        transport = httpx.MockTransport(lambda _request: httpx.Response(response_status, json={"ok": True}))
+        original = api.run_case
+        def evaluate(*args):
+            outcome = original(*args)
+            if reason:
+                outcome["reason"] = reason
+            return outcome
+        with patch.object(api, "new_client", side_effect=lambda *args: httpx.Client(transport=transport)), patch.object(api, "run_case", side_effect=evaluate):
+            final = runner.execute(run["id"])
+        self.assertEqual(final["status"], status)
 
     def test_sync_invalidates_old_pass_and_accepts_a_result_for_the_new_revision(self):
         self.write_plan()

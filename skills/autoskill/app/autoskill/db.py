@@ -48,6 +48,19 @@ CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY, project_id TEXT NOT NULL, title TEXT NOT NULL, engine TEXT NOT NULL,
   case_ids TEXT NOT NULL DEFAULT '[]', rule TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
   next_due TEXT, last_run_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS schedule_requests (
+  scope TEXT NOT NULL, request_key TEXT NOT NULL, payload_hash TEXT NOT NULL,
+  response TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (scope, request_key));
+CREATE TABLE IF NOT EXISTS schedule_occurrences (
+  id TEXT PRIMARY KEY, task_id TEXT NOT NULL, revision INTEGER NOT NULL, due_at TEXT NOT NULL,
+  status TEXT NOT NULL, run_id TEXT, delivery_id TEXT, reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+  UNIQUE (task_id, revision, due_at));
+CREATE TABLE IF NOT EXISTS host_outbox (
+  id TEXT PRIMARY KEY, task_id TEXT NOT NULL, occurrence_id TEXT NOT NULL UNIQUE, host TEXT NOT NULL,
+  payload TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'pending', owner TEXT NOT NULL DEFAULT '',
+  token TEXT NOT NULL DEFAULT '', lease_until TEXT, receipt TEXT NOT NULL DEFAULT '{}',
+  attempts INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS host_outbox_pending ON host_outbox (host, state, created_at);
 """
 FINISHED = ("Pass", "Fail", "Blocked", "Cancelled")
 
@@ -79,9 +92,22 @@ def init() -> None:
         conn.execute("BEGIN IMMEDIATE")  # Concurrent CLI/worker startups must not migrate the same column twice.
         columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
         for name, definition in (("headed", "INTEGER NOT NULL DEFAULT 0"), ("claim_token", "TEXT NOT NULL DEFAULT ''"),
-                                 ("force_login", "INTEGER NOT NULL DEFAULT 0"), ("session_id", "TEXT NOT NULL DEFAULT ''")):
+                                 ("force_login", "INTEGER NOT NULL DEFAULT 0"), ("session_id", "TEXT NOT NULL DEFAULT ''"),
+                                 ("family", "TEXT NOT NULL DEFAULT 'replay'"), ("input_manifest", "TEXT NOT NULL DEFAULT ''"),
+                                 ("input_hash", "TEXT NOT NULL DEFAULT ''"), ("plan_path", "TEXT NOT NULL DEFAULT ''")):
             if name not in columns:
                 conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
+        task_columns = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
+        for name, definition in (("kind", "TEXT NOT NULL DEFAULT 'replay'"), ("asset_id", "TEXT NOT NULL DEFAULT ''"),
+                                 ("parameters", "TEXT NOT NULL DEFAULT '{}'"), ("workflow_id", "TEXT NOT NULL DEFAULT ''"),
+                                 ("host", "TEXT NOT NULL DEFAULT 'dsh'"), ("revision", "INTEGER NOT NULL DEFAULT 1"),
+                                 ("overlap", "TEXT NOT NULL DEFAULT 'skip'"), ("session_id", "TEXT NOT NULL DEFAULT ''")):
+            if name not in task_columns:
+                conn.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
+        result_columns = {row[1] for row in conn.execute("PRAGMA table_info(results)")}
+        for name in ("case_content_hash", "input_hash"):
+            if name not in result_columns:
+                conn.execute(f"ALTER TABLE results ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
 
 
 def claim_run(run_id: str, pid: int, maximum: int, token: str = "") -> bool:

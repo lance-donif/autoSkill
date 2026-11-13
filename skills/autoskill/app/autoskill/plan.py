@@ -11,10 +11,11 @@ import contextlib
 import json
 import shutil
 import uuid
+from contextvars import ContextVar
 from functools import wraps
 from pathlib import Path
 
-from . import paths, projects
+from . import execution_inputs, paths, projects
 from .locking import file_lock
 
 COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "用例标题", 32), ("type", "操作类型", 10),
@@ -24,6 +25,7 @@ ALIASES = {"编号": "id", "用例ID": "id", "模块": "module", "标题": "titl
            "测试步骤": "steps", "期望结果": "expected", "结果": "status", "是否通过": "status"}
 STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞"}
 FILL = {"通过": "E2F0D9", "失败": "FCE4D6", "阻塞": "FFF2CC"}
+_selected_folder: ContextVar[Path | None] = ContextVar("autoskill_plan_folder", default=None)
 SKILL_TEXT = """---
 name: autoskill-cases
 description: 要执行的测试用例表（Excel）。执行、回放或汇报这些用例时使用；需要 autoSkill 技能。整个文件夹可以替换成同名的另一份用例。
@@ -47,7 +49,7 @@ description: 要执行的测试用例表（Excel）。执行、回放或汇报�
 def _sheet_lock():
     """Explicitly shared folders use the same stable lock even across different workspaces."""
     try:
-        with file_lock(paths.case_skill() / ".autoskill-plan.lock"):
+        with file_lock(_folder() / ".autoskill-plan.lock"):
             yield
     except PermissionError:
         raise ValueError(f"用例表正被其他程序打开（例如 Excel），关闭后重试：{_file()}") from None
@@ -62,8 +64,12 @@ def _sheet_locked(operation):
     return locked
 
 
+def _folder() -> Path:
+    return _selected_folder.get() or paths.case_skill()
+
+
 def _file() -> Path:
-    folder = paths.case_skill()
+    folder = _folder()
     found = sorted(f for f in folder.glob("*.xlsx") if not f.name.startswith("~$")) if folder.is_dir() else []
     return found[0] if found else folder / "cases.xlsx"
 
@@ -74,7 +80,7 @@ def _open():
 
     file = _file()
     if not file.is_file():
-        raise ValueError(f"还没有用例表；先用 autoskill plan write <项目> --file <用例.json> 生成，或把用例 Excel 放到 {paths.case_skill()}")
+        raise ValueError(f"还没有用例表；先用 autoskill plan write <项目> --file <用例.json> 生成，或把用例 Excel 放到 {_folder()}")
     book = load_workbook(file)
     sheet = book.worksheets[0]
     labels = {label: key for key, label, _ in COLUMNS}
@@ -148,7 +154,7 @@ def write(project_id: str, file: str) -> dict:
         raise ValueError(f"读不了用例文件 {file}：{error}") from None
     if not isinstance(items, list) or not items or not all(isinstance(i, dict) and i.get("title") for i in items):
         raise ValueError("用例文件需要是数组，每条至少有 title；可用字段：id module title type priority preconditions steps expected")
-    folder = paths.case_skill()
+    folder = _folder()
     folder.mkdir(parents=True, exist_ok=True)
     book = Workbook()
     sheet = book.active
@@ -183,7 +189,7 @@ def show() -> dict:
     book, sheet, columns = _open()
     meta = book["信息"] if "信息" in book.sheetnames else None
     project = str(meta.cell(1, 2).value or "") if meta else ""
-    return {"skill": str(paths.case_skill()), "excel": str(_file()), "project": project or None,
+    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None,
             "cases": [row for _, row in _rows(sheet, columns)], "summary": _summary(sheet, columns)}
 
 
@@ -218,16 +224,25 @@ def link(case_id: str, project_id: str, replay_case: str, assertions: int) -> di
     return {"case": case_id, "replay": f"{project_id}/{replay_case}", "next": "autoskill run 回放后，结果会写回用例表"}
 
 
-def _case_revisions(project_id: str) -> dict[str, int]:
+def _current_cases(project_id: str) -> dict[str, dict]:
     """A removed project invalidates its old verdicts without interrupting other rows."""
     try:
         projects.path(project_id)
     except ValueError:
         return {}
-    return {case["id"]: case["revision"] for case in projects.cases(project_id)}
+    return {case["id"]: case for case in projects.cases(project_id)}
 
 
-def sync(quiet: bool = False) -> dict | None:
+def sync(quiet: bool = False, *, folder: str | Path | None = None) -> dict | None:
+    """Use the queued task's sheet without mutating process-wide environment variables."""
+    token = _selected_folder.set(Path(folder) if folder is not None else None)
+    try:
+        return _sync(quiet)
+    finally:
+        _selected_folder.reset(token)
+
+
+def _sync(quiet: bool) -> dict | None:
     """Write the latest replay verdict of every linked row back into the sheet."""
     from . import reporting
 
@@ -235,7 +250,7 @@ def sync(quiet: bool = False) -> dict | None:
         with _sheet_lock():
             book, sheet, columns = _open()
             latest: dict[str, dict] = {}
-            revisions: dict[str, dict] = {}
+            cases: dict[str, dict] = {}
             updated = 0
             for number, row in _rows(sheet, columns):
                 project_id, _, replay_case = row["replay"].partition("/")
@@ -243,11 +258,15 @@ def sync(quiet: bool = False) -> dict | None:
                     continue
                 if project_id not in latest:
                     latest[project_id] = reporting.latest_results(project_id)
-                    revisions[project_id] = _case_revisions(project_id)
+                    cases[project_id] = _current_cases(project_id)
                 result = latest[project_id].get(replay_case)
                 if result and result["status"] in STATUS:
-                    if result["case_revision"] != revisions[project_id].get(replay_case):
+                    case = cases[project_id].get(replay_case)
+                    detail = json.loads(result["detail"])
+                    if not case or not execution_inputs.result_current(project_id, case, result):
                         _set_status(sheet, columns, number, "未执行", "用例已修改或不再有效，需重新回放")
+                    elif result["status"] == "Pass" and not detail.get("business_verified"):
+                        _set_status(sheet, columns, number, "未执行", "动作已完成；没有完整业务断言的实际通过证据")
                     else:
                         _set_status(sheet, columns, number, STATUS[result["status"]], "" if result["status"] == "Pass" else result["reason"])
                     updated += 1

@@ -325,12 +325,14 @@ class ExecutionReviewTests(unittest.TestCase):
         self.assertEqual((result["status"], result["pid"]), ("Running", os.getpid()))
 
     def test_force_login_is_durable_when_worker_executes_cli_request(self):
-        run = self.queued(force_login=True)
+        run = self.queued()
+        jobs.cancel(run["id"])
         case = projects.case(run["project_id"], "TC-API-001")
         case["extensions"]["extract"] = {"test_id": "/test_id"}
         projects.save_cases(run["project_id"], [case])
         projects.set_auth(run["project_id"], {"api_case": case["id"]})
         sessions.save(run["project_id"], variables={"test_id": "old"})
+        run = runner.create(run["project_id"], force_login=True)
         self.sites[0].release.set()
         jobs.start_queued()
         self.assertEqual(self.final(run["id"])["status"], "Pass")

@@ -12,6 +12,7 @@ import contextlib
 import json
 import os
 import re
+from contextvars import ContextVar
 from pathlib import Path
 
 from . import paths
@@ -20,6 +21,17 @@ from .locking import named_lock
 
 REF = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_execution_values: ContextVar[dict | None] = ContextVar("autoskill_execution_credentials", default=None)
+
+
+@contextlib.contextmanager
+def use_values(values: dict):
+    """Resolve one run's frozen credentials without changing the shared store or another task."""
+    token = _execution_values.set(values)
+    try:
+        yield
+    finally:
+        _execution_values.reset(token)
 
 
 def _protect(data: bytes, decrypt: bool = False) -> bytes:
@@ -107,6 +119,9 @@ def names() -> list[str]:
 
 
 def get_secret(name: str) -> str | None:
+    frozen = _execution_values.get()
+    if frozen is not None:
+        return frozen.get(name)
     value = _load().get(name)
     return value if value is not None else os.environ.get(name)
 

@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from . import db, paths, projects
+from . import db, execution_inputs, paths, projects
 from .replay import ir
 
 STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", None: "未执行"}
@@ -37,8 +37,12 @@ def _rows(project_id: str) -> list[dict]:
     out = []
     for case in projects.cases(project_id):
         result = results.get(case["id"])
-        stale = bool(result) and result["case_revision"] != case["revision"]
+        stale = bool(result) and not execution_inputs.result_current(project_id, case, result)
+        detail = json.loads(result["detail"]) if result else {}
+        unverified = bool(result) and result["status"] == "Pass" and not detail.get("business_verified")
         status = None if not result or stale else result["status"]
+        if unverified:
+            status = None
         if case["kind"] == "ui":
             automation = case.get("extensions", {}).get("automation") or {}
             steps = ["打开 " + str(automation.get("start_url", "")), *[s.get("name") or ir.describe(s) for s in automation.get("actions", [])]]
@@ -53,7 +57,7 @@ def _rows(project_id: str) -> list[dict]:
             "id": case["id"], "kind": "页面" if case["kind"] == "ui" else "接口", "module": case["module"], "title": case["title"],
             "priority": case["priority"], "depends": "、".join(projects.depends_on(case)),
             "steps": "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)), "checks": "\n".join(checks),
-            "status": status, "status_text": STATUS[status] + ("（用例已修改，需重新回放）" if stale else ""),
+            "status": status, "status_text": STATUS[status] + ("（输入或证据已变更，需重新回放）" if stale else "（动作完成，业务未验证）" if unverified else ""),
             "reason": "" if status in ("Pass", None) else result["reason"],
             "engine": "" if not result else result["engine"], "ran_at": "" if not result else result["started_at"],
             "ms": "" if not result else result["duration_ms"],

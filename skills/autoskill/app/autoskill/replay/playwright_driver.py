@@ -21,7 +21,9 @@ class PlaywrightDriver:
         self._pw = sync_playwright().start()
         self.headless = headless
         options = {"headless": headless, "args": [*paths.QUIET_CHROME_ARGS, *([] if headless else ["--start-maximized"])]}
-        chosen, ours = paths.chrome(), paths.chrome(bundled=True)
+        runtime = config.get("_execution_runtime")
+        chosen, ours = ((runtime.get("browser"), runtime.get("fallback_browser")) if runtime is not None
+                        else (paths.chrome(), paths.chrome(bundled=True)))
         if chosen:
             options["executable_path"] = chosen
         try:
