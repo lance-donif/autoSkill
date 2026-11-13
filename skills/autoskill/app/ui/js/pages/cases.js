@@ -158,7 +158,8 @@ function projectCard(project, allItems, repaint, folderResult) {
     folderResult.error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${folderResult.error.message}`)),
     h('div', { class: tree ? 'project-folders' : '' },
       tree && folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); }),
-      h('div', { class: 'folder-content' }, tree && projectFolderTools(project, tree, folderId, items.length), body)));
+      h('div', { class: 'folder-content' }, tree && projectFolderTools(project, tree, folderId, items.length),
+        h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': `${project.name}用例表格` }, body))));
 }
 
 function projectFolderTools(project, tree, folderId, count) {

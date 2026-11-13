@@ -101,7 +101,8 @@ async function history(view) {
       h('p', { class: 'sub' }, mode === 'results' ? `范围内共 ${data.total} 条用例结果（不含自动执行的前置）` : `范围内共 ${data.total} 次运行`))),
     h('div', { class: 'toolbar', dataset: { historyRegion: 'toolbar', historyMode: mode } }, tabs, filter),
     h('div', { dataset: { historyRegion: 'notices' } }, deletionNotice()),
-    h('section', { class: 'card', dataset: { historyRegion: 'content' } }, body, pager),
+    h('section', { class: 'card', dataset: { historyRegion: 'content' } },
+      h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': '执行记录表格' }, body), pager),
     h('div', { dataset: { historyRegion: 'selection' } }, selectionBar));
 }
 
