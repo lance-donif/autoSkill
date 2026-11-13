@@ -321,3 +321,37 @@ def _verify_task_workbook(file: Path, expected: list[dict], functional: list[dic
             return {**task_workbook.verify(check, functional), "execution_rows": len(actual)}
         finally:
             check.close()
+
+
+def export_cases(project_id: str, case_ids: list[str], *, organization: dict | None = None) -> dict:
+    """Export a precise current definition selection through the fourteen-column task template."""
+    from .locking import project_lock
+
+    with project_lock(project_id):
+        definitions = {case["id"]: case for case in projects.cases(project_id)}
+        selected = list(dict.fromkeys(case_ids))
+        if any(identity not in definitions for identity in selected):
+            raise ValueError("导出范围包含已删除或归档的用例，请刷新后重试")
+        latest = latest_results(project_id)
+        items, results, run_ids = [], [], []
+        for identity in selected:
+            case = definitions[identity]
+            original = latest.get(identity)
+            result = {**original, "detail": json.loads(original["detail"])} if original else None
+            valid = bool(original) and execution_inputs.result_current(project_id, case, original)
+            if result:
+                results.append(result)
+                run_ids.append(result["run_id"])
+            items.append({"definition": case, "result": result, "run_id": result["run_id"] if result else "", "evidence_valid": valid,
+                          "note": "最近记录与当前定义或证据不符，仅保留历史观察，不能宣称当前业务通过。" if result and not valid else ""})
+        info = projects.get(project_id)
+        identity = "export-" + uuid.uuid4().hex
+        snapshot = {"schema": 1, "kind": "project_export", "task_id": identity, "project_id": project_id,
+                    "project": {key: info[key] for key in ("id", "name", "base_url")}, "title": "按文件夹导出测试用例" if organization else "项目测试用例导出",
+                    "status": "Exported", "session_id": "", "run_ids": list(dict.fromkeys(run_ids)), "cases": items, "results": results,
+                    "sources": {"organization": organization} if organization else {},
+                    "notes": ["仅导出所选范围的当前用例定义；包含从未执行的用例，不自动加入范围外的依赖，也不重新执行测试。"],
+                    "metadata": {"case_ids": selected, "organization": organization or {}}}
+        destination = projects.path(project_id) / "reports" / f"{identity}.xlsx"
+        receipt = write_task(snapshot, destination)
+        return {**receipt, "excel": str(destination), "case_ids": selected}

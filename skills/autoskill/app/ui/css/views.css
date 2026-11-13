@@ -114,7 +114,6 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .table.kv td:first-child { width: 190px; padding-left: 0; }
 .table.kv td { padding-top: 8px; padding-bottom: 8px; }
 .case-pick { display: grid; gap: 6px; max-height: 240px; overflow: auto; padding: var(--s-3); border-radius: var(--r-md); background: var(--surface-2); font-size: var(--t-sm); }
-
 .load-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); }
 .load-case-pick { max-height: 360px; }
 .load-case-pick h4 { margin: var(--s-2) 0; }
@@ -122,10 +121,20 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .load-metric { padding: var(--s-4); display: grid; gap: var(--s-3); }
 .load-metric-value { font-size: var(--t-xl); font-weight: 680; }
 .load-table-wrap { overflow-x: auto; }
+.project-folders { display: grid; grid-template-columns: minmax(170px, 220px) minmax(0, 1fr); border-top: 1px solid var(--line); margin-top: var(--s-3); }
+.folder-tree { display: grid; align-content: start; gap: 2px; padding: var(--s-3); border-right: 1px solid var(--line); }
+.folder-item { display: flex; align-items: center; gap: var(--s-2); padding: 8px 10px; border-radius: var(--r-sm); text-align: left; }
+.folder-item:hover { background: var(--surface-2); }
+.folder-item.selected { color: var(--accent-strong); background: var(--accent-wash); }
+.folder-item svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.folder-content { min-width: 0; overflow-x: auto; }
+.folder-toolbar { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
 @media (max-width: 1100px) { .load-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 700px) {
   .load-fields { grid-template-columns: minmax(0, 1fr); }
   .load-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .project-folders { grid-template-columns: minmax(0, 1fr); }
+  .folder-tree { border-right: 0; border-bottom: 1px solid var(--line); max-height: 240px; overflow: auto; }
 }
 
 /* ---- run report ---- */

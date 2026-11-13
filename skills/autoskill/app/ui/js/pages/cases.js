@@ -3,6 +3,7 @@ import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, att
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm } from '../ui.js';
 import { state, refreshShell } from '../shell.js';
 import { loadTestButton } from './load-tests.js';
+import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
 
 
 const selected = new Map();  // "project/case" -> {project_id, case_id}
@@ -29,6 +30,11 @@ export async function render(view) {
   }
   const s = scope();
   const projects = s.projects.length ? state.projects.filter((p) => s.projects.includes(p.id)) : state.projects;
+  const trees = new Map();
+  await Promise.all(projects.map(async (project) => {
+    try { trees.set(project.id, { data: await api(`/projects/${encodeURIComponent(project.id)}/folders`) }); }
+    catch (error) { trees.set(project.id, { error }); }
+  }));
   for (const key of [...selected.keys()]) if (!data.items.some((item) => keyOf(item) === key)) selected.delete(key);
 
   const list = h('div', { class: 'stack' });
@@ -58,12 +64,13 @@ export async function render(view) {
         h('span', { class: 'muted' }, '　前置用例（如登录）会自动先执行')),
       h('button', { class: 'btn ghost', onClick: () => { selected.clear(); paint(); } }, '清除'),
       caseDeleteButton(items, { bulk: true }),
+      h('button', { class: 'btn', onClick: () => moveCases(items) }, icon('folder'), '移动到文件夹'),
       loadTestButton('压测所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
       runButton('运行所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))));
   }
 
   function paint() {
-    replace(list, projects.map((project) => projectCard(project, visible(project), paint)));
+    replace(list, projects.map((project) => projectCard(project, visible(project), paint, trees.get(project.id))));
     if (!projects.length) {
       replace(list, h('div', { class: 'card' }, empty({ glyph: 'folder', title: '没有符合筛选的项目', text: '换一个项目筛选，或新建一个项目。' })));
     }
@@ -89,7 +96,10 @@ export async function render(view) {
   if (route().params.get('new')) newProject();
 }
 
-function projectCard(project, items, repaint) {
+function projectCard(project, allItems, repaint, folderResult) {
+  const tree = folderResult.data;
+  const folderId = folderSelection.get(project.id) ?? ALL_FOLDERS;
+  const items = tree && folderId !== ALL_FOLDERS ? allItems.filter((item) => (tree.assignments[item.case_id] || '') === folderId) : allItems;
   const allKeys = items.map(keyOf);
   const allOn = allKeys.length > 0 && allKeys.every((key) => selected.has(key));
   const master = h('input', { class: 'check', type: 'checkbox', checked: allOn, 'aria-label': `选择「${project.name}」的全部用例` });
@@ -105,6 +115,7 @@ function projectCard(project, items, repaint) {
       h('p', { class: 'sub ellipsis' }, `${project.base_url} · 页面 ${project.cases.ui} · 接口 ${project.cases.api} · `,
         project.login.ui_case || project.login.api_case ? '已定义登录方式，运行时自动登录' : '未定义登录方式')),
     project.cases.total > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
+    h('a', { class: 'btn sm', href: `/api/projects/${encodeURIComponent(project.id)}/folders/export`, download: '' }, icon('table'), '导出 Excel'),
     project.cases.total > 0 && runButton('运行全部', () => [{ project_id: project.id }], { small: true, primary: false }),
     h('button', { class: 'btn sm icon', 'aria-label': `「${project.name}」设置`, title: '项目设置', onClick: () => projectSettings(project.id) }, icon('edit')));
 
@@ -138,10 +149,27 @@ function projectCard(project, items, repaint) {
           h('td', { class: 'sub' }, item.module),
           h('td', {}, item.last_status ? statusPill(item.last_status) : h('span', { class: 'status idle' }, icon('blocked'), '未执行')),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
-          h('td', { class: 'actions' }, loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }), run, caseDeleteButton([item], { small: true })));
+          h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
+            loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }), run, caseDeleteButton([item], { small: true })));
       })])));
   }
-  return h('section', { class: 'card' }, head, banner, h('div', { style: 'margin-top:12px' }, body));
+  return h('section', { class: 'card' }, head, banner,
+    folderResult.error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${folderResult.error.message}`)),
+    h('div', { class: tree ? 'project-folders' : '' },
+      tree && folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); }),
+      h('div', { class: 'folder-content' }, tree && projectFolderTools(project, tree, folderId, items.length), body)));
+}
+
+function projectFolderTools(project, tree, folderId, count) {
+  const folder = tree.folders.find((item) => item.id === folderId);
+  return h('div', { class: 'folder-toolbar row wrap' }, h('div', { class: 'grow' },
+    h('h3', {}, folderId === ALL_FOLDERS ? '全部用例' : folderPath(tree, folderId)),
+    h('p', { class: 'sub' }, `${count} 条用例 · 文件夹用于整理用例，业务子项目单独保留`)),
+  folder && h('button', { class: 'btn sm', onClick: () => folderEditor(project, tree, folder.parent_id, folder) }, icon('edit'), '编辑文件夹'),
+  folderId !== ALL_FOLDERS && h('a', { class: 'btn sm', download: '', title: '包含当前文件夹及全部子文件夹的用例',
+    href: `/api/projects/${encodeURIComponent(project.id)}/folders/export?folder_id=${encodeURIComponent(folderId || 'root')}&recursive=true&expected_revision=${encodeURIComponent(tree.revision)}` },
+  icon('table'), '导出文件夹 Excel'),
+  h('button', { class: 'btn sm', onClick: () => folderEditor(project, tree, folderId) }, icon('plus'), '新建文件夹'));
 }
 
 function caseDeleteButton(items, { bulk = false, small = false, detail = false } = {}) {
@@ -319,7 +347,9 @@ async function caseDrawer(projectId, caseId) {
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId] }], run); if (started) closeOverlay(); });
   drawer({ title: item.title, subtitle: `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · ${item.module} · 第 ${item.revision} 版`, body, wide: true,
     foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
-      h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), loadTestButton('压测这条用例', () => [{ project_id: projectId, case_ids: [caseId] }]), item.replayable && run] });
+      h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),
+      h('button', { class: 'btn', onClick: () => moveCases([{ project_id: projectId, case_id: caseId }]) }, icon('folder'), '移动到文件夹'),
+      loadTestButton('压测这条用例', () => [{ project_id: projectId, case_ids: [caseId] }]), item.replayable && run] });
 }
 
 function apiAssertionRows(rules) {

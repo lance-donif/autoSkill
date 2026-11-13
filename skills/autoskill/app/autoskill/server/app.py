@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from .. import __version__, bridge, command_input, context_service, data_preferences, data_refs, data_store, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context, task_reports
 from ..replay import ir
 from . import jobs, metrics, scheduler
+from .case_folders import register as register_case_folders
 from .data import register as register_data
 from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
@@ -133,6 +134,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     register_host_context(app)
     register_execution_requests(app)
     register_data(app)
+    register_case_folders(app)
     register_load_testing(app)
     _register_unknown_route(app)
 

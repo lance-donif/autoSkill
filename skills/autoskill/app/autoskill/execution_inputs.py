@@ -159,6 +159,8 @@ def _sources(project_id: str, persist: bool) -> dict:
     head = generation.get("head")
     files, scope = {}, {}
     for name, ref in generation.get("files", {}).items():
+        if name == "case-folders.json":
+            continue
         projected = name.startswith("workflows/") and Path(name).name in ("definition.json", "materialization.json")
         data = domain.read_file(project_id, name, head=head) if persist or projected else None
         if persist:
