@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / 'skills/autoskill/app'))
 __import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
 from test_bridge import Sandbox
 
-from autoskill import paths, projects
+from autoskill import conversation_capture, paths, projects
 from autoskill.recorder import session
 from autoskill.replay import codegen, ir, ui
 from autoskill.replay.playwright_driver import PlaywrightDriver
@@ -33,8 +33,11 @@ class Site(BaseHTTPRequestHandler):
             return  # Closing a tab can reset an idle HTTP connection on Windows.
 
     def do_GET(self):
-        if self.path.startswith('/child'):
-            html = '''<title>Child</title><h1>Child page</h1><input id=note>
+        mime = 'text/html'
+        if self.path.startswith('/api/popup-opened'):
+            html, mime = '{"ready":true}', 'application/json'
+        elif self.path.startswith('/child'):
+            html = '''<title>Child</title><script>fetch('/api/popup-opened')</script><h1>Child page</h1><input id=note>
             <button id=send onclick="window.opener.document.querySelector('#result').textContent=document.querySelector('#note').value;window.close()">Send and close</button>'''
         else:
             html = '''<title>Parent</title><h1>Parent page</h1><div id=result>waiting</div>
@@ -45,7 +48,7 @@ class Site(BaseHTTPRequestHandler):
             <button id=none>Nothing opens</button>'''
         data = html.encode()
         self.send_response(200)
-        self.send_header('Content-Type', 'text/html')
+        self.send_header('Content-Type', mime)
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -89,6 +92,7 @@ class TabsTests(unittest.TestCase):
 
     def finish(self):
         result = session.stop('跨标签页')
+        self.recording_summary = result
         return next(c for c in projects.cases('tabs') if c['id'] == result['ui_case']['id'])
 
     def replay(self, case, exports=False, repeat=False):
@@ -137,6 +141,11 @@ class TabsTests(unittest.TestCase):
         self.assertEqual(closed['tab'], 't1')
         session.check('contains', 'h1', 'Parent page')
         case = self.finish()
+        evidence = conversation_capture.get('tabs', self.recording_summary['conversation_captures']['id'])
+        initial = [entry for entry in evidence['requests'] if '/api/popup-opened' in entry['request']['url']]
+        self.assertEqual(len(initial), 1)
+        self.assertEqual(initial[0]['capture_source'], 'cdp_network')
+        self.assertEqual(initial[0]['response_json'], {'ready': True})
         self.assertNotIn('must-not-leak', json.dumps(case))
         self.assertNotIn('oauth-one-time', json.dumps(case))
         self.replay(case, exports=True)

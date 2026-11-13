@@ -257,11 +257,15 @@ class ConcurrentRecordingTests(unittest.TestCase):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
-        self.service = subprocess.Popen([sys.executable, "-m", "autoskill", "dashboard", "--port", str(port), "--headless"],
-                                        env={**self.env, "AUTOSKILL_SESSION": "service-inherited-task"},
-                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        log = self.folder / "bridge-service.log"
+        with log.open("wb") as output:
+            self.service = subprocess.Popen([sys.executable, "-m", "autoskill", "dashboard", "--port", str(port), "--headless"],
+                                            env={**self.env, "AUTOSKILL_SESSION": "service-inherited-task"},
+                                            stdin=subprocess.DEVNULL, stdout=output, stderr=output)
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         for _ in range(80):
+            if self.service.poll() is not None:
+                self.fail(f"Bridge service exited ({self.service.returncode}): {log.read_text(encoding='utf-8')}")
             try:
                 with opener.open(f"http://127.0.0.1:{port}/api/status", timeout=1) as reply:
                     if json.loads(reply.read()).get("bridge"):
@@ -269,7 +273,7 @@ class ConcurrentRecordingTests(unittest.TestCase):
             except (OSError, ValueError):
                 pass
             time.sleep(0.1)
-        self.fail("Bridge service did not start")
+        self.fail("Bridge service did not start: " + log.read_text(encoding="utf-8"))
 
     def test_bridge_case_skill_override_resolves_at_the_caller_and_empty_values_restore_isolation(self):
         configured = self.folder / "service-sheet"

@@ -111,7 +111,7 @@ class Observer:
         self.entries, self.bodies = [], {}
         self.journal = (folder / 'events.jsonl').open('a', encoding='utf-8')
         self.ready = False
-        self.send('Target.setAutoAttach', {'autoAttach': True, 'waitForDebuggerOnStart': True, 'flatten': True})
+        self._auto_attach()
 
     def send(self, method: str, params: dict, session: str | None = None, entry: dict | None = None) -> None:
         self.sequence += 1
@@ -125,11 +125,19 @@ class Observer:
         self.journal.write(json.dumps(message, ensure_ascii=False) + '\n')
         self.journal.flush()
 
+    def _auto_attach(self, session: str | None = None) -> None:
+        # Keep CDP's default browser/tab-container exclusions when adding browser-UI filtering.
+        self.send('Target.setAutoAttach', {'autoAttach': True, 'waitForDebuggerOnStart': True, 'flatten': True,
+                                          'filter': [{'type': kind, 'exclude': True} for kind in ('browser', 'tab', 'browser_ui')] + [{}]}, session)
+
     def _attached(self, params: dict) -> None:
         session, target = params['sessionId'], params['targetInfo']
         self.targets[session] = target
         self.send('Network.enable', {'maxTotalBufferSize': 128 * 1024 * 1024, 'maxResourceBufferSize': 64 * 1024 * 1024}, session)
-        self.send('Target.setAutoAttach', {'autoAttach': True, 'waitForDebuggerOnStart': True, 'flatten': True}, session)
+        self._auto_attach(session)
+        # A paused noopener popup can defer Network.enable's reply until initialization resumes.
+        # Queue enabling first, but do not wait for its reply before releasing the new target.
+        self.send('Runtime.runIfWaitingForDebugger', {}, session)
 
     def _request(self, session: str, params: dict) -> None:
         key = (session, params['requestId'])
@@ -202,11 +210,9 @@ class Observer:
             return
         method, session, entry = pending
         result = message.get('result', {})
-        if method == 'Network.enable':
-            self.send('Runtime.runIfWaitingForDebugger', {}, session)
-            if 'error' not in message and self.targets.get(session, {}).get('type') == 'page' and not self.ready:
-                self.ready = True
-                _write(self.folder / 'ready.json', {'token': self.token, 'ready': True})
+        if method == 'Network.enable' and 'error' not in message and self.targets.get(session, {}).get('type') == 'page' and not self.ready:
+            self.ready = True
+            _write(self.folder / 'ready.json', {'token': self.token, 'ready': True})
         if entry is None:
             return
         if 'error' in message:

@@ -272,7 +272,7 @@ class TicketDeskAcceptanceTests(unittest.TestCase):
         load = Path(self.tmp.name) / ('load-' + protocol + '.json')
         load.write_text(json.dumps({'load': {'concurrency': 3, 'iterations': 6}}), encoding='utf-8')
         multiple = command('native', 'run', pid, asset['id'], '--wait', '--file', str(load))
-        outcome = multiple['outcome']
+        outcome = command('native', 'status', multiple['id'], '--all')['outcome']
         self.assertEqual(outcome['business_status'], 'Pass')
         self.assertEqual(outcome['metrics']['sent_turns'], 12)
         self.assertEqual(len({case['conversation_id'] for case in outcome['cases']}), 6)
