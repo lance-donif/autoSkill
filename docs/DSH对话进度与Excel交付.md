@@ -1,5 +1,7 @@
 # DSH 输入框上方原生计划：只读源码核对
 
+当前产品行为已按使用者要求调整：autoSkill 不自动创建宿主待办或进度浮层，不发送任务通知；任务进度保存在内部工作流，工具结果默认折叠、供用户主动查看。本文保留此前对 DSH 原生计划协议的研究记录，其中“先写待办”的旧接入建议已不再用于插件或技能。
+
 核对日期：2026-11-13。核对版本：本机 npm `@deepseek-ai/dsh@0.2.2-rc.1` 及同版本 `dsh-tool-todo`、`dsh-client-ui-conversation`、`dsh-plan-mode`、`dsh-tool-present`。官方 Git tag `dsh-v0.2.2-rc.1`，commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。这是明确固定版本，不声称它是最新版本（远端另有 rc.2 tag，本次未审 rc.2）。
 
 本地 npm：`/workspace/autoskill-linux-tools/node_modules/@deepseek-ai/`。外部只读源码快照：`/workspace/autoSkill-release/dsh-plan-research/deepseek-harness/`。原研究阶段只读，没有启动真实 DSH 模型/UI 任务。以下协议核对和后续产品接入说明不是本轮原生 UI 验收；仓库既有历史 DSH Web 验收不等同新增计划/报告链路的实机验收。

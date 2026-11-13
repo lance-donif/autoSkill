@@ -64,8 +64,8 @@ test('host guidance accompanies the entry skill without rewriting a user case sk
     writeFileSync(join(cases, 'SKILL.md'), '---\nname: autoskill-cases\ndescription: 用户用例格式\n---\n保留用户模板。\n');
     const skills = await bundledSkills(skill);
     assert.equal(skills.length, 3);
-    assert.match(skills[0].content, /todo_write/);
-    assert.match(skills[0].content, /turn\/start/);
+    assert.match(skills[0].content, /不要为 autoSkill 自动创建宿主待办/);
+    assert.match(skills[0].content, /不调用 todo_write 展示测试计划/);
     assert.match(skills[0].content, /test_report.status 为 ready/);
     assert.match(skills[0].content, /present 工具/);
     assert.equal(skills[1].name, 'test-cases');

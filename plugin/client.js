@@ -114,62 +114,18 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     };
   }
 
-  function notifySession(ctx, sessionId, level, text) {
-    const scope = ctx.sessions.scope(sessionId);
-    if (scope) scope.get('conversation')?.input.for(scope).notify(level, text);
-  }
-
-  function runStatus(run) {
-    return run.execution_status || run.status || 'unknown';
-  }
-
-  function contextActive(data) {
-    return ACTIVE.has(data?.workflow?.lifecycle) || list(data?.runs?.items).some((run) => ACTIVE.has(runStatus(run)));
-  }
-
-  function notifyTransitions(previous, current, notify) {
-    const runs = new Map(list(previous?.runs?.items).map((run) => [run.run_id || run.id, run]));
-    for (const run of list(current?.runs?.items)) {
-      const before = runs.get(run.run_id || run.id);
-      const status = runStatus(run);
-      if (before && ACTIVE.has(runStatus(before)) && !ACTIVE.has(status) && status !== 'unknown') {
-        notify(status === 'Fail' || status === 'Blocked' ? 'error' : 'info',
-          'autoSkill 执行状态：' + label(status) + (run.business_status ? '；业务验证：' + label(run.business_status) : ''));
-      }
-    }
-    notifyWorkflow(previous?.workflow, current.workflow, notify);
-  }
-
-  function notifyWorkflow(before, after, notify) {
-    if (before?.workflow_id === after?.workflow_id && before?.cycle_id === after?.cycle_id
-      && ACTIVE.has(before?.lifecycle) && ['completed', 'cancelled', 'failed'].includes(after?.lifecycle)) {
-      notify(['violated', 'mixed'].includes(after.conclusion) ? 'error' : 'info',
-        'autoSkill 工作流：' + label(after.lifecycle) + '；业务验证：' + label(after.conclusion));
-    }
-  }
-
-  function sessionStore(sessionId, notify) {
-    let snapshot = { data: null, error: null, loading: false, actions: {}, reports: {} };
+  function sessionStore(sessionId) {
+    let snapshot = { actions: {}, reports: {} };
     const listeners = new Set();
     const requests = new Set();
     let generation = 0;
     let disposed = false;
-    let timer = null;
-    let reading = null;
-    let refreshAfterRead = false;
     const publish = (patch) => {
       if (disposed) return;
       snapshot = { ...snapshot, ...patch };
       for (const fn of listeners) fn();
     };
     const currentGeneration = (value) => !disposed && value === generation;
-    const stopReading = () => {
-      clearTimeout(timer);
-      timer = null;
-      reading?.controller.abort();
-      reading = null;
-      refreshAfterRead = false;
-    };
     async function json(name, query, body, signal) {
       const response = await fetch(routeUrl(name, query), { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store',
         headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined, signal });
@@ -184,52 +140,12 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       try { return await json('read', { session_id: sessionId, resource, ...query }, undefined, controller.signal); }
       finally { requests.delete(controller); }
     }
-    function currentRead(current) {
-      return !current.controller.signal.aborted && current.generation === generation && !disposed;
-    }
-    function scheduleRefresh(current) {
-      if (reading !== current) return;
-      reading = null;
-      if (disposed || listeners.size === 0) return;
-      const delay = refreshAfterRead ? 0 : contextActive(snapshot.data) ? 1500 : 5000;
-      refreshAfterRead = false;
-      timer = setTimeout(refresh, delay);
-    }
-    function receiveContext(data, current) {
-      if (!currentRead(current)) return;
-      if (data.host_session_id !== sessionId) throw new Error('autoSkill 返回的会话与当前任务不一致');
-      notifyTransitions(snapshot.data, data, notify);
-      publish({ data, error: null, loading: false });
-    }
-    async function refresh() {
-      if (disposed || listeners.size === 0) return;
-      if (reading) { refreshAfterRead = true; return; }
-      clearTimeout(timer);
-      const current = { controller: new AbortController(), generation };
-      reading = current;
-      publish({ loading: !snapshot.data });
-      try {
-        const data = await json('context', { session_id: sessionId }, undefined, current.controller.signal);
-        receiveContext(data, current);
-      } catch (error) {
-        if (currentRead(current)) publish({ error: message(error), loading: false });
-      } finally { scheduleRefresh(current); }
-    }
     function finishAction(key, action, result) {
       const state = result.request_state || 'unknown';
       const next = { ...action, state, result, error: result.error?.message || null };
       publish({ actions: { ...snapshot.actions, [key]: next } });
-      if (state === 'completed') stopReading();
-      if (state === 'completed' && action.operation === 'binding.select') publish({ data: null });
       if (state === 'completed' && action.operation === 'report.retry') publish({ reports: { ...snapshot.reports, [action.payload.report_id]: undefined } });
-      notifyAction(next);
-      void refresh();
       return next;
-    }
-    function notifyAction(action) {
-      if (action.state === 'unknown') notify('error', '操作结果尚未确认，请查询操作结果；不会自动重复提交。');
-      else if (action.state === 'failed') notify('error', action.error || 'autoSkill 操作未完成');
-      else notify('info', 'autoSkill 操作已处理，请查看任务状态。');
     }
     async function command(operation, payload, bindingId) {
       if (disposed) return;
@@ -285,10 +201,9 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       sessionId, getSnapshot: () => snapshot,
       subscribe: (fn) => {
         listeners.add(fn);
-        if (listeners.size === 1) void refresh();
-        return () => { listeners.delete(fn); if (listeners.size === 0) stopReading(); };
+        return () => listeners.delete(fn);
       },
-      refresh, command, queryAction, verifyReport,
+      command, queryAction, verifyReport,
       queryRecorded: (record) => {
         const key = actionKey(record.operation, record);
         if (!snapshot.actions[key]) publish({ actions: { ...snapshot.actions, [key]: {
@@ -298,18 +213,15 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       },
       reset: () => {
         generation += 1;
-        stopReading();
         for (const request of requests) request.abort();
         requests.clear();
         const actions = {};
         for (const [key, action] of Object.entries(snapshot.actions)) actions[key] = action.state === 'pending' ? { ...action, state: 'unknown' } : action;
-        publish({ data: null, error: null, reports: {}, actions });
-        void refresh();
+        publish({ reports: {}, actions });
       },
       dispose: () => {
         disposed = true;
         generation += 1;
-        stopReading();
         for (const request of requests) request.abort();
         requests.clear();
         listeners.clear();
@@ -413,8 +325,8 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     const snapshot = useSnapshot(autoskill.store);
     const record = toolRecord(phase, block);
     const { identity, state, raw } = record;
-    return h('section', { style: STYLE.card, 'aria-label': 'autoSkill 任务卡' },
-      h('strong', {}, toolName === 'autoskill_read' ? 'autoSkill 查询' : 'autoSkill 任务'),
+    return h('details', { style: STYLE.card, 'aria-label': 'autoSkill 工具结果' },
+      h('summary', {}, toolName === 'autoskill_read' ? '查看 autoSkill 查询结果' : '查看 autoSkill 操作结果'),
       h('p', {}, toolState(phase, state)),
       identity.project_id ? h('p', { style: STYLE.muted }, '项目：' + identity.project_id) : null,
       recordedFacts(record),
@@ -426,7 +338,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       raw ? h('details', {}, h('summary', {}, '查看工具输入与结果'), h('pre', { style: STYLE.pre }, raw)) : null);
   }
 
-  exports.inject = ['slots', 'layout', 'sessions', 'conversation'];
+  exports.inject = ['slots', 'layout'];
   exports.apply = (ctx, config = {}) => {
     const port = config.port ?? 8787;
     if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid autoSkill port');
@@ -436,7 +348,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     const nav = navigation(ctx);
     const stores = new Map();
     const inject = (sessionId) => {
-      if (!stores.has(sessionId)) stores.set(sessionId, sessionStore(sessionId, (level, text) => notifySession(ctx, sessionId, level, text)));
+      if (!stores.has(sessionId)) stores.set(sessionId, sessionStore(sessionId));
       return { autoskill: { store: stores.get(sessionId), navigation: nav } };
     };
     const panels = [['autoskill-dashboard', 'autoSkill 仪表盘', 'dashboard'], ['autoskill-schedules', 'autoSkill 定时任务', 'schedules']];

@@ -58,7 +58,7 @@ function harness(fetcher, hostOrigin = 'http://127.0.0.1:8788') {
   plugin.apply(ctx, { port: 8788 });
   const taskCard = slots.find((entry) => entry.options.key === 'autoskill_task');
   const injected = (sessionId = 'session-a') => taskCard.options.inject(sessionId);
-  return { slots, requests, notifications, panels, events, timers, taskCard, injected,
+  return { slots, requests, notifications, panels, events, timers, taskCard, injected, dependencies: plugin.inject,
     dispose: () => { for (const dispose of disposers.reverse()) dispose(); } };
 }
 
@@ -90,6 +90,7 @@ test('native cards and sidebar panels register without any conversation task doc
   assert.deepEqual(app.slots.filter((slot) => slot.options.name === 'tool.call.toolview').map((slot) => slot.options.key), ['autoskill_read', 'autoskill_task']);
   assert.equal(app.slots.some((slot) => slot.options.name === 'conversation.input.dock'), false);
   assert.equal(app.slots.some((slot) => slot.options.name === 'conversation.input.activity'), false);
+  assert.deepEqual(Array.from(app.dependencies), ['slots', 'layout']);
   assert.notEqual(app.injected('session-a').autoskill.store, app.injected('session-b').autoskill.store);
   assert.equal(app.injected('session-a').autoskill.store, app.injected('session-a').autoskill.store);
   assert.deepEqual(app.slots.filter((slot) => slot.options.name === 'sidebar.panellist').map((slot) => slot.options.id), ['autoskill-dashboard', 'autoskill-schedules']);
@@ -115,20 +116,24 @@ test('panels resolve the actual host runtime port before loading any iframe', as
   app.dispose();
 });
 
-test('delayed reads stay in their owning session and polling stops after the last subscriber', async () => {
+test('only requested report reads run, delayed receipts stay in their owning session, and subscribing never polls', async () => {
   const waiting = new Map();
   const app = harness(({ url }) => new Promise((resolve) => waiting.set(url.searchParams.get('session_id'), resolve)));
   const first = app.injected('session-a').autoskill.store;
   const second = app.injected('session-b').autoskill.store;
   const offFirst = first.subscribe(() => undefined);
   const offSecond = second.subscribe(() => undefined);
-  waiting.get('session-b')(response(context('session-b', { context_revision: 'b' })));
-  await setImmediate();
-  waiting.get('session-a')(response(context('session-a', { context_revision: 'a' })));
-  await setImmediate();
-  assert.equal(first.getSnapshot().data.context_revision, 'a');
-  assert.equal(second.getSnapshot().data.context_revision, 'b');
-  assert.ok(app.requests.every((request) => request.url.pathname === '/nested/api/autoskill.context'));
+  assert.equal(app.requests.length, 0);
+  const readFirst = first.verifyReport('run_a');
+  const readSecond = second.verifyReport('run_b');
+  const receipt = (reportId) => ({ report_id: reportId, status: 'ready', excel: '/cases.xlsx', markdown: '/summary.md', sha256: 'e', markdown_sha256: 'm' });
+  waiting.get('session-b')(response(wire(receipt('run_b'))));
+  waiting.get('session-a')(response(wire(receipt('run_a'))));
+  await Promise.all([readFirst, readSecond]);
+  assert.equal(first.getSnapshot().reports.run_a.state, 'ready');
+  assert.equal(second.getSnapshot().reports.run_b.state, 'ready');
+  assert.equal(first.getSnapshot().reports.run_b, undefined);
+  assert.ok(app.requests.every((request) => request.url.pathname === '/nested/api/autoskill.read'));
   assert.ok(app.requests.every((request) => request.options.credentials === 'same-origin'));
   offFirst(); offSecond();
   assert.equal(app.timers.size, 0);
@@ -138,73 +143,67 @@ test('delayed reads stay in their owning session and polling stops after the las
 test('an inactive host route shows a useful unavailable message instead of a JSON parse exception', async () => {
   const app = harness(() => ({ ok: false, status: 404, json: () => Promise.reject(new SyntaxError('Unexpected token in not found')) }));
   const store = app.injected().autoskill.store;
-  const off = store.subscribe(() => undefined);
-  await setImmediate();
-  assert.match(store.getSnapshot().error, /autoSkill 服务暂不可用.*404.*插件/);
-  assert.doesNotMatch(store.getSnapshot().error, /Unexpected token/);
-  assert.equal(store.getSnapshot().data, null);
-  off(); app.dispose();
+  await store.verifyReport('run_a');
+  assert.match(store.getSnapshot().reports.run_a.error, /autoSkill 服务暂不可用.*404.*插件/);
+  assert.doesNotMatch(store.getSnapshot().reports.run_a.error, /Unexpected token/);
+  assert.equal(app.notifications.length, 0);
+  app.dispose();
 });
 
-test('disconnect invalidates pending responses and aborts reads on unmount', async () => {
+test('disconnect invalidates pending responses and unloading aborts requested reads without restarting them', async () => {
   const waiting = [];
   const app = harness(() => new Promise((resolve) => waiting.push(resolve)));
   const store = app.injected().autoskill.store;
-  const off = store.subscribe(() => undefined);
+  const oldRead = store.verifyReport('run_old');
   app.events.get('connection/reset')();
   assert.equal(app.requests[0].options.signal.aborted, true);
-  waiting[0](response(context('session-a', { context_revision: 'old' })));
-  waiting[1](response(context('session-a', { context_revision: 'new' })));
-  await setImmediate();
-  assert.equal(store.getSnapshot().data.context_revision, 'new');
-  void store.refresh();
-  off();
+  assert.equal(app.requests.length, 1);
+  const newRead = store.verifyReport('run_new');
+  waiting[0](response(wire({ report_id: 'run_old', status: 'failed', error: 'old response' })));
+  waiting[1](response(wire({ report_id: 'run_new', status: 'failed', error: 'new response' })));
+  await Promise.all([oldRead, newRead]);
+  assert.equal(store.getSnapshot().reports.run_old, undefined);
+  assert.equal(store.getSnapshot().reports.run_new.error, 'new response');
+  const late = store.verifyReport('run_late');
+  app.dispose();
   assert.equal(app.requests.at(-1).options.signal.aborted, true);
-  waiting[2](response(context('session-a', { context_revision: 'late' })));
-  await setImmediate();
-  assert.equal(store.getSnapshot().data.context_revision, 'new');
+  waiting[2](response(wire({ report_id: 'run_late', status: 'failed', error: 'late response' })));
+  await late;
+  assert.equal(store.getSnapshot().reports.run_late.state, 'checking');
   assert.equal(app.timers.size, 0);
   app.dispose();
 });
 
-test('completion notifications name the real result and stay with the original session', async () => {
-  let status = 'Running';
-  const app = harness(({ url }) => response(context(url.searchParams.get('session_id'), {
-    runs: { items: [{ id: 'run-a', execution_status: status, status }], page: {} },
-  })));
+test('completed, failed and uncertain actions keep their receipts without notifications or automatic navigation', async () => {
+  let state = 'completed';
+  const app = harness(() => response(wire({ status: 'Fail', business_status: 'Fail' }, { request_state: state })));
   const store = app.injected('session-a').autoskill.store;
   const off = store.subscribe(() => undefined);
-  await setImmediate();
+  for (const current of ['completed', 'failed', 'unknown']) {
+    state = current;
+    const action = await store.command('run.cancel', { run_id: 'run-' + current }, 'binding-a');
+    assert.equal(action.state, current);
+    assert.equal(action.result.data.business_status, 'Fail');
+  }
   assert.equal(app.notifications.length, 0);
-  app.injected('session-b');
-  status = 'Fail';
-  await store.refresh();
-  await store.refresh();
-  assert.equal(app.notifications.length, 1);
-  assert.equal(app.notifications[0].sessionId, 'session-a');
-  assert.equal(app.notifications[0].level, 'error');
-  assert.match(app.notifications[0].text, /失败/);
-  assert.doesNotMatch(app.notifications[0].text, /通过/);
+  assert.deepEqual(app.panels, []);
+  assert.equal(app.timers.size, 0);
   off(); app.dispose();
 });
 
-test('a completed workflow retains its violated business conclusion in notifications and native tool output', async () => {
-  let lifecycle = 'active';
-  const app = harness(() => response(context('session-a', {
-    workflow: { workflow_id: 'flow-a', cycle_id: 'cycle-a', lifecycle, conclusion: 'violated', current_phase: 'knowledge', counts: { done: 5 } },
-  })));
+test('a completed workflow retains its violated business conclusion in a closed inline record without progress popups', () => {
+  const app = harness();
   const props = app.injected();
-  const off = props.autoskill.store.subscribe(() => undefined);
-  await setImmediate();
-  lifecycle = 'completed';
-  await props.autoskill.store.refresh();
-  assert.equal(app.notifications.length, 1);
-  assert.match(app.notifications[0].text, /已完成.*不符合预期/);
   const view = app.taskCard.component({ ...props, phase: 'result', toolName: 'autoskill_read', block: {
     content: [{ type: 'text', text: JSON.stringify(wire({ conclusion: 'violated' }, { identity: { host_session_id: 'session-a', workflow_id: 'flow-a' } })) }],
   } });
   assert.match(text(view), /不符合预期/);
-  off(); app.dispose();
+  assert.equal(view.tag, 'details');
+  assert.equal(view.props.open, undefined);
+  assert.equal(view.props['aria-label'], 'autoSkill 工具结果');
+  assert.equal(app.notifications.length, 0);
+  assert.deepEqual(app.panels, []);
+  app.dispose();
 });
 
 test('a lost cancel response is queried by request id and never automatically repeated', async () => {
@@ -252,7 +251,7 @@ test('historical cards navigate and cancel their recorded run without borrowing 
   const sent = JSON.parse(app.requests.find((request) => request.options.method === 'POST').options.body);
   assert.equal(sent.binding_id, 'old-binding');
   assert.equal(sent.payload.run_id, 'old-run');
-  assert.equal(props.autoskill.store.getSnapshot().data.selection.binding_id, 'binding-a');
+  assert.equal(app.notifications.length, 0);
   off(); app.dispose();
 });
 
@@ -272,7 +271,7 @@ test('binding choice includes the observed selection revision and never claims n
   const props = app.injected();
   const off = props.autoskill.store.subscribe(() => undefined);
   await setImmediate();
-  await props.autoskill.store.command('binding.select', { binding_id: 'binding-b', expected_revision: props.autoskill.store.getSnapshot().data.selection.revision }, 'binding-b');
+  await props.autoskill.store.command('binding.select', { binding_id: 'binding-b', expected_revision: 3 }, 'binding-b');
   const sent = JSON.parse(app.requests.find((request) => request.options.method === 'POST').options.body);
   assert.equal(sent.operation, 'binding.select');
   assert.equal(sent.payload.binding_id, 'binding-b');
@@ -348,15 +347,13 @@ test('unknown tool history can query its own receipt without issuing a new task'
   app.dispose();
 });
 
-test('native tool card reads never select a task or claim workflow work', async () => {
+test('rendering and subscribing to native tool results never reads a task, claims work or starts progress timers', () => {
   const app = harness(({ url }) => response(context(url.searchParams.get('session_id'))));
   const store = app.injected().autoskill.store;
   const off = store.subscribe(() => undefined);
-  await setImmediate();
-  await store.refresh();
   reportCard(app, app.injected(), 'run_a');
-  assert.equal(store.getSnapshot().data.selection.binding_id, 'binding-a');
-  assert.equal(app.requests.filter((request) => request.options.method === 'POST').length, 0);
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.timers.size, 0);
   off(); app.dispose();
 });
 

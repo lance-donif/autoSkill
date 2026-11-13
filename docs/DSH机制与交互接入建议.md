@@ -9,8 +9,8 @@
 | 动态上下文 | `ctx.on('agent/pre-step', …)` waterfall | 已注入当前明确绑定任务的只读摘要；保留 pre-step waterfall，按实际接纳历史去重，外层拒绝后仍可重试 |
 | Skill 按需发现 | `ctx.skills.register`、`registerProvider` 的 list/get 与失效通知 | 已注册产品 Skill、上传的用例规则 Skill 和存在时的用例 Skill。可进一步按工作区提供动态项目入口，不把几千用例全部展开进目录或正文 |
 | Slash 命令 | `/<Skill 名>`；另有 `ctx.commands.register` | autoSkill 只注册无参 `/autoskill-use`：从技能注册表读取完整技能，通过 `Agent.inject` 加载到当前会话的下一步，随后用户直接对话描述任务。命令本身不唤醒模型；状态、任务选择与报告由宿主使用原生工具或 CLI 处理 |
-| 原生进度 | `todo_write` 完整替换清单 | 已有宿主调用指导。下一 turn/start 会清空展示，需要根据内核状态重建；completed 仅表示阶段完成，不表示业务 Pass |
-| 输入框交互 | `SessionInput.notify` | 按使用者要求移除对话输入框上方的 autoSkill 任务框，不再注册 `conversation.input.dock`；原生工具结果卡仍提供精确运行、取消与报告入口，通知落在所属会话。已核实的是输入框通知，不是系统桌面推送 |
+| 原生进度 | autoSkill 持久工作流与运行状态 | 后台保存阶段与进度，不自动调用宿主待办工具展示清单或进度浮层；阶段完成不表示业务 Pass |
+| 输入框交互 | 默认折叠的内联工具结果 | 按使用者要求移除对话输入框上方的 autoSkill 任务框，不注册 `conversation.input.dock`，不调用 `SessionInput.notify` 发送任务通知；用户点击展开工具结果后可主动打开精确运行、取消或获取报告 |
 | 文件交付卡 | `present({files:[{path,description}]})`；`conversation.chat.turnTail` | Excel、简报、Bug 清单经当前宿主 fs 读取并核验后才提供 present 参数；真实 SDK 已验证 owning Agent、open turn 与成功事件。present 本身不复制文件 |
 | 会话投递 | `sessionController.create/resolveAgent/prompt`、`sessions.flush` | 已接入持久任务投递。已增加显式绑定和恢复展示。prompt 接受表示进入 inbox，不等于测试完成；取消会话与取消具体 run 是不同操作 |
 | 调度 | DSH `ctx.schedule`；autoSkill 自有 scheduler/outbox | 当前由 autoSkill 负责调度，DSH adapter 消费任务。不要为同一任务再创建第二个 DSH 时钟；DSH 进程需要运行才能处理宿主 AI 工作 |
@@ -20,7 +20,7 @@
 
 1. **会话绑定与恢复摘要**：明确当前对话属于哪个 workspace、task session、workflow/cycle，跨轮按真实持久状态继续。
 2. **原生工具薄适配和任务卡**：选择少量高频入口，保留通用 CLI；异步执行先返回 run_id，避免宿主同步等待本来需要它处理的 judge。
-3. **工具卡与会话通知**：按业务状态显示结果，按钮复用现有服务，打开准确的运行详情；输入框上方不再额外放置 autoSkill 任务框。
+3. **按需查看工具结果**：默认折叠为内联记录，用户主动展开后查看业务结果，按钮复用现有服务打开准确的运行详情；不额外产生任务通知、进度浮层或后台轮询。
 4. **真实文件交付验收**：先核实 DSH 会话能访问本轮文件，再实际验证 Excel/MD present 卡；HTML 若需自动交付，应先保存为可访问的任务文件。
 5. **单一技能入口**：无参 `/autoskill-use` 加载技能，后续自然对话描述任务；调度继续复用现有 scheduler/outbox。
 
