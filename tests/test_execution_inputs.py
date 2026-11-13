@@ -137,6 +137,27 @@ class ExecutionInputTests(unittest.TestCase):
         detail = json.loads(results[0]["detail"])
         self.assertEqual((detail["verification"], detail["business_status"], detail["business_verified"]), ("verified", "Fail", False))
 
+    def test_unresolved_expected_variable_blocks_before_sending_a_request(self):
+        self.case["assertions"]["json_equals"] = {"/ok": "{{expected_ok}}"}
+        projects.save_cases(self.pid, [self.case])
+        final, results = self.execute()
+        self.assertEqual((final["status"], results[0]["category"]), ("Blocked", "missing_variable"))
+        self.assertIn("expected_ok", results[0]["reason"])
+        self.assertEqual(self.server.requests, [])
+        self.assertEqual(json.loads(results[0]["detail"])["business_status"], "Unverified")
+
+    def test_expected_variable_preserves_the_type_extracted_by_a_prerequisite(self):
+        prerequisite = builder.api_case("TC-API-002", "Expected value", "GET", "/expected", {"status": 200, "json_equals": {"/ok": True}},
+                                        extract={"expected_ok": "/ok"})
+        self.case["extensions"]["depends_on"] = [prerequisite["id"]]
+        self.case["assertions"]["json_equals"] = {"/ok": "{{expected_ok}}"}
+        projects.save_cases(self.pid, [self.case, prerequisite])
+        final, results = self.execute()
+        self.assertEqual(final["status"], "Pass")
+        actual = json.loads(results[-1]["detail"])["assertions"][-1]
+        self.assertIs(actual["expected"], True)
+        self.assertIs(actual["actual"], True)
+
     def test_sources_are_frozen_and_derived_knowledge_does_not_invalidate_its_own_run(self):
         prefix = "workflows/test/"
         changes = {prefix + "sources.json": {"documents": ["requirement"]}, prefix + "requirements.json": [{"expected": "high"}],

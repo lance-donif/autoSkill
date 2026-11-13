@@ -124,12 +124,10 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
         sent = secrets.resolve({k: filled[k] for k in ("headers", "params", "json", "form") if k in filled})
         if "form" in sent:
             sent["data"] = sent.pop("form")
-        try:  # an expected value may name what this run created, for example a title that ends in {{RAND}}
-            expected = fill(case["assertions"].get("json_equals", {}), variables)
-            if expected:
-                case = {**case, "assertions": {**case["assertions"], "json_equals": expected}}
-        except KeyError:
-            pass
+        # Expected values share the request's variable contract; unresolved values are not literal business expectations.
+        expected = fill(case["assertions"].get("json_equals", {}), variables)
+        if expected:
+            case = {**case, "assertions": {**case["assertions"], "json_equals": expected}}
     except KeyError as missing:
         outcome.update(reason=f"缺少变量 {{{{{missing.args[0]}}}}}：提供它的前置用例没有成功", category="missing_variable")
         return outcome
