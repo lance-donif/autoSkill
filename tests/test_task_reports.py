@@ -79,7 +79,7 @@ class TaskReportTests(unittest.TestCase):
 
     def workbook(self, receipt):
         self.assertEqual(receipt["status"], "ready", receipt)
-        self.assertEqual(receipt["template_id"], "builtin-project-columns")
+        self.assertEqual(receipt["template_id"], "test-cases-14-column-v1")
         self.assertTrue(receipt["validation"]["workbook_readable"])
         book = load_workbook(receipt["excel"], data_only=False)
         self.addCleanup(book.close)
@@ -237,6 +237,31 @@ class TaskReportTests(unittest.TestCase):
         self.assertEqual(read["test_report"], finished["test_report"])
         self.assertTrue(read["report"]["path"].endswith("outcome.json"))
 
+    def test_native_declared_evidence_is_verified_and_changed_or_legacy_files_are_not(self):
+        source = self.folder / "native-source"
+        source.mkdir()
+        (source / "test_frozen.py").write_text("import unittest\nclass Native(unittest.TestCase):\n def test_result(self): self.assertEqual(2 + 2, 4)\n", encoding="utf-8")
+        asset = native_assets.import_asset(self.pid, source, "selenium-unittest")
+        finished = native_run.execute(native_run.enqueue(self.pid, asset["id"])["id"])
+        self.assertEqual(finished["status"], "Pass")
+        self.assertEqual(self.rows(self.workbook(finished["test_report"]))[0]["本次结果"], "通过")
+        run = db.one("SELECT * FROM runs WHERE id = ?", (finished["id"],))
+        data = task_report_data.run_snapshot(run)
+        self.assertTrue(data["cases"][0]["evidence_valid"])
+        folder = Path(data["cases"][0]["evidence_directory"]) / "native"
+        outcome_path = folder / "outcome.json"
+        outcome = json.loads(outcome_path.read_bytes())
+        report = next(reference for reference in outcome["evidence"] if reference["path"] == "unittest.json")
+        original = (folder / report["path"]).read_bytes()
+        (folder / report["path"]).write_bytes(original + b" ")
+        changed = task_report_data.run_snapshot(run)
+        self.assertFalse(changed["cases"][0]["evidence_valid"])
+        self.assertEqual(task_report_data.case_verdict(changed["cases"][0]), "Unverified")
+        (folder / report["path"]).write_bytes(original)
+        outcome["evidence"] = [reference["path"] for reference in outcome["evidence"]]
+        outcome_path.write_text(json.dumps(outcome), encoding="utf-8")
+        self.assertFalse(task_report_data.run_snapshot(run)["cases"][0]["evidence_valid"])
+
     def test_same_task_in_two_sessions_executes_again_and_does_not_modify_first_report(self):
         arguments = ("run", self.pid, "--case", self.case["id"])
         code, first = self.cli("--session", "任务 A", *arguments)
@@ -326,6 +351,8 @@ with deletion.execution_guard(sys.argv[1]):
         self.assertEqual({row["用例编号"] for row in rows}, {self.case["id"]})
         self.assertEqual({row["关联场景"] for row in rows}, {"scenario"})
         source_text = json.dumps(self.rows(book, "来源与冻结定义"), ensure_ascii=False)
+        if "长文本" in book:
+            source_text += "".join(row["全文片段"] for row in self.rows(book, "长文本") if row["原单元格"].startswith("来源与冻结定义!"))
         self.assertIn("priority must be high", source_text)
         deletion.delete_runs([second])
         self.assertEqual(task_reports.get(final["test_report"]["report_id"])["status"], "failed")

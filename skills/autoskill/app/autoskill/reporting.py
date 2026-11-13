@@ -8,10 +8,10 @@ import re
 import uuid
 from pathlib import Path
 
-from . import db, execution_inputs, paths, projects
+from . import db, execution_inputs, paths, projects, task_report_data, task_workbook, task_workbook_data
 from .replay import ir
 
-STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", None: "未执行"}
+STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行", "Unknown": "未知", None: "未执行"}
 FILL = {"Pass": "E2F0D9", "Fail": "FCE4D6", "Blocked": "FFF2CC", "Cancelled": "EDEDED", "Unverified": "FFF2CC", None: "EDEDED"}
 BAD_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
@@ -160,10 +160,9 @@ def _definition_fields(case: dict) -> dict:
 def _task_row(item: dict) -> dict:
     result = item.get("result") or {}
     detail = result.get("detail", {})
-    status = result.get("status")
+    status = task_report_data.case_verdict(item)
     note = item.get("note", "")
-    if status == "Pass" and (not item.get("evidence_valid") or detail.get("business_status") != "Pass"):
-        status = "Unverified"
+    if result.get("status") == "Pass" and status == "Unverified":
         note += " 动作结果不等于完整业务验证；缺少有效证据或独立业务断言。"
     historical = item.get("historical_result") or {}
     if historical.get("business_status") == "Fail" or historical.get("status") == "Fail":
@@ -196,7 +195,7 @@ def _append_cells(sheet, values, long_text: list) -> None:
     sheet.append(clean)
     for index, value in extended:
         reference = f"{sheet.title}!R{sheet.max_row}C{index}"
-        long_text.extend((reference, part + 1, value[start:start + 32000]) for part, start in enumerate(range(0, len(value), 32000)))
+        long_text.extend((reference, part, fragment) for part, fragment in enumerate(task_workbook_data.text_fragments(value), 1))
         sheet.cell(sheet.max_row, index).value = "全文见「长文本」：" + reference + "\n" + value[:1000]
     for cell in sheet[sheet.max_row]:
         if isinstance(cell.value, str):
@@ -209,17 +208,36 @@ def _table(book, title: str, columns: list, rows: list, long_text: list):
     sheet = book.create_sheet(title)
     _append_cells(sheet, [label for _key, label, _width in columns], long_text)
     for row in rows:
-        _append_cells(sheet, [row.get(key, "") for key, _label, _width in columns], long_text)
+        _append_cells(sheet, _table_values(sheet, row, columns, long_text), long_text)
     for index, (_key, _label, width) in enumerate(columns, 1):
         cell = sheet.cell(1, index)
-        cell.font, cell.fill = Font(color="FFFFFF", bold=True), PatternFill("solid", fgColor="1C5CAB")
+        cell.font, cell.fill = Font(name="宋体", size=11, color="FFFFFF", bold=True), PatternFill("solid", fgColor="1C5CAB")
         sheet.column_dimensions[cell.column_letter].width = width
     for row in sheet:
+        height = 1
         for cell in row:
+            if cell.row > 1:
+                cell.font = Font(name="宋体", size=11)
             cell.alignment = Alignment(vertical="top", wrap_text=True)
+            height = max(height, task_workbook_data.display_lines(str(cell.value or ""), columns[cell.column - 1][2]))
+        sheet.row_dimensions[row[0].row].height = min(409, max(28, height * 16 + 8))
     sheet.freeze_panes = "B2"
     sheet.auto_filter.ref = sheet.dimensions
     return sheet
+
+
+def _table_values(sheet, row: dict, columns: list, long_text: list) -> list:
+    values = []
+    for index, (key, _label, width) in enumerate(columns, 1):
+        original = row.get(key, "")
+        value = json.dumps(original, ensure_ascii=False) if isinstance(original, (dict, list)) else original
+        identity = key in ("id", "case_id", "run_id", "display", "original", "version", "ref", "part")
+        if isinstance(value, str) and not identity and task_workbook_data.display_lines(value, width) > 20:
+            reference = f"{sheet.title}!R{sheet.max_row + 1}C{index}"
+            long_text.extend((reference, part, fragment) for part, fragment in enumerate(task_workbook_data.text_fragments(value), 1))
+            value = value[:160] + "\n全文见「长文本」：" + reference
+        values.append(value)
+    return values
 
 
 def _turn_rows(snapshot: dict) -> list[dict]:
@@ -251,22 +269,24 @@ def _task_sheets(book, snapshot: dict, rows: list[dict], long_text: list) -> Non
 
 
 def write_task(snapshot: dict, destination: Path) -> dict:
-    """Render frozen task facts with the existing built-in layout, separately from delivery state."""
+    """Render the supplied case-document template and retain complete frozen execution evidence."""
     from openpyxl import Workbook
 
     book = Workbook()
     book.remove(book.active)
     long_text = []
     rows = [_task_row(item) for item in snapshot["cases"]]
+    functional = task_workbook.render(book, snapshot, _append_cells, _table, long_text)
+    summary = task_report_data.task_summary(snapshot)
     overview = [{"key": key, "value": value} for key, value in {
         "任务类型": snapshot["kind"], "任务标识": snapshot["task_id"], "项目": snapshot["project"]["name"],
-        "任务标题": snapshot["title"], "任务状态": snapshot["status"], "渲染模板": "builtin-project-columns",
-        "用例结果行数": len(rows), "独立用例数": len({row["id"] for row in rows}),
-        "通过": sum(row["status"] == "Pass" for row in rows), "失败": sum(row["status"] == "Fail" for row in rows),
-        "阻塞": sum(row["status"] == "Blocked" for row in rows), "未执行": sum(row["status"] is None for row in rows),
-        "业务未验证": sum(row["status"] == "Unverified" for row in rows), "已取消": sum(row["status"] == "Cancelled" for row in rows),
+        "任务标题": snapshot["title"], "任务状态": snapshot["status"], "渲染模板": task_workbook.TEMPLATE_ID,
+        "执行观察行数": summary["execution_rows"], "冻结用例定义数": summary["cases"],
+        "通过": summary["counts"]["Pass"], "失败": summary["counts"]["Fail"],
+        "阻塞": summary["counts"]["Blocked"], "未执行": summary["counts"]["NotRun"],
+        "业务未验证": summary["counts"]["Unverified"], "已取消": summary["counts"]["Cancelled"], "未知": summary["counts"]["Unknown"],
         "范围与说明": snapshot["notes"], "任务元数据": snapshot["metadata"],
-        "统计口径": "仅本任务冻结范围。重复验证每轮单列，保留早期失败；多轮对话属于同一用例，逐轮明细另列。未执行、业务未验证、阻塞和取消不算通过。",
+        "统计口径": "仅本任务冻结范围。主表每个原始用例及冻结定义一行；各轮/重试在明细保留，曾经失败不会被后续通过覆盖。多轮对话属于同一用例。",
     }.items()]
     _table(book, "任务概览", [("key", "项目", 24), ("value", "内容", 100)], overview, long_text)
     _task_sheets(book, snapshot, rows, long_text)
@@ -279,24 +299,25 @@ def write_task(snapshot: dict, destination: Path) -> dict:
         book.save(temporary)
         with temporary.open("rb") as stream:
             os.fsync(stream.fileno())
-        _verify_task_workbook(temporary, rows)
+        validation = _verify_task_workbook(temporary, rows, functional)
         temporary.replace(destination)
     finally:
         book.close()
         temporary.unlink(missing_ok=True)
-    return {"renderer": "builtin-project-columns", "template_id": "builtin-project-columns",
-            "validation": {"workbook_readable": True, "case_rows": len(rows), "case_ids_match": True}}
+    return {"renderer": task_workbook.TEMPLATE_ID, "template_id": task_workbook.TEMPLATE_ID,
+            "cases": len(functional), "execution_rows": len(rows), "validation": {"workbook_readable": True, **validation}}
 
 
-def _verify_task_workbook(file: Path, expected: list[dict]) -> None:
+def _verify_task_workbook(file: Path, expected: list[dict], functional: list[dict]) -> dict:
     from openpyxl import load_workbook
 
     with file.open("rb") as stream:
-        check = load_workbook(stream, read_only=True, data_only=False)
+        check = load_workbook(stream, read_only=False, data_only=False)
         try:
             sheet = check["用例与结果"]
             actual = list(sheet.iter_rows(min_row=2, max_col=1, values_only=True))
             if [row[0] for row in actual] != [row["id"] for row in expected]:
                 raise ValueError("生成后的 Excel 用例范围核验失败，未交付文件")
+            return {**task_workbook.verify(check, functional), "execution_rows": len(actual)}
         finally:
             check.close()

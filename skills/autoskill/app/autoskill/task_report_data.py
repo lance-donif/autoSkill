@@ -8,6 +8,66 @@ from pathlib import Path, PurePosixPath
 
 from . import db, execution_inputs, paths
 
+VERDICTS = ("Pass", "Fail", "Blocked", "Cancelled", "Unverified", "NotRun", "Unknown")
+
+
+def case_verdict(item: dict) -> str:
+    """Separate observed execution from verified business success without erasing a failure."""
+    result = item.get("result") or {}
+    historical = item.get("historical_result") or {}
+    if historical.get("business_status") == "Fail" or historical.get("status") == "Fail":
+        return "Fail"
+    status = result.get("status")
+    if not result:
+        return "NotRun"
+    if result.get("detail", {}).get("business_status") == "Fail":
+        return "Fail"
+    if status == "Pass" and (not item.get("evidence_valid") or result.get("detail", {}).get("business_status") != "Pass"):
+        return "Unverified"
+    return status if status in VERDICTS else "Unknown"
+
+
+def logical_cases(snapshot: dict) -> list[dict]:
+    """Group repeated observations by original identity and exact frozen definition."""
+    groups = {}
+    for item in snapshot["cases"]:
+        definition = item["definition"]
+        version = execution_inputs.content_hash(definition)
+        key = execution_inputs.content_hash([snapshot["project_id"], definition["id"], version])
+        group = groups.setdefault(key, {"key": key, "definition_hash": version, "definition": definition, "items": []})
+        group["items"].append(item)
+    for group in groups.values():
+        verdicts = [case_verdict(item) for item in group["items"]]
+        group.update(status="Fail" if "Fail" in verdicts else verdicts[-1], first_status=verdicts[0], final_status=verdicts[-1],
+                     run_ids=list(dict.fromkeys(item["run_id"] for item in group["items"] if item.get("run_id"))))
+    return list(groups.values())
+
+
+def task_summary(snapshot: dict) -> dict:
+    """Expose one verdict and concise facts per definition to every delivery renderer."""
+    groups = logical_cases(snapshot)
+    counts = {status: sum(group["status"] == status for group in groups) for status in VERDICTS}
+    issues, environments = [], []
+    for group in groups:
+        reasons = []
+        for item in group["items"]:
+            if reason := (item.get("result") or {}).get("reason") or item.get("note"):
+                reasons.append(reason)
+            if (item.get("recording_result") or {}).get("status") == "Fail":
+                reasons.append("录制时已观察到断言失败，尚未回放，原预期和实际观察保留。")
+            environments.extend(item.get("environment", []))
+        if group["status"] != "Pass" or reasons:
+            issues.append({"case_id": group["definition"]["id"], "status": group["status"],
+                           "reason": "；".join(dict.fromkeys(reasons)), "run_ids": group["run_ids"]})
+    environments.extend(snapshot.get("environment", []))
+    if not environments:
+        if base_url := snapshot.get("project", {}).get("base_url"):
+            environments.append("被测地址：" + str(base_url))
+        if engine := snapshot.get("metadata", {}).get("engine"):
+            environments.append("任务引擎：" + str(engine))
+    return {"cases": len(groups), "execution_rows": len(snapshot["cases"]), "counts": counts, "issues": issues,
+            "run_ids": snapshot.get("run_ids", []), "environment": list(dict.fromkeys(environments))}
+
 
 def _json(value, default):
     return json.loads(value) if isinstance(value, str) else value if value is not None else default
@@ -46,7 +106,10 @@ def _replay(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
         valid = bool(result) and execution_inputs.result_evidence(run, result)
         cases.append({"definition": definition, "result": result, "run_id": run["id"], "evidence_valid": valid,
                       "note": "任务结束时没有此用例的实际结果；" + (run.get("reason") or run["status"]) if not result else ""})
-    return cases, manifest.get("sources", {}), notes
+    sources = {**manifest.get("sources", {}), "execution_environment": {
+        "base_url": manifest.get("config", {}).get("base_url"), "engine": manifest.get("engine", {}).get("adapter"),
+        "python": manifest.get("engine", {}).get("python")}}
+    return cases, sources, notes
 
 
 def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
@@ -57,6 +120,7 @@ def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
     try:
         manifest = native_run._frozen(run)
         sources = {key: manifest.get(key) for key in ("asset_id", "asset_version", "head", "asset", "frozen_files", "planning")}
+        sources["execution_environment"] = {"engine": run["engine"], "runtime_version": manifest.get("runtime", {}).get("version")}
     except (OSError, ValueError):
         sources = {}
         notes.append("原生冻结输入不可用；保留实际结果，不能据此宣称输入证据完整。")
@@ -67,8 +131,7 @@ def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
         notes.append("原生输入或引用证据未通过完整性检查；执行器保留结果仍展示，不能据此宣称业务已验证。")
     designed = _ai_definitions(manifest) if run["engine"] == "ai-eval" and manifest else {}
     cases = [{"definition": designed.get(row["case_id"], {"id": row["case_id"], "title": row["case_title"], "kind": "native",
-                              "engine": run["engine"], "assertions": row["detail"].get("assertions", []),
-                              "turns": row["detail"].get("turns", [])}),
+                              "engine": run["engine"], "native_asset": {key: sources.get(key) for key in ("asset_id", "asset_version", "head")}}),
               "result": row, "run_id": run["id"], "evidence_valid": evidence_valid} for row in results]
     observed = {row["case_id"] for row in results}
     cases.extend({"definition": definition, "result": None, "run_id": run["id"], "evidence_valid": False}
@@ -87,6 +150,8 @@ def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
 
 
 def _file_matches(file: Path, reference: dict) -> bool:
+    if "size" in reference and file.stat().st_size != reference["size"]:
+        return False
     with file.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest() == reference["sha256"]
 
@@ -100,13 +165,17 @@ def _native_evidence(run: dict, manifest: dict, outcome: dict, results: list[dic
             if not _file_matches(paths.local() / "native-inputs" / "objects" / reference["sha256"], reference):
                 return False
         for reference in outcome["evidence"]:
-            file = Path(reference["path"]).resolve()
+            if not isinstance(reference, dict):
+                return False
+            source = Path(reference["path"])
+            file = (source if source.is_absolute() else folder / source).resolve()
             if not file.is_relative_to(folder) or not _file_matches(file, reference):
                 return False
         originals = {str(case["id"]): case for case in outcome.get("cases", [])}
         for row in results:
             original = originals.get(row["case_id"])
-            if not original or row["detail"].get("input_hash") != run["input_hash"]:
+            if (not original or row["detail"].get("input_hash") != run["input_hash"]
+                    or row["detail"].get("evidence") != outcome["evidence"]):
                 return False
             if any(row["detail"].get(key) != value for key, value in original.items()):
                 return False
@@ -132,16 +201,22 @@ def _ai_definitions(manifest: dict) -> dict:
             turns = sample.get("turns", [sample])
             definitions[identity] = {"id": identity, "title": sample.get("title", sample.get("id", "AI 多轮对话")), "kind": "native",
                                      "turns": turns, "assertions": [{key: turn[key] for key in ("expected", "reference", "checks", "performance") if key in turn} for turn in turns],
-                                     "context": sample.get("context", {}), "prompt": spec.get("prompt", ""), "dataset": spec.get("dataset")}
+                                     "context": sample.get("context", {}), "prompt": spec.get("prompt", ""), "dataset": spec.get("dataset"),
+                                     "extensions": {"test_case_document": sample.get("test_case_document", {})}}
     return definitions
 
 
 def run_snapshot(run: dict) -> dict:
     results = _rows(run["id"])
     cases, sources, notes = _native(run, results) if run.get("family") == "native" else _replay(run, results)
+    labels = {"base_url": "被测地址", "engine": "任务引擎", "python": "Python", "runtime_version": "运行时版本"}
+    environment = [labels[key] + "：" + str(value) for key, value in sources.get("execution_environment", {}).items() if value]
+    for item in cases:
+        item["environment"] = environment
+        item["evidence_directory"] = str((paths.local() / "runs" / run["id"]).resolve())
     return {"schema": 1, "kind": "run", "task_id": run["id"], "project_id": run["project_id"], "project": _project(run["project_id"]),
             "title": "本次测试任务", "status": run["status"], "session_id": run.get("session_id", ""),
-            "run_ids": [run["id"]], "cases": cases, "results": results, "sources": sources, "notes": notes,
+            "run_ids": [run["id"]], "cases": cases, "results": results, "sources": sources, "notes": notes, "environment": environment,
             "metadata": {key: run.get(key) for key in ("id", "family", "engine", "trigger", "task_id", "created_at", "started_at",
                                                        "finished_at", "reason", "total", "done", "input_hash", "input_manifest")}}
 
