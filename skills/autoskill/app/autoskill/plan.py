@@ -16,7 +16,7 @@ from functools import wraps
 from pathlib import Path
 
 from . import execution_inputs, paths, projects
-from .locking import file_lock
+from .locking import file_lock, project_lock
 
 COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "用例标题", 32), ("type", "操作类型", 10),
            ("priority", "优先级", 8), ("preconditions", "前置条件", 24), ("steps", "操作步骤", 50), ("expected", "预期结果", 40),
@@ -46,13 +46,35 @@ description: 要执行的测试用例表（Excel）。执行、回放或汇报�
 
 
 @contextlib.contextmanager
+def use_folder(folder: str | Path):
+    """Select one explicit sheet for an adapter without changing shared environment variables."""
+    token = _selected_folder.set(Path(folder))
+    try:
+        yield
+    finally:
+        _selected_folder.reset(token)
+
+
+@contextlib.contextmanager
 def _sheet_lock():
     """Explicitly shared folders use the same stable lock even across different workspaces."""
+    project_id = _managed_project(_folder())
+    guard = project_lock(project_id) if project_id is not None else contextlib.nullcontext()
     try:
-        with file_lock(_folder() / ".autoskill-plan.lock"):
+        with file_lock(_folder() / ".autoskill-plan.lock"), guard:
             yield
     except PermissionError:
         raise ValueError(f"用例表正被其他程序打开（例如 Excel），关闭后重试：{_file()}") from None
+
+
+def _managed_project(folder: Path) -> str | None:
+    """Project exports share the lock of managed sheets while legacy sheets keep their own scope."""
+    try:
+        relative = folder.resolve().relative_to(paths.projects_dir().resolve())
+    except ValueError:
+        return None
+    parts = relative.parts
+    return parts[0] if len(parts) == 4 and parts[1:3] == ("testcases", "design-plans") and projects.ID.fullmatch(parts[0]) else None
 
 
 def _sheet_locked(operation):
@@ -147,6 +169,9 @@ def write(project_id: str, file: str) -> dict:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font
 
+    managed = _managed_project(_folder())
+    if managed is not None and managed != project_id:
+        raise ValueError("项目内设计表不能写入其他项目的用例")
     info = projects.get(project_id)
     try:
         items = json.loads(Path(file).read_text(encoding="utf-8-sig"))
@@ -210,6 +235,9 @@ def mark(case_id: str, status: str, note: str = "") -> dict:
 def link(case_id: str, project_id: str, replay_case: str, assertions: int) -> dict:
     """Remember which recorded case carries out a row; never fails the recording that has just been saved."""
     try:
+        managed = _managed_project(_folder())
+        if managed is not None and managed != project_id:
+            raise ValueError("项目内设计表不能关联其他项目的用例")
         with _sheet_lock():
             book, sheet, columns = _open()
             number = _find(sheet, columns, case_id)
@@ -235,7 +263,7 @@ def _current_cases(project_id: str) -> dict[str, dict]:
 
 def sync(quiet: bool = False, *, folder: str | Path | None = None) -> dict | None:
     """Use the queued task's sheet without mutating process-wide environment variables."""
-    token = _selected_folder.set(Path(folder) if folder is not None else None)
+    token = _selected_folder.set(Path(folder) if folder is not None else _selected_folder.get())
     try:
         return _sync(quiet)
     finally:
@@ -249,6 +277,9 @@ def _sync(quiet: bool) -> dict | None:
     try:
         with _sheet_lock():
             book, sheet, columns = _open()
+            metadata_file = _folder() / "design.json"
+            design = json.loads(metadata_file.read_bytes()) if metadata_file.is_file() else None
+            managed_project = _managed_project(_folder())
             latest: dict[str, dict] = {}
             cases: dict[str, dict] = {}
             updated = 0
@@ -256,10 +287,21 @@ def _sync(quiet: bool) -> dict | None:
                 project_id, _, replay_case = row["replay"].partition("/")
                 if not replay_case:
                     continue
+                if managed_project is not None and project_id != managed_project:
+                    _set_status(sheet, columns, number, "未执行", "关联属于其他项目，不能借用其执行结果")
+                    updated += 1
+                    continue
                 if project_id not in latest:
                     latest[project_id] = reporting.latest_results(project_id)
                     cases[project_id] = _current_cases(project_id)
                 result = latest[project_id].get(replay_case)
+                if design is not None:
+                    from . import case_plans
+
+                    evidence = case_plans._evidence(project_id, row, design.get("rows", {}).get(row["id"], {}), latest[project_id], cases[project_id])
+                    _set_status(sheet, columns, number, case_plans.STATUS[evidence["status"]], evidence["reason"])
+                    updated += 1
+                    continue
                 if result and result["status"] in STATUS:
                     case = cases[project_id].get(replay_case)
                     detail = json.loads(result["detail"])

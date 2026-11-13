@@ -155,6 +155,9 @@ def _definition_fields(case: dict) -> dict:
     elif kind == "api":
         steps = [str(case.get("method", "")) + " " + str(case.get("path", ""))]
         checks = [json.dumps(case.get("assertions", {}), ensure_ascii=False)]
+    elif kind == "scenario":
+        steps = case.get("steps", [])
+        checks = [case.get("expected", "")]
     else:
         steps = [str(turn.get("question", "")) for turn in case.get("turns", [])]
         checks = [json.dumps(case.get("assertions", []), ensure_ascii=False)]

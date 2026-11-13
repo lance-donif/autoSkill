@@ -11,6 +11,7 @@ const NAV = [
   ['native-assets', '原生资产', 'api'],
   ['conversations', '多轮对话', 'api'],
   ['workflows', '需求与工作流', 'link'],
+  ['case-plans', '设计用例表', 'table'],
   ['runs', '执行记录', 'runs'],
   ['schedules', '定时任务', 'clock'],
   ['data', '数据管理', 'folder'],
