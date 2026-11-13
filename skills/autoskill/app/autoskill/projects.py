@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import shutil
 import uuid
@@ -154,11 +155,15 @@ def update(project_id: str, **fields) -> dict:
         cfg["allowed_origins"] = sorted({cfg["base_url"], *origins})
 
     if fields.get("ignore_https_errors") is not None:
-        cfg["ignore_https_errors"] = bool(fields["ignore_https_errors"])
-    if fields.get("page_load_seconds") is not None:
-        cfg["page_load_seconds"] = max(10, min(600, int(fields["page_load_seconds"])))
-    if fields.get("timeout_seconds") is not None:
-        cfg["timeout_seconds"] = max(3, min(120, int(fields["timeout_seconds"])))
+        if type(fields["ignore_https_errors"]) is not bool:
+            raise ValueError("忽略 HTTPS 证书错误必须是布尔值")
+        cfg["ignore_https_errors"] = fields["ignore_https_errors"]
+    for key, label in (("page_load_seconds", "页面加载超时"), ("timeout_seconds", "操作超时")):
+        if fields.get(key) is not None:
+            value = fields[key]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError(label + "需要是大于零的秒数")
+            cfg[key] = value
     store.write(folder / "project.json", info)
     store.write(folder / "qa-config.json", cfg)
     store.sync_skills(folder)

@@ -1,6 +1,7 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
 import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
-import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm } from '../ui.js';
+import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
+import { runtimeFields, credentialControls } from '../project-settings.js';
 import { state, refreshShell } from '../shell.js';
 import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
@@ -259,25 +260,26 @@ async function projectSettings(projectId) {
   try { project = await api('/projects/' + projectId); } catch (error) { toast(error.message, { bad: true }); return; }
   const name = h('input', { class: 'input', value: project.name, id: 'ps-name' });
   const category = h('input', { class: 'input', value: project.category, id: 'ps-cat' });
+  const runtime = runtimeFields(project);
 
   const save = h('button', { class: 'btn primary' }, '保存');
   save.addEventListener('click', async () => {
     const done = await attempt(() => api('/projects/' + projectId, { method: 'PATCH', body: {
-      name: name.value, category: category.value,
+      name: name.value, category: category.value, ...runtime.read(),
     } }), save);
     if (done) { await refreshShell(); closeOverlay(); toast('已保存'); refresh(); }
   });
 
-  const secretRows = Object.entries(project.credentials || {}).map(([secret, value]) => {
-    const input = h('input', { class: 'input', type: 'text', value: value || '', placeholder: '还没有填写', autocomplete: 'off', 'aria-label': secret });
-    const button = h('button', { class: 'btn' }, '保存');
-    const row = h('div', { class: 'row' }, h('span', { class: 'mono', style: 'min-width:150px' }, secret), input, button);
-    button.addEventListener('click', async () => {
-      const done = await attempt(() => api('/secrets/' + secret, { method: 'PUT', body: { value: input.value } }), button);
-      if (done) { toast(`${secret} 已保存`); await refreshShell(); refresh(); }
-    });
-    return row;
-  });
+  const credentials = credentialControls(project, async () => { await refreshShell(); refresh(); });
+  const loginButton = (force) => {
+    const button = h('button', { class: 'btn', disabled: !project.login.ui_case && !project.login.api_case, onClick: async () => {
+      const run = await attempt(() => api(`/projects/${encodeURIComponent(projectId)}/login`, { method: 'POST', body: {
+        force, engine: preferredEngine(), headed: preferredHeaded(),
+      } }), button);
+      if (run) { closeOverlay(); go('runs/' + run.id); }
+    } }, icon('play'), force ? '强制重新登录' : '立即登录');
+    return button;
+  };
   const session = project.session;
   const forget = h('button', { class: 'btn' }, '清除登录态');
   forget.addEventListener('click', async () => {
@@ -290,15 +292,15 @@ async function projectSettings(projectId) {
     body: [
       h('div', { class: 'stack' }, h('h3', {}, '基本信息'),
         h('div', { class: 'field' }, h('label', { for: 'ps-name' }, '项目名称'), name),
-        h('div', { class: 'field' }, h('label', { for: 'ps-cat' }, '分类'), category)),
+        h('div', { class: 'field' }, h('label', { for: 'ps-cat' }, '分类'), category)), runtime.node,
       h('div', { class: 'stack' }, h('h3', {}, '登录'),
         h('p', { class: 'sub' }, project.login.ui_case || project.login.api_case
           ? `登录用例：${[project.login.ui_case, project.login.api_case].filter(Boolean).join('、')}。运行依赖登录的用例时会自动先登录，并在本机复用登录态。`
           : '还没有登录用例。让 AI 用 autoskill record start … --as-login 录制一次登录即可。'),
+        h('div', { class: 'row wrap' }, loginButton(false), loginButton(true)),
+        h('p', { class: 'hint' }, '登录异步执行，窗口设置沿用顶部回放偏好；执行记录保存进度和结果。'),
         session.saved && h('div', { class: 'row' }, h('span', { class: 'sub grow' }, `登录态保存于 ${fmtTime(session.saved_at)}（只保存在本机）`), forget)),
-      h('div', { class: 'stack' }, h('h3', {}, '凭据'),
-        secretRows.length ? secretRows : h('p', { class: 'sub' }, '这个项目的用例没有用到账号密码。'),
-        h('p', { class: 'hint sub' }, '明文保存在本机 workspace/.local/credentials.json，可以直接查看和修改；不随分享包带走。')),
+      credentials,
       h('details', { class: 'more' }, h('summary', {}, '导出'),
         h('div', { class: 'row wrap', style: 'margin-top:12px' },
           h('a', { class: 'btn', href: `/api/projects/${projectId}/report`, download: '' }, icon('table'), 'Excel 测试报告'),
