@@ -190,7 +190,10 @@ def _asset_commands(sub) -> None:
     run.add_argument("--wait", action="store_true", help="同步等待；需要宿主 AI 判定的对话不要使用，以免阻塞判定")
     run.add_argument("--host", help="宿主路由，默认继承本次运行绑定或 generic")
     run.add_argument("--host-session-id", help="可选的现有宿主会话；与浏览器 --session 不同")
-    native.add_parser("status").add_argument("run")
+    status = native.add_parser("status")
+    status.add_argument("run")
+    status.add_argument("--case", dest="case_id", help="读取单个用例完整结果；重复编号可用 result:<结果 id>")
+    _page_options(status)
     native.add_parser("cancel").add_argument("run")
     native.add_parser("dispatch", help="启动或恢复本机队列驱动；不重复创建运行")
 
@@ -610,22 +613,23 @@ def _dispatch_engine(args) -> tuple[dict, int]:
 
 
 def _dispatch_native(args) -> tuple[dict, int]:
-    from . import native_run
+    from . import native_reader, native_run
     from .server import jobs
 
     if args.action == "dispatch":
         return {"queue_dispatcher": jobs.ensure_worker()}, 0
     if args.action == "status":
-        return native_run.get(args.run), 0
+        return native_reader.status(args.run, limit=args.limit, cursor=args.cursor, all_items=args.all_items, case_id=args.case_id), 0
     if args.action == "cancel":
-        return native_run.cancel(args.run), 0
+        native_run.cancel(args.run)
+        return native_reader.status(args.run), 0
     run = native_run.enqueue(args.project, args.asset, head=args.head, parameters=_input_json(args) if args.file else None,
                              host=args.host or os.environ.get("AUTOSKILL_HOST") or "generic",
                              host_session_id=args.host_session_id if args.host_session_id is not None else os.environ.get("AUTOSKILL_HOST_SESSION_ID", ""))
     if not args.wait:
         return {**run, "queue_dispatcher": jobs.ensure_worker(), "note": "已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定"}, 0
     native_run.execute(run["id"])
-    final = native_run.get(run["id"])
+    final = native_reader.status(run["id"])
     return final, {"Pass": 0, "Fail": 1}.get(final["status"], 2)
 
 

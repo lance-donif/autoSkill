@@ -65,7 +65,9 @@ DSH 注册命令中的 `--runtime-context <绑定值>` 同时固定 workspace �
 | `asset import <项目> [--source <目录或文件>] [--engine <引擎>] [--name] [--file <定义.json>]` | 保存完整原生资产；JSON 可提供 source/engine/name、完整 argv 数组、相对资产根的 cwd、source_info、asset_id、expected_head |
 | `asset list <项目> [--limit] [--cursor] [--all]` / `asset show <项目> <资产> [--head]` | 分页资产摘要及固定版本详情 |
 | `native run <项目> <资产> [--head] [--file <参数.json>] [--host] [--host-session-id] [--wait]` | 默认异步入队并启动本机驱动，返回真实 run_id；宿主路由与目标业务参数分开，有宿主 judge 的运行不要加 --wait |
-| `native status <运行>` / `native cancel <运行>` / `native dispatch` | 查看结果、取消运行、恢复已有队列驱动；dispatch 不重建运行 |
+| `native status <运行> [--limit 50] [--cursor] [--all]` | 默认运行与业务结论摘要、分页用例引用及证据文件路径/hash；不会内联全部 outcome.cases、对话正文与事件 |
+| `native status <运行> --case <用例编号>` | 读取该例完整轮次、断言和判定；重复用例编号可用 `result:<结果 id>`；`--all` 显式读取旧全量结果 |
+| `native cancel <运行>` / `native dispatch` | 取消运行、恢复已有队列驱动；dispatch 不重建运行 |
 | `conversation import <项目> --source <curl或HAR文件> [--format curl\|har] [--name] [--expected-head]` | 保存原始捕获与候选会话请求；不会执行 cURL shell |
 | `conversation show <项目> <捕获> [--head]` / `conversation build <项目> <捕获> [--file <映射.json>] [--asset-id] [--name] [--expected-head]` | 查看原请求；按显式 mapping 生成多轮资产，未知字段需补映射 |
 | `judge next --idempotency-key <标识> [--owner] [--lease-seconds 300] [--run <运行>]` | 宿主领取待判定对话，不调用另一套模型 SDK |
@@ -75,6 +77,8 @@ DSH 注册命令中的 `--runtime-context <绑定值>` 同时固定 workspace �
 | `judge heartbeat <判定> --attempt-id <attempt> --lease-token <token> --idempotency-key <标识> [--lease-seconds]` / `judge release <判定> --attempt-id <attempt> --lease-token <token> --idempotency-key <标识>` | 续租或释放判定任务 |
 
 一条多轮样本是一个 case：`samples:[{id,title,turns:[{question,expected/reference,...}]}]`。轮次共享该样本独立会话，任一轮失败保留整例失败。先页面体验、捕获接口、验证多轮与独立预期，再设置 `load` 做并发；接口 200 不等于答案正确。宿主 judge 返回 `pass/fail/uncertain/needs_clarification`，动作 `finish/continue/reply`，不能编造资料替用户回答反问。
+
+原生结果的 `page.total` 是已有结果数，运行的 `total`/`outcome.metrics.planned_cases` 表示计划分母；尚未发现的数量用 `planned_unknown` 明示。`page.content_revision` 绑定整次读取，运行继续产生结果后旧 cursor 会报 `cursor_expired`。完整报告在 `report.path`，并附 SHA-256；命令和 HTTP 默认使用同一分页投影，旧 Python `native_run.get(run_id)` 保持全量兼容。
 
 ## 定时任务
 

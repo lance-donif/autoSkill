@@ -546,16 +546,17 @@ def _register_asset_routes(app: FastAPI) -> None:
         return {**run, "queue_dispatcher": jobs.ensure_worker()}
 
     @app.get("/api/native-runs/{run_id}")
-    def native_result(run_id: str):
-        from .. import native_run
+    def native_result(run_id: str, request: Request):
+        from .. import native_reader
 
-        return native_run.get(run_id)
+        return native_reader.status(run_id, case_id=request.query_params.get("case"), **_reader_options(request))
 
     @app.post("/api/native-runs/{run_id}/cancel")
     def cancel_native(run_id: str):
-        from .. import native_run
+        from .. import native_reader, native_run
 
-        return native_run.cancel(run_id)
+        native_run.cancel(run_id)
+        return native_reader.status(run_id)
 
 
 def _register_conversation_routes(app: FastAPI) -> None:
