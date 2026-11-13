@@ -24,7 +24,7 @@ def main():
         shutil.copytree(args.proof, evidence, dirs_exist_ok=True)
     if published:
         data = json.loads(source.read_text(encoding='utf-8'))
-        check_text = ('ZIP 结构、CRC、大小与 SHA-256 校验通过；CI 打包阶段未重复运行功能测试，本地功能实测另见专项报告'
+        check_text = ('ZIP 结构、CRC、全文件清单、大小与 SHA-256 校验通过；CI 打包阶段未重复运行功能测试，本地功能实测另见专项报告'
                       if data.get('verification', {}).get('mode') == 'archive-only'
                       else 'Windows CI verify、doctor --launch 和回归通过')
         shutil.copyfile(source, 'reports/offline-package.json')
@@ -42,7 +42,7 @@ def main():
                 lines[index] = f"| 源码 | `main` / `{tag}`（构建提交 `{data['built_from_commit']}`） | Skill 本体在 `skills/autoskill/`，DSH 插件在 `plugin/` |"
             if line.startswith('| Windows x64 完整离线包 |'):
                 lines[index] = (f"| Windows x64 完整离线包 | `{data['file']}`（Release {tag}） | {data['bytes']:,} 字节。"
-                                f"SHA-256：`{data['sha256']}`；{check_text}，DSH 智能体未验收 |")
+                                f"SHA-256：`{data['sha256']}`；{check_text}；Windows 真机功能本轮未验证 |")
         text = '\n'.join(lines) + '\n'
         if data.get('packages'):
             lines = text.splitlines()
@@ -53,7 +53,8 @@ def main():
                 lines.insert(position, f"| {label} | `{package['file']}`（Release {tag}） | {package['bytes']:,} 字节；SHA-256：`{package['sha256']}`；需要系统共享库，UOS 真机未验证 |")
             text = '\n'.join(lines) + '\n'
         note = (f"\n最新发布 {tag}：构建自 `{data['built_from_commit']}`，大小 {data['bytes']:,} 字节，SHA-256 `{data['sha256']}`。"
-                f'{check_text}；默认 DSH 沙箱智能体尚未验收，其他历史结果保持原有边界。\n')
+                f'{check_text}；流水线结果不代替源码功能或平台真机验收。'
+                'Linux DSH 源码实测另见 [真实验收](DSH真实验收.md)，Windows/UOS 真机功能本轮未验证，历史结果保留其原有边界。\n')
         text = text.replace('## 6. 未验证', note + '\n## 6. 未验证', 1)
         path.write_text(text, encoding='utf-8')
         # Only source-side audit documents change after packaging. Keep shipped plugin docs
@@ -63,7 +64,8 @@ def main():
             path = Path(filename)
             with path.open('a', encoding='utf-8') as stream:
                 stream.write(f"\n发布 {tag}：{check_text}，证据见 `reports/evidence/releases/{tag}/`。"
-                             '默认 DSH 沙箱智能体验收仍未完成。\n')
+                             '流水线结果不代替源码功能或平台真机验收；Linux DSH 源码实测另见 '
+                             '[真实验收](../reports/DSH真实验收.md)，Windows/UOS 真机功能本轮未验证。\n')
     Path('reports/release-status.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(report, ensure_ascii=False))
 
