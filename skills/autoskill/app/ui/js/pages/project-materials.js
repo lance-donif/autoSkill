@@ -100,7 +100,7 @@ function sharePanel(projectId) {
   const format = h('select', { class: 'select', id: 'share-format' },
     h('option', { value: 'project' }, '项目分享包'), h('option', { value: 'full' }, '完整程序包（包含已保存凭据和登录态）'));
   const include = h('input', { class: 'check', type: 'checkbox', id: 'share-secrets' });
-  const passphrase = h('input', { class: 'input', type: 'password', id: 'share-passphrase', placeholder: '携带项目凭据时填写加密口令', autocomplete: 'new-password' });
+  const passphrase = h('input', { class: 'input', type: 'text', id: 'share-passphrase', placeholder: '携带项目凭据时填写加密口令', autocomplete: 'off' });
   format.addEventListener('change', () => { include.disabled = format.value === 'full'; passphrase.disabled = format.value === 'full'; });
   const exported = h('div', { role: 'status' });
   const exportButton = h('button', { class: 'btn primary', disabled: !projectId, onClick: async () => {
@@ -111,7 +111,7 @@ function sharePanel(projectId) {
   } }, '生成分享包');
   const upload = h('input', { class: 'input', type: 'file', accept: '.zip,application/zip', id: 'share-upload' });
   const source = h('input', { class: 'input', id: 'share-source', placeholder: '例如：/home/me/autoskill-share.zip' });
-  const secret = h('input', { class: 'input', type: 'password', id: 'share-import-key', autocomplete: 'off', placeholder: '分享包有加密凭据时填写' });
+  const secret = h('input', { class: 'input', type: 'text', id: 'share-import-key', autocomplete: 'off', placeholder: '分享包有加密凭据时填写' });
   const overwrite = h('input', { class: 'check', type: 'checkbox', id: 'share-overwrite' });
   const imported = h('div', { role: 'status', 'aria-live': 'polite' });
   const importButton = h('button', { class: 'btn primary', onClick: async () => {
