@@ -7,11 +7,13 @@ memory; restarting the server restores the seed data.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import secrets
 import threading
 import time
+from functools import cache
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -40,20 +42,32 @@ SEED = (
 )
 
 
+@cache
+def conversation_handler():
+    """Keep the optional conversation fixture independent of the CRUD application."""
+    spec = importlib.util.spec_from_file_location("ticket_desk_conversation", WEB.parent / "conversation.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.handle
+
+
 class State:
     """All mutable demo data behind one lock."""
 
-    def __init__(self) -> None:
+    def __init__(self, title_max: int = 80) -> None:
         self.lock = threading.Lock()
         self.sessions: dict[str, str] = {}
         self.tickets: list[dict] = []
         self.next_id = 1001
         self.bug = False
+        self.title_max = title_max
         self.reset()
 
     def reset(self) -> None:
         with self.lock:
             self.sessions.clear()
+            self.conversations = {}
+            self.chat_config = {}
             self.bug = False
             self.tickets = []
             self.next_id = 1001
@@ -103,7 +117,7 @@ def public_user(username: str) -> dict:
     return {"id": user["id"], "username": username, "name": user["name"], "role": user["role"]}
 
 
-def validate_ticket(body: object) -> tuple[dict, dict]:
+def validate_ticket(body: object, title_max: int = 80) -> tuple[dict, dict]:
     """Return (clean values, field errors)."""
     errors: dict[str, str] = {}
     if not isinstance(body, dict):
@@ -112,7 +126,7 @@ def validate_ticket(body: object) -> tuple[dict, dict]:
     title = title.strip() if isinstance(title, str) else ""
     if not title:
         errors["title"] = "required"
-    elif len(title) > 80:
+    elif len(title) > title_max:
         errors["title"] = "too_long"
     priority = body.get("priority", "medium")
     if priority not in PRIORITIES:
@@ -181,6 +195,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_PATCH(self) -> None:
         self.route()
 
+    def do_DELETE(self) -> None:
+        self.route()
+
     def route(self) -> None:
         url = urlsplit(self.path)
         path = url.path
@@ -199,6 +216,16 @@ class Handler(BaseHTTPRequestHandler):
         state = self.state
         if path == "/api/health" and method in ("GET", "HEAD"):
             return self.send_json(200, {"status": "ok", "service": "ticket-desk"})
+        if path == "/api/config" and method in ("GET", "HEAD"):
+            return self.send_json(200, {"title_max": state.title_max})
+        if path == "/api/test/config" and method == "POST":
+            body = self.read_json()
+            value = body.get("title_max") if isinstance(body, dict) else None
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                return self.error(422, "VALIDATION", fields={"title_max": "invalid"})
+            with state.lock:
+                state.title_max = value
+            return self.send_json(200, {"title_max": state.title_max})
         if path == "/api/login" and method == "POST":
             body = self.read_json()
             body = body if isinstance(body, dict) else {}
@@ -229,6 +256,8 @@ class Handler(BaseHTTPRequestHandler):
             state.logout(self.token())
             expired = f"{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
             return self.send_json(200, {"ok": True}, {"Set-Cookie": expired})
+        if path.startswith("/api/chat") and conversation_handler()(self, path, query):
+            return None
         return self._ticket_api(path, query, user, method, state)
 
     def _ticket_api(self, path: str, query: dict, user: dict, method: str, state: State) -> None:
@@ -248,9 +277,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/tickets" and method == "POST":
             if user["role"] != "admin":
                 return self.error(403, "FORBIDDEN", message="当前角色不能新建工单")
-            values, errors = validate_ticket(self.read_json())
+            values, errors = validate_ticket(self.read_json(), state.title_max)
             if errors:
-                return self.error(422, "VALIDATION", fields=errors)
+                return self.error(422, "VALIDATION", fields=errors, title_max=state.title_max)
             with state.lock:
                 priority = "medium" if state.bug else values["priority"]
                 ticket = dict(state._add(values["title"], priority, values["description"], user["id"]))
@@ -263,6 +292,11 @@ class Handler(BaseHTTPRequestHandler):
                     return self.error(404, "NOT_FOUND")
                 if method in ("GET", "HEAD"):
                     return self.send_json(200, dict(ticket))
+                if method == "DELETE":
+                    if user["role"] != "admin":
+                        return self.error(403, "FORBIDDEN", message="当前角色不能删除工单")
+                    state.tickets.remove(ticket)
+                    return self.send_json(200, {"deleted": True, "id": ticket_id})
                 if method == "PATCH":
                     if user["role"] != "admin":
                         return self.error(403, "FORBIDDEN", message="当前角色不能修改工单")
@@ -299,9 +333,9 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = os.name != "nt"
 
 
-def make_server(port: int = 8790, host: str = "127.0.0.1") -> ThreadingHTTPServer:
+def make_server(port: int = 8790, host: str = "127.0.0.1", title_max: int = 80) -> ThreadingHTTPServer:
     """Create a server bound to loopback. Port 0 picks a free port (used by tests)."""
-    handler = type("TicketDeskHandler", (Handler,), {"state": State()})
+    handler = type("TicketDeskHandler", (Handler,), {"state": State(title_max)})
     server = Server((host, port), handler)
     server.daemon_threads = True
     return server
@@ -310,8 +344,9 @@ def make_server(port: int = 8790, host: str = "127.0.0.1") -> ThreadingHTTPServe
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8790)
+    parser.add_argument("--title-max", type=int, default=80)
     args = parser.parse_args()
-    server = make_server(args.port)
+    server = make_server(args.port, title_max=args.title_max)
     print(f"Ticket Desk: http://127.0.0.1:{server.server_port}", flush=True)
     try:
         server.serve_forever()

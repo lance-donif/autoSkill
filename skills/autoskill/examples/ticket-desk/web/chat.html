@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>合成数据问数对话</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="bar">
+    <strong>合成数据问数对话</strong>
+    <span class="spacer"></span>
+    <a href="/">登录 / 返回工单系统</a>
+  </header>
+  <main class="page">
+    <section class="card">
+      <h1>多轮问数示例</h1>
+      <p class="muted">所有订单均为固定合成数据；本页不调用模型或外部服务。先问“2025年销售额是多少？”，再问“北京呢？”。</p>
+      <p class="muted">请先在工单系统登录；本页沿用同一登录态。</p>
+      <p><a href="/api/chat/dataset" target="_blank" rel="noreferrer">查看独立参考数据</a></p>
+      <div class="toolbar">
+        <label for="chat-protocol">响应方式</label>
+        <select id="chat-protocol" data-testid="chat-protocol">
+          <option value="http">普通接口</option>
+          <option value="sse">流式接口</option>
+        </select>
+        <button id="chat-reset" type="button" class="ghost" data-testid="chat-reset">新建对话</button>
+      </div>
+      <div id="chat-messages" role="log" aria-live="polite" data-testid="chat-messages"></div>
+      <form id="chat-form">
+        <label for="chat-question">问题</label>
+        <input id="chat-question" name="question" data-testid="chat-question" placeholder="2025年销售额是多少？" autocomplete="off" required>
+        <p id="chat-error" role="alert" class="error" data-testid="chat-error" hidden></p>
+        <button id="chat-send" type="submit" data-testid="chat-send">发送</button>
+      </form>
+      <p id="chat-status" role="status" class="muted" data-testid="chat-status">尚未开始对话</p>
+    </section>
+  </main>
+  <script src="/chat.js"></script>
+</body>
+</html>
