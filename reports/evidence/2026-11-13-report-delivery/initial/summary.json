@@ -1,0 +1,97 @@
+{
+  "started_at": "2026-11-13T04:59:38.248379+00:00",
+  "head": "a531304e103a22bb74095e84373073eb684992b5",
+  "status": "",
+  "checks": [
+    {
+      "name": "ruff",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.016
+    },
+    {
+      "name": "biome",
+      "command": [
+        "npx",
+        "--yes",
+        "@biomejs/biome@2.6.7",
+        "lint"
+      ],
+      "exit": 0,
+      "seconds": 1.237
+    },
+    {
+      "name": "conventions",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_conventions.py",
+        "-v"
+      ],
+      "exit": 0,
+      "seconds": 0.228
+    },
+    {
+      "name": "node",
+      "command": [
+        "node",
+        "--test",
+        "tests/plugin.test.mjs",
+        "tests/host-adapter.test.mjs"
+      ],
+      "exit": 0,
+      "seconds": 0.222
+    },
+    {
+      "name": "python",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "exit": 1,
+      "seconds": 583.018
+    }
+  ],
+  "finished_at": "2026-11-13T05:09:22.981306+00:00",
+  "files_changed_during_checks": [],
+  "files_before_count": 695,
+  "files_after_count": 695,
+  "logs": {
+    "ruff.txt": {
+      "bytes": 109,
+      "sha256": "12785b7b8232e596156c06dd1a31d21e59661b9cde2d77a58a48858eff877be1"
+    },
+    "biome.txt": {
+      "bytes": 151,
+      "sha256": "9dae08765b9091faa9c2c8371321e2cf44ac96eb7b9cb1e777de1833fe272535"
+    },
+    "conventions.txt": {
+      "bytes": 1152,
+      "sha256": "c775eb173bf9d6f0c181647e56574597d0953f1b09e8227b27a61c83a1334759"
+    },
+    "node.txt": {
+      "bytes": 1826,
+      "sha256": "571c8f47f8027ee38f58c79f5499d65f24b783025b9385edcc94b1f296971575"
+    },
+    "python.txt": {
+      "bytes": 104568,
+      "sha256": "4f45048b2fd9d8bd01f386b694c15d8a4347dc436341d0fcf130618fdadca523"
+    }
+  }
+}

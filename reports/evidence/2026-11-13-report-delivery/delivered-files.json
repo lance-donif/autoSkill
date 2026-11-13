@@ -1,0 +1,22 @@
+{
+  "run_id": "run-19e0747f4b60",
+  "passed": 15,
+  "total": 15,
+  "files": [
+    {
+      "bytes": 31880,
+      "sha256": "3574e2a1569897a7280cac7a5b5e850171395a12c102a20c3b94a923b4f4b352",
+      "file": "测试用例-526683268c7de658.xlsx"
+    },
+    {
+      "bytes": 752,
+      "sha256": "b20e14664bc6cc9cc0f6f5a32d41e11f05788279a7403546e3ac810f23141d48",
+      "file": "测试汇总-最终15项.md"
+    },
+    {
+      "bytes": 61045,
+      "sha256": "f47cd62457337d456612ad46f08d0ed7336790fe326e6a0b647db1d75044709c",
+      "file": "autoSkill-run-19e0747f4b60.html"
+    }
+  ]
+}
