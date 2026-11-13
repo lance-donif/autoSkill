@@ -39,6 +39,7 @@ class DashboardDeletionTests(unittest.TestCase):
         self.mutations = []
         self.project_reads = 0
         self.case_errors = set()
+        self.case_warnings = {}
         self.run_errors = set()
         self.offline_runs = set()
         self.finish_deleting = set()
@@ -74,7 +75,7 @@ class DashboardDeletionTests(unittest.TestCase):
             else:
                 self.cases = [case for case in self.cases
                               if (case["project_id"], case["case_id"]) != (item["project_id"], item["case_id"])]
-                result["deleted"].append(item)
+                result["deleted"].append({**item, "warnings": self.case_warnings.get(item["case_id"], [])})
         return result
 
     def delete_runs(self, run_ids):
@@ -182,12 +183,14 @@ class DashboardDeletionTests(unittest.TestCase):
 
     def test_case_batch_partial_failure_clears_selection_and_retains_error(self):
         self.case_errors.add("TC-002")
+        self.case_warnings["TC-001"] = ["用例已删除；用例表被占用，派生展示刷新未完成"]
         self.open("cases?range=all")
         for case_id in ("TC-001", "TC-002", "TC-003"):
             self.page.get_by_role("checkbox", name="选择 " + case_id, exact=True).check()
         self.page.get_by_role("button", name="删除所选", exact=True).click()
         self.confirm("删除所选")
         expect(self.page.get_by_role("alert")).to_contain_text("TC-002：另一条用例仍引用此用例")
+        expect(self.page.locator("#view").get_by_role("status")).to_contain_text("TC-001：用例已删除；用例表被占用")
         expect(self.page.locator("#view .select-bar")).to_be_hidden()
         expect(self.page.get_by_role("checkbox", name="选择 TC-002", exact=True)).not_to_be_checked()
         self.assertEqual([case["case_id"] for case in self.cases], ["TC-002"])

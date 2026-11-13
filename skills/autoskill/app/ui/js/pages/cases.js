@@ -8,6 +8,7 @@ const selected = new Map();  // "project/case" -> {project_id, case_id}
 let kind = '';
 let query = '';
 let deletionErrors = [];
+let deletionWarnings = [];
 
 const keyOf = (item) => item.project_id + '/' + item.case_id;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'ui' ? '页面' : '接口');
@@ -165,6 +166,7 @@ async function deleteCases(items, button, { bulk, detail }) {
   if (!result) return;
   selected.clear();
   deletionErrors = result.errors || [];
+  deletionWarnings = (result.deleted || []).flatMap((item) => (item.warnings || []).map((message) => ({ ...item, message })));
   const count = (result.deleted || []).length;
   toast(`已删除 ${count} 条用例` + (deletionErrors.length ? `，${deletionErrors.length} 条未删除` : ''), { bad: deletionErrors.length > 0 });
   await refreshShell();
@@ -172,11 +174,14 @@ async function deleteCases(items, button, { bulk, detail }) {
 }
 
 function caseDeletionNotice() {
-  if (!deletionErrors.length) return null;
-  return h('div', { class: 'banner bad', role: 'alert' }, icon('warn'),
+  return [deletionWarnings.length > 0 && h('div', { class: 'banner info', role: 'status' }, icon('warn'),
+    h('div', { class: 'grow' }, h('b', {}, '用例已删除，部分关联展示尚未刷新'),
+      deletionWarnings.map((item) => h('p', {}, `${item.project_id} / ${item.case_id}：${item.message}`))),
+    h('button', { class: 'btn sm icon', 'aria-label': '关闭刷新提示', onClick: () => { deletionWarnings = []; refresh(); } }, icon('x'))),
+  deletionErrors.length > 0 && h('div', { class: 'banner bad', role: 'alert' }, icon('warn'),
     h('div', { class: 'grow' }, h('b', {}, '部分用例未删除'),
       deletionErrors.map((error) => h('p', {}, `${error.project_id || ''} / ${error.case_id || ''}：${error.message}`))),
-    h('button', { class: 'btn sm icon', 'aria-label': '关闭删除提示', onClick: () => { deletionErrors = []; refresh(); } }, icon('x')));
+    h('button', { class: 'btn sm icon', 'aria-label': '关闭删除提示', onClick: () => { deletionErrors = []; refresh(); } }, icon('x')))];
 }
 
 function newProject() {
