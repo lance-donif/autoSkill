@@ -21,6 +21,7 @@ from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
 from .load_testing import register as register_load_testing
 from .ui_assets import mount_ui
+from .workflows import register as register_workflows
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 # Windows may map .js to text/plain in the registry; browsers then refuse ES modules.
@@ -136,6 +137,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     register_data(app)
     register_case_folders(app)
     register_load_testing(app)
+    register_workflows(app)
     _register_unknown_route(app)
 
     app.state.ui_revision = mount_ui(app, paths.APP / "ui")

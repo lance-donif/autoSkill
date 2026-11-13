@@ -176,12 +176,24 @@ def _binding_only(before: dict, after: dict) -> bool:
     return without_locators(before) == without_locators(after)
 
 
+def _change_scope(selected: set, current: dict, scope: dict) -> None:
+    allowed = set(scope["case_ids"])
+    if selected - allowed:
+        raise WorkflowError("scope_conflict", "维护候选和回归绑定只能包含本次已选择的用例", case_ids=sorted(selected - allowed))
+    if allowed - selected:
+        raise WorkflowError("scope_incomplete", "维护回归必须覆盖全部已选择用例，不能将未处理的用例标记完成", case_ids=sorted(allowed - selected))
+    for identity in selected:
+        if digest(current.get(identity)) != scope["case_hashes"].get(identity):
+            raise WorkflowError("revision_conflict", "维护范围内的用例已变化，请重新分析后建立维护任务", case_id=identity)
+
+
 def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool) -> dict:
     import jsonschema
 
     from .replay import ir
 
     current = {case["id"]: case for case in projects.cases(project_id, active_only=False)}
+    change_scope = documents["definition.json"].get("extensions", {}).get("change_scope")
     previous = documents.get("materialization.json", {})
     candidates = _records(payload["cases"], "cases") if payload.get("cases") else []
     old_candidates = {case["id"]: case for case in previous.get("cases", [])}
@@ -216,9 +228,13 @@ def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool
             selected.add(identity)
     if any(case["id"] not in selected for case in candidates):
         raise WorkflowError("validation_error", "候选用例必须绑定到本工作流场景")
+    if change_scope:
+        _change_scope(selected, current, change_scope)
     materialized = {"origin": "maintain" if maintain else "materialize", "cases": candidates, "bindings": bindings, "case_ids": sorted(selected),
                     "case_hashes": {identity: digest(available[identity]) for identity in selected},
                     "base_case_hashes": {case["id"]: digest(current[case["id"]]) if case["id"] in current else None for case in candidates}}
+    if change_scope:
+        materialized["origin"] = "requirement_change"
     return {"materialization.json": materialized}
 
 

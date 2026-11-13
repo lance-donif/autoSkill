@@ -35,6 +35,7 @@ def _enqueue(flow: dict, task: dict) -> None:
     current = definitions.snapshot(flow)
     materialization = current["documents"]["materialization.json"]
     validation = current["documents"]["definition.json"]["validation"]
+    _requirement_catalog(flow, materialization["cases"])
     prepared = runner.prepare(flow["project_id"], materialization["case_ids"], engine=validation["engine"], trigger="workflow",
                               session_id=flow["id"], candidate_cases=materialization["cases"])
     manifest = execution_inputs.load(prepared)
@@ -100,6 +101,27 @@ def _result_summary(run: dict, materialization: dict) -> dict:
             "business_verified": verdicts == {"Pass"}, "performance_status": performance_status}
 
 
+def _requirement_catalog(flow: dict, candidates: list[dict]) -> None:
+    from .core import store
+
+    folder = projects.path(flow["project_id"])
+    requirements = store.read(folder / "analysis/requirements.json")
+    known = {item["id"] for item in requirements}
+    wanted = {identity for case in candidates for identity in case.get("requirement_ids", [])} - known
+    if not wanted:
+        return
+    if "REQ-RECORDED" in wanted:
+        requirements.append({"id": "REQ-RECORDED", "module": "录制", "title": "录制得到的回归场景", "source": "autoskill record"})
+        wanted.remove("REQ-RECORDED")
+    documents = definitions.snapshot(flow)["documents"]
+    declared = {item["id"]: item for item in documents.get("requirements.json", [])}
+    if wanted - declared.keys():
+        raise state.WorkflowError("validation_error", "候选用例关联的需求未在本工作流声明", requirement_ids=sorted(wanted - declared.keys()))
+    requirements.extend({"id": identity, "module": "需求工作流", "title": declared[identity]["text"],
+                         "source": "workflow:" + flow["id"] + ":" + flow["domain_head"]} for identity in sorted(wanted))
+    store.write(folder / "analysis/requirements.json", requirements)
+
+
 def _publish_cases(flow: dict, context: dict, summaries: list[dict]) -> str:
     candidates = context["materialization"]["cases"]
     if not candidates:
@@ -108,7 +130,7 @@ def _publish_cases(flow: dict, context: dict, summaries: list[dict]) -> str:
         return "conflict"
     if any(not summary["evidence_valid"] or any(row["business_status"] == "Unverified" for row in summary["results"]) for summary in summaries):
         return "unverified"
-    if context["materialization"].get("origin") == "maintain" and any(summary["conclusion"] != "satisfied" for summary in summaries):
+    if context["materialization"].get("origin") in ("maintain", "requirement_change") and any(summary["conclusion"] != "satisfied" for summary in summaries):
         return "rejected"
     existing = {case["id"]: case for case in projects.cases(flow["project_id"], active_only=False)}
     if all(state.digest(existing.get(case["id"])) == state.digest(case) for case in candidates):

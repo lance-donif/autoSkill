@@ -8,6 +8,7 @@ const PAGES = {
   dashboard: () => import('./pages/dashboard.js'),
   cases: () => import('./pages/cases.js'),
   'load-tests': () => import('./pages/load-tests.js'),
+  workflows: () => import('./pages/workflows.js'),
   runs: () => import('./pages/runs.js'),
   schedules: () => import('./pages/schedules.js'),
   data: () => import('./pages/data.js'),
