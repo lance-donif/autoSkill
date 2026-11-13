@@ -1,0 +1,74 @@
+{
+  "period_utc": [
+    "2026-11-12",
+    "2026-11-13"
+  ],
+  "review_baseline": "5c1770e75e38bef64558d10f880f52b86de594a1",
+  "tested_code_commit": "96f6d07",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "node": "24.22.1",
+    "display": false
+  },
+  "checks": {
+    "ruff": {
+      "issues": 0
+    },
+    "biome": {
+      "version": "2.6.7",
+      "files": 20,
+      "issues": 0
+    },
+    "conventions": {
+      "tests": 7,
+      "passed": 7
+    },
+    "plugin": {
+      "tests": 8,
+      "passed": 8
+    },
+    "python": {
+      "tests": 269,
+      "passed": 268,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 200.429
+    },
+    "captcha_research": {
+      "tests": 48,
+      "passed": 48
+    }
+  },
+  "baseline_python": {
+    "tests": 145,
+    "passed": 144,
+    "failures": 1
+  },
+  "known_failure": {
+    "test": "test_server.ApiGuardTests.test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run",
+    "expected": [
+      1,
+      0,
+      1
+    ],
+    "actual": [
+      0,
+      0,
+      0
+    ],
+    "existed_before_changes": true
+  },
+  "not_verified": [
+    "DSH agent end-to-end",
+    "Windows runtime",
+    "UOS ARM64 runtime",
+    "new release package",
+    "new workflow architecture implementation"
+  ],
+  "python_log": {
+    "path": "/workspace/autoSkill-release/review-fixes-20261112/python-tests-final.log",
+    "sha256": "61616c4e983dbdfb2a63e89bff36b8d5a27844531c67e6069cb21c8b19867bf7"
+  }
+}
