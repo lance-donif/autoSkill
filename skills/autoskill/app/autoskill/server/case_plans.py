@@ -28,6 +28,10 @@ def register(app: FastAPI) -> None:
     def link(project_id: str, case_id: str, request: Request, body: dict):
         return case_plans.link(project_id, case_id, body.get("replay_case_id", ""), session=_session(request), expected_revision=body.get("expected_revision"))
 
+    @app.post("/api/case-plans/{project_id}/rows/{case_id}/apply")
+    def apply_design(project_id: str, case_id: str, request: Request, body: dict):
+        return case_plans.apply_to_case(project_id, case_id, session=_session(request), expected_revision=body.get("expected_revision"))
+
     @app.post("/api/case-plans/{project_id}/import-cases")
     def import_cases(project_id: str, request: Request, body: dict):
         return case_plans.import_cases(project_id, body.get("case_ids"), session=_session(request), expected_revision=body.get("expected_revision"))

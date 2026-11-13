@@ -400,6 +400,8 @@ def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
                                              and outcome.get("category") == "assertion_failed")) and all(row.get("passed") is True for row in rows):
             business = "Pass"
     execution = "blocked" if outcome.get("execution_blocker") or outcome["status"] == "Blocked" else "completed"
+    if business == "Pass" and extensions.get("functional_design", {}).get("state") == "unmapped":
+        business = "Unverified"
     return {"verification": "verified" if business != "Unverified" else "unverified", "business_status": business,
             "business_verified": business == "Pass", "execution_status": execution,
             "performance_status": performance_status, "performance_assertions": performance}

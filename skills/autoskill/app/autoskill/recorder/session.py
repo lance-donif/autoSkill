@@ -698,6 +698,35 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
             "note": "已保存期望和现场结果；回放仍使用声明的期望"}
 
 
+def _plan_design(rec: dict, plan_case: str | None) -> str | None:
+    """Attach the actual design row before compilation and its frozen task report are produced."""
+    if not plan_case:
+        return None
+    from .. import execution_inputs, plan
+
+    try:
+        sheet = plan.show()
+        if sheet.get("project") and sheet["project"] != rec["project_id"]:
+            raise ValueError("用例设计表属于其他项目，未将其功能描述套用到本次录制")
+        row = next((item for item in sheet["cases"] if item["id"] == plan_case), None)
+        if row is None:
+            raise ValueError("设计表中未找到所选用例，录制仍保存，功能设计待补充")
+        document = {key: row[key] for key in ("preconditions", "steps", "expected", "module", "priority", "author", "remarks", "prefix", "requirement_ids") if row.get(key)}
+        document["description"] = row.get("description") or row["title"]
+        if row.get("business_path") or row.get("biz_path"):
+            document["business_path"] = row.get("business_path") or row["biz_path"]
+        elif row.get("module"):
+            document["business_path"] = [projects.meta(rec["project_id"])["name"], row["module"]]
+        document["source"] = {"kind": "case_plan", "file": sheet["excel"], "case_id": plan_case,
+                              "hash_scope": "功能字段、业务层级和来源引用；不含 design_sha256 自身",
+                              **({"upstream": row["source"]} if row.get("source") else {})}
+        document["source"]["design_sha256"] = execution_inputs.content_hash(document)
+        rec["test_case_document"] = document
+        return None
+    except (ValueError, OSError) as error:
+        return "功能设计未能关联：" + str(error)
+
+
 def stop(title: str, module: str = "", category: str = "", plan_case: str | None = None) -> dict:
     """Finish the recording: export traffic, close the browser, compile and save the cases."""
     from .. import conversation_capture, task_reports
@@ -708,6 +737,7 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
         raise RecordError("请用 --title 给这条用例起一个说明业务含义的名字")
     if not rec["steps"]:
         raise RecordError("还没有记录任何步骤；先用 autoskill browser 操作页面，或运行 autoskill record cancel 放弃")
+    design_note = _plan_design(rec, plan_case)
     har_file, state_file = recording_dir() / "recording.har", recording_dir() / "recording-state.json"
     har, state, captures = {"log": {"entries": []}}, None, None
     try:
@@ -734,6 +764,8 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
     _file().unlink(missing_ok=True)
     summary["project"] = rec["project_id"]
     summary["conversation_captures"] = captures
+    if design_note:
+        summary.setdefault("notes", []).append(design_note)
     if plan_case:  # this recording carried out a row of the case sheet: its replay result becomes that row's verdict
         from .. import plan
 

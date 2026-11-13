@@ -123,14 +123,17 @@ class TaskWorkbookTests(unittest.TestCase):
         self.assertIn('"3": 2', book["编号映射"].cell(2, 8).value)
         self.assertEqual(task_workbook_data._button_names("点击搜索；点击提交按钮。"), "点击【搜索】；点击【提交】。")
 
-    def test_explicit_machine_oracle_is_referenced_without_expected_prose(self):
+    def test_machine_oracle_stays_in_technical_evidence_when_functional_expected_prose_is_missing(self):
         case = definition()
         case.pop("expected")
         case["extensions"]["automation"] = {"start_url": "http://synthetic.local", "actions": [], "assertions": [{"assertion": "text", "expected": "已发布"}]}
-        _, rows, _ = self.render(snapshot([observation(case, "Fail")]))
-        self.assertIn("已发布", rows[0][6])
+        book, rows, _ = self.render(snapshot([observation(case, "Fail")]))
+        self.assertIn("待确认：有来源支持的预期结果", rows[0][6])
         self.assertNotIn("返回 0 条记录", rows[0][6])
-        self.assertNotIn("待确认：有来源支持的预期", rows[0][6])
+        self.assertNotIn("已发布", rows[0][6])
+        self.assertEqual(rows[0][9], "失败")
+        frozen = "\n".join(str(row[1]) for row in book["来源与冻结定义"].iter_rows(min_row=2, values_only=True))
+        self.assertIn("已发布", frozen)
 
     def test_definition_changes_get_distinct_mapping_and_unknown_stays_unknown(self):
         old = definition()

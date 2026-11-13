@@ -78,6 +78,7 @@ function cell(data, row, name, { updateSelection, historical }) {
       h('p', { class: 'sub' }, row.evidence.materialized_case_id ? `关联：${row.evidence.materialized_case_id}` : '设计草稿 · 未关联可执行用例'),
       !historical && h('div', { class: 'row wrap' }, h('button', { class: 'btn sm', onClick: () => editor(data, row) }, '编辑设计'),
         h('button', { class: 'btn sm', onClick: () => link(data, row) }, row.evidence.materialized_case_id ? '重新关联' : '关联用例'),
+        row.evidence.materialized_case_id && h('button', { class: 'btn sm', onClick: () => applyDesign(data, row) }, '应用设计到用例'),
         row.evidence.binding_current && h('button', { class: 'btn sm', onClick: () => run(data, [row.id]) }, '回放')));
   }
   if (name === 'trace') return h('div', {}, row.trace, row.requirement_ids.map((identity) => {
@@ -93,12 +94,15 @@ function cell(data, row, name, { updateSelection, historical }) {
 function editor(data, row = null) {
   const definitions = [
     ['id', '用例编号', false], ['title', '用例标题', false], ['module', '模块 / 业务路径', false], ['type', '操作类型', false], ['priority', '优先级', false],
-    ['description', '测试说明', true], ['preconditions', '前置条件', true], ['steps', '操作步骤', true], ['expected', '预期结果', true], ['author', '用例编制人', false], ['remarks', '设计备注', true],
+    ['description', '测试说明', true], ['preconditions', '前置条件', true], ['steps', '操作步骤', true], ['expected', '预期结果', true], ['source', '设计来源', true],
+    ['business_path', '业务层级（每行一级）', true], ['prefix', '功能编号前缀', false], ['author', '用例编制人', false], ['remarks', '设计备注', true],
   ];
   const values = new Map();
+  const structuredSource = h('input', { class: 'check', type: 'checkbox', checked: row?.source != null && typeof row.source === 'object', id: 'cp-source-json' });
   const fields = definitions.map(([name, label, multiline]) => {
     const value = row?.[name] ?? ({ id: 'PLAN-' + String(data.rows.length + 1).padStart(3, '0'), module: '未分组', priority: 'P1' }[name] || '');
-    const input = h(multiline ? 'textarea' : 'input', { class: 'input', id: 'cp-' + name, value, rows: multiline ? 4 : null,
+    const displayed = name === 'business_path' && Array.isArray(value) ? value.join('\n') : name === 'source' && typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+    const input = h(multiline ? 'textarea' : 'input', { class: 'input', id: 'cp-' + name, value: displayed, rows: multiline ? 4 : null,
       required: ['id', 'title'].includes(name), readOnly: name === 'id' && !!row });
     values.set(name, input);
     return field(label, input);
@@ -108,20 +112,27 @@ function editor(data, row = null) {
     h('input', { class: 'check', type: 'checkbox', checked: selectedRequirements.has(item.id), onChange: (event) => {
       if (event.target.checked) selectedRequirements.add(item.id); else selectedRequirements.delete(item.id);
     } }), h('span', {}, item.requirement_id + ' · ' + item.title))));
-  const form = h('form', { class: 'stack' }, fields, h('div', { class: 'field' }, h('b', {}, '需求关联'), requirements,
+  const form = h('form', { class: 'stack' }, fields, h('label', { class: 'row', htmlFor: 'cp-source-json' }, structuredSource, '来源为结构化 JSON（保留对象或数组）'),
+    h('div', { class: 'field' }, h('b', {}, '需求关联'), requirements,
     !data.requirements.length && h('p', { class: 'sub' }, '项目还没有已保存需求；可先在需求与工作流中拆分来源。')));
   const save = h('button', { class: 'btn primary' }, '保存设计');
   save.addEventListener('click', async () => {
     if (!form.reportValidity()) return;
     const definition = Object.fromEntries([...values].map(([name, input]) => [name, input.value]));
+    definition.business_path = definition.business_path.split('\n').filter((part) => part.trim());
+    if (!definition.business_path.length) definition.business_path = undefined;
     definition.requirement_ids = [...selectedRequirements];
+    if (structuredSource.checked) {
+      try { definition.source = JSON.parse(definition.source); }
+      catch { toast('结构化设计来源不是有效 JSON，原内容未覆盖', { bad: true }); return; }
+    }
     const result = await attempt(() => api(url(data.project.id, data.session, '/rows' + (row ? '/' + encodeURIComponent(row.id) : '')), {
       method: row ? 'PATCH' : 'POST', body: { row: definition, expected_revision: data.revision },
     }), save);
     if (result) { closeOverlay(); toast('设计已保存，原版本与执行证据保留'); refresh(); }
   });
   drawer({ title: row ? '编辑设计：' + row.id : '新建设计用例', wide: true,
-    subtitle: '这里编辑设计内容；实际结果、结论、执行人、环境和截图由真实执行证据生成。修改业务设计后需要重新关联并回放。',
+    subtitle: '按需求写真人操作与真实【按钮】、业务预期和来源；业务层级逐行原样保存。修改预期后须录制独立检查或通过需求维护更新断言并真实回归。',
     body: form, foot: [h('button', { class: 'btn', onClick: closeOverlay }, '取消'), save] });
 }
 
@@ -150,9 +161,9 @@ function link(data, row) {
     const result = await attempt(() => api(url(data.project.id, data.session, `/rows/${encodeURIComponent(row.id)}/link`), {
       method: 'POST', body: { replay_case_id: choice.value, expected_revision: data.revision },
     }), save);
-    if (result) { closeOverlay(); toast('已关联，请重新回放以验证本次设计'); refresh(); }
+    if (result) { closeOverlay(); toast('已关联；回放只证明既有断言，新功能预期仍需落实到独立检查'); refresh(); }
   });
-  drawer({ title: '关联设计与可执行用例', subtitle: '选择实现这条设计步骤与预期的已有用例。关联后需产生新的真实执行结果。',
+  drawer({ title: '关联设计与可执行用例', subtitle: '保留执行关联；仅重新关联不会证明旧断言覆盖新预期。按设计录制独立检查或通过需求维护更新断言后再回归。',
     body: field('可执行用例', choice), foot: [h('button', { class: 'btn', onClick: closeOverlay }, '取消'), save] });
 }
 
@@ -160,6 +171,13 @@ async function run(data, identities) {
   const result = await attempt(() => api(url(data.project.id, data.session, '/run'), { method: 'POST',
     body: { case_ids: identities, engine: preferredEngine(), headed: preferredHeaded() } }));
   if (result) go('runs/' + result.id);
+}
+
+async function applyDesign(data, row) {
+  const result = await attempt(() => api(url(data.project.id, data.session, `/rows/${encodeURIComponent(row.id)}/apply`), {
+    method: 'POST', body: { expected_revision: data.revision },
+  }));
+  if (result) { toast(`功能设计已保存为用例版本 ${result.case_revision}；既有断言的覆盖范围待核对，尚未确认业务通过`); refresh(); }
 }
 
 function history(data) {

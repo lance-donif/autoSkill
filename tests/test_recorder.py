@@ -154,7 +154,8 @@ class CompileTests(unittest.TestCase):
         traffic = {"log": {"entries": [entry("GET", "/learn.json", 200, catalogue, kind="xhr")]}}
         summary = compiler.build(self.pid, self.rec(), traffic, None, "静态数据")
         case = next(c for c in projects.cases(self.pid) if c["kind"] == "api")
-        self.assertEqual((summary["api_traffic"], case["extensions"]["traffic"], case["title"]), ("business", "business", "查询 /learn.json"))
+        self.assertEqual((summary["api_traffic"], case["extensions"]["traffic"], case["title"]), ("business", "business", "【待确认：接口功能目标】"))
+        self.assertEqual(case["extensions"]["technical_capture_label"], "查询 /learn.json")
         self.assertTrue(any("只校验了状态码和大致结构" in note for note in summary["notes"]))
 
     def test_summary_counts_every_recorded_step_and_assertion(self):

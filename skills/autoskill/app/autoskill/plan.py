@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import shutil
 import uuid
 from contextvars import ContextVar
@@ -21,6 +22,7 @@ from .locking import file_lock, project_lock
 COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "用例标题", 32), ("type", "操作类型", 10),
            ("priority", "优先级", 8), ("preconditions", "前置条件", 24), ("steps", "操作步骤", 50), ("expected", "预期结果", 40),
            ("status", "执行结果", 10), ("note", "备注", 40), ("replay", "回放用例", 22)]
+FUNCTIONAL_FIELDS = ("description", "author", "remarks", "source", "requirement_ids", "business_path", "prefix")
 ALIASES = {"编号": "id", "用例ID": "id", "模块": "module", "标题": "title", "用例名称": "title", "类型": "type", "步骤": "steps",
            "测试步骤": "steps", "期望结果": "expected", "结果": "status", "是否通过": "status"}
 STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞"}
@@ -32,7 +34,8 @@ description: 要执行的测试用例表（Excel）。执行、回放或汇报�
 ---
 # 测试用例表
 
-用例在本目录的 Excel 文件里（{file}），共 {count} 条{project}。
+用例在本目录的内部编辑表（{file}），共 {count} 条{project}。该 11 列表供命令读写，不作为用户交付 Excel。
+按上传 test-cases 规范生成的正式 14 列设计文档在 {delivery}；向用户提供正式文件，设计阶段执行结论为未执行。
 
 执行本目录的用例表时，把当前任务进程的 `AUTOSKILL_CASE_SKILL` 设置为本 `SKILL.md` 所在目录，确保读取的是这一份表。
 正在使用命名会话时，下面每条命令都继续使用相同的 `--session` 标识；不要切换到另一个任务的录制。以下示例省略了该全局前缀。
@@ -163,8 +166,59 @@ def _set_status(sheet, columns, number: int, status: str, note: str | None = Non
         sheet.cell(number, columns["note"], note).data_type = "s"
 
 
+def _delivery(project_id: str, info: dict, items: list[dict], folder: Path) -> str:
+    """Render the public design document separately from the compatible operational sheet."""
+    from . import reporting
+
+    cases = []
+    for number, item in enumerate(items, 1):
+        identity = item.get("id") or f"TC-{number:03d}"
+        document = {key: item[key] for key in ("description", "preconditions", "steps", "expected", "source", "business_path", "prefix", "author", "remarks") if item.get(key)}
+        document.setdefault("description", item["title"])
+        definition = {**item, "id": identity, "kind": "scenario", "module": item.get("module") or "未分组",
+                      "extensions": {"test_case_document": document}}
+        cases.append({"definition": definition, "result": None, "run_id": None, "evidence_valid": False})
+    identity = execution_inputs.content_hash(items)
+    destination = folder / "exports" / ("functional-design-" + identity[:16] + ".xlsx")
+    snapshot = {"schema": 1, "kind": "design", "task_id": "design-" + identity, "project_id": project_id,
+                "project": {"id": project_id, "name": info["name"], "base_url": info["base_url"]},
+                "title": "设计用例表", "status": "Design", "cases": cases, "results": [], "run_ids": [],
+                "sources": {"design_source_hash": identity}, "notes": ["设计文档不等于执行结果；真实录制及回归后另交付任务报告。"], "metadata": {}}
+    with project_lock(project_id):
+        reporting.write_task(snapshot, destination)
+    return str(destination)
+
+
+def _source_hash(row: dict) -> str:
+    return execution_inputs.content_hash({key: str(row.get(key, "") or "") for key, _, _ in COLUMNS[:8]})
+
+
+def _source_rows(rows: list[dict]) -> dict:
+    source_file = _folder() / "functional-design.json"
+    if not source_file.is_file():
+        return {}
+    source = json.loads(source_file.read_bytes())
+    metadata = _folder() / "design.json"
+    revision = execution_inputs.content_hash(json.loads(metadata.read_bytes())) if metadata.is_file() else None
+    if source.get("online_revision") != revision:
+        return {}
+    return {row["id"]: source["rows"][row["id"]]["document"] for row in rows
+            if source.get("rows", {}).get(row["id"], {}).get("row_hash") == _source_hash(row)}
+
+
+def source_metadata() -> dict:
+    """Return only source fields still bound to the operational workbook's exact business rows."""
+    if not (_folder() / "functional-design.json").is_file() or not _file().is_file():
+        return {}
+    book, sheet, columns = _open()
+    try:
+        return _source_rows([row for _, row in _rows(sheet, columns)])
+    finally:
+        book.close()
+
+
 @_sheet_locked
-def write(project_id: str, file: str) -> dict:
+def write(project_id: str, file: str, *, delivery: bool = True) -> dict:
     """Turn designed cases (a JSON array) into the Excel case sheet and its skill."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font
@@ -185,13 +239,15 @@ def write(project_id: str, file: str) -> dict:
     sheet = book.active
     sheet.title = "用例"
     sheet.append([label for _, label, _ in COLUMNS])
+    source_rows = {}
     for number, item in enumerate(items, 1):
         steps = item.get("steps", "")
         if isinstance(steps, list):
-            steps = "\n".join(f"{i}. {step}" for i, step in enumerate(steps, 1))
+            steps = "\n".join(step if re.match(r"^\d+\.\s", step) else f"{i}. {step}" for i, step in enumerate(steps, 1))
         row = {**item, "id": item.get("id") or f"TC-{number:03d}", "module": item.get("module") or "未分组", "steps": steps,
                "priority": item.get("priority") or "P1", "status": "未执行", "note": "", "replay": ""}
         sheet.append([str(row.get(key, "") or "") for key, _, _ in COLUMNS])
+        source_rows[str(row["id"])] = {"row_hash": _source_hash(row), "document": {key: item[key] for key in FUNCTIONAL_FIELDS if key in item}}
     for index, (_, _, width) in enumerate(COLUMNS, 1):
         sheet.column_dimensions[sheet.cell(1, index).column_letter].width = width
         sheet.cell(1, index).font = Font(bold=True)
@@ -205,17 +261,34 @@ def write(project_id: str, file: str) -> dict:
         meta.append(pair)
         meta.cell(meta.max_row, 2).data_type = "s"
     saved = _save(book)
-    (folder / "SKILL.md").write_text(SKILL_TEXT.format(file=Path(saved).name, count=len(items), project=f"，项目 {project_id}"), encoding="utf-8")
+    if delivery:
+        metadata = folder / "design.json"
+        revision = execution_inputs.content_hash(json.loads(metadata.read_bytes())) if metadata.is_file() else None
+        execution_inputs.write_json(folder / "functional-design.json", {"schema": 1, "online_revision": revision, "rows": source_rows})
+    public_file = _delivery(project_id, info, items, folder) if delivery else None
+    (folder / "SKILL.md").write_text(SKILL_TEXT.format(file=Path(saved).name, count=len(items), project=f"，项目 {project_id}",
+                                                     delivery=public_file or "在线设计用例表的「下载 14 列 Excel」"), encoding="utf-8")
     return {"skill": str(folder), "excel": saved, "cases": len(items), "project": project_id,
-            "next": "把 excel 的路径告诉用户；然后按 autoskill plan show 逐条执行，录制结束时加 --plan <用例编号>"}
+            "excel_role": "内部编辑表（11 列），非用户交付 Excel", "delivery_excel": public_file,
+            "next": "向用户提供 delivery_excel 正式 14 列设计文档；excel 仅供内部编辑。按 autoskill plan show 逐条执行，录制结束时加 --plan <用例编号>"}
 
 
 def show() -> dict:
     book, sheet, columns = _open()
     meta = book["信息"] if "信息" in book.sheetnames else None
     project = str(meta.cell(1, 2).value or "") if meta else ""
-    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None,
-            "cases": [row for _, row in _rows(sheet, columns)], "summary": _summary(sheet, columns)}
+    rows = [row for _, row in _rows(sheet, columns)]
+    metadata_file = _folder() / "design.json"
+    extra_rows = json.loads(metadata_file.read_bytes()).get("rows", {}) if metadata_file.is_file() else {}
+    for row in rows:
+        extra = extra_rows.get(row["id"], {})
+        row.update({key: extra[key] for key in FUNCTIONAL_FIELDS if key in extra})
+    sources = _source_rows(rows)
+    for row in rows:
+        row.update(sources.get(row["id"], {}))
+        if metadata_file.is_file() and project:
+            row.setdefault("business_path", [projects.meta(project)["name"], row.get("module") or "未分组"])
+    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None, "cases": rows, "summary": _summary(sheet, columns)}
 
 
 def _find(sheet, columns, case_id: str) -> int | None:
@@ -247,6 +320,10 @@ def link(case_id: str, project_id: str, replay_case: str, assertions: int) -> di
             if not assertions:
                 sheet.cell(number, columns["note"], "录制时没有写断言：只能证明动作可以完成")
             _save(book)
+            if managed is not None and (_folder() / "design.json").is_file():
+                from . import case_plans
+
+                case_plans.recorded_binding(project_id, case_id, replay_case, assertions)
     except ValueError as error:
         return {"error": str(error)}
     return {"case": case_id, "replay": f"{project_id}/{replay_case}", "next": "autoskill run 回放后，结果会写回用例表"}

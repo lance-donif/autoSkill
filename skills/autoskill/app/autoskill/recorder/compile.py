@@ -285,13 +285,14 @@ class Compiler:
         self._login_dependencies(entry, deps)
         rules = self._observed_rules(entry)
         verb = {"GET": "查询", "POST": "提交", "PUT": "修改", "PATCH": "修改", "DELETE": "删除"}.get(entry["method"], entry["method"])
-        title = f'{verb} {"/".join(segments)}' + (f'（返回 {entry["status"]}）' if entry["status"] >= 400 else "")
+        technical_label = f'{verb} {"/".join(segments)}' + (f'（返回 {entry["status"]}）' if entry["status"] >= 400 else "")
         if "json_equals" not in rules and not rules.get("schema", {}).get("required"):
             self.notes.append(f'{entry["method"]} {entry["path"]}：响应里没有适合自动断言的稳定字段，只校验了状态码和大致结构；需要更强的校验请人工补充')
-        case = builder.api_case(f"TC-API-{self.next_number:03d}", title,
+        case = builder.api_case(f"TC-API-{self.next_number:03d}", "【待确认：接口功能目标】",
                                 entry["method"], "/".join(segments), rules, module=module,
                                 headers=headers, params=params, json=body, form=form, depends_on=sorted(deps),
                                 traffic="business")
+        case["extensions"]["technical_capture_label"] = technical_label
         case["extensions"]["oracle"] = {"source": "observation", "verification": "unverified",
                                          "note": "规则来自录制响应，只能作为回归基线；业务预期需与需求或独立数据核对"}
         signature = self.signature(case)
@@ -352,7 +353,8 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     automation = {"start_url": rec["start_url"], "actions": actions, "assertions": checks}
     ui_case = builder.ui_case(ui_id, title, automation, module=module or ("登录" if rec.get("as_login") else ""),
                               category=category or ("登录" if rec.get("as_login") else ""), risk=ui_risk(actions),
-                              depends_on=[login_ui] if login_ui and login_ui != ui_id else None)
+                              depends_on=[login_ui] if login_ui and login_ui != ui_id else None,
+                              test_case_document=rec.get("test_case_document"))
     observations = [step["recording_result"] for step in rec["steps"] if "recording_result" in step]
     ui_case["extensions"]["verification"] = "verified" if any("assertion" in step for step in rec["steps"]) else "unverified"
     if observations:

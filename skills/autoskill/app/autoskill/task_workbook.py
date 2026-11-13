@@ -111,12 +111,14 @@ def render(book, snapshot: dict, append_cells, table, long_text: list) -> list[d
     sheet.print_title_rows = "1:1"
     mapping = [{"display": row["id"], "original": row["group"]["definition"]["id"], "version": row["group"]["definition_hash"],
                 "path": row["group"]["business_path"], "original_path": row["group"]["original_business_path"],
+                "folder_path": row["group"].get("folder_path", []),
                 "task": snapshot["task_id"], "runs": row["group"]["run_ids"],
                 "steps": {"编号所在表": "测试数据" if "/完整步骤" in row["steps"] else "功能测试用例", "对应关系": row["step_mapping"]},
                 "scope": "FT 仅在本报告快照内编号；原始标识和定义版本不变，跨任务以原始标识＋定义哈希关联。"} for row in rows]
     table(book, "编号映射", [("display", "本报告 FT 标识", 30), ("original", "原始用例标识", 28), ("version", "冻结定义 SHA256", 68),
                            ("path", "本报告业务路径", 60), ("original_path", "来源业务路径", 60), ("task", "任务标识", 30),
-                           ("runs", "关联运行", 60), ("steps", "原步骤号到展示步骤号", 40), ("scope", "编号范围", 65)], mapping, long_text)
+                           ("runs", "关联运行", 60), ("steps", "原步骤号到展示步骤号", 40), ("scope", "编号范围", 65),
+                           ("folder_path", "本次导出的文件夹组织路径", 65)], mapping, long_text)
     if data:
         fragments = [{"id": item["id"], "value": fragment, "part": part}
                      for item in data for part, fragment in enumerate(task_workbook_data.text_fragments(item["value"]), 1)]

@@ -94,12 +94,18 @@ class ChangeTests(unittest.TestCase):
         self.assertEqual(workflow_changes.maintain(self.flow, request, idempotency_key=key)["workflow_id"], identity)
         self.submit(identity, {"requirements": [{"id": "REQ-NEW", "text": "前20项优先级 medium", "source_ids": ["changed"]}]})
         expected = {"status": 200, "json_equals": {"/priority": "medium"}}
+        human_expected = "2. 业务优先级为 medium，其他规则保持不变。"
         self.submit(identity, {"scenarios": [{"id": "SC-NEW", "title": "核对修改规则", "requirement_ids": ["REQ-NEW"], "oracle_ids": ["O-NEW"]}],
-                               "oracles": [{"id": "O-NEW", "kind": "api", "requirement_ids": ["REQ-NEW"], "checks": expected}]})
+                               "oracles": [{"id": "O-NEW", "kind": "api", "requirement_ids": ["REQ-NEW"], "checks": expected, "functional_expected": human_expected}]})
         candidates = []
         for case in self.cases[:20]:
             candidate = copy.deepcopy(case)
             candidate.update(revision=2, assertions=expected, requirement_ids=["REQ-NEW"])
+            candidate["extensions"]["test_case_document"] = {
+                "description": "验证新需求下业务优先级为 medium", "preconditions": "查询服务已运行，当前测试身份有读取业务优先级的权限。",
+                "steps": ["1. 使用有查询权限的身份查询业务优先级。", "2. 核对返回的业务优先级。"], "expected": human_expected,
+                "source": {"workflow_id": identity, "source_ids": ["changed"], "requirement_ids": ["REQ-NEW"]},
+                "business_path": ["需求迭代", "业务规则", "优先级"], "author": "来源维护宿主（合成）"}
             candidates.append(candidate)
         self.submit(identity, {"cases": candidates, "bindings": {"SC-NEW": request["case_ids"]}})
         self.assertEqual(projects.case(self.project, "CASE-000")["assertions"]["json_equals"]["/priority"], "high")
@@ -108,6 +114,9 @@ class ChangeTests(unittest.TestCase):
         self.assertEqual(runner.execute(run["id"])["status"], "Pass")
         workflow.next_task(identity, idempotency_key=uuid.uuid4().hex)
         self.assertEqual(projects.case(self.project, "CASE-000")["assertions"]["json_equals"]["/priority"], "medium")
+        published = projects.case(self.project, "CASE-000")
+        self.assertEqual(published["steps"], candidates[0]["extensions"]["test_case_document"]["steps"])
+        self.assertEqual(published["extensions"]["functional_design"]["state"], "compiled_from_workflow_oracles")
         result = db.one("SELECT * FROM results WHERE run_id = ? AND case_id = 'CASE-000'", (run["id"],))
         self.assertTrue(execution_inputs.result_current(self.project, projects.case(self.project, "CASE-000"), result))
         self.assertEqual(len(projects.cases(self.project)), 100)
@@ -117,6 +126,47 @@ class ChangeTests(unittest.TestCase):
         previous = db.one("SELECT detail FROM results WHERE run_id = ?", (old_run["id"],))
         self.assertEqual(json.loads(previous["detail"])["business_status"], "Fail")
         self.assertEqual(db.one("SELECT status FROM runs WHERE id = ?", (old_run["id"],))["status"], "Fail")
+
+    def test_human_expected_without_changed_source_mapped_checks_stays_unverified(self):
+        original = projects.case(self.project, "CASE-000")
+        original["assertions"] = {"status": 200, "json_equals": {"/priority": "medium"}}
+        projects.save_cases(self.project, [original])
+        original = projects.case(self.project, "CASE-000")
+        candidate = copy.deepcopy(original)
+        candidate["extensions"]["test_case_document"] = {
+            "description": "验证管理员专属规则不会向普通身份公开", "preconditions": "当前身份为普通用户。",
+            "steps": ["1. 使用普通身份查询业务规则。", "2. 检查管理员规则的可见范围。"],
+            "expected": "2. 不应显示管理员规则。", "source": "合成权限需求：普通身份不能读取管理员规则。"}
+        documents = {"definition.json": {"id": "manual-design"}, "scenarios.json": [{"id": "SC", "oracle_ids": ["O"]}],
+                     "oracles.json": [{"id": "O", "kind": "api", "checks": candidate["assertions"],
+                                       "functional_expected": candidate["extensions"]["test_case_document"]["expected"]}]}
+        materialized = workflow_definition._materialize({"cases": [candidate], "bindings": {"SC": ["CASE-000"]}}, documents, self.project, False)
+        staged = materialized["materialization.json"]["cases"][0]
+        self.assertEqual(staged["extensions"]["functional_design"]["state"], "unmapped")
+        run = runner.create(self.project, ["CASE-000"], candidate_cases=[staged])
+        self.assertEqual(runner.execute(run["id"])["status"], "Pass")
+        result = json.loads(db.one("SELECT detail FROM results WHERE run_id = ?", (run["id"],))["detail"])
+        self.assertEqual(result["business_status"], "Unverified")
+        self.assertEqual(projects.case(self.project, "CASE-000"), original)
+
+    def test_source_backed_locator_maintenance_keeps_the_existing_human_title(self):
+        document = {"description": "验证审核员将草稿订单提交为待审核状态。", "preconditions": "审核员已登录，指定订单处于草稿状态。",
+                    "steps": ["1. 打开指定草稿订单，点击【提交审核】。"], "expected": "1. 订单状态变为“待审核”。",
+                    "source": {"kind": "synthetic_requirement", "text": "提交草稿订单后进入待审核状态。"}}
+        original = builder.ui_case("UI-MAINTAIN", "提交草稿订单审核", {
+            "start_url": "/draft", "actions": [{"action": "click", "selector": "#old-submit"}],
+            "assertions": [{"assertion": "text", "selector": "#state", "expected": "待审核"}]}, test_case_document=document)
+        projects.save_cases(self.project, [original])
+        candidate = copy.deepcopy(original)
+        candidate["extensions"]["automation"]["actions"][0]["selector"] = "#new-submit"
+        documents = {"definition.json": {"id": "locator-maintenance"}, "scenarios.json": [{"id": "SC", "oracle_ids": ["O"]}],
+                     "oracles.json": [{"id": "O", "kind": "ui", "checks": workflow_definition.oracle_of(original)}],
+                     "materialization.json": {"cases": [original], "bindings": {"SC": [original["id"]]}}}
+        materialized = workflow_definition._materialize({"cases": [candidate]}, documents, self.project, True)
+        staged = materialized["materialization.json"]["cases"][0]
+        self.assertEqual(staged["title"], original["title"])
+        self.assertEqual(staged["extensions"]["test_case_document"], document)
+        self.assertEqual(projects.case(self.project, original["id"]), original)
 
     def test_dependency_and_unmapped_are_explicit_and_stale_analysis_cannot_start(self):
         dependent = projects.case(self.project, "CASE-020")

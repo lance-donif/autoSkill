@@ -7,13 +7,13 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from . import data_refs, execution_inputs, task_report_data
-from .replay import ir
+from . import case_document, data_refs, execution_inputs, task_report_data
 
 STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行", "Unknown": "未知"}
 NUMBERED = re.compile(r"^(\d+)\.\s+(.+)$")
 CHAPTER = re.compile(r"^\s*(?:第[一二三四五六七八九十百\d]+[章节]\s*|\d+(?:\.\d+)*(?:[、.)）]\s*|\s+))")
 PENDING_FUNCTION = "【待确认：功能项】"
+PENDING_FACT = re.compile(r"【待(?:确认|补充)[^】]*】")
 
 
 def text(value) -> str:
@@ -65,8 +65,12 @@ def _paths(groups: list[dict], project: dict, display_paths: dict | None = None)
             declared = display_paths[group["definition"]["id"]]
             if not isinstance(declared, list) or not declared or not all(isinstance(part, str) and part for part in declared):
                 raise ValueError("报告文件夹路径格式无效")
-            group["business_path"] = list(declared)
-            group["gaps"] = ["按本次导出时冻结的文件夹完整路径分组；原始业务归属及定义哈希见编号映射。"]
+            group["folder_path"] = list(declared)
+            if not document(group["definition"]).get("business_path"):
+                group["business_path"] = list(declared)
+                group["gaps"] = ["按本次导出时冻结的文件夹完整路径分类；功能设计、原始业务归属及定义哈希见编号映射。"]
+            else:
+                group["gaps"].append("业务层级使用原功能设计；文件夹完整组织路径另见编号映射，不将组织标签冒认为业务功能。")
     roots = {group["business_path"][0] for group in groups}
     if len(roots) > 1:
         for group in groups:
@@ -88,6 +92,8 @@ def _prefixes(groups: list[dict]) -> dict[tuple, str]:
     requested = defaultdict(set)
     for group in groups:
         prefix = document(group["definition"]).get("prefix", "")
+        if group["business_path"][-1] in ("【本级用例】", "【项目根目录用例】"):
+            prefix = ""
         if isinstance(prefix, str) and re.fullmatch(r"[A-Z0-9]+", prefix):
             requested[tuple(group["business_path"])].add(prefix)
     counts = defaultdict(int)
@@ -111,17 +117,7 @@ def _button_names(value: str) -> str:
 
 
 def _steps(case: dict) -> list[str]:
-    if case.get("steps"):
-        return [text(step) for step in case["steps"]]
-    if case.get("turns"):
-        return ["发送问题：" + text(turn.get("question", "【待确认：该轮问题】")) for turn in case["turns"]]
-    automation = case.get("extensions", {}).get("automation", {})
-    if automation:
-        start = ["打开 " + automation["start_url"]] if automation.get("start_url") else []
-        return [*start, *[step.get("name") or ir.describe(step) for step in automation.get("actions", [])]] or ["检查页面中的声明断言。"]
-    if case.get("kind") == "api" and case.get("method") and case.get("path"):
-        return [str(case["method"]) + " " + str(case["path"])]
-    return ["【待确认：可执行的测试步骤】；原始定义或原生入口见「来源与冻结定义」。"]
+    return case_document.functional_steps(case)
 
 
 def _number_steps(original: list[str]) -> tuple[list[str], dict[int, int]]:
@@ -164,14 +160,8 @@ def _expected_parts(value: str) -> list[tuple[int | None, str]]:
 
 
 def _expected(case: dict, mapping: dict[int, int], last: int, gaps: list[str]) -> dict[int, str]:
-    if case.get("expected"):
-        parts = _expected_parts(text(case["expected"]))
-    elif case.get("turns"):
-        parts = [(number, text({key: turn[key] for key in ("expected", "reference", "checks", "performance") if key in turn})
-                  if any(key in turn for key in ("expected", "reference", "checks", "performance")) else "【待确认：该轮独立验收判据】")
-                 for number, turn in enumerate(case["turns"], 1)]
-    else:
-        parts = _declared_expected(case)
+    declared = case_document.functional_expected(case)
+    parts = _expected_parts(declared) if declared is not None else [(None, case_document.MISSING_EXPECTED)]
     expected = defaultdict(list)
     for old, original_value in parts:
         value = original_value
@@ -182,17 +172,6 @@ def _expected(case: dict, mapping: dict[int, int], last: int, gaps: list[str]) -
     if any("【待确认" in value for values in expected.values() for value in values):
         gaps.append("预期存在待确认项；结构校验不代表验收判据或业务覆盖已确认。")
     return {number: "；".join(values) for number, values in sorted(expected.items())}
-
-
-def _declared_expected(case: dict) -> list[tuple[int | None, str]]:
-    automation = case.get("extensions", {}).get("automation", {})
-    if automation:
-        checks = [step for step in [*automation.get("actions", []), *automation.get("assertions", [])] if step.get("assertion")]
-        if checks:
-            return [(None, "冻结定义中的声明断言：" + text(checks))]
-    if case.get("kind") == "api" and case.get("assertions"):
-        return [(None, "冻结定义中的接口断言：" + text(case["assertions"]))]
-    return [(None, "【待确认：有来源支持的预期结果】；实际响应和执行状态不能反推预期。")]
 
 
 def _numbered(values: dict[int, str], identity: str, field: str, data: list[dict]) -> str:
@@ -212,6 +191,7 @@ def _procedure(case: dict, identity: str, gaps: list[str], data: list[dict]) -> 
     expected = _expected(case, mapping, len(steps), gaps)
     step_text = _numbered(dict(enumerate(steps, 1)), identity, "步骤", data)
     expected_text = _numbered(expected, identity, "预期", data)
+    gaps.extend(PENDING_FACT.findall(step_text + "\n" + expected_text))
     if display_lines(step_text, 52) > 20 or display_lines(expected_text, 52) > 20:
         data.extend([{"id": identity + "/完整步骤", "value": step_text}, {"id": identity + "/完整预期", "value": expected_text}])
         gaps.append("完整操作链超过主表可读行高，原编号与对应关系保留在「测试数据」，没有删减步骤或预期。")
@@ -273,7 +253,9 @@ def _row(group: dict, identity: str, data: list[dict]) -> dict:
     author = metadata.get("author") or "【待确认：用例编制人】"
     if not metadata.get("author"):
         gaps.append(author)
-    preconditions = case.get("preconditions") or "【待确认：必要前置条件】"
+    preconditions = case_document.functional_preconditions(case)
+    description = case_document.functional_description(case)
+    gaps.extend(PENDING_FACT.findall(preconditions + "\n" + description))
     if not case.get("preconditions"):
         gaps.append(preconditions)
     verdict = STATUS[group["status"]]
@@ -288,7 +270,7 @@ def _row(group: dict, identity: str, data: list[dict]) -> dict:
     path = group["business_path"]
     environment = list(dict.fromkeys(value for item in group["items"] for value in item.get("environment", [])))
     return {"id": identity, "name": "-".join(CHAPTER.sub("", part).strip() for part in path), "trace": path[-1],
-            "description": case.get("title") or "【待确认：测试目标】", "preconditions": preconditions,
+            "description": description, "preconditions": preconditions,
             "steps": steps, "expected": expected,
             "author": author, "actual": _actual(group), "conclusion": verdict, "executor": metadata.get("executor", ""),
             "environment": "\n".join(environment), "remarks": "\n".join(dict.fromkeys(remarks)), "screenshots": _screenshots(group),

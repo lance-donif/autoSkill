@@ -81,7 +81,7 @@ export async function render(view) {
   replace(view,
     h('div', { class: 'page-head' },
       h('div', { class: 'grow' }, h('h1', {}, '项目与用例'),
-        h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。`)),
+        h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。按功能组织已有用例，可单条、批量回放或导出。`)),
       h('button', { class: 'btn', onClick: () => newProject() }, icon('plus'), '新建项目')),
     state.projects.length ? h('div', { class: 'toolbar' }, kinds, search) : null,
     caseDeletionNotice(), list, bar);

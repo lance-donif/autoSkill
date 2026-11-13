@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 
-from . import domain, paths, projects
+from . import case_document, domain, paths, projects
 from .core import store
 from .workflow_state import WorkflowError, digest, identifier
 
@@ -187,6 +188,48 @@ def _change_scope(selected: set, current: dict, scope: dict) -> None:
             raise WorkflowError("revision_conflict", "维护范围内的用例已变化，请重新分析后建立维护任务", case_id=identity)
 
 
+def _functional_candidates(candidates: list[dict], *, maintain: bool) -> list[dict]:
+    for case in candidates:
+        document = case_document.document(case)
+        if document:
+            case_document.apply(case, document)
+            if not maintain:
+                case["title"] = case_document.functional_description(case)
+    return candidates
+
+
+def _functional_mapping(case: dict, original: dict | None, expected: list[dict], scenarios: list[dict], definition: dict) -> None:
+    """An explicit host mapping and changed executable checks precede new functional verification."""
+    document = case_document.document(case)
+    if not document:
+        return
+    mapping = case["extensions"].get("functional_design", {})
+    changed_design = original is not None and case_document.document(original) != document
+    originally_unmapped = original is not None and original.get("extensions", {}).get("functional_design", {}).get("state") == "unmapped"
+    if not (changed_design or mapping.get("state") == "unmapped" or originally_unmapped or original is None):
+        return
+    matching = [oracle for oracle in expected if oracle["kind"] == case["kind"] and oracle["checks"] == oracle_of(case)
+                and oracle.get("functional_expected") == document.get("expected") and document.get("expected")]
+    changed_checks = original is None or oracle_of(original) != oracle_of(case)
+    complete = all(document.get(field) for field in ("description", "preconditions", "steps", "expected", "source")) and "【待确认" not in json.dumps(document, ensure_ascii=False)
+    if not matching or not changed_checks or not complete:
+        case["extensions"]["functional_design"] = {"state": "unmapped", "reason": "新功能预期尚未映射到来源驱动且实际更新的检查条件"}
+        return
+    case["extensions"]["functional_design"] = {
+        "state": "compiled_from_workflow_oracles", "workflow_id": definition["id"], "scenario_ids": [scenario["id"] for scenario in scenarios],
+        "oracle_ids": [oracle["id"] for oracle in matching], "functional_expected": document["expected"],
+        "scope": "宿主依据需求来源声明上述业务预期与检查的对应关系；执行通过仍需真实回归证据",
+    }
+
+
+def _functional_mappings(candidates: list[dict], current: dict, documents: dict, bindings: dict) -> None:
+    oracles = {oracle["id"]: oracle for oracle in documents["oracles.json"]}
+    for case in candidates:
+        scenarios = [scenario for scenario in documents["scenarios.json"] if case["id"] in bindings.get(scenario["id"], [])]
+        expected = [oracles[identity] for scenario in scenarios for identity in scenario["oracle_ids"]]
+        _functional_mapping(case, current.get(case["id"]), expected, scenarios, documents["definition.json"])
+
+
 def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool) -> dict:
     import jsonschema
 
@@ -195,7 +238,7 @@ def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool
     current = {case["id"]: case for case in projects.cases(project_id, active_only=False)}
     change_scope = documents["definition.json"].get("extensions", {}).get("change_scope")
     previous = documents.get("materialization.json", {})
-    candidates = _records(payload["cases"], "cases") if payload.get("cases") else []
+    candidates = _functional_candidates(_records(payload["cases"], "cases"), maintain=maintain) if payload.get("cases") else []
     old_candidates = {case["id"]: case for case in previous.get("cases", [])}
     for case in candidates:
         errors = list(jsonschema.Draft202012Validator(store.read(paths.SKILL / "references/case.schema.json")).iter_errors(case))
@@ -230,6 +273,7 @@ def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool
         raise WorkflowError("validation_error", "候选用例必须绑定到本工作流场景")
     if change_scope:
         _change_scope(selected, current, change_scope)
+    _functional_mappings(candidates, current, documents, bindings)
     materialized = {"origin": "maintain" if maintain else "materialize", "cases": candidates, "bindings": bindings, "case_ids": sorted(selected),
                     "case_hashes": {identity: digest(available[identity]) for identity in selected},
                     "base_case_hashes": {case["id"]: digest(current[case["id"]]) if case["id"] in current else None for case in candidates}}
@@ -278,4 +322,8 @@ def instructions(phase: str) -> dict:
         "investigate": {"resolution": "incomplete", "observation_operation_ids": [], "note": "先取得真实 check 收据；observed 需匹配原 postcondition，否则保留 incomplete"},
     }
     key = {"completion": "design", "maintain": "materialize"}.get(phase, phase)
-    return {"example": examples.get(key, {}), "rule": "预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。"}
+    return {"example": examples.get(key, {}),
+            "functional_design_fields": ["description", "preconditions", "steps", "expected", "source", "business_path", "author", "remarks"],
+            "functional_oracle_mapping": "新功能预期用 oracle.functional_expected 原文声明覆盖范围，并实际更新检查；旧检查沿用不等于新预期已验证。宿主应依据来源逐项审阅，再运行真实回归。",
+            "rule": "预期来自需求，保留真实失败；候选先暂存和验证。UI/API 用例自身保存真人功能步骤和真实【按钮】、必要前置条件、可观察预期及来源，"
+                    "放入 extensions.test_case_document 并同步描述字段；自动化 IR、请求和断言保留为独立执行定义，缺少设计依据时标记待确认，不用 GET 地址冒充功能操作。"}

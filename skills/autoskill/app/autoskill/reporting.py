@@ -80,8 +80,8 @@ def build(project_id: str, out: str | None = None) -> dict:
 
 
 def _build(project_id: str, out: str | None = None) -> dict:
-    from openpyxl import Workbook
-    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl import load_workbook
+    from openpyxl.styles import Font
 
     info = projects.get(project_id)
     rows = _rows(project_id)
@@ -91,27 +91,9 @@ def _build(project_id: str, out: str | None = None) -> dict:
     counts = {key: sum(r["status"] == key for r in rows) for key in ("Pass", "Fail", "Blocked", None)}
     judged = counts["Pass"] + counts["Fail"]
 
-    book = Workbook()
-    sheet = book.active
-    sheet.title = "用例与结果"
-    sheet.append([label for _, label, _ in COLUMNS])
-    for row in rows:
-        sheet.append([_text(row[key]) if key != "ms" else row[key] for key, _, _ in COLUMNS])
-    head_fill = PatternFill("solid", fgColor="1C5CAB")
-    for index, (_key, _, width) in enumerate(COLUMNS, 1):
-        cell = sheet.cell(1, index)
-        cell.font, cell.fill = Font(color="FFFFFF", bold=True), head_fill
-        cell.alignment = Alignment(vertical="center")
-        sheet.column_dimensions[cell.column_letter].width = width
-    status_col = [key for key, _, _ in COLUMNS].index("status_text") + 1
-    for line, row in enumerate(rows, 2):
-        for cell in sheet[line]:
-            cell.alignment = Alignment(vertical="top", wrap_text=True)
-            if isinstance(cell.value, str):
-                cell.data_type = "s"  # user content is always text, never a formula
-        sheet.cell(line, status_col).fill = PatternFill("solid", fgColor=FILL[row["status"]])
-    sheet.freeze_panes = "E2"
-    sheet.auto_filter.ref = sheet.dimensions
+    functional = export_cases(project_id, [case["id"] for case in projects.cases(project_id)])
+    exported = Path(functional["excel"])
+    book = load_workbook(exported)
 
     overview = book.create_sheet("概览")
     lines = [("项目", info["name"]), ("被测地址", info["base_url"]),
@@ -123,12 +105,18 @@ def _build(project_id: str, out: str | None = None) -> dict:
         overview.append([label, value])
         if isinstance(value, str):
             overview.cell(overview.max_row, 2).data_type = "s"
+        for cell in overview[overview.max_row]:
+            cell.font = Font(name="宋体", size=11)
     overview.column_dimensions["A"].width, overview.column_dimensions["B"].width = 14, 70
     for cell in overview["A"]:
-        cell.font = Font(bold=True)
+        cell.font = Font(name="宋体", size=11, bold=True)
 
     xlsx = folder / f"{project_id}-测试报告-{stamp}.xlsx"
-    book.save(xlsx)
+    try:
+        book.save(xlsx)
+    finally:
+        book.close()
+        exported.unlink(missing_ok=True)
 
     def cell(text) -> str:
         return str(text).replace("|", "\\|").replace("\n", " ")
@@ -142,7 +130,8 @@ def _build(project_id: str, out: str | None = None) -> dict:
     markdown = folder / f"{project_id}-测试报告-{stamp}.md"
     markdown.write_text("\n".join(md) + "\n", encoding="utf-8")
     return {"excel": str(xlsx), "markdown": str(markdown), "cases": len(rows), "passed": counts["Pass"], "failed": counts["Fail"],
-            "blocked": counts["Blocked"], "not_run": counts[None], "pass_rate": round(counts["Pass"] / judged, 4) if judged else None}
+            "blocked": counts["Blocked"], "not_run": counts[None], "pass_rate": round(counts["Pass"] / judged, 4) if judged else None,
+            "template_id": task_workbook.TEMPLATE_ID, "validation": functional["validation"]}
 
 
 def _definition_fields(case: dict) -> dict:

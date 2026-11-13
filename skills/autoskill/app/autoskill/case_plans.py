@@ -9,10 +9,10 @@ import shutil
 import uuid
 from pathlib import Path
 
-from . import db, domain, execution_inputs, paths, plan, projects, reporting, runner, task_context, task_workbook
+from . import case_document, db, domain, execution_inputs, paths, plan, projects, reporting, runner, task_context, task_workbook
 from .locking import project_lock
 
-EDITABLE = {"id", "module", "title", "type", "priority", "preconditions", "steps", "expected", "description", "author", "remarks", "requirement_ids"}
+EDITABLE = {"id", "module", "title", "type", "priority", "preconditions", "steps", "expected", "description", "author", "remarks", "requirement_ids", "source", "business_path", "prefix"}
 BUSINESS = ("id", "module", "title", "type", "preconditions", "steps", "expected", "description", "requirement_ids")
 STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行"}
 
@@ -33,7 +33,10 @@ def _selected(project_id: str, session: str):
 
 def _metadata(folder: Path) -> dict:
     file = folder / "design.json"
-    return json.loads(file.read_bytes()) if file.is_file() else {"version": 0, "rows": {}}
+    meta = json.loads(file.read_bytes()) if file.is_file() else {"version": 0, "rows": {}}
+    for identity, source in plan.source_metadata().items():
+        meta["rows"].setdefault(identity, {}).update(source)
+    return meta
 
 
 def _revision(folder: Path, meta: dict) -> str:
@@ -55,7 +58,13 @@ def requirements(project_id: str) -> list[dict]:
 
 
 def _design(row: dict, extra: dict) -> dict:
-    return {key: copy.deepcopy(extra.get(key, row.get(key, ""))) for key in BUSINESS}
+    value = {key: copy.deepcopy(extra.get(key, row.get(key, ""))) for key in BUSINESS}
+    value["requirement_ids"] = extra.get("requirement_ids", row.get("requirement_ids")) or []
+    if extra.get("source"):
+        value["source"] = copy.deepcopy(extra["source"])
+    if extra.get("business_path"):
+        value["business_path"] = copy.deepcopy(extra["business_path"])
+    return value
 
 
 def _history(folder: Path) -> list[dict]:
@@ -103,11 +112,15 @@ def _evidence(project_id: str, row: dict, extra: dict, latest: dict, current: di
         return {**value, "reason": "关联用例的执行输入或证据已变化，需重新回放"}
     detail = json.loads(result["detail"])
     business = detail.get("business_status", "Unverified")
-    status = result["status"] if result["status"] != "Pass" or business == "Pass" else "Unverified"
+    mapped = binding.get("design_mapped", False)
+    status = result["status"] if result["status"] != "Pass" or (business == "Pass" and mapped) else "Unverified"
+    reason = result.get("reason", "")
+    if status == "Unverified" and (not mapped or case.get("extensions", {}).get("functional_design", {}).get("state") == "unmapped"):
+        reason = "已有断言未证明覆盖本次功能预期；请按设计重新录制独立检查，或提交来源驱动的新候选断言后回归"
     return {**value, "status": status, "actual": result.get("actual", "") or result.get("reason", ""),
             "executor": "autoSkill / " + result["engine"], "environment": projects.config(project_id)["base_url"],
             "screenshots": [f"/api/runs/{result['run_id']}/files/{name}" for name in detail.get("screenshots", [])],
-            "reason": result.get("reason", ""), "run_id": result["run_id"], "result": {**result, "detail": detail}, "current": True}
+            "reason": reason, "run_id": result["run_id"], "result": {**result, "detail": detail}, "current": True}
 
 
 def _view(project_id: str, session: str, folder: Path) -> dict:
@@ -123,9 +136,10 @@ def _view(project_id: str, session: str, folder: Path) -> dict:
     for item in shown["cases"]:
         extra = meta["rows"].get(item["id"], {})
         evidence = _evidence(project_id, item, extra, latest, current)
-        business_path = [project["name"], *[part.strip() for part in item.get("module", "未分组").split("/") if part.strip()]]
+        business_path = item.get("business_path") or [project["name"], item.get("module") or "未分组"]
         rows.append({**item, "description": extra.get("description", item["title"]), "author": extra.get("author", ""),
                      "requirement_ids": extra.get("requirement_ids", []), "remarks": extra.get("remarks", ""),
+                     "source": extra.get("source", ""), "prefix": extra.get("prefix", ""),
                      "name": "-".join(business_path), "trace": business_path[-1], "business_path": business_path,
                      "status": evidence["status"], "conclusion": STATUS.get(evidence["status"], evidence["status"]),
                      "actual": evidence["actual"], "executor": evidence["executor"], "environment": evidence["environment"],
@@ -171,8 +185,13 @@ def _validate(project_id: str, row: dict, *, update: bool = False) -> dict:
         raise ValueError("设计需要非空用例编号和标题")
     if "title" in row and (not isinstance(row["title"], str) or not row["title"].strip()):
         raise ValueError("用例标题不能为空")
-    if any(not isinstance(value, str) for key, value in row.items() if key != "requirement_ids"):
+    if any(not isinstance(value, str) for key, value in row.items() if key not in ("requirement_ids", "source", "business_path")):
         raise ValueError("设计字段需要为文字")
+    if "source" in row and not isinstance(row["source"], (str, dict, list)):
+        raise ValueError("设计来源需要为文字、JSON 对象或数组")
+    if "business_path" in row and (not isinstance(row["business_path"], list) or not row["business_path"]
+                                   or not all(isinstance(value, str) and value.strip() for value in row["business_path"])):
+        raise ValueError("业务层级需要是非空文字数组；保留实际层级，不补造中间分组")
     known = {item["id"] for item in requirements(project_id)}
     if "requirement_ids" in row and (not isinstance(row["requirement_ids"], list) or not all(isinstance(value, str) and value in known for value in row["requirement_ids"])):
         raise ValueError("需求关联必须选择当前项目已存在的需求")
@@ -184,7 +203,7 @@ def _book(project_id: str, folder: Path, first: dict):
         source = folder / (".input-" + uuid.uuid4().hex + ".json")
         source.write_text(json.dumps([first], ensure_ascii=False), encoding="utf-8")
         try:
-            plan.write(project_id, str(source))
+            plan.write(project_id, str(source), delivery=False)
         finally:
             source.unlink(missing_ok=True)
     return plan._open()
@@ -212,7 +231,9 @@ def save(project_id: str, row: dict, *, session: str = "", expected_revision: st
         before_hash = execution_inputs.content_hash(_design(before, meta["rows"].get(identity, {})))
         _write_definition(sheet, columns, number, {"id": identity, **row})
         extra = meta["rows"].setdefault(identity, {})
-        extra.update({key: row[key] for key in ("description", "author", "remarks", "requirement_ids") if key in row})
+        extra.update({key: row[key] for key in ("description", "author", "remarks", "requirement_ids", "source", "business_path", "prefix") if key in row})
+        if "module" in row and row["module"] != before.get("module") and "business_path" not in row:
+            extra.pop("business_path", None)
         after = next(item for index, item in plan._rows(sheet, columns) if index == number)
         if before_hash != execution_inputs.content_hash(_design(after, extra)):
             plan._set_status(sheet, columns, number, "未执行", "设计已变化；原执行结果保留在历史版本，需重新关联并回放")
@@ -245,7 +266,8 @@ def link(project_id: str, case_id: str, replay_case_id: str, *, session: str = "
         row = dict(next(row for index, row in plan._rows(sheet, columns) if index == number))
         sheet.cell(number, columns["replay"], project_id + "/" + replay_case_id).data_type = "s"
         extra = meta["rows"].setdefault(case_id, {})
-        extra["binding"] = {"case_hash": execution_inputs.content_hash(current), "design_hash": execution_inputs.content_hash(_design(row, extra)), "execution_after": db.now()}
+        extra["binding"] = {"case_hash": execution_inputs.content_hash(current), "design_hash": execution_inputs.content_hash(_design(row, extra)),
+                            "execution_after": db.now(), "design_mapped": False}
         meta["version"] += 1
         plan._save(book)
         book.close()
@@ -263,15 +285,22 @@ def import_cases(project_id: str, case_ids: list[str], *, session: str = "", exp
         defined = {row["id"] for row in plan.show()["cases"]} if plan._file().is_file() else set()
         if defined.intersection(case_ids):
             raise ValueError("设计中已有同编号用例；请编辑它并保留原历史")
-        rows = [_imported(case) for case in cases]
+        rows = [_imported(case, projects.get(project_id)["name"]) for case in cases]
         book, sheet, columns = _book(project_id, folder, rows[0])
         for number, row in enumerate(rows):
             index = plan._find(sheet, columns, row["id"]) if number == 0 else None
             index = index or sheet.max_row + 1
             _write_definition(sheet, columns, index, row)
             sheet.cell(index, columns["replay"], project_id + "/" + row["id"]).data_type = "s"
-            extra = {"description": row["title"], "requirement_ids": [], "author": "", "remarks": "从已有可执行用例导入；执行证据按当前版本核验。"}
-            extra["binding"] = {"case_hash": execution_inputs.content_hash(cases[number]), "design_hash": execution_inputs.content_hash(_design(row, extra))}
+            document = cases[number].get("extensions", {}).get("test_case_document", {})
+            known = {item["id"] for item in requirements(project_id)}
+            extra = {"description": row["description"], "requirement_ids": ["legacy/" + identity for identity in cases[number].get("requirement_ids", [])
+                                                                           if "legacy/" + identity in known],
+                     "author": document.get("author", ""), "remarks": document.get("remarks", ""), "source": row["source"]}
+            extra.update({key: copy.deepcopy(document[key]) for key in ("business_path", "prefix") if document.get(key)})
+            extra["binding"] = {"case_hash": execution_inputs.content_hash(cases[number]), "design_hash": execution_inputs.content_hash(_design(row, extra)),
+                                "design_mapped": _complete_document(document)
+                                and cases[number].get("extensions", {}).get("functional_design", {}).get("state") != "unmapped"}
             meta["rows"][row["id"]] = extra
         meta["version"] += 1
         plan._save(book)
@@ -302,10 +331,94 @@ def adopt(project_id: str, *, session: str = "", expected_revision: str | None, 
         return _view(project_id, session, folder)
 
 
-def _imported(case: dict) -> dict:
-    return {"id": case["id"], "title": case["title"], "module": case.get("module", "未分组"), "type": "页面" if case["kind"] == "ui" else "接口",
-            "priority": case.get("priority", "P1"), "preconditions": case.get("preconditions", ""),
-            "steps": "\n".join(case.get("steps", [])), "expected": case.get("expected", "")}
+def _paragraphs(value) -> str:
+    if isinstance(value, list):
+        return "\n".join(str(item) for item in value)
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+
+
+def _complete_document(document: dict) -> bool:
+    return all(document.get(key) and "【待确认" not in _paragraphs(document[key]) for key in ("description", "preconditions", "steps", "expected", "source"))
+
+
+def _imported(case: dict, project_name: str) -> dict:
+    document = case_document.document(case)
+    path = document.get("business_path", [])
+    module = "/".join(path[1:] if path and path[0] == project_name else path) if path else case.get("module", "未分组")
+    return {"id": case["id"], "title": case_document.functional_description(case), "module": document.get("module") or module,
+            "description": case_document.functional_description(case), "source": copy.deepcopy(document.get("source", "")),
+            "type": "页面" if case["kind"] == "ui" else "接口", "priority": document.get("priority") or case.get("priority", "P1"),
+            "preconditions": _paragraphs(case_document.functional_preconditions(case)),
+            "steps": _paragraphs(case_document.functional_steps(case)), "expected": case_document.functional_expected(case) or "1. " + case_document.MISSING_EXPECTED}
+
+
+def apply_to_case(project_id: str, case_id: str, *, session: str = "", expected_revision: str | None) -> dict:
+    """Version an explicitly selected functional design onto its case, preserving every technical input."""
+    with _selected(project_id, session) as folder:
+        meta = _check(folder, expected_revision)
+        view = _view(project_id, session, folder)
+        row = next((item for item in view["rows"] if item["id"] == case_id), None)
+        if not row or not row["evidence"]["materialized_case_id"]:
+            raise ValueError("请先选择这条设计所关联的可执行用例")
+        for field in ("description", "preconditions", "steps", "expected", "source"):
+            if not row.get(field) or "【待确认：" in _paragraphs(row[field]):
+                raise ValueError("功能设计仍有待补充的 " + field + "；先依据来源完善，原用例未修改")
+        current = projects.case(project_id, row["evidence"]["materialized_case_id"])
+        current_hash = execution_inputs.content_hash(current)
+        extra = meta["rows"].setdefault(case_id, {})
+        if extra.get("binding", {}).get("case_hash") != current_hash:
+            raise ValueError("关联用例的版本已变化，请重新关联后再应用设计")
+        _archive(project_id, session, folder, meta)
+        document = _row_document(row)
+        candidate = case_document.apply(copy.deepcopy(current), {**case_document.document(current), **document})
+        candidate["title"] = row["description"]
+        candidate["extensions"]["functional_design"] = {"state": "unmapped", "reason": "功能设计已保存，既有技术断言是否覆盖新预期尚未确认"}
+        if candidate != current:
+            candidate["revision"] = current["revision"] + 1
+        projects.save_cases(project_id, [candidate], expected_hashes={current["id"]: current_hash})
+        extra["binding"] = {"case_hash": execution_inputs.content_hash(candidate), "design_hash": execution_inputs.content_hash(_design(row, extra)),
+                            "execution_after": db.now(), "design_mapped": False}
+        meta["version"] += 1
+        execution_inputs.write_json(folder / "design.json", meta)
+        return {**_view(project_id, session, folder), "case_id": current["id"], "case_revision": candidate["revision"]}
+
+
+def _row_document(row: dict) -> dict:
+    return {"description": row["description"], "preconditions": row.get("preconditions", ""), "steps": row.get("steps", "").splitlines(),
+            "expected": row.get("expected", ""), "source": row["source"], "module": row.get("module", "未分组"), "priority": row.get("priority", "P1"),
+            "author": row["author"], "remarks": row["remarks"], "business_path": row["business_path"], "prefix": row["prefix"]}
+
+
+def recorded_binding(project_id: str, case_id: str, replay_case: str, assertions: int) -> None:
+    """Bind the compiler's real recording to its source design; the subsequent run still supplies evidence."""
+    folder = plan._folder()
+    if not (folder / "design.json").is_file():
+        return
+    meta = _metadata(folder)
+    view = _view(project_id, task_context.session_id() or "", folder)
+    row = next((item for item in view["rows"] if item["id"] == case_id), None)
+    if not row:
+        return
+    current = projects.case(project_id, replay_case)
+    document = case_document.document(current)
+    source = document.get("source", {})
+    without_digest = copy.deepcopy(document)
+    if isinstance(source, dict):
+        without_digest["source"].pop("design_sha256", None)
+    source_matches = (isinstance(source, dict) and source.get("kind") == "case_plan" and source.get("case_id") == case_id
+                      and isinstance(source.get("file"), str) and Path(source["file"]).resolve() == plan._file().resolve()
+                      and source.get("upstream", "") == row["source"] and source.get("design_sha256") == execution_inputs.content_hash(without_digest))
+    automation = current.get("extensions", {}).get("automation", {})
+    checks = [step for step in [*automation.get("actions", []), *automation.get("assertions", [])] if "assertion" in step]
+    explicit = any(step.get("oracle", {}).get("source") == "explicit" for step in checks)
+    matches_fields = all(document.get(key, "") == row.get(key, "") for key in ("description", "preconditions", "expected", "module", "priority", "author", "remarks", "prefix"))
+    matched = (bool(assertions) and explicit and source_matches and matches_fields and _complete_document(_row_document(row)) and document.get("business_path") == row["business_path"]
+               and case_document.functional_steps(current) == case_document.functional_steps({"extensions": {"test_case_document": {"steps": row["steps"]}}}))
+    extra = meta["rows"].setdefault(case_id, {})
+    extra["binding"] = {"case_hash": execution_inputs.content_hash(current), "design_hash": execution_inputs.content_hash(_design(row, extra)),
+                        "execution_after": db.now(), "design_mapped": matched, "materialization": "recorded_with_plan"}
+    meta["version"] += 1
+    execution_inputs.write_json(folder / "design.json", meta)
 
 
 def sync(project_id: str, *, session: str = "", expected_revision: str | None) -> dict:
@@ -361,10 +474,9 @@ def _snapshot(view: dict) -> dict:
         result = row["evidence"].get("result") if row["evidence"].get("current") else None
         definition = {"id": row["id"], "kind": "scenario", "title": row["description"], "module": row.get("module", "未分组"), "priority": row.get("priority", "P1"),
                       "preconditions": row.get("preconditions", ""), "steps": row.get("steps", "").splitlines(), "expected": row.get("expected", ""),
-                      "requirement_ids": row["requirement_ids"], "extensions": {"test_case_document": {"author": row["author"], "remarks": row["remarks"],
-                                                                                                                "business_path": row["business_path"]}}}
+                      "requirement_ids": row["requirement_ids"], "extensions": {"test_case_document": _row_document(row)}}
         cases.append({"definition": definition, "result": result, "run_id": row["evidence"].get("run_id"),
-                      "evidence_valid": row["evidence"].get("current", False), "environment": [row["environment"]] if row["environment"] else [],
+                      "evidence_valid": row["evidence"].get("current", False) and row["status"] != "Unverified", "environment": [row["environment"]] if row["environment"] else [],
                       "note": row["evidence"]["reason"]})
     sources = {"version": view["version"], "session": view["session"], "requirements": view["requirements"],
                "materialization": [{"design_id": row["id"], "case_id": row["evidence"].get("materialized_case_id"),

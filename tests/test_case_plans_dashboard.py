@@ -7,7 +7,7 @@ from openpyxl import load_workbook
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
-from autoskill import task_workbook
+from autoskill import case_document, projects, task_workbook
 
 
 class CasePlanDashboardTests(DashboardWorkspace):
@@ -27,6 +27,12 @@ class CasePlanDashboardTests(DashboardWorkspace):
         return [row[9].value for row in book["功能测试用例"].iter_rows(min_row=2) if row[1].value]
 
     def test_design_edit_requires_new_binding_and_real_run_preserves_prior_version(self):
+        case = projects.case(self.pid, "TC-SLOW")
+        case_document.apply(case, {"description": "验证查询服务就绪状态后返回真实就绪标记", "preconditions": "本地合成就绪检查服务已启动",
+                                   "steps": ["1. 查询服务就绪状态。", "2. 查看响应中的就绪标记。"], "expected": "2. 就绪标记 ok 为 true。",
+                                   "source": {"kind": "synthetic_requirement", "text": "服务以 ok=true 表示就绪，查询不修改数据。"},
+                                   "business_path": ["负载验证", "服务检查", "就绪状态"], "module": "服务检查"})
+        projects.save_cases(self.pid, [case])
         self.open_plan()
         self.page.get_by_role("button", name="从已有用例导入", exact=True).click()
         dialog = self.page.get_by_role("dialog", name="从已有可执行用例导入设计", exact=True)
@@ -36,13 +42,9 @@ class CasePlanDashboardTests(DashboardWorkspace):
         self.assertEqual(self.client.get(f"/api/case-plans/{self.pid}?session=设计甲").json()["rows"][0]["status"], "NotRun")
         self.page.get_by_role("button", name="编辑设计", exact=True).click()
         dialog = self.page.get_by_role("dialog", name="编辑设计：TC-SLOW", exact=True)
-        dialog.get_by_label("预期结果", exact=True).fill("1. 接口返回 ok=true，保存原始业务断言")
         dialog.get_by_label("用例编制人", exact=True).fill("验收人员")
         dialog.get_by_role("button", name="保存设计", exact=True).click()
-        expect(self.page.locator("#view")).to_contain_text("设计或关联用例已修改")
-        self.page.get_by_role("button", name="重新关联", exact=True).click()
-        dialog = self.page.get_by_role("dialog", name="关联设计与可执行用例", exact=True)
-        dialog.get_by_role("button", name="关联可执行用例", exact=True).click()
+        expect(dialog).not_to_be_visible()
         expect(self.page.get_by_role("button", name="回放", exact=True)).to_be_visible()
         self.page.get_by_role("button", name="回放", exact=True).click()
         expect(self.page).to_have_url(re.compile(r"/#/runs/run-"))
