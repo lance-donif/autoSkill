@@ -70,15 +70,42 @@ test('Linux source deployment uses its local venv and keeps paths with spaces as
 test('client registers dashboard and schedules panels pointing at the loopback dashboard', async () => {
   let registration;
   const window = { __ModuleLoader__: { load: (r) => { registration = r; } } };
-  vm.runInNewContext(await readFile(new URL('../plugin/client.js', import.meta.url), 'utf8'), { window });
+  const forbidStorage = () => { throw new Error('Plugin activation must not touch user storage'); };
+  Object.defineProperties(window, { localStorage: { get: forbidStorage }, sessionStorage: { get: forbidStorage } });
+  const document = {};
+  Object.defineProperty(document, 'cookie', { get: forbidStorage, set: forbidStorage });
+  const clock = { now: 1700000000000, random: 0.5 };
+  vm.runInNewContext(await readFile(new URL('../plugin/client.js', import.meta.url), 'utf8'), {
+    window, document, Date: { now: () => clock.now }, Math: { random: () => clock.random },
+  });
   assert.equal(registration.id, 'dsh-plugin-autoskill');
   const plugin = registration.factory((name) => { assert.equal(name, 'react'); return { createElement: (tag, props) => ({ tag, props }) }; });
   const records = [];
   const ctx = { effect: (fn) => fn(), slots: { inject: (_, fn) => fn(), register: (options, component) => { records.push({ options, component }); return () => undefined; } } };
   plugin.apply(ctx, { port: 8788 });
   assert.equal(records.length, 4);
-  const frames = records.filter((r) => r.options.name === 'main').map((r) => r.component());
-  assert.deepEqual(frames.map((f) => f.props.src), ['http://127.0.0.1:8788/?embed=1#/dashboard', 'http://127.0.0.1:8788/?embed=1#/schedules']);
+  const panels = records.filter((r) => r.options.name === 'main');
+  const urls = panels.map((panel) => new URL(panel.component().props.src));
+  assert.deepEqual(urls.map((url) => url.origin), ['http://127.0.0.1:8788', 'http://127.0.0.1:8788']);
+  assert.deepEqual(urls.map((url) => url.searchParams.get('embed')), ['1', '1']);
+  assert.deepEqual(urls.map((url) => url.hash), ['#/dashboard', '#/schedules']);
+  const loadId = urls[0].searchParams.get('activation');
+  assert.ok(loadId);
+  assert.equal(urls[1].searchParams.get('activation'), loadId);
+  for (let render = 0; render < 3; render++) {
+    clock.now += 1000;
+    clock.random += 0.01;
+    assert.deepEqual(panels.map((panel) => panel.component().props.src), urls.map((url) => url.href));
+  }
+  clock.now = 1700000000000;
+  clock.random = 0.5;
+  plugin.apply(ctx, { port: 8788 });
+  const reactivated = records.slice(4).filter((r) => r.options.name === 'main').map((panel) => new URL(panel.component().props.src));
+  assert.notEqual(reactivated[0].searchParams.get('activation'), loadId);
+  assert.equal(reactivated[0].searchParams.get('activation'), reactivated[1].searchParams.get('activation'));
+  assert.deepEqual(reactivated.map((url) => [url.origin, url.searchParams.get('embed'), url.hash]),
+    [['http://127.0.0.1:8788', '1', '#/dashboard'], ['http://127.0.0.1:8788', '1', '#/schedules']]);
+  assert.deepEqual(panels.map((panel) => panel.component().props.src), urls.map((url) => url.href));
   assert.throws(() => plugin.apply(ctx, { port: 1 }));
 });
 

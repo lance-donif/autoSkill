@@ -10,11 +10,11 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
 
 from .. import __version__, bridge, command_input, context_service, db, demo, paths, projects, runner, secrets, sessions, task_context
 from ..replay import ir
 from . import jobs, metrics, scheduler
+from .ui_assets import mount_ui
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 # Windows may map .js to text/plain in the registry; browsers then refuse ES modules.
@@ -114,9 +114,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     _register_upgrade_routes(app)
     _register_unknown_route(app)
 
-    ui = paths.APP / "ui"
-    if ui.is_dir():
-        app.mount("/", StaticFiles(directory=ui, html=True), name="ui")
+    app.state.ui_revision = mount_ui(app, paths.APP / "ui")
     return app
 
 
@@ -151,7 +149,7 @@ def _register_overview_routes(app: FastAPI) -> None:
     """Register overview routes in their original order."""
     @app.get("/api/status")
     def status():
-        return {"name": "autoSkill", "version": __version__, "projects": len(projects.list_all()),
+        return {"name": "autoSkill", "version": __version__, "ui_revision": app.state.ui_revision, "projects": len(projects.list_all()),
                 "runtime": {"bundled": paths.VENDOR.is_dir(), "chrome": bool(paths.chrome()),
                             "selenium": bool(paths.chrome(bundled=True) and paths.chromedriver()),
                             "recorder": bool(paths.agent_browser())},
