@@ -11,6 +11,9 @@ import httpx
 
 from . import ai_audio
 
+_MISSING = object()
+_NON_CONTENT_EVENTS = ("heartbeat", "ping", "thinking", "reasoning", "response.reasoning.delta")
+
 
 class EvaluationCancelledError(Exception):
     """The caller cancelled an active evaluation."""
@@ -37,9 +40,10 @@ class Observation:
         self.cancelled = cancelled
         self.events = []
         self.content = ""
-        self.answer = None
+        self.answer = _MISSING
         self.query = None
         self.complete = False
+        self.completed_at = None
         self.status_code = None
         self.bindings = {}
         self.audio_sent = {}
@@ -58,6 +62,41 @@ class Observation:
         self.first_byte = self.first_byte or stamp
         self.last_event = stamp
 
+    def finish(self):
+        self.complete = True
+        if self.completed_at is None:
+            self.completed_at = time.monotonic()
+
+    def _snapshot(self, value, kind: str):
+        """A terminal answer field is a full snapshot; delta fields remain incremental."""
+        if kind in _NON_CONTENT_EVENTS or value == "[DONE]":
+            return _MISSING
+        path = self.endpoint.get("final_answer_pointer", "/answer")
+        try:
+            return pointer(value, path)
+        except (KeyError, IndexError, ValueError, TypeError):
+            return _MISSING
+
+    def _content(self, value, kind: str, done: bool) -> dict:
+        snapshot = self._snapshot(value, kind) if done else _MISSING
+        if snapshot is not _MISSING:
+            visible = snapshot if isinstance(snapshot, str) else json.dumps(snapshot, ensure_ascii=False, separators=(",", ":"))
+            changed = visible != self.content
+            if changed:
+                stamp = time.monotonic()
+                self.first_content = self.first_content or stamp
+                self.last_content = stamp
+            self.answer = snapshot
+            self.content = visible
+            return {"content": "", "content_mode": "snapshot", "answer": snapshot, "content_changed": changed}
+        delta = self._delta(value, kind, omit_answer=done and "final_answer_pointer" in self.endpoint)
+        if delta:
+            stamp = time.monotonic()
+            self.first_content = self.first_content or stamp
+            self.last_content = stamp
+            self.content += delta
+        return {"content": delta, "content_mode": "delta"}
+
     def event(self, value, kind: str = "message"):
         self.touch()
         self.extract(value)
@@ -67,23 +106,19 @@ class Observation:
         if isinstance(value, dict):
             kind = str(value.get("type") or kind)
             done = done or value.get("done") is True or kind in self.endpoint.get("done_events", ["done", "completed", "response.completed"])
+        content = self._content(value, kind, done)
         if done:
-            self.complete = True
-        delta = self._delta(value, kind)
-        if delta:
-            stamp = time.monotonic()
-            self.first_content = self.first_content or stamp
-            self.last_content = stamp
-            self.content += delta
+            self.finish()
         # Evidence contains visible answer content, not private reasoning payloads or heartbeat bodies.
-        self.events.append({"kind": kind, "elapsed_ms": elapsed, "content": delta, "complete": done})
+        self.events.append({"kind": kind, "elapsed_ms": elapsed, **content, "complete": done})
 
-    def _delta(self, value, kind: str) -> str:
-        if kind in ("heartbeat", "ping", "thinking", "reasoning", "response.reasoning.delta") or value == "[DONE]":
+    def _delta(self, value, kind: str, *, omit_answer: bool = False) -> str:
+        if kind in _NON_CONTENT_EVENTS or value == "[DONE]":
             return ""
         if isinstance(value, str):
             return value
-        paths = [self.endpoint["content_pointer"]] if self.endpoint.get("content_pointer") else ["/choices/0/delta/content", "/delta", "/content", "/answer"]
+        defaults = ["/choices/0/delta/content", "/delta", "/content", *([] if omit_answer else ["/answer"])]
+        paths = [self.endpoint["content_pointer"]] if self.endpoint.get("content_pointer") else defaults
         for path in paths:
             try:
                 delta = pointer(value, path)
@@ -122,12 +157,13 @@ class Observation:
         def elapsed(value):
             return round((value - self.started) * 1000, 3) if value is not None else None
 
-        return {"answer": self.answer if self.answer is not None else self.content, "query": self.query,
+        return {"answer": self.answer if self.answer is not _MISSING else self.content, "query": self.query,
                 "status_code": self.status_code, "protocol_complete": self.complete, "events": self.events, "bindings": self.bindings,
                 "audio_sent": self.audio_sent, "audio_received": self.audio_received,
                 "timings": {"first_byte_ms": elapsed(self.first_byte), "first_content_ms": elapsed(self.first_content),
                             "first_audio_ms": elapsed(self.first_audio),
-                            "last_content_ms": elapsed(self.last_content), "total_ms": elapsed(time.monotonic())}}
+                            "last_content_ms": elapsed(self.last_content), "protocol_complete_ms": elapsed(self.completed_at),
+                            "total_ms": elapsed(time.monotonic())}}
 
 
 def _decode(data: str):
@@ -175,7 +211,7 @@ async def _http(client, endpoint, body, state):
             if endpoint.get("query_pointer"):
                 state.query = pointer(value, endpoint["query_pointer"])
             state.event(state.answer if isinstance(state.answer, str) else json.dumps(state.answer, ensure_ascii=False))
-            state.complete = True
+            state.finish()
     finally:
         await response.aclose()
 
