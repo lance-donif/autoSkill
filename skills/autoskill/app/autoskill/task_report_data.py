@@ -113,6 +113,30 @@ def _replay(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
     return cases, sources, notes
 
 
+def _load(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
+    cases, sources, notes = _replay(run, results)
+    try:
+        manifest = execution_inputs.load(run)
+    except (OSError, ValueError):
+        return cases, sources, notes
+    cases = []
+    observed = {}
+    for row in results:
+        if row["prerequisite"]:
+            continue
+        detail = row.get("detail", {})
+        observed[(row["case_id"], detail.get("load_iteration"))] = row
+    for iteration in range(1, manifest["load"]["iterations"] + 1):
+        for identity in manifest["selected"]:
+            result = observed.get((identity, iteration))
+            cases.append({"definition": manifest["cases"][identity], "result": result, "run_id": run["id"],
+                          "evidence_valid": bool(result) and execution_inputs.result_evidence(run, result),
+                          "note": f"压测第 {iteration} 次迭代没有此用例的实际结果；" + run["status"] if not result else ""})
+    sources["load"] = manifest["load"]
+    notes.append("压测逐次保留全部目标执行，较早失败不会被后续成功覆盖；前置用例不计为压测目标。")
+    return cases, sources, notes
+
+
 def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
     from . import native_run
 
@@ -209,7 +233,8 @@ def _ai_definitions(manifest: dict) -> dict:
 
 def run_snapshot(run: dict) -> dict:
     results = _rows(run["id"])
-    cases, sources, notes = _native(run, results) if run.get("family") == "native" else _replay(run, results)
+    capture = {"native": _native, "load": _load}.get(run.get("family"), _replay)
+    cases, sources, notes = capture(run, results)
     labels = {"base_url": "被测地址", "engine": "任务引擎", "python": "Python", "runtime_version": "运行时版本"}
     environment = [labels[key] + "：" + str(value) for key, value in sources.get("execution_environment", {}).items() if value]
     for item in cases:

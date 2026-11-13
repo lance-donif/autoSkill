@@ -93,7 +93,7 @@ def _playwright_browser() -> str | None:
 def engine_identity(engine: str, browser: bool) -> dict:
     """Pin adapter implementation, installed libraries and selected executable bytes."""
     package = Path(__file__).parent
-    implementations = ["runner.py", "secrets.py", "execution_inputs.py", "replay/api.py", "replay/ir.py", "core/store.py"]
+    implementations = ["runner.py", "load_testing.py", "secrets.py", "execution_inputs.py", "replay/api.py", "replay/ir.py", "core/store.py"]
     libraries = ["httpx", "jsonschema"]
     runtime = {}
     if browser:
@@ -230,9 +230,12 @@ def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate
                 "variables": {"RAND": uuid.uuid4().hex[:6]} if persist else {}}
 
 
-def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None) -> tuple[dict, dict]:
+def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None,
+           load: dict | None = None) -> tuple[dict, dict]:
     with project_lock(project_id), named_lock("input-store", "replay"):
         manifest = capture(project_id, chosen, engine, candidate_cases=candidate_cases)
+        if load is not None:
+            manifest["load"] = copy.deepcopy(load)
         digest = content_hash(manifest)
         file = _folder() / (digest + "-" + uuid.uuid4().hex + ".json")
         write_json(file, manifest)

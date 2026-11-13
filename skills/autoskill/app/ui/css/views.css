@@ -115,6 +115,19 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .table.kv td { padding-top: 8px; padding-bottom: 8px; }
 .case-pick { display: grid; gap: 6px; max-height: 240px; overflow: auto; padding: var(--s-3); border-radius: var(--r-md); background: var(--surface-2); font-size: var(--t-sm); }
 
+.load-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); }
+.load-case-pick { max-height: 360px; }
+.load-case-pick h4 { margin: var(--s-2) 0; }
+.load-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s-4); }
+.load-metric { padding: var(--s-4); display: grid; gap: var(--s-3); }
+.load-metric-value { font-size: var(--t-xl); font-weight: 680; }
+.load-table-wrap { overflow-x: auto; }
+@media (max-width: 1100px) { .load-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .load-fields { grid-template-columns: minmax(0, 1fr); }
+  .load-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* ---- run report ---- */
 .stats { display: flex; gap: var(--s-8); margin-top: var(--s-5); flex-wrap: wrap; }
 .stat { display: grid; gap: 2px; }

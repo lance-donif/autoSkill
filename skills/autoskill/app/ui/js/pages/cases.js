@@ -2,6 +2,7 @@
 import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm } from '../ui.js';
 import { state, refreshShell } from '../shell.js';
+import { loadTestButton } from './load-tests.js';
 
 
 const selected = new Map();  // "project/case" -> {project_id, case_id}
@@ -57,6 +58,7 @@ export async function render(view) {
         h('span', { class: 'muted' }, '　前置用例（如登录）会自动先执行')),
       h('button', { class: 'btn ghost', onClick: () => { selected.clear(); paint(); } }, '清除'),
       caseDeleteButton(items, { bulk: true }),
+      loadTestButton('压测所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
       runButton('运行所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))));
   }
 
@@ -102,6 +104,7 @@ function projectCard(project, items, repaint) {
       h('h2', { class: 'row' }, project.name, project.category && h('span', { class: 'tag' }, project.category)),
       h('p', { class: 'sub ellipsis' }, `${project.base_url} · 页面 ${project.cases.ui} · 接口 ${project.cases.api} · `,
         project.login.ui_case || project.login.api_case ? '已定义登录方式，运行时自动登录' : '未定义登录方式')),
+    project.cases.total > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
     project.cases.total > 0 && runButton('运行全部', () => [{ project_id: project.id }], { small: true, primary: false }),
     h('button', { class: 'btn sm icon', 'aria-label': `「${project.name}」设置`, title: '项目设置', onClick: () => projectSettings(project.id) }, icon('edit')));
 
@@ -135,7 +138,7 @@ function projectCard(project, items, repaint) {
           h('td', { class: 'sub' }, item.module),
           h('td', {}, item.last_status ? statusPill(item.last_status) : h('span', { class: 'status idle' }, icon('blocked'), '未执行')),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
-          h('td', { class: 'actions' }, run, caseDeleteButton([item], { small: true })));
+          h('td', { class: 'actions' }, loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }), run, caseDeleteButton([item], { small: true })));
       })])));
   }
   return h('section', { class: 'card' }, head, banner, h('div', { style: 'margin-top:12px' }, body));
@@ -316,7 +319,7 @@ async function caseDrawer(projectId, caseId) {
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId] }], run); if (started) closeOverlay(); });
   drawer({ title: item.title, subtitle: `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · ${item.module} · 第 ${item.revision} 版`, body, wide: true,
     foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
-      h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), item.replayable && run] });
+      h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), loadTestButton('压测这条用例', () => [{ project_id: projectId, case_ids: [caseId] }]), item.replayable && run] });
 }
 
 function apiAssertionRows(rules) {

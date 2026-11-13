@@ -132,9 +132,9 @@ function historyRow(run, params, repaint) {
     } });
   const note = run.deletion_error || (deleting(run) ? '正在取消并删除，等待执行器退出及清理完成' :
     active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
-  return h('tr', { class: 'click' + (selected.has(run.id) ? ' selected' : ''), onClick: () => go('runs/' + run.id, Object.fromEntries(params)) },
+  return h('tr', { class: 'click' + (selected.has(run.id) ? ' selected' : ''), onClick: () => go((run.family === 'load' ? 'load-tests/' : 'runs/') + run.id, Object.fromEntries(params)) },
     h('td', {}, box), h('td', {}, statusPill(run.status, deleting(run) ? '正在取消并删除' : null)),
-    h('td', {}, h('div', { class: 'title' }, run.project_name), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
+    h('td', {}, h('div', { class: 'title' }, run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
     h('td', { style: 'min-width:170px' }, active(run)
       ? h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })), h('span', { class: 'sub num' }, `${run.done}/${run.total}`))
       : h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run), h('span', { class: 'sub num' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞`))),
@@ -268,6 +268,7 @@ async function report(view, runId) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
+  if (run.family === 'load') { go('load-tests/' + runId); return; }
   watchDeletion(run);
   const focus = route().params.get('case');
   prepareReportRows(run, runId, focus);

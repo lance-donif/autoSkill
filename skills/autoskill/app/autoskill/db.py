@@ -159,7 +159,7 @@ def claim_run(run_id: str, pid: int, maximum: int, token: str = "") -> bool:
             "WHERE id = ? AND status = 'Queued' AND cancel = 0 AND delete_requested = 0 "
             "AND (SELECT COUNT(*) FROM runs WHERE status = 'Running') < ? "
             "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' AND active.project_id = runs.project_id "
-            "AND active.family != 'native' AND runs.family != 'native')",
+            "AND active.family = 'replay' AND runs.family = 'replay')",
             (now(), pid, token, json.dumps(runtime_identity.current(pid)), run_id, maximum)).rowcount)
 
 

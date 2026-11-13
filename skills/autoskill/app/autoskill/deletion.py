@@ -92,7 +92,7 @@ def _sheet_folders(project_id: str, run: dict | None = None) -> list[str]:
 
 def _latest(project_id: str, excluded: str | None) -> dict:
     rows = db.rows("SELECT r.* FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = ? "
-                   "AND r.prerequisite = 0 AND u.trigger != 'login' AND u.delete_requested = 0 AND r.run_id != ? ORDER BY r.id",
+                   "AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' AND u.delete_requested = 0 AND r.run_id != ? ORDER BY r.id",
                    (project_id, excluded or ""))
     return {row["case_id"]: row for row in rows}
 

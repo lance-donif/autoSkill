@@ -46,7 +46,7 @@ export async function render(view) {
     [summary, failures, recent] = await Promise.all([
       api('/summary' + scopeQuery()),
       currentOnly ? api('/results' + scopeQuery({ limit: 6, status: 'Fail', current: true })) : null,
-      api('/runs' + scopeQuery({ limit: 6 })),
+      api('/runs' + scopeQuery({ limit: 6, exclude_load: true })),
     ]);
     if (!currentOnly) {
       const [failed, blocked] = await Promise.all([

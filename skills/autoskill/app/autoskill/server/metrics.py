@@ -13,10 +13,10 @@ from dataclasses import dataclass, field
 
 from .. import db
 
-COUNTED = "r.prerequisite = 0 AND u.trigger != 'login'"
+COUNTED = "r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load'"
 RESULTS = "FROM results r JOIN runs u ON u.id = r.run_id LEFT JOIN projects p ON p.id = r.project_id"
 LATEST = ("r.id = (SELECT MAX(x.id) FROM results x JOIN runs xu ON xu.id = x.run_id WHERE x.project_id = r.project_id "
-          "AND x.case_id = r.case_id AND x.prerequisite = 0 AND xu.trigger != 'login')")
+          "AND x.case_id = r.case_id AND x.prerequisite = 0 AND xu.trigger != 'login' AND xu.family != 'load')")
 
 
 def normalize(stamp: str | None) -> str | None:
@@ -94,7 +94,7 @@ def reliability(scope: Scope) -> dict:
     planned = db.one("SELECT COALESCE(SUM(MAX(u.total, u.done)), 0) n, "
                      "COALESCE(SUM(CASE WHEN u.status = 'Cancelled' THEN MAX(u.total - u.done, 0) ELSE 0 END), 0) cancelled "
                      ", COALESCE(SUM(u.family = 'native' AND u.total = 0), 0) unknown_runs "
-                     f"FROM runs u WHERE u.trigger != 'login' AND {where}", args)
+                     f"FROM runs u WHERE u.trigger != 'login' AND u.family != 'load' AND {where}", args)
     first = "COALESCE(json_extract(r.detail, '$.attempts[0].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
     final = "COALESCE(json_extract(r.detail, '$.attempts[#-1].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
     row = db.one("SELECT COUNT(*) observed, "
@@ -118,7 +118,7 @@ def run_counts(scope: Scope) -> dict:
     return db.one(
         "SELECT COUNT(*) total, COALESCE(SUM(trigger = 'schedule'), 0) scheduled, "
         "COALESCE(SUM(status IN ('Queued', 'Running')), 0) active "
-        f"FROM runs WHERE trigger != 'login' AND {where}", args)
+        f"FROM runs WHERE trigger != 'login' AND family != 'load' AND {where}", args)
 
 
 def trend(scope: Scope, tz_minutes: int = 480) -> dict:
@@ -165,8 +165,10 @@ def summary(scope: Scope, tz_minutes: int = 480) -> dict:
     }
 
 
-def runs(scope: Scope, trigger: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0) -> dict:
+def runs(scope: Scope, trigger: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0, exclude_load: bool = False) -> dict:
     where, args = scope.where("u.created_at", "u.project_id")
+    if exclude_load:
+        where += " AND u.family != 'load'"
     if trigger:
         where, args = where + " AND u.trigger = ?", [*args, trigger]
     if status == "active":
@@ -176,7 +178,7 @@ def runs(scope: Scope, trigger: str | None = None, status: str | None = None, li
     base = f"FROM runs u LEFT JOIN projects p ON p.id = u.project_id WHERE u.trigger != 'login' AND {where}"
     total = db.one(f"SELECT COUNT(*) n {base}", args)["n"]
     items = db.rows(
-        "SELECT u.id, u.batch_id, u.project_id, COALESCE(p.name, u.project_id) project_name, u.engine, u.trigger, u.status, "
+        "SELECT u.id, u.batch_id, u.project_id, COALESCE(p.name, u.project_id) project_name, u.engine, u.trigger, u.status, u.family, "
         "u.total, u.done, u.passed, u.failed, u.blocked, u.current, u.reason, u.created_at, u.started_at, u.finished_at, u.delete_requested, u.deletion_error "
         f"{base} ORDER BY u.created_at DESC LIMIT ? OFFSET ?", [*args, int(limit), int(offset)])
     return {"total": total, "items": items}
@@ -212,8 +214,8 @@ def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> di
         "SELECT c.project_id, COALESCE(p.name, c.project_id) project_name, c.case_id, c.kind, c.title, c.module, c.priority, "
         "c.category, c.replayable, c.depends_on, c.created_at, "
         "(SELECT r.status FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
-        " AND r.prerequisite = 0 AND u.trigger != 'login' ORDER BY r.id DESC LIMIT 1) last_status, "
+        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) last_status, "
         "(SELECT r.started_at FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
-        " AND r.prerequisite = 0 AND u.trigger != 'login' ORDER BY r.id DESC LIMIT 1) last_run_at "
+        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) last_run_at "
         f"FROM cases c LEFT JOIN projects p ON p.id = c.project_id WHERE {where} ORDER BY c.project_id, c.kind DESC, c.case_id", args)
     return {"total": len(items), "items": items}

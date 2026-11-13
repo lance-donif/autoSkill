@@ -20,8 +20,8 @@ def latest_results(project_id: str) -> dict[str, dict]:
     """The most recent counted result of every case (prerequisite runs and automatic logins excluded)."""
     rows = db.rows(
         "SELECT r.* FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = ? AND r.prerequisite = 0 "
-        "AND u.trigger != 'login' AND r.id IN (SELECT MAX(x.id) FROM results x JOIN runs xu ON xu.id = x.run_id "
-        "WHERE x.project_id = ? AND x.prerequisite = 0 AND xu.trigger != 'login' GROUP BY x.case_id)",
+        "AND u.trigger != 'login' AND u.family != 'load' AND r.id IN (SELECT MAX(x.id) FROM results x JOIN runs xu ON xu.id = x.run_id "
+        "WHERE x.project_id = ? AND x.prerequisite = 0 AND xu.trigger != 'login' AND xu.family != 'load' GROUP BY x.case_id)",
         (project_id, project_id))
     return {row["case_id"]: row for row in rows}
 

@@ -378,7 +378,7 @@ class Session:
 
 DETAIL_KEYS = ("steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted",
                "attempts", "verification", "business_status", "business_verified", "performance_status", "performance_assertions",
-               "execution_status", "execution_blocker", "last_attempt_status")
+               "execution_status", "execution_blocker", "last_attempt_status", "load_user", "load_iteration")
 
 
 def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
@@ -533,6 +533,10 @@ def _execute_guarded(run_id: str, force_login: bool, claim_token: str | None) ->
         return run
     with task_context.use_session(run["session_id"] or None):
         try:
+            if run.get("family") == "load":
+                from . import load_testing
+
+                return load_testing.execute_claimed(run)
             if run.get("family") == "native":
                 from . import native_run
 
@@ -544,6 +548,8 @@ def _execute_guarded(run_id: str, force_login: bool, claim_token: str | None) ->
 
 def sync_plan(run: dict) -> None:
     """All executors write back to the sheet selected when the run was prepared."""
+    if run.get("family") == "load":
+        return
     from . import plan
 
     folder = plan_folder(run["plan_path"]) if run.get("plan_path") else paths.case_skill()

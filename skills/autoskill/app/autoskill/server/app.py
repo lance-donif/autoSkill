@@ -18,6 +18,7 @@ from . import jobs, metrics, scheduler
 from .data import register as register_data
 from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
+from .load_testing import register as register_load_testing
 from .ui_assets import mount_ui
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
@@ -132,6 +133,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     register_host_context(app)
     register_execution_requests(app)
     register_data(app)
+    register_load_testing(app)
     _register_unknown_route(app)
 
     app.state.ui_revision = mount_ui(app, paths.APP / "ui")
@@ -223,9 +225,9 @@ def _register_overview_routes(app: FastAPI) -> None:
         return metrics.results(scope_of(request), status, current, limit, offset)
 
     @app.get("/api/runs")
-    def runs(request: Request, trigger: str | None = None, status: str | None = None):
+    def runs(request: Request, trigger: str | None = None, status: str | None = None, exclude_load: bool = False):
         limit, offset = page(request)
-        return metrics.runs(scope_of(request), trigger, status, limit, offset)
+        return metrics.runs(scope_of(request), trigger, status, limit, offset, exclude_load=exclude_load)
 
     @app.get("/api/cases")
     def cases(request: Request, kind: str | None = None, added: bool = False):

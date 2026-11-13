@@ -7,6 +7,7 @@ import { loadPreferences, onPreferences, preferredTheme } from './preferences.js
 const PAGES = {
   dashboard: () => import('./pages/dashboard.js'),
   cases: () => import('./pages/cases.js'),
+  'load-tests': () => import('./pages/load-tests.js'),
   runs: () => import('./pages/runs.js'),
   schedules: () => import('./pages/schedules.js'),
   data: () => import('./pages/data.js'),
