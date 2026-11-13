@@ -19,7 +19,7 @@
 | `project show <项目>` | 单个项目的设置 |
 | `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
-| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、把回放结果写回；默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
+| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、把回放结果写回；用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
 | `context <项目> [--limit 50] [--cursor 游标] [--knowledge-limit 5] [--knowledge-cursor 游标] [--all]` | 登录、缺少的凭据、用例与知识预览；`page.cases`、`page.knowledge` 分别标明总数、剩余页及内容版本 |
 | `cases <项目> [--limit 数量] [--cursor 游标] [--all] [--kind] [--module] [--requirement] [--query]` | 分页用例摘要；`page` 返回 `total/returned/has_more/next_cursor/content_revision`，内容或查询改变会报 `cursor_expired` |
 | `cases <项目> --case <编号>` | 完整用例定义及内容版本，包含断言和需求关联；不是仪表盘展示投影 |
@@ -27,6 +27,8 @@
 | `knowledge read <项目> <knowledge/文件> [--offset 字符偏移] [--length 12000] [--revision 内容版本] [--all]` | 按 Unicode 字符读取正文，返回 `next_offset/total_length/has_more`；传 revision 可防止混读新旧版本 |
 
 分页没有项目或用例总数量上限。`--all` 读取全部条目，不能与 cursor 同用；知识正文的 `--all` 从指定 offset 读到末尾。原 Python `cli.context(project)` 仍返回全量，`cli.knowledge(project, limit=2400)` 仍表示每个文件的字符数。
+
+功能设计字段为 `description/preconditions/steps/expected/source`，以及已确认的 `business_path/prefix/author/remarks`。`plan write` 保留这些来源字段供 `plan show` 和同一会话的 `record stop --plan <编号>` 使用；可执行用例将其保存在 `extensions.test_case_document`。主表使用真实业务操作及对应预期，HTTP 请求、选择器和浏览器 IR 留在技术附表。只改功能文字或重新关联旧检查不能证明新预期已验证；需要按来源录制独立检查，或通过工作流提交明确对应新预期的候选断言并真实回归。
 
 ## 输入文件、运行绑定与后台转交
 
@@ -90,6 +92,8 @@ DSH 注册命令中的 `--runtime-context <绑定值>` 同时固定 workspace �
 | `schedule pause <任务> [--expected-revision]` / `schedule resume <任务> [--expected-revision]` / `schedule delete <任务>` | 修改调度生命周期 |
 
 kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 asset_id/parameters，maintenance 选 workflow_id/host/parameters。规则仍由 autoSkill 的 interval/at/daily/weekly 时钟负责，DSH 只接收已到期的单次投递，不再建立第二个重复时钟。投递回执只证明指令已进入宿主会话，不证明流程完成；宿主退出期间保留 outbox。
+
+回放任务定义可提供 `headed: false` 隐藏浏览器窗口，`true` 显示；这个选择保存在任务中，编辑、立即运行、到期执行和重启后继续使用。旧任务或省略该字段的 CLI 任务沿用当前数据目录保存的回放窗口偏好；没有偏好时使用运行环境默认。仪表盘新建任务会将当前窗口偏好作为该任务的初始值，并允许在编辑器中修改。原生资产自己的浏览器启动方式由其原脚本控制。
 
 新任务的 host 默认跟随创建命令的宿主绑定，显式 host 优先；`host_session_id` 是独立字段。更新省略宿主字段会保留原值。创建、更新、恢复任务会启动本机队列驱动，命令退出后未来计划仍可触发；机器重启或驱动被关闭后，用任一 `schedule update`、`schedule resume` 或 `native dispatch` 重新启动。当前没有安装系统开机服务。DSH 插件只能激活运行中宿主的会话，不能启动已退出的 DSH；重开插件后会继续读取持久投递。
 
@@ -156,7 +160,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 `run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api]`
 
-- 浏览器默认显示最大化的窗口（没有窗口时页面为 1920×1080）；加 `--headless` 在后台运行（`record start`、`run`、`login`、`dashboard` 都支持，也可设置环境变量 `AUTOSKILL_HEADED=0`）。
+- 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好；省略参数不会覆盖用户已经选择的隐藏。没有偏好时默认显示最大化窗口，无桌面的 Linux 默认隐藏。明确 `--headed` / `--headless` 或 `AUTOSKILL_HEADED=1/0` 优先；没有窗口时页面为 1920×1080。这些命令行选项适用于 `record start`、`run`、`login`、`dashboard`。
 - 全局默认同时执行 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的浏览器/HTTP replay 共享登录态，会自动排队，native 原生任务使用独立输入与证据目录、同项目可并行。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
 - 前置用例自动先执行且每次运行只执行一次；前置没通过时，依赖它的用例记为阻塞。
 - 登录用例：有保存的登录态且仍有效就直接复用，否则重新登录；回放中途发现登录过期会重新登录一次，只读用例自动重试，写操作不自动重发。
@@ -182,10 +186,10 @@ HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{
 | --- | --- |
 | `export postman <项目> [--out 目录]` | Postman Collection v2.1 + Environment。按依赖顺序排列，含断言脚本和变量传递；凭据是环境里的空变量 |
 | `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本（含前置步骤），运行时不需要 autoSkill；凭据从同名环境变量读取 |
-| `report <项目> [--out 目录]` | Excel（用例、步骤、断言、最近结果）和 Markdown 摘要 |
+| `report <项目> [--out 目录]` | Excel 以14列功能测试用例为主表，保留技术定义、执行明细与最近结果附表，并生成 Markdown 摘要 |
 | `task-report <报告标识> [--retry]` | 读取本次任务的 Excel、简报和 Bug 清单交付回执；`--retry` 按同一任务快照重新导出，不重新执行测试，也不借用其他任务的结果 |
-| `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、原生资产及原始捕获，不额外加入本机登录态、运行记录、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |
-| `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含运行历史、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
+| `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、项目报告附件、原生资产及原始捕获，不额外加入本机登录态、`.local/` 运行数据库、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |
+| `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库及项目报告附件、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含 `.local/` 运行历史数据库、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
 | `import <分享包> [--passphrase 口令] [--overwrite]` | 导入轻量分享包。已有同名项目默认跳过 |
 
 完整录制、运行及工作流周期完成后返回 `test_report`，保留原生执行原有 `report` 的含义。只有 `status: ready` 且三个文件检查成功才给出 `excel`、`markdown`、`bugs`、`download_url`、`markdown_download_url`、`bugs_download_url` 及各自 SHA-256、大小；`pending`、`failed`、`skipped` 不能算交付完成。Markdown 简报仅包含任务基本字段、结果汇总、主要问题和 Excel 链接。Bug 清单区分业务断言失败、执行问题和证据待核验，保留此前失败及复测；零问题也不表示未执行的需求已通过。导出失败可按 `report_id` 重试；`task-report` 返回 failed 时退出 2，查询或请求成功也不意味着业务用例通过。HTTP 提供 `GET /api/task-reports/{id}`、`GET /api/task-reports/{id}/excel`、`GET /api/task-reports/{id}/markdown`、`GET /api/task-reports/{id}/bugs`、`POST /api/task-reports/{id}/retry`。
