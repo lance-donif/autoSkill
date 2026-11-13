@@ -183,14 +183,16 @@ HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{
 | `export postman <项目> [--out 目录]` | Postman Collection v2.1 + Environment。按依赖顺序排列，含断言脚本和变量传递；凭据是环境里的空变量 |
 | `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本（含前置步骤），运行时不需要 autoSkill；凭据从同名环境变量读取 |
 | `report <项目> [--out 目录]` | Excel（用例、步骤、断言、最近结果）和 Markdown 摘要 |
-| `task-report <报告标识> [--retry]` | 读取本次任务的 Excel 交付回执；`--retry` 按同一任务范围重新导出，不重新执行测试，也不借用其他任务的结果 |
+| `task-report <报告标识> [--retry]` | 读取本次任务的 Excel 和 Markdown 交付回执；`--retry` 按同一任务快照重新导出，不重新执行测试，也不借用其他任务的结果 |
 | `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、原生资产及原始捕获，不额外加入本机登录态、运行记录、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |
 | `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含运行历史、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
 | `import <分享包> [--passphrase 口令] [--overwrite]` | 导入轻量分享包。已有同名项目默认跳过 |
 
-完整录制、运行及工作流周期完成后返回 `test_report`，保留原生执行原有 `report` 的含义。只有 `status: ready` 且文件检查成功才给出 `excel`、`download_url`、SHA-256 与大小；`pending`、`failed`、`skipped` 不能算交付完成。导出失败可按 `report_id` 重试；`task-report` 返回 failed 时退出 2，查询或请求成功也不意味着业务用例通过。HTTP 提供 `GET /api/task-reports/{id}`、`GET /api/task-reports/{id}/excel`、`POST /api/task-reports/{id}/retry`。
+完整录制、运行及工作流周期完成后返回 `test_report`，保留原生执行原有 `report` 的含义。只有 `status: ready` 且两个文件检查成功才给出 `excel`、`markdown`、`download_url`、`markdown_download_url` 及各自 SHA-256、大小；`pending`、`failed`、`skipped` 不能算交付完成。Markdown 仅包含任务基本字段、结果汇总、主要问题和 Excel 链接。导出失败可按 `report_id` 重试；`task-report` 返回 failed 时退出 2，查询或请求成功也不意味着业务用例通过。HTTP 提供 `GET /api/task-reports/{id}`、`GET /api/task-reports/{id}/excel`、`GET /api/task-reports/{id}/markdown`、`POST /api/task-reports/{id}/retry`。
 
-任务级报告与 `report <项目>` 的项目最近结果概览不同，按各自任务、工作流周期、录制身份分别保存。当前内置渲染器沿用已有列定义，并不代表已经按用户外部指定的用例 Skill 或模板生成；指定模板仍须实际读取后接入并核验。
+任务级报告与 `report <项目>` 的项目最近结果概览不同，按各自任务、工作流周期、录制身份分别保存。随包 [test-cases Skill](test-cases/SKILL.md) 定义 14 列和业务分层；FT 展示编号不替换内部用例标识，映射和每次尝试均保留。缺少业务事实时明确标记待确认，格式通过不等于业务通过。执行报告页的「下载 HTML 报告」沿用当前页面的报告组件，包含全部用例明细及可取得的截图，下载后无需运行服务；导出时缺失的截图明确说明。
+
+已确认的业务层级、缩写和编制人可写入用例的 `extensions.test_case_document`，例如 `{"business_path":["业务系统原名","模块原名","功能项原名"],"prefix":"GNXYM","author":"实际编制人"}`；示例值不是默认事实。AI 对话样本使用同名 `test_case_document`。这些字段与用例一起冻结，修改当前定义不会回写过去报告。没有来源支持的字段保持待确认，不根据技术引擎或接口路径补造业务层级。
 
 ## 其他
 

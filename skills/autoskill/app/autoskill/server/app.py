@@ -413,6 +413,11 @@ def _register_task_report_routes(app: FastAPI) -> None:
         file = task_reports.download(report_id)
         return FileResponse(file, filename=file.name, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+    @app.get("/api/task-reports/{report_id}/markdown")
+    def task_report_markdown(report_id: str):
+        file = task_reports.download(report_id, format="markdown")
+        return FileResponse(file, filename=file.name, media_type="text/markdown; charset=utf-8")
+
 
 def _register_schedule_routes(app: FastAPI) -> None:
     """Register schedule routes in their original order."""

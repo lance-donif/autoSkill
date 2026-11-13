@@ -2,15 +2,15 @@
 
 核对日期：2026-11-13。核对版本：本机 npm `@deepseek-ai/dsh@0.2.2-rc.1` 及同版本 `dsh-tool-todo`、`dsh-client-ui-conversation`、`dsh-plan-mode`、`dsh-tool-present`。官方 Git tag `dsh-v0.2.2-rc.1`，commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。这是明确固定版本，不声称它是最新版本（远端另有 rc.2 tag，本次未审 rc.2）。
 
-本地 npm：`/workspace/autoskill-linux-tools/node_modules/@deepseek-ai/`。本次外部只读源码快照：`/workspace/autoSkill-release/dsh-plan-research/deepseek-harness/`。没有修改产品或 git 提交，没有读取凭据，没有启动真实 DSH 模型/UI 任务。以下是已安装发布包与官方固定版本源码的交叉核对，不是本轮原生 UI 验收；仓库既有历史 DSH Web 验收不等同新增计划/Excel 链路的实机验收。
+本地 npm：`/workspace/autoskill-linux-tools/node_modules/@deepseek-ai/`。外部只读源码快照：`/workspace/autoSkill-release/dsh-plan-research/deepseek-harness/`。原研究阶段只读，没有启动真实 DSH 模型/UI 任务。以下协议核对和后续产品接入说明不是本轮原生 UI 验收；仓库既有历史 DSH Web 验收不等同新增计划/报告链路的实机验收。
 
 ## 结论与最小接入
 
 用户描述的“对话框上方预计划步骤”对应 `TodoDock` / `TodoPanel`：宿主 AI 调用原生 **`todo_write`** 更新当前会话的任务列表，原生 Web UI 在输入框上方显示“任务”及已完成/进行中/待处理数量，默认折叠，点击展开逐项步骤。不是 Markdown 自动识别，也不是 autoSkill 页面自己画的列表。
 
-最小接入只需要：autoSkill Skill（及插件送入宿主的任务提示）要求宿主在实际工具可用时，开始任务/恢复当前 turn 后先写完整清单；取得阶段真实回执后再更新；最后包含“生成、检查并交付测试用例 Excel”。在 DSH 使用 `todo_write`，PTC 由宿主按其可用工具调用协议调用，不在插件后台硬编码 `ctx.tools.execute` 发原生名字。现有 autoSkill CLI 负责真正的工作与导出，DSH 负责原生计划展示。
+autoSkill Skill 及插件送入宿主的任务提示要求宿主在实际工具可用时，开始任务/恢复当前 turn 后先写完整清单；取得阶段真实回执后再更新；最后包含“生成、检查并交付测试用例 Excel 和 Markdown 汇总”。在 DSH 使用 `todo_write`，PTC 由宿主按其可用工具调用协议调用，不在插件后台硬编码 `ctx.tools.execute` 发原生名字。现有 autoSkill CLI 负责真正的工作与导出，DSH 负责原生计划展示。
 
-Excel 生成并检查成功后，宿主可调用官方 **`present`** 声明 `.xlsx` 文件，让 DSH 用原生交付卡显示；最终答复同时给可访问文件链接。不要在文件尚未生成时把“交付 Excel”标为完成。当前用户另给的 Gofile 用例 Skill 下载被 403 阻断，**没有读取其模板，不能声称遵循或复刻了该模板**。这份报告只确认宿主计划/文件交付机制。
+Excel 和 Markdown 生成并检查成功后，宿主可调用官方 **`present`** 声明两个文件，让 DSH 用原生交付卡显示；最终答复同时给可访问文件链接。不要在文件尚未生成时把交付阶段标为完成。GoFile 直连此前被代理 403 阻断，之后已从用户 Git 提交的 `test-cases.rar` 读取完整 Skill，来源 SHA-256 为 `08f913f3c8d4de28fac9c19acd9481355c78f6ccbb2e427788dc3ec7df72307f`。规则随产品放在 `skills/autoskill/references/test-cases/`，由通用内核输出 14 列 Excel；Markdown 只保留简单字段、数量汇总、主要问题和 Excel 链接。读取规则与本机导出成功仍不代表真实 DSH 卡片已验收。
 
 ## todo_write 的精确协议
 
@@ -20,7 +20,7 @@ Excel 生成并检查成功后，宿主可调用官方 **`present`** 声明 `.xl
 {"todos":[
   {"content":"核对需求与已有用例","status":"in_progress"},
   {"content":"补充场景并执行测试，保存真实结果","status":"pending"},
-  {"content":"生成、检查并交付测试用例 Excel","status":"pending"}
+  {"content":"生成、检查并交付测试用例 Excel 和 Markdown 汇总","status":"pending"}
 ]}
 ```
 
@@ -68,7 +68,7 @@ DSH 官方 ToolsService 有 `execute({calls,signal,agent?,toolSet?,log?})`，可
 官方 `present` 参数：
 
 ```json
-{"files":[{"path":"/宿主可访问目录/测试用例-本次任务.xlsx","description":"本次测试用例与真实执行结果"}]}
+{"files":[{"path":"/宿主可访问目录/测试用例-本次任务.xlsx","description":"本次测试用例与真实执行结果"},{"path":"/宿主可访问目录/测试汇总-本次任务.md","description":"本次测试汇总"}]}
 ```
 
 应先真正生成 `.xlsx` 并读回检查，再调用 present，成功后把最后一步完成并给链接。文件需是当前 Session filesystem 能访问的 regular file；相对路径基于 Session working directory，最终符号链接/缺失文件/目录/被 provider 拒绝路径会失败。工具要求 owning Agent 与 open turn；子 agent 生成的文件由父 agent 自行 present 才属于父交付。successful tools/result 追加 `deliverables/presented`。文件内容不复制、不校验 xlsx 格式，只记录路径，所以应使用本次任务独立文件名，不能删除/覆盖后仍声称历史卡内有原始附件。
@@ -85,4 +85,4 @@ DSH 官方 ToolsService 有 `execute({calls,signal,agent?,toolSet?,log?})`，可
 - 故意业务 Fail：执行步骤可以完成，Excel 记录 Fail；不能用 todos completed 代替 business Pass。导出失败时交付步骤不得提前完成。
 - 无 todo_write / 无 present / PTC preset：按实际可用能力执行、降级文字与文件链接，不进入 plan review。
 
-上述是建议验收项，**本次未执行真实 DSH 界面验收，也未按不可访问的 Gofile 模板验收**。
+上述是宿主建议验收项，**本次未执行真实 DSH 界面验收**。用户上传的用例 Skill 已另行读取和接入，模板及本机导出校验应按实际测试记录判断，不能外推为 DSH 原生文件卡通过。

@@ -385,7 +385,7 @@ def parser() -> argparse.ArgumentParser:
     rep = sub.add_parser("report", help="导出 Excel 用例表与执行报告（每条用例取最近一次回放结果）")
     rep.add_argument("project")
     rep.add_argument("--out", help="输出目录")
-    receipt = sub.add_parser("task-report", help="读取本次任务的 Excel 交付结果；不使用其他任务的最近结果")
+    receipt = sub.add_parser("task-report", help="读取本次任务的 Excel 与 Markdown 交付结果；不使用其他任务的最近结果")
     receipt.add_argument("report_id")
     receipt.add_argument("--retry", action="store_true", help="用对应任务快照重试生成，不重新执行测试")
     packer = sub.add_parser("pack", help="把项目（用例、知识库、登录方式）打成一个分享包")
