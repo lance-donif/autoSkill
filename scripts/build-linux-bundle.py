@@ -122,6 +122,7 @@ def build(assets: Path, output: Path, arch: str) -> dict:
                 "runtime_files": len(files), "system_dependencies_bundled": False, "glibc_minimum_runtime": "2.28",
                 "uos_hardware_verified": False, "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair"}
     (package / "offline-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    common.write_package_manifest(output)
     return manifest
 
 
