@@ -117,7 +117,9 @@ export const RANGES = [
 ];
 export const DEFAULT_RANGE = '7d';
 const listeners = new Set();
+const routeGuards = new Set();
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+export function beforeRouteChange(fn) { routeGuards.add(fn); return () => routeGuards.delete(fn); }
 
 export function route() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
@@ -195,7 +197,12 @@ export function href(page, params = {}) {
   const text = query.toString();
   return '#/' + page + (text ? '?' + text : '');
 }
-window.addEventListener('hashchange', () => { for (const fn of listeners) fn(); });
+window.addEventListener('hashchange', (event) => {
+  for (const guard of routeGuards) {
+    if (guard() === false) { event.stopImmediatePropagation(); return; }
+  }
+  for (const fn of listeners) fn();
+});
 /** Re-render the current page in place (after an action changed what it shows). */
 export function refresh() { for (const fn of listeners) fn(); }
 /** A page showing something still in progress asks to be kept fresh for a few seconds. */

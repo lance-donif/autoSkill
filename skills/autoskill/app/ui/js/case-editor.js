@@ -1,5 +1,5 @@
 // The drawer always starts from the complete canonical definition, never a display projection.
-import { h, api, icon, toast, replace, refresh } from './core.js';
+import { h, api, icon, toast, replace, refresh, beforeRouteChange } from './core.js';
 import { drawer, closeOverlay } from './ui.js';
 import { textField, selectField, section, applyControls } from './editor-fields.js';
 import { boundValue } from './value-editor.js';
@@ -15,6 +15,7 @@ export async function editCase(projectId, caseId, onSaved) {
   let dirty = false;
   let saving = false;
   let pending = null;
+  let releaseRoute = () => undefined;
   const originalHash = location.hash;
   const status = h('span', { class: 'sub grow', role: 'status' }, '尚未修改');
   const touch = () => { dirty = true; status.textContent = '有未保存的修改'; };
@@ -36,13 +37,13 @@ export async function editCase(projectId, caseId, onSaved) {
     if (!dirty) return true;
     askDiscard(null); return false;
   };
-  const onRoute = (event) => {
-    if (location.hash === originalHash) return;
-    if (!dirty && !saving) { closeOverlay(); return; }
+  const onRoute = () => {
+    if (location.hash === originalHash) return true;
+    if (!dirty && !saving) { closeOverlay(); return true; }
     const next = location.hash;
-    event.stopImmediatePropagation();
     history.replaceState(null, '', location.pathname + location.search + originalHash);
     if (!saving) askDiscard(() => { location.hash = next; });
+    return false;
   };
   const beforeUnload = (event) => { if (dirty || saving) { event.preventDefault(); event.returnValue = ''; } };
   const reloadLatest = () => askDiscard(() => editCase(projectId, caseId, onSaved));
@@ -68,12 +69,12 @@ export async function editCase(projectId, caseId, onSaved) {
     } finally { saving = false; save.disabled = false; save.textContent = '保存修改'; }
   } }, '保存修改');
   const panel = drawer({ title: '编辑用例', subtitle: `${draft.id} · ${draft.kind === 'ui' ? '页面用例' : '接口用例'} · 第 ${draft.revision} 版`, wide: true,
-    beforeClose, onClose: () => { window.removeEventListener('hashchange', onRoute, true); window.removeEventListener('beforeunload', beforeUnload); },
+    beforeClose, onClose: () => { releaseRoute(); window.removeEventListener('beforeunload', beforeUnload); },
     body: [departure, errorBox, h('p', { class: 'hint' }, '用例 ID、类型、版本与实际结果只读。保存后请手动运行，确认业务预期仍然成立。'), common.node, execute.node],
     foot: [status, h('button', { class: 'btn', type: 'button', onClick: () => closeOverlay() }, '取消'), save] });
   if (panel) {
     panel.classList.add('case-editor');
-    window.addEventListener('hashchange', onRoute, true); window.addEventListener('beforeunload', beforeUnload);
+    releaseRoute = beforeRouteChange(onRoute); window.addEventListener('beforeunload', beforeUnload);
   }
 }
 
