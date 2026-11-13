@@ -323,6 +323,22 @@ function prepareReportRows(run, runId, focus) {
   }
 }
 
+function testReportControl(run) {
+  const receipt = run.test_report;
+  if (receipt?.status === 'ready') {
+    return h('a', { class: 'btn', href: receipt.download_url, download: '', title: '本次任务的用例、步骤、断言与实际结果' }, icon('table'), '下载本次用例 Excel');
+  }
+  if (receipt?.status !== 'failed') return null;
+  const retry = h('button', { class: 'btn', onClick: async () => {
+    const result = await attempt(() => api('/task-reports/' + encodeURIComponent(receipt.report_id) + '/retry', { method: 'POST' }), retry);
+    if (result) {
+      toast(result.status === 'ready' ? '测试用例 Excel 已生成' : result.error || result.reason || '报告尚未生成', { bad: result.status === 'failed' });
+      refresh();
+    }
+  } }, icon('reset'), '重试导出 Excel');
+  return [h('span', { class: 'sub', title: receipt.error }, 'Excel 导出未完成'), retry];
+}
+
 function runSummary(run, running, stop, again, notPassed, retry, spent, remove) {
   return h('section', { class: 'card run-summary' },
     h('div', { class: 'card-body' },
@@ -330,7 +346,7 @@ function runSummary(run, running, stop, again, notPassed, retry, spent, remove) 
         statusPill(run.status, deleting(run) ? '正在取消并删除' : null),
         h('div', { class: 'grow' }, h('h1', {}, run.project_name),
           h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 页面用例用 ${ENGINE[run.engine]} 回放 · ${fmtTime(run.created_at)}`)),
-        !deleting(run) && (running ? stop : [h('a', { class: 'btn', href: `/api/projects/${run.project_id}/report`, download: '', title: '用例、步骤、断言和每条用例的最近结果' }, icon('table'), '下载报告'), again, notPassed > 0 && retry]), remove),
+        !deleting(run) && (running ? stop : [testReportControl(run), again, notPassed > 0 && retry]), remove),
       running
         ? h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),

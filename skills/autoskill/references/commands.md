@@ -117,6 +117,8 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 每个会话维护自己的录制；不同会话可以同时录制。
 
+接口捕获范围是业务 HTTP、WebSocket、SSE，不保存页面文档、JS、CSS、图片、字体、source map 或自动预检请求。业务请求的认证、参数、请求体、响应及流式消息按实际可获取内容保留，不能获取的上传文件字节不会伪造。`record stop` 的 `conversation_captures.capture_scope` 返回 `business-traffic-v1` 策略及 HAR/CDP 保留、排除计数，归档标记 `complete_network_log: false`。普通 HTTP 编译器不能完整表示的 multipart、WebSocket 等在 `api_uncompiled` 说明；捕获成功不等于已生成可回放用例。
+
 ### 标签页与新窗口
 
 | 命令 | 说明 |
@@ -163,6 +165,17 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 失败归类：找不到元素、结果与预期不符、超时、地址未授权、缺少凭据、前置用例未通过、登录已过期、缺少前置数据、操作未被允许、环境问题。
 
+## 删除用例与执行记录
+
+| 命令 | 说明 |
+| --- | --- |
+| `delete case <项目> <用例编号>...` | 删除指定当前用例，保留历史运行和其他用例；不悄悄移除其他用例的前置依赖 |
+| `delete run <执行编号>...` | 删除指定运行的结果、报告、截图及不再被其他执行引用的冻结输入；不删除项目、用例、凭据或保存的登录态 |
+
+单条与批量均返回 `deleted/pending/errors` 数组。退出码 0 表示本次请求没有删除错误，2 表示至少一项错误；活动运行先取消，pending 不等于删除成功，可以用相同命令查询/重试直到 pending 清空。重复删除已删除项按已经完成返回，不会重新执行测试。
+
+HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{case_id}`、`POST /api/cases/delete`（`items: [{project_id, case_id}]`），以及 `DELETE /api/runs/{run_id}`、`POST /api/runs/delete`（`run_ids: [...]`）。仪表盘提供列表、详情及多选删除。删除执行证据不会使缺失证据的工作流继续声称通过；删除前置用例后，仍引用它的运行计划会明确报告缺失。
+
 ## 导出与分享
 
 | 命令 | 说明 |
@@ -170,9 +183,14 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 | `export postman <项目> [--out 目录]` | Postman Collection v2.1 + Environment。按依赖顺序排列，含断言脚本和变量传递；凭据是环境里的空变量 |
 | `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本（含前置步骤），运行时不需要 autoSkill；凭据从同名环境变量读取 |
 | `report <项目> [--out 目录]` | Excel（用例、步骤、断言、最近结果）和 Markdown 摘要 |
+| `task-report <报告标识> [--retry]` | 读取本次任务的 Excel 交付回执；`--retry` 按同一任务范围重新导出，不重新执行测试，也不借用其他任务的结果 |
 | `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、原生资产及原始捕获，不额外加入本机登录态、运行记录、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |
 | `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含运行历史、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
 | `import <分享包> [--passphrase 口令] [--overwrite]` | 导入轻量分享包。已有同名项目默认跳过 |
+
+完整录制、运行及工作流周期完成后返回 `test_report`，保留原生执行原有 `report` 的含义。只有 `status: ready` 且文件检查成功才给出 `excel`、`download_url`、SHA-256 与大小；`pending`、`failed`、`skipped` 不能算交付完成。导出失败可按 `report_id` 重试；`task-report` 返回 failed 时退出 2，查询或请求成功也不意味着业务用例通过。HTTP 提供 `GET /api/task-reports/{id}`、`GET /api/task-reports/{id}/excel`、`POST /api/task-reports/{id}/retry`。
+
+任务级报告与 `report <项目>` 的项目最近结果概览不同，按各自任务、工作流周期、录制身份分别保存。当前内置渲染器沿用已有列定义，并不代表已经按用户外部指定的用例 Skill 或模板生成；指定模板仍须实际读取后接入并核验。
 
 ## 其他
 

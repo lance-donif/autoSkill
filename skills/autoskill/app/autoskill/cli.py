@@ -82,6 +82,7 @@ def run_summary(run: dict) -> dict:
         "results": [{"case_id": r["case_id"], "title": r["case_title"], "kind": r["kind"], "status": r["status"],
                      "prerequisite": bool(r["prerequisite"]), "ms": r["duration_ms"],
                      "detail": r["actual"] or r["reason"]} for r in rows],
+        **({"test_report": run["test_report"]} if "test_report" in run else {}),
     }
 
 
@@ -384,6 +385,9 @@ def parser() -> argparse.ArgumentParser:
     rep = sub.add_parser("report", help="导出 Excel 用例表与执行报告（每条用例取最近一次回放结果）")
     rep.add_argument("project")
     rep.add_argument("--out", help="输出目录")
+    receipt = sub.add_parser("task-report", help="读取本次任务的 Excel 交付结果；不使用其他任务的最近结果")
+    receipt.add_argument("report_id")
+    receipt.add_argument("--retry", action="store_true", help="用对应任务快照重试生成，不重新执行测试")
     packer = sub.add_parser("pack", help="把项目（用例、知识库、登录方式）打成一个分享包")
     packer.add_argument("projects", nargs="*", help="项目标识；省略则打包全部项目")
     packer.add_argument("--out", help="输出文件或目录")
@@ -764,6 +768,13 @@ def _dispatch_report(args) -> tuple[dict, int]:
     return reporting.build(args.project, args.out), 0
 
 
+def _dispatch_task_report(args) -> tuple[dict, int]:
+    from . import task_reports
+
+    result = task_reports.retry(args.report_id) if args.retry else task_reports.get(args.report_id)
+    return result, 2 if result["status"] == "failed" else 0
+
+
 def _dispatch_pack(args) -> tuple[dict, int]:
     """Handle the pack command without changing its result contract."""
     from . import share
@@ -912,6 +923,7 @@ def dispatch(args) -> tuple[dict, int]:
         "upgrade": _dispatch_upgrade,
         "secret": _dispatch_secret,
         "report": _dispatch_report,
+        "task-report": _dispatch_task_report,
         "pack": _dispatch_pack,
         "settings": _dispatch_settings,
         "plan": _dispatch_plan,

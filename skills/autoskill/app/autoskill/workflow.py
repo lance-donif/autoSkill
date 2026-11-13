@@ -8,6 +8,7 @@ import json
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
+from functools import wraps
 from pathlib import Path
 
 from . import db, domain, projects, task_context
@@ -18,6 +19,23 @@ from .workflow_state import WorkflowError
 
 _UNSET = object()
 _binding_context = ContextVar("workflow_binding", default=_UNSET)
+
+
+def _report_delivery(function):
+    """Attach terminal delivery only after the workflow transaction and locks have exited."""
+    @wraps(function)
+    def delivered(*args, **kwargs):
+        result = function(*args, **kwargs)
+        summary = result.get("workflow", result)
+        if summary.get("complete") or summary.get("lifecycle") == "cancelled":
+            from . import task_reports
+
+            receipt = task_reports.for_workflow(summary["workflow_id"])
+            result = {**result, "test_report": receipt}
+            if "workflow" in result:
+                result["workflow"] = {**summary, "test_report": receipt}
+        return result
+    return delivered
 
 
 def selected_binding_token() -> str | None:
@@ -67,6 +85,7 @@ def _view(workflow_id: str) -> dict:
         return _summary(state.row(connection, "workflow_runtime", workflow_id), connection)
 
 
+@_report_delivery
 def status(workflow_id: str, *, limit: int = 50, cursor: str | None = None) -> dict:
     """Read a bounded keyset page; polling does not claim or execute work."""
     state.init()
@@ -286,6 +305,7 @@ def _task_view(flow: dict, task: dict, attempt: dict, current: dict) -> dict:
             "payload_schema": definitions.instructions(task["phase"])}
 
 
+@_report_delivery
 def next_task(workflow_id: str, *, idempotency_key: str, owner: str | None = None, lease_seconds: int = 300) -> dict:
     """Reconcile deterministic work and atomically lease the next host operation."""
     flow = state.workflow(workflow_id)
@@ -327,6 +347,7 @@ def next_task(workflow_id: str, *, idempotency_key: str, owner: str | None = Non
             return state.receipt(connection, workflow_id, idempotency_key, result)
 
 
+@_report_delivery
 def submit(workflow_id: str, item_id: str, *, lease_token: str, attempt_id: str, idempotency_key: str, payload: dict) -> dict:
     """Validate a proposal, fence its lease, and publish a staged domain change."""
     flow = state.workflow(workflow_id)
@@ -386,14 +407,17 @@ def _control(workflow_id: str, action: str, idempotency_key: str) -> dict:
         return response
 
 
+@_report_delivery
 def cancel(workflow_id: str, *, idempotency_key: str) -> dict:
     return _control(workflow_id, "cancel", idempotency_key)
 
 
+@_report_delivery
 def resume(workflow_id: str, *, idempotency_key: str) -> dict:
     return _control(workflow_id, "resume", idempotency_key)
 
 
+@_report_delivery
 def recover(workflow_id: str, *, idempotency_key: str) -> dict:
     flow = state.workflow(workflow_id)
     with project_lock(flow["project_id"]):

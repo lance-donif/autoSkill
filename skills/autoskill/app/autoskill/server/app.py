@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from .. import __version__, bridge, command_input, context_service, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context
+from .. import __version__, bridge, command_input, context_service, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context, task_reports
 from ..replay import ir
 from . import jobs, metrics, scheduler
 from .ui_assets import mount_ui
@@ -105,6 +105,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     _register_run_creation_route(app)
     _register_run_detail_routes(app)
     _register_deletion_routes(app)
+    _register_task_report_routes(app)
     _register_schedule_routes(app)
     _register_context_routes(app)
     _register_workflow_routes(app)
@@ -338,7 +339,7 @@ def _register_run_detail_routes(app: FastAPI) -> None:
         rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
         for row in rows:
             row["detail"] = json.loads(row["detail"])
-        return {**run_view(run), "results": rows}
+        return {**run_view(run), "results": rows, "test_report": task_reports.for_run(run_id)}
 
     @app.post("/api/runs/{run_id}/cancel")
     def cancel_run(run_id: str):
@@ -396,6 +397,21 @@ def _register_deletion_routes(app: FastAPI) -> None:
         if not isinstance(body, dict) or not isinstance(body.get("run_ids"), list):
             raise ValueError("run_ids 必须是运行标识数组")
         return await asyncio.to_thread(deletion.delete_runs, body["run_ids"])
+
+
+def _register_task_report_routes(app: FastAPI) -> None:
+    @app.get("/api/task-reports/{report_id}")
+    def task_report_status(report_id: str):
+        return task_reports.get(report_id)
+
+    @app.post("/api/task-reports/{report_id}/retry")
+    async def task_report_retry(report_id: str):
+        return await asyncio.to_thread(task_reports.retry, report_id)
+
+    @app.get("/api/task-reports/{report_id}/excel")
+    def task_report_excel(report_id: str):
+        file = task_reports.download(report_id)
+        return FileResponse(file, filename=file.name, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 def _register_schedule_routes(app: FastAPI) -> None:

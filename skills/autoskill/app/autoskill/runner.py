@@ -455,6 +455,9 @@ def recover_runs() -> None:
             current = db.one("SELECT * FROM runs WHERE id = ?", (run["id"],))
             if current and not current["delete_requested"]:
                 sync_plan(current)
+                from . import task_reports
+
+                task_reports.for_run(run["id"])
 
 
 def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
@@ -473,12 +476,15 @@ def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
 
 def execute(run_id: str, force_login: bool = False, *, claim_token: str | None = None) -> dict:
     """Execute a run once, or wait for the process that already owns it to return its final row."""
-    from . import deletion
+    from . import deletion, task_reports
 
     db.init()
     with deletion.execution_guard(run_id):
         result = _execute_guarded(run_id, force_login, claim_token)
+        result = {**result, "test_report": task_reports.for_run(run_id)}
     deletion._cleanup_result(run_id)
+    if not db.one("SELECT id FROM runs WHERE id = ?", (run_id,)):
+        result["test_report"] = {"status": "skipped", "reason": "运行已删除，报告已随记录清理", "retryable": False}
     return result
 
 
@@ -583,6 +589,9 @@ def spawn(run_id: str, force_login: bool = False) -> int | None:
         current = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
         if current and not current["delete_requested"]:
             sync_plan(current)
+            from . import task_reports
+
+            task_reports.for_run(run_id)
         return None
     with _children_lock:
         _children[child.pid] = child

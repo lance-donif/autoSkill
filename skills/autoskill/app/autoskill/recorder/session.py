@@ -700,7 +700,7 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
 
 def stop(title: str, module: str = "", category: str = "", plan_case: str | None = None) -> dict:
     """Finish the recording: export traffic, close the browser, compile and save the cases."""
-    from .. import conversation_capture
+    from .. import conversation_capture, task_reports
     from . import compile as compiler
 
     rec = current()
@@ -727,6 +727,9 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
     with project_lock(rec["project_id"]):
         replay_source = conversation_capture.compiler_source(har, rec.get("conversation_evidence"))
         summary = compiler.build(rec["project_id"], rec, replay_source, state, title.strip(), module, category)
+        identities = {summary["ui_case"]["id"], *(case["id"] for case in summary["api_cases"])}
+        saved_cases = [case for case in projects.cases(rec["project_id"]) if case["id"] in identities]
+        summary["test_report"] = task_reports.for_recording(rec["project_id"], rec, saved_cases)
     capture.discard(rec.get("network_capture"), recording_dir())
     _file().unlink(missing_ok=True)
     summary["project"] = rec["project_id"]

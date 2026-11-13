@@ -158,12 +158,19 @@ def sweep() -> None:
 
 def start_queued() -> None:
     """Start queued runs oldest first; the shared atomic claim enforces the configurable process budget."""
-    db.execute("UPDATE runs SET status = 'Cancelled', finished_at = ? WHERE status = 'Queued' AND cancel = 1", (db.now(),))
+    from .. import task_reports
+
+    with db.connect() as connection:
+        cancelled = connection.execute("UPDATE runs SET status = 'Cancelled', finished_at = ? WHERE status = 'Queued' AND cancel = 1 RETURNING id", (db.now(),)).fetchall()
+    for run in cancelled:
+        task_reports.for_run(run["id"])
     for run in db.rows("SELECT id FROM runs WHERE status = 'Queued' ORDER BY created_at"):
         runner.spawn(run["id"])
 
 
 def cancel(run_id: str) -> dict:
+    from .. import task_reports
+
     run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
     if not run:
         raise ValueError("运行不存在")
@@ -172,7 +179,10 @@ def cancel(run_id: str) -> dict:
         "UPDATE runs SET cancel = 1, finished_at = CASE WHEN status = 'Queued' THEN ? ELSE finished_at END, "
         "status = CASE WHEN status = 'Queued' THEN 'Cancelled' ELSE status END "
         "WHERE id = ? AND status IN ('Queued', 'Running')", (db.now(), run_id))
-    return db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
+    result = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
+    if result is None:
+        raise ValueError("运行已删除")
+    return {**result, "test_report": task_reports.for_run(run_id)}
 
 
 class Worker:

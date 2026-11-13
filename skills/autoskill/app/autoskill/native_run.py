@@ -86,6 +86,8 @@ def enqueue(project_id: str, asset_id: str, **options) -> dict:
 
 
 def get(run_id: str) -> dict:
+    from . import task_reports
+
     run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
     if not run or run.get("family") != "native":
         raise ValueError("原生运行不存在")
@@ -96,6 +98,7 @@ def get(run_id: str) -> dict:
     outcome = json.loads(summary.read_text(encoding="utf-8")) if summary.is_file() else {}
     manifest = _frozen(run)
     return {**run, "results": rows, "outcome": outcome, "evidence_dir": str(summary.parent),
+            "test_report": task_reports.for_run(run_id),
             "asset_id": manifest["asset_id"], "asset_version": manifest["asset_version"], "head": manifest["head"],
             "planned_unknown": manifest.get("planning", {}).get("planned_unknown", True) and outcome.get("metrics", {}).get("planned_cases") is None}
 
