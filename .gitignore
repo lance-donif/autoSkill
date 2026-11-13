@@ -10,3 +10,4 @@ node_modules/
 skills/autoskill/vendor/
 # machine-private data and anything a user records
 skills/autoskill/workspace/
+skills/autoskill-cases/

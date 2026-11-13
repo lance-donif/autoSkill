@@ -57,10 +57,27 @@ def describe_archive(archive: Path, version: str) -> dict:
         if target.startswith("linux") and manifest.get("target") != target:
             raise ValueError("Archive architecture mismatch: " + archive.name)
         verify_inventory(bundle, version)
+        ui_files = verify_ui_source(bundle)
     with archive.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    return {**manifest, "target": target, "file": archive.name, "bytes": archive.stat().st_size, "sha256": digest,
-            "verification": {"mode": "archive-only", "functional_tests_run": False, "zip_crc_ok": True}}
+    return {**manifest, "target": target, "file": archive.name, "bytes": archive.stat().st_size, "sha256": digest, "ui_files": ui_files,
+            "verification": {"mode": "archive-only", "functional_tests_run": False, "zip_crc_ok": True, "ui_source_verified": True}}
+
+
+def verify_ui_source(bundle: zipfile.ZipFile) -> dict:
+    """Check every shipped UI byte against the tag checkout, including the Apple-style dashboard."""
+    source = ROOT / "skills/autoskill/app/ui"
+    files = {"autoskill/app/ui/" + file.relative_to(source).as_posix(): file for file in source.rglob("*") if file.is_file()}
+    actual = {name for name in bundle.namelist() if name.startswith("autoskill/app/ui/") and not name.endswith("/")}
+    if actual != set(files):
+        raise ValueError("UI file inventory differs from the release source")
+    digests = {}
+    for name, file in files.items():
+        digest = hashlib.sha256(file.read_bytes()).hexdigest()
+        if hashlib.sha256(bundle.read(name)).hexdigest() != digest:
+            raise ValueError("UI source digest mismatch: " + name)
+        digests[name] = digest
+    return digests
 
 
 def publish(files: list[tuple[Path, dict]], notes: str, tag: str, commit: str) -> tuple[dict, list[dict]]:
@@ -116,6 +133,7 @@ def main():
              "Linux / UOS 需要 glibc >= 2.28 和浏览器依赖的系统共享库，包不替换系统库。旧版 UOS 的系统库可能无法运行包内 Chrome；"
              "可在 setup-linux.sh 中指定系统 Chromium 和匹配驱动。UOS 不在 Playwright 官方支持的发行版列表内，"
              "尚未在 UOS ARM64 真机验证，不承诺所有 UOS 版本开箱即用。DSH 宿主需 Node >= 24.9。\n\n"
+             "仪表盘使用 Apple 风界面，发布时逐文件核对包内 UI 与构建提交一致。"
              "本版增加可恢复的 Skill 工作流、原生 Selenium/Postman/Apifox/JMeter 资产执行、页面捕获转多轮 AI 对话评测与并发压测、"
              "独立宿主 AI 判定、后台调度和按需分页读取。多轮对话作为一条用例，保留首次真实失败，业务与性能结论分别记录。\n\n"
              "旧版本升级：先在新包目录使用独立 `autoskill-upgrade.py` 检查和准备，再停止旧进程并应用；不要直接覆盖或删除旧 workspace。"

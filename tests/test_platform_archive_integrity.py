@@ -19,6 +19,8 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
                                "autoskill/vendor/linux-x64/python/bin/python3", "autoskill/vendor/linux-x64/runtime-manifest.json"), b"fixture")
         files["package.json"] = b'{"version":"2.2.0"}'
         files["autoskill/offline-manifest.json"] = b'{"autoskill":"2.2.0","target":"linux-x64"}'
+        ui = ROOT / "skills/autoskill/app/ui"
+        files.update({"autoskill/app/ui/" + file.relative_to(ui).as_posix(): file.read_bytes() for file in ui.rglob("*") if file.is_file()})
         if omit:
             del files[omit]
         inventory = {name: hashlib.sha256(value).hexdigest() for name, value in files.items() if name != unlisted}
@@ -49,6 +51,22 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
     def test_unlisted_program_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder, self.assertRaisesRegex(ValueError, "Incomplete upgrade package inventory"):
             publisher.describe_archive(self.archive(folder, unlisted="plugin/index.mjs"), "2.2.0")
+
+    def test_ui_from_an_old_source_is_rejected_even_with_a_matching_package_inventory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = self.archive(folder)
+            with zipfile.ZipFile(path) as bundle:
+                files = {name: bundle.read(name) for name in bundle.namelist()}
+            name = "autoskill/app/ui/css/tokens.css"
+            files[name] = b"/* old UI */"
+            manifest = json.loads(files["package-manifest.json"])
+            manifest["files"][name] = hashlib.sha256(files[name]).hexdigest()
+            files["package-manifest.json"] = json.dumps(manifest).encode()
+            with zipfile.ZipFile(path, "w") as bundle:
+                for key, value in files.items():
+                    bundle.writestr(key, value)
+            with self.assertRaisesRegex(ValueError, "UI source digest mismatch"):
+                publisher.describe_archive(path, "2.2.0")
 
 
 if __name__ == "__main__":
