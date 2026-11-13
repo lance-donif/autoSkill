@@ -39,6 +39,19 @@ class CaptureUnitTests(unittest.TestCase):
         }})
         return self.observer.entries[-1]
 
+    def test_paused_noopener_popup_resumes_without_waiting_for_network_enable_reply(self):
+        self.observer.receive({'method': 'Target.attachedToTarget', 'params': {
+            'sessionId': 'popup', 'waitingForDebugger': True,
+            'targetInfo': {'targetId': 'popup-target', 'type': 'page', 'canAccessOpener': False},
+        }})
+        calls = self.observer.send.call_args_list
+        self.assertEqual([item.args[0] for item in calls],
+                         ['Network.enable', 'Target.setAutoAttach', 'Runtime.runIfWaitingForDebugger'])
+        self.assertTrue(all(item.args[2] == 'popup' for item in calls))
+        self.assertEqual(calls[1].args[1]['filter'],
+                         [{'type': kind, 'exclude': True} for kind in ('browser', 'tab', 'browser_ui')] + [{}])
+        self.assertEqual(self.observer.targets['popup']['targetId'], 'popup-target')
+
     def test_extra_headers_keep_real_cookie_even_when_the_event_precedes_request(self):
         self.observer.receive({'method': 'Network.requestWillBeSentExtraInfo', 'sessionId': 'tab-1', 'params': {
             'requestId': 'request-1', 'headers': {'Content-Type': 'application/json', 'Cookie': 'synthetic=one'},
