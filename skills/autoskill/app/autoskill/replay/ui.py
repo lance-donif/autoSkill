@@ -30,7 +30,7 @@ class StepError(Exception):
 
 def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     """Return (locator, index) of the first candidate that matches; index > 0 means a fallback was used."""
-    candidates = ir.locators(step)
+    candidates = ir.expand(ir.locators(step))
     if not candidates:
         return None, 0
     start = time.monotonic()
@@ -89,25 +89,70 @@ def evaluate(driver, step: dict, locator) -> tuple[bool, object]:
     return _same(expected, actual), actual
 
 
-def check(driver, step: dict, timeout: float) -> dict:
-    """Poll an assertion until it holds or the timeout passes."""
-    name = step.get("name") or ir.describe(step)
-    deadline = time.monotonic() + timeout
-    fallback = 0
+def _prepare_assertion(step: dict) -> dict:
+    """Resolve runtime expectations before polling; configuration errors are not business failures."""
+    step = {**step, "expected": secrets.resolve(ir.expand(step.get("expected", True)))}
+    if step["assertion"] in ("count", "min_count") and isinstance(step["expected"], str):
+        if not step["expected"].isdigit():
+            raise ValueError("count 断言的动态期望必须是非负整数")
+        step["expected"] = int(step["expected"])
+    if "transition_from" in step:
+        step["transition_from"] = _prepare_assertion({"locators": ir.locators(step), **step["transition_from"]})
+    return step
+
+
+def _read_assertion(driver, step: dict) -> tuple[bool, object, int]:
+    try:
+        locator, selected = choose_locator(driver, step, 0, need=False)
+        passed, actual = evaluate(driver, step, locator)
+        return passed, actual, selected
+    except Exception as error:  # noqa: BLE001  # Retry transient engine reads, retaining a diagnostic on timeout.
+        return False, "读取失败：" + type(error).__name__, 0
+
+
+def _poll_assertion(driver, step: dict, timeout: float) -> dict:
+    """Observe a transition and/or continuous postcondition without executing the action again."""
+    started = time.monotonic()
+    stable = float(step.get("stable_for_seconds", 0))
+    budget = max(float(step.get("timeout_seconds", timeout)), stable)
+    source = step.get("transition_from")
+    phase, since, fallback, source_actual = "transition_from" if source else "postcondition", None, 0, None
     while True:
-        try:
-            locator, selected = choose_locator(driver, step, 0, need=False)
-            fallback = max(fallback, selected)
-            passed, actual = evaluate(driver, step, locator)
-        except Exception as error:  # noqa: BLE001  # Engine-specific read failures are retried while the element changes.
-            passed, actual = False, "读取失败：" + type(error).__name__
-        if passed or time.monotonic() >= deadline:
+        passed, actual, selected = _read_assertion(driver, source if phase == "transition_from" else step)
+        fallback = max(fallback, selected)
+        now = time.monotonic()
+        if phase == "transition_from":
+            source_actual = actual
+            if passed:
+                phase = "postcondition"
+                continue
+        else:
+            since = (now if since is None else since) if passed else None
+            if passed and now - since >= stable:
+                phase = "complete"
+                break
+            if not passed and step.get("mode") == "always":
+                break
+        if now - started >= budget:
+            passed = False
             break
-        time.sleep(POLL)
-    row = {"name": name, "passed": bool(passed), "expected": step.get("expected", True), "actual": actual}
+        time.sleep(min(POLL, max(0, budget - (now - started))))
+    row = {"passed": bool(passed), "expected": step.get("expected", True), "actual": actual,
+           "phase": phase, "elapsed_ms": round((now - started) * 1000), "timeout_seconds": budget,
+           "stable_for_seconds": stable, "continuous_ms": round((now - since) * 1000) if since is not None else 0}
+    if source:
+        row["source_observation"] = {"expected": source.get("expected", True), "actual": source_actual,
+                                     "observed": phase != "transition_from"}
     if fallback:
         row["fallback"] = True
     return row
+
+
+def check(driver, step: dict, timeout: float) -> dict:
+    """Check the declared oracle with an explicit deadline and preserve the observation separately."""
+    name = step.get("name") or ir.describe(step)
+    result = _poll_assertion(driver, _prepare_assertion(step), timeout)
+    return {"name": name, **result, "oracle": step.get("oracle", {"source": "explicit"})}
 
 
 def navigate(action, *args) -> None:
@@ -123,6 +168,7 @@ def navigate(action, *args) -> None:
 def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float) -> bool:
     """Run one action. Returns True when a fallback locator had to be used."""
     op = step["action"]
+    timeout = float(step.get("timeout_seconds", timeout))
     if op.startswith("tab_"):
         tab_step = dict(step)
         if op == "tab_new":
@@ -182,13 +228,26 @@ def classify(error: Exception) -> tuple[str, str]:
     return ENVIRONMENT, "浏览器执行出错：" + name
 
 
+def _failure_evidence(driver, result: dict, folder: Path, name: str, index: int, evidence: list) -> None:
+    if result["passed"]:
+        return
+    file = f"{Path(name).stem}-check-{index}.png"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        driver.screenshot(folder / file)
+        evidence.append(file)
+        result["screenshot"] = file
+    except Exception:  # noqa: BLE001, S110  # Keep the failed observation even when screenshots are unavailable.
+        pass
+
+
 def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_name: str) -> dict:
     """Replay one UI case on an already opened page and return its result fields."""
     automation = case.get("extensions", {}).get("automation")
     timeout = float(config.get("timeout_seconds", 20))
     allowed = list(config.get("allowed_origins", []))
     base_url = config.get("base_url", "")
-    steps, assertions = [], []
+    steps, assertions, evidence = [], [], []
     outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "fallbacks": 0}
     started = time.monotonic()
     acted = False
@@ -208,8 +267,9 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             clock = time.monotonic()
             try:
                 if "assertion" in step:
-                    result = check(driver, step, min(timeout, 5.0))
+                    result = check(driver, step, timeout)
                     assertions.append(result)
+                    _failure_evidence(driver, result, evidence_dir, screenshot_name, len(assertions), evidence)
                     outcome["fallbacks"] += int(bool(result.get("fallback")))
                     row["status"] = "done" if result["passed"] else "failed"
                     row["check"] = True
@@ -229,29 +289,31 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                 if paths.headed():
                     time.sleep(WATCH_PAUSE)
         for step in automation.get("assertions", []):
-            result = check(driver, step, min(timeout, 5.0))
+            result = check(driver, step, timeout)
             outcome["fallbacks"] += int(bool(result.get("fallback")))
             assertions.append(result)
-        if not assertions:
-            assertions.append({"name": "全部动作可以完成（未声明断言）", "passed": True, "expected": True, "actual": True})
+            _failure_evidence(driver, result, evidence_dir, screenshot_name, len(assertions), evidence)
         failed = [a for a in assertions if not a["passed"]]
         if failed:
             outcome.update(status="Fail", category=ASSERTION, actual="页面结果与预期不一致",
                            reason="；".join(f'{a["name"]}（实际：{a["actual"]}）' for a in failed)[:500])
         else:
             done = sum(1 for row in steps if not row.get("check"))
-            outcome.update(status="Pass", actual=f"{done} 个步骤完成，{len(assertions)} 条断言通过")
+            actual = f"{done} 个步骤完成，{len(assertions)} 条断言通过" if assertions else f"{done} 个步骤完成；未声明业务断言"
+            outcome.update(status="Pass", actual=actual)
     except Exception as error:  # noqa: BLE001  # Every engine failure must become the existing structured case result.
         category, message = classify(error)
         if steps and steps[-1]["status"] == "running":
             steps[-1].update(status="failed", error=message)
-        if acted and category in (LOCATOR, TIMEOUT, ENVIRONMENT):
+        if any(not item["passed"] for item in assertions):
+            outcome.update(status="Fail", actual="页面结果与预期不一致，后续执行中断", category=ASSERTION,
+                           reason="；".join(f'{a["name"]}（实际：{a["actual"]}）' for a in assertions if not a["passed"])[:500],
+                           execution_blocker={"category": category, "reason": message})
+        elif acted and category in (LOCATOR, TIMEOUT, ENVIRONMENT):
             assertions.append({"name": "全部动作可以完成", "passed": False, "expected": True, "actual": message})
             outcome.update(status="Fail", actual="动作未能完成", reason=message, category=category)
         else:
-            assertions = []
             outcome.update(status="Blocked", reason=message, category=category)
-    evidence = []
     if acted:
         try:
             evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -259,6 +321,12 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             evidence.append(screenshot_name)
         except Exception:  # noqa: BLE001, S110  # Screenshot evidence is optional and must not change the case result.
             pass
-    outcome.update(steps=steps, assertions=assertions, screenshots=evidence,
+    definition = automation if isinstance(automation, dict) else {}
+    declared = any(isinstance(s, dict) and "assertion" in s for s in (definition.get("actions") or [])) or bool(definition.get("assertions"))
+    independent = any(a.get("oracle", {}).get("source") != "observation" for a in assertions if "oracle" in a)
+    verified = declared and independent
+    outcome.update(verification="verified" if verified else "unverified",
+                   business_status=outcome["status"] if verified else "Unverified",
+                   steps=steps, assertions=assertions, screenshots=evidence,
                    duration_ms=round((time.monotonic() - started) * 1000))
     return outcome

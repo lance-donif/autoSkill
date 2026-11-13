@@ -76,18 +76,21 @@ class RecorderReviewTests(unittest.TestCase):
                     probe.return_value.count.return_value = 0
                     result = session.check("hidden", target, None)
                     self.assertEqual((result["recorded"], result["actual"]), (1, "不可见"))
-                    self.assertEqual(rec["steps"], [{"assertion": "hidden", "locators": [locator]}])
+                    self.assertEqual(rec["steps"][0]["assertion"], "hidden")
+                    self.assertEqual(rec["steps"][0]["locators"], [locator])
+                    self.assertTrue(rec["steps"][0]["recording_result"]["passed"])
                     describe.assert_not_called()
 
-    def test_hidden_does_not_record_a_visible_element(self):
+    def test_hidden_records_the_failed_expectation_for_a_visible_element(self):
         rec = {"project_id": self.pid, "steps": [], "refs": {}}
         with patch.object(session, "current", return_value=rec), patch.object(session, "_sync_tabs"), \
                 patch.object(session, "PageProbe") as probe, patch.object(ui.time, "monotonic", side_effect=count(step=10)):
             probe.return_value.count.return_value = 1
             probe.return_value.read.return_value = True
-            with self.assertRaisesRegex(session.RecordError, "断言现在不成立"):
-                session.check("hidden", "#visible", None)
-        self.assertEqual(rec["steps"], [])
+            result = session.check("hidden", "#visible", None)
+        self.assertFalse(result["passed"])
+        self.assertEqual(rec["steps"][0]["assertion"], "hidden")
+        self.assertEqual(rec["steps"][0]["recording_result"]["actual"], "可见")
 
     def test_json_media_types_are_kept_and_distinguish_reused_requests(self):
         media_types = ("application/merge-patch+json", "application/json-patch+json", "application/json")
@@ -130,7 +133,7 @@ class RecorderReviewTests(unittest.TestCase):
             return httpx.Response(200, json={"role": "admin"})
 
         with patch.object(api, "new_client", side_effect=lambda *args: httpx.Client(transport=httpx.MockTransport(handle))):
-            running = runner.Session({"project_id": self.pid, "id": "cookie-test", "engine": "playwright"})
+            running = runner.Session(runner.prepare(self.pid))
             try:
                 for case in cases:
                     self.assertEqual(running.run_one(case)["status"], "Pass")

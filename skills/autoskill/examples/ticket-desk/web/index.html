@@ -24,6 +24,7 @@
     <header class="bar">
       <strong>示例工单系统</strong>
       <span class="spacer"></span>
+      <a href="/chat.html" data-testid="chat-link">问数演示（合成数据）</a>
       <span id="current-user" data-testid="current-user"></span>
       <button id="logout" class="ghost" data-testid="logout">退出登录</button>
     </header>
@@ -53,7 +54,7 @@
     </main>
   </div>
 
-  <dialog id="ticket-dialog" aria-labelledby="dialog-title">
+  <dialog id="ticket-dialog" aria-labelledby="dialog-title" data-testid="ticket-dialog">
     <form id="ticket-form" method="dialog">
       <h2 id="dialog-title">新建工单</h2>
       <label for="title">标题</label>

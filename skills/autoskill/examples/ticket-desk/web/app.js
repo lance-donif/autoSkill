@@ -9,6 +9,7 @@
   };
   let user = null;
   let searchTimer = null;
+  let latestListing = 0;
 
   async function api(method, path, body) {
     const headers = {};
@@ -56,19 +57,34 @@
     const tr = document.createElement('tr');
     tr.dataset.testid = 'ticket-row';
     tr.dataset.ticketId = ticket.id;
-    tr.append(cell(ticket.id), cell(ticket.title), cell(labels.priority[ticket.priority]));
+    const priority = cell(labels.priority[ticket.priority]);
+    priority.dataset.testid = 'ticket-priority-value';
+    priority.dataset.value = ticket.priority;
+    tr.append(cell(ticket.id), cell(ticket.title), priority);
     const status = document.createElement('td');
     const badge = document.createElement('span');
     badge.className = 'badge ' + ticket.status;
+    badge.dataset.testid = 'ticket-status';
+    badge.dataset.value = ticket.status;
     badge.textContent = labels.status[ticket.status];
     status.append(badge);
     const actions = document.createElement('td');
     if (user.role === 'admin' && ticket.status !== 'resolved') {
       const button = document.createElement('button');
       button.className = 'link';
+      button.dataset.testid = 'ticket-resolve';
       button.textContent = '标记已解决';
       button.setAttribute('aria-label', '标记已解决 ' + ticket.id);
       button.addEventListener('click', () => resolve(ticket.id));
+      actions.append(button);
+    }
+    if (user.role === 'admin') {
+      const button = document.createElement('button');
+      button.className = 'link';
+      button.dataset.testid = 'ticket-delete';
+      button.textContent = '删除';
+      button.setAttribute('aria-label', '删除工单 ' + ticket.id);
+      button.addEventListener('click', () => remove(ticket.id));
       actions.append(button);
     }
     tr.append(status, actions);
@@ -76,11 +92,12 @@
   }
 
   async function loadTickets() {
+    const listing = ++latestListing;
     const query = new URLSearchParams();
     if ($('status-filter').value) query.set('status', $('status-filter').value);
     if ($('search').value.trim()) query.set('q', $('search').value.trim());
     const result = await api('GET', '/api/tickets' + (query.size ? '?' + query : ''));
-    if (!result.ok) return;
+    if (!result.ok || listing !== latestListing) return;
     $('ticket-rows').replaceChildren(...result.data.items.map(row));
     $('ticket-total').textContent = '共 ' + result.data.total + ' 条';
     $('empty').hidden = result.data.total > 0;
@@ -90,6 +107,14 @@
     const result = await api('PATCH', '/api/tickets/' + id, { status: 'resolved' });
     if (result.ok) {
       toast('工单 ' + id + ' 已解决');
+      loadTickets();
+    }
+  }
+
+  async function remove(id) {
+    const result = await api('DELETE', '/api/tickets/' + id);
+    if (result.ok) {
+      toast('工单 ' + id + ' 已删除');
       loadTickets();
     }
   }
@@ -128,7 +153,7 @@
     const result = await api('POST', '/api/tickets', body);
     if (result.status === 422) {
       const reason = (result.data.fields || {}).title;
-      $('title-error').textContent = reason === 'too_long' ? '标题不能超过 80 个字' : '请填写标题';
+      $('title-error').textContent = reason === 'too_long' ? '标题不能超过 ' + result.data.title_max + ' 个字' : '请填写标题';
       $('title-error').hidden = false;
       return;
     }

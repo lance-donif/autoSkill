@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 from .. import projects, runner
-from . import ir
+from . import ir, ui
 from .tabs import Tabs, playwright_tabs, selenium_tabs
 
 SECRET = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -20,6 +20,10 @@ KEYS = {"Enter": "ENTER", "Escape": "ESCAPE", "Tab": "TAB", "Backspace": "BACKSP
 
 def lit(value) -> str:
     """A Python literal; ${ENV:NAME} becomes os.environ["NAME"]."""
+    if isinstance(value, dict):
+        return "{" + ", ".join(repr(key) + ": " + lit(item) for key, item in value.items()) + "}"
+    if isinstance(value, list):
+        return "[" + ", ".join(lit(item) for item in value) + "]"
     if not isinstance(value, str):
         return repr(value)
     if ir.RAND in value:
@@ -100,29 +104,20 @@ def pw_step(step: dict) -> str:
         if op in ("wait_visible", "wait_hidden"):
             return f"{target}.wait_for(state={lit(op[5:])})"
         return f"{target}.{op}()"
-    return _pw_assertion(step, target)
+    return _pw_assertion(step)
 
 
-def _pw_assertion(step: dict, target: str | None) -> str:
-    """Format one Playwright assertion after its locator has been chosen."""
-    op, expected = step["assertion"], step.get("expected")
-    table = {
-        "visible": "expect({t}).to_be_visible()", "hidden": "expect({t}).to_be_hidden()",
-        "count": "expect({t}).to_have_count({e})", "text": "expect({t}).to_have_text({e})",
-        "contains": "expect({t}).to_contain_text({e})", "value": "expect({t}).to_have_value({e})",
-        "url": "expect(page).to_have_url({e})", "title": "expect(page).to_have_title({e})",
-    }
-    if op in table:
-        return table[op].format(t=target, e=lit(expected))
-    if op == "min_count":
-        return f"expect({target}.nth({max(int(expected), 1) - 1})).to_be_attached()"
-    if op == "url_contains":
-        return f"expect(page).to_have_url(re.compile(re.escape({lit(expected)})))"
-    if op == "checked":
-        return f"expect({target}).to_be_checked(checked={bool(step.get('expected', True))})"
-    if step["attribute"] == "class":
-        return f"expect({target}).to_have_class(re.compile(CLASS_L + re.escape({lit(expected)}) + CLASS_R))"
-    return f"expect({target}).to_have_attribute({lit(step['attribute'])}, {lit(expected)})"
+def _pw_assertion(step: dict) -> str:
+    """Use the same poller as replay, including zero counts and temporal expectations."""
+    return _assertion_call(step, "page")
+
+
+def _assertion_call(step: dict, browser: str) -> str:
+    definition = {key: value for key, value in step.items() if key != "recording_result"}
+    definition.update(name=step.get("name") or ir.describe(step), locators=ir.locators(step))
+    if step.get("transition_from") and ir.locators(step["transition_from"]):
+        definition["transition_from"] = {**step["transition_from"], "locators": ir.locators(step["transition_from"])}
+    return f"verify(AssertionDriver({browser}), {lit(definition)})"
 
 
 KEY_NAMES = {**KEYS, "Control": "CONTROL", "Shift": "SHIFT", "Alt": "ALT", "Meta": "META", "ArrowUp": "ARROW_UP",
@@ -134,58 +129,39 @@ def key_expr(key: str) -> str:
 
 
 def se_step(step: dict) -> str:
+    if "assertion" in step:
+        return _assertion_call(step, "driver")
     has_target = bool(ir.locators(step))
     css, nth = css_for(step) if has_target else ("", 0)
     at = f"{lit(css)}, {nth}"
     message = json.dumps(ir.describe(step), ensure_ascii=False)  # never expands secrets
-    if "action" in step:
-        op = step["action"]
-        if op.startswith("tab_"):
-            return f"tabs.action({tab_step_expr(step)}, TIMEOUT)"
-        if op == "goto":
-            return f"driver.get({url_expr(step['url'])})"
-        if op == "reload":
-            return "driver.refresh()"
-        if op == "press":
-            keys = key_expr(step["key"])
-            return f"find(driver, {at}).send_keys({keys})" if has_target else f"ActionChains(driver).send_keys({keys}).perform()"
-        if op == "fill":
-            return f"fill(driver, {at}, {lit(step['value'])})"
-        if op == "type":
-            return f"find(driver, {at}).send_keys({lit(step['value'])})"
-        if op == "select":
-            return f"Select(find(driver, {at})).select_by_value({lit(step['value'])})"
-        if op == "click":
-            return f"find(driver, {at}).click()"
-        if op == "dblclick":
-            return f"ActionChains(driver).double_click(find(driver, {at})).perform()"
-        if op == "hover":
-            return f"ActionChains(driver).move_to_element(find(driver, {at})).perform()"
-        if op in ("check", "uncheck"):
-            return f"set_checked(driver, {at}, {op == 'check'})"
-        if op == "captcha":
-            return f'fill(driver, {at}, input("请输入验证码："))'
-        return f"wait_until(lambda: shown(driver, {at}) is {op == 'wait_visible'}, {message})"
-    op, expected = step["assertion"], lit(step.get("expected"))
-    tests = {
-        "visible": f"shown(driver, {at})",
-        "hidden": f"not shown(driver, {at})",
-        "count": f"len(driver.find_elements(By.CSS_SELECTOR, {lit(css)})) == {expected}",
-        "min_count": f"len(driver.find_elements(By.CSS_SELECTOR, {lit(css)})) >= {expected}",
-        "text": f"norm(read(driver, {at}, 'text')) == norm({expected})",
-        "contains": f"{expected} in read(driver, {at}, 'text')",
-        "value": f"read(driver, {at}, 'value') == {expected}",
-        "checked": f"read(driver, {at}, 'checked') is {bool(step.get('expected', True))}",
-        "url": f"driver.current_url == {expected}",
-        "url_contains": f"{expected} in driver.current_url",
-        "title": f"norm(driver.title) == norm({expected})",
-    }
-    if op == "attribute":
-        value = f"read(driver, {at}, 'attr:' + {lit(step['attribute'])})"
-        test = f"{expected} in ({value} or '').split()" if step["attribute"] == "class" else f"{value} == {expected}"
-    else:
-        test = tests[op]
-    return f"wait_until(lambda: {test}, {message})"
+    op = step["action"]
+    if op.startswith("tab_"):
+        return f"tabs.action({tab_step_expr(step)}, TIMEOUT)"
+    if op == "goto":
+        return f"driver.get({url_expr(step['url'])})"
+    if op == "reload":
+        return "driver.refresh()"
+    if op == "press":
+        keys = key_expr(step["key"])
+        return f"find(driver, {at}).send_keys({keys})" if has_target else f"ActionChains(driver).send_keys({keys}).perform()"
+    if op == "fill":
+        return f"fill(driver, {at}, {lit(step['value'])})"
+    if op == "type":
+        return f"find(driver, {at}).send_keys({lit(step['value'])})"
+    if op == "select":
+        return f"Select(find(driver, {at})).select_by_value({lit(step['value'])})"
+    if op == "click":
+        return f"find(driver, {at}).click()"
+    if op == "dblclick":
+        return f"ActionChains(driver).double_click(find(driver, {at})).perform()"
+    if op == "hover":
+        return f"ActionChains(driver).move_to_element(find(driver, {at})).perform()"
+    if op in ("check", "uncheck"):
+        return f"set_checked(driver, {at}, {op == 'check'})"
+    if op == "captcha":
+        return f'fill(driver, {at}, input("请输入验证码："))'
+    return f"wait_until(lambda: shown(driver, {at}) is {op == 'wait_visible'}, {message})"
 
 
 PW_HEADER = r'''import os
@@ -326,6 +302,49 @@ if __name__ == "__main__":
 '''
 
 
+def _assertion_support(engine: str) -> str:
+    """Embed the shared checks and primitive reads without importing autoSkill in the script."""
+    from .playwright_driver import PlaywrightDriver
+    from .selenium_driver import FIND, SeleniumDriver
+
+    driver = PlaywrightDriver if engine == "playwright" else SeleniumDriver
+    field = "page" if engine == "playwright" else "wd"
+    support = '''
+class _IR:
+    expand = staticmethod(lambda value: value)
+    locators = staticmethod(lambda step: step.get("locators", []))
+    describe = staticmethod(lambda step: step.get("name", step.get("assertion", "断言")))
+    describe_locator = staticmethod(str)
+
+
+class _Secrets:
+    resolve = staticmethod(lambda value: value)
+
+
+ir, secrets = _IR(), _Secrets()
+POLL, PRIMARY_GRACE, LOCATOR = 0.1, 1.5, "locator_not_found"
+'''
+    support += "\n\n" + inspect.getsource(ui.StepError)
+    for function in (ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion, ui._poll_assertion, ui.check):
+        support += "\n\n" + inspect.getsource(function)
+    support += "\n\nFIND = " + repr(FIND if engine == "selenium" else "")
+    support += f"\n\nclass AssertionDriver:\n    def __init__(self, browser):\n        self.{field} = browser\n\n"
+    support += "    def _one(self, locator):\n        return self._all(locator).nth(locator.get('nth', 0))\n" if engine == "playwright" else (
+        "    def _one(self, locator):\n        return self._all(locator)[locator.get('nth', 0)]\n")
+    for method in ("_all", "count", "read", "url", "title"):
+        support += "\n" + inspect.getsource(getattr(driver, method))
+    support += '''
+
+def verify(driver, step):
+    result = check(driver, step, TIMEOUT)
+    if not result["passed"]:
+        raise AssertionError(f"{result['name']}：期望 {result['expected']!r}，实际 {result['actual']!r}；"
+                             f"阶段 {result['phase']}，已等待 {result['elapsed_ms']} ms")
+    return result
+'''
+    return support
+
+
 def _function(case: dict, engine: str) -> tuple[str, str]:
     """(function name, source) replaying one case on an already open browser."""
     automation = case["extensions"]["automation"]
@@ -352,12 +371,15 @@ def script(chain: list[dict], base_url: str, engine: str) -> str:
     notes = ['"""' + f"{chain[-1]['id']} {chain[-1]['title']}", "",
              "由 autoSkill 根据录制生成的独立回放脚本；运行它不需要 autoSkill。",
              "可用环境变量：BASE_URL、HEADED=1、CHROME_BINARY" + ("、CHROMEDRIVER、TIMEOUT" if engine == "selenium" else "") + "。"]
+    notes += ["断言使用与内置回放相同的轮询、来源状态和持续后置条件语义。",
+              "差异：独立脚本遇到首个失败立即停止；内置回放会继续收集业务断言。动作定位只使用导出时选定的候选。",
+              "验证码需要人工输入；登录态复用、运行历史和截图由内置执行器管理，不随脚本导出。"]
     if wanted:
         notes.append("运行前需要设置凭据环境变量：" + "、".join(wanted) + "。")
     calls = "\n".join(f"{pad}{'page = ' if engine == 'playwright' else ''}{name}({arg})" for name, _ in functions)
     tab_support = inspect.getsource(Tabs) + "\n\n" + inspect.getsource(playwright_tabs if engine == "playwright" else selenium_tabs)
     return ("\n".join(notes) + '\n"""\n' + header.replace("@@BASE@@", json.dumps(base_url)) + "\n\n"
-            + tab_support + "\n\n" + "\n\n\n".join(source for _, source in functions)
+            + tab_support + "\n\n" + _assertion_support(engine) + "\n\n" + "\n\n\n".join(source for _, source in functions)
             + main.replace("@@CALLS@@", calls).replace("@@ID@@", chain[-1]["id"]))
 
 

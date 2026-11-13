@@ -1,0 +1,36 @@
+{
+  "requirement_id": "TD-CRUD",
+  "revision": 2,
+  "source": "requirement",
+  "title": {
+    "trim": true,
+    "min_length": 1,
+    "max_length": 40,
+    "invalid_status": 422
+  },
+  "create": {
+    "status": 201,
+    "priority": "high",
+    "initial_state": "open"
+  },
+  "resolve": {
+    "status": 200,
+    "state": "resolved",
+    "priority": "high"
+  },
+  "delete": {
+    "status": 200,
+    "deleted": true,
+    "detail_status": 404,
+    "remaining_matches": 0
+  },
+  "authorization": {
+    "anonymous_status": 401,
+    "viewer_write_status": 403
+  },
+  "fault": {
+    "requested_priority": "high",
+    "observed_priority": "medium",
+    "verdict": "Fail"
+  }
+}

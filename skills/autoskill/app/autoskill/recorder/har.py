@@ -1,4 +1,4 @@
-"""Turn captured traffic into candidate API requests. Raw HAR never leaves `.local` and is deleted after use."""
+"""Normalize captured traffic into candidate API requests; immutable source evidence is archived separately."""
 from __future__ import annotations
 
 import json

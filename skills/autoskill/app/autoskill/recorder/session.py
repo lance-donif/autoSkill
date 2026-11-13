@@ -14,7 +14,7 @@ from .. import db, paths, projects, secrets, task_context
 from ..locking import project_lock
 from ..replay import ir
 from ..replay.tabs import Tabs
-from . import agent
+from . import agent, capture
 
 
 def session_name() -> str:
@@ -65,6 +65,36 @@ def _save(rec: dict) -> None:
     _file().write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+def _intent(rec: dict, kind: str, payload: dict, *, side_effect: bool = True) -> dict | None:
+    from .. import workflow
+
+    binding = rec.get("workflow_binding")
+    if not binding:
+        return None
+    intent = workflow.operation_intent(kind, {"project_id": rec["project_id"], **payload}, binding=binding, side_effect=side_effect)
+    rec.setdefault("operations", []).append(intent["operation_id"])
+    _save(rec)
+    return intent
+
+
+def _receipt(intent: dict | None, observation: dict, *, status: str = "succeeded") -> None:
+    from .. import workflow
+
+    workflow.operation_receipt(intent, observation, status=status)
+
+
+def _operation(rec: dict, command: str, payload: dict, action):
+    """Journal the actual dispatch once; an uncertain outcome is never retried by this wrapper."""
+    intent = _intent(rec, command, payload)
+    try:
+        result = action()
+    except Exception as error:
+        _receipt(intent, {"error": type(error).__name__, "command_completed": False}, status="unknown")
+        raise
+    _receipt(intent, {"command_completed": True, "result": result})
+    return result
+
+
 def _observe_tabs(rec: dict, settle: float = 0) -> dict | None:
     """Map native handles to recording ids; never store a CDP target id in a case."""
     deadline = time.monotonic() + settle
@@ -104,6 +134,11 @@ def _sync_tabs(rec: dict) -> None:
 
 
 def _act(rec: dict, argv: list[str]) -> dict | None:
+    payload = {"command": argv[0], "target": argv[1] if len(argv) > 1 else None}
+    return _operation(rec, "browser_action", payload, lambda: _dispatch(rec, argv))
+
+
+def _dispatch(rec: dict, argv: list[str]) -> dict | None:
     active = rec["tab_map"][rec["active_tab"]]
     try:
         agent.call(session_name(), argv)
@@ -127,11 +162,11 @@ def _tab_command(rec: dict, rest: list[str]) -> dict:
         config = projects.config(rec["project_id"])
         url = ir.absolute_url(rest[1], config["base_url"]) if len(rest) == 2 else "about:blank"
         ir.check_origin(url, config["allowed_origins"])
-        agent.call(session_name(), ["tab", "new", "about:blank"])
+        _operation(rec, "browser_tab", {"command": "new"}, lambda: agent.call(session_name(), ["tab", "new", "about:blank"]))
         _observe_tabs(rec)
         tab = rec["tab_map"][rec["active_tab"]]
         if url != "about:blank":
-            _open(url, float(config.get("page_load_seconds", 90)))
+            _operation(rec, "browser_open", {"url": url}, lambda: _open(url, float(config.get("page_load_seconds", 90))))
         step = {"action": "tab_new", "tab": tab, "url": relative(url, config["base_url"])}
         change = _observe_tabs(rec)
         if change:
@@ -145,7 +180,8 @@ def _tab_command(rec: dict, rest: list[str]) -> dict:
             raise RecordError(f"标签页 {tab} 不存在或已关闭；运行 browser tab list 查看当前页面")
         if closing and len(live) == 1:
             raise RecordError("不能关闭最后一个标签页；请结束或取消录制")
-        agent.call(session_name(), ["tab", *(["close"] if closing else []), live[tab]])
+        _operation(rec, "browser_tab", {"command": "close" if closing else "switch", "tab": tab},
+                   lambda: agent.call(session_name(), ["tab", *(["close"] if closing else []), live[tab]]))
         _observe_tabs(rec)
         step = {"action": "tab_close" if closing else "tab_switch", "tab": tab}
         if closing:
@@ -291,6 +327,8 @@ def _secret_value(rec: dict, text: str, is_secret_field: bool) -> tuple[str, str
     if not is_secret_field:
         return ir.expand(text), text  # {{RAND}} is typed as this recording's value and recorded as written
     base = rec["project_id"].upper().replace("-", "_") + "_PASSWORD"
+    if not re.match(r"[A-Za-z_]", base):
+        base = "P_" + base
     name, n = base, 2
     while secrets.get_secret(name) not in (None, text):
         name, n = f"{base}_{n}", n + 1
@@ -348,13 +386,30 @@ def _element_png(locator: dict) -> bytes:
     raise RecordError("读不到验证码图片的像素（目标不是图片或画布，或图片来自其他站点）；这一次请用户手动输入验证码")
 
 
+def _launch_browser(config: dict, state_file: Path | None) -> None:
+    browsers = list(dict.fromkeys(b for b in (paths.chrome(), paths.chrome(bundled=True)) if b)) or [None]
+    for index, browser in enumerate(browsers):  # the user's own Chrome first, ours when it will not start
+        launch = agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")), browser)
+        try:
+            agent.call(session_name(), ["open", "about:blank"], launch=launch, timeout=90)
+            break
+        except agent.AgentError as error:
+            agent.call(session_name(), ["close"], check=False, timeout=30)
+            if index == len(browsers) - 1:
+                raise RecordError(agent.launch_problem(error)) from None
+
+
 def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
     """Open this task's browser on the project's address and record actions and traffic."""
+    from .. import workflow
+
+    binding = workflow.current_binding()
     notes = []
     previous = current(required=False)
     if previous:
         if _page_state()["url"].startswith(WEB):
             raise RecordError("已有进行中的录制；先运行 autoskill record stop 或 autoskill record cancel")
+        capture.stop(previous.get("network_capture"))
         _file().unlink(missing_ok=True)  # its browser is gone, so it can never be finished
         notes.append(f"上一次没有结束的录制（{len(previous['steps'])} 步）的浏览器已经关闭，无法继续，已丢弃")
     info, config, auth = projects.get(project_id), projects.config(project_id), projects.auth(project_id)
@@ -372,17 +427,10 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         state_file.write_text(json.dumps(sessions.load(project_id).get("ui", {})), encoding="utf-8")
         used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
     agent.call(session_name(), ["close"], check=False, timeout=30)
+    network_capture = None
     try:
-        browsers = list(dict.fromkeys(b for b in (paths.chrome(), paths.chrome(bundled=True)) if b)) or [None]
-        for index, browser in enumerate(browsers):  # the user's own Chrome first, ours when it will not start
-            launch = agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")), browser)
-            try:
-                agent.call(session_name(), ["open", "about:blank"], launch=launch, timeout=90)
-                break
-            except agent.AgentError as error:
-                agent.call(session_name(), ["close"], check=False, timeout=30)
-                if index == len(browsers) - 1:
-                    raise RecordError(agent.launch_problem(error)) from None
+        _launch_browser(config, state_file)
+        network_capture = capture.start(session_name(), recording_dir())
         _fit_window()
         agent.call(session_name(), ["network", "har", "start"])
         try:
@@ -390,12 +438,16 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         except RecordError:
             agent.call(session_name(), ["close"], check=False, timeout=30)
             raise
+    except Exception:
+        capture.stop(network_capture)
+        agent.call(session_name(), ["close"], check=False, timeout=30)
+        raise
     finally:
         if state_file:
             state_file.unlink(missing_ok=True)
     rec = {"project_id": project_id, "session_id": task_context.session_id(), "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
            "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
-           "rand": uuid.uuid4().hex[:6]}
+           "rand": uuid.uuid4().hex[:6], "workflow_binding": binding, "network_capture": network_capture}
     ir.set_rand(rec["rand"])
     _observe_tabs(rec)
     tree = _settled_snapshot(rec)
@@ -456,9 +508,15 @@ def status() -> dict:
 
 
 def cancel() -> dict:
-    agent.call(session_name(), ["close"], check=False, timeout=30)
+    rec = current(required=False)
+    handle = rec.get("network_capture") if rec else None
+    try:
+        capture.stop(handle)
+    finally:
+        agent.call(session_name(), ["close"], check=False, timeout=30)
     existed = _file().is_file()
     _file().unlink(missing_ok=True)
+    capture.discard(handle, recording_dir())
     return {"cancelled": existed}
 
 
@@ -499,10 +557,10 @@ def _browser_action(rec: dict, command: str, rest: list[str], argv: list[str], c
             raise RecordError("open 需要地址")
         url = ir.absolute_url(rest[0], config["base_url"])
         ir.check_origin(url, config["allowed_origins"])
-        _open(url, float(config.get("page_load_seconds", 90)))
+        _operation(rec, "browser_open", {"url": url}, lambda: _open(url, float(config.get("page_load_seconds", 90))))
         step = {"action": "goto", "url": relative(url, config["base_url"])}
     elif command == "reload":
-        agent.call(session_name(), ["reload"], timeout=90, check=False)
+        _operation(rec, "browser_reload", {}, lambda: agent.call(session_name(), ["reload"], timeout=90))
         _wait_ready(float(config.get("page_load_seconds", 90)))
         step = {"action": "reload"}
     elif command == "press":
@@ -575,8 +633,27 @@ def browser(argv: list[str]) -> dict:
     return _after(rec, result)
 
 
-def check(kind: str, target: str | None, expected: str | None, attribute: str | None = None) -> dict:
-    """Verify an expectation on the live page now; only a passing one is recorded."""
+def _assertion_locators(rec: dict, kind: str, target: str) -> list[dict]:
+    explicit = _spec(rec, target, rich=True).get("locator")
+    if kind in ("count", "min_count") or (kind == "hidden" and explicit):
+        return [explicit or {"by": "css", "value": target}]
+    try:
+        found = _target(rec, target, rich=True)["locators"]
+    except RecordError:
+        if not explicit:
+            raise
+        found = [explicit]  # a missing explicit target is an assertion failure, not a lost assertion
+    if not (explicit and explicit["by"] == "text"):
+        found = [loc for loc in found if loc["by"] != "text"] or found
+    if explicit and explicit["by"] == "css" and all(loc != explicit for loc in found):
+        found = [explicit, *found]
+    return found
+
+
+def check(kind: str, target: str | None, expected: str | None, attribute: str | None = None, *,
+          timeout_seconds: float | None = None, stable_for_seconds: float = 0, mode: str = "eventually",
+          transition_from: dict | None = None) -> dict:
+    """Persist the declared oracle and its observation even when the live business result fails."""
     from ..replay import ui
 
     rec = current()
@@ -590,17 +667,7 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
     if needs_target:
         if not target:
             raise RecordError(f"{kind} 断言需要目标，例如 @e5、testid=toast 或 CSS 选择器")
-        explicit = _spec(rec, target, rich=True).get("locator")
-        if kind in ("count", "min_count") or (kind == "hidden" and explicit):
-            step["locators"] = [explicit or {"by": "css", "value": target}]
-        else:
-            found = _target(rec, target, rich=True)["locators"]
-            given_as_text = bool(explicit) and explicit["by"] == "text"
-            if not given_as_text:  # locating an element by the very text being asserted proves nothing
-                found = [loc for loc in found if loc["by"] != "text"] or found
-            if explicit and explicit["by"] == "css" and all(loc != explicit for loc in found):
-                found = [explicit, *found]  # the recorder chose this selector on purpose
-            step["locators"] = found
+        step["locators"] = _assertion_locators(rec, kind, target)
     if "expected" in required:
         if expected is None:
             raise RecordError(f"{kind} 断言需要期望值")
@@ -611,15 +678,29 @@ def check(kind: str, target: str | None, expected: str | None, attribute: str | 
         if not attribute:
             raise RecordError("attribute 断言需要 --attribute 属性名")
         step["attribute"] = attribute
+    if timeout_seconds is not None:
+        step["timeout_seconds"] = timeout_seconds
+    if stable_for_seconds:
+        step["stable_for_seconds"] = stable_for_seconds
+    if mode != "eventually":
+        step["mode"] = mode
+    if transition_from is not None:
+        step["transition_from"] = transition_from
+    step["oracle"] = {"source": "explicit", "declared_at": db.now()}
     ir.validate({"start_url": "/", "actions": [], "assertions": [step]})
-    outcome = ui.check(PageProbe(), step, 5.0)
-    if not outcome["passed"]:
-        raise RecordError(f"断言现在不成立，没有记录：{ir.describe(step)}；页面实际为「{outcome['actual']}」")
-    return {**_record(rec, step), "actual": outcome["actual"]}
+    timeout = float(projects.config(rec["project_id"]).get("timeout_seconds", 20))
+    intent = _intent(rec, "check", {"check": step}, side_effect=False)
+    outcome = ui.check(PageProbe(), step, timeout)
+    step["recording_result"] = {**outcome, "observed_at": db.now()}
+    recorded = _record(rec, step)
+    _receipt(intent, {"check": step, **outcome, **recorded}, status="succeeded" if outcome["passed"] else "failed")
+    return {**recorded, **outcome, "status": "Pass" if outcome["passed"] else "Fail",
+            "note": "已保存期望和现场结果；回放仍使用声明的期望"}
 
 
 def stop(title: str, module: str = "", category: str = "", plan_case: str | None = None) -> dict:
     """Finish the recording: export traffic, close the browser, compile and save the cases."""
+    from .. import conversation_capture
     from . import compile as compiler
 
     rec = current()
@@ -628,20 +709,28 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
     if not rec["steps"]:
         raise RecordError("还没有记录任何步骤；先用 autoskill browser 操作页面，或运行 autoskill record cancel 放弃")
     har_file, state_file = recording_dir() / "recording.har", recording_dir() / "recording-state.json"
-    har, state = {"log": {"entries": []}}, None
+    har, state, captures = {"log": {"entries": []}}, None, None
     try:
-        if agent.call(session_name(), ["network", "har", "stop", str(har_file)], check=False) is not None and har_file.is_file():
+        rec["conversation_evidence"] = capture.stop(rec.get("network_capture"))
+        _save(rec)
+        agent.call(session_name(), ["network", "har", "stop", str(har_file)], check=False)
+        if har_file.is_file():
             har = json.loads(har_file.read_text(encoding="utf-8", errors="replace"))
         if agent.call(session_name(), ["state", "save", str(state_file)], check=False) is not None and state_file.is_file():
             state = json.loads(state_file.read_text(encoding="utf-8"))
+        captures = conversation_capture.capture(rec["project_id"], rec, har)
     finally:
         agent.call(session_name(), ["close"], check=False, timeout=30)
-        har_file.unlink(missing_ok=True)  # raw traffic and cookies never stay on disk
+        if captures is not None:
+            har_file.unlink(missing_ok=True)  # remove the temporary HAR only after the durable source evidence exists
         state_file.unlink(missing_ok=True)
     with project_lock(rec["project_id"]):
-        summary = compiler.build(rec["project_id"], rec, har, state, title.strip(), module, category)
+        replay_source = conversation_capture.compiler_source(har, rec.get("conversation_evidence"))
+        summary = compiler.build(rec["project_id"], rec, replay_source, state, title.strip(), module, category)
+    capture.discard(rec.get("network_capture"), recording_dir())
     _file().unlink(missing_ok=True)
     summary["project"] = rec["project_id"]
+    summary["conversation_captures"] = captures
     if plan_case:  # this recording carried out a row of the case sheet: its replay result becomes that row's verdict
         from .. import plan
 

@@ -7,7 +7,9 @@ first one that matches and reports when it had to fall back. The older single
 """
 from __future__ import annotations
 
+import re
 from contextvars import ContextVar
+from math import isfinite
 from urllib.parse import urljoin, urlsplit
 
 LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css")
@@ -73,6 +75,10 @@ def set_rand(value: str) -> None:
 def expand(value):
     """Fill {{RAND}}: a short text that is new on every run, so data a case creates never collides with an earlier run."""
     token = _rand.get()
+    if isinstance(value, dict):
+        return {key: expand(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [expand(item) for item in value]
     return value.replace(RAND, token) if isinstance(value, str) and token else value
 
 
@@ -155,9 +161,29 @@ def _check_step(step: object, table: dict, key: str, where: str) -> None:
         raise ValueError(f"{where}（{step[key]}）缺少定位")
     for locator in target:
         _check_locator(locator, where)
-    if step[key] in ("count", "min_count") and not _is_index(step["expected"]):
+    dynamic = isinstance(step.get("expected"), str) and re.fullmatch(r"\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}", step["expected"])
+    if step[key] in ("count", "min_count") and not (_is_index(step["expected"]) or dynamic):
         raise ValueError(f"{where}：count 断言需要非负整数")
+    _check_timing(step, key, where)
     _check_tab_fields(step, where)
+
+
+def _check_timing(step: dict, key: str, where: str) -> None:
+    for field in ("timeout_seconds", "stable_for_seconds"):
+        if field in step:
+            value = step[field]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) or value < 0:
+                raise ValueError(f"{where}：{field} 必须是有限的非负秒数")
+    if key != "assertion":
+        return
+    if step.get("mode", "eventually") not in ("eventually", "always"):
+        raise ValueError(f"{where}：mode 只能是 eventually 或 always")
+    if "transition_from" in step:
+        source = step["transition_from"]
+        if not isinstance(source, dict) or any(k in source for k in ("transition_from", "mode", "timeout_seconds", "stable_for_seconds")):
+            raise ValueError(f"{where}：transition_from 必须是没有时间配置的普通断言")
+        source = {"locators": locators(step), **source}
+        _check_step(source, ASSERTIONS, "assertion", where + " 的来源状态")
 
 
 def _check_tab_fields(step: dict, where: str) -> None:

@@ -245,6 +245,22 @@ class Compiler:
             if fallback:
                 deps.add(fallback)
 
+    def _observed_rules(self, entry: dict) -> dict:
+        """Learn a labelled regression baseline without treating it as an independent oracle."""
+        rules: dict = {"status": entry["status"]}
+        if entry["mime"] == "text/event-stream":
+            self.notes.append(f'{entry["method"]} {entry["path"]}：流式正文已保存为来源证据；此接口用例仅检查传输，请用 conversation build 配置多轮关联和独立答案预期')
+        if entry["response"] is not None:
+            fields = harlib.stable_fields(entry["response"], [entry["json"], entry["params"], entry.get("form")])
+            if fields:
+                rules["json_equals"] = {pointer: self.template(value) for pointer, value in fields.items()}
+            schema = harlib.infer_schema(entry["response"])
+            if schema.get("required") or schema.get("minProperties") or schema.get("type") == "array":
+                rules["schema"] = schema
+        if len(rules) == 1 and entry["status"] < 300 and entry["status"] not in (204, 205) and entry["mime"]:
+            rules["header_contains"] = {"content-type": entry["mime"]}
+        return rules
+
     def add_business(self, entry: dict, module: str, existing: dict) -> str | None:
         """Build (or reuse) the API case for one captured request. Returns 'new', 'reused' or None."""
         if entry["body_note"]:
@@ -266,16 +282,7 @@ class Compiler:
         body = self.scrub(entry["json"], "", deps, resource) if entry["json"] is not None else None
         form = self.scrub(entry["form"], "", deps, resource) if entry.get("form") else None
         self._login_dependencies(entry, deps)
-        rules: dict = {"status": entry["status"]}
-        if entry["response"] is not None:
-            fields = harlib.stable_fields(entry["response"], [entry["json"], entry["params"], entry.get("form")])
-            if fields:
-                rules["json_equals"] = {pointer: self.template(value) for pointer, value in fields.items()}
-            schema = harlib.infer_schema(entry["response"])
-            if schema.get("required") or schema.get("minProperties") or schema.get("type") == "array":
-                rules["schema"] = schema
-        if len(rules) == 1 and entry["status"] < 300 and entry["status"] not in (204, 205) and entry["mime"]:
-            rules["header_contains"] = {"content-type": entry["mime"]}
+        rules = self._observed_rules(entry)
         verb = {"GET": "查询", "POST": "提交", "PUT": "修改", "PATCH": "修改", "DELETE": "删除"}.get(entry["method"], entry["method"])
         title = f'{verb} {"/".join(segments)}' + (f'（返回 {entry["status"]}）' if entry["status"] >= 400 else "")
         static = entry["method"] == "GET" and bool(STATIC_FILE.search(entry["path"])) and not params
@@ -285,6 +292,8 @@ class Compiler:
                                 entry["method"], "/".join(segments), rules, module="页面与资源" if static else module,
                                 headers=headers, params=params, json=body, form=form, depends_on=sorted(deps),
                                 traffic="static" if static else "business")
+        case["extensions"]["oracle"] = {"source": "observation", "verification": "unverified",
+                                         "note": "规则来自录制响应，只能作为回归基线；业务预期需与需求或独立数据核对"}
         signature = self.signature(case)
         repeated = next((c for c in self.cases if self.signature(c) == signature), None)
         if repeated:
@@ -334,6 +343,14 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     ui_case = builder.ui_case(ui_id, title, automation, module=module or ("登录" if rec.get("as_login") else ""),
                               category=category or ("登录" if rec.get("as_login") else ""), risk=ui_risk(actions),
                               depends_on=[login_ui] if login_ui and login_ui != ui_id else None)
+    observations = [step["recording_result"] for step in rec["steps"] if "recording_result" in step]
+    ui_case["extensions"]["verification"] = "verified" if any("assertion" in step for step in rec["steps"]) else "unverified"
+    if observations:
+        ui_case["extensions"]["recording_result"] = {"status": "Fail" if any(not row["passed"] for row in observations) else "Pass",
+                                                    "assertions": observations}
+    if rec.get("workflow_binding"):
+        ui_case["extensions"]["workflow"] = {key: value for key, value in rec["workflow_binding"].items() if key != "lease_token"}
+        ui_case["extensions"]["operation_ids"] = rec.get("operations", [])
     compiler = Compiler(project_id, rec, state, login_ui)
     base = projects.config(project_id)["base_url"]
     captured, notes = harlib.entries(har, base)
@@ -374,6 +391,8 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     return {
         "ui_case": {"id": ui_id, "title": title, "steps": sum("action" in s for s in rec["steps"]) + 1,
                     "assertions": sum("assertion" in s for s in rec["steps"]),
+                    "verification": ui_case["extensions"]["verification"],
+                    "recording_status": ui_case["extensions"].get("recording_result", {}).get("status", "Unverified"),
                     "depends_on": projects.depends_on(ui_case)},
         "api_cases": [{"id": c["id"], "title": c["title"], "depends_on": projects.depends_on(c)} for c in compiler.cases],
         "api_traffic": traffic if compiler.cases else "none", "api_new": counts["new"], "api_reused": counts["reused"],
