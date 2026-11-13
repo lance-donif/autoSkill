@@ -7,6 +7,27 @@ from .. import paths
 from .tabs import playwright_tabs
 
 
+class PlaywrightAction:
+    """Let a recorded self-close reach tab synchronization and the surviving page's assertions."""
+
+    def __init__(self, page, tabs, change):
+        self.page, self.tabs, self.change = page, tabs, change or {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _kind, error, _traceback):
+        from playwright.sync_api import Error as PlaywrightError
+
+        if not isinstance(error, PlaywrightError) or type(error).__name__ != "TargetClosedError":
+            return False
+        closed = [self.tabs.known.get(tab) for tab in self.change.get("closed", [])]
+        active = self.tabs.known.get(self.change.get("active"))
+        browser = self.page.context.browser
+        return (self.page in closed and self.page.is_closed() and browser is not None and browser.is_connected()
+                and active is not None and active is not self.page and active in self.page.context.pages and not active.is_closed())
+
+
 class PlaywrightDriver:
     name = "playwright"
 
@@ -72,6 +93,9 @@ class PlaywrightDriver:
 
     def sync_tabs(self, change: dict, timeout: float) -> None:
         self.page = self.tabs.sync(change, timeout)
+
+    def action_scope(self, step: dict):
+        return PlaywrightAction(self.page, self.tabs, step.get("tabs"))
 
     def goto(self, url: str) -> None:
         self.page.goto(url, wait_until="domcontentloaded", timeout=self.load_ms)

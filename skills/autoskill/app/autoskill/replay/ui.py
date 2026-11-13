@@ -8,6 +8,7 @@ same case are judged by identical rules.
 from __future__ import annotations
 
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 from .. import paths, secrets
@@ -274,9 +275,11 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                     row["status"] = "done" if result["passed"] else "failed"
                     row["check"] = True
                     continue
-                if perform(driver, step, base_url, allowed, timeout):
-                    row["fallback"] = True
-                    outcome["fallbacks"] += 1
+                scope = driver.action_scope(step) if hasattr(driver, "action_scope") else nullcontext()
+                with scope:
+                    if perform(driver, step, base_url, allowed, timeout):
+                        row["fallback"] = True
+                        outcome["fallbacks"] += 1
                 if step.get("tabs"):
                     change = {**step["tabs"], "opened": [
                         {**item, "url": ir.absolute_url(item["url"], base_url)} if item.get("url") else item

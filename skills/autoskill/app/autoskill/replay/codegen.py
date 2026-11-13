@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .. import projects, runner
 from . import ir, ui
+from .playwright_driver import PlaywrightAction
 from .tabs import Tabs, playwright_tabs, selenium_tabs
 
 SECRET = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -354,7 +355,11 @@ def _function(case: dict, engine: str) -> tuple[str, str]:
     body = [f"def {name}({arg}):", f"    # {case['id']} {case['title']}",
             f"    tabs = {factory}({arg})", f"    {opener}({url_expr(automation['start_url'])})"]
     for step in [*automation.get("actions", []), *automation.get("assertions", [])]:
-        body += [f"    # {ir.describe(step)}", f"    {emit(step)}"]
+        body.append(f"    # {ir.describe(step)}")
+        if engine == "playwright" and step.get("action") and step.get("tabs", {}).get("closed"):
+            body += [f"    with PlaywrightAction(page, tabs, {tab_change_expr(step['tabs'])}):", f"        {emit(step)}"]
+        else:
+            body.append(f"    {emit(step)}")
         if step.get("tabs"):
             prefix = "page = " if engine == "playwright" else ""
             body += [f"    {prefix}tabs.sync({tab_change_expr(step['tabs'])}, TIMEOUT)"]
@@ -378,6 +383,8 @@ def script(chain: list[dict], base_url: str, engine: str) -> str:
         notes.append("运行前需要设置凭据环境变量：" + "、".join(wanted) + "。")
     calls = "\n".join(f"{pad}{'page = ' if engine == 'playwright' else ''}{name}({arg})" for name, _ in functions)
     tab_support = inspect.getsource(Tabs) + "\n\n" + inspect.getsource(playwright_tabs if engine == "playwright" else selenium_tabs)
+    if engine == "playwright":
+        tab_support += "\n\n" + inspect.getsource(PlaywrightAction)
     return ("\n".join(notes) + '\n"""\n' + header.replace("@@BASE@@", json.dumps(base_url)) + "\n\n"
             + tab_support + "\n\n" + _assertion_support(engine) + "\n\n" + "\n\n\n".join(source for _, source in functions)
             + main.replace("@@CALLS@@", calls).replace("@@ID@@", chain[-1]["id"]))
