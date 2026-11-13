@@ -1,6 +1,7 @@
 """Extensible native execution registry; adapters expose their actual runtime and result capabilities."""
 from __future__ import annotations
 
+from .ai_eval import AiEvaluationAdapter
 from .native import NativeAdapter
 
 _registry: dict[str, object] = {}
@@ -32,3 +33,4 @@ def discover(engine: str, root: str) -> list[dict]:
 
 for _id in ("selenium-pytest", "selenium-unittest", "postman-newman", "apifox", "jmeter"):
     register(NativeAdapter(_id))
+register(AiEvaluationAdapter())
