@@ -272,13 +272,36 @@ def list_all() -> list[dict]:
     return found
 
 
+class CaseConflictError(ValueError):
+    """An executable case changed after a candidate captured its base content."""
+
+    def __init__(self, case_id: str, expected_hash: str | None, actual_hash: str | None):
+        self.case_id, self.expected_hash, self.actual_hash = case_id, expected_hash, actual_hash
+        super().__init__(f"用例 {case_id} 已被其他任务更新，请读取最新版本后重新合并")
+
+
+def _check_case_hashes(merged: dict, incoming: list[dict], expected_hashes: dict) -> None:
+    from .domain import content_hash
+
+    if not isinstance(expected_hashes, dict) or any(item["id"] not in expected_hashes for item in incoming):
+        raise ValueError("条件保存必须提供每个待更新用例的原内容哈希")
+    for case_id, expected in expected_hashes.items():
+        current = content_hash(merged[case_id]) if case_id in merged else None
+        if current != expected:
+            raise CaseConflictError(case_id, expected, current)
+    if any(not item.get("requirement_ids") for item in incoming):
+        raise ValueError("条件保存的用例必须包含完整需求关联")
+
+
 @_project_locked
-def save_cases(project_id: str, incoming: list[dict]) -> list[dict]:
+def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[str, str | None] | None = None) -> list[dict]:
     """Add or replace cases by id (others are kept), then refresh the index."""
     folder = path(project_id)
     requirements = store.read(folder / "analysis/requirements.json")
     known = {r["id"] for r in requirements}
     merged = {c["id"]: c for c in cases(project_id, active_only=False)}
+    if expected_hashes is not None:
+        _check_case_hashes(merged, incoming, expected_hashes)
     for incoming_item in incoming:
         item = dict(incoming_item)
         if not item.get("requirement_ids"):
@@ -296,7 +319,7 @@ def save_cases(project_id: str, incoming: list[dict]) -> list[dict]:
         if item["kind"] == "ui" and "automation" in item.get("extensions", {}):
             ir.validate(item["extensions"]["automation"])
     store.write(folder / "analysis/requirements.json", requirements)
-    saved = store.save_cases(folder, list(merged.values()))
+    saved = store.save_cases(folder, list(merged.values()), preserve_revisions=expected_hashes is not None)
     reindex(project_id)
     return saved
 

@@ -15,14 +15,12 @@ import os
 import zipfile
 from pathlib import Path
 
-from . import __version__, db, paths, projects, secrets
+from . import __version__, db, domain, paths, projects, secrets
 from .locking import project_lock
 
 MANIFEST = "autoskill-pack.json"
 SECRETS = "secrets.sealed.json"
-SKIP_DIRS = {"versions", "execution", "output", "staging", "input", "scripts", "postman", "__pycache__"}
-ALLOWED_SUFFIXES = {".json", ".md", ".txt", ".csv"}
-MAX_FILE = 5 * 1024 * 1024
+SKIP_DIRS = {"execution", "output", "staging", "__pycache__"}
 ROUNDS = 240_000
 
 
@@ -61,8 +59,37 @@ def decrypt(box: dict, passphrase: str) -> bytes:
 def _files(folder: Path):
     for file in sorted(folder.rglob("*")):
         relative = file.relative_to(folder)
-        if file.is_file() and not (set(relative.parts[:-1]) & SKIP_DIRS) and file.suffix.lower() in ALLOWED_SUFFIXES:
+        if file.is_file() and relative.parts[0] not in SKIP_DIRS:
+            if not file.resolve().is_relative_to(folder.resolve()):
+                raise ValueError(f"项目附件指向项目目录以外：{relative.as_posix()}")
             yield relative, file
+
+
+def _archive_file(archive: zipfile.ZipFile, file: Path, name: str) -> dict:
+    """Hash exactly the bytes written, including large and extensionless assets."""
+    digest, size = hashlib.sha256(), 0
+    info = zipfile.ZipInfo.from_file(file, name)
+    info.compress_type = zipfile.ZIP_DEFLATED
+    with file.open("rb") as source, archive.open(info, "w", force_zip64=True) as target:
+        while chunk := source.read(1024 * 1024):
+            target.write(chunk)
+            digest.update(chunk)
+            size += len(chunk)
+    return {"sha256": digest.hexdigest(), "size": size, "mode": file.stat().st_mode & 0o777}
+
+
+def _archive_project(archive: zipfile.ZipFile, project_id: str, entries: dict, needed: set) -> dict:
+    with project_lock(project_id):
+        folder, info = projects.path(project_id), projects.get(project_id)
+        domain.validate_project(folder)
+        for relative, file in _files(folder):
+            if file.resolve() == Path(archive.filename).resolve():
+                continue
+            name = f"projects/{project_id}/{relative.as_posix()}"
+            entries[name] = _archive_file(archive, file, name)
+        for case in projects.cases(project_id):
+            needed.update(secrets.references(case))
+        return {"id": project_id, "name": info["name"], "category": info["category"], "cases": info["cases"]}
 
 
 def pack(project_ids: list[str] | None = None, out: str | None = None, passphrase: str | None = None) -> dict:
@@ -77,22 +104,17 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
     if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-share-{stamp}.zip"
     target.parent.mkdir(parents=True, exist_ok=True)
-    listed, needed = [], set()
+    listed, needed, entries = [], set(), {}
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
-        for project_id in chosen:
-            folder, info = projects.path(project_id), projects.get(project_id)
-            for relative, file in _files(folder):
-                archive.write(file, f"projects/{project_id}/{relative.as_posix()}")
-            for case in projects.cases(project_id):
-                needed |= secrets.references(case)
-            listed.append({"id": project_id, "name": info["name"], "category": info["category"], "cases": info["cases"]})
+        listed.extend(_archive_project(archive, project_id, entries, needed) for project_id in dict.fromkeys(chosen))
         included = []
         if passphrase is not None:
             values = {name: secrets.get_secret(name) for name in sorted(needed) if secrets.get_secret(name) is not None}
             included = sorted(values)
             archive.writestr(SECRETS, json.dumps(encrypt(json.dumps(values, ensure_ascii=False).encode("utf-8"), passphrase)))
-        manifest = {"format": 1, "autoskill": __version__, "created_at": db.now(), "projects": listed,
-                    "secrets_needed": sorted(needed), "secrets_included": included}
+        manifest = {"format": 2, "autoskill": __version__, "created_at": db.now(), "projects": listed, "files": entries,
+                    "secrets_needed": sorted(needed), "secrets_included": included,
+                    "history_origin": "imported", "includes_local_verification": False}
         archive.writestr(MANIFEST, json.dumps(manifest, ensure_ascii=False, indent=2))
     missing = sorted(needed - set(included))
     return {"file": str(target), "bytes": target.stat().st_size, "projects": listed,
@@ -138,9 +160,12 @@ def pack_full(out: str | None = None) -> dict:
             archive.write(file, (Path("autoskill") / file.relative_to(paths.SKILL)).as_posix())
             count += 1
         for project in listed:
-            for relative, file in _files(projects.path(project["id"])):
-                archive.write(file, f"autoskill/workspace/projects/{project['id']}/{relative.as_posix()}")
-                count += 1
+            with project_lock(project["id"]):
+                folder = projects.path(project["id"])
+                domain.validate_project(folder)
+                for relative, file in _files(folder):
+                    archive.write(file, f"autoskill/workspace/projects/{project['id']}/{relative.as_posix()}")
+                    count += 1
         archive.writestr("autoskill/workspace/.local/credentials.json", json.dumps(values, ensure_ascii=False, indent=2) + "\n")
         count += 1
         for project_id, state in saved.items():
@@ -159,18 +184,59 @@ def pack_full(out: str | None = None) -> dict:
 def _safe_members(archive: zipfile.ZipFile) -> dict[str, list[zipfile.ZipInfo]]:
     """Group pack entries by project, refusing anything that could escape the project folder."""
     grouped: dict[str, list[zipfile.ZipInfo]] = {}
+    seen = set()
     for member in archive.infolist():
         name = member.filename
+        if name in seen:
+            raise ValueError(f"分享包里有重复路径，已拒绝导入：{name[:80]}")
+        seen.add(name)
         if member.is_dir() or name in (MANIFEST, SECRETS):
             continue
         parts = name.split("/")
         if (len(parts) < 3 or parts[0] != "projects" or not projects.ID.fullmatch(parts[1]) or "\\" in name
                 or any(part in ("", ".", "..") or ":" in part for part in parts)):
             raise ValueError(f"分享包里有不安全的路径，已拒绝导入：{name[:80]}")
-        if Path(name).suffix.lower() not in ALLOWED_SUFFIXES or member.file_size > MAX_FILE:
-            raise ValueError(f"分享包里有不允许的文件，已拒绝导入：{name[:80]}")
         grouped.setdefault(parts[1], []).append(member)
     return grouped
+
+
+def _verify_member(archive: zipfile.ZipFile, member: zipfile.ZipInfo, expected: dict) -> None:
+    if (not isinstance(expected, dict) or not isinstance(expected.get("sha256"), str)
+            or not domain.HASH.fullmatch(expected["sha256"]) or expected.get("size") != member.file_size):
+        raise ValueError(f"分享包文件清单无效：{member.filename}")
+    digest = hashlib.sha256()
+    with archive.open(member) as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    if digest.hexdigest() != expected["sha256"]:
+        raise ValueError(f"分享包文件哈希校验失败：{member.filename}")
+
+
+def _manifest_errors(archive: zipfile.ZipFile, manifest: dict, grouped: dict) -> dict[str, str]:
+    """Validate modern packs before touching project files or restoring credentials."""
+    version = manifest.get("format", 1)
+    if version == 1:
+        return {}
+    if version != 2 or not isinstance(manifest.get("files"), dict):
+        raise ValueError("分享包文件清单格式不受支持")
+    expected = manifest["files"]
+    actual = {member.filename for members in grouped.values() for member in members}
+    errors = {}
+    for name in set(expected) | actual:
+        parts = name.split("/")
+        if len(parts) < 3 or parts[0] != "projects" or not projects.ID.fullmatch(parts[1]):
+            raise ValueError("分享包文件清单包含无效路径")
+        if name not in expected or name not in actual:
+            errors[parts[1]] = f"分享包文件清单与内容不一致：{name}"
+    for project_id, members in grouped.items():
+        if project_id in errors:
+            continue
+        try:
+            for member in members:
+                _verify_member(archive, member, expected[member.filename])
+        except (ValueError, zipfile.BadZipFile) as error:
+            errors[project_id] = str(error)
+    return errors
 
 
 def _restore_pack_secrets(archive: zipfile.ZipFile, passphrase: str | None) -> list[str]:
@@ -200,6 +266,7 @@ def _validate_import(staging: Path) -> None:
             raise ValueError(f"缺少 {name}")
         if not isinstance(store.read(file), dict):
             raise ValueError(f"{name} 必须是对象")
+    domain.validate_project(staging)
 
 
 def _rollback_import(target: Path, backup: Path, installed: bool) -> None:
@@ -254,7 +321,11 @@ def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zip
         for member in members:
             destination = staging / Path(*member.filename.split("/")[2:])
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(archive.read(member))
+            with archive.open(member) as source, destination.open("wb") as output:
+                shutil.copyfileobj(source, output, 1024 * 1024)
+            mode = (member.external_attr >> 16) & 0o777
+            if mode:
+                destination.chmod(mode)
         _validate_import(staging)
         (staging / "knowledge").mkdir(exist_ok=True)
         with project_lock(project_id):
@@ -284,6 +355,10 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
         if not isinstance(manifest, dict):
             raise ValueError("分享包清单必须是对象")
         grouped = _safe_members(archive)
+        errors = _manifest_errors(archive, manifest, grouped)
+        if errors:
+            return {"imported": [], "skipped": [{"id": project_id, "reason": reason} for project_id, reason in sorted(errors.items())],
+                    "secrets_restored": [], "missing_secrets": [], "next": "分享包未通过完整性校验，请重新导出后重试"}
         restored = _restore_pack_secrets(archive, passphrase)
         imported, skipped = [], []
         for project_id, members in grouped.items():

@@ -195,7 +195,7 @@ class ShareTests(Workspace):
             blob = b"".join(archive.read(n) for n in names)
         self.assertIn(f"projects/{PID}/knowledge/business-rules.md", names)
         self.assertIn(f"projects/{PID}/testcases/api-cases.json", names)
-        self.assertFalse(any(part in name for name in names for part in (".local", "sessions", ".db", "versions/")))
+        self.assertFalse(any(part in name for name in names for part in (".local", "sessions", ".db")))
         self.assertNotIn(b"Passw0rd!demo", blob)
         self.assertNotIn(token.encode(), blob)
         self.assertEqual(packed["secrets_not_included"], ["TD_PASSWORD"])
@@ -260,7 +260,7 @@ class ShareTests(Workspace):
 
     def test_import_refuses_unsafe_or_invalid_packs(self):
         target = Path(self.tmp.name) / "evil.zip"
-        for name in (f"projects/{PID}/../../escape.json", "projects/../x/project.json", f"projects/{PID}/run.cmd",
+        for name in (f"projects/{PID}/../../escape.json", "projects/../x/project.json", f"projects/{PID}/../run.cmd",
                      "C:/windows/x.json", f"projects/{PID}/a\\..\\b.json"):
             with zipfile.ZipFile(target, "w") as archive:
                 archive.writestr(share.MANIFEST, "{}")

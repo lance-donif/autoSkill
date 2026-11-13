@@ -990,7 +990,21 @@ def _validate_saved_api_contract(c, jsonschema):
         raise ValueError("非法 JSON Pointer")
 
 
-def save_cases(p, incoming):
+def _saved_case_revision(case, previous, preserve_revisions):
+    if previous and previous["kind"] != case["kind"]:
+        raise ValueError("已有用例不能更改类型")
+    if preserve_revisions:
+        return
+    case["schema_version"] = VERSION
+    if previous:
+        left = {k: v for k, v in case.items() if k != "revision"}
+        right = {k: v for k, v in previous.items() if k != "revision"}
+        case["revision"] = previous["revision"] + (left != right)
+    else:
+        case["revision"] = 1
+
+
+def save_cases(p, incoming, *, preserve_revisions=False):
     """Replace a complete case catalog with snapshots and automatic revisions."""
     import jsonschema
 
@@ -1012,17 +1026,8 @@ def save_cases(p, incoming):
             raise ValueError("重复用例ID")
         if not set(c["requirement_ids"]).issubset(req_ids):
             raise ValueError("用例关联未知需求")
-        c["schema_version"] = VERSION
         seen.add(c["id"])
-        previous = byid.get(c["id"])
-        if previous:
-            if previous["kind"] != c["kind"]:
-                raise ValueError("已有用例不能更改类型")
-            left = {k: v for k, v in c.items() if k != "revision"}
-            right = {k: v for k, v in previous.items() if k != "revision"}
-            c["revision"] = previous["revision"] + (left != right)
-        else:
-            c["revision"] = 1
+        _saved_case_revision(c, byid.get(c["id"]), preserve_revisions)
         problems = credential_errors(c, c["id"])
         if problems:
             raise ValueError("\n".join(problems))
