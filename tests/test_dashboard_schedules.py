@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import builder, db, paths, projects
+from autoskill import builder, db, paths, projects, runner
 from autoskill.server import scheduler
 
 
@@ -41,7 +41,7 @@ class DashboardScheduleTests(unittest.TestCase):
                                                "AUTOSKILL_CASE_SKILL": str(self.folder / "case-sheet"),
                                                "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_SESSION": "",
                                                "AUTOSKILL_RUNTIME_CONTEXT": "", "AUTOSKILL_WORKFLOW_BINDING": "",
-                                               "AUTOSKILL_HEADED": "0", "PYTHONPATH": str(APP)})
+                                               "AUTOSKILL_HEADED": "0", "AUTOSKILL_QUEUE_IDLE_SECONDS": "0.1", "PYTHONPATH": str(APP)})
         environment.start()
         self.addCleanup(environment.stop)
         project = projects.create("Schedule fixture", "http://127.0.0.1:49183", project_id="schedule-fixture")
@@ -73,6 +73,7 @@ class DashboardScheduleTests(unittest.TestCase):
         db.execute("UPDATE tasks SET enabled = 0")
 
     def stop_process(self):
+        self.disable_tasks()
         if self.process.poll() is None:
             self.process.terminate()
             try:
@@ -80,6 +81,13 @@ class DashboardScheduleTests(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait(timeout=5)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            active = any(runner.process_alive(row["pid"]) for row in db.rows("SELECT pid FROM runs WHERE pid IS NOT NULL"))
+            if not active and not (self.folder / "workspace/.local/queue-worker.json").exists():
+                return
+            time.sleep(0.05)
+        self.fail("Dashboard workers did not retire before temporary workspace cleanup")
 
     def wait_for_server(self):
         deadline = time.monotonic() + 15
@@ -154,6 +162,32 @@ class DashboardScheduleTests(unittest.TestCase):
         self.assertEqual((current["title"], current["revision"]), (updated["title"], updated["revision"]))
         self.page.reload()
         expect(self.page.get_by_role("switch", name="启用「Updated in another session」", exact=True)).to_have_attribute("aria-checked", "false")
+
+    def test_task_browser_choice_defaults_to_preference_and_survives_edit_and_reload(self):
+        self.page.locator("#scope").get_by_role("button", name="回放设置", exact=True).click()
+        switch = self.page.get_by_role("switch", name="显示浏览器窗口", exact=True)
+        if switch.get_attribute("aria-checked") == "true":
+            switch.click()
+        expect(switch).to_have_attribute("aria-checked", "false")
+        self.page.keyboard.press("Escape")
+        self.page.get_by_role("button", name="新建定时任务", exact=True).click()
+        dialog = self.page.get_by_role("dialog", name="新建定时任务", exact=True)
+        dialog.get_by_label("任务名称", exact=True).fill("Hidden browser task")
+        expect(dialog.get_by_label("显示浏览器窗口", exact=True)).not_to_be_checked()
+        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/tasks")) as response:
+            dialog.get_by_role("button", name="创建任务", exact=True).click()
+        saved = response.value.json()
+        self.assertIs(saved["headed"], False)
+        self.client.patch("/api/tasks/" + saved["id"], json={"enabled": False, "expected_revision": saved["revision"]})
+        self.page.reload()
+        edit = self.edit(self.page, "Hidden browser task")
+        expect(edit.get_by_label("显示浏览器窗口", exact=True)).not_to_be_checked()
+        edit.get_by_label("任务名称", exact=True).fill("Renamed hidden task")
+        with self.page.expect_response(lambda response: response.request.method == "PATCH" and response.url.endswith("/api/tasks/" + saved["id"])) as changed:
+            edit.get_by_role("button", name="保存", exact=True).click()
+        self.assertIs(changed.value.json()["headed"], False)
+        self.page.reload()
+        expect(self.page.locator("tr").filter(has_text="Renamed hidden task")).to_contain_text("隐藏浏览器窗口")
 
     def test_empty_one_time_date_has_visible_error_and_can_be_corrected(self):
         posted = []

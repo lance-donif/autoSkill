@@ -1,6 +1,6 @@
 // Schedules: run chosen cases at fixed times. Create, edit, pause, delete, run now.
 import { h, icon, replace, api, scope, scopeQuery, go, href, route, statusPill, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
-import { empty, errorState, drawer, closeOverlay, confirm } from '../ui.js';
+import { empty, errorState, drawer, closeOverlay, confirm, preferredHeaded } from '../ui.js';
 import { state } from '../shell.js';
 
 const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -44,7 +44,7 @@ export async function render(view) {
         return h('tr', { class: 'click', onClick: () => editor(task, refresh) },
           h('td', { style: 'width:56px' }, toggle),
           h('td', {}, h('div', { class: 'title' }, task.title),
-            h('div', { class: 'sub' }, `${task.project_name} · ${task.case_ids.length ? task.case_ids.length + ' 条用例' : '全部用例'} · ${ENGINE[task.engine]}`)),
+            h('div', { class: 'sub' }, `${task.project_name} · ${task.case_ids.length ? task.case_ids.length + ' 条用例' : '全部用例'} · ${ENGINE[task.engine]} · ${(task.headed ?? task.effective_headed ?? preferredHeaded()) ? '显示浏览器窗口' : '隐藏浏览器窗口'}`)),
           h('td', {}, task.rule_text),
           h('td', { class: 'sub num' }, task.enabled ? [fmtUntil(task.next_due), h('div', { class: 'muted' }, fmtTime(task.next_due))] : '已暂停'),
           h('td', {}, task.last_status
@@ -75,6 +75,7 @@ async function editor(task, done) {
     projects.map((p) => h('option', { value: p.id, selected: task ? task.project_id === p.id : scope().projects[0] === p.id }, p.name)));
   const engine = h('select', { class: 'select', id: 'tk-engine' },
     ['playwright', 'selenium'].map((e) => h('option', { value: e, selected: (task ? task.engine : 'playwright') === e }, ENGINE[e])));
+  const headed = h('input', { class: 'check', type: 'checkbox', id: 'tk-headed', checked: task ? (task.headed ?? task.effective_headed ?? preferredHeaded()) : preferredHeaded() });
   const kind = h('div', { class: 'seg', role: 'group', 'aria-label': '执行规则' });
   const detail = h('div', { class: 'stack', style: 'gap:12px' });
   const caseBox = h('div', { class: 'case-pick' });
@@ -129,7 +130,7 @@ async function editor(task, done) {
     if (!allCases.checked && !picked.size) { error.textContent = '请至少选择一条用例，或勾选「全部用例」'; error.hidden = false; return; }
     try {
       const body = { title: title.value, project_id: project.value, engine: engine.value, case_ids: allCases.checked ? [] : [...picked],
-        rule: scheduleRule(current), ...(task ? { expected_revision: task.revision } : {}) };
+        headed: headed.checked, rule: scheduleRule(current), ...(task ? { expected_revision: task.revision } : {}) };
       save.disabled = true;
       const saved = await api(task ? '/tasks/' + task.id : '/tasks', { method: task ? 'PATCH' : 'POST', body });
       closeOverlay();
@@ -148,6 +149,8 @@ async function editor(task, done) {
       h('div', { class: 'field' }, h('span', { class: 'label' }, '执行哪些用例'),
         h('label', { class: 'row', for: 'tk-all' }, allCases, '全部用例（以后新增的用例也会包含）'), caseBox,
         h('span', { class: 'hint' }, '前置用例（如登录）会自动先执行，不需要单独选。')),
+      h('div', { class: 'field' }, h('label', { class: 'row', for: 'tk-headed' }, headed, '显示浏览器窗口'),
+        h('span', { class: 'hint' }, '关闭后在后台执行。此任务单独保存这个选择，立即运行、定时执行和重启后都沿用。')),
       h('details', { class: 'more' }, h('summary', {}, '回放引擎'),
         h('div', { class: 'field', style: 'margin-top:12px' }, engine, h('span', { class: 'hint' }, '只影响页面用例；接口用例始终走 HTTP。'))),
       error,

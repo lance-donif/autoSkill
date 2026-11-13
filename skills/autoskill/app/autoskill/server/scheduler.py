@@ -94,6 +94,14 @@ def _plan_path(spec: dict) -> str:
         return runner.plan_reference(paths.case_skill())
 
 
+def _headed(spec: dict) -> bool:
+    """Explicit task choices survive worker restarts; legacy tasks follow the saved dashboard choice."""
+    if spec.get("headed") is not None:
+        return bool(spec["headed"])
+    value = paths.settings().get("dashboard", {}).get("headed")
+    return value if type(value) is bool else paths.headed()
+
+
 def _clean(spec: dict) -> dict:
     title = str(spec.get("title", "")).strip()
     if not title:
@@ -124,16 +132,21 @@ def _clean(spec: dict) -> dict:
     overlap = spec.get("overlap", "skip")
     if overlap not in ("skip", "queue"):
         raise ValueError("重叠执行策略需要是 skip 或 queue")
+    headed = spec.get("headed")
+    if headed is not None and type(headed) is not bool:
+        raise ValueError("显示浏览器窗口必须是布尔值")
     return {"title": title, "engine": engine, "project_id": spec["project_id"], "case_ids": case_ids, "rule": rule,
             "kind": kind, "asset_id": spec.get("asset_id", ""), "parameters": parameters,
             "workflow_id": spec.get("workflow_id", ""), "host": spec.get("host") or "generic", "host_session_id": spec.get("host_session_id") or "", "overlap": overlap,
-            "session_id": spec.get("session_id", task_context.session_id()) or "", "plan_path": _plan_path(spec)}
+            "session_id": spec.get("session_id", task_context.session_id()) or "", "plan_path": _plan_path(spec),
+            "headed": None if headed is None else int(headed)}
 
 
 def view(row: dict) -> dict:
     rule = json.loads(row["rule"])
     row = runner.public_run(row)
     return {**row, "rule": rule, "case_ids": json.loads(row["case_ids"]), "enabled": bool(row["enabled"]),
+            "headed": bool(row["headed"]) if row.get("headed") is not None else None, "effective_headed": _headed(row),
             "parameters": json.loads(row.get("parameters", "{}")), "rule_text": describe(rule)}
 
 
@@ -274,7 +287,8 @@ def _prepare(task: dict, trigger: str) -> dict:
             return native_run.prepare(task["project_id"], task["asset_id"], parameters=task["parameters"],
                                       trigger=trigger, task_id=task["id"], session_id=task.get("session_id"), host=task["host"], host_session_id=task["host_session_id"])
         return runner.prepare(task["project_id"], task["case_ids"] or None, task["engine"], trigger=trigger,
-                              task_id=task["id"], session_id=task.get("session_id"), plan_path=task.get("plan_path") or None)
+                              task_id=task["id"], session_id=task.get("session_id"), plan_path=task.get("plan_path") or None,
+                              headed=_headed(task))
     except ValueError as error:
         stamp = db.now()
         return {"id": db.new_id("run"), "project_id": task["project_id"], "engine": task["engine"], "trigger": trigger,
