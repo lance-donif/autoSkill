@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>本地语音接入验收</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="bar"><strong>本地语音接入验收</strong><span class="spacer"></span><a href="/">返回工单系统</a></header>
+  <main class="page">
+    <section class="card">
+      <h1>麦克风与 WebRTC 回环</h1>
+      <p class="muted">音频只在本页面的两个本地连接之间传递，不上传外部服务。这验证媒体权限、音轨和接收链路，不进行语音识别。</p>
+      <label for="voice-source">音频来源</label>
+      <select id="voice-source" data-testid="voice-source">
+        <option value="microphone">麦克风</option>
+        <option value="synthetic">本地合成音</option>
+      </select>
+      <label for="voice-device">输入设备</label>
+      <select id="voice-device" data-testid="voice-device"><option value="">系统默认麦克风</option></select>
+      <div class="actions">
+        <button id="voice-start" type="button" data-testid="voice-start">开始回环</button>
+        <button id="voice-stop" type="button" class="ghost" data-testid="voice-stop" disabled>结束并释放设备</button>
+      </div>
+      <p id="voice-status" role="status" data-testid="voice-status">尚未开始</p>
+      <p id="voice-permission" data-testid="voice-permission">麦克风权限：尚未请求</p>
+      <p id="voice-received" data-testid="voice-received">尚未收到音频</p>
+      <p id="voice-error" class="error" role="alert" data-testid="voice-error" hidden></p>
+      <label for="voice-audio">接收端音频（默认静音，避免扬声器回授）</label>
+      <audio id="voice-audio" autoplay playsinline muted controls data-testid="voice-audio"></audio>
+      <details><summary>链路与清理状态</summary><pre id="voice-details" data-testid="voice-details"></pre></details>
+    </section>
+  </main>
+  <script src="/voice.js"></script>
+</body>
+</html>
