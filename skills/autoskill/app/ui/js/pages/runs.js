@@ -7,7 +7,7 @@ import { refreshShell } from '../shell.js';
 import { downloadRunHtml } from './run-export.js';
 
 const PAGE = 50;
-const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'ui' ? '页面' : '接口');
+const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'native' ? '原生' : value === 'ui' ? '页面' : '接口');
 const active = (run) => ['Queued', 'Running'].includes(run.status);
 const selected = new Map();
 const pendingDeletions = new Map();
@@ -157,7 +157,7 @@ function historyRow(run, params, repaint) {
     h('td', { style: 'min-width:170px' }, active(run)
       ? h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })), h('span', { class: 'sub num' }, `${run.done}/${run.total}`))
       : h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run), h('span', { class: 'sub num' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞`))),
-    h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine]),
+    h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine] || run.engine),
     h('td', { class: 'sub num' }, fmtTime(run.created_at)),
     h('td', { class: 'sub num' }, run.finished_at && run.started_at ? fmtDuration(new Date(run.finished_at) - new Date(run.started_at)) : '—'),
     h('td', { class: 'actions' }, runDeleteButton([run], { small: true })));
@@ -288,6 +288,7 @@ async function report(view, runId) {
     return;
   }
   if (run.family === 'load') { go('load-tests/' + runId); return; }
+  if (run.family === 'native') { go('native-runs/' + runId); return; }
   watchDeletion(run);
   const focus = route().params.get('case');
   prepareReportRows(run, runId, focus);

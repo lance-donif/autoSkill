@@ -8,6 +8,7 @@ const NAV = [
   ['cases', '项目与用例', 'cases'],
   ['load-tests', '压测', 'sliders'],
   ['project-materials', '项目资料', 'folder'],
+  ['native-assets', '原生资产', 'api'],
   ['workflows', '需求与工作流', 'link'],
   ['runs', '执行记录', 'runs'],
   ['schedules', '定时任务', 'clock'],
