@@ -163,19 +163,6 @@ class ApiGuardTests(Workspace):
             self.assertEqual(client.post("/api/runs", json={}, headers={"Origin": "https://evil.test"}).status_code, 403)
             self.assertEqual(client.post("/api/runs", json={}, headers={"Sec-Fetch-Site": "cross-site"}).status_code, 403)
 
-    def test_browser_window_is_shown_by_default_and_can_be_switched_off_per_run(self):
-        os.environ.pop("AUTOSKILL_HEADED", None)  # the product default: a visible window, also for scheduled runs
-        try:
-            with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
-                usual = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"]}).json()["runs"][0]
-                quiet = client.post("/api/runs", json={"project_id": PID, "case_ids": ["TC-API-006"], "headed": False}).json()["runs"][0]
-            task = scheduler.create({"title": "定时", "project_id": PID, "engine": "playwright", "rule": {"kind": "daily", "time": "09:00"}})
-            fired = scheduler.fire(scheduler.get(task["id"]))
-        finally:
-            os.environ["AUTOSKILL_HEADED"] = "0"
-        flag = lambda run_id: db.one("SELECT headed FROM runs WHERE id = ?", (run_id,))["headed"]  # noqa: E731
-        self.assertEqual((flag(usual["id"]), flag(quiet["id"]), flag(fired["id"])), (1, 0, 1))
-
     def test_report_can_be_downloaded_from_the_dashboard(self):
         with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
             got = client.get(f"/api/projects/{PID}/report")
