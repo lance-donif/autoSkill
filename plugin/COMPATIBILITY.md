@@ -4,11 +4,13 @@
 
 ## 插件做什么
 
-只做两件事：把 `skills/autoskill` 注册为 DSH 技能；启动本机仪表盘，并在侧边栏注册两个面板（仪表盘、定时任务），面板内容是 `http://127.0.0.1:<端口>` 的页面。
+把 `skills/autoskill` 注册为 DSH 技能，启动本机仪表盘，在侧边栏注册两个面板（仪表盘、定时任务），并将工作区及宿主上下文传给技能。面板内容是 `http://127.0.0.1:<端口>` 的页面。
 
 仪表盘进程同时是「后台服务」：DSH 把智能体的命令放在沙箱里执行时，autoskill 命令会把自己转交给这个在沙箱外的进程执行（见 `skills/autoskill/references/commands.md`「在受限沙箱里」）。
 
-插件不调用模型，不包含任何业务逻辑。用例的录制由智能体按 `SKILL.md` 通过命令行完成；回放和定时任务由 autoSkill 自己的 Python 进程执行，不经过 DSH 的会话或定时机制。
+`host-adapter.mjs` 还负责处理持久 `host_outbox`：将定时维护或独立 AI judge 工作交给指定 DSH 会话，保存投递意图，调用宿主 prompt，确认 flush 并回传收据。未知投递先查询宿主证据，不盲目重发。消息送达与 workflow/业务完成分开记录。
+
+插件不另配模型 SDK 或密钥，AI 推理由 DSH 宿主承担。录制由智能体按 `SKILL.md` 调用 CLI；确定性 UI/API/原生执行由 Python 进程处理。autoSkill scheduler 是唯一时钟，DSH adapter 不创建第二份周期计划，但维护和判定任务会进入 DSH 会话。宿主需正在运行，这不包含唤醒电脑或启动已退出的 DSH。
 
 ## 依据的接口
 
@@ -17,10 +19,15 @@
 - `packages/client/tsdown.client.ts`：`window.__ModuleLoader__.load({ id, factory })`。
 - `packages/client/ui-schedule/src/client/index.ts`、`ui-layout/src/client/index.ts`：`main` 槽位与 `sidebar.panellist` 的注册方式。
 - `packages/bundle/sdk-app/cordis.patch.yml`：Bundle patch 的 `insert` 格式。
+- DSH `0.2.2-rc.1` 的 `SessionController.resolveAgent/create/prompt`、会话 inbox/events 与 `sessions.flush`：工作会话定位、持久投递及恢复依据。实际调用封装见 `plugin/host-adapter.mjs`。
 
-## 已验证
+## 本轮服务与适配器验证（2026-11-13）
 
-`tests/plugin.test.mjs`（8 项）：技能注册、仪表盘启动参数（argv、离线开关、不经过 shell）、缺少运行时报告、Linux 本地 venv、原生离线包 Python、面板地址、包目录结构与清单文件。
+`tests/plugin.test.mjs` 9 项与 `tests/host-adapter.test.mjs` 7 项通过：技能注册、启动参数、运行时/面板、工作区传播，以及 prompt/flush、投递日志、重试和未知状态恢复。DSH 是 SDK 形状的替身，没有把测试替身当作真实宿主。
+
+`tests/test_host_outbox_loop.py` 通过真实本机 HTTP outbox、JS adapter、CLI/bridge judge 和 SQLite 回执形成闭环：两任务/宿主会话分别保留 Fail 与 Pass，重复 poll 不重复投递。它验证服务边界，不证明 DSH 真机中的模型能自主完成本轮新 workflow。
+
+全项目回归：**待整体回归**。详细方法、自然提示词验收与脱敏证据见[系统化技能与多轮对话验证](../reports/系统化技能与多轮对话验证.md)。
 
 ## Linux x64 / ARM64 与统信 UOS
 
@@ -30,7 +37,7 @@ agent-browser、Playwright、Chrome for Testing 均有 Linux ARM64 程序；Sele
 
 当前 Debian 13 x64 的两种浏览器本机启动通过。ARM64 原生 runner 只组装和检查包，没有 UOS ARM64 真机或 UOS DSH 验收；默认沙箱智能体也仍未验收。不能把 Ubuntu ARM64 组装成功写成 UOS 已通过。
 
-## Linux DSH Web（2026-11-12）
+## 历史 Linux DSH Web 验证（2026-11-12）
 
 在当前 Linux x64 安装官方 npm `@deepseek-ai/dsh@0.2.2-rc.1`，用 `link:/workspace/autoSkill` 安装插件，真实宿主启动仪表盘；在真实 Web 页面点击两个侧栏入口，确认 iframe 内仪表盘和定时任务页面显示正常。已选择 `/workspace/autoSkill` 工作区。
 
@@ -52,6 +59,8 @@ DSH 以 `link:` 方式安装本地目录并调用了插件入口：安装阶段�
 
 ## 未验证
 
-以下没有由开发侧逐项实测：面板在 DSH 界面内的显示细节、智能体在 DSH 沙箱内对技能的调用（见上一节）、热更新、其他 DSH 版本的兼容性。
+2026-11-12 已在真实 Linux DSH Web 打开两个面板，不再属于“完全没有真实宿主验证”。未完成的是：默认沙箱中的智能体技能全链路，本轮定时维护/独立 judge/动态多轮的真实模型驱动闭环，热更新及其他 DSH 版本兼容性。桌面版显示细节也未逐项复核。
+
+Windows/UOS 未做本轮新功能实机验收。升级能力等待对应专项结论，不用旧版安装成功替代升级验收。
 
 仪表盘面板使用浏览器本机的回环地址；远程访问 DSH Web 时，还需将仪表盘端口（默认 8787）转发到浏览器所在机器的相同端口。
