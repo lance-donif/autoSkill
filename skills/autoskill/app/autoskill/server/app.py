@@ -419,6 +419,12 @@ def _register_task_report_routes(app: FastAPI) -> None:
         return FileResponse(file, filename=file.name, media_type="text/markdown; charset=utf-8")
 
 
+    @app.get("/api/task-reports/{report_id}/bugs")
+    def task_report_bugs(report_id: str):
+        file = task_reports.download(report_id, "bugs")
+        return FileResponse(file, filename=file.name, media_type="text/markdown; charset=utf-8")
+
+
 def _register_schedule_routes(app: FastAPI) -> None:
     """Register schedule routes in their original order."""
     @app.get("/api/tasks")

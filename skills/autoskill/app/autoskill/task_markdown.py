@@ -67,8 +67,8 @@ def render(snapshot: dict, *, excel_link: str) -> tuple[str, dict]:
     return "\n".join(lines), summary
 
 
-def write_task(snapshot: dict, destination: Path, *, excel_link: str) -> dict:
-    text, summary = render(snapshot, excel_link=excel_link)
+def write_text(destination: Path, text: str) -> None:
+    """Atomically publish UTF-8 Markdown only after verifying the exact saved bytes."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name("." + destination.name + "." + uuid.uuid4().hex + ".tmp")
     try:
@@ -83,5 +83,10 @@ def write_task(snapshot: dict, destination: Path, *, excel_link: str) -> dict:
             raise ValueError("Markdown 保存后内容不一致，未交付文件")
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def write_task(snapshot: dict, destination: Path, *, excel_link: str) -> dict:
+    text, summary = render(snapshot, excel_link=excel_link)
+    write_text(destination, text)
     return {"markdown_validation": {"markdown_readable": True}, "summary_counts": summary["counts"],
             "summary_cases": summary["cases"], "summary_execution_rows": summary["execution_rows"]}

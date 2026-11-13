@@ -1,4 +1,4 @@
-"""Durable, retryable Excel and short Markdown delivery for completed test tasks."""
+"""Durable, retryable Excel, summary and issue-list delivery for completed test tasks."""
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
-from . import db, execution_inputs, paths, reporting, task_markdown, task_report_data
+from . import db, execution_inputs, paths, reporting, task_bugs, task_markdown, task_report_data
 from .locking import named_lock, project_lock
 
 
@@ -39,17 +39,18 @@ def _saved(report_id: str) -> dict | None:
 
 
 def _public(receipt: dict) -> dict:
-    return {key: value for key, value in receipt.items() if key != "_retained_excel"}
+    return {key: value for key, value in receipt.items() if key not in ("_retained_excel", "_retained_artifacts")}
 
 
 def _unavailable(receipt: dict, message: str) -> dict:
-    artifact_fields = ("excel", "download_url", "sha256", "size", "markdown", "markdown_download_url", "markdown_sha256", "markdown_size")
+    artifact_fields = ("excel", "download_url", "sha256", "size", "markdown", "markdown_download_url", "markdown_sha256", "markdown_size",
+                       "bugs", "bugs_download_url", "bugs_sha256", "bugs_size")
     return {**{key: value for key, value in _public(receipt).items() if key not in artifact_fields},
             "status": "failed", "error": message, "retryable": True}
 
 
 def _available(receipt: dict, artifact: str) -> bool:
-    prefix = "" if artifact == "excel" else "markdown_"
+    prefix = "" if artifact == "excel" else artifact + "_"
     try:
         folder = _folder(receipt["report_id"]).resolve()
         file = Path(receipt[artifact])
@@ -62,8 +63,8 @@ def _available(receipt: dict, artifact: str) -> bool:
 def _validate(receipt: dict) -> dict:
     if receipt["status"] != "ready":
         return _public(receipt)
-    if not all(_available(receipt, artifact) for artifact in ("excel", "markdown")):
-        return _unavailable(receipt, "Excel 或 Markdown 文件缺失或内容已变化，请从冻结快照重试生成。")
+    if not all(_available(receipt, artifact) for artifact in ("excel", "markdown", "bugs")):
+        return _unavailable(receipt, "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。")
     if receipt["kind"] == "workflow":
         for run_id in receipt.get("run_ids", []):
             run = db.one("SELECT delete_requested FROM runs WHERE id = ?", (run_id,))
@@ -97,14 +98,18 @@ def _persist_failure(base: dict, error: Exception, generation, *, save: bool = T
     return _public(receipt)
 
 
-def _retained_excel(receipt: dict | None, digest: str | None) -> dict | None:
+def _retained_artifacts(receipt: dict | None, digest: str | None) -> dict | None:
     if not receipt or not digest:
         return None
-    candidate = receipt.get("_retained_excel") or receipt
+    candidate = receipt.get("_retained_artifacts") or receipt.get("_retained_excel") or receipt
     if candidate.get("source_hash") != digest or not _available(candidate, "excel"):
         return None
     keys = ("report_id", "source_hash", "excel", "sha256", "size", "renderer", "template_id", "validation", "cases", "execution_rows")
-    return {key: candidate[key] for key in keys if key in candidate}
+    retained = {key: candidate[key] for key in keys if key in candidate}
+    for artifact in ("markdown", "bugs"):
+        if _available(candidate, artifact):
+            retained.update({key: candidate[key] for key in (artifact, artifact + "_sha256", artifact + "_size")})
+    return retained
 
 
 def _snapshot(base: dict, saved: dict) -> dict | None:
@@ -137,10 +142,29 @@ def _read_workbook(file: Path) -> None:
             book.close()
 
 
+def _markdown_artifact(snapshot: dict, folder: Path, digest: str, excel_link: str, artifact: str, existing: dict | None) -> tuple[Path, dict]:
+    module = task_markdown if artifact == "markdown" else task_bugs
+    filename = ("测试简报-" if artifact == "markdown" else "Bug清单-") + digest[:16] + ".md"
+    file = folder / filename
+    expected, summary = module.render(snapshot, excel_link=excel_link)
+    if existing and _available(existing, artifact):
+        file = Path(existing[artifact])
+        file.read_text(encoding="utf-8")
+    else:
+        module.write_task(snapshot, file, excel_link=excel_link)
+        if file.read_text(encoding="utf-8") != expected:
+            raise ValueError("Markdown 内容不匹配当前冻结快照，未交付文件")
+    if artifact == "markdown":
+        return file, {"summary_counts": summary["counts"], "summary_cases": summary["cases"], "summary_execution_rows": summary["execution_rows"]}
+    return file, {"bugs_count": summary["issues"], "bugs_counts": summary["counts"]}
+
+
 def _render(base: dict, snapshot: dict, generation, existing: dict | None = None) -> dict:
     folder = _folder(base["report_id"])
-    execution_inputs.write_json(folder / "snapshot.json", snapshot)
     digest = execution_inputs.content_hash(snapshot)
+    snapshot_file = folder / "snapshot.json"
+    if not snapshot_file.is_file() or execution_inputs.content_hash(json.loads(snapshot_file.read_bytes())) != digest:
+        execution_inputs.write_json(snapshot_file, snapshot)
     file = folder / ("测试用例-" + digest[:16] + ".xlsx")
     if existing and existing.get("source_hash") == digest and _available(existing, "excel"):
         file = Path(existing["excel"])
@@ -148,21 +172,25 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
     else:
         built = reporting.write_task(snapshot, file)
     _read_workbook(file)
-    markdown = folder / ("测试简报-" + digest[:16] + ".md")
+    partial = {**base, "status": "generating", "generation": generation, "source_hash": digest, "excel": str(file.resolve()),
+               "sha256": _hash(file), "size": file.stat().st_size, **built}
+    execution_inputs.write_json(folder / "receipt.json", partial)
     excel_link = quote(file.name, safe="")
-    brief = task_markdown.write_task(snapshot, markdown, excel_link=excel_link)
-    expected_text, _summary = task_markdown.render(snapshot, excel_link=excel_link)
-    if markdown.read_text(encoding="utf-8") != expected_text:
-        raise ValueError("Markdown 内容不匹配当前冻结快照，未交付文件")
-    validation = {**built.get("validation", {}), "workbook_readable": True, **brief.pop("markdown_validation")}
+    markdown, brief = _markdown_artifact(snapshot, folder, digest, excel_link, "markdown", existing)
+    partial.update(markdown=str(markdown.resolve()), markdown_sha256=_hash(markdown), markdown_size=markdown.stat().st_size)
+    execution_inputs.write_json(folder / "receipt.json", partial)
+    bugs, issues = _markdown_artifact(snapshot, folder, digest, excel_link, "bugs", existing)
+    validation = {**built.get("validation", {}), "workbook_readable": True, "markdown_readable": True, "bugs_readable": True}
     receipt = {**base, "status": "ready", "excel": str(file.resolve()),
                "download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/excel",
                "markdown": str(markdown.resolve()),
                "markdown_download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/markdown",
                "markdown_sha256": _hash(markdown), "markdown_size": markdown.stat().st_size,
+               "bugs": str(bugs.resolve()), "bugs_download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/bugs",
+               "bugs_sha256": _hash(bugs), "bugs_size": bugs.stat().st_size,
                "sha256": _hash(file), "size": file.stat().st_size, "source_hash": digest,
                "generation": generation, "generated_at": db.now(), "retryable": False,
-               "run_ids": snapshot.get("run_ids", []), "cases": len(snapshot["cases"]), **built, **brief, "validation": validation}
+               "run_ids": snapshot.get("run_ids", []), "cases": len(snapshot["cases"]), **built, **brief, **issues, "validation": validation}
     execution_inputs.write_json(folder / "receipt.json", receipt)
     return receipt
 
@@ -178,20 +206,23 @@ def _ensure(base: dict, generation, capture, retry: bool) -> dict:
                     failure_base = {**base, **({"source_hash": saved["source_hash"]} if saved.get("source_hash") else {}),
                                     "snapshot_required": bool(saved.get("snapshot_required") or saved.get("status") == "ready"
                                                               or (_folder(base["report_id"]) / "snapshot.json").is_file())}
-                    retained = _retained_excel(saved, saved.get("source_hash"))
+                    retained = _retained_artifacts(saved, saved.get("source_hash"))
                     if retained:
-                        failure_base["_retained_excel"] = retained
-                if same_generation and not retry and (saved.get("status") != "ready" or saved.get("markdown")):
+                        failure_base["_retained_artifacts"] = retained
+                if same_generation and not retry and (saved.get("status") != "ready" or (saved.get("markdown") and saved.get("bugs"))):
                     return _validate(saved)
                 snapshot = _snapshot(base, saved) if same_generation else None
                 if snapshot is None:
                     snapshot = capture()
                 failure_base = {**base, "source_hash": execution_inputs.content_hash(snapshot)}
-                retained = _retained_excel(saved, failure_base["source_hash"]) if same_generation else None
+                retained = _retained_artifacts(saved, failure_base["source_hash"]) if same_generation else None
                 if retained:
-                    failure_base["_retained_excel"] = retained
+                    failure_base["_retained_artifacts"] = retained
                 return _validate(_render(base, snapshot, generation, retained))
             except Exception as error:  # noqa: BLE001  # Keep failure publication in the same lock as successful delivery.
+                retained = _retained_artifacts(_saved(base["report_id"]), failure_base.get("source_hash"))
+                if retained:
+                    failure_base["_retained_artifacts"] = retained
                 return _persist_failure(failure_base, error, generation)
     except Exception as error:  # noqa: BLE001  # Report delivery must not erase a completed execution or saved recording.
         return _persist_failure(base, error, generation, save=False)
@@ -207,13 +238,13 @@ def for_run(run_id: str, *, retry: bool = False) -> dict:
     if not initial or initial["delete_requested"]:
         return {**base, "status": "skipped", "reason": "运行已删除或正在删除，不再生成报告", "retryable": False}
     if initial["status"] not in db.FINISHED:
-        return {**base, "status": "pending", "reason": "运行尚未结束，完成后生成 Excel 和 Markdown", "retryable": False}
+        return {**base, "status": "pending", "reason": "运行尚未结束，完成后生成 Excel、简报和 Bug 清单", "retryable": False}
     with deletion.execution_guard(run_id):
         run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
         if not run or run.get("delete_requested"):
             return {**base, "status": "skipped", "reason": "运行已删除或正在删除，不再生成报告", "retryable": False}
         if run["status"] not in db.FINISHED:
-            return {**base, "status": "pending", "reason": "运行尚未结束，完成后生成 Excel 和 Markdown", "retryable": False}
+            return {**base, "status": "pending", "reason": "运行尚未结束，完成后生成 Excel、简报和 Bug 清单", "retryable": False}
         generation = {key: run.get(key) for key in ("input_hash", "finished_at", "status")}
         result = _ensure(base, generation, lambda: task_report_data.run_snapshot(run), retry)
         current = db.one("SELECT delete_requested FROM runs WHERE id = ?", (run_id,))
@@ -288,8 +319,8 @@ def retry(report_id: str) -> dict:
 
 
 def download(report_id: str, format: str = "excel") -> Path:  # noqa: A002  # Keep the public format keyword used by HTTP callers.
-    if format not in ("excel", "markdown"):
-        raise ValueError("报告格式需要是 excel 或 markdown")
+    if format not in ("excel", "markdown", "bugs"):
+        raise ValueError("报告格式需要是 excel、markdown 或 bugs")
     receipt = get(report_id)
     if receipt["status"] != "ready":
         raise ValueError(receipt.get("error") or "测试报告尚未生成，请先重试")

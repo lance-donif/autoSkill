@@ -8,9 +8,9 @@
 
 用户描述的“对话框上方预计划步骤”对应 `TodoDock` / `TodoPanel`：宿主 AI 调用原生 **`todo_write`** 更新当前会话的任务列表，原生 Web UI 在输入框上方显示“任务”及已完成/进行中/待处理数量，默认折叠，点击展开逐项步骤。不是 Markdown 自动识别，也不是 autoSkill 页面自己画的列表。
 
-autoSkill Skill 及插件送入宿主的任务提示要求宿主在实际工具可用时，开始任务/恢复当前 turn 后先写完整清单；取得阶段真实回执后再更新；最后包含“生成、检查并交付测试用例 Excel 和 Markdown 汇总”。在 DSH 使用 `todo_write`，PTC 由宿主按其可用工具调用协议调用，不在插件后台硬编码 `ctx.tools.execute` 发原生名字。现有 autoSkill CLI 负责真正的工作与导出，DSH 负责原生计划展示。
+autoSkill Skill 及插件送入宿主的任务提示要求宿主在实际工具可用时，开始任务/恢复当前 turn 后先写完整清单；取得阶段真实回执后再更新；最后包含“生成、检查并交付测试用例 Excel、Markdown 汇总和 Bug 清单”。在 DSH 使用 `todo_write`，PTC 由宿主按其可用工具调用协议调用，不在插件后台硬编码 `ctx.tools.execute` 发原生名字。现有 autoSkill CLI 负责真正的工作与导出，DSH 负责原生计划展示。
 
-Excel 和 Markdown 生成并检查成功后，宿主可调用官方 **`present`** 声明两个文件，让 DSH 用原生交付卡显示；最终答复同时给可访问文件链接。不要在文件尚未生成时把交付阶段标为完成。GoFile 直连此前被代理 403 阻断，之后已从用户 Git 提交的 `test-cases.rar` 读取完整 Skill，来源 SHA-256 为 `08f913f3c8d4de28fac9c19acd9481355c78f6ccbb2e427788dc3ec7df72307f`。规则随产品放在 `skills/autoskill/references/test-cases/`，由通用内核输出 14 列 Excel；Markdown 只保留简单字段、数量汇总、主要问题和 Excel 链接。读取规则与本机导出成功仍不代表真实 DSH 卡片已验收。
+Excel、简报和 Bug 清单生成并检查成功后，宿主可调用官方 **`present`** 声明三个文件，让 DSH 用原生交付卡显示；最终答复同时给可访问文件链接。不要在文件尚未生成时把交付阶段标为完成。GoFile 直连此前被代理 403 阻断，之后已从用户 Git 提交的 `test-cases.rar` 读取完整 Skill，来源 SHA-256 为 `08f913f3c8d4de28fac9c19acd9481355c78f6ccbb2e427788dc3ec7df72307f`。规则随产品放在 `skills/autoskill/references/test-cases/`，由通用内核输出 14 列 Excel；Markdown 只保留简单字段、数量汇总、主要问题和 Excel 链接。读取规则与本机导出成功仍不代表真实 DSH 卡片已验收。
 
 ## todo_write 的精确协议
 
@@ -20,7 +20,7 @@ Excel 和 Markdown 生成并检查成功后，宿主可调用官方 **`present`*
 {"todos":[
   {"content":"核对需求与已有用例","status":"in_progress"},
   {"content":"补充场景并执行测试，保存真实结果","status":"pending"},
-  {"content":"生成、检查并交付测试用例 Excel 和 Markdown 汇总","status":"pending"}
+  {"content":"生成、检查并交付测试用例 Excel、Markdown 汇总和 Bug 清单","status":"pending"}
 ]}
 ```
 
@@ -68,7 +68,7 @@ DSH 官方 ToolsService 有 `execute({calls,signal,agent?,toolSet?,log?})`，可
 官方 `present` 参数：
 
 ```json
-{"files":[{"path":"/宿主可访问目录/测试用例-本次任务.xlsx","description":"本次测试用例与真实执行结果"},{"path":"/宿主可访问目录/测试汇总-本次任务.md","description":"本次测试汇总"}]}
+{"files":[{"path":"/宿主可访问目录/测试用例-本次任务.xlsx","description":"本次测试用例与真实执行结果"},{"path":"/宿主可访问目录/测试汇总-本次任务.md","description":"本次测试汇总"},{"path":"/宿主可访问目录/Bug清单-本次任务.md","description":"本轮测试 Bug 清单"}]}
 ```
 
 应先真正生成 `.xlsx` 并读回检查，再调用 present，成功后把最后一步完成并给链接。文件需是当前 Session filesystem 能访问的 regular file；相对路径基于 Session working directory，最终符号链接/缺失文件/目录/被 provider 拒绝路径会失败。工具要求 owning Agent 与 open turn；子 agent 生成的文件由父 agent 自行 present 才属于父交付。successful tools/result 追加 `deliverables/presented`。文件内容不复制、不校验 xlsx 格式，只记录路径，所以应使用本次任务独立文件名，不能删除/覆盖后仍声称历史卡内有原始附件。

@@ -336,7 +336,8 @@ function testReportControl(run) {
   const receipt = run.test_report;
   if (receipt?.status === 'ready') {
     return [h('a', { class: 'btn', href: receipt.download_url, download: '', title: '本次任务的用例、步骤、断言与实际结果' }, icon('table'), '下载本次用例 Excel'),
-      receipt.markdown_download_url && h('a', { class: 'btn', href: receipt.markdown_download_url, download: '', title: '本次任务的简单字段、结果汇总和主要问题' }, icon('table'), '下载 Markdown 汇总')];
+      receipt.markdown_download_url && h('a', { class: 'btn', href: receipt.markdown_download_url, download: '', title: '本次任务的简单字段、结果汇总和主要问题' }, icon('table'), '下载 Markdown 汇总'),
+      receipt.bugs_download_url && h('a', { class: 'btn', href: receipt.bugs_download_url, download: '', title: '同轮业务失败、执行问题及证据线索' }, icon('table'), '下载 Bug 清单')];
   }
   if (receipt?.status !== 'failed') return null;
   const retry = h('button', { class: 'btn', onClick: async () => {
