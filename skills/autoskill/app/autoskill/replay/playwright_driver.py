@@ -4,7 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import paths
+from . import ir
 from .tabs import playwright_tabs
+
+DOM_JS = Path(__file__).with_name("dom.js").read_text(encoding="utf-8")
 
 
 class PlaywrightAction:
@@ -115,56 +118,132 @@ class PlaywrightDriver:
         self.page.screenshot(path=str(path), full_page=True, mask=masks)
 
     # --- elements ----------------------------------------------------
+    @staticmethod
+    def _query(root, locator: dict):
+        from .ui import LOCATOR, StepError
+
+        try:
+            result = root.evaluate_handle("(root, locator) => (" + DOM_JS + ")(root).find(locator)", locator)
+            try:
+                return [handle.as_element() for handle in result.get_properties().values()]
+            finally:
+                result.dispose()
+        except Exception as error:
+            raise StepError(LOCATOR, "定位读取失败：" + str(error).splitlines()[0]) from error
+
+    def _root(self, path: list):
+        """Re-enter every frame/root from the active tab, never reusing a stale element."""
+        from .ui import LOCATOR, StepError
+
+        frame = self.page.main_frame
+        root = frame.evaluate_handle("document")
+        try:
+            for index, segment in enumerate(path, 1):
+                node = None
+                for candidate in segment["locators"]:
+                    matches = self._query(root, candidate)
+                    wanted = candidate.get("nth", 0)
+                    node = matches[wanted] if len(matches) > wanted else None
+                    for match in matches:
+                        if match is not node:
+                            match.dispose()
+                    if node is not None:
+                        break
+                if node is None:
+                    raise StepError(LOCATOR, f"第 {index} 层 {segment['kind']} 上下文未找到，不能判断目标元素不存在")
+                try:
+                    if segment["kind"] == "frame":
+                        frame = node.content_frame()
+                        if frame is None:
+                            raise StepError(LOCATOR, f"第 {index} 层上下文不是已加载的 iframe")
+                        next_root = frame.evaluate_handle("document")
+                    else:
+                        next_root = node.evaluate_handle("el => el.shadowRoot")
+                        if next_root.evaluate("root => root === null"):
+                            next_root.dispose()
+                            raise StepError(LOCATOR, f"第 {index} 层没有开放的 Shadow DOM；不支持 closed 模式")
+                finally:
+                    node.dispose()
+                root.dispose()
+                root = next_root
+            return frame, root
+        except Exception as error:
+            root.dispose()
+            if isinstance(error, StepError):
+                raise
+            raise StepError(LOCATOR, "定位上下文读取失败：" + type(error).__name__) from error
+
     def _all(self, locator: dict):
-        kind, value, page = locator["by"], locator.get("value"), self.page
-        if kind == "testid":
-            return page.get_by_test_id(value)
-        if kind == "role":
-            name = locator.get("name")
-            return page.get_by_role(locator["role"], name=name, exact=True) if name else page.get_by_role(locator["role"])
-        if kind == "label":
-            return page.get_by_label(value, exact=True)
-        if kind == "placeholder":
-            return page.get_by_placeholder(value, exact=True)
-        if kind == "text":
-            return page.get_by_text(value, exact=True)
-        return page.locator(value)
+        _, root = self._root(locator.get("context", []))
+        try:
+            return self._query(root, locator)
+        finally:
+            root.dispose()
 
     def _one(self, locator: dict):
-        return self._all(locator).nth(locator.get("nth", 0))
+        from .ui import LOCATOR, StepError
+
+        found = self._all(locator)
+        index = locator.get("nth", 0)
+        node = found[index] if len(found) > index else None
+        for item in found:
+            if item is not node:
+                item.dispose()
+        if node is None:
+            raise StepError(LOCATOR, "页面上找不到：" + ir.describe_locator(locator))
+        return node
 
     def count(self, locator: dict) -> int:
-        return self._all(locator).count()
+        found = self._all(locator)
+        try:
+            return len(found)
+        finally:
+            for node in found:
+                node.dispose()
 
     def read(self, locator: dict, what: str, arg: str | None = None):
         node = self._one(locator)
-        if what == "visible":
-            return node.is_visible()
-        if what == "checked":
-            return node.is_checked()
-        if what == "value":
-            return node.input_value()
-        if what == "attribute":
-            return node.get_attribute(arg)
-        return node.evaluate("el => el.innerText ?? el.textContent ?? ''")
+        try:
+            if what == "visible":
+                return node.is_visible()
+            if what == "checked":
+                return node.is_checked()
+            if what == "value":
+                return node.input_value()
+            if what == "attribute":
+                return node.get_attribute(arg)
+            return node.evaluate("el => el.innerText ?? el.textContent ?? ''")
+        finally:
+            node.dispose()
 
     def image(self, locator: dict) -> bytes:
         """The element as the user sees it (PNG), for reading a captcha."""
-        return self._one(locator).screenshot()
+        node = self._one(locator)
+        try:
+            return node.screenshot()
+        finally:
+            node.dispose()
 
     def act(self, locator: dict, op: str, value) -> None:
         node = self._one(locator)
-        if op == "fill":
-            node.fill(value)
-        elif op == "type":
-            node.press_sequentially(value)
-        elif op == "select":
-            node.select_option(value)
-        else:
-            getattr(node, op)()  # click, dblclick, hover, check, uncheck
+        try:
+            if op == "fill":
+                node.fill(value)
+            elif op == "type":
+                node.type(value)
+            elif op == "select":
+                node.select_option(value)
+            else:
+                getattr(node, op)()  # click, dblclick, hover, check, uncheck
+        finally:
+            node.dispose()
 
     def press(self, locator: dict | None, key: str) -> None:
         if locator:
-            self._one(locator).press(key)
+            node = self._one(locator)
+            try:
+                node.press(key)
+            finally:
+                node.dispose()
         else:
             self.page.keyboard.press(key)

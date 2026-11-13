@@ -44,7 +44,7 @@ class StepModelTests(unittest.TestCase):
                 "assertions": [{"assertion": "url_contains", "expected": "/done"}]}
         ir.validate(good)
         for bad in ({"action": "eval", "value": "alert(1)"}, {"action": "click"},
-                    {"action": "click", "locators": [{"by": "xpath", "value": "//a"}]},
+                    {"action": "click", "locators": [{"by": "javascript", "value": "//a"}]},
                     {"action": "fill", "selector": "input"}):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 ir.validate({"start_url": "/", "actions": [bad], "assertions": []})

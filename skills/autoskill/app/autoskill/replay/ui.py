@@ -32,17 +32,27 @@ class StepError(Exception):
 def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     """Return (locator, index) of the first candidate that matches; index > 0 means a fallback was used."""
     candidates = ir.expand(ir.locators(step))
+    if "context" in step:
+        candidates = [{**candidate, "context": ir.expand(step["context"])} for candidate in candidates]
     if not candidates:
         return None, 0
     start = time.monotonic()
+    last_error = None
     while True:
         elapsed = time.monotonic() - start
         pool = candidates[:1] if need and elapsed < PRIMARY_GRACE else candidates
         for index, locator in enumerate(pool):
-            if driver.count(locator) > locator.get("nth", 0):
-                return locator, index
+            try:
+                if driver.count(locator) > locator.get("nth", 0):
+                    return locator, index
+            except StepError as error:
+                if not need:
+                    raise
+                last_error = error
         if not need or elapsed >= timeout:
             if need:
+                if last_error:
+                    raise last_error
                 raise StepError(LOCATOR, "页面上找不到：" + " / ".join(ir.describe_locator(c) for c in candidates))
             return candidates[0], 0
         time.sleep(POLL)
@@ -98,7 +108,7 @@ def _prepare_assertion(step: dict) -> dict:
             raise ValueError("count 断言的动态期望必须是非负整数")
         step["expected"] = int(step["expected"])
     if "transition_from" in step:
-        step["transition_from"] = _prepare_assertion({"locators": ir.locators(step), **step["transition_from"]})
+        step["transition_from"] = _prepare_assertion({"locators": ir.locators(step), "context": step.get("context", []), **step["transition_from"]})
     return step
 
 
@@ -108,7 +118,7 @@ def _read_assertion(driver, step: dict) -> tuple[bool, object, int]:
         passed, actual = evaluate(driver, step, locator)
         return passed, actual, selected
     except Exception as error:  # noqa: BLE001  # Retry transient engine reads, retaining a diagnostic on timeout.
-        return False, "读取失败：" + type(error).__name__, 0
+        return False, "读取失败：" + (str(error) if isinstance(error, StepError) else type(error).__name__), 0
 
 
 def _poll_assertion(driver, step: dict, timeout: float) -> dict:
@@ -194,7 +204,7 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
     elif op == "captcha":
         from .. import captcha
 
-        picture, _ = choose_locator(driver, {"locators": step["image"]}, timeout)
+        picture, _ = choose_locator(driver, {"locators": step["image"], "context": step.get("image_context", step.get("context", []))}, timeout)
         driver.act(locator, "fill", captcha.solve(driver.image(picture)))
     elif op in ("wait_visible", "wait_hidden"):
         wanted = op == "wait_visible"

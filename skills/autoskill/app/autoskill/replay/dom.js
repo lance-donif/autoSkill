@@ -1,4 +1,4 @@
-(function () {
+(function (root = document) {
   // DOM helpers shared by the Selenium driver (element lookup) and the recorder
   // (turning the element an agent touched into stable locator candidates).
   // Lookup mirrors Playwright's getBy* locators closely enough that one recorded
@@ -30,7 +30,7 @@
   function labelText(el) {
     const ids = el.getAttribute('aria-labelledby');
     if (ids) {
-      const text = norm(ids.split(/\s+/).map((id) => (document.getElementById(id) || {}).textContent || '').join(' '));
+      const text = norm(ids.split(/\s+/).map((id) => (root.querySelector('#' + CSS.escape(id)) || {}).textContent || '').join(' '));
       if (text) return text;
     }
     const aria = norm(el.getAttribute('aria-label'));
@@ -49,13 +49,40 @@
   }
   const rendered = (el) => el.tagName === 'OPTION' || el.getClientRects().length > 0;
   const exposed = (el) => rendered(el) && !el.closest('[aria-hidden="true"]');
-  const all = () => Array.from(document.querySelectorAll('body *'));
+  const all = () => Array.from(root.querySelectorAll('*'));
+
+  function xpath(locator) {
+    let anchor = root;
+    if (locator.xpath_anchor) {
+      const matches = root.querySelectorAll(locator.xpath_anchor);
+      if (matches.length !== 1) throw new Error('XPath 元素锚点必须唯一匹配');
+      anchor = matches[0];
+      if (!locator.value.startsWith('.')) throw new Error('带元素锚点的 XPath 必须以 . 开始');
+      const expression = locator.value.replace(/'[^']*'|"[^"]*"/g, "''");
+      if (/(^|[^.])\.\.([^.]|$)|(?:parent|ancestor(?:-or-self)?|following(?:-sibling)?|preceding(?:-sibling)?)\s*::|[|(=\[,]\s*\//.test(expression)) {
+        throw new Error('带元素锚点的 XPath 不能使用越界路径或祖先轴');
+      }
+    } else if (root.nodeType === 11) {
+      throw new Error('Shadow DOM 内的 XPath 需要 xpath_anchor 元素锚点');
+    }
+    const doc = anchor.ownerDocument || anchor;
+    const result = doc.evaluate(locator.value, anchor, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+    const out = [];
+    for (let index = 0; index < result.snapshotLength; index++) {
+      const node = result.snapshotItem(index);
+      if (node.nodeType !== 1 || node.getRootNode() !== root) throw new Error('XPath 结果必须是当前上下文内的元素');
+      out.push(node);
+    }
+    return out;
+  }
 
   function find(locator) {
     const value = locator.value;
     switch (locator.by) {
       case 'css':
-        return Array.from(document.querySelectorAll(value));
+        return Array.from(root.querySelectorAll(value));
+      case 'xpath':
+        return xpath(locator);
       case 'testid':
         return all().filter((el) => el.getAttribute('data-testid') === value);
       case 'placeholder':
@@ -81,14 +108,14 @@
   const stableId = (id) => id && !/\d{4,}|[:.]|^(ember|react|radix|headlessui|mui|el-id)/i.test(id);
   function cssPath(el) {
     const parts = [];
-    for (let node = el; node && node.nodeType === 1 && node !== document.body; node = node.parentElement) {
+    for (let node = el; node && node.nodeType === 1 && node !== root.body; node = node.parentElement) {
       if (stableId(node.id)) { parts.unshift('#' + cssEscape(node.id)); break; }
       const testid = node.getAttribute('data-testid');
-      if (testid && node !== el) { parts.unshift('[data-testid="' + testid + '"]'); break; }
+      if (testid && node !== el) { parts.unshift('[data-testid="' + cssEscape(testid) + '"]'); break; }
       let part = node.tagName.toLowerCase();
       const classes = Array.from(node.classList).filter((c) => /^[a-z][\w-]*$/i.test(c) && !/\d{3,}/.test(c)).slice(0, 2);
       if (classes.length) part += '.' + classes.map(cssEscape).join('.');
-      const same = node.parentElement ? Array.from(node.parentElement.children).filter((c) => c.tagName === node.tagName) : [];
+      const same = node.parentNode ? Array.from(node.parentNode.children || []).filter((c) => c.tagName === node.tagName) : [];
       if (same.length > 1) part += ':nth-of-type(' + (same.indexOf(node) + 1) + ')';
       parts.unshift(part);
       if (parts.length >= 5) break;
@@ -100,6 +127,43 @@
     if (index < 0) return null;
     if (index > 0) locator.nth = index;
     return locator;
+  }
+  function xpathLiteral(value) {
+    if (!value.includes("'")) return "'" + value + "'";
+    if (!value.includes('"')) return '"' + value + '"';
+    return 'concat(' + value.split("'").map((part) => "'" + part + "'").join(',"\'",') + ')';
+  }
+  function xpathCandidate(el) {
+    const stable = (node) => {
+      const testid = node.getAttribute('data-testid');
+      if (testid) return '*[@data-testid=' + xpathLiteral(testid) + ']';
+      if (stableId(node.id)) return '*[@id=' + xpathLiteral(node.id) + ']';
+      return null;
+    };
+    let anchor = null;
+    if (root.nodeType === 11) {
+      anchor = el;
+      while (anchor.parentElement) anchor = anchor.parentElement;
+    }
+    const parts = [];
+    const candidates = [];
+    for (let node = el; node && node.nodeType === 1 && node !== anchor; node = node.parentElement) {
+      const hint = stable(node);
+      if (hint) candidates.push('.//' + hint + (parts.length ? '/' + parts.join('/') : ''));
+      const same = Array.from(node.parentNode.children || []).filter((item) => item.localName === node.localName);
+      parts.unshift('*[local-name()=' + xpathLiteral(node.localName) + '][' + (same.indexOf(node) + 1) + ']');
+    }
+    candidates.push(anchor ? (parts.length ? './' + parts.join('/') : '.') : '/' + parts.join('/'));
+    for (const value of candidates) {
+      const locator = { by: 'xpath', value };
+      if (anchor) locator.xpath_anchor = cssPath(anchor);
+      const matches = find(locator);
+      if (matches.length === 1 && matches[0] === el) {
+        if (value.startsWith('/') || value.includes('local-name()')) locator.fragile = true;
+        return locator;
+      }
+    }
+    return null;
   }
   function describe(el) {
     const out = [];
@@ -119,7 +183,10 @@
       const text = norm(el.textContent);
       if (text && text.length <= 60) push({ by: 'text', value: text });
     }
-    push({ by: 'css', value: cssPath(el) });
+    const css = cssPath(el);
+    if (css) push({ by: 'css', value: css });
+    const fallback = xpathCandidate(el);
+    if (fallback) out.push(fallback);
     const type = (el.getAttribute('type') || '').toLowerCase();
     const auto = (el.getAttribute('autocomplete') || '').toLowerCase();
     return {
@@ -133,7 +200,7 @@
   function fromRef(ref) {
     let pool = ref.role ? find({ by: 'role', role: ref.role, name: ref.name || null }) : [];
     if (!pool.length && ref.box) {
-      const hit = document.elementFromPoint(ref.box.x + ref.box.width / 2, ref.box.y + ref.box.height / 2);
+      const hit = root.elementFromPoint(ref.box.x + ref.box.width / 2, ref.box.y + ref.box.height / 2);
       if (hit) pool = [hit];
     }
     if (!pool.length) return null;
@@ -142,8 +209,8 @@
     return pool.slice().sort((a, b) => distance(a) - distance(b))[0];
   }
   function target(spec) {
-    const el = spec.ref ? fromRef(spec.ref) : spec.locator ? find(spec.locator)[spec.locator.nth || 0] : document.activeElement;
-    return el && el !== document.body ? describe(el) : null;
+    const el = spec.ref ? fromRef(spec.ref) : spec.locator ? find(spec.locator)[spec.locator.nth || 0] : root.activeElement;
+    return el && el !== root.body ? describe(el) : null;
   }
   // One reading of an element property, for checking an assertion while recording.
   function read(locator, what, arg) {
@@ -158,5 +225,5 @@
     if (what === 'attribute') return el.getAttribute(arg);
     return el.innerText == null ? el.textContent || '' : el.innerText;
   }
-  return { find, target, read };
+  return { find, target, read, describe };
 })

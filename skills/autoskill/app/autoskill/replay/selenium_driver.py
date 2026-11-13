@@ -13,7 +13,7 @@ from . import ir
 from .tabs import selenium_tabs
 
 DOM_JS = (Path(__file__).with_name("dom.js")).read_text(encoding="utf-8")
-FIND = "return (" + DOM_JS + ")().find(arguments[0]);"
+FIND = "return (" + DOM_JS + ")(arguments[1] ? arguments[1].shadowRoot : document).find(arguments[0]);"
 KEYS = {"Enter": "ENTER", "Escape": "ESCAPE", "Tab": "TAB", "Backspace": "BACKSPACE", "Delete": "DELETE",
         "Space": "SPACE", "ArrowUp": "ARROW_UP", "ArrowDown": "ARROW_DOWN", "ArrowLeft": "ARROW_LEFT",
         "ArrowRight": "ARROW_RIGHT", "Home": "HOME", "End": "END", "PageUp": "PAGE_UP", "PageDown": "PAGE_DOWN",
@@ -91,6 +91,7 @@ class SeleniumDriver:
                 self._seeds[entry["origin"]] = added["identifier"]
 
     def storage_state(self) -> dict:
+        self.wd.switch_to.default_content()
         cookies = [{"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c["path"],
                     "expires": c.get("expires", -1), "httpOnly": c.get("httpOnly", False),
                     "secure": c.get("secure", False), "sameSite": c.get("sameSite", "Lax")}
@@ -115,15 +116,18 @@ class SeleniumDriver:
             self.wd.execute_cdp_cmd("Page.removeScriptToEvaluateOnNewDocument", {"identifier": seeded})
 
     def reload(self) -> None:
+        self.wd.switch_to.default_content()
         self.wd.refresh()
 
     def url(self) -> str:
         return self.wd.current_url
 
     def title(self) -> str:
+        self.wd.switch_to.default_content()
         return self.wd.title
 
     def screenshot(self, path: Path) -> None:
+        self.wd.switch_to.default_content()
         masks = ["input[type=password]", *self.config.get("screenshot_masks", [])]
         css = ",".join(masks) + "{background:#ff00ff!important;color:transparent!important;-webkit-text-fill-color:transparent!important}"
         self.wd.execute_script("const s=document.createElement('style');s.id='__autoskill_mask';s.textContent=arguments[0];document.head.append(s);", css)
@@ -134,9 +138,50 @@ class SeleniumDriver:
             self.wd.execute_script("const s=document.getElementById('__autoskill_mask');if(s)s.remove();")
 
     # --- elements ----------------------------------------------------
+    def _query(self, locator: dict, root=None) -> list:
+        from .ui import LOCATOR, StepError
+
+        try:
+            return self.wd.execute_script(FIND, locator, root) or []
+        except Exception as error:
+            raise StepError(LOCATOR, "定位读取失败：" + str(error).splitlines()[0]) from error
+
+    def _root(self, path: list):
+        """Return the last open shadow host after entering the ordered frame/root path."""
+        from .ui import LOCATOR, StepError
+
+        self.wd.switch_to.default_content()
+        root = None
+        for index, segment in enumerate(path, 1):
+            node = None
+            for candidate in segment["locators"]:
+                found = self._query(candidate, root)
+                wanted = candidate.get("nth", 0)
+                if len(found) > wanted:
+                    node = found[wanted]
+                    break
+            if node is None:
+                raise StepError(LOCATOR, f"第 {index} 层 {segment['kind']} 上下文未找到，不能判断目标元素不存在")
+            if segment["kind"] == "frame":
+                if node.tag_name.lower() not in ("iframe", "frame"):
+                    raise StepError(LOCATOR, f"第 {index} 层上下文不是 iframe")
+                self.wd.switch_to.frame(node)
+                root = None
+            else:
+                if not self.wd.execute_script("return arguments[0].shadowRoot !== null;", node):
+                    raise StepError(LOCATOR, f"第 {index} 层没有开放的 Shadow DOM；不支持 closed 模式")
+                root = node
+        return root
+
     def _all(self, locator: dict) -> list:
-        query = {k: locator.get(k) for k in ("by", "value", "role", "name")}
-        return self.wd.execute_script(FIND, query) or []
+        from .ui import LOCATOR, StepError
+
+        try:
+            return self._query(locator, self._root(locator.get("context", [])))
+        except Exception as error:
+            if isinstance(error, StepError):
+                raise
+            raise StepError(LOCATOR, "定位上下文读取失败：" + type(error).__name__) from error
 
     def _one(self, locator: dict):
         found = self._all(locator)
@@ -172,13 +217,11 @@ class SeleniumDriver:
 
         self.wd.execute_script("arguments[0].scrollIntoView({block:'center'});arguments[0].focus();", node)
         if replace:
-            self.wd.execute_script("if (arguments[0].select) arguments[0].select();", node)
+            # WebDriver refocuses nodes across frame/shadow boundaries; select after that focus.
+            node.send_keys(Keys.CONTROL, "a", Keys.NULL, Keys.BACKSPACE)
             if not text:
-                node.send_keys(Keys.DELETE)
                 return
         if any(ord(ch) > 0xFFFF for ch in text):  # chromedriver cannot type characters outside the BMP
-            if replace:
-                node.send_keys(Keys.DELETE)
             self.wd.execute_cdp_cmd("Input.insertText", {"text": text})
         else:
             node.send_keys(text)

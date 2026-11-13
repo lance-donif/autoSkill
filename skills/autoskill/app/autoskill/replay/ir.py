@@ -12,7 +12,7 @@ from contextvars import ContextVar
 from math import isfinite
 from urllib.parse import urljoin, urlsplit
 
-LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css")
+LOCATOR_KINDS = ("testid", "role", "label", "placeholder", "text", "css", "xpath")
 # action -> (needs a target element, required fields)
 ACTIONS = {
     "goto": (False, ("url",)),
@@ -61,7 +61,7 @@ ASSERTION_NAMES = {
     "value": "输入值为", "checked": "勾选状态为", "attribute": "属性", "url": "地址为",
     "url_contains": "地址包含", "title": "页面标题为",
 }
-LOCATOR_LABELS = {"testid": "测试标识", "label": "标签", "placeholder": "占位提示", "text": "文字", "css": "选择器"}
+LOCATOR_LABELS = {"testid": "测试标识", "label": "标签", "placeholder": "占位提示", "text": "文字", "css": "选择器", "xpath": "XPath"}
 
 
 RAND = "{{RAND}}"
@@ -86,7 +86,8 @@ def locators(step: dict) -> list[dict]:
     """All locator candidates of a step, best first."""
     found = [dict(item) for item in step.get("locators", [])]
     if "selector" in step:
-        found.append({"by": "css", "value": step["selector"]})
+        selector = step["selector"]
+        found.append({"by": "xpath", "value": selector[6:]} if selector.startswith("xpath=") else {"by": "css", "value": selector})
     if "placeholder" in step:
         found.append({"by": "placeholder", "value": step["placeholder"]})
     if "role" in step:
@@ -146,6 +147,26 @@ def _check_locator(locator: object, where: str) -> None:
         raise ValueError(f"{where}：定位缺少 value")
     if "nth" in locator and not _is_index(locator["nth"]):
         raise ValueError(f"{where}：nth 必须是从 0 开始的整数")
+    if "context" in locator:
+        raise ValueError(f"{where}：context 应声明在步骤上，不能嵌入定位候选")
+    if "xpath_anchor" in locator:
+        if locator["by"] != "xpath" or not isinstance(locator["xpath_anchor"], str) or not locator["xpath_anchor"].strip():
+            raise ValueError(f"{where}：xpath_anchor 必须是 XPath 的非空 CSS 元素锚点")
+        if not locator["value"].startswith("."):
+            raise ValueError(f"{where}：带元素锚点的 XPath 必须以 . 开始")
+
+
+def _check_context(context: object, where: str) -> None:
+    if not isinstance(context, list):
+        raise ValueError(f"{where}：context 必须是有序的 frame / shadow 路径数组")
+    for index, segment in enumerate(context, 1):
+        if not isinstance(segment, dict) or segment.get("kind") not in ("frame", "shadow"):
+            raise ValueError(f"{where}：第 {index} 层上下文必须是 frame 或 shadow")
+        candidates = segment.get("locators")
+        if not isinstance(candidates, list) or not candidates:
+            raise ValueError(f"{where}：第 {index} 层上下文缺少 locators")
+        for locator in candidates:
+            _check_locator(locator, where + f" 第 {index} 层上下文")
 
 
 def _check_step(step: object, table: dict, key: str, where: str) -> None:
@@ -161,6 +182,13 @@ def _check_step(step: object, table: dict, key: str, where: str) -> None:
         raise ValueError(f"{where}（{step[key]}）缺少定位")
     for locator in target:
         _check_locator(locator, where)
+    _check_context(step.get("context", []), where)
+    if step.get("action") == "captcha":
+        if not isinstance(step["image"], list) or not step["image"]:
+            raise ValueError(f"{where}：验证码图片必须包含定位候选")
+        for locator in step["image"]:
+            _check_locator(locator, where + " 验证码图片")
+        _check_context(step.get("image_context", step.get("context", [])), where + " 验证码图片")
     dynamic = isinstance(step.get("expected"), str) and re.fullmatch(r"\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}", step["expected"])
     if step[key] in ("count", "min_count") and not (_is_index(step["expected"]) or dynamic):
         raise ValueError(f"{where}：count 断言需要非负整数")
@@ -182,7 +210,7 @@ def _check_timing(step: dict, key: str, where: str) -> None:
         source = step["transition_from"]
         if not isinstance(source, dict) or any(k in source for k in ("transition_from", "mode", "timeout_seconds", "stable_for_seconds")):
             raise ValueError(f"{where}：transition_from 必须是没有时间配置的普通断言")
-        source = {"locators": locators(step), **source}
+        source = {"locators": locators(step), "context": step.get("context", []), **source}
         _check_step(source, ASSERTIONS, "assertion", where + " 的来源状态")
 
 
