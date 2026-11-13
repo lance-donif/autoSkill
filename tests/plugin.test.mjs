@@ -7,7 +7,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
-import { bundledSkills, runtimeSpec, findSkillDir, PACKAGE_ROOT, SKILL_DIR } from '../plugin/index.mjs';
+import { bundledSkills, runtimeSpec, runtimeContext, findSkillDir, PACKAGE_ROOT, SKILL_DIR } from '../plugin/index.mjs';
 
 test('registers the one autoSkill skill with its directory as resource base', async () => {
   const skills = await bundledSkills();
@@ -29,6 +29,19 @@ test('dashboard is started by argv with offline switches, never through a shell'
   assert.ok(existsSync(join(spec.env.PYTHONPATH, 'autoskill', 'cli.py')));
   for (const key of ['DO_NOT_TRACK', 'PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD', 'PIP_NO_INDEX', 'SE_OFFLINE']) assert.ok(spec.env[key], key);
   assert.ok(spec.env.AUTOSKILL_WORKSPACE.endsWith('ws'));
+});
+
+test('registered commands bind the same custom workspace and port as the service', async () => {
+  const spec = runtimeSpec({ workspace: './a workspace/资料', port: 8876 });
+  const token = runtimeContext(spec);
+  const binding = JSON.parse(Buffer.from(token, 'base64url').toString('utf8'));
+  assert.equal(binding.workspace, spec.env.AUTOSKILL_WORKSPACE);
+  assert.equal(binding.port, 8876);
+  assert.equal(binding.host, 'dsh');
+  const skills = await bundledSkills(SKILL_DIR, spec);
+  assert.ok(skills[0].content.includes(`autoskill --runtime-context=${token} record start`));
+  assert.ok(!skills[0].content.includes('autoskill record start'));
+  assert.match(token, /^[a-zA-Z0-9_-]+$/);
 });
 
 test('without a provisioned runtime the plugin reports it instead of looking for one online', () => {

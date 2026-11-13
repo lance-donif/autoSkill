@@ -17,7 +17,7 @@ description: 录一次，到处回放的自动化测试。操作网页时自动�
 | PowerShell | `& "<本目录>\autoskill.cmd" <命令>` |
 | cmd | `"<本目录>\autoskill.cmd" <命令>` |
 
-每条命令输出一个 JSON。**同一会话内一条一条地执行**：等上一条返回再发下一条，也不要用 `;` 把几条串在一起——下一条要用的元素编号就在上一条的返回里，而且前一条报错并不会让后面的停下。不同 AI 会话可以并行执行各自的任务。
+每条命令输出一个 JSON。**同一会话内一条一条地执行**：等上一条返回再发下一条，也不要用 `;` 把几条串在一起——下一条要用的元素编号就在上一条的返回里，而且前一条报错并不会让后面的停下。不同 AI 会话可以并行执行各自的任务。插件注入了 `--runtime-context` 时，每条命令保留该前缀，它绑定本次插件的工作区和端口；会话标识仍由各任务独立选择。
 
 **PowerShell 里 `@e5` 必须加引号写成 `"@e5"`**，否则 `@` 会被当成 PowerShell 语法吞掉，报出「页面上找不到 <你要输入的文字>」这样参数错位的错误。出现 `"error"` 时，按里面的提示处理，不要猜。退出码：0 成功，1 有用例失败，2 命令没有成功（输出里有 `error`，例如断言不成立、目标找不到）或回放被阻塞。
 
@@ -38,6 +38,31 @@ autoskill --session "库存任务-乙" browser snapshot
 
 不指定会话时沿用原来的默认录制，已有命令仍可直接使用。不要让不同 AI 任务共用一个会话标识，也不要依靠给整个 DSH 服务设置同一个 `AUTOSKILL_SESSION` 来区分任务。
 
+## 自动完成需求、遗漏补齐与变更维护
+
+这是宿主 AI 与持久化内核共同驱动的流程。模型选择和推理由当前宿主管理；autoSkill 保存来源、关联、候选修改、工作项、实际执行及恢复收据。不要把聊天记忆、Excel 手填结果或自己说的“通过”当执行证据。
+
+1. 先 `context <项目>` 读取摘要，再按 `cases`、`knowledge list/read` 的游标按需读取。默认返回有限页并明确总数和 `has_more`；用 `next_cursor` 续读，内容版本改变则重读，不要假设首页就是全部。需要全量时明确加 `--all`。
+2. 有需求/维护目标时，将 `title`、`goal`、`sources`、可选 `artifacts` 写成 JSON，执行 `workflow start <项目> --file <定义.json> --idempotency-key <本次创建标识>`。保留返回的 workflow_id；恢复同一工作时读取已有 workflow，不重复创建。
+3. 循环 `workflow next <工作流> --idempotency-key <本次领取标识>`。读取 task 的 `phase`、`payload_schema`、`input_refs`；按需 `workflow read`，只做这项工作。长任务用 `workflow heartbeat` 保存检查点和续租。
+4. 用 `workflow submit` 提交结构化来源/需求/场景/判定条件/候选用例/诊断，带上领取得到的 item、attempt、lease 和稳定提交标识。候选修改通过服务条件提交，不直接覆盖当前用例文件。字段、关联、覆盖遗漏和实际结果由代码检查；有遗漏会继续派发补全任务。
+5. 内核安排真实执行。等待期间继续处理独立工作和 `judge next`，再读取状态。网络响应丢失时用原幂等标识重试同一请求；不要为了补回执重新录制或再次发起同一业务写操作。发现 `recovering` 时按返回证据调查，再 `workflow recover`。
+6. 真实缺陷可以让本批工作完成而结论为 `violated`，预期保持原需求；不能把期望改成错误现状来获得绿色。知识条目必须关联来源/运行证据。后续维护继续使用原 workflow 和新的来源/目标版本。
+
+阶段说明按需阅读：[需求与设计](references/workflow/design.md)、[执行与恢复](references/workflow/execution.md)、[对话评估](references/workflow/conversation.md)。完整命令见 [命令参考](references/commands.md)。`session_id` 是浏览器任务环境，workflow/item/attempt 是持久流程身份；两者不能混用。
+
+## 复用已有测试与 AI 问数
+
+已有 Selenium 项目、Postman/Apifox 集合、JMeter 计划可用 `asset import` 保留原资产和入口，先用 `engine probe` 查实际运行能力，再 `native run`。入口是 JSON `argv` 数组，不拼 shell 命令。导出过某种格式不代表本机已安装它的执行器。
+
+AI 问数默认顺序是：**页面真实体验一遍对话 → 保存录制捕获或导入 cURL/HAR → 映射并复现多轮接口 → 验证答案与对话行为 → 再做负载测试**。`conversation import` 只解析 cURL，不执行 shell；`conversation show` 查看捕获；`conversation build --file <映射.json>` 设置问题、答案、会话字段和独立预期。未知字段保留为未知，读取真实请求/响应后明确映射，不从被测系统答案反推正确答案。
+
+**多轮对话是一条用例**：一个 sample 内的 `turns` 共享独立会话、history、Cookie/会话标识；不同样本及并发虚拟会话隔离。每轮都保存问题、回答、断言和延迟，中途失败不能被最后一轮成功覆盖。
+
+`native run` 默认异步，返回 run_id 和队列驱动状态；持续 `native status`，同时循环 `judge next`。领取宿主判定后，依据原提示词、对话历史和独立事实，判断答案是否符合要求、反问是否必要且相关、是否已经回答过，并决定 finish/continue/reply。用 `judge submit --file <判定.json>` 保存简要依据及下一轮回复。不要为这种运行使用 `native run --wait`，否则唯一宿主会被等待占住。HTTP 200、页面出现文本、进入队列或指令送达宿主都不是业务通过。
+
+定时回放、原生执行和 AI 维护由 `schedule` 管理。维护任务产生持久宿主投递；宿主在线时可激活已有会话或创建会话，但不会启动已经退出的 DSH 程序。模型仍沿用宿主配置；缺少宿主时保留待投递/待判定状态。
+
 ## 在受限沙箱里运行时
 
 有些宿主（例如 DeepSeek Harness 的默认模式）把你的命令放在沙箱里执行：不能写会话目录以外的文件，不能启动浏览器，HTTPS 也可能不通。**你不需要为此做任何事**：autoskill 发现自己受限时，会把命令自动交给在沙箱外运行的 autoSkill 后台服务（就是仪表盘那个进程）执行，输出和退出码与直接执行完全一样。
@@ -54,7 +79,7 @@ autoskill context <项目>                                                  # 2 
 autoskill record start <项目>                                             # 3 开始录制；输出当前页面的元素清单
 autoskill browser click @e5                                               #   用清单里的 @编号 操作，每步都会被记录
 autoskill browser fill @e7 "新工单"
-autoskill check contains testid=toast "已创建"                            #   写断言；当场验证，成立才记录
+autoskill check contains testid=toast "已创建"                            #   保存预期并实际检查；失败也保留断言与实际观察
 autoskill record stop --title "新建工单" --subproject "工单"              # 4 结束：生成 1 条页面用例 + 背后的接口用例；--subproject 是站点下的功能区域
 autoskill run <项目>                                                      # 5 回放全部用例，确认通过
 ```

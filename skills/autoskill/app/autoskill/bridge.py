@@ -14,11 +14,12 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 import uuid
 
-from . import paths
+from . import command_input, paths
 from .task_context import session_id as current_session_id
 
 RESTRICTED = (
@@ -53,7 +54,7 @@ def _request(port: int, path: str, body: dict | None, timeout: float) -> dict:
 
 def service() -> tuple[int | None, str]:
     """(port, "") when our own service is reachable and willing; otherwise (None, why not)."""
-    ports = []
+    ports = [int(os.environ["AUTOSKILL_BRIDGE_PORT"])] if os.environ.get("AUTOSKILL_BRIDGE_PORT", "").isdigit() else []
     for file in (paths.service_file(), paths.SKILL / "workspace" / ".local" / "service.json"):
         try:
             ports.append(int(json.loads(file.read_text(encoding="utf-8"))["port"]))
@@ -80,15 +81,23 @@ def service() -> tuple[int | None, str]:
     return None, "没有发现正在运行的 autoSkill 后台服务。"
 
 
-def forward(port: int, argv: list[str], stdin_text: str | None = None) -> dict:
+def forward(port: int, argv: list[str], stdin_text: str | None = None, *, caller_cwd: str | None = None, attachments: list | None = None) -> dict:
     """Ask the service to run the command. Returns {exit, stdout, stderr}."""
+    from .workflow import selected_binding_token
+
     identity = current_session_id()
     # A dashboard started before the upgrade may ignore the new JSON field but still forward argv.
     forwarded = list(argv)
     while forwarded and (forwarded[0] == "--session" or forwarded[0].startswith("--session=")):
         forwarded = forwarded[2:] if forwarded[0] == "--session" else forwarded[1:]
     body = {"argv": ["--session=" + (identity or ""), *forwarded], "stdin": stdin_text, "msys_root": os.environ.get("AUTOSKILL_MSYS_ROOT"),
-            "headed": os.environ.get("AUTOSKILL_HEADED"), "session_id": identity}
+            "headed": os.environ.get("AUTOSKILL_HEADED"), "session_id": identity, "workflow_binding": selected_binding_token()}
+    body.update(host=os.environ.get("AUTOSKILL_HOST") or "generic", host_session_id=os.environ.get("AUTOSKILL_HOST_SESSION_ID", ""))
+    if caller_cwd is not None:
+        body["caller_cwd"] = caller_cwd
+        body["argv"].insert(0, "--input-base=" + caller_cwd)
+    if attachments:
+        body["attachments"] = attachments
     if "AUTOSKILL_CASE_SKILL" in os.environ:
         body["case_skill"] = str(paths.case_skill()) if os.environ["AUTOSKILL_CASE_SKILL"] else ""
     try:
@@ -112,7 +121,7 @@ def check(argv: list[str]) -> None:
     try:
         with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
             args = cli.parser().parse_args(argv)
-    except SystemExit:
+    except (SystemExit, ValueError):
         return  # not a valid command line (or --help): the child prints the usage text
     if args.command == "dashboard":
         raise ValueError("后台服务已经在运行，不需要再启动 dashboard")
@@ -130,12 +139,23 @@ def check(argv: list[str]) -> None:
 
 
 def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | None = None, headed: str | bool | None = None,
-            session_id: str | None = None, case_skill: str | None = None) -> dict:
+            session_id: str | None = None, case_skill: str | None = None, caller_cwd: str | None = None, attachments: list | None = None,
+            workflow_binding: str | None = None, host: str = "generic", host_session_id: str = "") -> dict:
     """Server side: run one autoskill command in its own process and return what it printed."""
     check(argv)
     if session_id is not None and not isinstance(session_id, str):
         raise ValueError("会话标识需要是文字")
     extra = {"AUTOSKILL_BRIDGE": "off", "AUTOSKILL_WORKSPACE": str(paths.workspace()), "AUTOSKILL_SESSION": session_id or ""}
+    if workflow_binding is not None and not isinstance(workflow_binding, str):
+        raise ValueError("工作流绑定需要是文字")
+    extra["AUTOSKILL_WORKFLOW_BINDING"] = workflow_binding or ""
+    if not isinstance(host, str) or not host or not isinstance(host_session_id, str):
+        raise ValueError("宿主与宿主会话标识需要是文字")
+    extra.update(AUTOSKILL_HOST=host, AUTOSKILL_HOST_SESSION_ID=host_session_id)
+    if caller_cwd is not None:
+        if not isinstance(caller_cwd, str):
+            raise ValueError("调用目录需要是路径文字")
+        extra["AUTOSKILL_CALLER_CWD"] = caller_cwd
     if case_skill is not None:
         if not isinstance(case_skill, str):
             raise ValueError("用例 Skill 目录需要是路径文字")
@@ -150,7 +170,16 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
     folder.mkdir(parents=True, exist_ok=True)
     token = uuid.uuid4().hex
     out_path, err_path, in_path = folder / f"b{token}.out", folder / f"b{token}.err", folder / f"b{token}.in"
-    in_path.write_text(stdin_text or "", encoding="utf-8")
+    with tempfile.TemporaryDirectory(prefix="inputs-", dir=folder) as input_folder:
+        if attachments:
+            from pathlib import Path
+
+            extra["AUTOSKILL_INPUT_MAP"] = json.dumps(command_input.materialize_attachments(attachments, Path(input_folder)))
+        in_path.write_text(stdin_text or "", encoding="utf-8")
+        return _execute_child(argv, in_path, out_path, err_path, extra)
+
+
+def _execute_child(argv: list[str], in_path, out_path, err_path, extra: dict) -> dict:
     try:
         # files, not pipes: the command may leave a browser daemon behind that would keep a pipe open forever
         with out_path.open("wb") as out, err_path.open("wb") as err, in_path.open("rb") as stdin:

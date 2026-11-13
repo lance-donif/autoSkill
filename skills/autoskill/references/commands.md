@@ -20,8 +20,74 @@
 | `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
 | `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、把回放结果写回；默认会话位于同级 `autoskill-cases`，命名会话拥有独立默认目录，以命令返回的路径为准 |
-| `context <项目>` | 登录方式、已保存的登录态、缺少的凭据、用例清单、知识库、建议的下一步 |
-| `cases <项目>` | 用例清单 |
+| `context <项目> [--limit 50] [--cursor 游标] [--knowledge-limit 5] [--knowledge-cursor 游标] [--all]` | 登录、缺少的凭据、用例与知识预览；`page.cases`、`page.knowledge` 分别标明总数、剩余页及内容版本 |
+| `cases <项目> [--limit 数量] [--cursor 游标] [--all] [--kind] [--module] [--requirement] [--query]` | 分页用例摘要；`page` 返回 `total/returned/has_more/next_cursor/content_revision`，内容或查询改变会报 `cursor_expired` |
+| `cases <项目> --case <编号>` | 完整用例定义及内容版本，包含断言和需求关联；不是仪表盘展示投影 |
+| `knowledge list <项目> [--limit 数量] [--cursor 游标] [--query] [--all]` | 知识文件索引、字节数、内容版本；不默认读取每份正文 |
+| `knowledge read <项目> <knowledge/文件> [--offset 字符偏移] [--length 12000] [--revision 内容版本] [--all]` | 按 Unicode 字符读取正文，返回 `next_offset/total_length/has_more`；传 revision 可防止混读新旧版本 |
+
+分页没有项目或用例总数量上限。`--all` 读取全部条目，不能与 cursor 同用；知识正文的 `--all` 从指定 offset 读到末尾。原 Python `cli.context(project)` 仍返回全量，`cli.knowledge(project, limit=2400)` 仍表示每个文件的字符数。
+
+## 输入文件、运行绑定与后台转交
+
+JSON 输入均支持 `--file 文件.json`、`--file=文件.json`、`--file -`；最后一种从标准输入读取完整 JSON（保留中文及换行），不是只读一行。文件路径相对发起命令的目录；JSON 内 `sources[*].file`、`artifacts[*].file`、资产定义的 `source` 相对该 JSON 文件目录，stdin 中的路径相对调用目录。`argv`、业务参数里的同名 `file` 字段不会被随意改写。
+
+受限调用的 JSON、显式来源文件/目录经 bridge 转交，并校验附件内容 SHA-256；后台临时输入在命令结束后清理，来源由领域/资产服务快照保存。`import <分享包>` 的输入同样按调用目录处理。直接 HTTP 文件输入可显式带 `base_dir`，省略则以该服务 workspace 为基准；跨命名空间输入使用 CLI bridge 附件转交，或直接提交来源 `text`。
+
+DSH 注册命令中的 `--runtime-context <绑定值>` 同时固定 workspace 和后台端口，不含模型密钥。保留此全局前缀，也可通过 `AUTOSKILL_RUNTIME_CONTEXT` 传入；`--session` 仍独立选择任务。错误保留 `error` 文字，并可带 `code/details`；幂等冲突和过期版本需要读取现状后重新计划，不能盲目重复业务动作。
+
+`workflow next` 返回 `binding_token`；录制、保存和执行该工作项时，继续传全局 `--workflow-binding <token>`（或 `AUTOSKILL_WORKFLOW_BINDING`）。它关联具体工作项，与 `--session` 的浏览器隔离不同。同一任务会话有多个已领取工作项时必须明确绑定，不能猜选最新一项。
+
+通用 CLI 的宿主默认 `generic`；DSH 注册的运行绑定显式选择 `dsh`。宿主投递提供的全局 `--host-session <宿主会话>`（或 `AUTOSKILL_HOST_SESSION_ID`）让后续判定回到该宿主会话，不改变浏览器 `--session`。宿主的模型配置继续由宿主管理，autoSkill 不另建模型配置。
+
+## 工作流
+
+| 命令 | 说明 |
+| --- | --- |
+| `workflow start <项目> --file <定义.json> --idempotency-key <标识>` | 创建持久流程，定义包含 `title/goal/sources/artifacts/validation` |
+| `workflow revise <工作流> --file <定义.json> --idempotency-key <标识> [--expected-hash]` | 提交非空新 sources，开启新维护周期；可更新 title/goal/validation，保留旧版本与执行结果 |
+| `workflow status <工作流> [--limit] [--cursor] [--all]` | 纯读取状态及工作项；完成与业务通过是不同字段 |
+| `workflow read <工作流> [--kind definition] [--offset] [--limit] [--head] [--text-offset] [--text-length]` | 按需读取 sources/requirements/scenarios/oracles/materialization/knowledge；后续页保留 head，大文档按字符续读 |
+| `workflow next <工作流> --idempotency-key <标识> [--owner] [--lease-seconds 300]` | 领取一项任务，返回 item、attempt、lease、输入引用和提交字段 |
+| `workflow submit <工作流> <item> --lease-token <token> --attempt-id <attempt> --idempotency-key <标识> --file <结果.json>` | 提交候选定义或诊断；实际执行结论由内核读取证据 |
+| `workflow heartbeat <工作流> <item> --lease-token <token> --attempt-id <attempt> --idempotency-key <标识> [--lease-seconds] [--file <检查点.json>]` | 续租并持久保存检查点 |
+| `workflow release <工作流> <item> --lease-token <token> --attempt-id <attempt> --idempotency-key <标识> [--file <检查点.json>]` | 释放工作；未知副作用进入恢复，不自动重播 |
+| `workflow recover <工作流> --idempotency-key <标识>` | 调和已提交定义、实际执行与恢复日志 |
+| `workflow cancel <工作流> --idempotency-key <标识>` / `workflow resume <工作流> --idempotency-key <标识>` | 持久暂停/恢复流程；不会改写已有业务失败 |
+
+同一逻辑请求重试使用同一幂等标识、相同输入；新的意图才生成新标识。已成功但响应丢失的提交返回原收据。`next` 是领取，会改变状态，不能当只读轮询。
+
+## 原生资产、会话捕获与宿主判定
+
+| 命令 | 说明 |
+| --- | --- |
+| `engine list` / `engine probe [引擎]` | 已注册适配器与实际安装/运行诊断 |
+| `asset import <项目> [--source <目录或文件>] [--engine <引擎>] [--name] [--file <定义.json>]` | 保存完整原生资产；JSON 可提供 source/engine/name、完整 argv 数组、相对资产根的 cwd、source_info、asset_id、expected_head |
+| `asset list <项目> [--limit] [--cursor] [--all]` / `asset show <项目> <资产> [--head]` | 分页资产摘要及固定版本详情 |
+| `native run <项目> <资产> [--head] [--file <参数.json>] [--host] [--host-session-id] [--wait]` | 默认异步入队并启动本机驱动，返回真实 run_id；宿主路由与目标业务参数分开，有宿主 judge 的运行不要加 --wait |
+| `native status <运行>` / `native cancel <运行>` / `native dispatch` | 查看结果、取消运行、恢复已有队列驱动；dispatch 不重建运行 |
+| `conversation import <项目> --source <curl或HAR文件> [--format curl\|har] [--name] [--expected-head]` | 保存原始捕获与候选会话请求；不会执行 cURL shell |
+| `conversation show <项目> <捕获> [--head]` / `conversation build <项目> <捕获> [--file <映射.json>] [--asset-id] [--name] [--expected-head]` | 查看原请求；按显式 mapping 生成多轮资产，未知字段需补映射 |
+| `judge next --idempotency-key <标识> [--owner] [--lease-seconds 300] [--run <运行>]` | 宿主领取待判定对话，不调用另一套模型 SDK |
+| `judge status <判定>` | 查看持久判定状态及已有收据 |
+| `judge read <判定> [--offset 0] [--length 12000]` | 分页读取冻结的判定输入；继续读取直到完整，不把预览当全部事实 |
+| `judge submit <判定> --attempt-id <attempt> --lease-token <token> --idempotency-key <标识> --file <判定.json>` | 提交 verdict、action、reason、clarification、reply、facts_used/evidence_refs |
+| `judge heartbeat <判定> --attempt-id <attempt> --lease-token <token> --idempotency-key <标识> [--lease-seconds]` / `judge release <判定> --attempt-id <attempt> --lease-token <token> --idempotency-key <标识>` | 续租或释放判定任务 |
+
+一条多轮样本是一个 case：`samples:[{id,title,turns:[{question,expected/reference,...}]}]`。轮次共享该样本独立会话，任一轮失败保留整例失败。先页面体验、捕获接口、验证多轮与独立预期，再设置 `load` 做并发；接口 200 不等于答案正确。宿主 judge 返回 `pass/fail/uncertain/needs_clarification`，动作 `finish/continue/reply`，不能编造资料替用户回答反问。
+
+## 定时任务
+
+| 命令 | 说明 |
+| --- | --- |
+| `schedule list [--project <项目>] [--offset] [--limit] [--all]` / `schedule show <任务>` | 分页查看持久调度 |
+| `schedule create --file <定义.json>` / `schedule update <任务> --file <定义.json>` | 共用 HTTP 调度服务；创建提供 idempotency_key，更新提供 expected_revision |
+| `schedule run <任务> [--idempotency-key]` | 创建一次即时 occurrence；维护任务返回 awaiting_host，不代表 AI 已执行 |
+| `schedule pause <任务> [--expected-revision]` / `schedule resume <任务> [--expected-revision]` / `schedule delete <任务>` | 修改调度生命周期 |
+
+kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 asset_id/parameters，maintenance 选 workflow_id/host/parameters。规则仍由 autoSkill 的 interval/at/daily/weekly 时钟负责，DSH 只接收已到期的单次投递，不再建立第二个重复时钟。投递回执只证明指令已进入宿主会话，不证明流程完成；宿主退出期间保留 outbox。
+
+新任务的 host 默认跟随创建命令的宿主绑定，显式 host 优先；`host_session_id` 是独立字段。更新省略宿主字段会保留原值。创建、更新、恢复任务会启动本机队列驱动，命令退出后未来计划仍可触发；机器重启或驱动被关闭后，用任一 `schedule update`、`schedule resume` 或 `native dispatch` 重新启动。当前没有安装系统开机服务。DSH 插件只能激活运行中宿主的会话，不能启动已退出的 DSH；重开插件后会继续读取持久投递。
 
 ## 凭据与登录
 
@@ -39,7 +105,7 @@
 | --- | --- |
 | `record start <项目> [--as-login] [--no-login] [--url 地址]` | 打开浏览器并开始录制。有登录用例时先自动登录；`--as-login` 表示录的就是登录；`--no-login` 以未登录状态开始 |
 | `browser <命令> …` | 操作页面并记录，见下表 |
-| `check <类型> [目标] [期望] [--attribute 属性]` | 当场验证并记录断言 |
+| `check <类型> [目标] [期望] [--attribute 属性] [--timeout 秒] [--stable-for 秒] [--mode eventually\|always] [--from-json <来源断言JSON>]` | 保存期望并实际检查；失败也保留 actual，passed:false 时退出 1。转换断言可先验证 from-json 再验证目标 |
 | `record status` | 已记录的步骤 |
 | `record undo` | 撤销最后一步的记录 |
 | `record stop --title 标题 [--module 模块] [--category 分类]` | 结束并生成用例 |
@@ -106,7 +172,7 @@
 
 | 命令 | 说明 |
 | --- | --- |
-| `dashboard [--port 8787]` | 启动仪表盘（只监听本机）。定时任务在仪表盘运行期间才会触发 |
+| `dashboard [--port 8787]` | 启动仪表盘（只监听本机）；已启用的后台队列驱动也可独立处理定时任务 |
 | `demo` | 安装示例项目「示例工单系统」；启动仪表盘时会同时启动示例站点 |
 | `doctor [--launch]` | 检查运行时；`--launch` 真实启动一次浏览器 |
 | `verify` | 按清单校验随包运行时文件（完整离线包） |

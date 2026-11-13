@@ -2,15 +2,25 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
+import tempfile
+from pathlib import Path
 
-from . import db, demo, paths, projects, runner, secrets, sessions, task_context
+from . import command_input, context_service, db, demo, paths, projects, runner, secrets, sessions, task_context
 from .locking import session_lock
 from .replay import ir
 
 STATUS_TEXT = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消"}
+
+
+class CommandParser(argparse.ArgumentParser):
+    """Argument errors use the same machine-readable envelope as service errors."""
+
+    def error(self, message):
+        raise ValueError("命令参数有误：" + message)
 
 
 def emit(value: dict, code: int = 0) -> int:
@@ -84,9 +94,181 @@ def read_secret_value(args) -> str:
     return value
 
 
+def _page_options(command, *, default: int = 50) -> None:
+    command.add_argument("--limit", type=int, default=default, help="每页数量，默认小批读取；没有总数量上限")
+    command.add_argument("--cursor", help="上一页返回的 next_cursor")
+    command.add_argument("--all", action="store_true", dest="all_items", help="明确读取全部条目")
+
+
+def _reader_commands(sub) -> None:
+    reader = sub.add_parser("context", help="项目摘要、分页用例与知识索引")
+    reader.add_argument("project")
+    _page_options(reader)
+    reader.add_argument("--knowledge-limit", type=int, default=5)
+    reader.add_argument("--knowledge-cursor")
+    listing = sub.add_parser("cases", help="分页列出用例，或读取完整定义")
+    listing.add_argument("project")
+    listing.add_argument("--case", dest="case_id", help="读取一个用例的完整定义")
+    for name in ("kind", "module", "requirement", "query"):
+        listing.add_argument("--" + name)
+    _page_options(listing)
+    knowledge_sub = sub.add_parser("knowledge", help="知识索引与按需正文读取").add_subparsers(dest="action", required=True)
+    listing = knowledge_sub.add_parser("list")
+    listing.add_argument("project")
+    listing.add_argument("--query", default="")
+    _page_options(listing)
+    reader = knowledge_sub.add_parser("read")
+    reader.add_argument("project")
+    reader.add_argument("file")
+    reader.add_argument("--offset", type=int, default=0)
+    reader.add_argument("--length", type=int, default=12000)
+    reader.add_argument("--revision", help="上一段返回的 content_revision；变化时明确报错")
+    reader.add_argument("--all", action="store_true", dest="all_items")
+
+
+def _workflow_commands(sub) -> None:
+    workflow = sub.add_parser("workflow", help="持久化测试工作流").add_subparsers(dest="action", required=True)
+    start = workflow.add_parser("start")
+    start.add_argument("project")
+    start.add_argument("--file", required=True, help="工作流 JSON；- 表示完整标准输入")
+    start.add_argument("--idempotency-key", required=True)
+    revise = workflow.add_parser("revise")
+    revise.add_argument("workflow")
+    revise.add_argument("--file", required=True, help="新来源版本 JSON；候选定义由内核条件发布")
+    revise.add_argument("--idempotency-key", required=True)
+    revise.add_argument("--expected-hash")
+    status = workflow.add_parser("status")
+    status.add_argument("workflow")
+    _page_options(status)
+    reader = workflow.add_parser("read")
+    reader.add_argument("workflow")
+    reader.add_argument("--kind", default="definition")
+    reader.add_argument("--offset", type=int, default=0)
+    reader.add_argument("--limit", type=int, default=50)
+    reader.add_argument("--head", help="固定 domain_head，跨页读取同一版本")
+    reader.add_argument("--text-offset", type=int, help="按字符读取较大的定义文档")
+    reader.add_argument("--text-length", type=int, default=12000)
+    for name in ("next", "submit", "heartbeat", "release", "recover", "cancel", "resume"):
+        operation = workflow.add_parser(name)
+        operation.add_argument("workflow")
+        operation.add_argument("--idempotency-key", required=True)
+        if name in ("submit", "heartbeat", "release"):
+            operation.add_argument("item")
+            operation.add_argument("--lease-token", required=True)
+            operation.add_argument("--attempt-id", required=True)
+            operation.add_argument("--file", required=name == "submit", help="提交或检查点 JSON；- 表示完整标准输入")
+        if name in ("next", "heartbeat"):
+            operation.add_argument("--lease-seconds", type=int, default=300)
+        if name == "next":
+            operation.add_argument("--owner")
+
+
+def _asset_commands(sub) -> None:
+    assets = sub.add_parser("asset", help="导入与查看原生测试资产").add_subparsers(dest="action", required=True)
+    importer = assets.add_parser("import")
+    importer.add_argument("project")
+    importer.add_argument("--source", help="原生目录或文件，相对调用目录")
+    importer.add_argument("--engine")
+    importer.add_argument("--name", default="")
+    importer.add_argument("--file", help="可选 JSON：source、engine、name、argv 数组、cwd 等")
+    listing = assets.add_parser("list")
+    listing.add_argument("project")
+    _page_options(listing)
+    show = assets.add_parser("show")
+    show.add_argument("project")
+    show.add_argument("asset")
+    show.add_argument("--head")
+    engines = sub.add_parser("engine", help="执行适配器与实际安装能力").add_subparsers(dest="action", required=True)
+    engines.add_parser("list")
+    engines.add_parser("probe").add_argument("engine", nargs="?")
+    native = sub.add_parser("native", help="运行原生测试资产并读取实际结果").add_subparsers(dest="action", required=True)
+    run = native.add_parser("run")
+    run.add_argument("project")
+    run.add_argument("asset")
+    run.add_argument("--head")
+    run.add_argument("--file", help="运行参数 JSON；- 表示标准输入")
+    run.add_argument("--wait", action="store_true", help="同步等待；需要宿主 AI 判定的对话不要使用，以免阻塞判定")
+    run.add_argument("--host", help="宿主路由，默认继承本次运行绑定或 generic")
+    run.add_argument("--host-session-id", help="可选的现有宿主会话；与浏览器 --session 不同")
+    native.add_parser("status").add_argument("run")
+    native.add_parser("cancel").add_argument("run")
+    native.add_parser("dispatch", help="启动或恢复本机队列驱动；不重复创建运行")
+
+
+def _judge_commands(sub) -> None:
+    judge = sub.add_parser("judge", help="宿主 AI 领取并提交对话质量判定").add_subparsers(dest="action", required=True)
+    claim = judge.add_parser("next")
+    claim.add_argument("--idempotency-key", required=True)
+    claim.add_argument("--owner")
+    claim.add_argument("--lease-seconds", type=int, default=300)
+    claim.add_argument("--run", dest="run_id")
+    judge.add_parser("status").add_argument("judge")
+    reader = judge.add_parser("read")
+    reader.add_argument("judge")
+    reader.add_argument("--offset", type=int, default=0)
+    reader.add_argument("--length", type=int, default=12000)
+    for name in ("submit", "heartbeat", "release"):
+        operation = judge.add_parser(name)
+        operation.add_argument("judge")
+        operation.add_argument("--attempt-id", required=True)
+        operation.add_argument("--lease-token", required=True)
+        operation.add_argument("--idempotency-key", required=True)
+        if name == "submit":
+            operation.add_argument("--file", required=True, help="宿主判定 JSON；- 表示标准输入")
+        elif name == "heartbeat":
+            operation.add_argument("--lease-seconds", type=int, default=300)
+
+
+def _conversation_commands(sub) -> None:
+    capture = sub.add_parser("conversation", help="捕获页面会话接口并生成多轮问数资产").add_subparsers(dest="action", required=True)
+    importer = capture.add_parser("import")
+    importer.add_argument("project")
+    importer.add_argument("--source", required=True, help="cURL 文本或 HAR 文件；只解析，不通过 shell 执行")
+    importer.add_argument("--format", choices=("curl", "har"))
+    importer.add_argument("--name", default="")
+    importer.add_argument("--expected-head")
+    for name in ("show", "build"):
+        command = capture.add_parser(name)
+        command.add_argument("project")
+        command.add_argument("capture")
+        if name == "show":
+            command.add_argument("--head")
+        else:
+            command.add_argument("--file", help="显式字段映射及每轮独立预期的 JSON；- 表示标准输入")
+            command.add_argument("--asset-id")
+            command.add_argument("--name", default="")
+            command.add_argument("--expected-head")
+
+
+def _schedule_commands(sub) -> None:
+    schedule = sub.add_parser("schedule", help="持久化回放、原生执行与 AI 维护调度").add_subparsers(dest="action", required=True)
+    listing = schedule.add_parser("list")
+    listing.add_argument("--project", action="append", dest="projects")
+    listing.add_argument("--offset", type=int, default=0)
+    listing.add_argument("--limit", type=int, default=50)
+    listing.add_argument("--all", action="store_true", dest="all_items")
+    schedule.add_parser("show").add_argument("task")
+    for name in ("create", "update"):
+        operation = schedule.add_parser(name)
+        if name == "update":
+            operation.add_argument("task")
+        operation.add_argument("--file", required=True, help="调度 JSON；- 表示标准输入")
+    for name in ("run", "pause", "resume", "delete"):
+        operation = schedule.add_parser(name)
+        operation.add_argument("task")
+        if name == "run":
+            operation.add_argument("--idempotency-key")
+        elif name != "delete":
+            operation.add_argument("--expected-revision", type=int)
+
+
 def parser() -> argparse.ArgumentParser:
-    top = argparse.ArgumentParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
+    top = CommandParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
     top.add_argument("--session", help="AI 测试会话标识；同一任务每条命令使用同一个值，也可设 AUTOSKILL_SESSION")
+    top.add_argument("--runtime-context", help="插件提供的工作区与服务绑定；沿用注册 Skill 中的前缀")
+    top.add_argument("--workflow-binding", help="workflow next 返回的 binding_token；把操作明确关联到该任务尝试")
+    top.add_argument("--host-session", help="宿主提供的会话身份，供后续判定投递；不是浏览器任务身份")
+    top.add_argument("--input-base", help=argparse.SUPPRESS)
     sub = top.add_subparsers(dest="command", required=True)
 
     project = sub.add_parser("project", help="项目：create / list / show / update").add_subparsers(dest="action", required=True)
@@ -107,8 +289,12 @@ def parser() -> argparse.ArgumentParser:
     update.add_argument("--page-load", type=int, help="等待页面打开的秒数，默认 90；页面本身很慢时调大（10–600）")
     update.add_argument("--insecure-tls", choices=("on", "off"), help="内网自签名证书：on 表示不校验证书")
 
-    sub.add_parser("context", help="开始工作前先看这个：登录方式、已有用例、知识库、下一步").add_argument("project")
-    sub.add_parser("cases", help="列出项目用例").add_argument("project")
+    _reader_commands(sub)
+    _workflow_commands(sub)
+    _asset_commands(sub)
+    _conversation_commands(sub)
+    _judge_commands(sub)
+    _schedule_commands(sub)
 
     secret = sub.add_parser("secret", help="本机凭据：set / list / delete").add_subparsers(dest="action", required=True)
     setter = secret.add_parser("set")
@@ -140,11 +326,15 @@ def parser() -> argparse.ArgumentParser:
     browser = sub.add_parser("browser", help="在录制中操作页面：open snapshot click fill select press …")
     browser.add_argument("args", nargs=argparse.REMAINDER)
 
-    check = sub.add_parser("check", help="对当前页面做断言；成立才会记录")
+    check = sub.add_parser("check", help="保存预期并检查页面实际结果")
     check.add_argument("kind", choices=sorted(ir.ASSERTIONS))
     check.add_argument("target", nargs="?", help="@e5、testid=名称、text=文字、label=标签、role=button:名称 或 CSS 选择器")
     check.add_argument("expected", nargs="?")
     check.add_argument("--attribute")
+    check.add_argument("--timeout", type=float)
+    check.add_argument("--stable-for", type=float)
+    check.add_argument("--mode", choices=("eventually", "always"))
+    check.add_argument("--from-json", help="转换前的完整断言 JSON；缺省定位时沿用当前目标")
 
     run = sub.add_parser("run", help="回放用例；前置用例（如登录）自动先执行")
     run.add_argument("project")
@@ -330,13 +520,166 @@ def _dispatch_project(args) -> tuple[dict, int]:
 
 
 def _dispatch_context(args) -> tuple[dict, int]:
-    """Handle the context command without changing its result contract."""
-    return context(args.project), 0
+    """Keep the legacy Python API while making command responses explicitly paginated."""
+    return context_service.context(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items,
+                                   knowledge_limit=args.knowledge_limit, knowledge_cursor=args.knowledge_cursor), 0
 
 
 def _dispatch_cases(args) -> tuple[dict, int]:
-    """Handle the cases command without changing its result contract."""
-    return {"cases": context(args.project)["cases"]}, 0
+    if args.case_id:
+        return context_service.case(args.project, args.case_id), 0
+    return context_service.cases(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items,
+                                 kind=args.kind, module=args.module, requirement=args.requirement, query=args.query or ""), 0
+
+
+def _dispatch_knowledge(args) -> tuple[dict, int]:
+    if args.action == "read":
+        return context_service.read_knowledge(args.project, args.file, offset=args.offset, length=args.length,
+                                              content_revision=args.revision, all_items=args.all_items), 0
+    return context_service.knowledge(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items, query=args.query), 0
+
+
+def _input_json(args):
+    return command_input.read_json(args.file, command=args.command, action=getattr(args, "action", None), base=command_input.base_directory(args))
+
+
+def _dispatch_workflow(args) -> tuple[dict, int]:
+    from . import workflow
+
+    if args.action == "start":
+        return workflow.create(args.project, _input_json(args), idempotency_key=args.idempotency_key), 0
+    if args.action == "revise":
+        return workflow.revise(args.workflow, _input_json(args), idempotency_key=args.idempotency_key, expected_hash=args.expected_hash), 0
+    if args.action == "read":
+        return workflow.read(args.workflow, kind=args.kind, offset=args.offset, limit=args.limit,
+                             head=args.head, text_offset=args.text_offset, text_length=args.text_length), 0
+    if args.action == "status":
+        value = workflow.status(args.workflow, limit=args.limit, cursor=args.cursor)
+        if args.all_items:
+            if args.cursor:
+                raise ValueError("--all 不能与 --cursor 同时使用")
+            items = list(value["items"])
+            while value.get("next_cursor"):
+                value = workflow.status(args.workflow, limit=args.limit, cursor=value["next_cursor"])
+                items.extend(value["items"])
+            value = {**value, "items": items, "cursor": None, "next_cursor": None}
+        return value, 0
+    options = {"idempotency_key": args.idempotency_key}
+    if args.action == "next":
+        return workflow.next_task(args.workflow, owner=args.owner, lease_seconds=args.lease_seconds, **options), 0
+    if args.action in ("submit", "heartbeat", "release"):
+        options.update(lease_token=args.lease_token, attempt_id=args.attempt_id)
+        if args.action == "submit":
+            options["payload"] = _input_json(args)
+        else:
+            options["checkpoint"] = _input_json(args) if args.file else None
+            if args.action == "heartbeat":
+                options["lease_seconds"] = args.lease_seconds
+        return getattr(workflow, args.action)(args.workflow, args.item, **options), 0
+    return getattr(workflow, args.action)(args.workflow, **options), 0
+
+
+def _dispatch_asset(args) -> tuple[dict, int]:
+    from . import native_assets, paging
+
+    if args.action == "show":
+        return native_assets.get(args.project, args.asset, head=args.head), 0
+    if args.action == "list":
+        pool = native_assets.list_assets(args.project)
+        rows, page = paging.select(pool, content_revision=paging.revision(pool), query={"project": args.project},
+                                   limit=args.limit, cursor=args.cursor, all_items=args.all_items)
+        return {"assets": rows, "page": page}, 0
+    spec = _input_json(args) if args.file else {}
+    if not isinstance(spec, dict):
+        raise ValueError("资产输入需要是 JSON 对象")
+    source = command_input.resolve_path(args.source, command_input.base_directory(args)) if args.source else spec.pop("source", None)
+    engine = args.engine or spec.pop("engine", None)
+    if not source or not engine:
+        raise ValueError("导入资产需要 source 和 engine；用 --source/--engine 或 JSON 提供")
+    name = args.name or spec.pop("name", "")
+    options = {key: spec[key] for key in ("argv", "cwd", "source_info", "expected_head", "asset_id") if key in spec}
+    if args.source:
+        options.setdefault("source_info", {"original_source": str((command_input.base_directory(args) / args.source).resolve())})
+    return native_assets.import_asset(args.project, source, engine, name=name, **options), 0
+
+
+def _dispatch_engine(args) -> tuple[dict, int]:
+    from . import engines
+
+    return {"engines": engines.list_engines() if args.action == "list" else engines.probe(args.engine)}, 0
+
+
+def _dispatch_native(args) -> tuple[dict, int]:
+    from . import native_run
+    from .server import jobs
+
+    if args.action == "dispatch":
+        return {"queue_dispatcher": jobs.ensure_worker()}, 0
+    if args.action == "status":
+        return native_run.get(args.run), 0
+    if args.action == "cancel":
+        return native_run.cancel(args.run), 0
+    run = native_run.enqueue(args.project, args.asset, head=args.head, parameters=_input_json(args) if args.file else None,
+                             host=args.host or os.environ.get("AUTOSKILL_HOST") or "generic",
+                             host_session_id=args.host_session_id if args.host_session_id is not None else os.environ.get("AUTOSKILL_HOST_SESSION_ID", ""))
+    if not args.wait:
+        return {**run, "queue_dispatcher": jobs.ensure_worker(), "note": "已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定"}, 0
+    native_run.execute(run["id"])
+    final = native_run.get(run["id"])
+    return final, {"Pass": 0, "Fail": 1}.get(final["status"], 2)
+
+
+def _dispatch_conversation(args) -> tuple[dict, int]:
+    from . import conversation_capture
+
+    if args.action == "import":
+        source = command_input.resolve_path(args.source, command_input.base_directory(args))
+        return conversation_capture.import_source(args.project, source, source_format=args.format, name=args.name, expected_head=args.expected_head), 0
+    if args.action == "show":
+        return conversation_capture.get(args.project, args.capture, head=args.head), 0
+    return conversation_capture.build_asset(args.project, args.capture, mapping=_input_json(args) if args.file else None,
+                                             asset_id=args.asset_id, name=args.name, expected_head=args.expected_head), 0
+
+
+def _dispatch_judge(args) -> tuple[dict, int]:
+    from . import dialogue_judge
+
+    if args.action == "status":
+        return dialogue_judge.get(args.judge), 0
+    if args.action == "read":
+        return dialogue_judge.read_input(args.judge, offset=args.offset, length=args.length), 0
+    if args.action == "next":
+        return dialogue_judge.next_judgement(idempotency_key=args.idempotency_key, owner=args.owner,
+                                               lease_seconds=args.lease_seconds, run_id=args.run_id), 0
+    if args.action in ("heartbeat", "release"):
+        options = {"lease_seconds": args.lease_seconds} if args.action == "heartbeat" else {}
+        return getattr(dialogue_judge, args.action)(args.judge, attempt_id=args.attempt_id, lease_token=args.lease_token,
+                                                     idempotency_key=args.idempotency_key, **options), 0
+    return dialogue_judge.submit(args.judge, attempt_id=args.attempt_id, lease_token=args.lease_token,
+                                  idempotency_key=args.idempotency_key, judgement=_input_json(args)), 0
+
+
+def _dispatch_schedule(args) -> tuple[dict, int]:
+    from .server import jobs, scheduler
+
+    if args.action == "list":
+        return scheduler.page(args.projects, offset=args.offset, limit=args.limit, all_items=args.all_items), 0
+    if args.action == "create":
+        spec = _input_json(args)
+        spec.setdefault("host", os.environ.get("AUTOSKILL_HOST") or "generic")
+        spec.setdefault("host_session_id", os.environ.get("AUTOSKILL_HOST_SESSION_ID", ""))
+        return {**scheduler.create(spec), "queue_dispatcher": jobs.ensure_worker()}, 0
+    if args.action == "update":
+        return {**scheduler.update(args.task, _input_json(args)), "queue_dispatcher": jobs.ensure_worker()}, 0
+    if args.action in ("pause", "resume"):
+        result = scheduler.set_enabled(args.task, args.action == "resume", expected_revision=args.expected_revision)
+        return {**result, **({"queue_dispatcher": jobs.ensure_worker()} if args.action == "resume" else {})}, 0
+    if args.action == "delete":
+        scheduler.delete(args.task)
+        return {"deleted": args.task}, 0
+    if args.action == "run":
+        return {**scheduler.run_now(args.task, idempotency_key=args.idempotency_key), "queue_dispatcher": jobs.ensure_worker()}, 0
+    return scheduler.get(args.task), 0
 
 
 def _dispatch_secret(args) -> tuple[dict, int]:
@@ -344,7 +687,7 @@ def _dispatch_secret(args) -> tuple[dict, int]:
     action = getattr(args, "action", None)
     if action == "set":
         secrets.set_secret(args.name, read_secret_value(args))
-        return {"saved": args.name, "note": "已加密保存在本机；不会进入用例、报告或分享包"}, 0
+        return {"saved": args.name, "note": "已明文保存在本机；普通分享包仅在选择携带凭据时包含，完整包会包含凭据与保存的登录态"}, 0
     if action == "delete":
         secrets.delete_secret(args.name)
         return {"deleted": args.name}, 0
@@ -385,7 +728,11 @@ def _dispatch_plan(args) -> tuple[dict, int]:
     from . import plan
 
     if action == "write":
-        return plan.write(args.project, args.file), 0
+        payload = _input_json(args)
+        with tempfile.TemporaryDirectory(prefix="autoskill-plan-") as folder:
+            source = Path(folder) / "cases.json"
+            source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            return plan.write(args.project, str(source)), 0
     if action == "mark":
         return plan.mark(args.case, args.status, args.note), 0
     return (plan.sync() if action == "sync" else plan.show()), 0
@@ -395,7 +742,8 @@ def _dispatch_import(args) -> tuple[dict, int]:
     """Handle the import command without changing its result contract."""
     from . import share
 
-    return share.import_pack(args.file, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite), 0
+    source = command_input.resolve_path(args.file, command_input.base_directory(args))
+    return share.import_pack(source, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite), 0
 
 
 def _dispatch_demo(args) -> tuple[dict, int]:
@@ -476,7 +824,11 @@ def _dispatch_recording(args) -> tuple[dict, int]:
         return getattr(session, action)(), 0
     if command == "browser":
         return session.browser(args.args), 0
-    return session.check(args.kind, args.target, args.expected, args.attribute), 0
+    options = {key: value for key, value in (("timeout_seconds", args.timeout), ("stable_for_seconds", args.stable_for), ("mode", args.mode)) if value is not None}
+    if args.from_json:
+        options["transition_from"] = json.loads(args.from_json)
+    result = session.check(args.kind, args.target, args.expected, args.attribute, **options)
+    return result, 1 if result.get("passed") is False else 0
 
 
 def dispatch(args) -> tuple[dict, int]:
@@ -485,6 +837,14 @@ def dispatch(args) -> tuple[dict, int]:
         "project": _dispatch_project,
         "context": _dispatch_context,
         "cases": _dispatch_cases,
+        "knowledge": _dispatch_knowledge,
+        "workflow": _dispatch_workflow,
+        "asset": _dispatch_asset,
+        "engine": _dispatch_engine,
+        "native": _dispatch_native,
+        "conversation": _dispatch_conversation,
+        "judge": _dispatch_judge,
+        "schedule": _dispatch_schedule,
         "secret": _dispatch_secret,
         "report": _dispatch_report,
         "pack": _dispatch_pack,
@@ -513,12 +873,8 @@ def delegate(args, argv: list[str], reason: str) -> int:
     port, why = bridge.service()
     if port is None:
         return emit({"error": bridge.restricted_message(reason, why)}, 2)
-    if getattr(args, "file", None):  # the service runs elsewhere: a relative path would mean a different file there
-        argv = [os.path.abspath(a) if a == args.file else a for a in argv]
-    stdin_text = None
-    if args.command == "secret" and args.action == "set" and args.value is None:
-        stdin_text = sys.stdin.readline()
-    reply = bridge.forward(port, argv, stdin_text)
+    argv, stdin_text, attachments = command_input.for_bridge(args, argv)
+    reply = bridge.forward(port, argv, stdin_text, caller_cwd=str(command_input.base_directory(args)), attachments=attachments)
     sys.stdout.write(reply.get("stdout", ""))
     sys.stderr.write(reply.get("stderr", ""))
     return int(reply.get("exit", 2))
@@ -551,10 +907,22 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     argv = list(sys.argv[1:] if argv is None else argv)
-    args = parser().parse_args(argv)
-    undo_msys(args)
+    try:
+        args = parser().parse_args(argv)
+        undo_msys(args)
+        command_input.runtime_context(args.runtime_context or os.environ.get("AUTOSKILL_RUNTIME_CONTEXT"))
+        if args.host_session is not None:
+            os.environ["AUTOSKILL_HOST_SESSION_ID"] = args.host_session
+    except ValueError as error:
+        return emit({"error": str(error), "code": "validation_error"}, 2)
     identity = args.session if args.session is not None else task_context.session_id()
-    with task_context.use_session(identity):
+    binding = args.workflow_binding or os.environ.get("AUTOSKILL_WORKFLOW_BINDING")
+    scope = contextlib.nullcontext()
+    if binding:
+        from . import workflow
+
+        scope = workflow.use_binding(binding)
+    with task_context.use_session(identity), scope:
         return _main(args, argv)
 
 
@@ -562,13 +930,13 @@ def _main(args, argv: list[str]) -> int:
     """Execute one command after the caller's session identity has been selected."""
     if getattr(args, "headless", False) or getattr(args, "headed", False):
         os.environ["AUTOSKILL_HEADED"] = "0" if getattr(args, "headless", False) else "1"
-    mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")  # auto: only when this process cannot do the work itself
-    if args.command != "dashboard" and mode != "off":
-        reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
-        if reason:  # sandboxed: the service the user (or the harness plugin) runs outside the sandbox does the work
-            return delegate(args, argv, reason)
     real_stdout = sys.stdout
     try:
+        mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")
+        if args.command != "dashboard" and mode != "off":
+            reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
+            if reason:
+                return delegate(args, argv, reason)
         db.init()
         if args.command != "dashboard":  # the dashboard is long-running and talks to a person
             sys.stdout = sys.stderr  # anything a library prints goes to stderr; stdout carries the JSON only
@@ -581,7 +949,7 @@ def _main(args, argv: list[str]) -> int:
         from .recorder.session import RecordError
 
         if isinstance(error, (ValueError, PermissionError, RecordError, AgentError)):
-            return emit({"error": str(error)}, 2)
+            return emit({"error": str(error), "code": getattr(error, "code", "validation_error"), "details": getattr(error, "details", {})}, 2)
         import traceback
 
         traceback.print_exc(file=sys.stderr)
