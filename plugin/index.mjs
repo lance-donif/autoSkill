@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { attachHostAdapter } from './host-adapter.mjs';
+import { hostGuidance } from './host-guidance.mjs';
 
 export const name = 'autoskill';
 export const inject = ['skills'];
@@ -51,7 +52,8 @@ async function readSkill(skillDir, entry, runtime) {
   const token = runtime ? runtimeContext(runtime) : null;
   const content = token ? split[2].replaceAll('autoskill ', `autoskill --runtime-context=${token} `) : split[2];
   const binding = token ? '> 本插件的命令已绑定数据目录与后台端口。保留每条命令中的 `--runtime-context` 前缀；`--session` 仍按任务分别选择。\n\n' : '';
-  return { name: id, description: field('description'), content: where + binding + content, source: 'bundled', path,
+  const host = entry ? '> ' + hostGuidance.replaceAll('\n', '\n> ') + '\n\n' : '';
+  return { name: id, description: field('description'), content: where + binding + host + content, source: 'bundled', path,
     resourceBase: { kind: 'directory', path: dirname(path) } };
 }
 

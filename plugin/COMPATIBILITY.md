@@ -37,6 +37,14 @@ v2.2.2 每次插件激活生成新的 iframe 加载标识，同次普通重渲�
 
 DSH 0.2.2-rc.1 的 ModuleLoader 会缓存已加载的模块，替换时先失效/预取再刷新，服务端 entry revision 使用文件时间信息。升级仍需宿主重新加载新版插件模块，或重启 DSH；已经运行的旧客户端不会凭空获得新逻辑。本轮验证使用真实浏览器和产品服务/客户端、最小 SDK 形状宿主，没有宣称新版缓存机制已在真实 DSH WebView 完成实机验收。
 
+## 对话框原生任务进度与 Excel 交付
+
+固定核对 DSH `0.2.2-rc.1` 的官方源码：输入框上方的 TodoDock 由 `todo_write` 的完整 `todos` 数组驱动，每项包含 `content/status`；新一轮 `turn/start` 会清空当前清单，恢复任务需要按真实状态重新写入。`/plan` 和 `exit_plan_mode` 是需审核的规划模式，不用于 autoSkill 的自动执行进度。
+
+插件为入口 Skill 和定时投递加入共同指引，要求宿主通过本轮实际可用工具更新待办，Excel 生成、读回核验后再用 `present` 声明文件交付。它不在后台伪造工具调用或直接写会话事件，也不改变用户自己的用例 Skill。`present` 仅记录当前宿主能访问的普通文件路径，不复制 Excel，卡片可能在本轮结束后显示。
+
+本轮 Node 检查覆盖指引注入、用户用例 Skill 保留与原有宿主适配合同；不是 DSH 真机模型调用或原生卡片验收。用户指定的 GoFile 用例 Skill 当前返回代理 403，尚未读取和接入。详细协议、源码与待验收项见 [DSH 对话进度与 Excel 交付](../docs/DSH对话进度与Excel交付.md)。
+
 ## Linux x64 / ARM64 与统信 UOS
 
 Release 提供 Windows x64、Linux x64、Linux ARM64 三个包，UOS ARM64 使用 Linux ARM64 包。插件按 CPU 选择 `vendor/linux-x64/python/bin/python3` 或 `vendor/linux-arm64/python/bin/python3`；源码部署可用本地 `.venv`。Linux / UOS 先运行 `sh setup-linux.sh`。Node / DSH 为宿主依赖，不包含在技能包中。

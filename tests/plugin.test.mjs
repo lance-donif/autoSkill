@@ -44,6 +44,27 @@ test('registered commands bind the same custom workspace and port as the service
   assert.match(token, /^[a-zA-Z0-9_-]+$/);
 });
 
+test('host guidance accompanies the entry skill without rewriting a user case skill', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'autoskill host-guidance-'));
+  try {
+    const skill = join(root, 'autoskill');
+    const cases = join(root, 'autoskill-cases');
+    mkdirSync(skill);
+    mkdirSync(cases);
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: autoskill\ndescription: 测试系统\n---\n运行测试。\n');
+    writeFileSync(join(cases, 'SKILL.md'), '---\nname: autoskill-cases\ndescription: 用户用例格式\n---\n保留用户模板。\n');
+    const skills = await bundledSkills(skill);
+    assert.equal(skills.length, 2);
+    assert.match(skills[0].content, /todo_write/);
+    assert.match(skills[0].content, /turn\/start/);
+    assert.match(skills[0].content, /test_report.status 为 ready/);
+    assert.match(skills[0].content, /present 工具/);
+    assert.match(skills[1].content, /保留用户模板。/);
+    assert.ok(!skills[1].content.includes('todo_write'));
+    assert.equal(skills[1].resourceBase.path, cases);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('without a provisioned runtime the plugin reports it instead of looking for one online', () => {
   const before = process.env.AUTOSKILL_DEV_PYTHON;
   delete process.env.AUTOSKILL_DEV_PYTHON;
