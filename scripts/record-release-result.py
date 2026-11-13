@@ -24,7 +24,7 @@ def main():
         shutil.copytree(args.proof, evidence, dirs_exist_ok=True)
     if published:
         data = json.loads(source.read_text(encoding='utf-8'))
-        check_text = ('ZIP 结构、CRC、大小与 SHA-256 校验通过；按维护者要求未运行功能测试'
+        check_text = ('ZIP 结构、CRC、大小与 SHA-256 校验通过；CI 打包阶段未重复运行功能测试，本地功能实测另见专项报告'
                       if data.get('verification', {}).get('mode') == 'archive-only'
                       else 'Windows CI verify、doctor --launch 和回归通过')
         shutil.copyfile(source, 'reports/offline-package.json')
