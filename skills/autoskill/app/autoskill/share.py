@@ -119,8 +119,9 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
     missing = sorted(needed - set(included))
     return {"file": str(target), "bytes": target.stat().st_size, "projects": listed,
             "secrets_included": included, "secrets_not_included": missing,
-            "note": ("凭据已用口令加密随包带走；把口令通过另一个渠道告诉对方" if included else
-                     "分享包不含任何凭据、登录态和运行记录" + ("；对方首次使用时需要设置：" + "、".join(missing) if missing else ""))}
+            "note": "分享包包含项目及原始来源、附件；来源文件中的认证信息按原文保留；不另外导出保存的登录态和运行记录。"
+                    + ("单独导出的本机凭据已用口令加密；把口令通过另一个渠道告诉对方" if included else
+                       "未单独导出本机凭据库" + ("；对方首次使用时需要设置：" + "、".join(missing) if missing else ""))}
 
 
 def pack_full(out: str | None = None) -> dict:

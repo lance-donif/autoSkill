@@ -13,7 +13,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, db, domain, paths, projects, share
+from autoskill import builder, db, domain, paths, projects, secrets, share
 
 PID = "artifact-test"
 
@@ -152,6 +152,18 @@ class ArtifactShareTests(unittest.TestCase):
             self.assertEqual(archive.read(prefix + "input/plan.jmx"), b"<jmeterTestPlan/>")
             self.assertEqual(archive.read(prefix + "scripts/pages/login.py"), b"class LoginPage:\n    pass\n")
             self.assertTrue(any(name.startswith(prefix + "domain/objects/") for name in archive.namelist()))
+
+    def test_pack_note_distinguishes_raw_source_auth_from_optional_encrypted_store(self):
+        domain.attach(PID, "sources/request.curl", b"curl -H 'Authorization: Bearer synthetic-source-token' https://fixture.invalid", None)
+        plain = share.pack([PID], str(self.root / "plain.zip"))
+        self.assertIn("认证信息按原文保留", plain["note"])
+        self.assertIn("未单独导出本机凭据库", plain["note"])
+        secrets.set_secret("ARTIFACT_NOTE_TOKEN", "synthetic-store-token")
+        projects.save_cases(PID, [builder.api_case("TC-API-001", "fixture", "GET", "/fixture", {"status": 204},
+                                                   headers={"Authorization": "${ENV:ARTIFACT_NOTE_TOKEN}"})])
+        encrypted = share.pack([PID], str(self.root / "encrypted.zip"), "fixture-passphrase")
+        self.assertIn("认证信息按原文保留", encrypted["note"])
+        self.assertIn("单独导出的本机凭据已用口令加密", encrypted["note"])
 
 
 if __name__ == "__main__":
