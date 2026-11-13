@@ -79,7 +79,7 @@ def _checks(case: dict, response, parsed, elapsed_ms: int) -> list[dict]:
                 for wanted in rules.get("body_contains", []))
     if "max_ms" in rules:
         rows.append({"name": "响应时间不超过(ms)", "passed": elapsed_ms <= rules["max_ms"],
-                     "expected": rules["max_ms"], "actual": elapsed_ms})
+                     "expected": rules["max_ms"], "actual": elapsed_ms, "scope": "performance"})
     if rules.get("json_equals") or "schema" in rules:
         if parsed is None:
             rows.append({"name": "响应是 JSON", "passed": False, "expected": "JSON", "actual": response.headers.get("content-type", "")})
@@ -161,6 +161,8 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
                            "body": preview, "bytes": len(response.content)}
     outcome["duration_ms"] = elapsed
     outcome["assertions"] = rows = _checks(case, response, parsed, elapsed)
+    for row in rows:
+        row.setdefault("scope", "business")
     failed = [row for row in rows if not row["passed"]]
     if failed:
         expired = response.status_code in (401, 403) and case["assertions"]["status"] not in (401, 403)

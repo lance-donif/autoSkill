@@ -338,7 +338,8 @@ class Session:
 
 
 DETAIL_KEYS = ("steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted",
-               "attempts", "verification", "business_status", "business_verified", "execution_status", "execution_blocker", "last_attempt_status")
+               "attempts", "verification", "business_status", "business_verified", "performance_status", "performance_assertions",
+               "execution_status", "execution_blocker", "last_attempt_status")
 
 
 def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
@@ -348,17 +349,21 @@ def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
     declared = (bool(case.get("assertions")) if case["kind"] == "api" else
                 bool(automation.get("assertions") or any("assertion" in step for step in automation.get("actions", []))))
     trusted = declared and extensions.get("oracle", {}).get("source") != "observation"
-    rows = outcome.get("assertions", [])
+    performance = [row for row in outcome.get("assertions", []) if row.get("scope") == "performance"]
+    performance_status = ("Fail" if any(row.get("passed") is False for row in performance) else "Pass") if performance else "Unverified"
+    rows = [row for row in outcome.get("assertions", []) if row.get("scope") != "performance"]
     checked = trusted and rows and not (probe or outcome.get("reused") or outcome.get("category") == "session_expired")
     business = "Unverified"
     if checked:
         if outcome.get("business_status") == "Fail" or (outcome.get("category") in ("", "assertion_failed", None) and any(row.get("passed") is False for row in rows)):
             business = "Fail"
-        elif outcome["status"] == "Pass" and all(row.get("passed") is True for row in rows):
+        elif (outcome["status"] == "Pass" or (case["kind"] == "api" and performance_status == "Fail"
+                                             and outcome.get("category") == "assertion_failed")) and all(row.get("passed") is True for row in rows):
             business = "Pass"
     execution = "blocked" if outcome.get("execution_blocker") or outcome["status"] == "Blocked" else "completed"
     return {"verification": "verified" if business != "Unverified" else "unverified", "business_status": business,
-            "business_verified": business == "Pass", "execution_status": execution}
+            "business_verified": business == "Pass", "execution_status": execution,
+            "performance_status": performance_status, "performance_assertions": performance}
 
 
 def record(run: dict, case: dict, outcome: dict, prerequisite: bool, started_at: str) -> None:
