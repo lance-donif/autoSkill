@@ -3,20 +3,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { bundledSkills, runtimeSpec, runtimeContext, findSkillDir, PACKAGE_ROOT, SKILL_DIR } from '../plugin/index.mjs';
 
-test('registers the one autoSkill skill with its directory as resource base', async () => {
+test('registers autoSkill and case-writing rules with independent resource bases', async () => {
   const skills = await bundledSkills();
-  assert.equal(skills.length, 1);
+  assert.equal(skills.length, 2);
   assert.equal(skills[0].name, 'autoskill');
   assert.equal(skills[0].resourceBase.kind, 'directory');
   assert.equal(skills[0].resourceBase.path, SKILL_DIR);
   assert.match(skills[0].content, /autoskill record start/);
   assert.ok(skills[0].description.length > 40);
+  assert.equal(skills[1].name, 'test-cases');
+  assert.equal(skills[1].resourceBase.kind, 'directory');
+  assert.equal(skills[1].resourceBase.path, join(SKILL_DIR, 'references', 'test-cases'));
+  assert.match(skills[1].content, /至少三位序号/);
+  assert.match(skills[1].content, /内核报告渲染器/);
+  for (const resource of ['references/workbook-rules.md', 'scripts/validate_test_cases.py', 'agents/openai.yaml', 'assets/icon.svg', 'source.json', 'upstream/test-cases.rar']) {
+    assert.ok(existsSync(join(skills[1].resourceBase.path, resource)), resource);
+  }
 });
 
 test('dashboard is started by argv with offline switches, never through a shell', () => {
@@ -51,17 +59,20 @@ test('host guidance accompanies the entry skill without rewriting a user case sk
     const cases = join(root, 'autoskill-cases');
     mkdirSync(skill);
     mkdirSync(cases);
+    cpSync(join(SKILL_DIR, 'references', 'test-cases'), join(skill, 'references', 'test-cases'), { recursive: true });
     writeFileSync(join(skill, 'SKILL.md'), '---\nname: autoskill\ndescription: 测试系统\n---\n运行测试。\n');
     writeFileSync(join(cases, 'SKILL.md'), '---\nname: autoskill-cases\ndescription: 用户用例格式\n---\n保留用户模板。\n');
     const skills = await bundledSkills(skill);
-    assert.equal(skills.length, 2);
+    assert.equal(skills.length, 3);
     assert.match(skills[0].content, /todo_write/);
     assert.match(skills[0].content, /turn\/start/);
     assert.match(skills[0].content, /test_report.status 为 ready/);
     assert.match(skills[0].content, /present 工具/);
-    assert.match(skills[1].content, /保留用户模板。/);
-    assert.ok(!skills[1].content.includes('todo_write'));
-    assert.equal(skills[1].resourceBase.path, cases);
+    assert.equal(skills[1].name, 'test-cases');
+    assert.equal(skills[1].resourceBase.path, join(skill, 'references', 'test-cases'));
+    assert.match(skills[2].content, /保留用户模板。/);
+    assert.ok(!skills[2].content.includes('todo_write'));
+    assert.equal(skills[2].resourceBase.path, cases);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
