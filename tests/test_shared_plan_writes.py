@@ -5,8 +5,10 @@ import os
 import stat
 import sys
 import tempfile
+import threading
 import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,7 +17,16 @@ from openpyxl import Workbook
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, db, plan, projects
+from autoskill import builder, db, execution_inputs, plan, projects, runner
+
+
+class PlanHandler(BaseHTTPRequestHandler):
+    def log_message(self, *_args):
+        pass
+
+    def do_GET(self):
+        self.send_response(204 if self.path == "/ok" else 404)
+        self.end_headers()
 
 
 def configure_task(workspace, folder, session):
@@ -64,6 +75,18 @@ def second_operation(workspace, folder, operation, started, finished, results):
 
 
 class SharedPlanWriteTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.site = ThreadingHTTPServer(("127.0.0.1", 0), PlanHandler)
+        cls.thread = threading.Thread(target=cls.site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.site.shutdown()
+        cls.thread.join(timeout=5)
+        cls.site.server_close()
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -76,7 +99,7 @@ class SharedPlanWriteTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
         self.context = multiprocessing.get_context("spawn")
-        projects.create("Shared plan", "https://example.invalid", project_id="shared")
+        projects.create("Shared plan", f"http://127.0.0.1:{self.site.server_port}", project_id="shared")
         projects.save_cases("shared", [builder.api_case("TC-API-001", "Replay case", "GET", "/ok", {"status": 204})])
         self.source = self.root / "cases.json"
         self.source.write_text(json.dumps([{"id": "TC-001", "title": "First row"},
@@ -135,11 +158,12 @@ class SharedPlanWriteTests(unittest.TestCase):
         self.assertEqual(rows["TC-002"]["replay"], "shared/TC-API-001")
 
     def test_sync_and_manual_mark_preserve_each_other(self):
+        run = runner.execute(runner.create("shared")["id"])
+        result = db.one("SELECT * FROM results WHERE run_id = ?", (run["id"],))
+        self.assertEqual(run["status"], "Pass")
+        self.assertTrue(execution_inputs.result_evidence(run, result))
         plan.link("TC-001", "shared", "TC-API-001", 1)
-        stamp = db.now()
-        db.insert("runs", {"id": "plan-result", "project_id": "shared", "engine": "playwright", "status": "Pass", "created_at": stamp})
-        db.insert("results", {"run_id": "plan-result", "project_id": "shared", "case_id": "TC-API-001", "case_title": "Replay case",
-                              "kind": "api", "engine": "playwright", "status": "Pass", "started_at": stamp, "case_revision": 1})
+        self.assertEqual(self.rows()["TC-001"]["status"], "未执行")
         self.overlapping_operations(("sync", ""), ("mark", "TC-002"))
         rows = self.rows()
         self.assertEqual([row["status"] for row in rows.values()], ["通过", "通过"])
