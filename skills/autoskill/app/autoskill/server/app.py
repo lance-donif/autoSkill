@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import json
 import os
@@ -14,6 +15,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from .. import __version__, bridge, command_input, context_service, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context, task_reports
 from ..replay import ir
 from . import jobs, metrics, scheduler
+from .execution_requests import register as register_execution_requests
+from .host_context import register as register_host_context
 from .ui_assets import mount_ui
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
@@ -113,6 +116,8 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     _register_conversation_routes(app)
     _register_judge_routes(app)
     _register_host_routes(app)
+    register_host_context(app)
+    register_execution_requests(app)
     _register_upgrade_routes(app)
     _register_unknown_route(app)
 
@@ -135,7 +140,12 @@ def _register_http_handlers(app: FastAPI, port: int) -> None:
                 return JSONResponse({"detail": "拒绝跨站请求"}, status_code=403)
         from ..workflow import use_binding
 
-        with task_context.use_session(request.headers.get("x-autoskill-session")), use_binding(request.headers.get("x-autoskill-workflow-binding")):
+        try:
+            session_id = _identity_header(request, "x-autoskill-session")
+            _identity_header(request, "x-autoskill-host-session")
+        except ValueError as error:
+            return JSONResponse({"detail": str(error), "code": "validation_error"}, status_code=400)
+        with task_context.use_session(session_id), use_binding(request.headers.get("x-autoskill-workflow-binding")):
             response = await call_next(request)
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
@@ -145,6 +155,17 @@ def _register_http_handlers(app: FastAPI, port: int) -> None:
     async def bad_request(request: Request, error: ValueError):  # noqa: ARG001  # FastAPI exception handlers require the request parameter.
         return JSONResponse({"detail": str(error), "error": str(error), "code": getattr(error, "code", "validation_error"),
                              "details": getattr(error, "details", {})}, status_code=400)
+
+
+def _identity_header(request: Request, name: str) -> str | None:
+    """Decode explicit UTF-8 transport without imposing ASCII limits on session identities."""
+    encoded = request.headers.get(name + "-b64")
+    if encoded is None:
+        return request.headers.get(name)
+    try:
+        return base64.b64decode(encoded + "=" * (-len(encoded) % 4), altchars=b"-_", validate=True).decode("utf-8")
+    except (ValueError, UnicodeError) as error:
+        raise ValueError("会话标识的 Base64 UTF-8 编码无效") from error
 
 
 def _register_overview_routes(app: FastAPI) -> None:
@@ -418,7 +439,6 @@ def _register_task_report_routes(app: FastAPI) -> None:
         file = task_reports.download(report_id, format="markdown")
         return FileResponse(file, filename=file.name, media_type="text/markdown; charset=utf-8")
 
-
     @app.get("/api/task-reports/{report_id}/bugs")
     def task_report_bugs(report_id: str):
         file = task_reports.download(report_id, "bugs")
@@ -442,7 +462,7 @@ def _register_schedule_routes(app: FastAPI) -> None:
     async def create_task(request: Request):
         spec = await request.json()
         spec.setdefault("host", request.headers.get("x-autoskill-host", "generic"))
-        spec.setdefault("host_session_id", request.headers.get("x-autoskill-host-session", ""))
+        spec.setdefault("host_session_id", _identity_header(request, "x-autoskill-host-session") or "")
         return {**scheduler.create(spec), "queue_dispatcher": jobs.ensure_worker()}
 
     @app.patch("/api/tasks/{task_id}")
@@ -594,7 +614,7 @@ def _register_asset_routes(app: FastAPI) -> None:
         body = await request.json()
         run = native_run.enqueue(body.get("project_id", ""), body.get("asset_id", ""), head=body.get("head"), parameters=body.get("parameters"),
                                  session_id=body.get("session_id"), host=body.get("host", request.headers.get("x-autoskill-host", "generic")),
-                                 host_session_id=body.get("host_session_id", request.headers.get("x-autoskill-host-session", "")))
+                                 host_session_id=body.get("host_session_id", _identity_header(request, "x-autoskill-host-session") or ""))
         return {**run, "queue_dispatcher": jobs.ensure_worker()}
 
     @app.get("/api/native-runs/{run_id}")

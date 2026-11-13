@@ -12,6 +12,7 @@ import sqlite3
 import uuid
 
 from . import maintenance, paths
+from .locking import named_lock
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects (
@@ -65,6 +66,23 @@ CREATE TABLE IF NOT EXISTS deleted_cases (
   project_id TEXT NOT NULL, case_id TEXT NOT NULL, deleted_at TEXT NOT NULL,
   PRIMARY KEY(project_id, case_id));
 CREATE TABLE IF NOT EXISTS deleted_runs (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS host_task_bindings (
+  id TEXT PRIMARY KEY, host TEXT NOT NULL, host_session_id TEXT NOT NULL,
+  task_session_id TEXT NOT NULL, project_id TEXT, workflow_id TEXT, cycle_id TEXT, run_id TEXT,
+  label TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS host_task_bindings_by_session ON host_task_bindings(host,host_session_id,created_at,id);
+CREATE TABLE IF NOT EXISTS host_task_selections (
+  host TEXT NOT NULL, host_session_id TEXT NOT NULL, selected_binding_id TEXT,
+  revision INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(host,host_session_id));
+CREATE TABLE IF NOT EXISTS host_task_requests (
+  host TEXT NOT NULL, host_session_id TEXT NOT NULL, request_key TEXT NOT NULL,
+  payload_hash TEXT NOT NULL, response TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(host,host_session_id,request_key));
+CREATE TABLE IF NOT EXISTS execution_requests (
+  id TEXT PRIMARY KEY, scope TEXT NOT NULL, idempotency_key TEXT NOT NULL,
+  payload_hash TEXT NOT NULL, payload TEXT NOT NULL, run_id TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL, UNIQUE(scope,idempotency_key));
 """
 FINISHED = ("Pass", "Fail", "Blocked", "Cancelled")
 
@@ -97,7 +115,8 @@ def _connection():
 
 
 def init() -> None:
-    with connect() as conn:
+    # Serialize the initial WAL transition as well as migrations across fresh CLI processes.
+    with named_lock("database", "schema"), connect() as conn:
         conn.executescript(SCHEMA)
         conn.execute("BEGIN IMMEDIATE")  # Concurrent CLI/worker startups must not migrate the same column twice.
         columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
@@ -109,6 +128,7 @@ def init() -> None:
                                  ("deletion_manifest", "TEXT NOT NULL DEFAULT ''")):
             if name not in columns:
                 conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
+        conn.execute("CREATE INDEX IF NOT EXISTS runs_by_session ON runs(session_id,created_at,id)")
         task_columns = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
         for name, definition in (("kind", "TEXT NOT NULL DEFAULT 'replay'"), ("asset_id", "TEXT NOT NULL DEFAULT ''"),
                                  ("parameters", "TEXT NOT NULL DEFAULT '{}'"), ("workflow_id", "TEXT NOT NULL DEFAULT ''"),

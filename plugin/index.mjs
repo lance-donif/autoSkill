@@ -1,5 +1,5 @@
 // DeepSeek Harness host entry: registers the autoSkill skill and runs its dashboard.
-// The plugin adds nothing of its own; the skill directory is the product.
+// Host interactions adapt the portable skill and application services.
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { attachHostAdapter } from './host-adapter.mjs';
 import { hostGuidance } from './host-guidance.mjs';
+import { attachHostBackend } from './host-backend.mjs';
 
 export const name = 'autoskill';
 export const inject = ['skills'];
@@ -60,7 +61,7 @@ async function readSkill(skillDir, entry, runtime) {
 
 /** A shell-safe, non-secret binding carried by every registered command example. */
 export function runtimeContext(spec) {
-  return Buffer.from(JSON.stringify({ version: 1, workspace: spec.env.AUTOSKILL_WORKSPACE ?? resolve(spec.cwd, 'workspace'), port: spec.port, host: 'dsh' })).toString('base64url');
+  return Buffer.from(JSON.stringify({ version: 1, workspace: spec.workspace ?? spec.env.AUTOSKILL_WORKSPACE ?? resolve(spec.cwd, 'workspace'), port: spec.port, host: 'dsh' })).toString('base64url');
 }
 
 /** Native bundled Python or an explicitly provisioned source venv; never download at startup. */
@@ -100,7 +101,9 @@ export async function apply(ctx, config = {}) {
       const response = await fetch(spec.origin + '/api/status', { signal: AbortSignal.timeout(500) });
       const body = await response.json();
       if (response.ok && body.name === 'autoSkill' && body.instance === instance) {
-        attachHostAdapter(ctx, spec, runtimeContext(spec));
+        const connected = { ...spec, workspace: body.workspace };
+        attachHostAdapter(ctx, connected, runtimeContext(connected));
+        attachHostBackend(ctx, connected, { runtimeContext: runtimeContext(connected) });
         ctx.logger?.info?.('autoSkill dashboard ready at ' + spec.origin);
         return;
       }

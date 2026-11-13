@@ -19,7 +19,7 @@ export class HostAdapter {
     this.sessions = sessions;
     this.logger = logger;
     this.spec = spec;
-    this.workspace = spec.env.AUTOSKILL_WORKSPACE ?? resolve(spec.cwd, 'workspace');
+    this.workspace = spec.workspace ?? spec.env.AUTOSKILL_WORKSPACE ?? resolve(spec.cwd, 'workspace');
     this.folder = join(this.workspace, '.local', 'host-deliveries', 'dsh');
     this.owner = 'autoskill-dsh-' + randomUUID();
     this.context = options.runtimeContext;
