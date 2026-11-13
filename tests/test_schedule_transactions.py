@@ -21,7 +21,7 @@ class ScheduleTransactions(unittest.TestCase):
         self.env = patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": self.tmp.name, "AUTOSKILL_HEADED": "0"})
         self.env.start()
         self.pid = projects.create("定时任务验证", "http://127.0.0.1:9", project_id="scheduled")["id"]
-        self.spec = {"project_id": self.pid, "title": "每日维护", "kind": "maintenance", "workflow_id": "workflow-a",
+        self.spec = {"project_id": self.pid, "title": "每日维护", "kind": "maintenance", "workflow_id": "workflow-a", "host": "dsh",
                      "rule": {"kind": "interval", "minutes": 5}}
 
     def tearDown(self):
@@ -146,3 +146,11 @@ class ScheduleTransactions(unittest.TestCase):
         self.assertEqual(first["total"], 2)
         self.assertNotEqual(first["items"][0]["id"], second["items"][0]["id"])
         self.assertFalse(second["has_more"])
+
+    def test_generic_skill_does_not_assume_dsh_and_explicit_host_context_is_retained(self):
+        task = scheduler.create({**self.spec, "host": "generic", "host_session_id": "host-session-b"})
+        scheduler.tick(self.later())
+        self.assertEqual(scheduler.pending_deliveries()["total"], 0)
+        pending = scheduler.pending_deliveries("generic")["items"][0]
+        self.assertEqual(pending["payload"]["parameters"]["host_session_id"], "host-session-b")
+        self.assertEqual(scheduler.get(task["id"])["host"], "generic")

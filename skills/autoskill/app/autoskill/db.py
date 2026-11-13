@@ -100,9 +100,9 @@ def init() -> None:
         task_columns = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
         for name, definition in (("kind", "TEXT NOT NULL DEFAULT 'replay'"), ("asset_id", "TEXT NOT NULL DEFAULT ''"),
                                  ("parameters", "TEXT NOT NULL DEFAULT '{}'"), ("workflow_id", "TEXT NOT NULL DEFAULT ''"),
-                                 ("host", "TEXT NOT NULL DEFAULT 'dsh'"), ("revision", "INTEGER NOT NULL DEFAULT 1"),
+                                 ("host", "TEXT NOT NULL DEFAULT 'generic'"), ("revision", "INTEGER NOT NULL DEFAULT 1"),
                                  ("overlap", "TEXT NOT NULL DEFAULT 'skip'"), ("session_id", "TEXT NOT NULL DEFAULT ''"),
-                                 ("plan_path", "TEXT NOT NULL DEFAULT ''")):
+                                 ("plan_path", "TEXT NOT NULL DEFAULT ''"), ("host_session_id", "TEXT NOT NULL DEFAULT ''")):
             if name not in task_columns:
                 conn.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
         result_columns = {row[1] for row in conn.execute("PRAGMA table_info(results)")}

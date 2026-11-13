@@ -127,7 +127,7 @@ def _clean(spec: dict) -> dict:
         raise ValueError("重叠执行策略需要是 skip 或 queue")
     return {"title": title, "engine": engine, "project_id": spec["project_id"], "case_ids": case_ids, "rule": rule,
             "kind": kind, "asset_id": spec.get("asset_id", ""), "parameters": parameters,
-            "workflow_id": spec.get("workflow_id", ""), "host": spec.get("host") or "dsh", "overlap": overlap,
+            "workflow_id": spec.get("workflow_id", ""), "host": spec.get("host") or "generic", "host_session_id": spec.get("host_session_id") or "", "overlap": overlap,
             "session_id": spec.get("session_id", task_context.session_id()) or "", "plan_path": _plan_path(spec)}
 
 
@@ -267,7 +267,7 @@ def _prepare(task: dict, trigger: str) -> dict:
             from .. import native_run
 
             return native_run.prepare(task["project_id"], task["asset_id"], parameters=task["parameters"],
-                                      trigger=trigger, task_id=task["id"], session_id=task.get("session_id"))
+                                      trigger=trigger, task_id=task["id"], session_id=task.get("session_id"), host=task["host"], host_session_id=task["host_session_id"])
         return runner.prepare(task["project_id"], task["case_ids"] or None, task["engine"], trigger=trigger,
                               task_id=task["id"], session_id=task.get("session_id"), plan_path=task.get("plan_path") or None)
     except ValueError as error:
@@ -281,7 +281,7 @@ def _maintenance(conn, task: dict, occurrence_id: str) -> dict:
     stamp, delivery_id = db.now(), db.new_id("delivery")
     payload = {"project_id": task["project_id"], "workflow_id": task["workflow_id"], "task_id": task["id"],
                "occurrence_id": occurrence_id, "schedule_revision": task["revision"],
-               "session_id": task["session_id"] or occurrence_id, "parameters": task["parameters"]}
+               "session_id": task["session_id"] or occurrence_id, "parameters": {**task["parameters"], "host_session_id": task["host_session_id"]}}
     delivery = {"id": delivery_id, "task_id": task["id"], "occurrence_id": occurrence_id,
                 "host": task["host"], "payload": payload, "state": "pending", "created_at": stamp, "updated_at": stamp}
     _insert(conn, "host_outbox", delivery)
