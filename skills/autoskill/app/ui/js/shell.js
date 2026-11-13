@@ -1,12 +1,14 @@
 // The frame around every page: navigation, and the scope bar that says what the numbers below cover.
 import { h, icon, replace, api, attempt, route, scope, setScope, isDefaultScope, rangeText, href, RANGES, DEFAULT_RANGE, ENGINE } from './core.js';
 import { menuButton, menuItem, preferredEngine, setEngine, preferredHeaded, setHeaded } from './ui.js';
+import { preferenceDataId, setTheme } from './preferences.js';
 
 const NAV = [
   ['dashboard', '仪表盘', 'dashboard'],
   ['cases', '项目与用例', 'cases'],
   ['runs', '执行记录', 'runs'],
   ['schedules', '定时任务', 'clock'],
+  ['data', '数据管理', 'folder'],
 ];
 export const state = { projects: [], status: null, active: 0, online: true };
 
@@ -29,7 +31,6 @@ export async function refreshShell() {
 function theme() { return document.documentElement.dataset.theme || 'light'; }
 export function applyTheme(name) {
   document.documentElement.dataset.theme = name;
-  localStorage.setItem('autoskill.theme', name);
 }
 
 export function renderSide() {
@@ -49,7 +50,9 @@ export function renderSide() {
         h('span', { class: 'text' }, state.online ? '本机服务运行中' : '服务已断开')),
       runtime && h('div', { class: 'line', title: '离线运行：不联网、不更新、不上报' },
         icon('lock'), h('span', { class: 'text' }, runtime.bundled ? '随包运行时 · 离线' : '开发环境运行时')),
-      h('button', { 'aria-label': theme() === 'dark' ? '浅色' : '深色', title: '切换深浅色', onClick: () => { applyTheme(theme() === 'dark' ? 'light' : 'dark'); renderSide(); } },
+      h('button', { 'aria-label': theme() === 'dark' ? '浅色' : '深色', title: '切换深浅色', onClick: async (event) => {
+        await attempt(() => setTheme(theme() === 'dark' ? 'light' : 'dark'), event.currentTarget);
+      } },
         icon(theme() === 'dark' ? 'sun' : 'moon'), h('span', { class: 'text' }, theme() === 'dark' ? '浅色' : '深色'))));
 }
 
@@ -67,14 +70,18 @@ function runSettings() {
     const engines = h('div', { class: 'seg', role: 'group', 'aria-label': '页面用例的回放引擎' },
       ['playwright', 'selenium'].map((engine) => h('button', {
         'aria-pressed': String(preferredEngine() === engine),
-        onClick: (event) => { setEngine(engine); for (const other of engines.children) other.setAttribute('aria-pressed', String(other === event.currentTarget)); },
+        onClick: async (event) => {
+          const button = event.currentTarget;
+          if (await attempt(() => setEngine(engine), button)) {
+            for (const other of engines.children) other.setAttribute('aria-pressed', String(other === button));
+          }
+        },
       }, ENGINE[engine])));
     const toggle = (label, on, onChange) => {
       const button = h('button', { class: 'switch', role: 'switch', 'aria-checked': String(on), 'aria-label': label });
       button.addEventListener('click', async () => {
         const next = button.getAttribute('aria-checked') !== 'true';
-        button.setAttribute('aria-checked', String(next));
-        await onChange(next);
+        if (await attempt(() => onChange(next), button)) button.setAttribute('aria-checked', String(next));
       });
       return button;
     };
@@ -88,8 +95,9 @@ function runSettings() {
       row('使用本机 Chrome', browser.system ? '启动不了时改用随包浏览器；Selenium 始终用随包浏览器' : '没有找到本机 Chrome，正在使用随包浏览器',
         toggle('使用本机 Chrome', browser.mode !== 'bundled', async (on) => {
           const mode = on ? 'system' : 'bundled';
-          const saved = await attempt(() => api('/settings', { method: 'PUT', body: { browser: mode } }));
-          if (saved) state.status = { ...state.status, browser: saved.browser };
+          const saved = await api('/settings', { method: 'PUT', body: { browser: mode, expected_data_id: preferenceDataId() } });
+          state.status = { ...state.status, browser: saved.browser };
+          return saved;
         })));
   }, true);
 }
@@ -98,6 +106,11 @@ export function renderScope() {
   const s = scope();
   const bar = document.getElementById('scope');
   const { page } = route();
+  if (page === 'data') {
+    replace(bar, h('span', { class: 'scope-label' }, '数据管理'), h('span', { class: 'scope-text' }, '设置保存在当前数据目录中'),
+      h('span', { class: 'grow' }), runSettings());
+    return;
+  }
   const timeless = page === 'schedules';
 
   const projectButton = h('button', { class: 'btn' }, icon('folder'), projectText(s), icon('chevron'));

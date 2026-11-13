@@ -11,7 +11,7 @@ import json
 import sqlite3
 import uuid
 
-from . import maintenance, paths
+from . import maintenance, paths, runtime_identity
 from .locking import named_lock
 
 SCHEMA = """
@@ -116,7 +116,13 @@ def _connection():
 
 def init() -> None:
     # Serialize the initial WAL transition as well as migrations across fresh CLI processes.
-    with named_lock("database", "schema"), connect() as conn:
+    with named_lock("database", "schema"):
+        _initialize()
+
+
+def _initialize() -> None:
+    fresh = not (paths.workspace() / ".local/autoskill.db").exists()
+    with connect() as conn:
         conn.executescript(SCHEMA)
         conn.execute("BEGIN IMMEDIATE")  # Concurrent CLI/worker startups must not migrate the same column twice.
         columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
@@ -125,7 +131,7 @@ def init() -> None:
                                  ("family", "TEXT NOT NULL DEFAULT 'replay'"), ("input_manifest", "TEXT NOT NULL DEFAULT ''"),
                                  ("input_hash", "TEXT NOT NULL DEFAULT ''"), ("plan_path", "TEXT NOT NULL DEFAULT ''"),
                                  ("delete_requested", "INTEGER NOT NULL DEFAULT 0"), ("deletion_error", "TEXT NOT NULL DEFAULT ''"),
-                                 ("deletion_manifest", "TEXT NOT NULL DEFAULT ''")):
+                                 ("deletion_manifest", "TEXT NOT NULL DEFAULT ''"), ("owner_identity", "TEXT NOT NULL DEFAULT '{}'")):
             if name not in columns:
                 conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
         conn.execute("CREATE INDEX IF NOT EXISTS runs_by_session ON runs(session_id,created_at,id)")
@@ -141,18 +147,20 @@ def init() -> None:
         for name in ("case_content_hash", "input_hash"):
             if name not in result_columns:
                 conn.execute(f"ALTER TABLE results ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
+    if fresh:
+        runtime_identity.note_new_database(paths.workspace())
 
 
 def claim_run(run_id: str, pid: int, maximum: int, token: str = "") -> bool:
     """Reserve a process slot; only replay runs share the project's saved login state."""
     with connect() as conn:
         return bool(conn.execute(
-            "UPDATE runs SET status = 'Running', started_at = ?, pid = ?, claim_token = ? "
+            "UPDATE runs SET status = 'Running', started_at = ?, pid = ?, claim_token = ?, owner_identity = ? "
             "WHERE id = ? AND status = 'Queued' AND cancel = 0 AND delete_requested = 0 "
             "AND (SELECT COUNT(*) FROM runs WHERE status = 'Running') < ? "
             "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' AND active.project_id = runs.project_id "
             "AND active.family != 'native' AND runs.family != 'native')",
-            (now(), pid, token, run_id, maximum)).rowcount)
+            (now(), pid, token, json.dumps(runtime_identity.current(pid)), run_id, maximum)).rowcount)
 
 
 def activate_run(run_id: str, pid: int, token: str) -> bool:
@@ -161,8 +169,8 @@ def activate_run(run_id: str, pid: int, token: str) -> bool:
         return False
     with connect() as conn:
         return bool(conn.execute(
-            "UPDATE runs SET pid = ?, claim_token = '' WHERE id = ? AND status = 'Running' AND claim_token = ?",
-            (pid, run_id, token)).rowcount)
+            "UPDATE runs SET pid = ?, claim_token = '', owner_identity = ? WHERE id = ? AND status = 'Running' AND claim_token = ?",
+            (pid, json.dumps(runtime_identity.current(pid)), run_id, token)).rowcount)
 
 
 def finish_run(run_id: str, pid: int, counts: dict, status: str, reason: str) -> None:
@@ -172,8 +180,8 @@ def finish_run(run_id: str, pid: int, counts: dict, status: str, reason: str) ->
             "UPDATE runs SET done = ?, passed = ?, failed = ?, blocked = ?, "
             "status = CASE WHEN cancel = 1 THEN 'Cancelled' ELSE ? END, "
             "reason = CASE WHEN cancel = 1 THEN '' ELSE ? END, current = '', finished_at = ? "
-            "WHERE id = ? AND status = 'Running' AND pid = ? AND claim_token = ''",
-            (counts["done"], counts["passed"], counts["failed"], counts["blocked"], status, reason, now(), run_id, pid))
+            "WHERE id = ? AND status = 'Running' AND pid = ? AND claim_token = '' AND owner_identity = ?",
+            (counts["done"], counts["passed"], counts["failed"], counts["blocked"], status, reason, now(), run_id, pid, json.dumps(runtime_identity.current(pid))))
 
 
 def rows(sql: str, args: tuple | list = ()) -> list[dict]:

@@ -8,7 +8,7 @@ import os
 import uuid
 from pathlib import Path
 
-from . import db, domain, engines, native_assets, paths, projects, secrets, task_context
+from . import data_refs, db, domain, engines, native_assets, paths, projects, secrets, task_context
 from .engines.process import write_json
 from .locking import named_lock, project_lock
 
@@ -86,7 +86,7 @@ def enqueue(project_id: str, asset_id: str, **options) -> dict:
 
 
 def get(run_id: str) -> dict:
-    from . import task_reports
+    from . import runner, task_reports
 
     run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
     if not run or run.get("family") != "native":
@@ -97,7 +97,7 @@ def get(run_id: str) -> dict:
     summary = paths.local() / "runs" / run_id / "native" / "outcome.json"
     outcome = json.loads(summary.read_text(encoding="utf-8")) if summary.is_file() else {}
     manifest = _frozen(run)
-    return {**run, "results": rows, "outcome": outcome, "evidence_dir": str(summary.parent),
+    return {**runner.public_run(run), "results": rows, "outcome": outcome, "evidence_dir": str(summary.parent),
             "test_report": task_reports.for_run(run_id),
             "asset_id": manifest["asset_id"], "asset_version": manifest["asset_version"], "head": manifest["head"],
             "planned_unknown": manifest.get("planning", {}).get("planned_unknown", True) and outcome.get("metrics", {}).get("planned_cases") is None}
@@ -117,7 +117,7 @@ def _cancelled(run_id: str) -> bool:
 def _frozen(run: dict) -> dict:
     manifest = run["input_manifest"]
     if isinstance(manifest, str):
-        manifest = json.loads(Path(manifest).read_text(encoding="utf-8"))
+        manifest = json.loads(data_refs.resolve(manifest).read_text(encoding="utf-8"))
     if native_assets.digest(manifest) != run["input_hash"]:
         raise ValueError("原生执行输入清单校验失败")
     if manifest["project_id"] != run["project_id"] or manifest["asset"]["engine"] != run["engine"]:
@@ -177,7 +177,7 @@ def _evidence_reference(folder: Path, reference) -> dict:
     supplied = {"path": reference} if isinstance(reference, str) else reference
     if not isinstance(supplied, dict) or not isinstance(supplied.get("path"), str) or not supplied["path"]:
         raise ValueError("原生证据引用需要非空文件路径")
-    path = Path(supplied["path"])
+    path = data_refs.resolve(supplied["path"]) if data_refs.is_absolute(supplied["path"]) else Path(supplied["path"])
     if ".." in path.parts:
         raise ValueError("原生证据引用不能离开当前运行目录")
     file = (path if path.is_absolute() else folder / path).resolve(strict=True)
@@ -275,10 +275,11 @@ def execute_claimed(run: dict) -> dict:
 
 
 def cancel(run_id: str) -> dict:
+    from . import deletion
     from .server import jobs
 
     get(run_id)
     jobs.cancel(run_id)
     with contextlib.suppress(OSError):
-        (paths.local() / "runs" / run_id / "native" / "cancel").touch()
+        deletion._native_active(run_id)
     return get(run_id)

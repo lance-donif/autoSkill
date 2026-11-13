@@ -1,4 +1,4 @@
-"""Shared workspace access fences upgrades without serializing ordinary callers."""
+"""Shared data access allows concurrency while whole-directory transfers hold an exclusive gate."""
 from __future__ import annotations
 
 import contextlib
@@ -17,7 +17,7 @@ def gate_path(workspace: Path) -> Path:
 
 
 @contextlib.contextmanager
-def _shared(stream):
+def _shared(stream, *, exclusive: bool = False):
     if os.name == "nt":
         import ctypes
         import msvcrt
@@ -34,10 +34,10 @@ def _shared(stream):
         kernel.UnlockFileEx.restype = wintypes.BOOL
         handle = msvcrt.get_osfhandle(stream.fileno())
         overlapped = Overlapped()
-        if not kernel.LockFileEx(handle, 1, 0, 1, 0, ctypes.byref(overlapped)):
+        if not kernel.LockFileEx(handle, 3 if exclusive else 1, 0, 1, 0, ctypes.byref(overlapped)):
             error = ctypes.WinError(ctypes.get_last_error())
             if error.winerror == 33:
-                raise ValueError("工作区正在升级或恢复，当前操作尚未写入；请先查询原升级记录，完成后重试") from error
+                raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
             raise error
         try:
             yield
@@ -47,10 +47,10 @@ def _shared(stream):
         import fcntl
 
         try:
-            fcntl.flock(stream, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            fcntl.flock(stream, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
         except OSError as error:
             if error.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
-                raise ValueError("工作区正在升级或恢复，当前操作尚未写入；请先查询原升级记录，完成后重试") from error
+                raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
             raise
         try:
             yield
@@ -79,3 +79,29 @@ def access(workspace: Path):
 def check(workspace: Path) -> None:
     with access(workspace):
         pass
+
+
+@contextlib.contextmanager
+def exclusive(workspace: Path):
+    """Fail before copying if a cooperating writer still owns shared access."""
+    file = gate_path(workspace)
+    held = getattr(_held, "paths", None)
+    if held is None:
+        held = _held.paths = set()
+    exclusive_paths = getattr(_held, "exclusive", None)
+    if exclusive_paths is None:
+        exclusive_paths = _held.exclusive = set()
+    if file in exclusive_paths:
+        yield
+        return
+    if file in held:
+        raise ValueError("当前操作仍在访问数据目录，不能同时进行整目录传输")
+    file.parent.mkdir(parents=True, exist_ok=True)
+    with file.open("a+b") as stream, _shared(stream, exclusive=True):
+        held.add(file)
+        exclusive_paths.add(file)
+        try:
+            yield
+        finally:
+            exclusive_paths.remove(file)
+            held.remove(file)

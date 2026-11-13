@@ -5,10 +5,9 @@ import datetime
 import hashlib
 import json
 import re
-from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .. import db, paths, projects, runner, task_context
+from .. import data_refs, db, paths, projects, runner, task_context
 from .deliveries import ack_delivery, claim_delivery, pending_deliveries, release_delivery, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
 
 UTC = datetime.UTC
@@ -90,9 +89,9 @@ def _stamp(value: datetime.datetime) -> str:
 
 def _plan_path(spec: dict) -> str:
     if spec.get("plan_path"):
-        return str(Path(spec["plan_path"]).expanduser().resolve())
+        return runner.plan_reference(runner.plan_folder(spec["plan_path"]))
     with task_context.use_session(spec.get("session_id", task_context.session_id()) or None):
-        return str(paths.case_skill())
+        return runner.plan_reference(paths.case_skill())
 
 
 def _clean(spec: dict) -> dict:
@@ -133,6 +132,7 @@ def _clean(spec: dict) -> dict:
 
 def view(row: dict) -> dict:
     rule = json.loads(row["rule"])
+    row = runner.public_run(row)
     return {**row, "rule": rule, "case_ids": json.loads(row["case_ids"]), "enabled": bool(row["enabled"]),
             "parameters": json.loads(row.get("parameters", "{}")), "rule_text": describe(rule)}
 
@@ -156,11 +156,16 @@ def _receipt(conn, scope: str, key: str, digest: str) -> dict | None:
     row = conn.execute("SELECT * FROM schedule_requests WHERE scope = ? AND request_key = ?", (scope, key)).fetchone()
     if row and row["payload_hash"] != digest:
         raise ValueError("相同幂等键已用于不同的任务请求")
-    return json.loads(row["response"]) if row else None
+    return runner.public_run(json.loads(row["response"])) if row else None
 
 
 def _remember(conn, scope: str, key: str, digest: str, response: dict) -> None:
     if key:
+        response = dict(response)
+        if response.get("plan_path"):
+            response["plan_path"] = runner.plan_reference(response["plan_path"])
+        if response.get("input_manifest"):
+            response["input_manifest"] = data_refs.store(response["input_manifest"])
         _insert(conn, "schedule_requests", {"scope": scope, "request_key": key, "payload_hash": digest,
                                           "response": response, "created_at": db.now()})
 

@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
+import tempfile
 import uuid
 from contextlib import suppress
 from pathlib import Path
 
-from .. import paths
+from .. import paths, runtime_identity
+from ..core import store
+from ..locking import named_lock
 
 
 class AgentError(Exception):
@@ -27,6 +31,84 @@ def _scratch(session: str) -> Path:
     folder = paths.local() / "agent-io" / key / uuid.uuid4().hex
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def _control_directory(session: str) -> Path:
+    """Keep controller files in the data root, with a short Unix socket address when needed."""
+    folder = paths.browser_control()
+    folder.mkdir(parents=True, exist_ok=True)
+    # agent-browser 0.42 validates Unix socket paths against its 103-byte portable limit.
+    if os.name == "nt" or len(os.fsencode(str(folder / (session + ".sock")))) <= 103:
+        return folder
+    temporary = Path(tempfile.gettempdir())
+    if len(os.fsencode(str(temporary))) > 25:
+        temporary = Path("/tmp")
+    aliases = temporary / ("asb-" + str(os.getuid()))
+    aliases.mkdir(mode=0o700, exist_ok=True)
+    if aliases.is_symlink() or aliases.stat().st_uid != os.getuid():
+        raise AgentError("浏览器临时连接目录不属于当前用户：" + str(aliases))
+    aliases.chmod(0o700)
+    identity = hashlib.sha256(os.fsencode(str(folder))).hexdigest()[:20]
+    alias = aliases / identity
+    try:
+        alias.symlink_to(folder, target_is_directory=True)
+    except FileExistsError:
+        if not alias.is_symlink() or alias.resolve() != folder.resolve():
+            raise AgentError("浏览器临时连接地址与当前数据目录不一致：" + str(alias)) from None
+    return alias
+
+
+def _read_control(file: Path) -> dict:
+    try:
+        value = json.loads(file.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _controller_pid(session: str) -> int | None:
+    try:
+        return int((paths.browser_control() / (session + ".pid")).read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _prepare_controller(session: str) -> str | None:
+    """Detach copied control handles without signalling their PIDs or replaying their commands."""
+    folder = paths.browser_control()
+    with named_lock("browser-controller", session):
+        owner_file, launch_file = folder / (session + ".owner.json"), folder / (session + ".launch.json")
+        pid = _controller_pid(session)
+        if runtime_identity.owns(pid, _read_control(owner_file)):
+            return None
+        launch = _read_control(launch_file)
+        starter = runtime_identity.decode(launch.get("owner"))
+        if runtime_identity.owns(starter.get("pid"), starter):
+            return None  # Another current command is starting this same task's controller.
+        if (folder / (session + ".pid")).exists() or owner_file.exists() or launch_file.exists():
+            retained = paths.local() / "relocations" / ("browser-" + uuid.uuid4().hex) / "runtime" / "browser-control"
+            retained.mkdir(parents=True)
+            for file in folder.glob(session + ".*"):
+                file.rename(retained / file.name)
+            store.write(retained.parent / "state.json", {"state": "unknown", "session": session,
+                        "reason": "原浏览器控制记录的机器、数据位置或进程出生信息不匹配；已保留，未发送命令或进程信号"})
+        token = uuid.uuid4().hex
+        store.write(launch_file, {"owner": runtime_identity.current(), "token": token})
+        return token
+
+
+def _remember_controller(session: str, token: str | None) -> None:
+    """Bind the actual daemon PID, never the short-lived command process, to its birth identity."""
+    folder = paths.browser_control()
+    with named_lock("browser-controller", session):
+        owner_file, launch_file = folder / (session + ".owner.json"), folder / (session + ".launch.json")
+        pid = _controller_pid(session)
+        if pid is not None:
+            store.write(owner_file, runtime_identity.current(pid))
+        else:
+            owner_file.unlink(missing_ok=True)
+        if token is not None and _read_control(launch_file).get("token") == token:
+            launch_file.unlink(missing_ok=True)
 
 
 def _strip(value):
@@ -49,6 +131,8 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
     if not binary:
         raise AgentError("没有找到随包的 agent-browser；请使用完整离线包（不会联网下载）")
     command = [binary, "--session", session, *(launch or []), *args, "--json"]
+    environment = paths.child_env({"AGENT_BROWSER_SOCKET_DIR": str(_control_directory(session))})
+    launch_token = _prepare_controller(session)
     folder = _scratch(session)
     token = uuid.uuid4().hex
     out_path, err_path, in_path = folder / f"{token}.out", folder / f"{token}.err", folder / f"{token}.in"
@@ -58,7 +142,7 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
         with out_path.open("wb") as out, err_path.open("wb") as err:
             stdin = in_path.open("rb") if stdin_text is not None else subprocess.DEVNULL
             try:
-                done = subprocess.run(command, stdin=stdin, stdout=out, stderr=err, env=paths.child_env(), check=False,
+                done = subprocess.run(command, stdin=stdin, stdout=out, stderr=err, env=environment, check=False,
                                       timeout=timeout, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             except subprocess.TimeoutExpired:
                 raise AgentError("浏览器命令超时") from None
@@ -68,10 +152,13 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
         raw = out_path.read_text(encoding="utf-8", errors="replace").strip()
         problem = err_path.read_text(encoding="utf-8", errors="replace").strip()
     finally:
-        for file in (out_path, err_path, in_path):
-            _discard(file)
-        with suppress(OSError):
-            folder.rmdir()
+        try:
+            _remember_controller(session, launch_token)
+        finally:
+            for file in (out_path, err_path, in_path):
+                _discard(file)
+            with suppress(OSError):
+                folder.rmdir()
     try:
         reply = json.loads(raw) if raw else None
     except ValueError:

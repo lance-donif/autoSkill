@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import builder, db, deletion, execution_inputs, execution_requests, native_assets, paths, projects, runner, task_context
+from autoskill import builder, data_refs, db, deletion, execution_inputs, execution_requests, native_assets, paths, projects, runner, task_context
 from autoskill.server import jobs
 from autoskill.server.app import create_app
 
@@ -300,7 +300,7 @@ class ExecutionRequestTests(unittest.TestCase):
         self.assertEqual(len(db.rows("SELECT * FROM results")), 2)
         for receipt in replies:
             run = db.one("SELECT * FROM runs WHERE id = ?", (receipt["run_id"],))
-            self.assertTrue(Path(run["input_manifest"]).is_file())
+            self.assertTrue(data_refs.resolve(run["input_manifest"]).is_file())
             result = db.one("SELECT detail FROM results WHERE run_id = ?", (receipt["run_id"],))
             self.assertTrue(json.loads(result["detail"])["business_verified"])
 

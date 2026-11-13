@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import bridge, builder, cli, locking, paths, plan, projects, task_context
+from autoskill import bridge, builder, cli, data_store, locking, paths, plan, projects, task_context
 from autoskill.recorder import agent, session
 from autoskill.replay import codegen, ir
 
@@ -51,7 +51,7 @@ class SessionUnitTests(unittest.TestCase):
             legacy = session._file()
             legacy_name = session.session_name()
             self.assertEqual(legacy, paths.local() / "recording.json")
-            self.assertEqual(paths.case_skill(), (paths.SKILL.parent / "autoskill-cases").resolve())
+            self.assertEqual(paths.case_skill(), paths.local() / "case-plans/default/autoskill-cases")
         locations = []
         for identity in ("../任务/甲", "../任务/乙"):
             with task_context.use_session(identity):
@@ -150,6 +150,7 @@ class SessionUnitTests(unittest.TestCase):
         self.assertEqual(request.call_args.args[2]["argv"], ["--session=任务甲", "record", "status"])
 
     def test_forward_preserves_identity_when_an_older_service_ignores_the_json_field(self):
+        data_store.ensure_initialized()
         for identity, project in ((None, "default-project"), ("named task", "named-project"), ("--task", "option-like-project")):
             with task_context.use_session(identity):
                 session._save({"project_id": project, "rand": "token", "steps": [], "started_at": "now", "start_url": "/"})
@@ -165,6 +166,7 @@ class SessionUnitTests(unittest.TestCase):
                     self.assertEqual(json.loads(reply["stdout"])["project"], expected)
 
     def test_bridge_default_does_not_inherit_the_services_session(self):
+        data_store.ensure_initialized()
         with task_context.use_session("service-task"):
             session._save({"project_id": "service-only", "rand": "token", "steps": [], "started_at": "now", "start_url": "/"})
         with patch.dict(os.environ, {"AUTOSKILL_SESSION": "service-task"}):

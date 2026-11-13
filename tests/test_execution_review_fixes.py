@@ -343,7 +343,8 @@ class ExecutionReviewTests(unittest.TestCase):
     def test_concurrent_startups_migrate_old_runs_without_losing_them(self):
         run = self.queued()
         with db.connect() as conn:
-            for column in ("claim_token", "force_login", "session_id", "headed"):
+            conn.execute("DROP INDEX runs_by_session")
+            for column in ("claim_token", "force_login", "session_id", "headed", "owner_identity"):
                 conn.execute(f"ALTER TABLE runs DROP COLUMN {column}")
         for _ in range(2):
             child = subprocess.Popen([sys.executable, "-c", "from autoskill import db; db.init()"], cwd=paths.APP,
@@ -352,8 +353,8 @@ class ExecutionReviewTests(unittest.TestCase):
         for child in self.children:
             self.assert_exited(child)
         row = db.one("SELECT * FROM runs WHERE id = ?", (run["id"],))
-        self.assertEqual((row["status"], row["claim_token"], row["force_login"], row["session_id"], row["headed"]),
-                         ("Queued", "", 0, "", 0))
+        self.assertEqual((row["status"], row["claim_token"], row["force_login"], row["session_id"], row["headed"], row["owner_identity"]),
+                         ("Queued", "", 0, "", 0, "{}"))
 
 
 if __name__ == "__main__":

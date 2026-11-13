@@ -1,11 +1,12 @@
 """Bounded native result projections keep full Python results available on explicit request."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 from pathlib import Path
 
-from . import native_run, paging
+from . import data_refs, native_run, paging
 
 
 def _file_ref(path: Path) -> dict:
@@ -54,6 +55,30 @@ def _case(rows: list[dict], case_id: str) -> dict:
     return selected[0]
 
 
+def _audio_paths(value: dict) -> dict:
+    """Project only known transport receipts, leaving business payloads and raw evidence intact."""
+    result = dict(value)
+    audio = result.get("audio_received")
+    if isinstance(audio, dict) and isinstance(audio.get("path"), str):
+        with contextlib.suppress(ValueError):
+            result["audio_received"] = {**audio, "path": str(data_refs.resolve(audio["path"]))}
+    for key in ("turns", "attempts"):
+        if isinstance(result.get(key), list):
+            result[key] = [_audio_paths(item) if isinstance(item, dict) else item for item in result[key]]
+    if isinstance(result.get("outcome"), dict):
+        result["outcome"] = _audio_paths(result["outcome"])
+    return result
+
+
+def _public_result(result: dict) -> dict:
+    outcome = dict(result["outcome"])
+    if isinstance(outcome.get("cases"), list):
+        outcome["cases"] = [_audio_paths(case) for case in outcome["cases"]]
+    return {**result,
+            "results": [{**row, "detail": _audio_paths(row["detail"])} for row in result["results"]],
+            "outcome": outcome}
+
+
 def status(run_id: str, *, limit: int = 50, cursor: str | None = None, all_items: bool = False, case_id: str | None = None) -> dict:
     """Return summaries by default; only --all expands the legacy complete result."""
     result = native_run.get(run_id)
@@ -63,7 +88,7 @@ def status(run_id: str, *, limit: int = 50, cursor: str | None = None, all_items
     rows, page = paging.select(result["results"], content_revision=content_revision, query={"run": run_id},
                                cursor=cursor, limit=limit, all_items=all_items)
     if all_items:
-        return {**result, "page": page}
+        return {**_public_result(result), "page": page}
     report = _file_ref(Path(result["evidence_dir"]) / "outcome.json")
     summary = {key: value for key, value in result.items() if key not in ("results", "outcome")}
     summary.update(outcome=_outcome(result["outcome"], report), report=report, page=page)
@@ -71,7 +96,7 @@ def status(run_id: str, *, limit: int = 50, cursor: str | None = None, all_items
         row = _case(result["results"], case_id)
         detail = {key: value for key, value in row["detail"].items() if key != "evidence"}
         detail["evidence_ref"] = {**_ref(report, "/evidence", row["detail"].get("evidence", [])), "count": len(row["detail"].get("evidence", []))}
-        summary.update(results=[_summary(row)], case=detail, content_revision=paging.revision(row["detail"]))
+        summary.update(results=[_summary(row)], case=_audio_paths(detail), content_revision=paging.revision(row["detail"]))
         summary["page"] = {**page, "returned": 1, "has_more": False, "next_cursor": None}
     else:
         summary["results"] = [_summary(row) for row in rows]

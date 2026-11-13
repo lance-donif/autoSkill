@@ -1,5 +1,6 @@
 // Share one transport adapter between native tools, human commands and authenticated UI routes.
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { workspaceFor } from './data-root.mjs';
 import { HostJournal, hash } from './host-journal.mjs';
 import { prepareSources, reportFiles, REPORT_FORMATS } from './host-files.mjs';
 import { identityOf, identifier, object, problem, queryPath, readRoute, receiptQuery, resultIdentity, taskRoute, TASK_OPERATIONS } from './host-operations.mjs';
@@ -46,7 +47,7 @@ function replayPage(value, query) {
 export class HostService {
   constructor(spec, options = {}) {
     this.spec = spec;
-    this.workspace = spec.workspace ?? spec.env?.AUTOSKILL_WORKSPACE ?? resolve(spec.cwd, 'workspace');
+    this.workspace = workspaceFor(spec);
     this.fetch = options.fetch ?? globalThis.fetch;
     this.fs = options.fs;
     this.workingDirectory = options.workingDirectory;

@@ -18,7 +18,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import db, execution_inputs, paths, projects, secrets, sessions, task_context
+from . import data_refs, db, execution_inputs, paths, projects, runtime_identity, secrets, sessions, task_context
 from .replay import api, ir, ui
 
 ENGINES = ("playwright", "selenium")
@@ -38,7 +38,7 @@ def prepare(project_id: str, case_ids: list[str] | None = None, engine: str = "p
     chosen = manifest["selected"]
     identity = (task_context.session_id() if session_id is None else session_id) or ""
     with task_context.use_session(identity or None):
-        selected_plan = str(Path(plan_path).resolve() if plan_path else paths.case_skill())
+        selected_plan = str(plan_folder(plan_path) if plan_path else paths.case_skill())
     return {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
            "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
            "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed)),
@@ -52,11 +52,48 @@ def enqueue(prepared: dict, connection=None) -> dict:
             return enqueue(prepared, connection=conn)
     if connection.execute("SELECT 1 FROM deleted_runs WHERE id = ?", (prepared["id"],)).fetchone():
         raise ValueError("此执行记录已删除，请新建运行")
-    keys = ", ".join(prepared)
+    stored = dict(prepared)
+    if stored.get("input_manifest"):
+        stored["input_manifest"] = data_refs.store(stored["input_manifest"])
+    if stored.get("plan_path"):
+        stored["plan_path"] = plan_reference(stored["plan_path"])
+    keys = ", ".join(stored)
     marks = ", ".join("?" for _ in prepared)
-    values = [json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value for value in prepared.values()]
+    values = [json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value for value in stored.values()]
     connection.execute(f"INSERT INTO runs ({keys}) VALUES ({marks})", values)
-    return prepared
+    return public_run(prepared)
+
+
+def plan_folder(value: str | Path) -> Path:
+    """Rebase managed sheets; explicit external sheets retain their existing local contract."""
+    try:
+        return data_refs.resolve(value)
+    except data_refs.UnmappedPathError:
+        external = Path(value).expanduser()
+        if not external.is_absolute():
+            raise
+        return external.resolve()
+
+
+def plan_reference(value: str | Path) -> str:
+    try:
+        return data_refs.store(value)
+    except data_refs.UnmappedPathError:
+        return str(plan_folder(value))
+
+
+def public_run(run: dict) -> dict:
+    """Project stored locations for callers without changing durable rows or frozen evidence."""
+    result = dict(run)
+    if result.get("input_manifest"):
+        # Unmapped historical locations remain visible instead of being guessed.
+        with contextlib.suppress(ValueError):
+            result["input_manifest"] = str(data_refs.resolve(result["input_manifest"]))
+    if result.get("plan_path"):
+        # A foreign external sheet is provenance, not a path on this machine.
+        with contextlib.suppress(ValueError):
+            result["plan_path"] = str(plan_folder(result["plan_path"]))
+    return result
 
 
 def create(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
@@ -198,7 +235,7 @@ class Session:
                 artifacts.append({"path": name, "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()})
         receipt.update(state="completed", finished_at=db.now(), outcome=outcome, artifacts=artifacts)
         execution_inputs.write_json(file, receipt)
-        reference = {"id": attempt_id, "path": str(file), "sha256": execution_inputs.content_hash(receipt),
+        reference = {"id": attempt_id, "path": data_refs.store(file), "sha256": execution_inputs.content_hash(receipt),
                      "case_id": case["id"], "kind": kind, "status": outcome["status"], "business_status": outcome["business_status"]}
         self.attempts.setdefault(case["id"], []).append({"ref": reference, "outcome": copy.deepcopy(outcome)})
         return outcome
@@ -441,16 +478,16 @@ def process_alive(pid: int | None) -> bool:
 def recover_runs() -> None:
     """Recover dead executors without overwriting a child that just accepted its reservation or finished."""
     reap_children()
-    for run in db.rows("SELECT id, pid, claim_token FROM runs WHERE status = 'Running'"):
-        if process_alive(run["pid"]):
+    for run in db.rows("SELECT id, pid, claim_token, owner_identity FROM runs WHERE status = 'Running'"):
+        if process_alive(run["pid"]) and runtime_identity.owns(run["pid"], run["owner_identity"]):
             continue
         with db.connect() as conn:
             recovered = conn.execute(
                 "UPDATE runs SET status = CASE WHEN cancel = 1 THEN 'Cancelled' ELSE 'Blocked' END, "
                 "current = '', finished_at = ?, claim_token = '', "
                 "reason = CASE WHEN cancel = 1 THEN '' ELSE ? END "
-                "WHERE id = ? AND status = 'Running' AND pid IS ? AND claim_token = ?",
-                (db.now(), "运行进程意外结束（可能是电脑休眠或进程被关闭），请重新运行", run["id"], run["pid"], run["claim_token"])).rowcount
+                "WHERE id = ? AND status = 'Running' AND pid IS ? AND claim_token = ? AND owner_identity = ?",
+                (db.now(), "运行进程已结束或不属于当前数据位置，未自动重放未确认的操作", run["id"], run["pid"], run["claim_token"], run["owner_identity"])).rowcount
         if recovered:
             current = db.one("SELECT * FROM runs WHERE id = ?", (run["id"],))
             if current and not current["delete_requested"]:
@@ -485,7 +522,7 @@ def execute(run_id: str, force_login: bool = False, *, claim_token: str | None =
     deletion._cleanup_result(run_id)
     if not db.one("SELECT id FROM runs WHERE id = ?", (run_id,)):
         result["test_report"] = {"status": "skipped", "reason": "运行已删除，报告已随记录清理", "retryable": False}
-    return result
+    return public_run(result)
 
 
 def _execute_guarded(run_id: str, force_login: bool, claim_token: str | None) -> dict:
@@ -509,7 +546,7 @@ def sync_plan(run: dict) -> None:
     """All executors write back to the sheet selected when the run was prepared."""
     from . import plan
 
-    folder = Path(run["plan_path"]) if run.get("plan_path") else paths.case_skill()
+    folder = plan_folder(run["plan_path"]) if run.get("plan_path") else paths.case_skill()
     if folder.is_dir() and any(folder.glob("*.xlsx")):
         with contextlib.suppress(OSError, ValueError):
             plan.sync(quiet=True, folder=folder)
@@ -550,7 +587,7 @@ def _execute_claimed(run: dict) -> dict:
             return db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
         if not run.get("input_hash"):
             frozen, _manifest = execution_inputs.freeze(run["project_id"], chosen, run["engine"])
-            db.update("runs", run_id, frozen)
+            db.update("runs", run_id, {**frozen, "input_manifest": data_refs.store(frozen["input_manifest"])})
             run.update(frozen)
         session = Session(run, bool(run["force_login"]))
         with secrets.use_values(session.manifest["credentials"]):
@@ -596,7 +633,8 @@ def spawn(run_id: str, force_login: bool = False) -> int | None:
     with _children_lock:
         _children[child.pid] = child
     with db.connect() as conn:
-        conn.execute("UPDATE runs SET pid = ? WHERE id = ? AND status = 'Running' AND claim_token = ?", (child.pid, run_id, token))
+        conn.execute("UPDATE runs SET pid = ?, owner_identity = ? WHERE id = ? AND status = 'Running' AND claim_token = ?",
+                     (child.pid, json.dumps(runtime_identity.current(child.pid)), run_id, token))
     return child.pid
 
 

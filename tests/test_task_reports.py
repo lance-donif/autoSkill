@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import builder, db, deletion, native_assets, native_reader, native_run, projects, reporting, runner, task_report_data, task_reports, workflow
+from autoskill import builder, data_refs, db, deletion, native_assets, native_reader, native_run, projects, reporting, runner, runtime_identity, task_report_data, task_reports, workflow
 from autoskill.server import jobs
 from autoskill.server.app import create_app
 
@@ -248,7 +248,7 @@ class TaskReportTests(unittest.TestCase):
         run = db.one("SELECT * FROM runs WHERE id = ?", (finished["id"],))
         data = task_report_data.run_snapshot(run)
         self.assertTrue(data["cases"][0]["evidence_valid"])
-        folder = Path(data["cases"][0]["evidence_directory"]) / "native"
+        folder = data_refs.resolve(data["cases"][0]["evidence_directory"]) / "native"
         outcome_path = folder / "outcome.json"
         outcome = json.loads(outcome_path.read_bytes())
         report = next(reference for reference in outcome["evidence"] if reference["path"] == "unittest.json")
@@ -297,7 +297,7 @@ with deletion.execution_guard(sys.argv[1]):
             while not held.exists() and time.monotonic() < deadline:
                 time.sleep(0.02)
             self.assertTrue(held.exists())
-            db.update("runs", run["id"], {"status": "Running", "pid": child.pid})
+            db.update("runs", run["id"], {"status": "Running", "pid": child.pid, "owner_identity": json.dumps(runtime_identity.current(child.pid))})
             with ThreadPoolExecutor(1) as pool:
                 future = pool.submit(native_reader.status, run["id"])
                 try:

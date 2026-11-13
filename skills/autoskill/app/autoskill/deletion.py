@@ -11,7 +11,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from . import db, execution_inputs, maintenance, paths, projects
+from . import data_refs, db, execution_inputs, maintenance, paths, projects, runtime_identity
 from .locking import file_lock, named_lock, project_lock
 
 IDENTITY = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
@@ -78,13 +78,16 @@ def _error(identity: dict, error: Exception, *, requested: bool = False) -> dict
 
 
 def _sheet_folders(project_id: str, run: dict | None = None) -> list[str]:
+    from .runner import plan_folder, plan_reference
+
     values = {str(paths.case_skill())}
     if run and run.get("plan_path"):
         values.add(run["plan_path"])
     for table in ("runs", "tasks"):
         values.update(row["plan_path"] for row in db.rows(f"SELECT DISTINCT plan_path FROM {table} WHERE project_id = ? AND plan_path != ''", (project_id,)))
     values.update(str(folder) for folder in (paths.local() / "case-plans").glob("*/autoskill-cases"))
-    return sorted(str(Path(value).parent if Path(value).suffix.lower() == ".xlsx" else Path(value)) for value in values)
+    folders = [plan_folder(value) for value in values]
+    return sorted({plan_reference(folder.parent if folder.suffix.lower() == ".xlsx" else folder) for folder in folders})
 
 
 def _latest(project_id: str, excluded: str | None) -> dict:
@@ -119,11 +122,13 @@ def _current_cases(project_id: str) -> dict:
 
 def _refresh_sheets(project_id: str, case_ids: list[str], folders: list[str], *, excluded: str | None = None, deleted_case: bool = False) -> None:
     from . import plan
+    from .runner import plan_folder
 
-    for folder in folders:
-        if not Path(folder).is_dir() or not any(Path(folder).glob("*.xlsx")):
+    for value in folders:
+        folder = plan_folder(value)
+        if not folder.is_dir() or not any(folder.glob("*.xlsx")):
             continue
-        token = plan._selected_folder.set(Path(folder))
+        token = plan._selected_folder.set(folder)
         try:
             with plan._sheet_lock():
                 book, sheet, columns = plan._open()
@@ -209,8 +214,6 @@ def _request(run_id: str) -> dict | None:
 
 
 def _native_active(run_id: str) -> bool:
-    from .runner import process_alive
-
     folder = _managed_directory("runs") / run_id / "native"
     if folder.parent.is_symlink():
         return False
@@ -218,14 +221,23 @@ def _native_active(run_id: str) -> bool:
         raise ValueError("原生执行目录是外部链接，未删除链接目标")
     if not folder.is_dir():
         return False
-    (folder / "cancel").touch()
-    supervisor = folder / "supervisor.json"
-    if supervisor.is_file() and process_alive(json.loads(supervisor.read_bytes()).get("pid")):
-        return True
-    heartbeat = folder / "heartbeat.json"
-    if heartbeat.is_file() and not (folder / "process-result.json").exists():
-        return process_alive(json.loads(heartbeat.read_bytes()).get("pid"))
-    return (folder / "process-spec.json").is_file() and not (folder / "process-result.json").is_file() and not supervisor.is_file()
+    supervisor_file = folder / "supervisor.json"
+    supervisor = _owned_marker(supervisor_file)
+    unfinished = not (folder / "process-result.json").is_file()
+    launching = not supervisor_file.exists() and _owned_marker(folder / "process-spec.json", "owner_pid")
+    active = supervisor or (unfinished and (_owned_marker(folder / "heartbeat.json") or launching))
+    if active:
+        (folder / "cancel").touch()
+    return active
+
+
+def _owned_marker(file: Path, pid_key: str = "pid") -> bool:
+    if not file.is_file():
+        return False
+    value = json.loads(file.read_bytes())
+    if not isinstance(value, dict):
+        raise ValueError("原生进程归属标记格式无效，未删除执行证据")
+    return runtime_identity.owns(value.get(pid_key), value.get("owner_identity"))
 
 
 def _managed_directory(name: str) -> Path:
@@ -260,7 +272,7 @@ def _inventory(run: dict) -> dict:
     value = run.get("input_manifest")
     objects = set()
     if value:
-        file, folder = Path(value), _input_folder(run)
+        file, folder = data_refs.resolve(value), _input_folder(run)
         if file.parent.resolve() != folder.resolve() or file.is_symlink() or file.suffix != ".json":
             raise ValueError("执行快照路径不属于此工作区，未删除任何外部文件")
         if file.is_file():
@@ -268,7 +280,8 @@ def _inventory(run: dict) -> dict:
         _objects_folder(folder)
     case_ids = {row["case_id"] for row in db.rows("SELECT case_id FROM results WHERE run_id = ?", (run["id"],))}
     case_ids.update(json.loads(run["case_ids"]))
-    inventory = {"input_manifest": value, "objects": sorted(objects), "case_ids": sorted(case_ids), "plan_folders": _sheet_folders(run["project_id"], run)}
+    inventory = {"input_manifest": data_refs.store(value) if value else value, "objects": sorted(objects), "case_ids": sorted(case_ids),
+                 "plan_folders": _sheet_folders(run["project_id"], run)}
     db.update("runs", run["id"], {"deletion_manifest": inventory})
     return inventory
 
@@ -277,10 +290,10 @@ def _remove_inputs(run: dict, inventory: dict) -> None:
     folder, name = _input_folder(run), inventory.get("input_manifest")
     if not name:
         return
-    file = Path(name)
+    file = data_refs.resolve(name)
     if file.parent.resolve() != folder.resolve() or file.is_symlink():
         raise ValueError("执行快照路径不属于此工作区")
-    if db.one("SELECT id FROM runs WHERE id != ? AND input_manifest = ? LIMIT 1", (run["id"], name)):
+    if _shared_input(run["id"], file):
         return
     objects = _objects_folder(folder)
     file.unlink(missing_ok=True)
@@ -291,6 +304,14 @@ def _remove_inputs(run: dict, inventory: dict) -> None:
         if not re.fullmatch(r"[a-f0-9]{64}", digest):
             raise ValueError("冻结对象标识无效")
         (objects / digest).unlink(missing_ok=True)
+
+
+def _shared_input(run_id: str, file: Path) -> bool:
+    for row in db.rows("SELECT input_manifest FROM runs WHERE id != ? AND input_manifest != ''", (run_id,)):
+        with contextlib.suppress(ValueError):
+            if data_refs.resolve(row["input_manifest"]) == file:
+                return True
+    return False
 
 
 def _remove_judges(connection, run_id: str) -> None:
@@ -339,8 +360,6 @@ def _pending(run_id: str) -> dict:
 
 def cleanup(run_id: str) -> dict:
     """Retry one persistent deletion after its executor and native child have stopped."""
-    from .runner import process_alive
-
     _identity(run_id)
     with _try_execution(run_id) as acquired:
         if not acquired:
@@ -350,7 +369,7 @@ def cleanup(run_id: str) -> dict:
             return {"deleted": {"run_id": run_id, "already_deleted": True}}
         if not run["delete_requested"]:
             return {}
-        if (run["status"] == "Running" and process_alive(run["pid"])) or _native_active(run_id):
+        if (run["status"] == "Running" and runtime_identity.owns(run["pid"], run.get("owner_identity"))) or _native_active(run_id):
             return {"pending": _pending(run_id)}
         family = "native" if run.get("family") == "native" else "replay"
         with named_lock("input-store", family):

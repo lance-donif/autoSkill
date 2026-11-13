@@ -8,6 +8,8 @@ import json
 import time
 from pathlib import Path
 
+from .. import data_refs
+
 
 def freeze(spec: dict, base: Path) -> None:
     endpoints = [spec["endpoint"], *[turn.get("endpoint", {}) for sample in spec["samples"] for turn in sample.get("turns", [sample])]]
@@ -58,14 +60,19 @@ def receive(state, data: bytes) -> None:
     state.first_audio = state.first_audio or stamp
     state.first_content = state.first_content or stamp
     state.last_content = stamp
-    file = Path(state.endpoint["_audio_output"])
+    file = Path(state.endpoint["_audio_output"]).expanduser().resolve()
+    try:
+        file = data_refs.resolve(file)
+        reference = data_refs.store(file)
+    except data_refs.UnmappedPathError:
+        reference = str(file)
     file.parent.mkdir(parents=True, exist_ok=True)
     with file.open("ab" if state.audio_received["bytes"] else "xb") as stream:
         stream.write(data)
         stream.flush()
     state.audio_received["bytes"] += len(data)
     state.audio_received["chunks"] += 1
-    state.audio_received["path"] = str(file)
+    state.audio_received["path"] = reference
     state.audio_hasher.update(data)
     state.audio_received["sha256"] = state.audio_hasher.hexdigest()
 

@@ -12,9 +12,10 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from .. import __version__, bridge, command_input, context_service, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context, task_reports
+from .. import __version__, bridge, command_input, context_service, data_preferences, data_refs, data_store, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context, task_reports
 from ..replay import ir
 from . import jobs, metrics, scheduler
+from .data import register as register_data
 from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
 from .ui_assets import mount_ui
@@ -38,11 +39,22 @@ def page(request: Request) -> tuple[int, int]:
 
 
 def run_view(run: dict) -> dict:
-    run = dict(run)
+    run = runner.public_run(run)
     run["case_ids"] = json.loads(run["case_ids"])
     project = db.one("SELECT name FROM projects WHERE id = ?", (run["project_id"],))
     run["project_name"] = project["name"] if project else run["project_id"]
     return run
+
+
+def result_view(row: dict) -> dict:
+    detail = json.loads(row["detail"])
+    attempts = detail.get("attempts")
+    if isinstance(attempts, list):
+        for attempt in attempts:
+            if isinstance(attempt, dict) and attempt.get("path"):
+                with contextlib.suppress(ValueError):
+                    attempt["path"] = str(data_refs.resolve(attempt["path"]))
+    return {**row, "detail": detail}
 
 
 def case_view(project_id: str, case: dict) -> dict:
@@ -80,6 +92,7 @@ def demo_site(port: int = 8790):
 
 
 def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
+    data_store.ensure_initialized()
     db.init()
     worker = jobs.Worker()
     state: dict = {"demo_site": None}
@@ -118,7 +131,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     _register_host_routes(app)
     register_host_context(app)
     register_execution_requests(app)
-    _register_upgrade_routes(app)
+    register_data(app)
     _register_unknown_route(app)
 
     app.state.ui_revision = mount_ui(app, paths.APP / "ui")
@@ -177,7 +190,7 @@ def _register_overview_routes(app: FastAPI) -> None:
                             "selenium": bool(paths.chrome(bundled=True) and paths.chromedriver()),
                             "recorder": bool(paths.agent_browser())},
                 "browser": paths.browser_info(),
-                "skill_path": str(paths.SKILL), "workspace": str(paths.workspace()), "bridge": bridge.enabled(),
+                "skill_path": str(paths.SKILL), "workspace": str(paths.workspace()), "case_skill": str(paths.case_skill()), "bridge": bridge.enabled(),
                 "instance": os.environ.get("AUTOSKILL_INSTANCE_ID")}
 
     @app.post("/api/bridge")
@@ -318,14 +331,13 @@ def _register_settings_routes(app: FastAPI) -> None:
         secrets.set_secret(name, value)
         return {"saved": name}
 
+    @app.get("/api/settings")
+    def get_settings():
+        return data_preferences.read()
+
     @app.put("/api/settings")
     async def put_settings(request: Request):
-        """Which browser to drive: the user's own Chrome with ours as the fallback, or ours only."""
-        choice = (await request.json()).get("browser")
-        if choice not in ("system", "bundled"):
-            raise ValueError("browser 只能是 system 或 bundled")
-        paths.save_settings(browser=choice)
-        return {"browser": paths.browser_info()}
+        return data_preferences.update(await request.json())
 
 
 def _register_run_creation_route(app: FastAPI) -> None:
@@ -358,9 +370,7 @@ def _register_run_detail_routes(app: FastAPI) -> None:
         if not run:
             raise HTTPException(404, "运行不存在")
         rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
-        for row in rows:
-            row["detail"] = json.loads(row["detail"])
-        return {**run_view(run), "results": rows, "test_report": task_reports.for_run(run_id)}
+        return {**run_view(run), "results": [result_view(row) for row in rows], "test_report": task_reports.for_run(run_id)}
 
     @app.post("/api/runs/{run_id}/cancel")
     def cancel_run(run_id: str):
@@ -723,46 +733,6 @@ def _register_host_routes(app: FastAPI) -> None:
     async def release(delivery_id: str, request: Request):
         body = await request.json()
         return scheduler.release_delivery(delivery_id, body.get("token", ""), body.get("reason", ""))
-
-
-def _upgrade_arguments(action: str, body: dict) -> list[str]:
-    if action not in ("plan", "prepare", "status", "apply", "rollback", "recover"):
-        raise ValueError("没有这个升级操作")
-    if not isinstance(body, dict):
-        raise ValueError("升级输入需要是 JSON 对象")
-    required = ("package", "target") if action in ("plan", "prepare") else ("journal",)
-    if any(not isinstance(body.get(field), str) or not body[field] for field in required):
-        raise ValueError("升级操作需要有效的路径文字：" + "、".join(required))
-    if "stop_services" in body and type(body["stop_services"]) is not bool:
-        raise ValueError("stop_services 需要是布尔值")
-    argv = ["upgrade", action]
-    if action in ("plan", "prepare"):
-        argv += [str(body.get("package", "")), "--target", str(body.get("target", ""))]
-        for field, flag in (("workspaces", "--workspace"), ("config_paths", "--config")):
-            values = body.get(field, [])
-            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
-                raise ValueError(f"{field} 需要是路径文字数组")
-            for value in values:
-                argv += [flag, value]
-        if action == "prepare" and body.get("job_dir"):
-            argv += ["--job-dir", str(body["job_dir"])]
-    else:
-        argv.append(str(body.get("journal", "")))
-    if body.get("stop_services"):
-        argv.append("--stop-services")
-    return argv
-
-
-def _register_upgrade_routes(app: FastAPI) -> None:
-    @app.post("/api/upgrades/{action}")
-    async def upgrade_action(action: str, request: Request):
-        body = await request.json()
-        argv = _upgrade_arguments(action, body)
-        # Handoff waits for its caller to exit, so a short-lived CLI owns it rather than this HTTP server.
-        response = await asyncio.to_thread(bridge.execute, argv, caller_cwd=body.get("base_dir") or str(paths.workspace()),
-                                            attachments=body.get("attachments"), session_id=task_context.session_id())
-        result = json.loads(response["stdout"])
-        return JSONResponse(result, status_code=200 if response["exit"] == 0 else 400)
 
 
 def _register_unknown_route(app: FastAPI) -> None:

@@ -1,4 +1,4 @@
-"""A sandboxed caller hands its command to the local service, and every failure is answered in JSON."""
+"""Explicit bridge callers use the real local service; blocked data paths are detected separately."""
 import json
 import os
 import socket
@@ -29,7 +29,7 @@ def free_port() -> int:
 
 
 class Sandbox(unittest.TestCase):
-    """A workspace, plus a home folder in which the browser controller's folder cannot be created."""
+    """Use an explicit bridge request without pretending a fake home is an OS sandbox."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
@@ -59,8 +59,8 @@ class Sandbox(unittest.TestCase):
         return env
 
     def cli(self, *argv, sandboxed=True, **extra):
-        home = {"USERPROFILE": str(self.home)} if sandboxed else {}
-        done = subprocess.run([sys.executable, "-m", "autoskill", *argv], env=self.env(**home, **extra), capture_output=True,
+        forwarding = {"AUTOSKILL_BRIDGE": "on", "USERPROFILE": str(self.home)} if sandboxed else {}
+        done = subprocess.run([sys.executable, "-m", "autoskill", *argv], env=self.env(**{**forwarding, **extra}), capture_output=True,
                               text=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=120, check=False)
         return done.returncode, done.stdout, done.stderr
 
@@ -108,6 +108,9 @@ class RestrictedProcessTests(Sandbox):
     def test_a_process_that_cannot_keep_data_or_start_a_browser_is_recognised(self):
         self.assertEqual(paths.restricted(), "")
         os.environ["USERPROFILE"] = str(self.home)
+        self.assertEqual(paths.restricted(), "")  # Controller state no longer needs the user's home folder.
+        paths.browser_control().rmdir()
+        paths.browser_control().write_text("not a directory", encoding="ascii")
         self.assertIn("浏览器控制目录不可写", paths.restricted())
         os.environ["AUTOSKILL_WORKSPACE"] = self.blocked_workspace()
         self.assertIn("数据目录不可写", paths.restricted())

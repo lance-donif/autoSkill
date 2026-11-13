@@ -11,7 +11,7 @@ import uuid
 from functools import lru_cache
 from pathlib import Path
 
-from . import __version__, db, paths, projects, secrets, sessions
+from . import __version__, data_refs, db, paths, projects, secrets, sessions
 from .core import store
 from .locking import named_lock, project_lock
 from .replay import ir
@@ -242,7 +242,7 @@ def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_
 def load(run: dict, *, check_engine: bool = False) -> dict:
     """Reject missing or altered evidence; a hash alone never proves that execution happened."""
     try:
-        manifest = json.loads(Path(run["input_manifest"]).read_bytes())
+        manifest = json.loads(data_refs.resolve(run["input_manifest"]).read_bytes())
         if content_hash(manifest) != run["input_hash"] or manifest["project_id"] != run["project_id"]:
             raise ValueError("执行输入摘要不匹配")
         chosen = json.loads(run["case_ids"]) if isinstance(run.get("case_ids"), str) else run.get("case_ids")
@@ -279,7 +279,7 @@ def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
             return False
         folder = (paths.local() / "runs" / run["id"]).resolve()
         for ref in attempts:
-            file = Path(ref["path"])
+            file = data_refs.resolve(ref["path"])
             if not file.resolve().is_relative_to(folder / "attempts"):
                 return False
             receipt = json.loads(file.read_bytes())

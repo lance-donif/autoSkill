@@ -90,6 +90,8 @@ class HtmlReportTests(unittest.TestCase):
         if path == "/api/projects":
             return [{"id": "example", "name": "Report fixture", "category": "", "base_url": "https://example.invalid",
                      "cases": {"total": 3, "ui": 1, "api": 2}, "login": {"ui_case": None, "api_case": None}, "missing_secrets": []}]
+        if path == "/api/settings":
+            return {"data_id": "fixture-data", "dashboard": {"theme": "dark"}, "legacy_dashboard_import_eligible": False}
         if path == "/api/status":
             return {"browser": {}, "runtime": {}, "skill_path": "/synthetic/skill"}
         if path == "/api/runs":

@@ -266,22 +266,14 @@ def _schedule_commands(sub) -> None:
             operation.add_argument("--expected-revision", type=int)
 
 
-def _upgrade_commands(sub) -> None:
-    upgrade = sub.add_parser("upgrade", help="保留完整数据的离线升级、恢复与回滚").add_subparsers(dest="action", required=True)
-    for name in ("plan", "prepare"):
-        operation = upgrade.add_parser(name)
-        operation.add_argument("package", help="完整离线包目录或 ZIP")
-        operation.add_argument("--target", required=True, help="现有安装根目录")
-        operation.add_argument("--workspace", action="append", dest="workspaces", default=[], help="额外外置工作区；可重复")
-        operation.add_argument("--config", action="append", dest="configs", default=[], help="额外宿主配置文件；可重复")
-        if name == "prepare":
-            operation.add_argument("--job-dir", help="持久升级记录目录，位于安装目录与工作区之外")
-            operation.add_argument("--stop-services", action="store_true", help="停止已核实属于该安装的 autoSkill 服务；不取消业务运行")
-    for name in ("status", "apply", "rollback", "recover"):
-        operation = upgrade.add_parser(name)
-        operation.add_argument("journal", help="prepare 返回的持久 journal 路径")
-        if name != "status":
-            operation.add_argument("--stop-services", action="store_true", help="独立升级器切换或恢复前停止此安装的 autoSkill 服务")
+def _data_commands(sub) -> None:
+    data = sub.add_parser("data", help="独立数据目录：状态、完整导入和导出").add_subparsers(dest="action", required=True)
+    data.add_parser("status", help="只读查看当前数据目录")
+    importing = data.add_parser("import", help="把完整旧数据或数据 ZIP 复制到空目录")
+    importing.add_argument("source", help="旧数据目录、旧程序目录或完整数据 ZIP")
+    importing.add_argument("--target", help="空的新数据目录；省略时使用当前数据目录")
+    exporting = data.add_parser("export", help="导出全部数据，包含凭据、登录态和运行历史")
+    exporting.add_argument("--out", "--destination", dest="destination", help="完整数据 ZIP 的保存路径；省略时在数据目录旁生成")
 
 
 def _delete_commands(sub) -> None:
@@ -326,7 +318,7 @@ def parser() -> argparse.ArgumentParser:
     _conversation_commands(sub)
     _judge_commands(sub)
     _schedule_commands(sub)
-    _upgrade_commands(sub)
+    _data_commands(sub)
     _delete_commands(sub)
 
     secret = sub.add_parser("secret", help="本机凭据：set / list / delete").add_subparsers(dest="action", required=True)
@@ -727,26 +719,20 @@ def _dispatch_schedule(args) -> tuple[dict, int]:
     return scheduler.get(args.task), 0
 
 
-def _dispatch_upgrade(args) -> tuple[dict, int]:
-    from . import upgrade
+def _dispatch_data(args) -> tuple[dict, int]:
+    from . import data_store
 
     base = command_input.base_directory(args)
-    if args.action in ("plan", "prepare"):
-        package = command_input.resolve_path(args.package, base)
-        target = str((base / Path(args.target).expanduser()).resolve())
-        options = {"workspaces": [str((base / Path(value).expanduser()).resolve()) for value in args.workspaces],
-                   "config_paths": [str((base / Path(value).expanduser()).resolve()) for value in args.configs]}
-        if args.action == "prepare":
-            if args.job_dir:
-                options["job_dir"] = str((base / Path(args.job_dir).expanduser()).resolve())
-            if args.stop_services:
-                options["stop_services"] = True
-        return getattr(upgrade, args.action)(package, target, **options), 0
-    journal = str((base / Path(args.journal).expanduser()).resolve())
     if args.action == "status":
-        return upgrade.status(journal), 0
-    options = {"stop_services": True} if getattr(args, "stop_services", False) else {}
-    return upgrade.handoff(journal, action=args.action, **options), 0
+        return data_store.status(), 0
+    if args.action == "import":
+        source = command_input.resolve_path(args.source, base)
+        original = (base / Path(args.source).expanduser()).resolve()
+        target = (base / Path(args.target).expanduser()).resolve() if args.target else None
+        options = {"original_source": original} if Path(source) != original else {}
+        return data_store.import_data(source, target, **options), 0
+    destination = (base / Path(args.destination).expanduser()).resolve() if args.destination else None
+    return data_store.export_data(destination), 0
 
 
 def _dispatch_secret(args) -> tuple[dict, int]:
@@ -920,7 +906,7 @@ def dispatch(args) -> tuple[dict, int]:
         "conversation": _dispatch_conversation,
         "judge": _dispatch_judge,
         "schedule": _dispatch_schedule,
-        "upgrade": _dispatch_upgrade,
+        "data": _dispatch_data,
         "secret": _dispatch_secret,
         "report": _dispatch_report,
         "task-report": _dispatch_task_report,
@@ -1010,12 +996,15 @@ def _main(args, argv: list[str]) -> int:
     real_stdout = sys.stdout
     try:
         mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")
-        local_status = args.command == "upgrade" and args.action == "status" and mode != "on"
-        if args.command != "dashboard" and mode != "off" and not local_status:
+        local_data = args.command == "data" and mode != "on"
+        if args.command != "dashboard" and mode != "off" and not local_data:
             reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
             if reason:
                 return delegate(args, argv, reason)
-        if args.command != "upgrade":
+        if args.command != "data":
+            from . import data_store
+
+            data_store.ensure_initialized()
             db.init()
         if args.command != "dashboard":  # the dashboard is long-running and talks to a person
             sys.stdout = sys.stderr  # anything a library prints goes to stderr; stdout carries the JSON only
@@ -1033,7 +1022,7 @@ def _main(args, argv: list[str]) -> int:
 
         traceback.print_exc(file=sys.stderr)
         if isinstance(error, OSError) or type(error).__module__ == "sqlite3":
-            reason = paths.restricted()
+            reason = "" if args.command == "data" else paths.restricted()
             message = (f"读写 autoSkill 数据失败（{reason}）" if reason else "读写 autoSkill 数据失败") + f"：{type(error).__name__}: {error}"
         else:
             message = f"autoSkill 内部错误：{type(error).__name__}: {error}（详细信息在标准错误输出里）"

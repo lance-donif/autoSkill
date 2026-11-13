@@ -10,6 +10,9 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { attachHostAdapter } from './host-adapter.mjs';
 import { hostGuidance } from './host-guidance.mjs';
 import { attachHostBackend } from './host-backend.mjs';
+import { defaultWorkspace, workspaceFor } from './data-root.mjs';
+
+export { defaultWorkspace } from './data-root.mjs';
 
 export const name = 'autoskill';
 export const inject = ['skills'];
@@ -22,11 +25,13 @@ export function findSkillDir(root = PACKAGE_ROOT) {
 }
 export const SKILL_DIR = findSkillDir();
 
-/** Register the product and its case-writing rules; user case data stays in the replaceable sibling skill. */
+/** Register the product and its rules, with user case sheets owned by the selected data root. */
 export async function bundledSkills(skillDir = SKILL_DIR, runtime = null) {
   const rules = join(skillDir, 'references', 'test-cases');
   const skills = [await readSkill(skillDir, true, runtime), await readSkill(rules, false, runtime)];
-  const cases = join(dirname(skillDir), 'autoskill-cases');
+  const root = runtime?.workspace ?? runtime?.env?.AUTOSKILL_WORKSPACE ?? defaultWorkspace();
+  const current = runtime?.caseSkill ?? process.env.AUTOSKILL_CASE_SKILL ?? join(root, '.local', 'case-plans', 'default', 'autoskill-cases');
+  const cases = runtime || existsSync(join(current, 'SKILL.md')) ? current : join(dirname(skillDir), 'autoskill-cases');
   if (existsSync(join(cases, 'SKILL.md'))) {
     try { skills.push(await readSkill(cases, false, runtime)); } catch { /* a hand-made case skill must not stop the plugin */ }
   }
@@ -61,7 +66,7 @@ async function readSkill(skillDir, entry, runtime) {
 
 /** A shell-safe, non-secret binding carried by every registered command example. */
 export function runtimeContext(spec) {
-  return Buffer.from(JSON.stringify({ version: 1, workspace: spec.workspace ?? spec.env.AUTOSKILL_WORKSPACE ?? resolve(spec.cwd, 'workspace'), port: spec.port, host: 'dsh' })).toString('base64url');
+  return Buffer.from(JSON.stringify({ version: 1, workspace: workspaceFor(spec), port: spec.port, host: 'dsh' })).toString('base64url');
 }
 
 /** Native bundled Python or an explicitly provisioned source venv; never download at startup. */
@@ -78,7 +83,7 @@ export function runtimeSpec(config = {}, skillDir = SKILL_DIR) {
     DO_NOT_TRACK: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', PIP_NO_INDEX: '1', SE_OFFLINE: 'true', SE_AVOID_STATS: 'true' };
   if (python === bundled) env.PYTHONNOUSERSITE = '1';
   if (config.workspace || process.env.AUTOSKILL_WORKSPACE) env.AUTOSKILL_WORKSPACE = resolve(config.workspace || process.env.AUTOSKILL_WORKSPACE);
-  return { port, python, bundled, env, origin: `http://127.0.0.1:${port}`, cwd: skillDir,
+  return { port, python, bundled, env, workspace: defaultWorkspace({ ...process.env, ...env }), origin: `http://127.0.0.1:${port}`, cwd: skillDir,
     args: ['-m', 'autoskill', 'dashboard', '--port', String(port)] };
 }
 
@@ -88,7 +93,6 @@ export async function apply(ctx, config = {}) {
     throw new Error('autoSkill：所选目录里没有运行时，仪表盘无法启动（缺少 ' + spec.bundled + '）。'
       + 'Windows 请选择完整离线包；Linux / UOS 请选择匹配 CPU 的离线包并运行 sh setup-linux.sh；源码部署见 docs/Linux-DSH.md。');
   }
-  for (const skill of await bundledSkills(SKILL_DIR, spec)) ctx.effect(() => ctx.skills.register(skill), 'autoskill: ' + skill.name);
   const instance = randomUUID();
   const child = spawn(spec.python, spec.args, { cwd: spec.cwd, windowsHide: true, stdio: ['ignore', 'ignore', 'inherit'],
     env: { ...process.env, ...spec.env, AUTOSKILL_INSTANCE_ID: instance } });
@@ -101,7 +105,8 @@ export async function apply(ctx, config = {}) {
       const response = await fetch(spec.origin + '/api/status', { signal: AbortSignal.timeout(500) });
       const body = await response.json();
       if (response.ok && body.name === 'autoSkill' && body.instance === instance) {
-        const connected = { ...spec, workspace: body.workspace };
+        const connected = { ...spec, workspace: body.workspace, caseSkill: body.case_skill };
+        for (const skill of await bundledSkills(SKILL_DIR, connected)) ctx.effect(() => ctx.skills.register(skill), 'autoskill: ' + skill.name);
         attachHostAdapter(ctx, connected, runtimeContext(connected));
         attachHostBackend(ctx, connected, { runtimeContext: runtimeContext(connected) });
         ctx.logger?.info?.('autoSkill dashboard ready at ' + spec.origin);

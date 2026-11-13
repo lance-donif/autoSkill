@@ -23,31 +23,38 @@ TARGETS = {
 
 
 def verify_inventory(bundle: zipfile.ZipFile, version: str) -> None:
-    """Require the complete program inventory before an archive becomes a public upgrade source."""
+    """Require the complete program inventory before an archive becomes a public release."""
     manifest = json.loads(bundle.read("package-manifest.json"))
     files = {item.filename for item in bundle.infolist() if not item.is_dir()}
     expected = manifest.get("files", {})
     if manifest.get("format") != 1 or manifest.get("version") != version or not isinstance(expected, dict):
-        raise ValueError("Invalid upgrade package manifest")
+        raise ValueError("Invalid program package manifest")
     if files - {"package-manifest.json"} != set(expected):
-        raise ValueError("Incomplete upgrade package inventory")
+        raise ValueError("Incomplete program package inventory")
     for name, digest in expected.items():
         with bundle.open(name) as source:
             actual = hashlib.file_digest(source, "sha256").hexdigest()
         if actual != digest:
-            raise ValueError("Upgrade package digest mismatch: " + name)
+            raise ValueError("Program package digest mismatch: " + name)
+
+
+def _excluded_member(name: str) -> bool:
+    """Keep user roots and retired updater code out without excluding library data assets."""
+    path = Path(name)
+    retired = {"autoskill-upgrade.py", "autoskill/app/autoskill/upgrade.py", "autoskill/app/autoskill/server/upgrades.py"}
+    return ("workspace" in path.parts or ".local" in path.parts or name.startswith("/") or ".." in path.parts
+            or name in retired or path.parts[:1] == ("data",) or path.parts[:2] == ("autoskill", "data"))
 
 
 def describe_archive(archive: Path, version: str) -> dict:
     target, interpreter = TARGETS[archive.name]
     prefix = f"autoskill/vendor/{target}/"
-    required = {"package.json", "package-manifest.json", "autoskill-upgrade.py", "cordis.patch.yml", "plugin/index.mjs", "autoskill/SKILL.md",
+    required = {"package.json", "package-manifest.json", "cordis.patch.yml", "plugin/index.mjs", "autoskill/SKILL.md",
                 "autoskill/offline-manifest.json", prefix + interpreter, prefix + "runtime-manifest.json"}
     required.add("autoskill/autoskill.cmd" if target.startswith("windows") else "setup-linux.sh")
     with zipfile.ZipFile(archive) as bundle:
         names = bundle.namelist()
-        if len(names) != len(set(names)) or not required.issubset(names) or any("workspace" in Path(n).parts or ".local" in Path(n).parts
-                                              or n.startswith("/") or ".." in Path(n).parts for n in names):
+        if len(names) != len(set(names)) or not required.issubset(names) or any(_excluded_member(name) for name in names):
             raise ValueError("Incorrect package layout or private data included: " + archive.name)
         if bundle.testzip() is not None:
             raise ValueError("ZIP CRC failure: " + archive.name)
@@ -137,17 +144,20 @@ def main():
              "本版修复升级后 DSH 内嵌浏览器沿用旧 UI 缓存：重新启用插件会使用新的页面地址，CSS/JS 及其模块依赖按内容版本加载，"
              "页面和静态资源禁止缓存；不清除 Cookie、登录态或用户偏好。升级后重启或重新加载 DSH 插件，使宿主载入新版客户端模块。\n\n"
              "本版增加“下载 HTML 报告”：沿用执行报告页面样式，包含全部用例明细和可用截图，离线也能展开查看。"
-             "每轮任务自动生成按附带测试用例 Skill 编排的 14 列 Excel 和简版 Markdown；报告按任务与轮次隔离，"
+             "每轮任务自动生成按附带测试用例 Skill 编排的 14 列 Excel、简版 Markdown 和 Bug 清单；报告按任务与轮次隔离，"
              "保留历史失败，导出失败可单独重试而不重新执行测试。用例与执行记录支持单条和批量删除，"
              "同时修复定时任务旧表单覆盖、空时间提示、子窗口关闭回放及原生执行证据绑定问题。\n\n"
              "本版增加可恢复的 Skill 工作流、原生 Selenium/Postman/Apifox/JMeter 资产执行、页面捕获转多轮 AI 对话评测与并发压测、"
              "独立宿主 AI 判定、后台调度和按需分页读取。多轮对话作为一条用例，保留首次真实失败，业务与性能结论分别记录。\n\n"
-             "旧版本升级：先在新包目录使用独立 `autoskill-upgrade.py` 检查和准备，再停止旧进程并应用；不要直接覆盖或删除旧 workspace。"
-             "新版本也提供 `autoskill upgrade` 给 AI 操作，包含备份、校验、中断恢复与回滚。具体命令与外置数据目录处理见包内升级文档。\n\n"
+             "程序与数据目录分离：更新只替换程序，继续使用同一外置数据目录。首次迁移旧 workspace 使用 `autoskill data import` 复制到空目录，"
+             "`autoskill data status` 查看当前数据位置，`autoskill data export` 导出包含凭据、登录态、用例与历史的完整数据 ZIP。"
+             "导入不会覆盖或合并已有目录；不再提供程序升级脚本。具体数据目录配置与迁移步骤见包内文档。\n\n"
+             "DSH 增加原生 autoskill_read/autoskill_task、会话任务卡与输入区任务入口，三份报告核验后可下载或由宿主 present。"
+             "真实 Linux DSH Web 的本地协议模型夹具验收与实际 SDK 测试通过；这不代表远端模型或默认沙箱智能体已经验收。\n\n"
              "CI 打包阶段不重复运行功能回归；执行组装导入检查、原生 ELF 架构检查、ZIP 结构/CRC、全文件清单、大小和 SHA-256 校验。"
-             f"本地功能实测及限制见[验证报告](https://github.com/lance-donif/autoSkill/blob/{tag}/reports/系统化技能与多轮对话验证.md)。\n\n"
+             f"本地功能实测及限制见[验证报告](https://github.com/lance-donif/autoSkill/blob/{tag}/reports/完整数据目录与DSH验证-v2.2.4.md)。\n\n"
              "已知问题：Windows 独立 Selenium 导出脚本曾偶发停留在初始空白页 data:,；本次未宣称已修复。"
-             "DSH 宿主接口已用 SDK 替身和真实本地 HTTP/CLI 验证，尚未完成真实 DSH 模型及默认沙箱验收。"
+             "DSH 宿主接口已用真实 SDK、本地协议模型夹具及真实 HTTP/CLI 验证，尚未完成远端模型及默认沙箱验收。"
              "本机完整 WebRTC 音频接收受浏览器管理策略阻塞，未计为通过；Windows/UOS ARM64 功能未做真机验证。\n\n"
              f"源码提交：`{commit}`\n\n| 附件 | 字节 | SHA-256 |\n| --- | ---: | --- |\n" +
              "".join(f"| {p['file']} | {p['bytes']:,} | `{p['sha256']}` |\n" for p in packages))

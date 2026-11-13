@@ -131,6 +131,8 @@ class DashboardDeletionTests(unittest.TestCase):
         if path == "/api/projects":
             self.project_reads += 1
             return 200, self.projects()
+        if path == "/api/settings":
+            return 200, {"data_id": "fixture-data", "dashboard": {}, "legacy_dashboard_import_eligible": False}
         if path == "/api/status":
             return 200, {"browser": {}, "runtime": {}, "skill_path": "/synthetic/skill"}
         if path.startswith("/api/runs"):

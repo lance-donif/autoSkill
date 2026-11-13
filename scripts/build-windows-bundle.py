@@ -45,19 +45,18 @@ def unzip(archive: Path, destination: Path) -> None:
 
 
 def copy_tree(source: Path, destination: Path) -> None:
-    def ignore(_folder, names):
-        return [n for n in names if n in SKIP_NAMES or Path(n).suffix in SKIP_SUFFIXES]
+    def ignore(folder, names):
+        return [n for n in names if n in SKIP_NAMES or Path(n).suffix in SKIP_SUFFIXES or (Path(folder) == source and n == "data")]
 
     shutil.copytree(source, destination, ignore=ignore)
 
 
 def write_package_manifest(output: Path) -> None:
-    """Ship the standalone updater and hash every immutable package file after building."""
-    shutil.copy2(SKILL / "app/autoskill/upgrade.py", output / "autoskill-upgrade.py")
+    """Hash every immutable program file without bundling user data or migration helpers."""
     config = json.loads((output / "package.json").read_text(encoding="utf-8"))
-    for name in ("autoskill-upgrade.py", "package-manifest.json"):
-        if name not in config["files"]:
-            config["files"].append(name)
+    config["files"] = [name for name in config["files"] if name != "autoskill-upgrade.py"]
+    if "package-manifest.json" not in config["files"]:
+        config["files"].append("package-manifest.json")
     (output / "package.json").write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     inventory = {file.relative_to(output).as_posix(): sha256(file) for file in sorted(output.rglob("*"))
                  if file.is_file() and file != output / "package-manifest.json"}

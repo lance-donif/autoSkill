@@ -152,7 +152,9 @@ class SchedulerTests(Workspace):
         jobs.sweep()
         swept = db.one("SELECT status, reason FROM runs WHERE id = ?", (run["id"],))
         self.assertEqual(swept["status"], "Blocked")
-        self.assertIn("意外结束", swept["reason"])
+        self.assertIn("进程已结束", swept["reason"])
+        self.assertIn("未自动重放", swept["reason"])
+        self.assertEqual(db.rows("SELECT * FROM results WHERE run_id = ?", (run["id"],)), [])
 
 
 class ApiGuardTests(Workspace):

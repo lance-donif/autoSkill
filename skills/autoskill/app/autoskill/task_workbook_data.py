@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from . import execution_inputs, task_report_data
+from . import data_refs, execution_inputs, task_report_data
 from .replay import ir
 
 STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行", "Unknown": "未知"}
@@ -243,8 +243,16 @@ def _screenshots(group: dict) -> list[str]:
 
 def _screenshot_reference(value, item: dict) -> str:
     source = text(value)
-    if not Path(source).is_absolute() and item.get("evidence_directory") and "://" not in source:
-        source = str(Path(item["evidence_directory"]) / source)
+    if "://" not in source:
+        try:
+            if data_refs.is_absolute(source):
+                source = data_refs.store(source)
+            elif item.get("evidence_directory"):
+                source = data_refs.store(data_refs.resolve(item["evidence_directory"]) / source)
+        except (OSError, ValueError):
+            if not data_refs.is_absolute(source) and item.get("evidence_directory"):
+                source = str(Path(item["evidence_directory"]) / source)
+            source += "（原始路径，当前数据目录无法解析）"
     return f"运行 {item.get('run_id', '未记录')}；截图来源：{source}（来源证据未随 Excel 嵌入，请在对应运行中读取）"
 
 

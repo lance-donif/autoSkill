@@ -11,7 +11,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import paths
+from . import maintenance, paths
+from .core import store
+from .locking import named_lock
 
 
 def system_info() -> dict:
@@ -89,13 +91,14 @@ def configure(chrome: str | None = None, driver: str | None = None) -> dict:
         def portable(value):
             path = Path(value).absolute()
             return path.relative_to(paths.VENDOR).as_posix() if path.is_relative_to(paths.VENDOR) else str(path)
-        paths.VENDOR.mkdir(parents=True, exist_ok=True)
+        file = paths.runtime_settings_file()
         explicit = index == 0 and (explicit_chrome or explicit_driver or previous_explicit)
         settings = {"chrome": portable(browser), "chromedriver": portable(driver_path),
                     "browser_selection": "explicit" if explicit else "detected"}
-        (paths.VENDOR / "runtime-settings.json").write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        with maintenance.access(paths.workspace()), named_lock("runtime-settings", paths.runtime_target()):
+            store.write(file, settings)
         return {"ok": True, "platform": info, "browser_pair": check,
-                "settings": str(paths.VENDOR / "runtime-settings.json"),
+                "settings": str(file),
                 "next": "autoskill/autoskill doctor --launch，然后在 DSH 安装解压根目录"}
     return {"ok": False, "platform": info, "attempts": attempted,
             "hint": "包内浏览器缺少系统库时，请由管理员安装系统 Chromium 和匹配的 chromedriver。"

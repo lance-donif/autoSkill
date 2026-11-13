@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 import test_task_markdown as markdown_fixtures
 import test_task_reports as fixtures
 
-from autoskill import db, deletion, execution_inputs, projects, runner, task_bugs, task_report_data, task_reports
+from autoskill import data_refs, db, deletion, execution_inputs, projects, runner, task_bugs, task_report_data, task_reports
 from autoskill.server.app import create_app
 
 
@@ -168,7 +168,7 @@ class TaskBugDeliveryTests(unittest.TestCase):
         self.assertEqual((run["status"], failed["status"]), ("Fail", "failed"))
         folder = task_reports._folder(failed["report_id"])
         retained = json.loads((folder / "receipt.json").read_bytes())["_retained_artifacts"]
-        excel = Path(retained["excel"])
+        excel = data_refs.resolve(retained["excel"])
         previous = (excel.read_bytes(), excel.stat().st_mtime_ns)
         fixed = task_reports.retry(failed["report_id"])
         self.assertEqual(fixed["status"], "ready", fixed)

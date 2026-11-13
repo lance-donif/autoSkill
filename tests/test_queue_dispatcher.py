@@ -1,4 +1,5 @@
 """An independent dispatcher drains durable asynchronous work after the submitting CLI exits."""
+import contextlib
 import datetime
 import json
 import os
@@ -17,10 +18,93 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 from test_execution_review_fixes import Handler, Site
 
-from autoskill import builder, db, paths, projects, runner
+from autoskill import builder, db, maintenance, paths, projects, runner
 from autoskill.server import jobs, scheduler
 
 ENSURE = "import json; from autoskill.server import jobs; print(json.dumps(jobs.ensure_worker()))"
+
+
+class MaintenanceProbe:
+    class Stopped(BaseException):
+        pass
+
+    def __init__(self, window):
+        self.window = window
+        self.ready, self.resume, self.blocked, self.retried, self.finished, self.stopping = (threading.Event() for _ in range(6))
+        self.failures = []
+        self.intercepted = False
+        self.original_pending, self.original_lock = jobs._pending, jobs.named_lock
+        self.original_init, self.original_tick = db.init, scheduler.tick
+        self.worker = threading.Thread(target=self.dispatch, daemon=True)
+
+    def barrier(self, selected):
+        if selected != self.window or self.intercepted or threading.current_thread() is not self.worker:
+            return False
+        self.intercepted = True
+        self.ready.set()
+        if not self.resume.wait(5):
+            raise AssertionError("Maintenance probe did not release its controlled barrier")
+        return True
+
+    def pending(self):
+        probing = self.barrier("pending")
+        try:
+            return self.original_pending()
+        except ValueError:
+            if probing:
+                self.blocked.set()
+            raise
+
+    @contextlib.contextmanager
+    def idle_lock(self, *args, **kwargs):
+        probing = self.barrier("idle_lock")
+        try:
+            with self.original_lock(*args, **kwargs):
+                yield
+        except ValueError:
+            if probing:
+                self.blocked.set()
+            raise
+
+    def initialize(self):
+        probing = self.barrier("initialize")
+        if self.blocked.is_set() and self.window == "initialize" and threading.current_thread() is self.worker:
+            self.retried.set()
+        try:
+            return self.original_init()
+        except ValueError:
+            if probing:
+                self.blocked.set()
+            raise
+
+    def tick(self):
+        if self.stopping.is_set():
+            raise self.Stopped()
+        if self.blocked.is_set():
+            self.retried.set()
+        return self.original_tick()
+
+    def dispatch(self):
+        try:
+            jobs._dispatch("maintenance-" + self.window)
+        except self.Stopped:
+            pass
+        except Exception as error:  # noqa: BLE001  # The assertion reports the precise unexpected dispatcher exit.
+            self.failures.append(f"{type(error).__name__}: {error}")
+        finally:
+            self.finished.set()
+
+    @contextlib.contextmanager
+    def running(self):
+        with patch.object(jobs, "_pending", self.pending), patch.object(jobs, "named_lock", self.idle_lock), \
+                patch.object(db, "init", self.initialize), patch.object(scheduler, "tick", self.tick):
+            try:
+                self.worker.start()
+                yield self
+            finally:
+                self.stopping.set()
+                self.resume.set()
+                self.worker.join(timeout=5)
 
 
 class DispatcherTests(unittest.TestCase):
@@ -211,6 +295,47 @@ class DispatcherTests(unittest.TestCase):
         self.assertEqual(len(db.rows("SELECT * FROM host_outbox WHERE task_id = ?", (task["id"],))), 1)
         self.assertEqual(db.one("SELECT state FROM host_outbox WHERE task_id = ?", (task["id"],))["state"], "pending")
         self.assertEqual(self.sites[0].requests, 0)
+
+    def _maintenance_window(self, window):
+        setup = self.queued(0)
+        jobs.cancel(setup["id"])
+        spec = {"project_id": setup["project_id"], "title": "Keep future schedule after export", "case_ids": ["TC-API-001"],
+                "rule": {"kind": "interval", "minutes": 60}}
+        task = None if window == "idle_lock" else scheduler.create(spec)
+        try:
+            with MaintenanceProbe(window).running() as probe:
+                self.assertTrue(probe.ready.wait(5), probe.failures)
+                with maintenance.exclusive(paths.workspace()):
+                    if task is None:
+                        task = scheduler.create(spec)
+                    probe.resume.set()
+                    self.assertTrue(probe.blocked.wait(5), "The real maintenance lock was not observed")
+                    self.assertTrue(probe.retried.wait(3), probe.failures)
+                    self.assertFalse(probe.finished.is_set(), probe.failures)
+                    self.assertEqual(scheduler.get(task["id"])["enabled"], True)
+                    self.assertEqual(self.sites[0].requests, 0)
+                    due = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1)
+                    db.update("tasks", task["id"], {"next_due": due.isoformat()})
+                    self.sites[0].release.set()
+                self.wait(lambda: scheduler.get(task["id"])["last_status"] == "Pass")
+                self.assertEqual(self.sites[0].requests, 1)
+                self.assertEqual(len(db.rows("SELECT id FROM schedule_occurrences WHERE task_id = ?", (task["id"],))), 1)
+                self.assertTrue(scheduler.get(task["id"])["enabled"])
+                scheduler.set_enabled(task["id"], False)
+                self.assertTrue(probe.finished.wait(5), probe.failures)
+                self.assertEqual(probe.failures, [])
+        finally:
+            if task:
+                scheduler.set_enabled(task["id"], False)
+
+    def test_maintenance_during_pending_check_retries_and_keeps_future_schedule(self):
+        self._maintenance_window("pending")
+
+    def test_maintenance_before_idle_lock_rechecks_new_schedule_instead_of_exiting(self):
+        self._maintenance_window("idle_lock")
+
+    def test_maintenance_during_initialization_retries_before_processing_work(self):
+        self._maintenance_window("initialize")
 
 
 if __name__ == "__main__":

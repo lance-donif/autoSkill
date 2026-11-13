@@ -4,7 +4,8 @@ Agent harnesses often run commands in a sandbox that cannot write outside the se
 or open TLS connections. The dashboard service is started by the user (or by the harness plugin) outside that
 sandbox. It executes the same autoskill command and returns its output, so usage stays identical.
 
-Only autoskill commands can be run this way, and files they write must stay inside the autoSkill data folder.
+Only autoskill commands can be run this way. Complete data transfer uses its explicit source and destination;
+ordinary report and browser output paths remain within the selected data folder.
 """
 from __future__ import annotations
 

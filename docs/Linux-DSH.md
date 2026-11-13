@@ -44,7 +44,7 @@ sh setup-linux.sh --chromium /usr/bin/chromium --chromedriver /usr/bin/chromedri
 autoskill/autoskill doctor --launch
 ```
 
-路径以实际位置为准，浏览器和驱动的 `--version` 主版本必须相同。配置保存在 `autoskill/vendor/linux-<架构>/runtime-settings.json`；覆盖安装前保留此配置。临时覆盖可设置 `AUTOSKILL_CHROMIUM` / `AUTOSKILL_CHROMEDRIVER`，启动 DSH 的进程也需继承这些环境。
+路径以实际位置为准，浏览器和驱动的 `--version` 主版本必须相同。配置保存在数据根的 `.local/runtime-settings/linux-<架构>.json`；替换程序后仍保留，旧版 vendor 配置首次迁入时收纳。临时覆盖可设置 `AUTOSKILL_CHROMIUM` / `AUTOSKILL_CHROMEDRIVER`，启动 DSH 的进程也需继承这些环境。
 
 缺少系统浏览器或驱动时，请管理员从适用于当前 UOS 版本和 CPU 的官方软件源准备 Chromium 及匹配驱动。常见共享库包括 NSS、ATK、GTK、GBM、X11、ALSA、字体库；具体缺失项看安装输出或 `ldd <浏览器实际二进制路径>`。Debian / Ubuntu 与统信软件源的包名可能不同，不在 UOS 上直接执行 `playwright install-deps` 或硬装其他发行版系统库。
 
@@ -59,7 +59,7 @@ dsh plugin --profile web add link:/你的绝对路径/autoSkill
 dsh web --no-open
 ```
 
-启用插件后，用当前 CPU 的包内 Python 启动仪表盘，侧栏出现仪表盘、定时任务。无需全局 Python，不会运行 npm / pip 安装器。进程需能写 `autoskill/workspace/`，并访问本机 8787 端口。远程访问 DSH Web 时，应把 DSH 的 3080 和仪表盘的 8787 都转发到浏览器所在电脑的相同端口。
+启用插件后，用当前 CPU 的包内 Python 启动仪表盘，侧栏出现仪表盘、定时任务。无需全局 Python，不会运行 npm / pip 安装器。进程需能写 `$HOME/autoSkill-data`（或显式配置的 workspace），并访问本机 8787 端口。远程访问 DSH Web 时，应把 DSH 的 3080 和仪表盘的 8787 都转发到浏览器所在电脑的相同端口。
 
 给 DSH 智能体的任务示例：
 
@@ -80,7 +80,7 @@ autoskill/autoskill --session "库存任务-乙" browser snapshot
 
 本机后台转交会传递调用者的会话身份，不使用仪表盘进程恰好继承的 `AUTOSKILL_SESSION`。这项隔离已通过本地 CLI 与真实 HTTP 转交测试；它不代表已经完成 DSH 智能体实机验收。
 
-升级前先在 DSH 停用插件，确认仪表盘退出；备份并保留旧目录的 `autoskill/workspace/`（包括 `.local`），再换包、重新启用。当前凭据明文保存在 `workspace/.local/credentials.json`，项目设置中可查看和修改；Windows DPAPI、Linux Fernet 仅用于兼容读取旧版本的加密存储。项目分享和完整包迁移按技能中的 `pack` 命令说明执行。
+更新时先结束当前任务并停止旧程序，只替换程序文件，继续使用同一外置数据目录（默认 `$HOME/autoSkill-data`）。旧版首次迁入通过数据管理或 `data import`；完整数据分享用 `data export`，包含 `.local` 中的执行记录、凭据、登录态及证据，不能用不含运行历史的 `pack --full` 代替。DSH 重新加载插件模块或重启后使用新代码；详细步骤见 [升级与数据保留](升级与数据保留.md)。
 
 ## 从源码部署
 

@@ -120,25 +120,28 @@ def _dispatch(token: str) -> None:
             return
         execution_inputs.write_json(_state_file(), {"pid": os.getpid(), "token": token})
         try:
-            db.init()
+            initialized = False
             idle_since = time.monotonic()
             while True:
                 try:
+                    if not initialized:
+                        db.init()
+                        initialized = True
                     scheduler.tick()
                     sweep()
                     start_queued()
+                    if _pending():
+                        idle_since = time.monotonic()
+                    elif time.monotonic() - idle_since >= _idle_seconds():
+                        # Enqueue commits before ensure_worker takes this same lock. Recheck while
+                        # holding it, so a caller cannot be told an exiting worker will drain its run.
+                        with named_lock("queue-dispatcher", "startup"):
+                            if not _pending():
+                                _state_file().unlink(missing_ok=True)
+                                return
                 except Exception:  # noqa: BLE001  # Transient queue or filesystem errors must not abandon already committed work.
                     time.sleep(0.2)
                     continue
-                if _pending():
-                    idle_since = time.monotonic()
-                elif time.monotonic() - idle_since >= _idle_seconds():
-                    # Enqueue commits before ensure_worker takes this same lock. Recheck while
-                    # holding it, so a caller cannot be told an exiting worker will drain its run.
-                    with named_lock("queue-dispatcher", "startup"):
-                        if not _pending():
-                            _state_file().unlink(missing_ok=True)
-                            return
                 time.sleep(0.2)
         finally:
             if _state().get("token") == token:

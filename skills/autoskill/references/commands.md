@@ -19,7 +19,7 @@
 | `project show <项目>` | 单个项目的设置 |
 | `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
-| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、把回放结果写回；默认会话位于同级 `autoskill-cases`，命名会话拥有独立默认目录，以命令返回的路径为准 |
+| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、把回放结果写回；默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
 | `context <项目> [--limit 50] [--cursor 游标] [--knowledge-limit 5] [--knowledge-cursor 游标] [--all]` | 登录、缺少的凭据、用例与知识预览；`page.cases`、`page.knowledge` 分别标明总数、剩余页及内容版本 |
 | `cases <项目> [--limit 数量] [--cursor 游标] [--all] [--kind] [--module] [--requirement] [--query]` | 分页用例摘要；`page` 返回 `total/returned/has_more/next_cursor/content_revision`，内容或查询改变会报 `cursor_expired` |
 | `cases <项目> --case <编号>` | 完整用例定义及内容版本，包含断言和需求关联；不是仪表盘展示投影 |
@@ -140,7 +140,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 目标：`@e编号`（来自最近一次 snapshot）或 CSS 选择器。按键名如 `Enter` `Escape` `Tab` `Control+a`。
 
-`browser` 子命令不提供浏览器安装、升级、连接外部浏览器、代理或登录态管理；这些由 autoSkill 统一管理。升级 autoSkill 本身使用独立的 `upgrade` 命令。
+`browser` 子命令不提供浏览器安装、升级、连接外部浏览器、代理或登录态管理；这些由 autoSkill 统一管理。更新 autoSkill 只替换程序文件，并继续使用同一个外置数据目录。
 
 ### 录下来的定位方式
 
@@ -203,34 +203,34 @@ HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{
 | `doctor [--launch]` | 检查运行时；`--launch` 真实启动一次浏览器 |
 | `verify` | 按清单校验随包运行时文件（完整离线包） |
 
-## 离线升级与恢复
+## 数据目录与程序更新
 
 | 命令 | 说明 |
 | --- | --- |
-| `upgrade plan <完整包目录或ZIP> --target <旧安装> [--workspace <外置数据目录>] [--config <配置文件>]` | 读取版本、完整性清单、工作区与当前运行状态；workspace/config 可重复 |
-| `upgrade prepare <完整包目录或ZIP> --target <旧安装> [--workspace] [--config] [--job-dir <持久目录>] [--stop-services]` | 深复制新包、保存完整数据快照，返回持久 journal；附件临时目录清理后仍可继续 |
-| `upgrade apply <journal> [--stop-services]` | 交给新包的独立运行时执行切换；launched 只表示交接成功 |
-| `upgrade status <journal>` | 读取 state、last_action、校验、备份与错误；最近动作失败不能按前次 completed 宣布成功 |
-| `upgrade rollback <journal> [--stop-services]` / `upgrade recover <journal> [--stop-services]` | 用独立进程恢复旧程序或中断状态，保留升级后新增数据与恢复依据 |
+| `data status` | 只读显示当前数据根、数据身份和已知外部来源，不初始化空目录、不生成报告或启动任务 |
+| `data import <旧数据目录或ZIP> [--target <空数据目录>]` | 无损复制整份数据到空目标，原目录保留；不覆盖或合并已有数据；只迁入数据，不替换程序 |
+| `data export [--out <ZIP路径>]` | 导出全部数据，包含用例、知识、用例表、执行记录、证据、报告、凭据、登录态、设置及调度状态；默认 ZIP 放在数据根旁 |
 
-升级保留整个工作区：用例、知识、原生资产、明文凭据、登录态、调度、运行记录与证据；外置工作区不改位置。`--stop-services` 只处理经身份核对属于目标安装的 autoSkill 服务，不关闭 DSH 或其他应用；活动业务运行不会被偷偷取消。新包独立升级器负责程序替换，不能用正在被替换的 Python 直接覆盖自己。保留 journal、旧目录和备份，不能把 `launched` 当成完成。
+默认数据目录是 Windows `%USERPROFILE%\autoSkill-data`、Linux/UOS `$HOME/autoSkill-data`；`AUTOSKILL_WORKSPACE` 或 DSH 插件 `workspace` 可显式选择其他目录。程序更新只替换程序目录并重新加载插件，继续使用同一份数据，不再提供 `upgrade` 命令或 `autoskill-upgrade.py`。
 
-HTTP 使用 `POST /api/upgrades/{plan|prepare|apply|status|rollback|recover}`，JSON 字段对应 package、target、workspaces 数组、config_paths 数组、job_dir、journal、stop_services；相对路径以 base_dir（默认服务工作区）解析。HTTP 也经过短命令进程交接，不让升级器等待长驻 HTTP 服务正常退出。完整说明见 [升级流程](workflow/upgrade.md)。
+首次从旧版迁入使用数据管理界面或 `data import`，不会自动启用另一个目标目录；若目标不是当前目录，需要修改宿主的 workspace 配置并重新启动。复制/导出需要一致的文件与数据库；活动任务结束后再操作，不能把复制期间变化的文件报成完整备份。旧证据字节与哈希保留，旧绝对路径通过数据根清单解析到新位置，不改写成另一份执行事实。操作说明见 [数据保留流程](workflow/data.md)。
 
 ## 文件放在哪
 
 ```
-<Skill 目录>/workspace/
+<autoSkill-data 数据目录>/
+  data-root.json          数据身份、历史位置与路径映射
   projects/<项目>/        可以分享：project.json、qa-config.json、auth.json、testcases/、knowledge/
-  .local/                 本机数据：完整包会分享凭据和登录态；运行记录、截图、报告不随包带走
+  .local/                 完整用户数据：凭据、登录态、运行记录、截图、报告、设置与调度
     recording.json        默认会话的录制状态（兼容旧版本）
     recordings/<哈希>/    命名会话的录制状态和临时文件
-    case-plans/<哈希>/autoskill-cases/  命名会话的默认 Excel 用例 Skill
+    case-plans/default/autoskill-cases/ 默认会话的 Excel 用例 Skill
+    case-plans/<哈希>/autoskill-cases/  命名会话的 Excel 用例 Skill
 ```
 
 环境变量 `AUTOSKILL_WORKSPACE` 可以把工作区放到别处（仪表盘和命令行要用同一个值）。
 
-`AUTOSKILL_CASE_SKILL` 可以显式指定用例 Skill 目录，优先于默认和命名会话的目录选择；需要不同任务各自使用自己的表时，使用不同目录或保留各会话的默认目录。通过后台服务执行时，调用方显式设置的值会原样选择目录（相对路径按调用方位置解析）；空值恢复该会话的默认目录，未设置则沿用服务配置。
+`AUTOSKILL_CASE_SKILL` 可以显式指定用例 Skill 目录，优先于默认和命名会话的目录选择；需要不同任务各自使用自己的表时，使用不同目录或保留各会话的默认目录。首次迁入的已知外置表收纳到数据目录，并按明确映射选择该副本。通过后台服务执行时，调用方显式设置的值用于选择目录（相对路径按调用方位置解析）；空值恢复该会话的默认目录，未设置则沿用服务配置。
 
 ## 等待时间
 
@@ -243,7 +243,7 @@ HTTP 使用 `POST /api/upgrades/{plan|prepare|apply|status|rollback|recover}`，
 
 ## 在受限沙箱里
 
-命令所在的进程写不了数据目录、或写不了用户目录下的 `.agent-browser`（浏览器控制目录）时，autoskill 判定自己在受限沙箱里，把命令转交给本机正在运行的 autoSkill 后台服务（`dashboard` 进程）执行，原样返回它的输出和退出码。
+命令所在的进程写不了数据目录、或写不了数据目录下的 `.local/browser-control`（浏览器控制目录）时，autoskill 判定自己在受限沙箱里，把命令转交给本机正在运行的 autoSkill 后台服务（`dashboard` 进程）执行，原样返回它的输出和退出码。
 
 - 后台服务由 DeepSeek Harness 插件启动，或由用户运行 `autoskill dashboard` 启动；它的端口记在 `workspace/.local/service.json`。
 - 只转交 autoskill 自己的命令；`dashboard`、`pack --full`、`pack --include-secrets`、以及 `--out` 指向数据目录以外的导出不转交。

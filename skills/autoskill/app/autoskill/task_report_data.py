@@ -1,12 +1,13 @@
 """Capture task-scoped report facts independently of spreadsheet templates."""
 from __future__ import annotations
 
+import contextlib
 import copy
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
 
-from . import db, execution_inputs, paths
+from . import data_refs, db, execution_inputs, paths
 
 VERDICTS = ("Pass", "Fail", "Blocked", "Cancelled", "Unverified", "NotRun", "Unknown")
 
@@ -167,8 +168,8 @@ def _native_evidence(run: dict, manifest: dict, outcome: dict, results: list[dic
         for reference in outcome["evidence"]:
             if not isinstance(reference, dict):
                 return False
-            source = Path(reference["path"])
-            file = (source if source.is_absolute() else folder / source).resolve()
+            value = reference["path"]
+            file = (data_refs.resolve(value) if data_refs.is_absolute(value) else folder / value).resolve()
             if not file.is_relative_to(folder) or not _file_matches(file, reference):
                 return False
         originals = {str(case["id"]): case for case in outcome.get("cases", [])}
@@ -213,12 +214,17 @@ def run_snapshot(run: dict) -> dict:
     environment = [labels[key] + "：" + str(value) for key, value in sources.get("execution_environment", {}).items() if value]
     for item in cases:
         item["environment"] = environment
-        item["evidence_directory"] = str((paths.local() / "runs" / run["id"]).resolve())
+        item["evidence_directory"] = data_refs.store(paths.local() / "runs" / run["id"])
+    metadata = {key: run.get(key) for key in ("id", "family", "engine", "trigger", "task_id", "created_at", "started_at",
+                                           "finished_at", "reason", "total", "done", "input_hash", "input_manifest")}
+    if metadata.get("input_manifest"):
+        # Missing legacy mappings remain provenance; a report must not invent an input location.
+        with contextlib.suppress(ValueError):
+            metadata["input_manifest"] = data_refs.store(metadata["input_manifest"])
     return {"schema": 1, "kind": "run", "task_id": run["id"], "project_id": run["project_id"], "project": _project(run["project_id"]),
             "title": "本次测试任务", "status": run["status"], "session_id": run.get("session_id", ""),
             "run_ids": [run["id"]], "cases": cases, "results": results, "sources": sources, "notes": notes, "environment": environment,
-            "metadata": {key: run.get(key) for key in ("id", "family", "engine", "trigger", "task_id", "created_at", "started_at",
-                                                       "finished_at", "reason", "total", "done", "input_hash", "input_manifest")}}
+            "metadata": metadata}
 
 
 def recording_identity(project_id: str, recording: dict, cases: list[dict]) -> str:

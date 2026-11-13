@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, db, domain, execution_inputs, paths, plan, projects, reporting, runner, secrets
+from autoskill import builder, data_refs, db, domain, execution_inputs, paths, plan, projects, reporting, runner, secrets
 from autoskill.core import store
 
 
@@ -180,7 +180,7 @@ class ExecutionInputTests(unittest.TestCase):
         final, results = self.execute()
         self.assertTrue(execution_inputs.result_evidence(final, results[0]))
         ref = json.loads(results[0]["detail"])["attempts"][0]
-        file = Path(ref["path"])
+        file = data_refs.resolve(ref["path"])
         receipt = json.loads(file.read_bytes())
         receipt["outcome"]["status"] = "Fail"
         execution_inputs.write_json(file, receipt)
@@ -229,7 +229,7 @@ class ExecutionInputTests(unittest.TestCase):
         refs = json.loads(results[-1]["detail"])["attempts"]
         self.assertEqual([ref["status"] for ref in refs], ["Fail", "Pass"])
         self.assertEqual(len({ref["path"] for ref in refs}), 2)
-        first = json.loads(Path(refs[0]["path"]).read_bytes())
+        first = json.loads(data_refs.resolve(refs[0]["path"]).read_bytes())
         self.assertEqual(first["outcome"]["response"]["status"], 401)
         self.assertTrue(execution_inputs.result_evidence(final, results[-1]))
 
@@ -253,7 +253,7 @@ class ExecutionInputTests(unittest.TestCase):
         self.assertEqual(final["status"], "Fail")
         detail = json.loads(results[0]["detail"])
         self.assertEqual((detail["business_status"], detail["last_attempt_status"]), ("Fail", "Pass"))
-        shots = [json.loads(Path(ref["path"]).read_bytes())["outcome"]["screenshots"][0] for ref in detail["attempts"]]
+        shots = [json.loads(data_refs.resolve(ref["path"]).read_bytes())["outcome"]["screenshots"][0] for ref in detail["attempts"]]
         self.assertEqual(len(set(shots)), 2)
         self.assertTrue(execution_inputs.result_evidence(final, results[0]))
 

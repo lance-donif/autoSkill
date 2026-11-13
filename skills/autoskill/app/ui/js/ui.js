@@ -1,5 +1,7 @@
 // Shared interface pieces: overlays, menus, empty states, the run launcher.
 import { h, icon, api, attempt, toast, go } from './core.js';
+import { preferredEngine, preferredHeaded } from './preferences.js';
+export { preferredEngine, setEngine, preferredHeaded, setHeaded } from './preferences.js';
 
 const layer = () => document.getElementById('layer');
 let closeCurrent = null;
@@ -120,12 +122,6 @@ export function definition(text) {
 }
 
 // ---- running ----
-const ENGINE_KEY = 'autoskill.engine';
-export function preferredEngine() { return localStorage.getItem(ENGINE_KEY) || 'playwright'; }
-export function setEngine(engine) { localStorage.setItem(ENGINE_KEY, engine); }
-const HEADED_KEY = 'autoskill.headed';
-export function preferredHeaded() { return localStorage.getItem(HEADED_KEY) !== '0'; }  // visible unless switched off
-export function setHeaded(on) { localStorage.setItem(HEADED_KEY, on ? '1' : '0'); }
 
 /** Queue runs and take the user to the live result. `items` = [{project_id, case_ids?}]. */
 export async function startRun(items, button, engine = preferredEngine()) {

@@ -1,4 +1,4 @@
-"""Where things live. The skill directory is the product; `.local` never leaves the machine."""
+"""Keep program files separate from the user's complete, portable data directory."""
 from __future__ import annotations
 
 import json
@@ -46,13 +46,20 @@ QUIET_CHROME_ARGS = [
 ]
 
 
+def default_workspace() -> Path:
+    """Resolve the stable per-user data directory without creating it."""
+    home = Path(os.environ.get("USERPROFILE") or Path.home()) if sys.platform == "win32" else Path.home()
+    return (home / "autoSkill-data").resolve()
+
+
 def workspace() -> Path:
-    """Shareable data: projects, cases, knowledge."""
-    return Path(os.environ.get("AUTOSKILL_WORKSPACE") or SKILL / "workspace").resolve()
+    """Resolve the selected data directory; initialization belongs to explicit startup."""
+    selected = os.environ.get("AUTOSKILL_WORKSPACE")
+    return Path(selected).expanduser().resolve() if selected else default_workspace()
 
 
 def local() -> Path:
-    """Machine-private data: sessions, secrets, run history, evidence."""
+    """Saved state, credentials and execution evidence within the selected data directory."""
     from . import maintenance
 
     maintenance.check(workspace())
@@ -64,6 +71,16 @@ def local() -> Path:
 def service_file() -> Path:
     """Where a running dashboard announces its port (read without creating anything)."""
     return workspace() / ".local" / "service.json"
+
+
+def browser_control() -> Path:
+    """Resolve this data directory's transient browser-controller state without writing."""
+    return workspace() / ".local" / "browser-control"
+
+
+def runtime_settings_file() -> Path:
+    """Resolve platform-specific runtime preferences independently of the installed program."""
+    return workspace() / ".local" / "runtime-settings" / (runtime_target() + ".json")
 
 
 def _can_write(folder: Path) -> bool:
@@ -85,15 +102,14 @@ def writable() -> bool:
 def restricted() -> str:
     """Why this process cannot do the work itself; "" when it can.
 
-    An agent harness may run commands in a sandbox that only lets them write the session folder. Such a
-    process can neither keep autoSkill's data nor start a browser (the browser controller keeps its
-    sockets under the user's home folder).
+    An agent harness may only allow writes within the current session folder. The data directory and
+    its browser-controller directory must both be writable before direct browser execution.
     """
     if not writable():
         return f"数据目录不可写：{workspace()}"
-    home = Path(os.environ.get("USERPROFILE") or Path.home()) / ".agent-browser"
-    if not _can_write(home):
-        return f"浏览器控制目录不可写：{home}"
+    control = browser_control()
+    if not _can_write(control):
+        return f"浏览器控制目录不可写：{control}"
     return ""
 
 
@@ -119,8 +135,10 @@ def _bundled_chrome_path() -> Path:
 def _configured_binary(name: str, variable: str, *, explicit_only: bool = False) -> tuple[bool, str | None]:
     if os.environ.get(variable):
         return True, _first(os.environ[variable])
-    settings = VENDOR / "runtime-settings.json"
-    if sys.platform == "linux" and settings.is_file():
+    settings = runtime_settings_file()
+    if not settings.is_file():
+        settings = VENDOR / "runtime-settings.json"
+    if settings.is_file():
         config = json.loads(settings.read_text(encoding="utf-8"))
         if config.get(name):
             candidate = Path(config[name])
@@ -145,10 +163,18 @@ def settings() -> dict:
 
 def save_settings(**values) -> dict:
     from . import maintenance
+    from .core import store
+    from .locking import named_lock
 
-    with maintenance.access(workspace()):
-        data = {**settings(), **values}
-        (local() / "settings.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    def merge(previous, changes):
+        combined = dict(previous)
+        for key, value in changes.items():
+            combined[key] = merge(combined[key], value) if isinstance(combined.get(key), dict) and isinstance(value, dict) else value
+        return combined
+
+    with maintenance.access(workspace()), named_lock("settings", "workspace"):
+        data = merge(settings(), values)
+        store.write(local() / "settings.json", data)
         return data
 
 
@@ -214,14 +240,23 @@ def headed() -> bool:
 
 
 def case_skill() -> Path:
-    """Keep the legacy default sheet, with a separate default sheet for each named AI session."""
+    """Resolve default and named-session case sheets inside the selected data directory."""
     from . import task_context
 
     if os.environ.get("AUTOSKILL_CASE_SKILL"):
-        return Path(os.environ["AUTOSKILL_CASE_SKILL"]).resolve()
-    if task_context.session_id() is not None:
-        return local() / "case-plans" / task_context.session_key() / "autoskill-cases"
-    return (SKILL.parent / "autoskill-cases").resolve()
+        from . import data_refs
+
+        original = os.environ["AUTOSKILL_CASE_SKILL"]
+        selected = Path(original).expanduser().resolve()
+        candidates = [original, selected] if data_refs.is_absolute(original) else [selected]
+        for candidate in candidates:
+            try:
+                return data_refs.resolve(candidate)
+            except data_refs.UnmappedPathError:
+                continue
+        return selected
+    key = task_context.session_key() if task_context.session_id() is not None else "default"
+    return workspace() / ".local" / "case-plans" / key / "autoskill-cases"
 
 
 def child_env(extra: dict | None = None) -> dict:

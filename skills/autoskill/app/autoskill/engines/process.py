@@ -12,7 +12,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .. import paths
+from .. import paths, runtime_identity
 from .process_job import ProcessJob
 
 
@@ -58,12 +58,13 @@ def _monitor(child: subprocess.Popen, spec: dict, folder: Path) -> str:
     while child.poll() is None:
         now = time.monotonic()
         cause = ("cancelled" if (folder / "cancel").exists() else "owner_exited" if not process_alive(spec["owner_pid"])
+                 or not runtime_identity.owns(spec["owner_pid"], spec.get("owner_identity"))
                  else "timeout" if spec.get("timeout") and now - start >= spec["timeout"] else "")
         if cause:
             terminate(child)
             return cause
         if now - heartbeat >= 1:
-            write_json(folder / "heartbeat.json", {"at": stamp(), "pid": child.pid, "elapsed_seconds": now - start})
+            write_json(folder / "heartbeat.json", {"at": stamp(), "pid": child.pid, "owner_identity": runtime_identity.current(child.pid), "elapsed_seconds": now - start})
             heartbeat = now
         time.sleep(0.1)
     return "completed"
@@ -72,8 +73,10 @@ def _monitor(child: subprocess.Popen, spec: dict, folder: Path) -> str:
 def worker(spec_file: str) -> None:
     """A separate supervisor also terminates a native runtime after its autoSkill owner dies."""
     spec = json.loads(Path(spec_file).read_text(encoding="utf-8"))
+    if not runtime_identity.owns(spec.get("owner_pid"), spec.get("owner_identity")):
+        return
     folder = Path(spec["evidence"])
-    write_json(folder / "supervisor.json", {"pid": os.getpid()})
+    write_json(folder / "supervisor.json", {"pid": os.getpid(), "owner_identity": runtime_identity.current()})
     child = None
     job = None
     started = time.monotonic()
@@ -83,6 +86,7 @@ def worker(spec_file: str) -> None:
         argv = spec["argv"]
         if os.name == "nt":
             spec["launcher_owner_pid"] = os.getpid()
+            spec["launcher_owner_identity"] = runtime_identity.current()
             write_json(Path(spec_file), spec)
             argv = [sys.executable, "-m", "autoskill.engines.process", "--windows-launch", spec_file]
         with (folder / "stdout.log").open("wb") as stdout, (folder / "stderr.log").open("wb") as stderr:
@@ -118,14 +122,14 @@ class Process:
         self.folder = Path(prepared["evidence"])
         self.folder.mkdir(parents=True, exist_ok=True)
         self.emit = emit or (lambda _value: None)
-        spec = {**prepared, "owner_pid": os.getpid()}
+        spec = {**prepared, "owner_pid": os.getpid(), "owner_identity": runtime_identity.current()}
         spec_file = self.folder / "process-spec.json"
         write_json(spec_file, spec)
         self.child = subprocess.Popen([sys.executable, "-m", "autoskill.engines.process", str(spec_file)],
                                       env={**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(paths.APP), os.environ.get("PYTHONPATH")]))},
                                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        write_json(self.folder / "supervisor.json", {"pid": self.child.pid})
+        write_json(self.folder / "supervisor.json", {"pid": self.child.pid, "owner_identity": runtime_identity.current(self.child.pid)})
         self.emit({"type": "supervisor_started", "pid": self.child.pid})
 
     def events(self) -> list[dict]:
@@ -172,9 +176,12 @@ def windows_launch(spec_file: str) -> int:
     from ..runner import process_alive
 
     spec = json.loads(Path(spec_file).read_text(encoding="utf-8"))
-    while not (Path(spec["evidence"]) / "launch-ready").exists():
-        if not process_alive(spec["launcher_owner_pid"]):
+    while True:
+        if (not process_alive(spec["launcher_owner_pid"])
+                or not runtime_identity.owns(spec["launcher_owner_pid"], spec.get("launcher_owner_identity"))):
             return 2
+        if (Path(spec["evidence"]) / "launch-ready").exists():
+            break
         time.sleep(0.05)
     return subprocess.call(spec["argv"], stdin=subprocess.DEVNULL)
 

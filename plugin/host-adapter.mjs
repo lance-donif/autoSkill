@@ -1,8 +1,9 @@
 // The local scheduler owns time. This adapter only admits one durable occurrence to an active DSH host.
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { hostGuidance } from './host-guidance.mjs';
+import { workspaceFor } from './data-root.mjs';
 
 const keyOf = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -19,7 +20,7 @@ export class HostAdapter {
     this.sessions = sessions;
     this.logger = logger;
     this.spec = spec;
-    this.workspace = spec.workspace ?? spec.env.AUTOSKILL_WORKSPACE ?? resolve(spec.cwd, 'workspace');
+    this.workspace = workspaceFor(spec);
     this.folder = join(this.workspace, '.local', 'host-deliveries', 'dsh');
     this.owner = 'autoskill-dsh-' + randomUUID();
     this.context = options.runtimeContext;

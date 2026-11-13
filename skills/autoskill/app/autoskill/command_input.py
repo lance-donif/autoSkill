@@ -120,8 +120,6 @@ def for_bridge(args, argv: list[str]) -> tuple[list[str], str | None, list[dict]
         files.add(resolve_path(args.file, root))
     if getattr(args, "source", None):
         files.add(resolve_path(args.source, root))
-    if args.command == "upgrade" and action in ("plan", "prepare"):
-        files.add(resolve_path(args.package, root))
     if args.command == "secret" and action == "set" and args.value is None:
         stdin_text = sys.stdin.readline()
     return forwarded, stdin_text, [_attachment(file) for file in sorted(files)]

@@ -15,10 +15,10 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .. import paths
+from .. import data_refs, paths, runtime_identity
 from . import agent, traffic
 
-_children: dict[int, subprocess.Popen] = {}
+_children: dict[int, tuple[subprocess.Popen, str]] = {}
 
 
 def _write(file: Path, value: dict) -> None:
@@ -41,8 +41,9 @@ def start(session: str, folder: Path) -> dict:
         process = subprocess.Popen([sys.executable, '-m', 'autoskill.recorder.capture', '--endpoint', endpoint,
                                     '--folder', str(folder), '--token', token], env=env, stdout=log, stderr=log,
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    handle = {'folder': str(folder), 'pid': process.pid, 'token': token, 'source': 'cdp_network'}
-    _children[process.pid] = process
+    handle = {'folder': data_refs.store(folder), 'pid': process.pid, 'token': token, 'source': 'cdp_network',
+              'owner': runtime_identity.current(process.pid)}
+    _children[process.pid] = (process, token)
     deadline = time.monotonic() + 12
     while time.monotonic() < deadline:
         ready = folder / 'ready.json'
@@ -61,8 +62,10 @@ def stop(handle: dict | None) -> dict:
     """Wait for the observer to flush its trace. Missing evidence stays explicit."""
     if not handle:
         return {'source': 'cdp_network', 'entries': [], 'available': False}
-    folder = Path(handle['folder'])
-    _write(folder / 'control.json', {'token': handle['token'], 'stop': True})
+    folder = data_refs.resolve(handle['folder'])
+    active = runtime_identity.owns(handle['pid'], handle.get('owner'))
+    if active:
+        _write(folder / 'control.json', {'token': handle['token'], 'stop': True})
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         file = folder / 'capture.json'
@@ -70,10 +73,15 @@ def stop(handle: dict | None) -> dict:
             result = json.loads(file.read_text(encoding='utf-8'))
             if result.pop('token', None) != handle['token']:
                 raise RuntimeError('网络证据不属于当前录制会话')
-            process = _children.pop(handle['pid'], None)
-            if process:
-                process.wait(timeout=2)
+            child = _children.get(handle['pid'])
+            if child and child[1] == handle['token'] and runtime_identity.is_local(handle.get('owner')):
+                _children.pop(handle['pid'])
+                child[0].wait(timeout=2)
+            if not active:
+                result['runtime_state'] = 'detached'
             return result
+        if not active:
+            raise RuntimeError('原网络观察器不属于当前运行位置或已经退出；未控制任何进程，原始证据保留在 ' + str(folder))
         time.sleep(0.05)
     raise RuntimeError('网络证据尚未写完，原始事件已保留在 ' + str(folder / 'events.jsonl'))
 
@@ -82,7 +90,9 @@ def discard(handle: dict | None, owner: Path) -> None:
     """Remove only this recording's finished temporary trace, after archival or explicit cancellation."""
     if not handle:
         return
-    folder = Path(handle['folder']).resolve()
+    if not runtime_identity.is_local(handle.get('owner')):
+        return  # Preserve detached recording evidence until an explicit recovery resolves it.
+    folder = data_refs.resolve(handle['folder']).resolve()
     if folder.parent != owner.resolve() or not folder.name.startswith('network-'):
         raise RuntimeError('网络证据目录不属于当前录制')
     file = folder / 'capture.json'

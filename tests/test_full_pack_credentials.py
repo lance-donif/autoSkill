@@ -15,13 +15,15 @@ from autoskill import builder, paths, projects, secrets, sessions, share
 
 class FullPackCredentialsTests(unittest.TestCase):
     def fixture(self, root, layout):
+        home = root / "home"
         skill = root / "autoskill"
         (skill / "app/autoskill").mkdir(parents=True)
         (skill / "SKILL.md").write_text("Synthetic skill", encoding="utf-8")
         (skill / "app/autoskill/cli.py").write_text("", encoding="utf-8")
-        workspace = {"default": skill / "workspace", "external": root / "external-data", "inside": skill / "team-data"}[layout]
-        environment = {"AUTOSKILL_WORKSPACE": str(workspace), "ENV_PASSWORD": "synthetic-env-password"}
+        workspace = {"default": home / "autoSkill-data", "external": root / "external-data", "inside": skill / "team-data"}[layout]
+        environment = {"AUTOSKILL_WORKSPACE": str(workspace), "ENV_PASSWORD": "synthetic-env-password", "HOME": str(home), "USERPROFILE": str(home)}
         self.enterContext(patch.dict(os.environ, environment))
+        self.enterContext(patch.object(Path, "home", return_value=home))
         if layout == "default":
             os.environ.pop("AUTOSKILL_WORKSPACE")
         self.enterContext(patch.object(paths, "SKILL", skill))

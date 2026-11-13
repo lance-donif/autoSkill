@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 from test_execution_review_fixes import Handler, Site
 
-from autoskill import builder, db, plan, projects, runner, task_context
+from autoskill import builder, data_refs, db, plan, projects, runner, task_context
 from autoskill.server import jobs, scheduler
 
 
@@ -77,7 +77,9 @@ class ScheduledPlanTests(unittest.TestCase):
         final_task = scheduler.get(task["id"])
         self.assertEqual(final_task["last_status"], "Pass")
         run = db.one("SELECT * FROM runs WHERE id = ?", (final_task["last_run_id"],))
-        self.assertEqual((run["plan_path"], run["session_id"]), (str(second), "session-b"))
+        self.assertEqual((data_refs.resolve(run["plan_path"]), run["session_id"]), (second, "session-b"))
+        self.assertFalse(data_refs.is_absolute(run["plan_path"]))
+        self.assertEqual(runner.public_run(run)["plan_path"], str(second))
         self.worker.poll()
         with patch.dict(os.environ, {"AUTOSKILL_CASE_SKILL": str(second)}):
             deadline = time.monotonic() + 5

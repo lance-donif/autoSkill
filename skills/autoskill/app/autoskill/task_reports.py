@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
-from . import db, execution_inputs, paths, reporting, task_bugs, task_markdown, task_report_data
+from . import data_refs, db, execution_inputs, paths, reporting, task_bugs, task_markdown, task_report_data
 from .locking import named_lock, project_lock
 
 
@@ -39,7 +39,11 @@ def _saved(report_id: str) -> dict | None:
 
 
 def _public(receipt: dict) -> dict:
-    return {key: value for key, value in receipt.items() if key not in ("_retained_excel", "_retained_artifacts")}
+    value = {key: item for key, item in receipt.items() if key not in ("_retained_excel", "_retained_artifacts")}
+    for artifact in ("excel", "markdown", "bugs"):
+        if value.get(artifact):
+            value[artifact] = str(data_refs.resolve(value[artifact]))
+    return value
 
 
 def _unavailable(receipt: dict, message: str) -> dict:
@@ -53,7 +57,7 @@ def _available(receipt: dict, artifact: str) -> bool:
     prefix = "" if artifact == "excel" else artifact + "_"
     try:
         folder = _folder(receipt["report_id"]).resolve()
-        file = Path(receipt[artifact])
+        file = data_refs.resolve(receipt[artifact])
         return (file.resolve().parent == folder and file.is_file() and _hash(file) == receipt[prefix + "sha256"]
                 and file.stat().st_size == receipt[prefix + "size"])
     except (OSError, KeyError, TypeError, ValueError):
@@ -148,7 +152,7 @@ def _markdown_artifact(snapshot: dict, folder: Path, digest: str, excel_link: st
     file = folder / filename
     expected, summary = module.render(snapshot, excel_link=excel_link)
     if existing and _available(existing, artifact):
-        file = Path(existing[artifact])
+        file = data_refs.resolve(existing[artifact])
         file.read_text(encoding="utf-8")
     else:
         module.write_task(snapshot, file, excel_link=excel_link)
@@ -167,26 +171,26 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
         execution_inputs.write_json(snapshot_file, snapshot)
     file = folder / ("测试用例-" + digest[:16] + ".xlsx")
     if existing and existing.get("source_hash") == digest and _available(existing, "excel"):
-        file = Path(existing["excel"])
+        file = data_refs.resolve(existing["excel"])
         built = {key: existing[key] for key in ("renderer", "template_id", "validation", "cases", "execution_rows") if key in existing}
     else:
         built = reporting.write_task(snapshot, file)
     _read_workbook(file)
-    partial = {**base, "status": "generating", "generation": generation, "source_hash": digest, "excel": str(file.resolve()),
+    partial = {**base, "status": "generating", "generation": generation, "source_hash": digest, "excel": data_refs.store(file),
                "sha256": _hash(file), "size": file.stat().st_size, **built}
     execution_inputs.write_json(folder / "receipt.json", partial)
     excel_link = quote(file.name, safe="")
     markdown, brief = _markdown_artifact(snapshot, folder, digest, excel_link, "markdown", existing)
-    partial.update(markdown=str(markdown.resolve()), markdown_sha256=_hash(markdown), markdown_size=markdown.stat().st_size)
+    partial.update(markdown=data_refs.store(markdown), markdown_sha256=_hash(markdown), markdown_size=markdown.stat().st_size)
     execution_inputs.write_json(folder / "receipt.json", partial)
     bugs, issues = _markdown_artifact(snapshot, folder, digest, excel_link, "bugs", existing)
     validation = {**built.get("validation", {}), "workbook_readable": True, "markdown_readable": True, "bugs_readable": True}
-    receipt = {**base, "status": "ready", "excel": str(file.resolve()),
+    receipt = {**base, "status": "ready", "excel": data_refs.store(file),
                "download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/excel",
-               "markdown": str(markdown.resolve()),
+               "markdown": data_refs.store(markdown),
                "markdown_download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/markdown",
                "markdown_sha256": _hash(markdown), "markdown_size": markdown.stat().st_size,
-               "bugs": str(bugs.resolve()), "bugs_download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/bugs",
+               "bugs": data_refs.store(bugs), "bugs_download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/bugs",
                "bugs_sha256": _hash(bugs), "bugs_size": bugs.stat().st_size,
                "sha256": _hash(file), "size": file.stat().st_size, "source_hash": digest,
                "generation": generation, "generated_at": db.now(), "retryable": False,

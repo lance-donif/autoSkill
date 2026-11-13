@@ -38,7 +38,8 @@ class LinuxPlatformTests(unittest.TestCase):
             native.parent.mkdir(parents=True)
             native.write_bytes(b"arm fixture")
             native.chmod(0o755)
-            with patch.object(paths, "VENDOR", vendor), patch.object(paths, "runtime_target", return_value="linux-arm64"), patch.dict(os.environ, {"AUTOSKILL_BROWSER": "bundled"}, clear=True):
+            with patch.object(paths, "VENDOR", vendor), patch.object(paths, "runtime_target", return_value="linux-arm64"), \
+                    patch.dict(os.environ, {"AUTOSKILL_BROWSER": "bundled", "AUTOSKILL_WORKSPACE": str(vendor / "data")}, clear=True):
                 self.assertEqual(paths.chrome(), str(native))
                 with patch.dict(os.environ, {"AUTOSKILL_CHROMIUM": str(vendor / "missing")}):
                     self.assertIsNone(paths.chrome())
@@ -58,11 +59,12 @@ class LinuxPlatformTests(unittest.TestCase):
                     patch.object(paths, "chrome", return_value="bundled/chrome"), patch.object(paths, "chromedriver", return_value="bundled/driver"), \
                     patch.object(platforms.shutil, "which", side_effect=lambda n: "/usr/bin/" + n if n in ("chromium", "chromedriver") else None), \
                     patch.object(platforms, "browser_pair", side_effect=[{"ok": False, "error": "GLIBC_2.35 not found"}, {"ok": True}]), \
-                    patch.dict(os.environ, {}, clear=True):
+                    patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(vendor / "data")}, clear=True):
                 result = platforms.configure()
                 self.assertTrue(result["ok"])
-                self.assertEqual(json.loads((vendor / "runtime-settings.json").read_text()),
+                self.assertEqual(json.loads(paths.runtime_settings_file().read_text()),
                                  {"chrome": "/usr/bin/chromium", "chromedriver": "/usr/bin/chromedriver", "browser_selection": "detected"})
+                self.assertFalse((vendor / "runtime-settings.json").exists())
 
     def test_builder_rejects_x64_binary_for_arm_package(self):
         spec = importlib.util.spec_from_file_location("linux_builder", ROOT / "scripts/build-linux-bundle.py")
