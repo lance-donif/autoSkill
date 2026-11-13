@@ -112,13 +112,14 @@ def init() -> None:
 
 
 def claim_run(run_id: str, pid: int, maximum: int, token: str = "") -> bool:
-    """Atomically reserve one queued run, respecting the shared login and process slots."""
+    """Reserve a process slot; only replay runs share the project's saved login state."""
     with connect() as conn:
         return bool(conn.execute(
             "UPDATE runs SET status = 'Running', started_at = ?, pid = ?, claim_token = ? "
             "WHERE id = ? AND status = 'Queued' AND cancel = 0 "
             "AND (SELECT COUNT(*) FROM runs WHERE status = 'Running') < ? "
-            "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' AND active.project_id = runs.project_id)",
+            "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' AND active.project_id = runs.project_id "
+            "AND active.family != 'native' AND runs.family != 'native')",
             (now(), pid, token, run_id, maximum)).rowcount)
 
 
