@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +25,8 @@ class AnswerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         type(self).calls += 1
+        if self.path == "/slow":
+            time.sleep(0.05)
         body = json.dumps({"priority": "medium"}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -78,14 +81,14 @@ class WorkflowTests(unittest.TestCase):
         return workflow.submit(identity, task["id"], lease_token=task["lease_token"], attempt_id=task["attempt_id"],
                                idempotency_key=key or self.key(), payload=payload)
 
-    def to_materialize(self, identity, expected="high"):
+    def to_materialize(self, identity, expected="high", rules=None):
         requirements = self.claim(identity)
         self.assertEqual(requirements["phase"], "requirements")
         self.submit(identity, requirements, {"requirements": [{"id": "r1", "text": f"优先级为 {expected}", "source_ids": ["s1"]}]})
         design = self.claim(identity)
         self.submit(identity, design, {"scenarios": [{"id": "sc1", "title": "检查优先级", "requirement_ids": ["r1"], "oracle_ids": ["o1"]}],
                                        "oracles": [{"id": "o1", "kind": "api", "requirement_ids": ["r1"],
-                                                    "checks": {"status": 200, "json_equals": {"/priority": expected}}}]})
+                                                    "checks": rules or {"status": 200, "json_equals": {"/priority": expected}}}]})
         materialize = self.claim(identity)
         self.assertEqual(materialize["phase"], "materialize")
         return materialize
@@ -138,6 +141,23 @@ class WorkflowTests(unittest.TestCase):
         runner.execute(second["run_id"])
         self.assertEqual(self.claim(identity)["phase"], "knowledge")
         self.assertEqual(projects.case(self.project, case["id"]), case)
+
+    def test_declared_latency_failure_is_not_overall_satisfied_or_business_fail(self):
+        identity = self.create()
+        rules = {"status": 200, "json_equals": {"/priority": "medium"}, "max_ms": 1}
+        task = self.to_materialize(identity, "medium", rules)
+        case = builder.api_case("TC-API-001", "响应时间", "GET", "/slow", rules)
+        self.submit(identity, task, {"cases": [case], "bindings": {"sc1": [case["id"]]}})
+        self.assertIsNone(self.claim(identity))
+        execution = next(item for item in workflow.status(identity)["items"] if item["phase"] == "execute")
+        runner.execute(execution["run_id"])
+        diagnosis = self.claim(identity)
+        actual = diagnosis["context"]["execution"]
+        self.assertEqual(diagnosis["phase"], "diagnose")
+        self.assertEqual(actual["conclusion"], "violated")
+        self.assertTrue(actual["business_verified"])
+        self.assertEqual(actual["results"][0]["business_status"], "Pass")
+        self.assertEqual(actual["performance_status"], "Fail")
 
     def test_failed_maintenance_candidate_never_replaces_live_case(self):
         identity, original, first_run = self.queue_candidate()

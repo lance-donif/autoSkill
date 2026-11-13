@@ -82,18 +82,22 @@ def _result_summary(run: dict, materialization: dict) -> dict:
     for identity in materialization["case_ids"]:
         result = by_case.get(identity)
         if not result:
-            observed.append({"case_id": identity, "business_status": "Unverified", "evidence_valid": False, "reason": "缺少实际执行结果"})
+            observed.append({"case_id": identity, "business_status": "Unverified", "performance_status": "Unverified",
+                             "evidence_valid": False, "reason": "缺少实际执行结果"})
             continue
         detail = json.loads(result["detail"])
         valid = (result.get("case_content_hash") == materialization["case_hashes"][identity]
                  and execution_inputs.result_evidence(run, result))
         observed.append({"case_id": identity, "result_id": result["id"], "business_status": detail.get("business_status", "Unverified") if valid else "Unverified",
+                         "performance_status": detail.get("performance_status", "Unverified") if valid else "Unverified",
                          "evidence_valid": valid, "verification": detail.get("verification"), "status": result["status"], "reason": result.get("reason", "")})
     verdicts = {record["business_status"] for record in observed}
-    conclusion = "violated" if "Fail" in verdicts else "satisfied" if verdicts == {"Pass"} else "incomplete"
+    performance = {record["performance_status"] for record in observed}
+    performance_status = "Fail" if "Fail" in performance else "Pass" if "Pass" in performance else "Unverified"
+    conclusion = "violated" if "Fail" in verdicts or performance_status == "Fail" else "satisfied" if verdicts == {"Pass"} else "incomplete"
     return {"run_id": run["id"], "run_status": run["status"], "conclusion": conclusion, "results": observed,
             "evidence_valid": all(record["evidence_valid"] for record in observed),
-            "business_verified": conclusion == "satisfied"}
+            "business_verified": verdicts == {"Pass"}, "performance_status": performance_status}
 
 
 def _publish_cases(flow: dict, context: dict, summaries: list[dict]) -> str:
