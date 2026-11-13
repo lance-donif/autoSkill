@@ -341,6 +341,51 @@ def get(project_id: str, capture_id: str, head: str | None = None) -> dict:
     return domain.read_document(project_id, f"conversations/{capture_id}/capture.json", head)
 
 
+def list_captures(project_id: str, *, limit: int = 50, offset: int = 0) -> dict:
+    """List source captures from one immutable project generation without exposing request bodies."""
+    if limit < 1 or offset < 0:
+        raise ValueError("分页数量需要大于零，起点不能为负数")
+    with project_lock(project_id):
+        manifest = domain.manifest(project_id)
+        items = []
+        for name in manifest["files"]:
+            parts = name.split("/")
+            if len(parts) != 3 or parts[0] != "conversations" or parts[2] != "capture.json":
+                continue
+            capture = domain.read_document(project_id, name, manifest["head"])
+            items.append({key: capture.get(key) for key in ("id", "created_at", "origin", "conversation_candidates", "business_status")}
+                         | {"requests": len(capture["requests"]), "head": manifest["head"]})
+        items.sort(key=lambda item: (item.get("created_at") or "", item["id"]), reverse=True)
+        selected = items[offset:offset + limit]
+        return {"items": selected, "total": len(items), "offset": offset, "limit": limit, "head": manifest["head"],
+                "has_more": offset + len(selected) < len(items)}
+
+
+def import_content(project_id: str, content: str, *, source_format: str, name: str = "", expected_head: str | None = None) -> dict:
+    """Parse an uploaded or pasted source as data and preserve its exact UTF-8 source bytes."""
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("请上传或粘贴 cURL/HAR 内容")
+    data = content.encode("utf-8")
+    scope = None
+    if source_format == "har":
+        try:
+            value = traffic.filtered_har(json.loads(data))
+        except (json.JSONDecodeError, TypeError, KeyError, AttributeError) as error:
+            raise ValueError("HAR 内容格式无效") from error
+        entries = value["log"]["entries"]
+        scope = {"policy": traffic.POLICY, "complete_network_log": False, "source_preserved": "uploaded-original",
+                 "sources": {"har": value["log"]["_autoskill_capture_scope"]}}
+    elif source_format == "curl":
+        entries = [{"request": parse_curl(content), "response": {}}]
+    else:
+        raise ValueError("对话来源格式需要是 curl 或 har")
+    if not entries:
+        raise ValueError("来源中没有可保存的业务 HTTP 请求")
+    requests = [_normal_request(entry, number) for number, entry in enumerate(entries, 1)]
+    return _capture(project_id, requests, data, "source." + source_format,
+                    {"kind": source_format, "name": name or "页面上传来源", "transport": "content"}, expected_head, capture_scope=scope)
+
+
 def _replace(value, path: str, replacement):
     if path in ("", "/"):
         return replacement

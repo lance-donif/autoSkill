@@ -16,6 +16,7 @@ from .. import __version__, bridge, command_input, context_service, data_prefere
 from ..replay import ir
 from . import jobs, metrics, scheduler
 from .case_folders import register as register_case_folders
+from .conversations import register as register_conversations
 from .data import register as register_data
 from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
@@ -140,6 +141,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     register_project_materials(app)
     register_case_folders(app)
     register_load_testing(app)
+    register_conversations(app)
     register_native_tools(app)
     register_workflows(app)
     _register_unknown_route(app)

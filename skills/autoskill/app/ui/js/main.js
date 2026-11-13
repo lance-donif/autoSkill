@@ -11,6 +11,7 @@ const PAGES = {
   'project-materials': () => import('./pages/project-materials.js'),
   'native-assets': () => import('./pages/native-assets.js'),
   'native-runs': () => import('./pages/native-runs.js'),
+  conversations: () => import('./pages/conversations.js'),
   workflows: () => import('./pages/workflows.js'),
   diagnostics: () => import('./pages/diagnostics.js'),
   runs: () => import('./pages/runs.js'),

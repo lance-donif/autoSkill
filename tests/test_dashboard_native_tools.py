@@ -1,4 +1,5 @@
 """Dashboard-native tools preserve pinned assets, bound evidence and asynchronous diagnostics."""
+import json
 import threading
 import time
 from unittest.mock import patch
@@ -6,7 +7,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from test_native_engines import Workspace
 
-from autoskill import native_assets, native_run
+from autoskill import domain, native_assets, native_run
 from autoskill.server.app import create_app
 
 
@@ -88,3 +89,25 @@ class NativeDashboardTests(Workspace):
                 return result
             time.sleep(0.01)
         raise AssertionError("Diagnostic did not complete")
+
+    def test_uploaded_sources_are_data_and_preserve_exact_original_bytes(self):
+        client = self.client()
+        marker = self.root / "never-created"
+        content = f"curl 'https://fixture.invalid/chat' --json '{{\"question\":\"中文 $(touch {marker})\"}}'\n"
+        response = client.post(f"/api/conversations/{self.pid}/import-content", json={"format": "curl", "name": "原文", "content": content})
+        self.assertEqual(response.status_code, 200, response.text)
+        capture = client.get(f"/api/conversations/{self.pid}/{response.json()['id']}").json()
+        self.assertEqual(domain.read_file(self.pid, capture["source"]["path"]), content.encode())
+        self.assertFalse(marker.exists())
+        har = {"log": {"entries": [{"_resourceType": "fetch", "request": {"url": "https://fixture.invalid/chat", "method": "POST", "headers": [],
+                                  "postData": {"mimeType": "application/json", "text": '{"question":"next"}'}},
+                                  "response": {"status": 200, "headers": [], "content": {"mimeType": "application/json", "text": '{"answer":"yes"}'}}}]}}
+        original = json.dumps(har, ensure_ascii=False, indent=3) + "\n"
+        response = client.post(f"/api/conversations/{self.pid}/import-content", json={"format": "har", "content": original})
+        self.assertEqual(response.status_code, 200, response.text)
+        capture = client.get(f"/api/conversations/{self.pid}/{response.json()['id']}").json()
+        self.assertEqual(domain.read_file(self.pid, capture["source"]["path"]), original.encode())
+        listed = client.get(f"/api/conversations/{self.pid}?limit=1").json()
+        self.assertEqual((listed["total"], len(listed["items"]), listed["has_more"]), (2, 1, True))
+        self.assertNotIn("requests", listed["items"][0].get("origin", {}))
+        self.assertIsInstance(listed["items"][0]["requests"], int)
