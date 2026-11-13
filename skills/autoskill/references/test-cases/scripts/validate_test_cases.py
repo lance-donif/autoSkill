@@ -77,8 +77,16 @@ def _check_steps(values, case_id, errors, warnings):
         errors.append(f"{case_id} 已知按钮名称须使用【界面原文】")
 
 
+def _level_markers(cell):
+    return [line for line in (cell.comment.text if cell.comment else "").splitlines() if line.startswith(GROUP_LEVEL_MARKER)]
+
+
+def _full_group_merge(row, row_merges):
+    return any(merged.min_row == row == merged.max_row and merged.min_col == 1 and merged.max_col == 12 for merged in row_merges)
+
+
 def _group_level(cell, row, errors):
-    markers = [line for line in (cell.comment.text if cell.comment else "").splitlines() if line.startswith(GROUP_LEVEL_MARKER)]
+    markers = _level_markers(cell)
     if not markers:
         return LEVEL_COLORS.get(rgb(cell)), False
     raw = markers[0].removeprefix(GROUP_LEVEL_MARKER)
@@ -127,7 +135,8 @@ class _SheetValidation:
                 self.errors.append(f"第 {row} 行有内容但缺少用例标识或分组名称")
             return
         row_merges = [merged for merged in self.merges if merged.min_row <= row <= merged.max_row]
-        if first.startswith("FT-"):
+        marked_group = _level_markers(cells[0]) and _full_group_merge(row, row_merges)
+        if first.startswith("FT-") and not marked_group:
             self.check_case(first, cells, values, row_merges)
         else:
             self.check_group(row, first, cells, row_merges)
@@ -169,7 +178,7 @@ class _SheetValidation:
 
     def check_group(self, row, first, cells, row_merges):
         level, marked = _group_level(cells[0], row, self.errors)
-        full_merge = any(merged.min_row == row == merged.max_row and merged.min_col == 1 and merged.max_col == 12 for merged in row_merges)
+        full_merge = _full_group_merge(row, row_merges)
         if not level or not full_merge:
             self.errors.append(f"无法识别的分组行 {row}: {first}；核对配色与 A:L 合并范围")
             return

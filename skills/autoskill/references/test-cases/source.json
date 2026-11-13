@@ -56,13 +56,13 @@
     },
     {
       "path": "scripts/validate_test_cases.py",
-      "sha256": "a9201ea6559e879174796d3714bbf1b56b2ff80a856332237ba5f699bb46c40a",
-      "size": 13333
+      "sha256": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9",
+      "size": 13589
     },
     {
       "path": "ADAPTATION.md",
-      "sha256": "63ae65ed37a8ff3a52598edecc6ffbaa80e7bfc792f003f25c37a765b2eb9b5b",
-      "size": 5394
+      "sha256": "edac477b774bad4cd3d9990c331f38744aab09ca6a63acebab33e298cc89d505",
+      "size": 5705
     }
   ]
 }

@@ -59,6 +59,10 @@ class CaseSkillValidatorTests(unittest.TestCase):
         for item in source["source_files"]:
             if item["path"].startswith(("assets/", "agents/")):
                 self.assertEqual(hashlib.sha256((SKILL / item["path"]).read_bytes()).hexdigest(), item["sha256"])
+        for item in source["adapted_files"]:
+            data = (SKILL / item["path"]).read_bytes()
+            self.assertEqual(len(data), item["size"])
+            self.assertEqual(hashlib.sha256(data).hexdigest(), item["sha256"])
 
     def test_original_four_level_rules_keep_blank_result_marks_comments_and_extensions(self):
         book, sheet = workbook()
@@ -130,6 +134,27 @@ class CaseSkillValidatorTests(unittest.TestCase):
             self.assertFalse(validator.validate_sheet(sheet, expected_cases=0)["ok"])
         finally:
             book.close()
+
+    def test_ft_prefixed_business_group_requires_both_marker_and_exact_merge(self):
+        for marked, merged in ((True, True), (False, True), (True, False)):
+            with self.subTest(marked=marked, merged=merged):
+                book, sheet = workbook(depth=1, marked=marked)
+                try:
+                    name = "FT-真实业务系统"
+                    sheet.cell(2, 1, name)
+                    sheet.cell(3, 2, name)
+                    sheet.cell(3, 3, name)
+                    if not merged:
+                        sheet.unmerge_cells("A2:L2")
+                        sheet.merge_cells("A2:K2")
+                    report = validator.validate_sheet(sheet, expected_items=1, expected_cases=1)
+                    self.assertEqual(report["ok"], marked and merged, report)
+                    self.assertEqual(sheet.cell(2, 1).value, name)
+                    if report["ok"]:
+                        self.assertEqual(report["functionItems"][0]["path"], [name])
+                        self.assertEqual(report["uniqueIdCount"], 1)
+                finally:
+                    book.close()
 
     def test_identity_path_and_step_errors_are_not_weakened(self):
         book, sheet = workbook(count=2)
