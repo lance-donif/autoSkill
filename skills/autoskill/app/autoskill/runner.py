@@ -50,6 +50,8 @@ def enqueue(prepared: dict, connection=None) -> dict:
     if connection is None:
         with db.connect() as conn:
             return enqueue(prepared, connection=conn)
+    if connection.execute("SELECT 1 FROM deleted_runs WHERE id = ?", (prepared["id"],)).fetchone():
+        raise ValueError("此执行记录已删除，请新建运行")
     keys = ", ".join(prepared)
     marks = ", ".join("?" for _ in prepared)
     values = [json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value for value in prepared.values()]
@@ -450,7 +452,9 @@ def recover_runs() -> None:
                 "WHERE id = ? AND status = 'Running' AND pid IS ? AND claim_token = ?",
                 (db.now(), "运行进程意外结束（可能是电脑休眠或进程被关闭），请重新运行", run["id"], run["pid"], run["claim_token"])).rowcount
         if recovered:
-            sync_plan(db.one("SELECT * FROM runs WHERE id = ?", (run["id"],)))
+            current = db.one("SELECT * FROM runs WHERE id = ?", (run["id"],))
+            if current and not current["delete_requested"]:
+                sync_plan(current)
 
 
 def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
@@ -469,7 +473,16 @@ def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
 
 def execute(run_id: str, force_login: bool = False, *, claim_token: str | None = None) -> dict:
     """Execute a run once, or wait for the process that already owns it to return its final row."""
+    from . import deletion
+
     db.init()
+    with deletion.execution_guard(run_id):
+        result = _execute_guarded(run_id, force_login, claim_token)
+    deletion._cleanup_result(run_id)
+    return result
+
+
+def _execute_guarded(run_id: str, force_login: bool, claim_token: str | None) -> dict:
     if force_login:
         db.execute("UPDATE runs SET force_login = 1 WHERE id = ? AND status = 'Queued'", (run_id,))
     run, claimed = _acquire(run_id, claim_token)
@@ -567,7 +580,9 @@ def spawn(run_id: str, force_login: bool = False) -> int | None:
                 "reason = CASE WHEN cancel = 1 THEN '' ELSE ? END, finished_at = ?, claim_token = '', pid = NULL "
                 "WHERE id = ? AND status = 'Running' AND claim_token = ?",
                 ("无法启动运行进程：" + type(error).__name__, db.now(), run_id, token))
-        sync_plan(db.one("SELECT * FROM runs WHERE id = ?", (run_id,)))
+        current = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
+        if current and not current["delete_requested"]:
+            sync_plan(current)
         return None
     with _children_lock:
         _children[child.pid] = child

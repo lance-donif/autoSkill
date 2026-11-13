@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from .. import __version__, bridge, command_input, context_service, db, demo, paths, projects, runner, secrets, sessions, task_context
+from .. import __version__, bridge, command_input, context_service, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context
 from ..replay import ir
 from . import jobs, metrics, scheduler
 from .ui_assets import mount_ui
@@ -104,6 +104,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     _register_settings_routes(app)
     _register_run_creation_route(app)
     _register_run_detail_routes(app)
+    _register_deletion_routes(app)
     _register_schedule_routes(app)
     _register_context_routes(app)
     _register_workflow_routes(app)
@@ -371,6 +372,30 @@ def _register_run_detail_routes(app: FastAPI) -> None:
         if file.parent != folder or file.suffix != ".png" or not file.is_file():
             raise HTTPException(404, "文件不存在")
         return FileResponse(file, media_type="image/png")
+
+
+def _register_deletion_routes(app: FastAPI) -> None:
+    @app.delete("/api/projects/{project_id}/cases/{case_id}")
+    def delete_case(project_id: str, case_id: str):
+        return deletion.delete_cases([{"project_id": project_id, "case_id": case_id}])
+
+    @app.post("/api/cases/delete")
+    async def delete_cases(request: Request):
+        body = await request.json()
+        if not isinstance(body, dict) or not isinstance(body.get("items"), list):
+            raise ValueError("items 必须是包含 project_id、case_id 的数组")
+        return await asyncio.to_thread(deletion.delete_cases, body["items"])
+
+    @app.delete("/api/runs/{run_id}")
+    def delete_run(run_id: str):
+        return deletion.delete_runs([run_id])
+
+    @app.post("/api/runs/delete")
+    async def delete_runs(request: Request):
+        body = await request.json()
+        if not isinstance(body, dict) or not isinstance(body.get("run_ids"), list):
+            raise ValueError("run_ids 必须是运行标识数组")
+        return await asyncio.to_thread(deletion.delete_runs, body["run_ids"])
 
 
 def _register_schedule_routes(app: FastAPI) -> None:

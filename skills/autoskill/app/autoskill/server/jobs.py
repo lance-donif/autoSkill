@@ -11,7 +11,7 @@ import threading
 import time
 import uuid
 
-from .. import db, execution_inputs, paths, runner
+from .. import db, deletion, execution_inputs, paths, runner
 from ..locking import named_lock
 from . import scheduler
 
@@ -103,7 +103,7 @@ def ensure_worker() -> dict:
 
 
 def _pending() -> bool:
-    return bool(db.one("SELECT id FROM runs WHERE status IN ('Queued', 'Running') LIMIT 1")
+    return bool(db.one("SELECT id FROM runs WHERE status IN ('Queued', 'Running') OR delete_requested = 1 LIMIT 1")
                 or db.one("SELECT id FROM tasks WHERE enabled = 1 LIMIT 1"))
 
 
@@ -153,6 +153,7 @@ def alive(pid: int | None) -> bool:
 def sweep() -> None:
     """A run whose process is gone can never finish; say so instead of showing it as running forever."""
     runner.recover_runs()
+    deletion.sweep()
 
 
 def start_queued() -> None:

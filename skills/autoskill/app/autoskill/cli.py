@@ -283,6 +283,15 @@ def _upgrade_commands(sub) -> None:
             operation.add_argument("--stop-services", action="store_true", help="独立升级器切换或恢复前停止此安装的 autoSkill 服务")
 
 
+def _delete_commands(sub) -> None:
+    removal = sub.add_parser("delete", help="删除指定用例或执行记录").add_subparsers(dest="action", required=True)
+    cases = removal.add_parser("case", help="删除当前用例，保留历史执行记录")
+    cases.add_argument("project")
+    cases.add_argument("case_ids", nargs="+")
+    runs = removal.add_parser("run", help="删除执行记录及对应证据；正在执行的先取消再删除")
+    runs.add_argument("run_ids", nargs="+")
+
+
 def parser() -> argparse.ArgumentParser:
     top = CommandParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
     top.add_argument("--session", help="AI 测试会话标识；同一任务每条命令使用同一个值，也可设 AUTOSKILL_SESSION")
@@ -317,6 +326,7 @@ def parser() -> argparse.ArgumentParser:
     _judge_commands(sub)
     _schedule_commands(sub)
     _upgrade_commands(sub)
+    _delete_commands(sub)
 
     secret = sub.add_parser("secret", help="本机凭据：set / list / delete").add_subparsers(dest="action", required=True)
     setter = secret.add_parser("set")
@@ -552,6 +562,14 @@ def _dispatch_cases(args) -> tuple[dict, int]:
         return context_service.case(args.project, args.case_id), 0
     return context_service.cases(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items,
                                  kind=args.kind, module=args.module, requirement=args.requirement, query=args.query or ""), 0
+
+
+def _dispatch_delete(args) -> tuple[dict, int]:
+    from . import deletion
+
+    result = (deletion.delete_cases([{"project_id": args.project, "case_id": case_id} for case_id in args.case_ids])
+              if args.action == "case" else deletion.delete_runs(args.run_ids))
+    return result, 2 if result["errors"] else 0
 
 
 def _dispatch_knowledge(args) -> tuple[dict, int]:
@@ -882,6 +900,7 @@ def dispatch(args) -> tuple[dict, int]:
         "project": _dispatch_project,
         "context": _dispatch_context,
         "cases": _dispatch_cases,
+        "delete": _dispatch_delete,
         "knowledge": _dispatch_knowledge,
         "workflow": _dispatch_workflow,
         "asset": _dispatch_asset,

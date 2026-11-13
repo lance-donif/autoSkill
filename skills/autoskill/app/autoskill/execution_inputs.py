@@ -13,7 +13,7 @@ from pathlib import Path
 
 from . import __version__, db, paths, projects, secrets, sessions
 from .core import store
-from .locking import project_lock
+from .locking import named_lock, project_lock
 from .replay import ir
 
 
@@ -231,11 +231,12 @@ def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate
 
 
 def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None) -> tuple[dict, dict]:
-    manifest = capture(project_id, chosen, engine, candidate_cases=candidate_cases)
-    digest = content_hash(manifest)
-    file = _folder() / (digest + ".json")
-    write_json(file, manifest)
-    return {"input_manifest": str(file), "input_hash": digest}, manifest
+    with project_lock(project_id), named_lock("input-store", "replay"):
+        manifest = capture(project_id, chosen, engine, candidate_cases=candidate_cases)
+        digest = content_hash(manifest)
+        file = _folder() / (digest + "-" + uuid.uuid4().hex + ".json")
+        write_json(file, manifest)
+        return {"input_manifest": str(file), "input_hash": digest}, manifest
 
 
 def load(run: dict, *, check_engine: bool = False) -> dict:

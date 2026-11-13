@@ -10,7 +10,7 @@ from pathlib import Path
 
 from . import db, domain, engines, native_assets, paths, projects, secrets, task_context
 from .engines.process import write_json
-from .locking import named_lock
+from .locking import named_lock, project_lock
 
 
 def _capture_files(project_id: str, asset: dict, parameters: dict) -> tuple[list[dict], dict]:
@@ -48,6 +48,13 @@ def prepare(project_id: str, asset_id: str, *, head: str | None = None, paramete
             trigger: str = "manual", task_id: str | None = None, session_id: str | None = None,
             host: str = "generic", host_session_id: str = "") -> dict:
     """Freeze domain and runtime identities before enqueue; no subprocess test or run write occurs here."""
+    with project_lock(project_id), named_lock("input-store", "native"):
+        return _prepare(project_id, asset_id, head=head, parameters=parameters, trigger=trigger, task_id=task_id,
+                        session_id=session_id, host=host, host_session_id=host_session_id)
+
+
+def _prepare(project_id: str, asset_id: str, *, head: str | None, parameters: dict | None,
+             trigger: str, task_id: str | None, session_id: str | None, host: str, host_session_id: str) -> dict:
     projects.path(project_id)
     asset = native_assets.get(project_id, asset_id, head)
     adapter = engines.get(asset["engine"])
@@ -64,7 +71,7 @@ def prepare(project_id: str, asset_id: str, *, head: str | None = None, paramete
                 "planning": {"planned_unknown": True, "unit": "native_case", "reason": "原生测试数量由执行器发现和报告，不用文件数冒充用例数"},
                 "freeze_scope": "domain 文件、入口 argv、显式参数及凭据引用；继承的系统环境与资产外部文件不是冻结输入"}
     input_hash = native_assets.digest(manifest)
-    file = paths.local() / "native-inputs" / (input_hash + ".json")
+    file = paths.local() / "native-inputs" / (input_hash + "-" + uuid.uuid4().hex + ".json")
     write_json(file, manifest)
     return {"id": db.new_id("run"), "family": "native", "project_id": project_id, "engine": asset["engine"],
             "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": [asset_id], "total": 0,

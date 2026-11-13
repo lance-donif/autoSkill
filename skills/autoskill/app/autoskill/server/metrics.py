@@ -177,7 +177,7 @@ def runs(scope: Scope, trigger: str | None = None, status: str | None = None, li
     total = db.one(f"SELECT COUNT(*) n {base}", args)["n"]
     items = db.rows(
         "SELECT u.id, u.batch_id, u.project_id, COALESCE(p.name, u.project_id) project_name, u.engine, u.trigger, u.status, "
-        "u.total, u.done, u.passed, u.failed, u.blocked, u.current, u.reason, u.created_at, u.started_at, u.finished_at "
+        "u.total, u.done, u.passed, u.failed, u.blocked, u.current, u.reason, u.created_at, u.started_at, u.finished_at, u.delete_requested, u.deletion_error "
         f"{base} ORDER BY u.created_at DESC LIMIT ? OFFSET ?", [*args, int(limit), int(offset)])
     return {"total": total, "items": items}
 

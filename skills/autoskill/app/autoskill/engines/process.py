@@ -73,6 +73,7 @@ def worker(spec_file: str) -> None:
     """A separate supervisor also terminates a native runtime after its autoSkill owner dies."""
     spec = json.loads(Path(spec_file).read_text(encoding="utf-8"))
     folder = Path(spec["evidence"])
+    write_json(folder / "supervisor.json", {"pid": os.getpid()})
     child = None
     job = None
     started = time.monotonic()
@@ -124,6 +125,7 @@ class Process:
                                       env={**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(paths.APP), os.environ.get("PYTHONPATH")]))},
                                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        write_json(self.folder / "supervisor.json", {"pid": self.child.pid})
         self.emit({"type": "supervisor_started", "pid": self.child.pid})
 
     def events(self) -> list[dict]:

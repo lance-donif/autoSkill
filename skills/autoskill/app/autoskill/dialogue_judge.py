@@ -74,6 +74,9 @@ def submit_request(context: dict, case: dict, turn: int, prompt: str, history: l
     scope = "judge-request:" + context["run_id"]
     with db.connect() as connection:
         connection.execute("BEGIN IMMEDIATE")
+        if (connection.execute("SELECT 1 FROM deleted_runs WHERE id = ?", (context["run_id"],)).fetchone()
+                or connection.execute("SELECT 1 FROM runs WHERE id = ? AND delete_requested = 1", (context["run_id"],)).fetchone()):
+            raise WorkflowError("evidence_deleted", "执行记录已删除，不能重新创建其评审请求")
         found = state.request(connection, scope, idempotency_key, "judge-request", frozen)
         if replayed := state.replay(found):
             return replayed

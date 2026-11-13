@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS host_outbox (
   token TEXT NOT NULL DEFAULT '', lease_until TEXT, receipt TEXT NOT NULL DEFAULT '{}',
   attempts INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS host_outbox_pending ON host_outbox (host, state, created_at);
+CREATE TABLE IF NOT EXISTS deleted_cases (
+  project_id TEXT NOT NULL, case_id TEXT NOT NULL, deleted_at TEXT NOT NULL,
+  PRIMARY KEY(project_id, case_id));
+CREATE TABLE IF NOT EXISTS deleted_runs (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL);
 """
 FINISHED = ("Pass", "Fail", "Blocked", "Cancelled")
 
@@ -100,7 +104,9 @@ def init() -> None:
         for name, definition in (("headed", "INTEGER NOT NULL DEFAULT 0"), ("claim_token", "TEXT NOT NULL DEFAULT ''"),
                                  ("force_login", "INTEGER NOT NULL DEFAULT 0"), ("session_id", "TEXT NOT NULL DEFAULT ''"),
                                  ("family", "TEXT NOT NULL DEFAULT 'replay'"), ("input_manifest", "TEXT NOT NULL DEFAULT ''"),
-                                 ("input_hash", "TEXT NOT NULL DEFAULT ''"), ("plan_path", "TEXT NOT NULL DEFAULT ''")):
+                                 ("input_hash", "TEXT NOT NULL DEFAULT ''"), ("plan_path", "TEXT NOT NULL DEFAULT ''"),
+                                 ("delete_requested", "INTEGER NOT NULL DEFAULT 0"), ("deletion_error", "TEXT NOT NULL DEFAULT ''"),
+                                 ("deletion_manifest", "TEXT NOT NULL DEFAULT ''")):
             if name not in columns:
                 conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
         task_columns = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
@@ -122,7 +128,7 @@ def claim_run(run_id: str, pid: int, maximum: int, token: str = "") -> bool:
     with connect() as conn:
         return bool(conn.execute(
             "UPDATE runs SET status = 'Running', started_at = ?, pid = ?, claim_token = ? "
-            "WHERE id = ? AND status = 'Queued' AND cancel = 0 "
+            "WHERE id = ? AND status = 'Queued' AND cancel = 0 AND delete_requested = 0 "
             "AND (SELECT COUNT(*) FROM runs WHERE status = 'Running') < ? "
             "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' AND active.project_id = runs.project_id "
             "AND active.family != 'native' AND runs.family != 'native')",

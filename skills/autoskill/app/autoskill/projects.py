@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import uuid
 from functools import wraps
 from pathlib import Path
 
@@ -312,9 +313,12 @@ def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[s
             known.add("REQ-RECORDED")
         merged[item["id"]] = item
     ids = set(merged)
+    incoming_ids = {item["id"] for item in incoming}
+    reserved_file = folder / "deleted-case-ids.json"
+    removed_ids = set(store.read(reserved_file)) if reserved_file.is_file() else set()
     for item in merged.values():
         unknown = [d for d in depends_on(item) if d not in ids]
-        if unknown:
+        if unknown and (item["id"] in incoming_ids or not set(unknown).issubset(removed_ids)):
             raise ValueError(f'{item["id"]} 依赖的前置用例不存在：{"、".join(unknown)}')
         if item["kind"] == "ui" and "automation" in item.get("extensions", {}):
             ir.validate(item["extensions"]["automation"])
@@ -327,9 +331,49 @@ def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[s
 @_project_locked
 def next_case_id(project_id: str, kind: str) -> str:
     prefix = "TC-UI-" if kind == "ui" else "TC-API-"
-    numbers = [int(c["id"][len(prefix):]) for c in cases(project_id, active_only=False)
-               if c["id"].startswith(prefix) and c["id"][len(prefix):].isdigit()]
+    db.init()
+    identities = [c["id"] for c in cases(project_id, active_only=False)]
+    identities += [row["case_id"] for row in db.rows("SELECT case_id FROM deleted_cases WHERE project_id = ?", (project_id,))]
+    reserved = path(project_id) / "deleted-case-ids.json"
+    if reserved.is_file():
+        identities += store.read(reserved)
+    numbers = [int(identity[len(prefix):]) for identity in identities
+               if identity.startswith(prefix) and identity[len(prefix):].isdigit()]
     return f"{prefix}{max(numbers, default=0) + 1:03d}"
+
+
+@_project_locked
+def delete_case(project_id: str, case_id: str) -> dict:
+    """Remove one current definition, retaining history and explicit dependent-case contracts."""
+    if not isinstance(case_id, str) or not case_id:
+        raise ValueError("用例标识不能为空")
+    folder = path(project_id)
+    current = cases(project_id, active_only=False)
+    found = any(item["id"] == case_id for item in current)
+    db.init()
+    # Reserve the identity before touching files, so a failed/retried deletion cannot recycle it.
+    if found:
+        reserved = folder / "deleted-case-ids.json"
+        reserved_ids = store.read(reserved) if reserved.is_file() else []
+        store.write(reserved, sorted(set(reserved_ids) | {case_id}))
+        db.execute("INSERT OR IGNORE INTO deleted_cases(project_id,case_id,deleted_at) VALUES(?,?,?)", (project_id, case_id, db.now()))
+        snapshot = folder / "versions" / ("SNAPSHOT-" + uuid.uuid4().hex)
+        for filename in store.FILES.values():
+            file = folder / "testcases" / filename
+            items = store.read(file)
+            if any(item["id"] == case_id for item in items):
+                destination = snapshot / "testcases" / filename
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(file, destination)
+                store.write(file, [item for item in items if item["id"] != case_id])
+    login = auth(project_id)
+    kept = {key: value for key, value in login.items() if key not in ("ui_case", "api_case", "api_check_case") or value != case_id}
+    if kept != login:
+        store.write(folder / "auth.json", kept)
+    store.sync_skills(folder)
+    reindex(project_id)
+    return {"project_id": project_id, "case_id": case_id, "already_deleted": not found,
+            "dependent_cases": [item["id"] for item in current if item["id"] != case_id and case_id in depends_on(item)]}
 
 
 @_project_locked
