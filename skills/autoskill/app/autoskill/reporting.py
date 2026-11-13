@@ -8,7 +8,7 @@ import re
 import uuid
 from pathlib import Path
 
-from . import db, execution_inputs, paths, projects, task_report_data, task_workbook, task_workbook_data
+from . import db, execution_inputs, projects, task_report_data, task_workbook, task_workbook_data
 from .replay import ir
 
 STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行", "Unknown": "未知", None: "未执行"}
@@ -73,13 +73,20 @@ COLUMNS = [("id", "用例编号", 14), ("kind", "类型", 8), ("module", "模块
 
 
 def build(project_id: str, out: str | None = None) -> dict:
+    from .locking import project_lock
+
+    with project_lock(project_id):
+        return _build(project_id, out)
+
+
+def _build(project_id: str, out: str | None = None) -> dict:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
 
     info = projects.get(project_id)
     rows = _rows(project_id)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f") + "-" + uuid.uuid4().hex[:6]  # noqa: DTZ005  # Local display time plus unique identity prevents concurrent overwrites.
-    folder = Path(out) if out else paths.local() / "reports" / project_id
+    folder = Path(out) if out else projects.path(project_id) / "reports" / "project-summary"
     folder.mkdir(parents=True, exist_ok=True)
     counts = {key: sum(r["status"] == key for r in rows) for key in ("Pass", "Fail", "Blocked", None)}
     judged = counts["Pass"] + counts["Fail"]

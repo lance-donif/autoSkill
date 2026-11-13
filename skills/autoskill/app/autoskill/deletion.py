@@ -151,12 +151,13 @@ def _refresh_sheets(project_id: str, case_ids: list[str], folders: list[str], *,
 
 
 def _reports(project_id: str) -> None:
-    folder = _managed_directory("reports") / _identity(project_id)
-    if folder.is_symlink() or not folder.resolve().is_relative_to(paths.local().resolve()):
-        raise ValueError("报告目录是外部链接，未删除链接目标")
-    for file in folder.glob(project_id + "-测试报告-*.*"):
-        if file.suffix in (".xlsx", ".md") and file.is_file():
-            file.unlink()
+    folders = [_managed_directory("reports") / _identity(project_id), projects.path(project_id) / "reports" / "project-summary"]
+    for folder in folders:
+        if folder.is_symlink() or not folder.resolve().is_relative_to(paths.workspace().resolve()):
+            raise ValueError("报告目录是外部链接，未删除链接目标")
+        for file in folder.glob(project_id + "-测试报告-*.*"):
+            if file.suffix in (".xlsx", ".md") and file.is_file():
+                file.unlink()
 
 
 def delete_cases(items: list[dict]) -> dict:
@@ -376,6 +377,9 @@ def cleanup(run_id: str) -> dict:
             inventory = _inventory(run)
         _refresh_sheets(run["project_id"], inventory["case_ids"], inventory["plan_folders"], excluded=run_id)
         with project_lock(run["project_id"]), named_lock("input-store", family):
+            from . import report_locations
+
+            report_locations.remove_run(run_id)
             evidence = _managed_directory("runs") / run_id
             if evidence.is_symlink():
                 evidence.unlink()

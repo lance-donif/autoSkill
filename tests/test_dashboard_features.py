@@ -1,15 +1,16 @@
-"""Exercise nested folders and requirement changes through the running dashboard."""
+"""Exercise nested case folders and local diagnostics against the running dashboard."""
 import io
 import json
 import time
 import uuid
+import zipfile
 from pathlib import Path
 
 import openpyxl
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
-from autoskill import builder, execution_inputs, projects, workflow
+from autoskill import builder, execution_inputs, projects, runner, workflow
 from autoskill.core import store
 
 
@@ -60,6 +61,46 @@ class FeatureDashboardTests(DashboardWorkspace):
         self.addCleanup(all_book.close)
         all_mapped = list(all_book["编号映射"].values)
         self.assertEqual({row[1] for row in all_mapped[1:]}, {"TC-BEGIN", "TC-CHECK", "TC-SLOW", "TC-CHANGING", "TC-UI"})
+
+    def test_knowledge_materials_download_and_uploaded_share_use_real_files(self):
+        self.open("project-materials?project=" + self.pid)
+        self.page.get_by_role("button", name="新建知识", exact=True).first.click()
+        dialog = self.page.get_by_role("dialog", name="新建知识", exact=True)
+        dialog.get_by_label("文件名", exact=True).fill("订单/退款规则.md")
+        dialog.get_by_label("内容", exact=True).fill("退款按原支付渠道退回。")
+        dialog.get_by_role("button", name="保存", exact=True).click()
+        expect(dialog).not_to_be_visible()
+        knowledge = projects.path(self.pid) / "knowledge/订单/退款规则.md"
+        self.assertEqual(knowledge.read_text(), "退款按原支付渠道退回。")
+        self.page.get_by_role("row").filter(has_text="订单/退款规则.md").get_by_role("button", name="查看 / 编辑", exact=True).click()
+        edit = self.page.get_by_role("dialog", name="查看与编辑知识", exact=True)
+        expect(edit.get_by_label("内容", exact=True)).to_have_value("退款按原支付渠道退回。")
+        edit.get_by_label("内容", exact=True).fill("退款按原支付渠道退回，保留订单号。")
+        edit.get_by_role("button", name="保存", exact=True).click()
+        expect(edit).not_to_be_visible()
+        self.assertEqual(knowledge.read_text(), "退款按原支付渠道退回，保留订单号。")
+        run = runner.create(self.pid, ["TC-SLOW"], headed=False)
+        completed = runner.execute(run["id"])
+        self.assertEqual(completed["status"], "Pass", completed)
+        self.assertTrue(Path(completed["test_report"]["excel"]).is_relative_to(projects.path(self.pid) / "reports"))
+        self.page.get_by_role("button", name="导出全部项目资料", exact=True).click()
+        with self.page.expect_download() as exported:
+            self.page.get_by_role("link", name="下载项目资料 ZIP", exact=True).click()
+        with zipfile.ZipFile(exported.value.path()) as archive:
+            self.assertEqual(archive.read(self.pid + "/knowledge/订单/退款规则.md").decode(), knowledge.read_text())
+            manifest = json.loads(archive.read("materials-manifest.json"))
+            self.assertTrue(any("/testcases/" in name for name in manifest["files"]))
+            self.assertTrue(any("/reports/" in name for name in manifest["files"]))
+        self.page.get_by_role("button", name="分享与导入", exact=True).click()
+        self.page.get_by_role("button", name="生成分享包", exact=True).click()
+        with self.page.expect_download() as shared:
+            self.page.get_by_role("link", name="下载分享包", exact=True).click()
+        package = Path(shared.value.path()).read_bytes()
+        self.assertTrue(zipfile.is_zipfile(io.BytesIO(package)))
+        self.page.get_by_label("从这台设备选择 ZIP", exact=True).set_input_files({"name": "project-share.zip", "mimeType": "application/zip", "buffer": package})
+        self.page.get_by_role("button", name="导入项目分享包", exact=True).click()
+        expect(self.page.get_by_text("已导入 0 个项目 · 1 个未导入", exact=True)).to_be_visible()
+        self.evidence("project-materials.png")
 
     def test_workflow_page_explains_twenty_of_hundred_and_creates_scoped_maintenance(self):
         project = projects.create("需求变更页面验收", f"http://localhost:{self.target.server_port}", project_id="workflow-dashboard")["id"]

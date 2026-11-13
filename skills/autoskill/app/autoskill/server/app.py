@@ -20,6 +20,7 @@ from .data import register as register_data
 from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
 from .load_testing import register as register_load_testing
+from .project_materials import register as register_project_materials
 from .ui_assets import mount_ui
 from .workflows import register as register_workflows
 
@@ -135,6 +136,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     register_host_context(app)
     register_execution_requests(app)
     register_data(app)
+    register_project_materials(app)
     register_case_folders(app)
     register_load_testing(app)
     register_workflows(app)

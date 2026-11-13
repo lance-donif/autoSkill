@@ -1,30 +1,22 @@
 """Durable, retryable Excel, summary and issue-list delivery for completed test tasks."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
-import re
 from pathlib import Path
 from urllib.parse import quote
 
-from . import data_refs, db, execution_inputs, paths, reporting, task_bugs, task_markdown, task_report_data
+from . import data_refs, db, execution_inputs, report_locations, reporting, task_bugs, task_markdown, task_report_data
 from .locking import named_lock, project_lock
 
 
 def _folder(report_id: str) -> Path:
-    if re.fullmatch(r"run_[A-Za-z0-9][A-Za-z0-9_-]*", report_id):
-        folder = paths.local() / "runs" / report_id.removeprefix("run_") / "test-report"
-    elif re.fullmatch(r"(?:workflow|recording)_[a-f0-9]{64}", report_id):
-        folder = paths.local() / "task-reports" / report_id
-    else:
-        raise ValueError("测试报告标识无效")
-    if not folder.resolve().is_relative_to(paths.local().resolve()):
-        raise ValueError("测试报告路径不属于当前工作区")
-    return folder
+    return report_locations.folder(report_id)
 
 
-def _base(kind: str, task_id: str, report_id: str) -> dict:
-    return {"report_id": report_id, "kind": kind, "task_id": task_id,
+def _base(kind: str, task_id: str, report_id: str, project_id: str | None = None) -> dict:
+    return {"report_id": report_id, "kind": kind, "task_id": task_id, **({"project_id": project_id} if project_id else {}),
             "retry_url": "/api/task-reports/" + quote(report_id, safe="") + "/retry"}
 
 
@@ -201,7 +193,9 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
 
 def _ensure(base: dict, generation, capture, retry: bool) -> dict:
     try:
-        with named_lock("test-report", base["report_id"]):
+        with project_lock(base["project_id"]) if base.get("project_id") else contextlib.nullcontext(), named_lock("test-report", base["report_id"]):
+            if base.get("project_id"):
+                report_locations.bind(base["report_id"], base["project_id"])
             failure_base = base
             try:
                 saved = _saved(base["report_id"])
@@ -238,11 +232,12 @@ def for_run(run_id: str, *, retry: bool = False) -> dict:
 
     base = _base("run", run_id, "run_" + run_id)
     _folder(base["report_id"])
-    initial = db.one("SELECT status, delete_requested FROM runs WHERE id = ?", (run_id,))
+    initial = db.one("SELECT status, delete_requested, project_id FROM runs WHERE id = ?", (run_id,))
     if not initial or initial["delete_requested"]:
         return {**base, "status": "skipped", "reason": "运行已删除或正在删除，不再生成报告", "retryable": False}
     if initial["status"] not in db.FINISHED:
         return {**base, "status": "pending", "reason": "运行尚未结束，完成后生成 Excel、简报和 Bug 清单", "retryable": False}
+    base = _base("run", run_id, "run_" + run_id, initial["project_id"])
     with deletion.execution_guard(run_id):
         run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
         if not run or run.get("delete_requested"):
@@ -271,7 +266,7 @@ def for_workflow(workflow_id: str, *, retry: bool = False) -> dict:
     with project_lock(flow["project_id"]):
         flow = workflow_state.workflow(workflow_id)
         identity = execution_inputs.content_hash([workflow_id, flow["cycle_id"]])
-        base = _base("workflow", workflow_id, "workflow_" + identity)
+        base = _base("workflow", workflow_id, "workflow_" + identity, flow["project_id"])
         if not _workflow_ready(flow):
             return {**base, "status": "pending", "reason": "本周期尚未结束，保留各次运行报告，周期完成后汇总", "retryable": False}
         return _ensure(base, flow["revision"], lambda: task_report_data.workflow_snapshot(flow), retry)
@@ -280,7 +275,7 @@ def for_workflow(workflow_id: str, *, retry: bool = False) -> dict:
 def for_recording(project_id: str, recording: dict, cases: list[dict]) -> dict:
     """Freeze the just-saved definitions, not another task's latest replay results."""
     identity = task_report_data.recording_identity(project_id, recording, cases)
-    base = _base("recording", identity, "recording_" + identity)
+    base = _base("recording", identity, "recording_" + identity, project_id)
     def capture():
         request = {"project_id": project_id, "recording": {key: recording.get(key) for key in
                    ("started_at", "session_id", "rand", "start_url", "workflow_binding", "operations")}, "cases": cases}
@@ -302,7 +297,7 @@ def retry(report_id: str) -> dict:
 
         flow = workflow_state.workflow(saved["task_id"])
         if (_folder(report_id) / "snapshot.json").is_file():
-            base = _base(saved["kind"], saved["task_id"], report_id)
+            base = _base(saved["kind"], saved["task_id"], report_id, saved.get("project_id"))
             with project_lock(flow["project_id"]):
                 return _ensure(base, saved["generation"], lambda: _snapshot(base, saved), True)
         expected = "workflow_" + execution_inputs.content_hash([flow["id"], flow["cycle_id"]])
@@ -310,7 +305,7 @@ def retry(report_id: str) -> dict:
             raise ValueError("工作流已开始新周期；请读取当前周期报告，不能覆盖旧周期的快照")
         return for_workflow(saved["task_id"], retry=True)
     snapshot_file = _folder(report_id) / "snapshot.json"
-    base = _base(saved["kind"], saved["task_id"], report_id)
+    base = _base(saved["kind"], saved["task_id"], report_id, saved.get("project_id"))
     def capture():
         if snapshot_file.is_file():
             return json.loads(snapshot_file.read_bytes())

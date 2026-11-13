@@ -1,8 +1,9 @@
 """Share projects: pack what you maintain into one file, import what someone gave you.
 
-Project packs carry cases, knowledge and login definitions, with optional
-passphrase-encrypted credentials. Full skill packs intentionally carry portable
-credentials and saved logins. Neither kind carries run history or evidence.
+Project packs carry cases, knowledge, report attachments and login definitions,
+with optional passphrase-encrypted credentials. Full skill packs intentionally
+carry portable credentials and saved logins. Local run indexes and independent
+execution evidence stay in the complete data export.
 """
 from __future__ import annotations
 
@@ -119,7 +120,7 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
     missing = sorted(needed - set(included))
     return {"file": str(target), "bytes": target.stat().st_size, "projects": listed,
             "secrets_included": included, "secrets_not_included": missing,
-            "note": "分享包包含项目及原始来源、附件；来源文件中的认证信息按原文保留；不另外导出保存的登录态和运行记录。"
+            "note": "分享包包含项目及原始来源、报告附件；来源文件中的认证信息按原文保留；不另外导出保存的登录态、本机运行索引和独立执行证据。"
                     + ("单独导出的本机凭据已用口令加密；把口令通过另一个渠道告诉对方" if included else
                        "未单独导出本机凭据库" + ("；对方首次使用时需要设置：" + "、".join(missing) if missing else ""))}
 
@@ -127,7 +128,7 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
 def pack_full(out: str | None = None) -> dict:
     """Zip the whole skill (runtime, projects, knowledge) so the receiver only has to unzip it.
 
-    Include portable credentials and saved logins, but leave run history, evidence and process files behind.
+    Include report attachments, portable credentials and saved logins, leaving local execution indexes and evidence behind.
     """
     from . import sessions
     from .locking import named_lock
@@ -177,7 +178,7 @@ def pack_full(out: str | None = None) -> dict:
             "includes_runtime": paths.VENDOR.is_dir(), "secrets_included": sorted(values), "sessions_included": sorted(saved), "secrets_not_included": missing,
             "note": ("对方解压后即可使用，不需要安装任何东西。" if paths.VENDOR.is_dir() else
                      "这份 Skill 目录里没有随包运行时（不是从完整离线包运行的），对方需要自备运行环境。")
-                    + "完整包包含已保存的凭据和登录态；不包含运行历史、截图和临时进程文件。"
+                    + "完整包包含项目报告附件、已保存的凭据和登录态；不包含本机运行索引、独立执行证据、截图和临时进程文件。"
                     + ("仍需设置缺少的凭据：" + "、".join(missing) if missing else "")}
 
 

@@ -5,7 +5,7 @@ import json
 from urllib.parse import quote
 
 from . import host_bindings as bindings
-from . import paging, paths
+from . import paging, paths, report_locations
 
 ACTIVE = ("Queued", "Running")
 OPEN_ITEMS = ("ready", "leased", "publishing", "waiting_execution", "recovering")
@@ -102,15 +102,16 @@ def _pending(connection, binding: dict, workflow: dict | None, counts: dict, sco
 
 
 def _report(report_id: str, *, run: dict | None = None) -> dict:
-    local = paths.workspace() / ".local"
-    folder = local / "runs" / run["id"] / "test-report" if run else local / "task-reports" / report_id
     result = {"report_id": report_id, "receipt_status": "not_generated", "verification": "not_checked",
               "read_url": "/api/task-reports/" + quote(report_id, safe="")}
     if run and run["delete_requested"]:
         return {**result, "receipt_status": "deleting"}
-    file = folder / "receipt.json"
-    if not file.resolve().is_relative_to(local.resolve()):
-        return {**result, "receipt_status": "unavailable", "error": "报告路径不属于当前工作区"}
+    try:
+        file = report_locations.folder(report_id) / "receipt.json"
+        if not file.resolve().is_relative_to(paths.workspace().resolve()):
+            return {**result, "receipt_status": "unavailable", "error": "报告路径不属于当前工作区"}
+    except (OSError, ValueError, TypeError):
+        return {**result, "receipt_status": "unavailable", "error": "现有报告位置无法读取"}
     try:
         receipt = json.loads(file.read_bytes())
     except FileNotFoundError:

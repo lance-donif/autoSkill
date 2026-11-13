@@ -235,6 +235,29 @@ class HostContextTests(unittest.TestCase):
         self.assertEqual(result["status"], "reference_missing")
         self.assertEqual(result["reports"], [])
 
+    def test_project_report_receipts_are_read_without_export_or_verification(self):
+        project = self.project()
+        run = runner.create(project, session_id="task-A")
+        finished = jobs.cancel(run["id"])
+        self.assertEqual(finished["test_report"]["status"], "ready")
+        self.assertTrue(Path(finished["test_report"]["excel"]).is_relative_to(projects.path(project) / "reports"))
+        binding = self.bind(project_id=project, run_id=run["id"])
+        before, files = self.logical_state(), self.files()
+        with patch.object(task_reports, "for_run", side_effect=AssertionError("Reading must not export")), \
+                patch.object(task_reports, "get", side_effect=AssertionError("Reading must not verify artifacts")):
+            result = self.context(binding_id=binding["id"])
+        report = result["reports"][0]
+        self.assertEqual((report["receipt_status"], report["verification"]), ("ready", "not_checked"))
+        self.assertEqual({item["format"] for item in report["artifacts"]}, {"excel", "markdown", "bugs"})
+        self.assertEqual(self.logical_state(), before)
+        self.assertEqual(self.files(), files)
+        index = paths.local() / "task-report-locations" / ("run_" + run["id"] + ".json")
+        index.write_text(json.dumps({"project_id": project, "folder": str(self.folder / "outside")}), encoding="utf-8")
+        files = self.files()
+        unavailable = self.context(binding_id=binding["id"])["reports"][0]
+        self.assertEqual(unavailable["receipt_status"], "unavailable")
+        self.assertEqual(self.files(), files)
+
     def test_run_pages_are_bounded_and_context_changes_with_progress(self):
         project = self.project()
         rows = [runner.create(project, session_id="task-A") for _ in range(11)]
