@@ -996,6 +996,10 @@ def _main(args, argv: list[str]) -> int:
     real_stdout = sys.stdout
     try:
         mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")
+        bound_data_status = (args.command == "data" and args.action == "status"
+                             and (args.runtime_context or os.environ.get("AUTOSKILL_RUNTIME_CONTEXT")))
+        if bound_data_status and mode != "off":
+            return delegate(args, argv, "当前命令已绑定 autoSkill 后台数据目录")
         local_data = args.command == "data" and mode != "on"
         if args.command != "dashboard" and mode != "off" and not local_data:
             reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
