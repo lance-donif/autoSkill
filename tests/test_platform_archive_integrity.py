@@ -19,6 +19,8 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
                                "autoskill/vendor/linux-x64/python/bin/python3", "autoskill/vendor/linux-x64/runtime-manifest.json"), b"fixture")
         files["package.json"] = b'{"version":"2.2.0"}'
         files["autoskill/offline-manifest.json"] = b'{"autoskill":"2.2.0","target":"linux-x64"}'
+        ui = ROOT / "skills/autoskill/app/ui"
+        files.update({"autoskill/app/ui/" + file.relative_to(ui).as_posix(): file.read_bytes() for file in ui.rglob("*") if file.is_file()})
         if omit:
             del files[omit]
         inventory = {name: hashlib.sha256(value).hexdigest() for name, value in files.items() if name != unlisted}

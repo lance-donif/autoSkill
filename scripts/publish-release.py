@@ -41,11 +41,13 @@ def verify_inventory(bundle: zipfile.ZipFile, version: str) -> None:
 def describe_archive(archive: Path, version: str) -> dict:
     target, interpreter = TARGETS[archive.name]
     prefix = f"autoskill/vendor/{target}/"
-    required = {"package.json", "package-manifest.json", "autoskill-upgrade.py", "cordis.patch.yml", "plugin/index.mjs", "autoskill/SKILL.md",
+    required = {"package.json", "cordis.patch.yml", "plugin/index.mjs", "autoskill/SKILL.md",
                 "autoskill/offline-manifest.json", prefix + interpreter, prefix + "runtime-manifest.json"}
     required.add("autoskill/autoskill.cmd" if target.startswith("windows") else "setup-linux.sh")
     with zipfile.ZipFile(archive) as bundle:
         names = bundle.namelist()
+        if "package-manifest.json" in names or "autoskill-upgrade.py" in names:
+            required.update(("package-manifest.json", "autoskill-upgrade.py"))
         if len(names) != len(set(names)) or not required.issubset(names) or any("workspace" in Path(n).parts or ".local" in Path(n).parts
                                               or n.startswith("/") or ".." in Path(n).parts for n in names):
             raise ValueError("Incorrect package layout or private data included: " + archive.name)
@@ -56,11 +58,29 @@ def describe_archive(archive: Path, version: str) -> dict:
             raise ValueError("Archive version mismatch: " + archive.name)
         if target.startswith("linux") and manifest.get("target") != target:
             raise ValueError("Archive architecture mismatch: " + archive.name)
-        verify_inventory(bundle, version)
+        if "package-manifest.json" in names:
+            verify_inventory(bundle, version)
+        ui_files = verify_ui_source(bundle)
     with archive.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    return {**manifest, "target": target, "file": archive.name, "bytes": archive.stat().st_size, "sha256": digest,
-            "verification": {"mode": "archive-only", "functional_tests_run": False, "zip_crc_ok": True}}
+    return {**manifest, "target": target, "file": archive.name, "bytes": archive.stat().st_size, "sha256": digest, "ui_files": ui_files,
+            "verification": {"mode": "archive-only", "functional_tests_run": False, "zip_crc_ok": True, "ui_source_verified": True}}
+
+
+def verify_ui_source(bundle: zipfile.ZipFile) -> dict:
+    """Check every shipped UI byte against the tag checkout, including the Apple-style dashboard."""
+    source = ROOT / "skills/autoskill/app/ui"
+    files = {"autoskill/app/ui/" + file.relative_to(source).as_posix(): file for file in source.rglob("*") if file.is_file()}
+    actual = {name for name in bundle.namelist() if name.startswith("autoskill/app/ui/") and not name.endswith("/")}
+    if actual != set(files):
+        raise ValueError("UI file inventory differs from the release source")
+    digests = {}
+    for name, file in files.items():
+        digest = hashlib.sha256(file.read_bytes()).hexdigest()
+        if hashlib.sha256(bundle.read(name)).hexdigest() != digest:
+            raise ValueError("UI source digest mismatch: " + name)
+        digests[name] = digest
+    return digests
 
 
 def publish(files: list[tuple[Path, dict]], notes: str, tag: str, commit: str) -> tuple[dict, list[dict]]:
@@ -116,13 +136,15 @@ def main():
              "Linux / UOS 需要 glibc >= 2.28 和浏览器依赖的系统共享库，包不替换系统库。旧版 UOS 的系统库可能无法运行包内 Chrome；"
              "可在 setup-linux.sh 中指定系统 Chromium 和匹配驱动。UOS 不在 Playwright 官方支持的发行版列表内，"
              "尚未在 UOS ARM64 真机验证，不承诺所有 UOS 版本开箱即用。DSH 宿主需 Node >= 24.9。\n\n"
-             "本版增加可恢复的 Skill 工作流、原生 Selenium/Postman/Apifox/JMeter 资产执行、页面捕获转多轮 AI 对话评测与并发压测、"
+             "本版包含此前未进入 v2.1.0 附件的 Apple 风仪表盘（bac57dc），并逐文件核对包内 UI 与当前构建提交相同。"
+             "同时增加可恢复的 Skill 工作流、原生 Selenium/Postman/Apifox/JMeter 资产执行、页面捕获转多轮 AI 对话评测与并发压测、"
              "独立宿主 AI 判定、后台调度和按需分页读取。多轮对话作为一条用例，保留首次真实失败，业务与性能结论分别记录。\n\n"
-             "旧版本升级：先在新包目录使用独立 `autoskill-upgrade.py` 检查和准备，再停止旧进程并应用；不要直接覆盖或删除旧 workspace。"
-             "新版本也提供 `autoskill upgrade` 给 AI 操作，包含备份、校验、中断恢复与回滚。具体命令与外置数据目录处理见包内升级文档。\n\n"
-             "CI 打包阶段不重复运行功能回归；执行组装导入检查、原生 ELF 架构检查、ZIP 结构/CRC、全文件清单、大小和 SHA-256 校验。"
+             "按维护者要求先发布已提交代码快照；自动升级器仍在开发验证，本包尚不含 autoskill upgrade 命令。"
+             "旧用户先停止插件和后台写入、完整备份实际 workspace（包括 .local）及外置数据，再按包内 docs/升级与数据保留.md 手动迁移；旧目录保留。\n\n"
+             "CI 打包阶段不运行功能回归；执行组装导入检查、原生 ELF 架构检查、ZIP 结构/CRC、UI 源码一致性、大小和 SHA-256 校验。"
              f"本地功能实测及限制见[验证报告](https://github.com/lance-donif/autoSkill/blob/{tag}/reports/系统化技能与多轮对话验证.md)。\n\n"
              "已知问题：Windows 独立 Selenium 导出脚本曾偶发停留在初始空白页 data:,；本次未宣称已修复。"
+             "发布前整体开发回归有跨标签页录制与后台启动失败，修复正在后续提交中，未宣称全回归通过。"
              "DSH 宿主接口已用 SDK 替身和真实本地 HTTP/CLI 验证，尚未完成真实 DSH 模型及默认沙箱验收。"
              "本机完整 WebRTC 音频接收受浏览器管理策略阻塞，未计为通过；Windows/UOS ARM64 功能未做真机验证。\n\n"
              f"源码提交：`{commit}`\n\n| 附件 | 字节 | SHA-256 |\n| --- | ---: | --- |\n" +
