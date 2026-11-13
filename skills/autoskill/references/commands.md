@@ -117,7 +117,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 每个会话维护自己的录制；不同会话可以同时录制。
 
-接口捕获范围是业务 HTTP、WebSocket、SSE，不保存页面文档、JS、CSS、图片、字体、source map 或自动预检请求。业务请求的认证、参数、请求体、响应及流式消息按实际可获取内容保留，不能获取的上传文件字节不会伪造。`record stop` 的 `conversation_captures.capture_scope` 返回 `business-traffic-v1` 策略及 HAR/CDP 保留、排除计数，归档标记 `complete_network_log: false`。普通 HTTP 编译器不能完整表示的 multipart、WebSocket 等在 `api_uncompiled` 说明；捕获成功不等于已生成可回放用例。
+自动编译的业务候选范围是 HTTP、WebSocket、SSE；页面文档、JS、CSS、图片、字体、source map、自动预检，以及明确的 Cloudflare RUM / Google Analytics 等遥测端点不生成业务接口用例。用途不明的浏览器 Ping/beacon 标为未分类观察，不因名称包含 track 等词就排除真实业务请求。`record stop` 以 `business-traffic-v2` 返回业务投影的 HAR/CDP 保留、排除计数和 `api_compile_scope` 编译数量；自动生成的响应规则仍是未验证观察，业务目标与预期需来自独立需求。录制器实际提供的原 HAR 字节另存为 `source.original.har`，未筛选的 CDP 条目及事件另存为 `source.original.cdp.json/jsonl`，保留其中遥测与页面资源，不把业务投影冒充完整原始流量；均不承诺覆盖浏览器全部网络。认证、参数、请求体、响应及流式消息按实际可获取内容保留，不能获取的上传文件字节不会伪造。普通 HTTP 编译器不能完整表示的 multipart、WebSocket 等在 `api_uncompiled` 说明；捕获成功不等于已生成可回放用例。需要显式验证特殊接口时，可从原始来源提取请求并使用 `conversation import` 的 cURL 输入与独立映射，不改变浏览器网络访问。
 
 ### 标签页与新窗口
 

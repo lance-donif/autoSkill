@@ -298,20 +298,31 @@ def _network_sources(evidence: dict) -> dict[str, bytes]:
     return sources
 
 
-def capture(project_id: str, rec: dict, har: dict) -> dict:
-    """Archive selected exchanges, with honest source scope, before temporary capture files are removed."""
+def capture(project_id: str, rec: dict, har: dict, *, source_har: bytes | None = None) -> dict:
+    """Archive business projections and original received sources before temporary files are removed."""
+    original_har = source_har if source_har is not None else domain.canonical_bytes(har)
+    observed = rec.get("conversation_evidence") or {}
+    original_entries = observed.get("original_entries", observed.get("entries", []))
     har = traffic.filtered_har(har)
-    evidence = traffic.filtered_cdp(rec.get("conversation_evidence") or {})
+    evidence = traffic.filtered_cdp({key: value for key, value in observed.items() if key not in ("original_entries", "original_events_path")})
     scope = {"policy": traffic.POLICY, "complete_network_log": False,
-             "sources": {"har": har["log"]["_autoskill_capture_scope"], "cdp": evidence["capture_scope"]}}
+             "sources": {"har": har["log"]["_autoskill_capture_scope"], "cdp": evidence["capture_scope"]},
+             "original_sources_preserved": True, "original_sources_scope": "录制器实际提供的 HAR/CDP，不承诺覆盖浏览器全部网络"}
     entries = _combined_entries(har, evidence, business_only=False)
-    if not entries:
+    if not entries and not original_entries and not har["log"]["_autoskill_capture_scope"]["observed_entries"]:
         return {"requests": 0, "conversation_candidates": [], "capture_scope": scope}
     requests = [_normal_request(entry, number) for number, entry in enumerate(entries, 1)]
     details = {"kind": "recording", "session_id": rec.get("session_id"), "started_at": rec.get("started_at"), "start_url": rec.get("start_url"),
                "steps": copy.deepcopy(rec.get("steps", [])),
                "network_capture": {key: evidence.get(key) for key in ("source", "available", "error")}}
     attachments = _network_sources(evidence)
+    attachments["source.original.har"] = original_har
+    if observed.get("source") or original_entries:
+        original_cdp = {key: value for key, value in observed.items() if key not in ("entries", "events_path", "original_entries", "original_events_path")}
+        attachments["source.original.cdp.json"] = domain.canonical_bytes({**original_cdp, "entries": original_entries})
+    original_events = observed.get("original_events_path") or observed.get("events_path")
+    if original_events and Path(original_events).is_file():
+        attachments["source.original.cdp.jsonl"] = Path(original_events).read_bytes()
     primary = "source.cdp.json" if any(entry.get("_capture_source") == "cdp_network" for entry in entries) else None
     return _capture(project_id, requests, domain.canonical_bytes(har), "source.har", details, attachments=attachments, primary=primary, capture_scope=scope)
 

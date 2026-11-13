@@ -1,4 +1,4 @@
-"""Selected protocol evidence keeps business bytes without archiving page resources."""
+"""Business projections exclude resources while separate original sources retain observed traffic."""
 import base64
 import copy
 import json
@@ -284,6 +284,8 @@ class BusinessTrafficBrowserTests(unittest.TestCase):
                 for ref in saved["sources"]:
                     data = domain.read_file(pid, ref["path"])
                     self.assertEqual(domain.content_hash(data), ref["sha256"])
+                    if "/source.original." in ref["path"]:
+                        continue
                     self.assertNotIn(b"/theme?rev=1", data)
                     self.assertNotIn(b"/bundle?rev=2", data)
                     self.assertNotIn(b"/pixel?rev=3", data)

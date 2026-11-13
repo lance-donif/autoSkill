@@ -718,7 +718,7 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
             har = json.loads(har_file.read_text(encoding="utf-8", errors="replace"))
         if agent.call(session_name(), ["state", "save", str(state_file)], check=False) is not None and state_file.is_file():
             state = json.loads(state_file.read_text(encoding="utf-8"))
-        captures = conversation_capture.capture(rec["project_id"], rec, har)
+        captures = conversation_capture.capture(rec["project_id"], rec, har, source_har=har_file.read_bytes() if har_file.is_file() else None)
     finally:
         agent.call(session_name(), ["close"], check=False, timeout=30)
         if captures is not None:

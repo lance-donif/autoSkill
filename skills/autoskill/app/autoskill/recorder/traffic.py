@@ -7,11 +7,22 @@ import re
 from collections import Counter, defaultdict
 from urllib.parse import urljoin, urlsplit
 
-POLICY = "business-traffic-v1"
+POLICY = "business-traffic-v2"
 BUSINESS_TYPES = {"xhr", "fetch", "eventsource", "websocket"}
 RESOURCE_TYPES = {"script", "stylesheet", "image", "font", "media", "manifest", "texttrack", "prefetch", "signedexchange"}
 RESOURCE_DESTINATIONS = {"script", "style", "image", "font", "audio", "video", "track", "manifest", "audioworklet", "paintworklet", "xslt"}
 AUTH_PATH = re.compile(r"(?:^|/)(?:login|signin|sign-in|auth|oauth2?|sso|session|token)(?:/|[._-]|$)", re.IGNORECASE)
+
+
+def _known_telemetry(parts) -> bool:
+    """Recognize documented telemetry endpoints, never business words such as track or analytics."""
+    if parts.path.rstrip("/") == "/cdn-cgi/rum":
+        return True
+    host = (parts.hostname or "").lower()
+    analytics_host = host in ("analytics.google.com", "stats.g.doubleclick.net", "google-analytics.com") or host.endswith(".google-analytics.com")
+    if analytics_host and parts.path in ("/collect", "/g/collect", "/j/collect"):
+        return True
+    return host == "pagead2.googlesyndication.com" and parts.path == "/pagead/ping"
 
 
 def headers(values) -> dict[str, str]:
@@ -40,6 +51,18 @@ def protocol(entry: dict) -> str:
     return "sse" if "text/event-stream" in mime.lower() else "http"
 
 
+def _transport_category(parts, kind: str, method: str, sent: dict) -> str | None:
+    if parts.scheme in ("ws", "wss") or kind == "websocket":
+        return "business"
+    if parts.scheme not in ("http", "https"):
+        return "non_http"
+    if kind == "preflight" or (method == "OPTIONS" and "access-control-request-method" in sent):
+        return "cors_preflight"
+    if _known_telemetry(parts):
+        return "telemetry"
+    return "unclassified_beacon" if kind in ("ping", "beacon") else None
+
+
 def category(entry: dict) -> str:
     """Prefer browser destination evidence to names; an explicit fetch may return any media type."""
     request, response = entry.get("request", {}), entry.get("response", {})
@@ -48,12 +71,9 @@ def category(entry: dict) -> str:
     method = str(request.get("method", "GET")).upper()
     sent, received = headers(request.get("headers")), headers(response.get("headers"))
     mime = str(response.get("content", {}).get("mimeType") or received.get("content-type", "")).lower().split(";", 1)[0].strip()
-    if parts.scheme in ("ws", "wss") or kind == "websocket":
-        return "business"
-    if parts.scheme not in ("http", "https"):
-        return "non_http"
-    if kind == "preflight" or (method == "OPTIONS" and "access-control-request-method" in sent):
-        return "cors_preflight"
+    transport = _transport_category(parts, kind, method, sent)
+    if transport:
+        return transport
     if kind in BUSINESS_TYPES or sent.get("x-requested-with", "").lower() == "xmlhttprequest":
         return "business"
     if received.get("upgrade", "").lower() == "websocket":
@@ -114,7 +134,7 @@ def selected(entries: list[dict]) -> tuple[list[dict], dict]:
     pending = list(kept)
     while pending:
         for related in links[pending.pop()] - kept:
-            if kinds[related] not in ("cors_preflight", "non_http"):
+            if kinds[related] not in ("cors_preflight", "non_http", "telemetry", "unclassified_beacon"):
                 kept.add(related)
                 pending.append(related)
     excluded = Counter(kind for index, kind in enumerate(kinds) if index not in kept)

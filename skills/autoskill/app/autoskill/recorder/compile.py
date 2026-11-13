@@ -332,6 +332,16 @@ class Compiler:
                     return
 
 
+def _protocol_observations(entries: list[dict]) -> list[dict]:
+    observations = []
+    for entry in entries:
+        if traffic.protocol(entry) == "websocket":
+            observations.append({"protocol": "websocket", "reason": "握手和帧已保存为来源证据；当前编译器不把 WebSocket 转成 REST 用例"})
+        elif traffic.category(entry) == "unclassified_beacon":
+            observations.append({"protocol": "http", "reason": "浏览器 beacon 尚未关联独立业务目标，仅保留来源观察，不自动生成业务接口用例"})
+    return observations
+
+
 def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str, module: str = "",
           category: str = "") -> dict:
     """Compile and save. Returns a summary for the agent; nothing secret is in it."""
@@ -369,9 +379,7 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
         outcome = compiler.add_business(entry, module or "接口", existing)
         if outcome:
             counts[outcome] += 1
-    for entry in har.get("log", {}).get("entries", []):
-        if traffic.protocol(entry) == "websocket":
-            compiler.uncompiled.append({"protocol": "websocket", "reason": "握手和帧已保存为来源证据；当前编译器不把 WebSocket 转成 REST 用例"})
+    compiler.uncompiled.extend(_protocol_observations(har.get("log", {}).get("entries", [])))
     if compiler.uncompiled:
         compiler.notes.append("部分业务通信仅保存来源证据，尚未生成可执行接口用例；详见 api_uncompiled")
     # Pages, scripts and styles get no API case: the page case already proves they load, and a plain HTTP
@@ -396,6 +404,8 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
         "api_cases": [{"id": c["id"], "title": c["title"], "depends_on": projects.depends_on(c)} for c in compiler.cases],
         "api_traffic": "business" if compiler.cases else "none", "api_new": counts["new"], "api_reused": counts["reused"],
         "api_uncompiled": compiler.uncompiled,
+        "api_compile_scope": {**traffic.selected(har.get("log", {}).get("entries", []))[1],
+                              "business_candidates": len(business), "generated_api_cases": len(compiler.cases)},
         "login": {k: compiler.auth.get(k) for k in ("ui_case", "api_case") if compiler.auth.get(k)},
         "secrets": sorted(secrets.references([ui_case, *compiler.cases])), "notes": list(dict.fromkeys(compiler.notes)),
     }

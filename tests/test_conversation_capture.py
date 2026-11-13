@@ -183,12 +183,16 @@ class ConversationCaptureTests(unittest.TestCase):
         self.assertEqual(truncated["business_status"], "Unverified")
         self.assertFalse(truncated["cases"][0]["turns"][0]["protocol_complete"])
 
-    def test_static_resources_do_not_create_conversation_assets(self):
-        result = conversation_capture.capture(PID, {}, {"log": {"entries": [{"_resourceType": "script", "request": {"url": self.base + "/app.js", "method": "GET"},
-                                                                           "response": {"content": {"mimeType": "application/javascript"}}}]}})
+    def test_static_resources_preserve_sources_without_business_requests(self):
+        har = {"log": {"entries": [{"_resourceType": "script", "request": {"url": self.base + "/app.js", "method": "GET"},
+                                    "response": {"content": {"mimeType": "application/javascript"}}}]}}
+        result = conversation_capture.capture(PID, {}, har)
         self.assertEqual((result["requests"], result["conversation_candidates"]), (0, []))
         self.assertEqual(result["capture_scope"]["sources"]["har"]["excluded_by_reason"], {"page_resource": 1})
-        self.assertIsNone(domain.manifest(PID)["head"])
+        self.assertIsNotNone(domain.manifest(PID)["head"])
+        original = json.loads(domain.read_file(PID, f"conversations/{result['id']}/source.original.har"))
+        self.assertEqual(original, har)
+        self.assertFalse(any(name.startswith("native-assets/") for name in domain.manifest(PID)["files"]))
 
     def test_cdp_headers_and_stream_body_keep_independent_selected_sources(self):
         full = self.har("sse")

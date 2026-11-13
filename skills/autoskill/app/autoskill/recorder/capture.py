@@ -329,16 +329,18 @@ class Observer:
                 entry['_body_complete'] = entry['_loading_state'] == 'finished'
         selected, scope = traffic.selected(self.entries)
         events = self.folder / 'events.jsonl'
+        filtered = self.folder / 'events.business.jsonl'
         if events.is_file():
             keys, replies = traffic.event_keys(selected)
-            temporary = events.with_suffix('.filtered.tmp')
+            temporary = filtered.with_suffix('.tmp')
             with events.open(encoding='utf-8') as source, temporary.open('w', encoding='utf-8') as target:
                 for line in source:
                     if traffic.selected_event(json.loads(line), keys, replies):
                         target.write(line)
-            temporary.replace(events)
+            temporary.replace(filtered)
         return {'token': self.token, 'source': 'cdp_network', 'available': self.ready,
-                'entries': selected, 'capture_scope': scope, 'error': error, 'events_path': str(events)}
+                'entries': selected, 'capture_scope': scope, 'error': error, 'events_path': str(filtered),
+                'original_entries': self.entries, 'original_events_path': str(events)}
 
     def run(self) -> None:
         import websocket
