@@ -1,0 +1,15 @@
+{
+  "time_utc": "2026-11-13T14:49:12.020203+00:00",
+  "recorder": {
+    "command": "record start fresh-arithmetic --no-login",
+    "exit_code": 2,
+    "error": "没有找到随包的 agent-browser；请使用完整离线包（不会联网下载）",
+    "evidence": "evidence/cli-1794580684489663761-record.json"
+  },
+  "host": {
+    "tool_metadata_search": "dsh|deepseek|file deliver|host session|宿主|投递",
+    "matching_available_tools": [],
+    "scope": "No real DSH host/session and file-delivery integration available in this environment; actual delivery not executed",
+    "simulated": false
+  }
+}

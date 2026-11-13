@@ -52,6 +52,8 @@ autoskill --session "库存任务-乙" browser snapshot
 
 ## 自动完成需求、遗漏补齐与变更维护
 
+状态采用“执行阶段＋分项结果”，按 [状态分类与联动](references/state-contract.md) 读取统一 `state`。当前周期默认展示，历史用 `workflow status --cycle all`；运行结束由后台自动更新工作流。状态查询不领取、不重跑、不导出。报告失败只手动重试，业务、性能、证据、报告与宿主投递分别判断。
+
 这是宿主 AI 与持久化内核共同驱动的流程。模型选择和推理由当前宿主管理；autoSkill 保存来源、关联、候选修改、工作项、实际执行及恢复收据。不要把聊天记忆、Excel 手填结果或自己说的“通过”当执行证据。
 
 1. 先 `context <项目>` 读取摘要，再按 `cases`、`knowledge list/read` 的游标按需读取。默认返回有限页并明确总数和 `has_more`；用 `next_cursor` 续读，内容版本改变则重读，不要假设首页就是全部。需要全量时明确加 `--all`。

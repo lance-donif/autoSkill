@@ -19,9 +19,16 @@ class NarrowDashboardTests(DashboardWorkspace):
         geometry = frame.locator("html").evaluate("root => ({width: innerWidth, scroll: root.scrollWidth})")
         self.assertLessEqual(geometry["scroll"], geometry["width"] + 1, geometry)
 
-    def reachable(self, element):
+    def rect(self, frame, selector):
+        return frame.locator("html").evaluate("(root, selector) => root.querySelector(selector).getBoundingClientRect().toJSON()", selector)
+
+    def reachable(self, element, frame, selector, text=None):
         expect(element).to_be_visible()
-        bounds = element.evaluate("element => { const r = element.getBoundingClientRect(); return {left:r.left,right:r.right,width:innerWidth}; }")
+        bounds = frame.locator("html").evaluate("""(root, query) => {
+            const matches = [...root.querySelectorAll(query.selector)].filter(node => query.text === null || node.textContent.trim() === query.text);
+            if (matches.length !== 1) throw new Error('Expected one current action, found ' + matches.length);
+            const r = matches[0].getBoundingClientRect(); return {left:r.left,right:r.right,width:innerWidth};
+        }""", {"selector": selector, "text": text})
         self.assertGreaterEqual(bounds["left"], -1, bounds)
         self.assertLessEqual(bounds["right"], bounds["width"] + 1, bounds)
 
@@ -33,17 +40,20 @@ class NarrowDashboardTests(DashboardWorkspace):
                     self.contained(frame)
                     header = frame.locator(".project-head").first
                     for action in ("压测", "导出 Excel", "运行全部"):
-                        self.reachable(header.get_by_role("button" if action != "导出 Excel" else "link", name=action, exact=True))
+                        self.reachable(header.get_by_role("button" if action != "导出 Excel" else "link", name=action, exact=True),
+                                       frame, ".project-head .btn", action)
                     region = frame.get_by_role("region", name="页面压测验收用例表格", exact=True)
                     self.assertGreater(region.evaluate("element => element.scrollWidth"), region.evaluate("element => element.clientWidth"))
-                    self.assertGreaterEqual(region.locator("tbody .title").first.bounding_box()["width"], 179)
-                    folders = frame.locator(".folder-tree").bounding_box()
-                    content = frame.locator(".folder-content").bounding_box()
+                    self.assertGreaterEqual(self.rect(frame, ".table-scroll tbody .title")["width"], 179)
+                    folders = self.rect(frame, ".folder-tree")
+                    content = self.rect(frame, ".folder-content")
                     self.assertGreaterEqual(content["y"], folders["y"] + folders["height"] - 1)
                     region.evaluate("element => { element.scrollLeft = element.scrollWidth; }")
                     button = region.get_by_role("button", name="删除用例 TC-BEGIN", exact=True)
-                    self.reachable(button)
-                    self.assertEqual(button.evaluate("element => getComputedStyle(element).opacity"), "1")
+                    self.reachable(button, frame, '#view button[aria-label="删除用例 TC-BEGIN"]')
+                    opacity = frame.locator("html").evaluate("""root => getComputedStyle(
+                        root.querySelector('#view button[aria-label="删除用例 TC-BEGIN"]')).opacity""")
+                    self.assertEqual(opacity, "1")
                     self.contained(frame)
 
     def test_run_history_preserves_columns_and_scrolls_to_its_delete_action(self):
@@ -57,7 +67,7 @@ class NarrowDashboardTests(DashboardWorkspace):
                     region = frame.get_by_role("region", name="执行记录表格", exact=True)
                     expect(region.locator("tbody tr")).to_have_count(1)
                     self.assertGreater(region.evaluate("element => element.scrollWidth"), region.evaluate("element => element.clientWidth"))
-                    self.assertGreaterEqual(region.locator("tbody .title").first.bounding_box()["width"], 179)
+                    self.assertGreaterEqual(self.rect(frame, ".table-scroll tbody .title")["width"], 179)
                     region.evaluate("element => { element.scrollLeft = element.scrollWidth; }")
-                    self.reachable(region.locator("tbody td.actions button").first)
+                    self.reachable(region.locator("tbody td.actions button").first, frame, ".table-scroll tbody td.actions button")
                     self.contained(frame)

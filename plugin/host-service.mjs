@@ -40,7 +40,7 @@ function replayPage(value, query) {
   const end = query.all ? rows.length : offset + selected.length;
   const next = end < rows.length ? Buffer.from(JSON.stringify({ revision, offset: end })).toString('base64url') : null;
   return { ...value, results: query.all ? selected : selected.map(({ detail, ...row }) => ({ ...row, detail_loaded: false, detail_ref: { run_id: value.id, result_id: row.id },
-    business_status: detail?.business_status, assertion_count: detail?.assertions?.length ?? 0 })),
+    state: row.state ?? detail?.state, assertion_count: detail?.assertions?.length ?? 0 })),
   page: { total: rows.length, returned: selected.length, has_more: next !== null, next_cursor: next, content_revision: revision } };
 }
 
@@ -70,7 +70,7 @@ export class HostService {
 
   async context(agent, query = {}, signal = undefined) {
     const id = hostSessionId(agent);
-    const allowed = Object.fromEntries(['binding_id', 'limit', 'cursor', 'runs_limit', 'runs_cursor'].filter((key) => query[key] !== undefined).map((key) => [key, query[key]]));
+    const allowed = Object.fromEntries(['binding_id', 'limit', 'cursor', 'runs_limit', 'runs_cursor', 'revision_only'].filter((key) => query[key] !== undefined).map((key) => [key, query[key]]));
     const data = await this.request(queryPath('/api/host/context', { ...allowed, host: 'dsh', host_session_id: id }), { signal });
     return { version: 1, host_session_id: id, ...data };
   }

@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "native",
+    "status",
+    "run-0b94e12e5a83",
+    "--all"
+  ],
+  "started_ns": 1794580541082894778,
+  "finished_ns": 1794580542671085395,
+  "exit_code": 0,
+  "stdout": "{\n \"id\": \"run-0b94e12e5a83\",\n \"batch_id\": null,\n \"project_id\": \"fresh-arithmetic\",\n \"engine\": \"ai-eval\",\n \"trigger\": \"manual\",\n \"task_id\": null,\n \"status\": \"Running\",\n \"case_ids\": \"[\\\"asset-92366712c852\\\"]\",\n \"total\": 0,\n \"done\": 0,\n \"passed\": 0,\n \"failed\": 0,\n \"blocked\": 0,\n \"current\": \"\",\n \"reason\": \"\",\n \"cancel\": 0,\n \"pid\": 56085,\n \"created_at\": \"2026-11-13T14:35:40.890+00:00\",\n \"started_at\": \"2026-11-13T14:35:41.198+00:00\",\n \"finished_at\": null,\n \"headed\": 0,\n \"claim_token\": \"\",\n \"force_login\": 0,\n \"session_id\": \"fresh-blind\",\n \"family\": \"native\",\n \"input_manifest\": \"/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/native-inputs/85e5de63162d90e1329778df7f2385079c99b1677c0fe6f11c1906f7664cb91a-af75ff1f9e11474b8658277ef04f4755.json\",\n \"input_hash\": \"85e5de63162d90e1329778df7f2385079c99b1677c0fe6f11c1906f7664cb91a\",\n \"plan_path\": \"\",\n \"delete_requested\": 0,\n \"deletion_error\": \"\",\n \"deletion_manifest\": \"\",\n \"owner_identity\": \"{\\\"machine_id\\\": \\\"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\\\", \\\"location_id\\\": \\\"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\\\", \\\"pid\\\": 56085, \\\"process_started_at\\\": \\\"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1160113\\\"}\",\n \"state\": {\n  \"lifecycle\": \"active\",\n  \"phase\": \"running\",\n  \"outcome\": \"pending\",\n  \"checks\": {\n   \"business\": \"unverified\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"unverified\",\n  \"report\": \"pending\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"fresh-arithmetic\",\n   \"workflow_id\": null,\n   \"cycle_id\": null,\n   \"run_id\": \"run-0b94e12e5a83\",\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"c773cb51b453bf825a833d22d8e206ae05baa5384f865b65112c5bcc47f7b753\"\n },\n \"results\": [],\n \"outcome\": {},\n \"evidence_dir\": \"/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-0b94e12e5a83/native\",\n \"test_report\": {\n  \"report_id\": \"run_run-0b94e12e5a83\",\n  \"status\": \"pending\",\n  \"retryable\": false,\n  \"reason\": \"运行尚未结束\"\n },\n \"asset_id\": \"asset-92366712c852\",\n \"asset_version\": \"6d47740fcdb0ecb8d596d7f307c5206a5aa8f505559cd968050ff3a77d8e71df\",\n \"head\": \"5cd535cccd4a77f195512159eec203f54beee3ec2633aab52e85fe78512ad453\",\n \"planned_unknown\": true,\n \"page\": {\n  \"total\": 0,\n  \"returned\": 0,\n  \"limit\": null,\n  \"has_more\": false,\n  \"next_cursor\": null,\n  \"content_revision\": \"c824b09c337ba4164cc1988e2d6774e93dae88fb4083419c65eadec8bcd488ee\"\n }\n}\n",
+  "stderr": ""
+}

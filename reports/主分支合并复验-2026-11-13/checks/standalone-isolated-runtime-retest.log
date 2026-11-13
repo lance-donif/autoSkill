@@ -1,0 +1,6 @@
+test_both_standalone_scripts_really_use_xpath_after_primary_failure_in_mixed_context (test_codegen_locators.ExportLocatorBrowserTests.test_both_standalone_scripts_really_use_xpath_after_primary_failure_in_mixed_context) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 23.070s
+
+OK

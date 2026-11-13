@@ -1,0 +1,55 @@
+autoSkill
+录一次，到处回放
+仪表盘
+项目与用例
+执行记录
+1
+定时任务
+数据管理
+本机服务运行中
+开发环境运行时
+深色
+当前范围
+全部项目
+近 7 天
+全部项目 · 近 7 天
+回放设置
+执行记录
+已结束
+独立黑盒订单
+
+手动触发 · 执行引擎 selenium-unittest · 今天 14:33
+
+下载 HTML 报告
+重新运行
+只重跑未通过的 1 条
+删除运行
+综合：失败
+业务：失败
+性能：不适用
+质量：不适用
+证据：有效
+报告：尚未生成
+投递：不适用
+0
+通过
+1
+失败
+0
+阻塞
+0
+未验证
+1
+用例
+8.1 秒
+总耗时
+用例结果
+
+点开一条查看每一步和每条断言。
+
+已结束
+test_order_completes (test_order.OrderBusinessTest.test_order_completes)　test_order.OrderBusinessTest.test_order_completes
+综合：失败
+业务：失败
+接口
+8.1 秒

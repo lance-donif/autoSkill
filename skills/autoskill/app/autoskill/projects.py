@@ -204,13 +204,17 @@ def credentials(project_id: str) -> dict:
 @_project_locked
 def reindex(project_id: str) -> None:
     """Rebuild the local index of one project from its files."""
+    from . import task_state
+
     db.init()
     info, cfg, stamp = meta(project_id), config(project_id), db.now()
+    task_state.watch_current(project_id)
     with db.connect() as conn:
         conn.execute(
             "INSERT INTO projects (id, name, category, base_url, created_at, updated_at) VALUES (?,?,?,?,?,?) "
             "ON CONFLICT(id) DO UPDATE SET name=excluded.name, category=excluded.category, "
-            "base_url=excluded.base_url, updated_at=excluded.updated_at",
+            "base_url=excluded.base_url, updated_at=excluded.updated_at "
+            "WHERE projects.name IS NOT excluded.name OR projects.category IS NOT excluded.category OR projects.base_url IS NOT excluded.base_url",
             (project_id, info.get("name") or project_id, info.get("category", ""), cfg.get("base_url", ""),
              info.get("created_at") or stamp, stamp),
         )
@@ -221,8 +225,15 @@ def reindex(project_id: str) -> None:
             old = known.get(item["id"])
             archived = item["lifecycle"] != "active"
             conn.execute(
-                "INSERT OR REPLACE INTO cases (project_id, case_id, kind, title, module, priority, category, revision, "
-                "lifecycle, replayable, depends_on, created_at, archived_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO cases (project_id, case_id, kind, title, module, priority, category, revision, "
+                "lifecycle, replayable, depends_on, created_at, archived_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(project_id,case_id) DO UPDATE SET kind=excluded.kind,title=excluded.title,module=excluded.module,"
+                "priority=excluded.priority,category=excluded.category,revision=excluded.revision,lifecycle=excluded.lifecycle,"
+                "replayable=excluded.replayable,depends_on=excluded.depends_on,archived_at=excluded.archived_at "
+                "WHERE cases.kind IS NOT excluded.kind OR cases.title IS NOT excluded.title OR cases.module IS NOT excluded.module "
+                "OR cases.priority IS NOT excluded.priority OR cases.category IS NOT excluded.category OR cases.revision IS NOT excluded.revision "
+                "OR cases.lifecycle IS NOT excluded.lifecycle OR cases.replayable IS NOT excluded.replayable OR cases.depends_on IS NOT excluded.depends_on "
+                "OR cases.archived_at IS NOT excluded.archived_at",
                 (project_id, item["id"], item["kind"], item["title"], item["module"], item["priority"],
                  item.get("extensions", {}).get("category", ""), item["revision"], item["lifecycle"],
                  int(ir.is_replayable(item)), json.dumps(depends_on(item)),
@@ -299,23 +310,54 @@ def _check_case_hashes(merged: dict, incoming: list[dict], expected_hashes: dict
         raise ValueError("条件保存的用例必须包含完整需求关联")
 
 
+def _merge_requirement_records(requirements: list[dict], requirement_records: list[dict] | None, incoming: list[dict]) -> list[dict]:
+    """Use one ordered requirement projection before capture and during publication."""
+    if requirement_records is not None:
+        errors = []
+        if not isinstance(requirement_records, list) or any(not isinstance(record, dict) for record in requirement_records):
+            raise ValueError("需求记录必须是对象数组")
+        store._validation_requirement_ids(requirement_records, errors)
+        if errors:
+            raise ValueError("；".join(errors))
+        by_requirement = {record["id"]: record for record in requirements}
+        by_requirement.update({record["id"]: record for record in requirement_records})
+        requirements = list(by_requirement.values())
+    if any(not item.get("requirement_ids") or "REQ-RECORDED" in item["requirement_ids"] for item in incoming) and not any(record["id"] == "REQ-RECORDED" for record in requirements):
+        requirements = [*requirements, {"id": "REQ-RECORDED", "module": "录制", "title": "录制得到的回归场景", "source": "autoskill record"}]
+    return requirements
+
+
 @_project_locked
-def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[str, str | None] | None = None) -> list[dict]:
+def sync_requirement_records(project_id: str, requirement_records: list[dict], *, candidate_cases: list[dict] | None = None) -> list[dict]:
+    """Project accepted requirements before freezing execution, without publishing cases."""
+    file = path(project_id) / "analysis/requirements.json"
+    before = store.read(file)
+    merged = _merge_requirement_records(before, requirement_records, candidate_cases or [])
+    if merged != before:
+        store.write(file, merged)
+    return merged
+
+
+@_project_locked
+def requirement_records_current(project_id: str, requirement_records: list[dict], *, candidate_cases: list[dict] | None = None) -> bool:
+    """Publication must not change the requirement source frozen before execution."""
+    current = store.read(path(project_id) / "analysis/requirements.json")
+    return _merge_requirement_records(current, requirement_records, candidate_cases or []) == current
+
+
+@_project_locked
+def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[str, str | None] | None = None,
+               requirement_records: list[dict] | None = None) -> list[dict]:
     """Add or replace cases by id (others are kept), then refresh the index."""
     folder = path(project_id)
-    requirements = store.read(folder / "analysis/requirements.json")
-    known = {r["id"] for r in requirements}
     merged = {c["id"]: c for c in cases(project_id, active_only=False)}
     if expected_hashes is not None:
         _check_case_hashes(merged, incoming, expected_hashes)
+    requirements = _merge_requirement_records(store.read(folder / "analysis/requirements.json"), requirement_records, incoming)
     for incoming_item in incoming:
         item = dict(incoming_item)
         if not item.get("requirement_ids"):
             item["requirement_ids"] = ["REQ-RECORDED"]
-        if "REQ-RECORDED" in item["requirement_ids"] and "REQ-RECORDED" not in known:
-            requirements.append({"id": "REQ-RECORDED", "module": "录制", "title": "录制得到的回归场景",
-                                 "source": "autoskill record"})
-            known.add("REQ-RECORDED")
         merged[item["id"]] = item
     ids = set(merged)
     incoming_ids = {item["id"] for item in incoming}
@@ -327,8 +369,7 @@ def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[s
             raise ValueError(f'{item["id"]} 依赖的前置用例不存在：{"、".join(unknown)}')
         if item["kind"] == "ui" and "automation" in item.get("extensions", {}):
             ir.validate(item["extensions"]["automation"])
-    store.write(folder / "analysis/requirements.json", requirements)
-    saved = store.save_cases(folder, list(merged.values()), preserve_revisions=expected_hashes is not None)
+    saved = store.save_cases(folder, list(merged.values()), preserve_revisions=expected_hashes is not None, requirements=requirements)
     reindex(project_id)
     return saved
 

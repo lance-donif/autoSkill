@@ -9,7 +9,7 @@ import vm from 'node:vm';
 const source = await readFile(new URL('../plugin/client.js', import.meta.url), 'utf8');
 const response = (value, status = 200) => ({ ok: status < 400, status, json: () => Promise.resolve(value) });
 const wire = (data, extra = {}) => ({ version: 1, request_state: 'completed', identity: { host_session_id: 'session-a' }, data, ...extra });
-const context = (sessionId, extra = {}) => ({ version: 1, host_session_id: sessionId, status: 'bound', context_revision: '1',
+const context = (sessionId, extra = {}) => ({ version: 1, host_session_id: sessionId, status: 'bound', context_revision: JSON.stringify(extra), state_revision: JSON.stringify(extra),
   binding: { id: 'binding-a', project_id: 'project-a', task_session_id: 'task-a' }, selection: { binding_id: 'binding-a', revision: 3 },
   bindings: { items: [{ id: 'binding-a', label: '原任务' }, { id: 'binding-b', label: '第二任务' }], page: {} },
   runs: { items: [], page: {} }, reports: [], ...extra });
@@ -126,7 +126,8 @@ test('only requested report reads run, delayed receipts stay in their owning ses
   assert.equal(app.requests.length, 0);
   const readFirst = first.verifyReport('run_a');
   const readSecond = second.verifyReport('run_b');
-  const receipt = (reportId) => ({ report_id: reportId, status: 'ready', excel: '/cases.xlsx', markdown: '/summary.md', sha256: 'e', markdown_sha256: 'm' });
+  const receipt = (reportId) => ({ report_id: reportId, status: 'ready', excel: '/cases.xlsx', markdown: '/summary.md', bugs: '/bugs.md',
+    sha256: 'e', markdown_sha256: 'm', bugs_sha256: 'b' });
   waiting.get('session-b')(response(wire(receipt('run_b'))));
   waiting.get('session-a')(response(wire(receipt('run_a'))));
   await Promise.all([readFirst, readSecond]);
@@ -319,7 +320,7 @@ test('changed or missing artifacts never inherit ready state from the context li
   off(); app.dispose();
 });
 
-test('an older verified receipt keeps its two real links without inventing a Bug file', async () => {
+test('a receipt missing a required Bug artifact cannot become ready', async () => {
   const app = harness(({ url }) => response(url.searchParams.get('resource') === 'report'
     ? wire({ report_id: 'run_old', status: 'ready', excel: '/old.xlsx', markdown: '/old.md', sha256: 'e', markdown_sha256: 'm' })
     : context('session-a', { reports: [{ report_id: 'run_old', receipt_status: 'ready' }] })));
@@ -327,7 +328,9 @@ test('an older verified receipt keeps its two real links without inventing a Bug
   const off = props.autoskill.store.subscribe(() => undefined);
   await setImmediate();
   await props.autoskill.store.verifyReport('run_old');
-  assert.deepEqual(nodes(reportCard(app, props, 'run_old'), (node) => node.tag === 'a').map(text), ['下载 Excel', '下载 Markdown 汇总']);
+  assert.equal(props.autoskill.store.getSnapshot().reports.run_old.state, 'failed');
+  assert.deepEqual(nodes(reportCard(app, props, 'run_old'), (node) => node.tag === 'a').map(text), []);
+  assert.match(text(reportCard(app, props, 'run_old')), /重试导出报告/);
   off(); app.dispose();
 });
 
@@ -368,4 +371,64 @@ test('unloading aborts pending writes and never leaves polling or completion not
   await pending;
   assert.equal(app.notifications.length, 0);
   assert.equal(app.timers.size, 0);
+});
+
+test('inline state axes retain the failed SLA and invalid evidence independently of delivery', () => {
+  const app = harness();
+  const data = { id: 'run-a', status: 'Running', conclusion: 'satisfied', state: {
+    lifecycle: 'completed', phase: 'settled', outcome: 'fail',
+    checks: { business: 'pass', performance: 'fail', quality: 'unverified' }, evidence: 'invalid', report: 'failed', delivery: 'delivered',
+    scope: { historical: true, cycle_id: 'cycle-old', current_cycle_id: 'cycle-current' },
+  } };
+  const view = app.taskCard.component({ ...app.injected(), phase: 'result', toolName: 'autoskill_read', block: {
+    content: [{ type: 'text', text: JSON.stringify(wire(data, { identity: { host_session_id: 'session-a', run_id: 'run-a' } })) }],
+  } });
+  const rendered = text(view);
+  for (const fact of ['当前阶段：已结束', '综合结果：失败', '业务验证：通过', '性能：失败', '质量：未验证',
+    '证据：已失效', '报告：失败', '投递：已送达', '历史周期：cycle-old', '当前周期：cycle-current']) assert.ok(rendered.includes(fact), fact);
+  assert.doesNotMatch(rendered, /业务验证：符合预期/);
+  assert.equal(nodes(view, (node) => node.tag === 'button' && text(node) === '取消执行').length, 0);
+  assert.equal(view.tag, 'details');
+  assert.equal(view.props.open, undefined);
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.timers.size, 0);
+  assert.equal(app.notifications.length, 0);
+  app.dispose();
+});
+
+test('a selected historical run in an inline query keeps its own state facts', () => {
+  const app = harness();
+  const state = { lifecycle: 'completed', phase: 'settled', outcome: 'unverified',
+    checks: { business: 'unverified', performance: 'not_applicable', quality: 'not_applicable' },
+    evidence: 'unverified', report: 'ready', delivery: 'delivered' };
+  const view = app.taskCard.component({ ...app.injected(), phase: 'result', toolName: 'autoskill_read', block: {
+    content: [{ type: 'text', text: JSON.stringify(wire({ runs: { items: [{ id: 'run-a', state, can_cancel: false }] } },
+      { identity: { host_session_id: 'session-a', run_id: 'run-a' } })) }],
+  } });
+  assert.match(text(view), /综合结果：未验证/);
+  assert.match(text(view), /投递：已送达/);
+  assert.doesNotMatch(text(view), /综合结果：通过/);
+  assert.equal(app.requests.length, 0);
+  app.dispose();
+});
+
+test('report retry is explicit and cannot replay a test after verification fails', async () => {
+  const app = harness(({ options }) => response(options.method === 'POST' ? wire({})
+    : wire({ report_id: 'run-a', status: 'failed', error: '证据文件已变化' })));
+  const props = app.injected();
+  await props.autoskill.store.verifyReport('run-a');
+  assert.equal(app.requests.length, 1);
+  assert.equal(app.requests[0].options.method, 'GET');
+  const view = reportCard(app, props, 'run-a');
+  assert.match(text(view), /证据文件已变化/);
+  click(view, '重试导出报告');
+  await setImmediate();
+  assert.equal(app.requests.length, 2);
+  const sent = JSON.parse(app.requests[1].options.body);
+  assert.equal(sent.operation, 'report.retry');
+  assert.equal(sent.payload.report_id, 'run-a');
+  assert.equal(app.requests.some((request) => request.url.pathname.includes('rerun')), false);
+  assert.equal(app.timers.size, 0);
+  assert.equal(app.notifications.length, 0);
+  app.dispose();
 });

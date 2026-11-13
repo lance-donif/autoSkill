@@ -1,0 +1,18 @@
+{
+  "label": "002-run-help",
+  "started_at": "2026-11-13T14:07:21.130601+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "run",
+    "--help"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.2739447730000393,
+  "ended_at": "2026-11-13T14:07:21.404546+00:00",
+  "response_text": "usage: autoskill run [-h] [--case CASES] [--engine {playwright,selenium}]\n                     [--kind {ui,api}] [--headed] [--headless]\n                     project\n\npositional arguments:\n  project\n\noptions:\n  -h, --help            show this help message and exit\n  --case CASES          用例编号，可重复；省略则回放全部\n  --engine {playwright,selenium}\n  --kind {ui,api}       只回放某一类\n  --headed              显示浏览器窗口（默认就是显示）\n  --headless            不显示浏览器窗口，在后台运行（默认显示最大化的窗口）\n"
+}

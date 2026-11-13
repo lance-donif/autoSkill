@@ -1008,7 +1008,7 @@ def _saved_case_revision(case, previous, preserve_revisions):
         case["revision"] = 1
 
 
-def save_cases(p, incoming, *, preserve_revisions=False):
+def save_cases(p, incoming, *, preserve_revisions=False, requirements=None):
     """Replace a complete case catalog with snapshots and automatic revisions."""
     import jsonschema
 
@@ -1020,7 +1020,11 @@ def save_cases(p, incoming, *, preserve_revisions=False):
     byid = {c["id"]: c for c in old}
     proposed = []
     seen = set()
-    req_ids = {r["id"] for r in read(p / "analysis/requirements.json")}
+    reqs = read(p / "analysis/requirements.json") if requirements is None else requirements
+    requirement_errors = []
+    req_ids = _validation_requirement_ids(reqs, requirement_errors)
+    if requirement_errors:
+        raise ValueError("；".join(requirement_errors))
     for raw in incoming:
         c = copy.deepcopy(raw)
         schema_errors = list(jsonschema.Draft202012Validator(schema).iter_errors(c))
@@ -1049,6 +1053,8 @@ def save_cases(p, incoming, *, preserve_revisions=False):
         dest = snapshot / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(p / rel, dest)
+    if requirements is not None and requirements != read(p / "analysis/requirements.json"):
+        write(p / "analysis/requirements.json", requirements)
     for kind, filename in FILES.items():
         write(p / "testcases" / filename, [c for c in proposed if c["kind"] == kind])
     sync_skills(p)

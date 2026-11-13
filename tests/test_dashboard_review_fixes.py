@@ -3,6 +3,7 @@ import json
 import mimetypes
 import re
 import sys
+import time
 import unittest
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -43,6 +44,7 @@ class DashboardReviewTests(unittest.TestCase):
         self.result = {"run_id": "run-1", "case_id": "TC-UI-001", "case_title": "Example case", "kind": "ui", "status": "Pass",
                        "project_name": "Original project", "started_at": "2026-11-12T00:00:00Z", "duration_ms": 1}
         self.empty_history = False
+        self.revision = 'initial'
         self.page.route("**/*", self.handle_request)
 
     def history_response(self, path, query):
@@ -60,6 +62,8 @@ class DashboardReviewTests(unittest.TestCase):
             return {"data_id": "fixture-data", "dashboard": {}, "legacy_dashboard_import_eligible": False}
         if path == "/api/status":
             return {"browser": {}, "runtime": {}, "skill_path": "/example/skill"}
+        if path == "/api/state-revision":
+            return {"revision": self.revision}
         if path == "/api/projects/review":
             if request.method == "PATCH":
                 self.project.update(request.post_data_json)
@@ -74,6 +78,8 @@ class DashboardReviewTests(unittest.TestCase):
             return {"project_id": "review", "revision": "fixture-folders", "folders": [], "assignments": {self.case["case_id"]: None}}
         if path in ("/api/runs", "/api/results"):
             return self.history_response(path, query)
+        if path == '/api/runs/run-1':
+            return self.run
         raise AssertionError("Unexpected API request: " + path)
 
     def handle_request(self, route):
@@ -141,6 +147,121 @@ class DashboardReviewTests(unittest.TestCase):
         self.page.locator(".drawer-body").get_by_role("button", name="保存", exact=True).click()
         expect(self.page.locator("#view .banner")).to_have_count(0)
         expect(self.page.get_by_role("dialog", name="项目设置", exact=True)).to_be_visible()
+
+    def test_idle_external_completion_updates_within_one_second(self):
+        self.empty_history = True
+        self.open_history('projects=review&range=all')
+        expect(self.page.get_by_text('这个范围内还没有执行', exact=True)).to_be_visible()
+        self.run['state'] = {'lifecycle': 'completed', 'phase': 'settled', 'outcome': 'fail',
+                             'checks': {'business': 'pass', 'performance': 'fail', 'quality': 'not_applicable'},
+                             'evidence': 'valid', 'report': 'failed', 'delivery': 'pending'}
+        self.empty_history = False
+        started = time.monotonic()
+        self.revision = 'external-finished'
+        expect(self.page.locator('#view .table tbody')).to_contain_text('性能：失败', timeout=1000)
+        self.assertLess(time.monotonic() - started, 1.0)
+        expect(self.page.locator('#view .table tbody')).to_contain_text('已结束')
+        expect(self.page.locator('#view .table tbody')).to_contain_text('业务：通过')
+
+    def test_refresh_preserves_focused_search_draft_and_selection(self):
+        self.page.goto('http://127.0.0.1:8787/#/cases?projects=review&range=all')
+        search = self.page.get_by_role('searchbox', name='搜索用例')
+        search.fill('Example')
+        original = search.element_handle()
+        search.evaluate('(node) => node.setSelectionRange(2, 5)')
+        self.case['state'] = {'phase': 'settled', 'outcome': 'unverified',
+                              'checks': {'business': 'unverified', 'performance': 'not_applicable', 'quality': 'not_applicable'}}
+        self.revision = 'case-result-finished'
+        expect(self.page.locator('#view')).to_contain_text('业务：未验证', timeout=1000)
+        expect(search).to_be_focused()
+        expect(search).to_have_value('Example')
+        self.assertEqual(search.evaluate('(node) => [node.selectionStart,node.selectionEnd]'), [2, 5])
+        self.assertTrue(original.evaluate('(node) => node.isConnected'))
+        search.fill('no matching fixture case')
+        expect(self.page.get_by_text('没有符合条件的用例', exact=True)).to_be_visible()
+        search.fill('Example')
+        expect(self.page.locator('#view .table tbody tr')).to_have_count(1)
+
+    def test_refresh_preserves_scroll_region_identity_and_horizontal_position(self):
+        self.page.set_viewport_size({'width': 760, 'height': 1000})
+        self.open_history('projects=review&range=all')
+        region = self.page.get_by_role('region', name='执行记录表格', exact=True)
+        original = region.element_handle()
+        before = region.evaluate('(node) => { node.scrollLeft = node.scrollWidth; return node.scrollLeft; }')
+        self.assertGreater(before, 0)
+        self.run['state'] = {'phase': 'settled', 'outcome': 'fail',
+                             'checks': {'business': 'pass', 'performance': 'fail', 'quality': 'not_applicable'}}
+        self.revision = 'result-updated-while-scrolled'
+        expect(region).to_contain_text('性能：失败', timeout=1000)
+        self.assertTrue(original.evaluate('(node) => node.isConnected'))
+        self.assertEqual(region.evaluate('(node) => node.scrollLeft'), before)
+
+    def test_history_controls_preserve_new_state_filters_and_observe_current_url(self):
+        self.open_history('projects=review&range=all&cycle=all')
+        self.page.get_by_label('执行阶段', exact=True).select_option('settled')
+        expect(self.page.locator('#view')).not_to_have_attribute('aria-busy', 'true')
+        self.page.get_by_role('group', name='结果筛选', exact=True).get_by_role('button', name='失败', exact=True).click()
+        expect(self.page).to_have_url(re.compile(r'phase=settled'))
+        self.assertEqual(parse_qs(urlsplit(self.page.url.replace('#/', '/')).query).get('cycle'), ['all'])
+        self.page.get_by_role('button', name='按用例结果', exact=True).click()
+        expect(self.page.get_by_label('执行阶段', exact=True)).to_have_value('settled')
+        self.assertIn('cycle=all', self.page.url)
+        self.assertIn('view=results', self.page.url)
+
+    def test_workspace_revision_keeps_inflight_diagnostic_and_its_result(self):
+        original_api_response = self.api_response
+        commands = []
+        finished = False
+
+        def diagnostic_response(request, path, query):
+            if path == '/api/engines':
+                return {'engines': [{'id': 'ai-eval', 'name': '合成诊断执行器'}]}
+            if path == '/api/diagnostics':
+                commands.append(request.post_data_json)
+                return {'id': 'diagnostic-owned', 'status': 'Running'}
+            if path == '/api/diagnostics/diagnostic-owned':
+                return {'id': 'diagnostic-owned', 'status': 'Completed' if finished else 'Running',
+                        'result': {'ok': False, 'modules': {'playwright': True}, 'missing': ['synthetic-runtime']}}
+            return original_api_response(request, path, query)
+
+        self.api_response = diagnostic_response
+        self.page.goto('http://127.0.0.1:8787/#/diagnostics')
+        self.page.get_by_role('button', name='检查运行环境', exact=True).click()
+        expect(self.page.locator('#view')).to_contain_text('diagnostic-owned')
+        with self.page.expect_response(lambda response: urlsplit(response.url).path == '/api/state-revision'
+                                       and response.json()['revision'] == 'unrelated-during-diagnostic'):
+            self.revision = 'unrelated-during-diagnostic'
+        finished = True
+        expect(self.page.get_by_role('table', name='Python 依赖状态', exact=True)).to_be_visible(timeout=1000)
+        expect(self.page.locator('#view')).to_contain_text('synthetic-runtime')
+        self.assertEqual(commands, [{'kind': 'doctor'}])
+
+    def test_unverified_raw_pass_keeps_ir_subset_and_single_case_rerun_visible(self):
+        state = {'phase': 'settled', 'lifecycle': 'completed', 'outcome': 'unverified',
+                 'checks': {'business': 'unverified', 'performance': 'not_applicable', 'quality': 'not_applicable'}}
+        self.run.update(family='replay', project_id='review', state=state, results=[{
+            **self.result, 'id': 1, 'state': state, 'detail': {}, 'prerequisite': False,
+            'category': '', 'reason': '缺少独立业务断言', 'actual': ''}])
+        self.page.goto('http://127.0.0.1:8787/#/runs/run-1?range=all')
+        expect(self.page.get_by_role('button', name='只重跑未通过的 1 条', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('button', name='只重跑这一条', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('button', name='重新运行', exact=True)).to_be_visible()
+
+    def test_primary_results_do_not_wait_for_slow_runtime_metadata(self):
+        self.empty_history = True
+        self.open_history('projects=review&range=all')
+        expect(self.page.get_by_text('这个范围内还没有执行', exact=True)).to_be_visible()
+        self.page.evaluate('''() => {
+            const original = window.fetch;
+            window.fetch = (url, options) => String(url) === '/api/status'
+                ? new Promise(resolve => setTimeout(resolve, 1500)).then(() => original(url, options))
+                : original(url, options);
+        }''')
+        self.run['state'] = {'phase': 'settled', 'outcome': 'unverified',
+                             'checks': {'business': 'unverified', 'performance': 'not_applicable', 'quality': 'not_applicable'}}
+        self.empty_history = False
+        self.revision = 'completed-with-slow-runtime'
+        expect(self.page.locator('#view .table tbody')).to_contain_text('业务：未验证', timeout=1000)
 
 
 if __name__ == "__main__":

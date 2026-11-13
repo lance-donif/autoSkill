@@ -1,0 +1,89 @@
+{
+  "label": "049-workflow-v2-next",
+  "started_at": "2026-11-13T14:11:58.752735+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "workflow",
+    "next",
+    "wf-1693b9093d974b1888df501d634aee83",
+    "--idempotency-key",
+    "bb-next-v2-2"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.21357274100046197,
+  "ended_at": "2026-11-13T14:11:58.966309+00:00",
+  "response": {
+    "task": {
+      "id": "wfi-9ced07cbe754466aa18b57413348ecce",
+      "item_id": "wfi-9ced07cbe754466aa18b57413348ecce",
+      "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+      "phase": "design",
+      "attempt_id": "wfa-3c944cac00494162bac2783e93392196",
+      "lease_token": "lease-146501d503bd4f6cbe37b29b468d7a2f",
+      "lease_until": "2026-11-13T14:16:58.919+00:00",
+      "binding_token": "eyJhdHRlbXB0X2lkIjoid2ZhLTNjOTQ0Y2FjMDA0OTQxNjJiYWMyNzgzZTkzMzkyMTk2IiwiaXRlbV9pZCI6IndmaS05Y2VkMDdjYmU3NTQ0NjZhYTE4YjU3NDEzMzQ4ZWNjZSIsImxlYXNlX3Rva2VuIjoibGVhc2UtMTQ2NTAxZDUwM2JkNGY2Y2JlMzdiMjliNDY4ZDdhMmYiLCJ3b3JrZmxvd19pZCI6IndmLTE2OTNiOTA5M2Q5NzRiMTg4OGRmNTAxZDYzNGFlZTgzIn0=",
+      "input_hash": "e86a01900bdeb1925ee7329a9db16eaaff58448bd9aa0a80c43e043df883f249",
+      "input_refs": {
+        "definition": "workflows/wf-1693b9093d974b1888df501d634aee83/definition.json",
+        "requirements": "workflows/wf-1693b9093d974b1888df501d634aee83/requirements.json",
+        "sources": "workflows/wf-1693b9093d974b1888df501d634aee83/sources.json"
+      },
+      "checkpoint": {},
+      "context": {},
+      "payload_schema": {
+        "example": {
+          "scenarios": [
+            {
+              "id": "scenario-1",
+              "title": "验证业务预期",
+              "requirement_ids": [
+                "req-1"
+              ],
+              "oracle_ids": [
+                "oracle-1"
+              ]
+            }
+          ],
+          "oracles": [
+            {
+              "id": "oracle-1",
+              "kind": "api",
+              "requirement_ids": [
+                "req-1"
+              ],
+              "checks": {
+                "status": 200,
+                "json_equals": {
+                  "/priority": "high"
+                }
+              }
+            }
+          ]
+        },
+        "rule": "预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。"
+      }
+    },
+    "workflow": {
+      "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+      "project_id": "bb-api",
+      "title": "Blackbox HTTP lifecycle",
+      "cycle_id": "cycle-d82498cb8913415b8b2a261a3a4e451a",
+      "lifecycle": "active",
+      "cycle_state": "awaiting_host",
+      "complete": false,
+      "conclusion": "unassessed",
+      "revision": 18,
+      "domain_head": "11d39d40a600b568473dc4ae6c1aa6f180eb680c9b4b7f8e8e7c81abda6cb5b9",
+      "definition_hash": "e86a01900bdeb1925ee7329a9db16eaaff58448bd9aa0a80c43e043df883f249",
+      "counts": {
+        "completed": 1,
+        "leased": 1
+      }
+    }
+  }
+}

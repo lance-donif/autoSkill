@@ -1,4 +1,4 @@
-"""Dashboard counts share one SQL scope; current case verdicts additionally qualify frozen execution evidence.
+"""Dashboard counts and drill-down lists share scope and the central state projection.
 
 Definitions (shown next to each figure in the dashboard):
 - cases      active cases as of the end of the range
@@ -8,17 +8,15 @@ Definitions (shown next to each figure in the dashboard):
 """
 from __future__ import annotations
 
+import contextlib
 import datetime
 import json
 from dataclasses import dataclass, field
 
-from .. import db, execution_inputs, projects
-from ..replay import ir
+from .. import db, projects, task_state
 
 COUNTED = "r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load'"
 RESULTS = "FROM results r JOIN runs u ON u.id = r.run_id LEFT JOIN projects p ON p.id = r.project_id"
-LATEST = ("r.id = (SELECT MAX(x.id) FROM results x JOIN runs xu ON xu.id = x.run_id WHERE x.project_id = r.project_id "
-          "AND x.case_id = r.case_id AND x.prerequisite = 0 AND xu.trigger != 'login' AND xu.family != 'load')")
 
 
 def normalize(stamp: str | None) -> str | None:
@@ -39,11 +37,16 @@ class Scope:
     projects: list[str] = field(default_factory=list)  # empty = all projects
     start: str | None = None
     end: str | None = None
+    cycle: str = "current"
+    state_filters: dict[str, str] = field(default_factory=dict)
+    _snapshot: dict | None = field(default=None, init=False, repr=False, compare=False)
 
     @classmethod
-    def parse(cls, projects: str | None, start: str | None, end: str | None) -> Scope:
+    def parse(cls, projects: str | None, start: str | None, end: str | None, *, cycle: str = "current", **filters: str | None) -> Scope:
         ids = [p for p in (projects or "").split(",") if p]
-        return cls(ids, normalize(start), normalize(end))
+        if cycle not in ("current", "all"):
+            raise ValueError("周期范围必须为 current 或 all")
+        return cls(ids, normalize(start), normalize(end), cycle, {key: value for key, value in filters.items() if value})
 
     def where(self, time_column: str | None, project_column: str) -> tuple[str, list]:
         clauses, args = [], []
@@ -59,13 +62,82 @@ class Scope:
         return " AND ".join(clauses) or "1 = 1", args
 
     def as_of(self) -> str:
-        return self.end or db.now()
+        return self.end or (self._snapshot["as_of"] if self._snapshot else db.now())
+
+
+@contextlib.contextmanager
+def snapshot(scope: Scope):
+    """Reuse one read transaction and projections for exactly one public response."""
+    if scope._snapshot is not None:
+        yield scope._snapshot
+        return
+    with db.connect() as connection, task_state.projection():
+        connection.execute("BEGIN")
+        current = {"connection": connection, "as_of": db.now(), "selected": {}, "results": {}, "runs": {}}
+        scope._snapshot = current
+        try:
+            yield current
+        finally:
+            scope._snapshot = None
+
+
+@contextlib.contextmanager
+def _connection(scope: Scope):
+    if scope._snapshot:
+        yield scope._snapshot["connection"]
+    else:
+        with db.connect() as connection:
+            yield connection
+
+
+def _rows(scope: Scope, sql: str, args=()) -> list[dict]:
+    with _connection(scope) as connection:
+        return [dict(row) for row in connection.execute(sql, args)]
+
+
+def _one(scope: Scope, sql: str, args=()) -> dict | None:
+    rows = _rows(scope, sql, args)
+    return rows[0] if rows else None
+
+
+def _cycle(scope: Scope, alias: str) -> str:
+    tables = _one(scope, "SELECT COUNT(*) n FROM sqlite_master WHERE type='table' AND name IN ('workflow_runtime','workflow_items')")["n"]
+    if scope.cycle == "all" or tables != 2:
+        return "1 = 1"
+    return (f"(NOT EXISTS (SELECT 1 FROM workflow_items wi JOIN workflow_runtime wf ON wf.id=wi.workflow_id WHERE wi.run_id={alias}.id) "
+            f"OR EXISTS (SELECT 1 FROM workflow_items wi JOIN workflow_runtime wf ON wf.id=wi.workflow_id WHERE wi.run_id={alias}.id AND wi.cycle_id=wf.cycle_id))")
+
+
+def _matches(state: dict, filters: dict) -> bool:
+    for key, value in filters.items():
+        actual = state.get("checks", {}).get(key) if key in ("business", "performance", "quality") else state.get(key)
+        if actual != value:
+            return False
+    return True
+
+
+def _state_ids(scope: Scope, entity: str) -> list:
+    return [row["id"] for row in _selected(scope, entity)]
+
+
+def _where(scope: Scope, time_column: str, project_column: str, entity: str) -> tuple[str, list]:
+    where, args = scope.where(time_column, project_column)
+    where += " AND " + _cycle(scope, "u")
+    if scope.state_filters:
+        alias = "r" if entity == "result" else "u"
+        where += f" AND {alias}.id IN (SELECT value FROM json_each(?))"
+        args.append(json.dumps(_state_ids(scope, entity)))
+    return where, args
 
 
 def case_counts(scope: Scope) -> dict:
+    if scope.state_filters:
+        items = cases(scope)["items"]
+        return {"total": len(items), "ui": sum(row["kind"] == "ui" for row in items), "api": sum(row["kind"] == "api" for row in items),
+                "replayable": sum(bool(row["replayable"]) for row in items), "added": sum(not scope.start or row["created_at"] >= scope.start for row in items)}
     where, args = scope.where(None, "project_id")
     moment = scope.as_of()
-    row = db.one(
+    row = _one(scope,
         "SELECT COUNT(*) total, COALESCE(SUM(kind = 'ui'), 0) ui, COALESCE(SUM(kind = 'api'), 0) api, "
         "COALESCE(SUM(replayable), 0) replayable, COALESCE(SUM(created_at >= ?), 0) added "
         f"FROM cases WHERE {where} AND created_at < ? AND (archived_at IS NULL OR archived_at >= ?)",
@@ -76,30 +148,107 @@ def case_counts(scope: Scope) -> dict:
     return row
 
 
+def _latest(scope: Scope) -> str:
+    return ("r.id = (SELECT MAX(x.id) FROM results x JOIN runs xu ON xu.id=x.run_id WHERE x.project_id=r.project_id "
+            "AND x.case_id=r.case_id AND x.prerequisite=0 AND xu.trigger!='login' AND xu.family!='load' AND " + _cycle(scope, "xu") + ")")
+
+
+def _project_result(scope: Scope, row: dict, connection) -> dict:
+    cache = scope._snapshot["results"] if scope._snapshot else {}
+    if row["id"] not in cache:
+        cache[row["id"]] = task_state.result(row, connection=connection)
+    return cache[row["id"]]
+
+
+def _project_run(scope: Scope, row: dict, connection) -> dict:
+    cache = scope._snapshot["runs"] if scope._snapshot else {}
+    if row["id"] not in cache:
+        children = [dict(value) for value in connection.execute("SELECT * FROM results WHERE run_id=? AND prerequisite=0 ORDER BY id", (row["id"],))]
+        states = [_project_result(scope, child, connection) for child in children]
+        cache[row["id"]] = run_values(row, results=children, result_states=states, connection=connection)
+    return cache[row["id"]]
+
+
+def _prefilter(scope: Scope, entity: str, status: str | None, where: str, args: list) -> tuple[str, list]:
+    if entity != "run":
+        return where, args
+    if status == "active":
+        where += " AND u.status IN ('Queued','Running')"
+    phases = {"queued": ("Queued",), "running": ("Running",), "blocked": ("Blocked",),
+              "cancelled": ("Cancelled",), "settled": ("Pass", "Fail")}
+    if phase := phases.get(scope.state_filters.get("phase")):
+        where += " AND u.status IN (" + ",".join("?" for _ in phase) + ")"
+        args.extend(phase)
+    return where, args
+
+
+def _selected(scope: Scope, entity: str, *, status: str | None = None, trigger: str | None = None,
+              current_only: bool = False, run_time: bool = False, exclude_load: bool = False) -> list[dict]:
+    if scope._snapshot is None:
+        with snapshot(scope):
+            return _selected(scope, entity, status=status, trigger=trigger, current_only=current_only, run_time=run_time, exclude_load=exclude_load)
+    cache = scope._snapshot
+    key = (entity, status, trigger, current_only, run_time, exclude_load)
+    if key in cache["selected"]:
+        return cache["selected"][key]
+    result = entity == "result"
+    clock = "u.created_at" if not result or run_time else "r.started_at"
+    where, args = scope.where(clock, "r.project_id" if result else "u.project_id")
+    where += " AND " + _cycle(scope, "u") + " AND " + (COUNTED if result else "u.trigger!='login'")
+    if exclude_load and not result:
+        where += " AND u.family!='load'"
+    if trigger:
+        where += " AND u.trigger=?"
+        args.append(trigger)
+    if current_only:
+        where += " AND " + _latest(scope)
+    where, args = _prefilter(scope, entity, status, where, args)
+    source = RESULTS if result else "FROM runs u LEFT JOIN projects p ON p.id=u.project_id"
+    alias = "r" if result else "u"
+    order = "r.started_at DESC,r.id DESC" if result else "u.created_at DESC,u.id DESC"
+    with _connection(scope) as connection:
+        rows = connection.execute(f"SELECT {alias}.*,COALESCE(p.name,{alias}.project_id) project_name {source} WHERE {where} ORDER BY {order}", args)
+        items = []
+        for saved in rows:
+            item = dict(saved)
+            if result:
+                state = _project_result(scope, item, connection)
+            else:
+                item = _project_run(scope, item, connection)
+                state = item["state"]
+            selected = not status or (state["lifecycle"] in ("pending", "active") if status == "active" else state["outcome"] == status.lower())
+            if selected and _matches(state, scope.state_filters):
+                items.append({**item, "state": state})
+    cache["selected"][key] = items
+    return items
+
+
+def _counts(items: list[dict]) -> dict:
+    return task_state.counts([item["state"] for item in items])
+
+
+def run_values(row: dict, *, results=None, result_states=None, connection=None) -> dict:
+    """Expose target-case counts using the same current outcomes as result drill-downs."""
+    return task_state.run_values(row, results=results, result_states=result_states, connection=connection)
+
+
 def result_counts(scope: Scope) -> dict:
-    where, args = scope.where("r.started_at", "r.project_id")
-    row = db.one(
-        "SELECT COUNT(*) executions, COALESCE(SUM(r.status = 'Pass'), 0) passed, COALESCE(SUM(r.status = 'Fail'), 0) failed, "
-        f"COALESCE(SUM(r.status = 'Blocked'), 0) blocked {RESULTS} WHERE {COUNTED} AND {where}", args)
-    judged = row["passed"] + row["failed"]
-    row["judged"] = judged
-    row["pass_rate"] = round(row["passed"] / judged, 4) if judged else None
-    still = db.one(f"SELECT COUNT(*) n {RESULTS} WHERE {COUNTED} AND {where} AND r.status = 'Fail' AND {LATEST}", args)
-    row["still_failing"] = still["n"]
-    row["reliability"] = reliability(scope)
-    return row
+    rows = _selected(scope, "result")
+    return {"executions": len(rows), **_counts(rows),
+            "still_failing": sum(row["state"]["outcome"] == "fail" for row in _selected(scope, "result", current_only=True)),
+            "reliability": reliability(scope)}
 
 
 def reliability(scope: Scope) -> dict:
     """First and final business checks share a denominator including unfinished target executions."""
-    where, args = scope.where("u.created_at", "u.project_id")
-    planned = db.one("SELECT COALESCE(SUM(MAX(u.total, u.done)), 0) n, "
+    where, args = _where(scope, "u.created_at", "u.project_id", "run")
+    planned = _one(scope, "SELECT COALESCE(SUM(MAX(u.total, u.done)), 0) n, "
                      "COALESCE(SUM(CASE WHEN u.status = 'Cancelled' THEN MAX(u.total - u.done, 0) ELSE 0 END), 0) cancelled "
                      ", COALESCE(SUM(u.family = 'native' AND u.total = 0), 0) unknown_runs "
                      f"FROM runs u WHERE u.trigger != 'login' AND u.family != 'load' AND {where}", args)
     first = "COALESCE(json_extract(r.detail, '$.attempts[0].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
     final = "COALESCE(json_extract(r.detail, '$.attempts[#-1].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
-    row = db.one("SELECT COUNT(*) observed, "
+    row = _one(scope, "SELECT COUNT(*) observed, "
                  f"COALESCE(SUM({first} = 'Pass'), 0) first_passed, COALESCE(SUM({final} = 'Pass'), 0) final_passed, "
                  f"COALESCE(SUM({first} = 'Fail' AND {final} = 'Pass'), 0) recovered_after_failure, "
                  f"COALESCE(SUM({final} = 'Unverified'), 0) unverified, "
@@ -111,95 +260,79 @@ def reliability(scope: Scope) -> dict:
                unknown_target_runs=planned["unknown_runs"],
                first_pass_rate=round(row["first_passed"] / denominator, 4) if denominator and not planned["unknown_runs"] else None,
                final_pass_rate=round(row["final_passed"] / denominator, 4) if denominator and not planned["unknown_runs"] else None,
-               window="run_created_at", denominator_definition="本范围创建的运行内全部目标用例，含阻塞、取消、未完成和无业务断言")
+               window="run_created_at", basis="historical_attempts",
+               denominator_definition="本范围创建的运行内全部目标用例，含阻塞、取消、未完成和无业务断言",
+               verification_note="首轮与末次业务结果为历史尝试事实；当前有效通过数使用独立核验后的 state.outcome")
     return row
 
 
 def run_counts(scope: Scope) -> dict:
-    where, args = scope.where("created_at", "project_id")
-    return db.one(
-        "SELECT COUNT(*) total, COALESCE(SUM(trigger = 'schedule'), 0) scheduled, "
-        "COALESCE(SUM(status IN ('Queued', 'Running')), 0) active "
-        f"FROM runs WHERE trigger != 'login' AND family != 'load' AND {where}", args)
+    rows = _selected(scope, "run", exclude_load=True)
+    return {"total": len(rows), "scheduled": sum(row["trigger"] == "schedule" for row in rows),
+            "active": sum(row["state"]["lifecycle"] in ("pending", "active") for row in rows), **_counts(rows)}
 
 
 def trend(scope: Scope, tz_minutes: int = 480) -> dict:
-    """Stacked pass/fail/blocked per day (per hour when the range is one day or less), in the viewer's time zone."""
-    where, args = scope.where("r.started_at", "r.project_id")
-    hourly = False
-    if scope.start:
-        begin = datetime.datetime.fromisoformat(scope.start)
-        finish = datetime.datetime.fromisoformat(scope.as_of())
-        hourly = (finish - begin) <= datetime.timedelta(hours=36)
+    """Bucket the same independently verified outcomes shown in the result list."""
+    hourly = bool(scope.start and datetime.datetime.fromisoformat(scope.as_of()) - datetime.datetime.fromisoformat(scope.start) <= datetime.timedelta(hours=36))
     pattern = "%Y-%m-%d %H:00" if hourly else "%Y-%m-%d"
-    rows = db.rows(
-        f"SELECT strftime('{pattern}', r.started_at, ?) bucket, COALESCE(SUM(r.status = 'Pass'), 0) passed, "
-        "COALESCE(SUM(r.status = 'Fail'), 0) failed, COALESCE(SUM(r.status = 'Blocked'), 0) blocked "
-        f"{RESULTS} WHERE {COUNTED} AND {where} GROUP BY bucket ORDER BY bucket",
-        [f"{int(tz_minutes):+d} minutes", *args],
-    )
-    for row in rows:
-        judged = row["passed"] + row["failed"]
-        row["pass_rate"] = round(row["passed"] / judged, 4) if judged else None
-    return {"unit": "hour" if hourly else "day", "points": rows}
+    groups = {}
+    for row in _selected(scope, "result"):
+        stamp = datetime.datetime.fromisoformat(row["started_at"]) + datetime.timedelta(minutes=int(tz_minutes))
+        groups.setdefault(stamp.strftime(pattern), []).append(row)
+    return {"unit": "hour" if hourly else "day", "points": [{"bucket": key, **_counts(rows)} for key, rows in sorted(groups.items())]}
 
 
 def task_status(scope: Scope) -> dict:
     where, args = scope.where(None, "t.project_id")
-    tasks = db.rows(
+    tasks = _rows(scope,
         "SELECT t.id, t.title, t.project_id, COALESCE(p.name, t.project_id) project_name, t.enabled, t.next_due, "
-        "t.engine, u.status last_status, u.finished_at last_finished "
+        "t.engine, t.last_run_id, u.status last_status, u.finished_at last_finished "
         f"FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN runs u ON u.id = t.last_run_id WHERE {where} "
         "ORDER BY t.enabled DESC, t.next_due IS NULL, t.next_due", args)
-    run_where, run_args = scope.where("created_at", "project_id")
-    fired = db.one(f"SELECT COUNT(*) n FROM runs WHERE trigger = 'schedule' AND {run_where}", run_args)["n"]
+    run_where, run_args = _where(scope, "u.created_at", "u.project_id", "run")
+    fired = _one(scope, f"SELECT COUNT(*) n FROM runs u WHERE trigger = 'schedule' AND {run_where}", run_args)["n"]
     enabled = sum(1 for t in tasks if t["enabled"])
+    for task in tasks[:5]:
+        run = _one(scope, "SELECT * FROM runs WHERE id=?", (task["last_run_id"],)) if task["last_run_id"] else None
+        with _connection(scope) as connection:
+            task["last_run_state"] = _project_run(scope, run, connection)["state"] if run else None
     upcoming = [t for t in tasks if t["enabled"] and t["next_due"]]
     return {"total": len(tasks), "enabled": enabled, "paused": len(tasks) - enabled, "fired_in_range": fired,
             "next": upcoming[0] if upcoming else None, "tasks": tasks[:5]}
 
 
 def summary(scope: Scope, tz_minutes: int = 480) -> dict:
-    return {
-        "scope": {"projects": scope.projects, "start": scope.start, "end": scope.end},
-        "cases": case_counts(scope), "runs": run_counts(scope), "results": result_counts(scope),
-        "trend": trend(scope, tz_minutes), "tasks": task_status(scope),
-    }
+    with snapshot(scope):
+        return {
+            "scope": {"projects": scope.projects, "start": scope.start, "end": scope.end, "cycle": scope.cycle, "filters": scope.state_filters},
+            "cases": case_counts(scope), "runs": run_counts(scope), "results": result_counts(scope),
+            "trend": trend(scope, tz_minutes), "tasks": task_status(scope),
+        }
+
+
+def dashboard(scope: Scope, tz_minutes: int = 480, *, current_only: bool = False, limit: int = 6) -> dict:
+    """Read dashboard figures and lists from one snapshot and one evidence projection."""
+    with snapshot(scope):
+        totals = summary(scope, tz_minutes)
+        recent = runs(scope, limit=limit, exclude_load=True)
+        outcomes = ("fail",) if current_only else ("fail", "blocked")
+        rows = [row for row in _selected(scope, "result", current_only=current_only) if row["state"]["outcome"] in outcomes]
+        items = [{key: value for key, value in row.items() if key != "detail"} for row in rows[:limit]]
+        return {"summary": totals, "recent": recent, "failures": {"total": len(rows), "items": items}}
 
 
 def runs(scope: Scope, trigger: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0, exclude_load: bool = False) -> dict:
-    where, args = scope.where("u.created_at", "u.project_id")
-    if exclude_load:
-        where += " AND u.family != 'load'"
-    if trigger:
-        where, args = where + " AND u.trigger = ?", [*args, trigger]
-    if status == "active":
-        where += " AND u.status IN ('Queued', 'Running')"
-    elif status:
-        where, args = where + " AND u.status = ?", [*args, status]
-    base = f"FROM runs u LEFT JOIN projects p ON p.id = u.project_id WHERE u.trigger != 'login' AND {where}"
-    total = db.one(f"SELECT COUNT(*) n {base}", args)["n"]
-    items = db.rows(
-        "SELECT u.id, u.batch_id, u.project_id, COALESCE(p.name, u.project_id) project_name, u.engine, u.trigger, u.status, u.family, "
-        "u.total, u.done, u.passed, u.failed, u.blocked, u.current, u.reason, u.created_at, u.started_at, u.finished_at, u.delete_requested, u.deletion_error "
-        f"{base} ORDER BY u.created_at DESC LIMIT ? OFFSET ?", [*args, int(limit), int(offset)])
-    return {"total": total, "items": items}
+    with snapshot(scope):
+        rows = _selected(scope, "run", status=status, trigger=trigger, exclude_load=exclude_load)
+        return {"total": len(rows), "items": rows[int(offset):int(offset) + int(limit)], "state_counts": _counts(rows)["state_counts"]}
 
 
 def results(scope: Scope, status: str | None = None, current_only: bool = False, limit: int = 50, offset: int = 0) -> dict:
-    """Case results in scope: the drill-down behind the executions, pass-rate, failed and blocked figures."""
-    where, args = scope.where("r.started_at", "r.project_id")
-    if status:
-        where, args = where + " AND r.status = ?", [*args, status]
-    if current_only:
-        where += f" AND {LATEST}"
-    base = f"{RESULTS} WHERE {COUNTED} AND {where}"
-    total = db.one(f"SELECT COUNT(*) n {base}", args)["n"]
-    items = db.rows(
-        "SELECT r.id, r.run_id, r.project_id, COALESCE(p.name, r.project_id) project_name, r.case_id, r.case_title, "
-        "r.kind, r.engine, r.status, r.category, r.reason, r.actual, r.duration_ms, r.started_at "
-        f"{base} ORDER BY r.started_at DESC, r.id DESC LIMIT ? OFFSET ?", [*args, int(limit), int(offset)])
-    return {"total": total, "items": items}
+    """Filter central outcomes before paging; never infer a business pass from raw status."""
+    rows = _selected(scope, "result", status=status, current_only=current_only)
+    items = [{key: value for key, value in row.items() if key != "detail"} for row in rows[int(offset):int(offset) + int(limit)]]
+    return {"total": len(rows), "items": items, "state_counts": _counts(rows)["state_counts"]}
 
 
 def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> dict:
@@ -212,48 +345,28 @@ def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> di
         where, args = where + " AND c.kind = ?", [*args, kind]
     if added_only and scope.start:
         where, args = where + " AND c.created_at >= ?", [*args, scope.start]
-    items = db.rows(
+    items = _rows(scope,
         "SELECT c.project_id, COALESCE(p.name, c.project_id) project_name, c.case_id, c.kind, c.title, c.module, c.priority, "
-        "c.category, c.replayable, c.depends_on, c.created_at, "
-        "(SELECT r.status FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
-        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) last_status, "
-        "(SELECT r.started_at FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
-        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) last_run_at, "
-        "(SELECT r.id FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
-        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) latest_result_id "
+        "c.category, c.replayable, c.depends_on, c.created_at "
         f"FROM cases c LEFT JOIN projects p ON p.id = c.project_id WHERE {where} ORDER BY c.project_id, c.kind DESC, c.case_id", args)
-    _current_case_results(items)
+    cycle_where = _cycle(scope, "u")
+    with _connection(scope) as connection:
+        for item in items:
+            latest = connection.execute("SELECT r.* FROM results r JOIN runs u ON u.id=r.run_id WHERE r.project_id=? AND r.case_id=? "
+                                        "AND r.prerequisite=0 AND u.trigger!='login' AND u.family!='load' AND " + cycle_where + " ORDER BY r.id DESC LIMIT 1",
+                                        (item["project_id"], item["case_id"])).fetchone()
+            if latest:
+                try:
+                    definition = projects.case(item["project_id"], item["case_id"])
+                except (OSError, ValueError):
+                    definition = None
+                state = task_state.current_result(item["project_id"], definition, dict(latest), connection=connection)
+            else:
+                state = None
+            current = bool(state and state["current"])
+            item.update(state=state, last_state=state, last_status=latest["status"] if latest else None,
+                        last_run_at=latest["started_at"] if latest else None, current=current,
+                        current_status=state["outcome"].capitalize() if current else None)
+    if scope.state_filters:
+        items = [item for item in items if item["state"] and _matches(item["state"], scope.state_filters)]
     return {"total": len(items), "items": items}
-
-
-def _current_case_results(items: list[dict]) -> None:
-    """Keep historical facts while qualifying the displayed current verdict against all frozen inputs."""
-    if not items:
-        return
-    selected = sorted({item["project_id"] for item in items})
-    where = "r.project_id IN (" + ",".join("?" for _ in selected) + ")"
-    histories = {row["id"]: row for row in db.rows(f"SELECT r.* {RESULTS} WHERE {COUNTED} AND {LATEST} AND {where}", selected)}
-    definitions, captures = {}, {}
-    for item in items:
-        project_id = item["project_id"]
-        item.update(current=False, current_status=None)
-        result = histories.get(item.pop("latest_result_id"))
-        if result is None:
-            continue
-        if project_id not in definitions:
-            definitions[project_id] = {case["id"]: case for case in projects.cases(project_id)}
-        case = definitions[project_id].get(item["case_id"])
-        key = (project_id, result["engine"])
-        if key not in captures:
-            captures[key] = _current_capture(project_id, definitions[project_id], result["engine"])
-        if case is not None and execution_inputs.result_current(project_id, case, result, current=captures[key]):
-            business = json.loads(result["detail"]).get("business_status")
-            item.update(current=True, current_status="Unverified" if result["status"] == "Pass" and business != "Pass" else result["status"])
-
-
-def _current_capture(project_id: str, definitions: dict, engine: str) -> dict | None:
-    chosen = [case["id"] for case in definitions.values() if ir.is_replayable(case)]
-    try:
-        return execution_inputs.capture(project_id, chosen, engine, persist=False) if chosen else None
-    except (ValueError, OSError, TypeError):
-        return None

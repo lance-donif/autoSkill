@@ -28,17 +28,35 @@ class DashboardStabilityTests(unittest.TestCase):
         status = query.get("status", ["Fail"])[0]
         record = self.result if path == "/api/results" else self.run
         count = 1 if query.get("current") else 4
+        state = {"lifecycle": "completed", "phase": "blocked" if status == "Blocked" else "settled", "outcome": status.lower(),
+                 "checks": {"business": "fail" if status == "Fail" else "unverified", "performance": "not_applicable", "quality": "not_applicable"},
+                 "evidence": "valid", "report": "not_generated", "delivery": "not_applicable"}
         return {"total": count, "items": [{**record, "id": f"run-{status}-{i}", "status": status,
-                                            "case_title": f"{status} case {i}", "reason": status} for i in range(count)]}
+                                            "state": state, "case_title": f"{status} case {i}", "reason": status} for i in range(count)]}
+
+    def dashboard_response(self, query):
+        current = query.get("current") == ["true"]
+        failed = self.history_response("/api/results", {**query, "status": ["Fail"]})
+        if current:
+            failures = failed
+        else:
+            blocked = self.history_response("/api/results", {**query, "status": ["Blocked"]})
+            failures = {"total": failed["total"] + blocked["total"], "items": (failed["items"] + blocked["items"])[:6]}
+        return {"summary": self.summary_response(), "recent": self.history_response("/api/runs", query), "failures": failures}
+
+    def summary_response(self):
+        return {"results": {"executions": 8, "passed": 0, "failed": 4, "blocked": 4, "still_failing": 1},
+                "cases": {"total": 1, "ui": 1, "api": 0, "added": 0},
+                "runs": {"total": 4, "scheduled": 0, "active": 0},
+                "trend": {"unit": "day", "points": [{"bucket": "2026-11-12", "passed": 0, "failed": 4, "blocked": 4, "pass_rate": 0}]},
+                "tasks": {"total": 0, "enabled": 0, "paused": 0, "fired_in_range": 0, "tasks": []}}
 
     def api_response(self, request, path, query):
         self.requests.append((path, query))
         if path == "/api/summary":
-            return {"results": {"executions": 8, "passed": 0, "failed": 4, "blocked": 4, "still_failing": 1},
-                    "cases": {"total": 1, "ui": 1, "api": 0, "added": 0},
-                    "runs": {"total": 4, "scheduled": 0, "active": 0},
-                    "trend": {"unit": "day", "points": [{"bucket": "2026-11-12", "passed": 0, "failed": 4, "blocked": 4, "pass_rate": 0}]},
-                    "tasks": {"total": 0, "enabled": 0, "paused": 0, "fired_in_range": 0, "tasks": []}}
+            return self.summary_response()
+        if path == "/api/dashboard":
+            return self.dashboard_response(query)
         return fixtures.DashboardReviewTests.api_response(self, request, path, query)
 
     def remember_regions(self, selectors):
@@ -70,20 +88,24 @@ class DashboardStabilityTests(unittest.TestCase):
         self.remember_regions(["#side", "#scope", "#view .page-head", "#view .kpis", ".chart-wrap"])
         summaries = sum(path == "/api/summary" for path, _ in self.requests)
         runs = sum(path == "/api/runs" for path, _ in self.requests)
+        bundles = sum(path == "/api/dashboard" for path, _ in self.requests)
         self.page.get_by_role("button", name="当前仍失败", exact=True).click()
         expect(self.page.locator("[data-dashboard-failures] .list-row")).to_have_count(1)
         self.assert_regions_unchanged()
         self.assertEqual(sum(path == "/api/summary" for path, _ in self.requests), summaries)
         self.assertEqual(sum(path == "/api/runs" for path, _ in self.requests), runs)
+        self.assertEqual(sum(path == "/api/dashboard" for path, _ in self.requests), bundles + 1)
         self.page.get_by_role("button", name="范围内全部", exact=True).click()
         expect(self.page.locator("[data-dashboard-failures] .list-row")).to_have_count(6)
         self.assert_regions_unchanged()
+        self.assertEqual(sum(path == "/api/dashboard" for path, _ in self.requests), bundles + 2)
         self.remember_regions(["#side", "#scope", "#view .page-head", "#view .kpis", "[data-dashboard-failures]"])
         self.page.get_by_role("button", name="表格", exact=True).click()
         expect(self.page.locator(".chart-table")).to_be_visible()
         self.page.get_by_role("button", name="图表", exact=True).click()
         expect(self.page.locator(".chart-svg")).to_be_visible()
         self.assert_regions_unchanged()
+        self.assertEqual(sum(path == "/api/dashboard" for path, _ in self.requests), bundles + 2)
 
     def test_failed_and_blocked_history_filters_keep_controls_and_back_navigation(self):
         self.page.goto("http://127.0.0.1:8787/#/runs?view=results&range=all")

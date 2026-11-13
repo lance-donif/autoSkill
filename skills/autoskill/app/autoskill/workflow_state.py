@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS workflow_operations (
   payload TEXT NOT NULL, side_effect INTEGER NOT NULL, state TEXT NOT NULL,
   receipt_token TEXT NOT NULL, observation TEXT, created_at TEXT NOT NULL, finished_at TEXT,
   UNIQUE(attempt_id, request_key));
+CREATE TABLE IF NOT EXISTS workflow_report_heads (
+  workflow_id TEXT NOT NULL, cycle_id TEXT NOT NULL, generation INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(workflow_id, cycle_id), CHECK(generation >= 0));
 CREATE INDEX IF NOT EXISTS workflow_items_by_flow ON workflow_items(workflow_id, sequence);
 CREATE INDEX IF NOT EXISTS workflow_attempts_by_session ON workflow_attempts(session_id, state);
 CREATE INDEX IF NOT EXISTS workflow_operations_by_item ON workflow_operations(item_id, state);
@@ -68,11 +71,21 @@ def init() -> None:
     db.init()
     with db.connect() as connection:
         connection.executescript(SCHEMA)
+        db.install_state_triggers(connection)
         connection.execute("BEGIN IMMEDIATE")
         columns = {record[1] for record in connection.execute("PRAGMA table_info(workflow_items)")}
         if "cycle_id" not in columns:
             connection.execute("ALTER TABLE workflow_items ADD COLUMN cycle_id TEXT NOT NULL DEFAULT ''")
         connection.execute("UPDATE workflow_items SET cycle_id = (SELECT cycle_id FROM workflow_runtime WHERE id = workflow_items.workflow_id) WHERE cycle_id = ''")
+        connection.execute("INSERT OR IGNORE INTO workflow_report_heads(workflow_id,cycle_id,generation) SELECT id,cycle_id,0 FROM workflow_runtime")
+
+
+def report_generation(connection, workflow_id: str, cycle_id: str) -> int:
+    """Read a cycle's report head without changing history or installing schema."""
+    if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'workflow_report_heads'").fetchone():
+        return 0
+    found = connection.execute("SELECT generation FROM workflow_report_heads WHERE workflow_id = ? AND cycle_id = ?", (workflow_id, cycle_id)).fetchone()
+    return found["generation"] if found else 0
 
 
 def deadline(seconds: int) -> str:

@@ -1,0 +1,58 @@
+{
+  "data_root": "/workspace/autoskill-state-validation/audit/auth-data-315affea",
+  "before": {
+    "lifecycle": "completed",
+    "phase": "settled",
+    "outcome": "pass",
+    "checks": {
+      "business": "pass",
+      "performance": "not_applicable",
+      "quality": "not_applicable"
+    },
+    "evidence": "valid",
+    "report": "ready",
+    "delivery": "not_applicable",
+    "scope": {
+      "project_id": "audit-auth",
+      "workflow_id": null,
+      "cycle_id": null,
+      "run_id": "run-a216521896f6",
+      "case_id": "TC-API-001",
+      "attempt_id": "attempt-ffeacfed8d0740b0bf4c02f6f68d6828"
+    },
+    "reason": "",
+    "last_attempt_outcome": "pass",
+    "revision": "2b5ce828bdf2c162b315be1d0639bfa4f55f4c60f0b4d1974f97ffbf1bbb884e",
+    "current": true,
+    "historical_outcome": "pass"
+  },
+  "after": {
+    "lifecycle": "completed",
+    "phase": "settled",
+    "outcome": "unverified",
+    "checks": {
+      "business": "pass",
+      "performance": "not_applicable",
+      "quality": "not_applicable"
+    },
+    "evidence": "valid",
+    "report": "ready",
+    "delivery": "not_applicable",
+    "scope": {
+      "project_id": "audit-auth",
+      "workflow_id": null,
+      "cycle_id": null,
+      "run_id": "run-a216521896f6",
+      "case_id": "TC-API-001",
+      "attempt_id": "attempt-ffeacfed8d0740b0bf4c02f6f68d6828"
+    },
+    "reason": "当前用例、依赖或执行配置已变化；历史执行事实保留",
+    "last_attempt_outcome": "pass",
+    "revision": "46c2e472ac2bd4131277317ec7191c0492946bb8bae3b1f39d77daa5539bca47",
+    "current": false,
+    "historical_outcome": "pass"
+  },
+  "revision_changed_after_auth_service": true,
+  "previous_revision": "9e96139380c5250e1f16f2bfcb7efa770a4d679798762de629e26140f9ae275f",
+  "revised_revision": "7e5200e49c238cb2638c3fe6b247352042c828ed7b4b84cea9f1c7aeee960323"
+}

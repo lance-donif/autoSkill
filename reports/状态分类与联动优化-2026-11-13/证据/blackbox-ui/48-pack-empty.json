@@ -1,0 +1,13 @@
+{
+  "command": [
+    "pack",
+    "localhost",
+    "--out",
+    "/workspace/autoskill-state-validation/blackbox-ui/empty-project.zip"
+  ],
+  "started_at": 1794579344.8780632,
+  "finished_at": 1794579345.399007,
+  "exit_code": 0,
+  "stdout": "{\n \"file\": \"/workspace/autoskill-state-validation/blackbox-ui/empty-project.zip\",\n \"bytes\": 5250,\n \"projects\": [\n  {\n   \"id\": \"localhost\",\n   \"name\": \"黑盒接口统计\",\n   \"category\": \"\",\n   \"cases\": {\n    \"total\": 0,\n    \"ui\": 0,\n    \"api\": 0\n   }\n  }\n ],\n \"secrets_included\": [],\n \"secrets_not_included\": [],\n \"note\": \"分享包包含项目及原始来源、附件；来源文件中的认证信息按原文保留；不另外导出保存的登录态和运行记录。未单独导出本机凭据库\"\n}\n",
+  "stderr": ""
+}

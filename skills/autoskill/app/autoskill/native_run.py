@@ -86,21 +86,27 @@ def enqueue(project_id: str, asset_id: str, **options) -> dict:
 
 
 def get(run_id: str) -> dict:
-    from . import runner, task_reports
+    from . import runner, task_reports, task_state
 
-    run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
-    if not run or run.get("family") != "native":
-        raise ValueError("原生运行不存在")
-    rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
-    for row in rows:
-        row["detail"] = json.loads(row["detail"])
-    summary = paths.local() / "runs" / run_id / "native" / "outcome.json"
-    outcome = json.loads(summary.read_text(encoding="utf-8")) if summary.is_file() else {}
-    manifest = _frozen(run)
-    return {**runner.public_run(run), "results": rows, "outcome": outcome, "evidence_dir": str(summary.parent),
-            "test_report": task_reports.for_run(run_id),
-            "asset_id": manifest["asset_id"], "asset_version": manifest["asset_version"], "head": manifest["head"],
-            "planned_unknown": manifest.get("planning", {}).get("planned_unknown", True) and outcome.get("metrics", {}).get("planned_cases") is None}
+    with db.connect() as connection, task_state.projection():
+        connection.execute("BEGIN")
+        saved = connection.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        if saved is None or saved["family"] != "native":
+            raise ValueError("原生运行不存在")
+        run = dict(saved)
+        rows = [dict(row) for row in connection.execute("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))]
+        for row in rows:
+            row["detail"] = json.loads(row["detail"])
+            row["state"] = task_state.result(row, connection=connection)
+        targets = [row for row in rows if not row["prerequisite"]]
+        values = task_state.run_values(run, results=targets, result_states=[row["state"] for row in targets], connection=connection)
+        summary = paths.local() / "runs" / run_id / "native" / "outcome.json"
+        outcome = json.loads(summary.read_text(encoding="utf-8")) if summary.is_file() else {}
+        manifest = _frozen(run)
+        return {**runner.public_run(values, state=values["state"]), "results": rows, "outcome": outcome, "evidence_dir": str(summary.parent),
+                "test_report": task_reports.peek("run_" + run_id),
+                "asset_id": manifest["asset_id"], "asset_version": manifest["asset_version"], "head": manifest["head"],
+                "planned_unknown": manifest.get("planning", {}).get("planned_unknown", True) and outcome.get("metrics", {}).get("planned_cases") is None}
 
 
 def execute(run_id: str, *, claim_token: str | None = None) -> dict:
@@ -114,8 +120,8 @@ def _cancelled(run_id: str) -> bool:
     return not row or bool(row["cancel"]) or row["status"] != "Running"
 
 
-def _frozen(run: dict) -> dict:
-    manifest = run["input_manifest"]
+def _frozen(run: dict, *, manifest: dict | None = None) -> dict:
+    manifest = run["input_manifest"] if manifest is None else manifest
     if isinstance(manifest, str):
         manifest = json.loads(data_refs.resolve(manifest).read_text(encoding="utf-8"))
     if native_assets.digest(manifest) != run["input_hash"]:

@@ -328,7 +328,10 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         reader.on("pageerror", lambda error: self.errors.append(str(error)))
         requests = []
         reader.on("request", lambda request: requests.append(request.url))
-        reader.goto(offline_file.as_uri())
+        self.assertEqual(offline_file.read_bytes(), html)
+        # Managed Chromium blocks file navigation; this verifies the exact saved bytes offline.
+        # Opening the file:// URL itself remains outside this environment's acceptance.
+        reader.set_content(offline_file.read_bytes().decode('utf-8'))
         expect(reader.get_by_text("页面独立浏览器会话", exact=True)).to_be_visible()
         images = reader.locator("a.shot img")
         self.assertGreater(images.count(), 0)

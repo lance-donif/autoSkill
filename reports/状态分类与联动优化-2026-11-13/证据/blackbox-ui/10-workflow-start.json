@@ -1,0 +1,16 @@
+{
+  "command": [
+    "workflow",
+    "start",
+    "127-0-0-1",
+    "--file",
+    "workflow-definition.json",
+    "--idempotency-key",
+    "blackbox-ui-workflow"
+  ],
+  "started_at": 1794578959.512981,
+  "finished_at": 1794578959.8765745,
+  "exit_code": 0,
+  "stdout": "{\n \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n \"project_id\": \"127-0-0-1\",\n \"title\": \"独立黑盒订单维护\",\n \"cycle_id\": \"cycle-d40fb808592f4eb6bfd04fb3423e388b\",\n \"lifecycle\": \"active\",\n \"cycle_state\": \"awaiting_host\",\n \"complete\": false,\n \"conclusion\": \"unassessed\",\n \"revision\": 2,\n \"domain_head\": \"12b7b0363b005aa6019be801f70aa8cfc1d1562fe4bfa0bc8e9c55678be2ddb2\",\n \"definition_hash\": \"6f85d9f987b6ed3ecb0671b8c0ff690922c8f98cc4da853e2caa0ed776ba86db\",\n \"counts\": {\n  \"ready\": 1\n },\n \"accepted\": true,\n \"change_id\": \"change-7e4ec014f09e44ef9f943c32f4b48bbf\",\n \"workflow\": {\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"project_id\": \"127-0-0-1\",\n  \"title\": \"独立黑盒订单维护\",\n  \"cycle_id\": \"cycle-d40fb808592f4eb6bfd04fb3423e388b\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 2,\n  \"domain_head\": \"12b7b0363b005aa6019be801f70aa8cfc1d1562fe4bfa0bc8e9c55678be2ddb2\",\n  \"definition_hash\": \"6f85d9f987b6ed3ecb0671b8c0ff690922c8f98cc4da853e2caa0ed776ba86db\",\n  \"counts\": {\n   \"ready\": 1\n  }\n }\n}\n",
+  "stderr": ""
+}

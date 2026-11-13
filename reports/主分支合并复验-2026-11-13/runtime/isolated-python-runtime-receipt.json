@@ -1,0 +1,24 @@
+{
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "executable": "/workspace/autoskill-main-integration/runtime/python-env/bin/python",
+  "isolated_mode_imports_verified": true,
+  "pip_check": "passed",
+  "site_origins": {
+    "selenium": "/workspace/autoskill-main-integration/runtime/python-env/lib/python3.12/site-packages/selenium/__init__.py",
+    "playwright": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/__init__.py",
+    "onnxruntime": "/workspace/autoskill-main-integration/runtime/python-env/lib/python3.12/site-packages/onnxruntime/__init__.py",
+    "numpy": "/workspace/autoskill-main-integration/runtime/python-env/lib/python3.12/site-packages/numpy/__init__.py"
+  },
+  "packages": {
+    "selenium": "4.38.0",
+    "playwright": "1.62.0",
+    "numpy": "2.0.2",
+    "onnxruntime": "1.19.2",
+    "pillow": "11.3.0",
+    "httpx": "0.28.1",
+    "fastapi": "0.141.1"
+  },
+  "node": "v24.22.1",
+  "install_command": "python -m venv --system-site-packages <external-env>; <external-env>/bin/python -I -m pip install -r requirements-linux.txt",
+  "scope": "External pinned venv used by the completed final full regression; see 复验结果.json for the exact command and package versions."
+}

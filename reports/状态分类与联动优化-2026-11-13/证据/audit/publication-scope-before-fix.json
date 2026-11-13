@@ -1,0 +1,28 @@
+{
+  "data_root": "/workspace/autoskill-state-validation/audit/generation-data-f7cf70ad",
+  "run_id": "run-ef2cd734c835",
+  "workflow_outcome": "pass",
+  "current_case_outcomes": {
+    "TC-API-001": "unverified",
+    "TC-API-002": "unverified"
+  },
+  "case_hashes_unchanged": true,
+  "other_input_sections_unchanged": {
+    "config": true,
+    "auth": true,
+    "engine": true,
+    "credentials": true
+  },
+  "changed_source_scope": {
+    "analysis/requirements.json": {
+      "frozen": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "size": 3
+      },
+      "current": {
+        "sha256": "7c6ce7a8edbec5bcd42c96dcfc71838abd703d06d3b25a739f86f0b50e159fab",
+        "size": 1107
+      }
+    }
+  }
+}

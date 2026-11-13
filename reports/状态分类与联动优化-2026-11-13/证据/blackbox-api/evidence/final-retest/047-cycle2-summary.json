@@ -1,0 +1,271 @@
+{
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "label": "047-cycle2",
+  "receipts": [
+    "047-cycle2-next-requirements",
+    "047-cycle2-submit-requirements",
+    "047-cycle2-next-design",
+    "047-cycle2-submit-design",
+    "047-cycle2-next-materialize",
+    "047-cycle2-submit-materialize",
+    "047-cycle2-next-execute",
+    "047-cycle2-execution-status-00",
+    "047-cycle2-execution-status-01",
+    "047-cycle2-next-diagnose",
+    "047-cycle2-submit-diagnosis",
+    "047-cycle2-next-knowledge",
+    "047-cycle2-submit-knowledge",
+    "047-cycle2-next-finish",
+    "047-cycle2-final-status-00"
+  ],
+  "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+  "execution": {
+    "business_verified": false,
+    "conclusion": "violated",
+    "evidence_valid": true,
+    "performance_status": "Unverified",
+    "results": [
+      {
+        "business_status": "Pass",
+        "case_id": "TC-API-BB-READY",
+        "evidence_valid": true,
+        "performance_status": "Unverified",
+        "reason": "",
+        "result_id": 7,
+        "status": "Pass",
+        "verification": "verified"
+      },
+      {
+        "business_status": "Fail",
+        "case_id": "TC-API-BB-WRONG",
+        "evidence_valid": true,
+        "performance_status": "Unverified",
+        "reason": "字段 /status：期望 ready，实际 wrong",
+        "result_id": 8,
+        "status": "Fail",
+        "verification": "verified"
+      }
+    ],
+    "run_id": "run-b7ffb833eb93",
+    "run_status": "Fail"
+  },
+  "final": {
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "project_id": "bb-api",
+    "title": "Blackbox HTTP lifecycle",
+    "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+    "lifecycle": "active",
+    "cycle_state": "settled",
+    "complete": true,
+    "conclusion": "violated",
+    "revision": 44,
+    "domain_head": "76d100dd2419c296a4d21ea27a02b5b41cc78ad276880431d7c51972eb69b7a7",
+    "definition_hash": "eac6c087f2f7694178f9cd76421b70ea5d9a14c1b2af83c2dc24dccaf63dc115",
+    "counts": {
+      "completed": 7
+    },
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "fail",
+      "checks": {
+        "business": "fail",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "bb-api",
+        "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "run_id": null,
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "e10b7ead4a4861d3d37c18270fc6a993ead15046e4c57cae4874767a862993fa"
+    },
+    "items": [
+      {
+        "id": "wfi-f20ef7479cdd458a8ea01da0d26872c7",
+        "sequence": 8,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "requirements",
+        "state": "completed",
+        "attempt_id": "wfa-18a2fc3b52ec4e83be2fe465e575f65c",
+        "run_id": null,
+        "created_at": "2026-11-13T14:27:15.496+00:00",
+        "finished_at": "2026-11-13T14:29:46.568+00:00"
+      },
+      {
+        "id": "wfi-d671254c03ee41d0ace46d47d90ce21e",
+        "sequence": 9,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "design",
+        "state": "completed",
+        "attempt_id": "wfa-2182fcd27e1946bfa4e194de34f28b7d",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:46.568+00:00",
+        "finished_at": "2026-11-13T14:29:47.813+00:00"
+      },
+      {
+        "id": "wfi-60548f92c23544faa6db951bf3b27700",
+        "sequence": 10,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "coverage",
+        "state": "completed",
+        "attempt_id": "wfa-8cbe35d961a54022bb1b2316e1425746",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:47.813+00:00",
+        "finished_at": "2026-11-13T14:29:47.925+00:00"
+      },
+      {
+        "id": "wfi-a845a685ef2f4ba1aa7cd714359dc1c6",
+        "sequence": 11,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "materialize",
+        "state": "completed",
+        "attempt_id": "wfa-dcaba0d72c6b44b2bb81efdcc8111717",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:47.926+00:00",
+        "finished_at": "2026-11-13T14:29:49.889+00:00"
+      },
+      {
+        "id": "wfi-8f0a63370c2645a39bc811d58695a0f4",
+        "sequence": 12,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "execute",
+        "state": "completed",
+        "attempt_id": "wfa-3f4cd726208d49fe9f6fe698b7247f65",
+        "run_id": "run-b7ffb833eb93",
+        "created_at": "2026-11-13T14:29:49.889+00:00",
+        "finished_at": "2026-11-13T14:29:52.500+00:00"
+      },
+      {
+        "id": "wfi-eadace4bc7584367af59b9ae436f4678",
+        "sequence": 13,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "diagnose",
+        "state": "completed",
+        "attempt_id": "wfa-8406b1ca4f3b4465b90d976ea235da92",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:52.501+00:00",
+        "finished_at": "2026-11-13T14:29:54.398+00:00"
+      },
+      {
+        "id": "wfi-8a34b8d929d144c8b0bd4bfc6f18a02b",
+        "sequence": 14,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "knowledge",
+        "state": "completed",
+        "attempt_id": "wfa-81aaf4a834894d1dba454336b5cc9959",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:54.398+00:00",
+        "finished_at": "2026-11-13T14:29:55.525+00:00"
+      }
+    ],
+    "total": 7,
+    "cycle_scope": "current",
+    "cursor": null,
+    "next_cursor": null,
+    "test_report": {
+      "bugs": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/Bug清单-d0e08a58ff3e40ae.md",
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 1,
+        "execution": 0,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "bugs_download_url": "/api/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/bugs",
+      "bugs_sha256": "7344968e48f238c6a0c8c72977f41b096e04a84432b168d1145c6411a8b0d9dd",
+      "bugs_size": 1604,
+      "cases": 2,
+      "download_url": "/api/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/excel",
+      "excel": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/测试用例-d0e08a58ff3e40ae.xlsx",
+      "execution_rows": 2,
+      "generated_at": "2026-11-13T14:29:56.664+00:00",
+      "generation": 44,
+      "kind": "workflow",
+      "markdown": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/测试简报-d0e08a58ff3e40ae.md",
+      "markdown_download_url": "/api/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/markdown",
+      "markdown_sha256": "ff003361ee312fa75963e4b187a5f769922dee6bb88dbf039d11f968d7afd24b",
+      "markdown_size": 842,
+      "render_owner_identity": {
+        "location_id": "7335b5952ef1e58eb583c4adc635b7f574d3b21f407aa097ced325c509421ca0",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 49204,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1125566"
+      },
+      "render_started_at": "2026-11-13T14:29:55.994+00:00",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da",
+      "retry_url": "/api/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/retry",
+      "retryable": false,
+      "run_ids": [
+        "run-b7ffb833eb93"
+      ],
+      "sha256": "9e93e9bd27299cea96d6febc1bedd6176d438c184964b3496f06dac5b883abc1",
+      "size": 18553,
+      "source_hash": "d0e08a58ff3e40ae86761170fad28465333215db8a021842414fa7ac6cb93bcd",
+      "status": "ready",
+      "summary_cases": 2,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 1,
+        "NotRun": 0,
+        "Pass": 1,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 2,
+      "task_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 2,
+        "execution_rows": 2,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 2,
+          "caseGroupDepths": {
+            "2": 2
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 2,
+              "name": "Local HTTP fixture",
+              "path": [
+                "Blackbox API state",
+                "Local HTTP fixture"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 2,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "label": "026-native-cancel-watch-run",
+  "started_at": "2026-11-13T14:09:16.197348+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "native",
+    "run",
+    "bb-api",
+    "bb-slow"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.4378566489995137,
+  "ended_at": "2026-11-13T14:09:16.635205+00:00",
+  "response": {
+    "id": "run-6eb27f15cbdd",
+    "family": "native",
+    "project_id": "bb-api",
+    "engine": "selenium-unittest",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Queued",
+    "case_ids": [
+      "bb-slow"
+    ],
+    "total": 0,
+    "created_at": "2026-11-13T14:09:16.594+00:00",
+    "headed": 0,
+    "session_id": "blackbox-api-baseline",
+    "input_manifest": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/native-inputs/09b27d4f7616054cbdd7057987f6ee5e3c4d21a0635afeda956c3b49ffd7aa98-4f1d9e4a8e8449998fcb38adc83e1d57.json",
+    "input_hash": "09b27d4f7616054cbdd7057987f6ee5e3c4d21a0635afeda956c3b49ffd7aa98",
+    "queue_dispatcher": {
+      "status": "running",
+      "pid": 37497,
+      "reason": ""
+    },
+    "note": "已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定"
+  }
+}

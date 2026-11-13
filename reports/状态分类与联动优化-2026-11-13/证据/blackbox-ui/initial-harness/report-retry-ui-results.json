@@ -1,0 +1,602 @@
+{
+  "started_at": 1794579886.4178061,
+  "checks": [
+    {
+      "name": "failed_report_is_separate_from_business_success",
+      "passed": true,
+      "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n已结束\n独立黑盒订单\n\n手动触发 · 执行引擎 selenium-unittest · 今天 14:08\n\n下载 HTML 报告\n报告导出未完成\n重试导出报告\n重新运行\n删除运行\n综合：通过\n业务：通过\n性能：不适用\n质量：不适用\n证据：有效\n报告：失败\n投递：不适用\n1\n通过\n0\n失败\n0\n阻塞\n0\n未验证\n1\n用例\n4.0 秒\n总耗时\n用例结果\n\n点开一条查看每一步和每条断言。\n\n已结束\ntest_order_completes (test_order.OrderBusinessTest.test_order_completes)　test_order.OrderBusinessTest.test_order_completes\n综合：通过\n业务：通过\n报告：失败\n接口\n4.0 秒"
+    }
+  ],
+  "before_list": {
+    "total": 3,
+    "items": [
+      {
+        "id": "run-7fae166ab28f",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Fail",
+        "case_ids": "[\"asset-864fcbae1cad\"]",
+        "total": 1,
+        "done": 1,
+        "passed": 0,
+        "failed": 1,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 39083,
+        "created_at": "2026-11-13T14:12:23.636+00:00",
+        "started_at": "2026-11-13T14:12:23.876+00:00",
+        "finished_at": "2026-11-13T14:12:29.785+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-ui",
+        "family": "native",
+        "input_manifest": ".local/native-inputs/4927c7ceae8e9dc4300f3a28a4d5dda9c39fb6cd4f9865c687cbaeb71d1916e4-0ee4549bd7894de59793cb3d09a6ddac.json",
+        "input_hash": "4927c7ceae8e9dc4300f3a28a4d5dda9c39fb6cd4f9865c687cbaeb71d1916e4",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 39083, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1020381\"}",
+        "project_name": "独立黑盒订单",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-7fae166ab28f",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "fa8835d6a8956fcb73881ca6f083cc58f06fe4770d5f65db699428b77bc16871"
+        },
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 0.0,
+        "state_counts": {
+          "pass": 0,
+          "fail": 1,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "recorded_counts": {
+          "passed": 0,
+          "failed": 1,
+          "blocked": 0
+        }
+      },
+      {
+        "id": "run-e8c9e3e0d741",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "playwright",
+        "trigger": "workflow",
+        "task_id": null,
+        "status": "Pass",
+        "case_ids": "[\"TC-API-ORDER\"]",
+        "total": 1,
+        "done": 1,
+        "passed": 1,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 38912,
+        "created_at": "2026-11-13T14:11:39.493+00:00",
+        "started_at": "2026-11-13T14:11:39.514+00:00",
+        "finished_at": "2026-11-13T14:11:44.054+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "wf-0decaa560df84c6e9c0761274fb4f490",
+        "family": "replay",
+        "input_manifest": ".local/execution-inputs/d02816af63b4330102c384611b9e81a693e41cb2314f70e583680b9dd6dffa9e-cbdb229ba3884dc9bf0acf3d062fef11.json",
+        "input_hash": "d02816af63b4330102c384611b9e81a693e41cb2314f70e583680b9dd6dffa9e",
+        "plan_path": ".local/case-plans/bcdb26326d4da63d66161fbf2872ea02/autoskill-cases",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 38912, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1015944\"}",
+        "project_name": "独立黑盒订单",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": "wf-0decaa560df84c6e9c0761274fb4f490",
+            "cycle_id": "cycle-d40fb808592f4eb6bfd04fb3423e388b",
+            "run_id": "run-e8c9e3e0d741",
+            "case_id": null,
+            "attempt_id": null,
+            "workflow_attempt_id": "wfa-bde5e8ede3ad416ca4c6454608350471"
+          },
+          "reason": "",
+          "revision": "37cfa68672ea418466a4ad1be440e5e2d8913e89ee110fb7a833054b251151db"
+        },
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 1.0,
+        "state_counts": {
+          "pass": 1,
+          "fail": 0,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "recorded_counts": {
+          "passed": 1,
+          "failed": 0,
+          "blocked": 0
+        }
+      },
+      {
+        "id": "run-109d89264273",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Pass",
+        "case_ids": "[\"asset-864fcbae1cad\"]",
+        "total": 1,
+        "done": 1,
+        "passed": 1,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 37213,
+        "created_at": "2026-11-13T14:08:02.627+00:00",
+        "started_at": "2026-11-13T14:08:02.760+00:00",
+        "finished_at": "2026-11-13T14:08:07.635+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-ui",
+        "family": "native",
+        "input_manifest": ".local/native-inputs/99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed-ac90e0704df94ca0a5e215e165cbff64.json",
+        "input_hash": "99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 37213, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:994269\"}",
+        "project_name": "独立黑盒订单",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "failed",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-109d89264273",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "d4a5d7eca3c570fd9709f0edbd9519d1d2ee266aa7bd925fd3469d7b11e45139"
+        },
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 1.0,
+        "state_counts": {
+          "pass": 1,
+          "fail": 0,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "recorded_counts": {
+          "passed": 1,
+          "failed": 0,
+          "blocked": 0
+        }
+      }
+    ],
+    "state_counts": {
+      "pass": 2,
+      "fail": 1,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    }
+  },
+  "before_detail": {
+    "id": "run-109d89264273",
+    "batch_id": null,
+    "project_id": "127-0-0-1",
+    "engine": "selenium-unittest",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Pass",
+    "case_ids": [
+      "asset-864fcbae1cad"
+    ],
+    "total": 1,
+    "done": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "current": "",
+    "reason": "",
+    "cancel": 0,
+    "pid": 37213,
+    "created_at": "2026-11-13T14:08:02.627+00:00",
+    "started_at": "2026-11-13T14:08:02.760+00:00",
+    "finished_at": "2026-11-13T14:08:07.635+00:00",
+    "headed": 0,
+    "claim_token": "",
+    "force_login": 0,
+    "session_id": "blackbox-ui",
+    "family": "native",
+    "input_manifest": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed-ac90e0704df94ca0a5e215e165cbff64.json",
+    "input_hash": "99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed",
+    "plan_path": "",
+    "delete_requested": 0,
+    "deletion_error": "",
+    "deletion_manifest": "",
+    "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 37213, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:994269\"}",
+    "unverified": 0,
+    "cancelled": 0,
+    "pending": 0,
+    "judged": 1,
+    "pass_rate": 1.0,
+    "state_counts": {
+      "pass": 1,
+      "fail": 0,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    },
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "pass",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "failed",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "127-0-0-1",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-109d89264273",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "d4a5d7eca3c570fd9709f0edbd9519d1d2ee266aa7bd925fd3469d7b11e45139"
+    },
+    "recorded_counts": {
+      "passed": 1,
+      "failed": 0,
+      "blocked": 0
+    },
+    "project_name": "独立黑盒订单",
+    "results": [
+      {
+        "id": 1,
+        "run_id": "run-109d89264273",
+        "project_id": "127-0-0-1",
+        "case_id": "test_order.OrderBusinessTest.test_order_completes",
+        "case_title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+        "kind": "native",
+        "engine": "selenium-unittest",
+        "status": "Pass",
+        "category": "native",
+        "reason": "",
+        "actual": "",
+        "duration_ms": 4029,
+        "started_at": "2026-11-13T14:08:02.760+00:00",
+        "prerequisite": 0,
+        "case_revision": 1,
+        "detail": {
+          "id": "test_order.OrderBusinessTest.test_order_completes",
+          "title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+          "status": "Pass",
+          "reason": "",
+          "duration_ms": 4029,
+          "assertions": [
+            {
+              "name": "原生 unittest 测试结果",
+              "passed": true,
+              "actual": "",
+              "source": "native"
+            }
+          ],
+          "verdict_scope": "native_test",
+          "input_hash": "99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed",
+          "engine": "selenium-unittest",
+          "business_status": "Pass",
+          "business_verified": true,
+          "verification": "verified",
+          "evidence": [
+            {
+              "path": "events.jsonl",
+              "sha256": "3464a3b0a3886a61ad90950753eb1892ac3e54150c16bfd9d594a9376a8e7ae6",
+              "size": 192
+            },
+            {
+              "path": "heartbeat.json",
+              "sha256": "6143be9bbe35930559044a37a17b0ae8c42ed6d5c9923375f209e3000c43ab8e",
+              "size": 365
+            },
+            {
+              "path": "process-result.json",
+              "sha256": "288aca7fbabd72303ca105a9a4cb23c6284ec92ce25825c9f3bb0aff229f7dd2",
+              "size": 59
+            },
+            {
+              "path": "stderr.log",
+              "sha256": "e813d4619bb3e35808290d1e7f5e5f9b486de1de5df2c20a71fe9875fcdd0bee",
+              "size": 98
+            },
+            {
+              "path": "stdout.log",
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "size": 0
+            },
+            {
+              "path": "supervisor.json",
+              "sha256": "2c3a7e844def2b9ed37fe3c2bb0fbbab81031a71e77cda529da78035132a906e",
+              "size": 288
+            },
+            {
+              "path": "unittest.json",
+              "sha256": "6c2c21d4f241bae3822f569cc82381a9be35fa0816d3eee7c7966a65e46ed887",
+              "size": 210
+            }
+          ],
+          "evidence_status": "bound"
+        },
+        "case_content_hash": "99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed",
+        "input_hash": "99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "failed",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-109d89264273",
+            "case_id": "test_order.OrderBusinessTest.test_order_completes",
+            "attempt_id": null
+          },
+          "reason": "",
+          "last_attempt_outcome": "pass",
+          "revision": "499e5b4ce0f4e847f4800033d61d57d3068637e081b905b63dc2d8877d4b1152"
+        }
+      }
+    ],
+    "test_report": {
+      "bugs_count": 0,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 0,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "cases": 1,
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:08:07.999+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T14:08:07.635+00:00",
+        "input_hash": "99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed",
+        "status": "Pass"
+      },
+      "kind": "run",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-109d89264273",
+      "retry_url": "/api/task-reports/run_run-109d89264273/retry",
+      "retryable": true,
+      "run_ids": [
+        "run-109d89264273"
+      ],
+      "source_hash": "ab04d48364a8210c732595fb2f745a90c6ddb299a444a116da5e4a522bd16304",
+      "status": "failed",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 0,
+        "NotRun": 0,
+        "Pass": 1,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-109d89264273",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "独立黑盒订单",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      },
+      "error": "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。"
+    }
+  },
+  "before_report": {
+    "bugs_count": 0,
+    "bugs_counts": {
+      "business": 0,
+      "execution": 0,
+      "historical": 0,
+      "recording": 0,
+      "unverified": 0
+    },
+    "cases": 1,
+    "execution_rows": 1,
+    "generated_at": "2026-11-13T14:08:07.999+00:00",
+    "generation": {
+      "finished_at": "2026-11-13T14:08:07.635+00:00",
+      "input_hash": "99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed",
+      "status": "Pass"
+    },
+    "kind": "run",
+    "renderer": "test-cases-14-column-v1",
+    "report_id": "run_run-109d89264273",
+    "retry_url": "/api/task-reports/run_run-109d89264273/retry",
+    "retryable": true,
+    "run_ids": [
+      "run-109d89264273"
+    ],
+    "source_hash": "ab04d48364a8210c732595fb2f745a90c6ddb299a444a116da5e4a522bd16304",
+    "status": "failed",
+    "summary_cases": 1,
+    "summary_counts": {
+      "Blocked": 0,
+      "Cancelled": 0,
+      "Fail": 0,
+      "NotRun": 0,
+      "Pass": 1,
+      "Unknown": 0,
+      "Unverified": 0
+    },
+    "summary_execution_rows": 1,
+    "task_id": "run-109d89264273",
+    "template_id": "test-cases-14-column-v1",
+    "validation": {
+      "bugs_readable": true,
+      "case_ids_match": true,
+      "case_rows": 1,
+      "execution_rows": 1,
+      "markdown_readable": true,
+      "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+      "rule_files_sha256": {
+        "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+        "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+        "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+      },
+      "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+      "structure": {
+        "businessGroupCount": 2,
+        "caseCount": 1,
+        "caseGroupDepths": {
+          "2": 1
+        },
+        "errors": [],
+        "excludedRows": [],
+        "functionItemCount": 1,
+        "functionItems": [
+          {
+            "caseCount": 1,
+            "name": "【待确认：功能项】",
+            "path": [
+              "独立黑盒订单",
+              "【待确认：功能项】"
+            ]
+          }
+        ],
+        "ok": true,
+        "rootCount": 1,
+        "sheet": "功能测试用例",
+        "uniqueIdCount": 1,
+        "warnings": []
+      },
+      "visual_validation": "not_performed_by_runtime",
+      "workbook_readable": true
+    },
+    "error": "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。"
+  },
+  "error": "TimeoutError('Locator.wait_for: Timeout 12000ms exceeded.\\nCall log:\\n  - waiting for get_by_role(\"button\", name=\"下载本次用例 Excel\", exact=True) to be visible\\n')",
+  "finished_at": 1794579911.9162638
+}

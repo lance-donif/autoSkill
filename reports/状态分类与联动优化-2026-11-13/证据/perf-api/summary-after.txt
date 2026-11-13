@@ -1,0 +1,26 @@
+         400148 function calls (395949 primitive calls) in 0.371 seconds
+
+   Ordered by: cumulative time
+   List reduced from 244 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.371    0.371 <stdin>:4(<lambda>)
+        1    0.000    0.000    0.371    0.371 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:321(summary)
+        4    0.001    0.000    0.367    0.092 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:186(_selected)
+        1    0.000    0.000    0.366    0.366 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:285(run_counts)
+       14    0.000    0.000    0.365    0.026 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:164(_project_run)
+    56/28    0.000    0.000    0.364    0.013 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:38(read)
+       28    0.001    0.000    0.328    0.012 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:177(report)
+       28    0.000    0.000    0.227    0.008 /workspace/autoSkill/skills/autoskill/app/autoskill/task_reports.py:83(_validate)
+       31    0.000    0.000    0.210    0.007 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:157(_project_result)
+       14    0.001    0.000    0.208    0.015 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:253(result)
+       32    0.000    0.000    0.184    0.006 {built-in method builtins.all}
+      112    0.000    0.000    0.184    0.002 /workspace/autoSkill/skills/autoskill/app/autoskill/task_reports.py:86(<genexpr>)
+       84    0.001    0.000    0.183    0.002 /workspace/autoSkill/skills/autoskill/app/autoskill/task_reports.py:72(_available)
+     1837    0.003    0.000    0.179    0.000 /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py:1228(resolve)
+      112    0.001    0.000    0.159    0.001 /workspace/autoSkill/skills/autoskill/app/autoskill/task_reports.py:14(_folder)
+       14    0.000    0.000    0.155    0.011 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:234(run_values)
+       14    0.000    0.000    0.152    0.011 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:311(run)
+     1837    0.006    0.000    0.134    0.000 <frozen posixpath>:420(realpath)
+
+

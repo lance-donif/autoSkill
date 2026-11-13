@@ -1,0 +1,64 @@
+{
+  "test": "voice_acceptance.VoiceLoopbackTests.test_microphone_track_is_released_on_stop_or_media_failure",
+  "source_trace": "/workspace/autoskill-main-integration/checks/voice-page-fulltrace.log",
+  "observed_failure": "is_enabled() succeeds, then Locator.click waits 30 seconds for stop button disabled by intervening media cleanup",
+  "code_path": [
+    "voice.js:gathered -> sessionError -> showVoiceError",
+    "stopVoice releases real tracks, peers, audio and context",
+    "renderVoice disables stop once activeVoice is null"
+  ],
+  "fix": "Atomically check button.disabled and call the real DOM button.click in one browser task; no forced click, state mutation or direct stopVoice invocation",
+  "oracle_preserved": [
+    "Captured microphone track starts live",
+    "Captured microphone track finishes ended",
+    "Every cleanup flag remains true for local/remote tracks, peers, audio, audio context and timer"
+  ],
+  "additional_checks": [
+    "Final status is stopped or error",
+    "Record whether the stop button was still enabled and requested"
+  ],
+  "production_files_modified": [],
+  "fixture_files_modified": [
+    "scripts/verify-voice-loopback.py"
+  ],
+  "ruff": "passed",
+  "diff_check": "passed",
+  "runtime_validation": {
+    "status": "passed",
+    "tests": 4,
+    "duration_seconds": 39.257,
+    "python": "/workspace/autoskill-main-integration/runtime/python-env/bin/python",
+    "log": "/workspace/autoskill-main-integration/checks/voice-page-and-bridge-runtime-retest.log",
+    "group": [
+      "test_voice_page (2 tests)",
+      "test_bridge.RestrictedProcessTests.test_recording_through_service_keeps_its_output_files",
+      "test_tabs.TabBridgeTests.test_sandboxed_cli_records_switches_and_replays_through_service"
+    ],
+    "microphone_release_observed": {
+      "status": "error",
+      "source": "microphone",
+      "permission": "granted",
+      "sender": "closed",
+      "receiver": "closed",
+      "localAudioTracks": 1,
+      "remoteAudioTracks": 1,
+      "packetsReceived": 0,
+      "bytesReceived": 0,
+      "totalAudioEnergy": 0,
+      "peakRms": 0,
+      "cleanup": {
+        "localTracksEnded": true,
+        "remoteTracksEnded": true,
+        "peersClosed": true,
+        "audioReleased": true,
+        "audioContextClosed": true,
+        "timerCleared": true
+      },
+      "stop_requested": false
+    },
+    "captured_track_ready_state": "ended (original assertion passed)",
+    "audio_delivery_result": "No audio packets received in this policy-restricted environment. Only permission/error cleanup and real track release were accepted."
+  },
+  "patch": "/workspace/autoskill-main-integration/checks/voice-page-fixture.patch",
+  "fixture_source_frozen": true
+}

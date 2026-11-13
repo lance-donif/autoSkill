@@ -1,0 +1,12 @@
+{
+  "command": [
+    "workflow",
+    "submit",
+    "--help"
+  ],
+  "started_at": 1794578966.3020668,
+  "finished_at": 1794578966.4978173,
+  "exit_code": 0,
+  "stdout": "usage: autoskill workflow submit [-h] --idempotency-key IDEMPOTENCY_KEY\n                                 --lease-token LEASE_TOKEN --attempt-id\n                                 ATTEMPT_ID --file FILE\n                                 workflow item\n\npositional arguments:\n  workflow\n  item\n\noptions:\n  -h, --help            show this help message and exit\n  --idempotency-key IDEMPOTENCY_KEY\n  --lease-token LEASE_TOKEN\n  --attempt-id ATTEMPT_ID\n  --file FILE           提交或检查点 JSON；- 表示完整标准输入\n",
+  "stderr": ""
+}

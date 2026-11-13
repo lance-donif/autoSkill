@@ -1,0 +1,36 @@
+{
+  "classification": "Previously confirmed defects, now corrected by implementation; retained before-fix observations",
+  "receipt_binding": {
+    "data_root": "/workspace/autoskill-state-validation/audit/receipt-data-6eb2b973",
+    "run_id": "run-5873cad1302f",
+    "http_calls": 1,
+    "actual_receipt_business": "Fail",
+    "edited_business": "Pass",
+    "receipt_unchanged": true,
+    "evidence_valid_after_edit": true,
+    "report_case_verdict_after_edit": "Pass"
+  },
+  "native_manifest": {
+    "data_root": "/workspace/autoskill-state-validation/audit/native-data-c827ddb7",
+    "run_id": "run-dba6eb5ddad9",
+    "actual_status": "Pass",
+    "manifest_changed": "parameters.audit_changed_after_execution=true",
+    "canonical_frozen_rejected": "原生执行输入清单校验失败",
+    "projected_evidence": "valid",
+    "projected_outcome": "pass",
+    "task_state_sha256": "7c38b30c3922cc629a923a2169213107bd2571036b92c7ef571da1f62ba3f1ef"
+  },
+  "ai_performance": {
+    "data_root": "/workspace/autoskill-state-validation/audit/native-data-c827ddb7",
+    "run_id": "run-75c8dbe39ce5",
+    "http_calls": 1,
+    "status": "Fail",
+    "actual_total_ms": 45.135,
+    "target_total_ms": 1,
+    "actual_performance_passed": false,
+    "projected_business": "pass",
+    "projected_quality": "pass",
+    "projected_performance": "not_applicable"
+  },
+  "note": "原始审计隔离数据仍保留；这些值来自此前已输出且已发送主Agent的独立探针结果，不作为当前修订缺陷。"
+}

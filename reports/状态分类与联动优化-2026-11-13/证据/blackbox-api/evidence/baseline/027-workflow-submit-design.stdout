@@ -1,0 +1,36 @@
+{
+ "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+ "project_id": "bb-api",
+ "title": "Blackbox HTTP lifecycle",
+ "cycle_id": "cycle-f9b3fb18ff764ffca35b720f7cbdf981",
+ "lifecycle": "active",
+ "cycle_state": "awaiting_host",
+ "complete": false,
+ "conclusion": "unassessed",
+ "revision": 8,
+ "domain_head": "7041cb3d37514dd644cff688dfdb45e2e16de68ca325c7a09d23c35fa100cfc2",
+ "definition_hash": "dc099cdde940b12330cf1e3ad75bc723ac2ca4c5a10f16a979ed54188b45756b",
+ "counts": {
+  "completed": 2,
+  "ready": 1
+ },
+ "accepted": true,
+ "change_id": "change-a1bcf3e98a8e4f5e9a6e12c104461706",
+ "workflow": {
+  "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-f9b3fb18ff764ffca35b720f7cbdf981",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "unassessed",
+  "revision": 8,
+  "domain_head": "7041cb3d37514dd644cff688dfdb45e2e16de68ca325c7a09d23c35fa100cfc2",
+  "definition_hash": "dc099cdde940b12330cf1e3ad75bc723ac2ca4c5a10f16a979ed54188b45756b",
+  "counts": {
+   "completed": 2,
+   "ready": 1
+  }
+ }
+}

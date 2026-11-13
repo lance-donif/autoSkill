@@ -1,0 +1,33 @@
+{
+  "checks": {
+    "receipt_metadata_cannot_override_actual_failure": true,
+    "native_manifest_tamper_invalidates_evidence": true,
+    "ai_performance_and_quality_are_separate": true,
+    "status_does_not_render": true,
+    "failed_export_only_manual_retry_no_tests": true,
+    "trio_failure_shared_by_host": true,
+    "execution_evidence_invalidates_aggregate": true,
+    "current_cycle_default_history_available": true,
+    "stale_lease_fenced_unknown_effect_not_replayed": true,
+    "last_case_cancellation_stops_publication": true,
+    "workflow_export_crash_and_restart_require_manual_retry": true,
+    "waiting_exporter_does_not_retry_crashed_exporter": true,
+    "run_and_recording_interrupted_exports_fail_without_replay": true,
+    "current_input_change_preserves_history_and_changes_revision": true,
+    "declared_unmeasured_target_differs_from_absent_target": true,
+    "successful_http_reads_leave_durable_state_and_artifacts_unchanged": true,
+    "repeated_projects_reads_keep_revision_and_facts_stable": true,
+    "host_and_workflow_cancellation_agree": true,
+    "host_prestep_keeps_all_state_axes": true,
+    "real_foreground_sync_within_one_second": true,
+    "focus_draft_selection_and_retry_count_preserved": true,
+    "idle_page_does_not_enter_revision_render_feedback_loop": true,
+    "resume_gets_new_report_and_keeps_old_bytes": true,
+    "published_cases_retain_current_input_validity": true,
+    "native_evidence_race_cannot_poison_later_proof_cache": true,
+    "trio_independent_readback_hashes_and_snapshot_match": true
+  },
+  "passed": 26,
+  "total": 26,
+  "not_passed": []
+}

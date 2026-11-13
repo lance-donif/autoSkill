@@ -1,0 +1,205 @@
+{
+  "label": "044-api-observe-results-current",
+  "url": "http://127.0.0.1:18884/api/results?cycle=current",
+  "started_at": "2026-11-13T14:28:21.498752+00:00",
+  "ended_at": "2026-11-13T14:28:21.619127+00:00",
+  "elapsed_seconds": 0.12037933800093015,
+  "http_status": 200,
+  "headers": {
+    "date": "Fri, 13 Nov 2026 14:28:20 GMT",
+    "server": "uvicorn",
+    "content-length": "5774",
+    "content-type": "application/json",
+    "cache-control": "no-store",
+    "Connection": "close"
+  },
+  "response": {
+    "total": 4,
+    "items": [
+      {
+        "id": 6,
+        "run_id": "run-eaf4380414d2",
+        "project_id": "bb-api",
+        "case_id": "test_fixture.Slow.test_slow",
+        "case_title": "test_slow (test_fixture.Slow.test_slow)",
+        "kind": "native",
+        "engine": "selenium-unittest",
+        "status": "Pass",
+        "category": "native",
+        "reason": "",
+        "actual": "",
+        "duration_ms": 12031,
+        "started_at": "2026-11-13T14:28:05.393+00:00",
+        "prerequisite": 0,
+        "case_revision": 1,
+        "case_content_hash": "cfda43e1d5b7f46a1992ecfe2857884d294836f0917452c66b785df0f730efaf",
+        "input_hash": "cfda43e1d5b7f46a1992ecfe2857884d294836f0917452c66b785df0f730efaf",
+        "project_name": "Blackbox API state",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "bb-api",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-eaf4380414d2",
+            "case_id": "test_fixture.Slow.test_slow",
+            "attempt_id": null
+          },
+          "reason": "",
+          "last_attempt_outcome": "pass",
+          "revision": "59c4073df0c01c11554d5871ec9d70cdd1d2633daec168ffa5fed08c3f5fb918"
+        }
+      },
+      {
+        "id": 3,
+        "run_id": "run-c72c5a8d1aa6",
+        "project_id": "bb-api",
+        "case_id": "test_fixture.BusinessFailure.test_wrong_value",
+        "case_title": "test_wrong_value (test_fixture.BusinessFailure.test_wrong_value)",
+        "kind": "native",
+        "engine": "selenium-unittest",
+        "status": "Fail",
+        "category": "native",
+        "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-c72c5a8d1aa6/native/input/test_fixture.py\", line 17, in test_wrong_value\n    self.assertEqual(status('/api/value?value=wrong'), 'ready')\nAssertionError: 'wrong' != 'ready'\n- wrong\n+ ready\n\n",
+        "actual": "",
+        "duration_ms": 97,
+        "started_at": "2026-11-13T14:24:41.501+00:00",
+        "prerequisite": 0,
+        "case_revision": 1,
+        "case_content_hash": "38d1cc93923e11fee8efb8ac2cf9923bc48cd51200810c9e66ce1ef4781e4ce2",
+        "input_hash": "38d1cc93923e11fee8efb8ac2cf9923bc48cd51200810c9e66ce1ef4781e4ce2",
+        "project_name": "Blackbox API state",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "bb-api",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-c72c5a8d1aa6",
+            "case_id": "test_fixture.BusinessFailure.test_wrong_value",
+            "attempt_id": null
+          },
+          "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-c72c5a8d1aa6/native/input/test_fixture.py\", line 17, in test_wrong_value\n    self.assertEqual(status('/api/value?value=wrong'), 'ready')\nAssertionError: 'wrong' != 'ready'\n- wrong\n+ ready\n\n",
+          "last_attempt_outcome": "fail",
+          "revision": "a1511ec24eb7d5e27b262831e4b93a25230125b65a26978719fe2e78d9d49b49"
+        }
+      },
+      {
+        "id": 2,
+        "run_id": "run-01fbcb311654",
+        "project_id": "bb-api",
+        "case_id": "test_fixture.BusinessFailure.test_wrong_value",
+        "case_title": "test_wrong_value (test_fixture.BusinessFailure.test_wrong_value)",
+        "kind": "native",
+        "engine": "selenium-unittest",
+        "status": "Fail",
+        "category": "native",
+        "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-01fbcb311654/native/input/test_fixture.py\", line 17, in test_wrong_value\n    self.assertEqual(status('/api/value?value=wrong'), 'ready')\nAssertionError: 'wrong' != 'ready'\n- wrong\n+ ready\n\n",
+        "actual": "",
+        "duration_ms": 128,
+        "started_at": "2026-11-13T14:24:31.100+00:00",
+        "prerequisite": 0,
+        "case_revision": 1,
+        "case_content_hash": "38d1cc93923e11fee8efb8ac2cf9923bc48cd51200810c9e66ce1ef4781e4ce2",
+        "input_hash": "38d1cc93923e11fee8efb8ac2cf9923bc48cd51200810c9e66ce1ef4781e4ce2",
+        "project_name": "Blackbox API state",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "bb-api",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-01fbcb311654",
+            "case_id": "test_fixture.BusinessFailure.test_wrong_value",
+            "attempt_id": null
+          },
+          "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-01fbcb311654/native/input/test_fixture.py\", line 17, in test_wrong_value\n    self.assertEqual(status('/api/value?value=wrong'), 'ready')\nAssertionError: 'wrong' != 'ready'\n- wrong\n+ ready\n\n",
+          "last_attempt_outcome": "fail",
+          "revision": "1e1e9bd1ba6493b77b4e5349906dfdc5a9db201113cac69ce6790d96c4201424"
+        }
+      },
+      {
+        "id": 1,
+        "run_id": "run-946309975b4b",
+        "project_id": "bb-api",
+        "case_id": "test_fixture.Ready.test_ready",
+        "case_title": "test_ready (test_fixture.Ready.test_ready)",
+        "kind": "native",
+        "engine": "selenium-unittest",
+        "status": "Pass",
+        "category": "native",
+        "reason": "",
+        "actual": "",
+        "duration_ms": 98,
+        "started_at": "2026-11-13T14:24:22.701+00:00",
+        "prerequisite": 0,
+        "case_revision": 1,
+        "case_content_hash": "e2da477e344efa555784a8154fa181099b1b6daf612cbae48fbda973ae1a4ee3",
+        "input_hash": "e2da477e344efa555784a8154fa181099b1b6daf612cbae48fbda973ae1a4ee3",
+        "project_name": "Blackbox API state",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "bb-api",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-946309975b4b",
+            "case_id": "test_fixture.Ready.test_ready",
+            "attempt_id": null
+          },
+          "reason": "",
+          "last_attempt_outcome": "pass",
+          "revision": "b45ea2857f1acadb360556de0fc59055d35b6f86c87a533ee9adce36bcda443e"
+        }
+      }
+    ],
+    "state_counts": {
+      "pass": 2,
+      "fail": 2,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    }
+  }
+}

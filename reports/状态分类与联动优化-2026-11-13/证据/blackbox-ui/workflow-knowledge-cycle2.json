@@ -1,0 +1,1 @@
+{"entries":[{"id":"knowledge-order-independent-result","text":"本地黑盒订单站本轮配置返回HTTP200与订单失败；接口成功响应不能代替业务断言。固定需求仍为订单完成，本周期保留violated。","evidence_refs":["order-business-rule-v2","run-263729e4ba4c","result:8"]}]}

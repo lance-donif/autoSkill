@@ -1,0 +1,108 @@
+{
+  "data_root": "/workspace/autoskill-state-validation/audit/generation-data-3473f8ed",
+  "http_calls": 2,
+  "old_id": "workflow_1ca790782ba7f2fe831a3c0fdecb7bc5d9f367aec1ac930d8adb0101dbfbf2b8",
+  "new_id": "workflow_26102a5a583776b1a050344307cdf71119f5c8bb32cb4c759c5ed8fa18a9870d",
+  "resume_report_generation": 1,
+  "interim_report_status": "not_generated",
+  "host_interim_report_id": "workflow_26102a5a583776b1a050344307cdf71119f5c8bb32cb4c759c5ed8fa18a9870d",
+  "final_report_id": "workflow_26102a5a583776b1a050344307cdf71119f5c8bb32cb4c759c5ed8fa18a9870d",
+  "final_report_status": "ready",
+  "final_cases": 2,
+  "snapshot_report_generation": 1,
+  "snapshot_case_generations": [
+    1,
+    1
+  ],
+  "old_artifact_bytes_unchanged": true,
+  "old_snapshot_bytes_unchanged": true,
+  "workflow_state": {
+    "lifecycle": "completed",
+    "phase": "settled",
+    "outcome": "pass",
+    "checks": {
+      "business": "pass",
+      "performance": "not_applicable",
+      "quality": "not_applicable"
+    },
+    "evidence": "valid",
+    "report": "generating",
+    "delivery": "not_applicable",
+    "scope": {
+      "project_id": "audit-generation",
+      "workflow_id": "wf-2f81b039ea21447d91922aa55a8ced86",
+      "cycle_id": "cycle-cea3854a708e4248ba742aaaeef853cb",
+      "run_id": null,
+      "case_id": null,
+      "attempt_id": null
+    },
+    "reason": "",
+    "revision": "2bc324ddf5ef2a8a19af8cb4f713d0a143f7de91062f5d0e6070891914546d41"
+  },
+  "current_case_states": [
+    {
+      "case_id": "TC-API-001",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "settled",
+        "outcome": "pass",
+        "checks": {
+          "business": "pass",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "audit-generation",
+          "workflow_id": "wf-2f81b039ea21447d91922aa55a8ced86",
+          "cycle_id": "cycle-cea3854a708e4248ba742aaaeef853cb",
+          "run_id": "run-a9b49ca62b3f",
+          "case_id": "TC-API-001",
+          "attempt_id": "attempt-a7f5ce180e8147c4a9f6eab58c832d3c",
+          "current_cycle_id": "cycle-cea3854a708e4248ba742aaaeef853cb",
+          "workflow_attempt_id": "wfa-585f49f01f8b4b1ba3995c2a0c389679",
+          "historical": false
+        },
+        "reason": "",
+        "last_attempt_outcome": "pass",
+        "revision": "6cff2194cf07d18f0cc2056d338310e173a16c900c2b066201e7955e05452b80",
+        "current": true,
+        "historical_outcome": "pass"
+      }
+    },
+    {
+      "case_id": "TC-API-002",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "settled",
+        "outcome": "pass",
+        "checks": {
+          "business": "pass",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "audit-generation",
+          "workflow_id": "wf-2f81b039ea21447d91922aa55a8ced86",
+          "cycle_id": "cycle-cea3854a708e4248ba742aaaeef853cb",
+          "run_id": "run-a9b49ca62b3f",
+          "case_id": "TC-API-002",
+          "attempt_id": "attempt-322a48dbdc434e9191f6022bea1476ae",
+          "current_cycle_id": "cycle-cea3854a708e4248ba742aaaeef853cb",
+          "workflow_attempt_id": "wfa-585f49f01f8b4b1ba3995c2a0c389679",
+          "historical": false
+        },
+        "reason": "",
+        "last_attempt_outcome": "pass",
+        "revision": "95625a297db560e6de7ea31637512806d67a924778391a8531334759c7d22de7",
+        "current": true,
+        "historical_outcome": "pass"
+      }
+    }
+  ]
+}

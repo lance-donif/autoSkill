@@ -1,0 +1,219 @@
+{
+  "label": "021-native-fail-status",
+  "started_at": "2026-11-13T14:08:35.766061+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "native",
+    "status",
+    "run-b66638090066"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.29066227700059244,
+  "ended_at": "2026-11-13T14:08:36.056722+00:00",
+  "response": {
+    "id": "run-b66638090066",
+    "batch_id": null,
+    "project_id": "bb-api",
+    "engine": "selenium-unittest",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Fail",
+    "case_ids": "[\"bb-fail\"]",
+    "total": 1,
+    "done": 1,
+    "passed": 0,
+    "failed": 1,
+    "blocked": 0,
+    "current": "",
+    "reason": "",
+    "cancel": 0,
+    "pid": 37456,
+    "created_at": "2026-11-13T14:08:26.353+00:00",
+    "started_at": "2026-11-13T14:08:26.459+00:00",
+    "finished_at": "2026-11-13T14:08:27.214+00:00",
+    "headed": 0,
+    "claim_token": "",
+    "force_login": 0,
+    "session_id": "blackbox-api-baseline",
+    "family": "native",
+    "input_manifest": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/native-inputs/e2ee923f9fdeb532252bce28445547a91cb417c7e5abe4575a35585b0d1cd506-80c37b235d6f4a1fa59caebfd5511f71.json",
+    "input_hash": "e2ee923f9fdeb532252bce28445547a91cb417c7e5abe4575a35585b0d1cd506",
+    "plan_path": "",
+    "delete_requested": 0,
+    "deletion_error": "",
+    "deletion_manifest": "",
+    "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"7aac9f147705cd48652efc63131fdb7591c9a527fdd6db467c9914a583810f4b\", \"pid\": 37456, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:996639\"}",
+    "evidence_dir": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/native",
+    "test_report": {
+      "bugs": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/test-report/Bug清单-e1ca22009b3b202c.md",
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 1,
+        "execution": 0,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "bugs_download_url": "/api/task-reports/run_run-b66638090066/bugs",
+      "bugs_sha256": "df22da5358b15cf9db81116723075a640daca2461e5db2cd1fb963bbcdaa50b6",
+      "bugs_size": 2201,
+      "cases": 1,
+      "download_url": "/api/task-reports/run_run-b66638090066/excel",
+      "excel": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/test-report/测试用例-e1ca22009b3b202c.xlsx",
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:08:27.566+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T14:08:27.214+00:00",
+        "input_hash": "e2ee923f9fdeb532252bce28445547a91cb417c7e5abe4575a35585b0d1cd506",
+        "status": "Fail"
+      },
+      "kind": "run",
+      "markdown": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/test-report/测试简报-e1ca22009b3b202c.md",
+      "markdown_download_url": "/api/task-reports/run_run-b66638090066/markdown",
+      "markdown_sha256": "4c3f11780e8fd1ba957e03a0ba266afac4b15296c25bf7555772da0b3a6f55ca",
+      "markdown_size": 728,
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-b66638090066",
+      "retry_url": "/api/task-reports/run_run-b66638090066/retry",
+      "retryable": false,
+      "run_ids": [
+        "run-b66638090066"
+      ],
+      "sha256": "be230468a7f3557de04b075d3a15e4228370bc2d47863ca61d769403a5757861",
+      "size": 17959,
+      "source_hash": "e1ca22009b3b202c97c0df5119802ce2df7398d0a9f1a3dd80dce7175091490c",
+      "status": "ready",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 1,
+        "NotRun": 0,
+        "Pass": 0,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-b66638090066",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Blackbox API state",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      }
+    },
+    "asset_id": "bb-fail",
+    "asset_version": "16048d0b564454f3abc2f0a362300f51a64c90408fcf747e052d68af4e2b436c",
+    "head": "46d90a612e2d1ff308489ad556af807f09668b0ec13d36c66727c0c642e1b232",
+    "planned_unknown": true,
+    "outcome": {
+      "status": "Fail",
+      "reason": "",
+      "cases_ref": {
+        "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/native/outcome.json",
+        "sha256": "36515d334d594a831a792388d18d07bbc039e5505d688297f48c27a0c2a91c08",
+        "size": 2082,
+        "available": true,
+        "json_pointer": "/cases",
+        "content_revision": "4a44e51ff25a5515ab01be16f72363f71ef9fae87ba7edb1538dcc846fc9d589",
+        "count": 1
+      },
+      "metrics": {},
+      "process": {
+        "state": "completed",
+        "exit_code": 1,
+        "duration_ms": 204
+      },
+      "execution_status": "completed",
+      "business_status": "Fail",
+      "verification": "failed",
+      "verdict_scope": "native_assertions",
+      "evidence_ref": {
+        "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/native/outcome.json",
+        "sha256": "36515d334d594a831a792388d18d07bbc039e5505d688297f48c27a0c2a91c08",
+        "size": 2082,
+        "available": true,
+        "json_pointer": "/evidence",
+        "content_revision": "3543e375cbeffe16ef720c0c1b3377d3a849c38063b3adb121ae15f6e7cd8683",
+        "count": 7
+      },
+      "evidence_status": "bound"
+    },
+    "report": {
+      "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/native/outcome.json",
+      "sha256": "36515d334d594a831a792388d18d07bbc039e5505d688297f48c27a0c2a91c08",
+      "size": 2082,
+      "available": true
+    },
+    "page": {
+      "total": 1,
+      "returned": 1,
+      "limit": 50,
+      "has_more": false,
+      "next_cursor": null,
+      "content_revision": "92508a4c11571e009e4aefc1dfbc2b16daae634c9fb84c0f490a1986b6e2bb2b"
+    },
+    "results": [
+      {
+        "id": 2,
+        "case_id": "test_fixture.BusinessFailure.test_wrong_value",
+        "case_title": "test_wrong_value (test_fixture.BusinessFailure.test_wrong_value)",
+        "status": "Fail",
+        "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-b66638090066/native/input/test_fixture.py\", line 17, in test_wrong_value\n    self.assertEqual(status('/api/value?value=wrong'), 'ready')\nAssertionError: 'wrong' != 'ready'\n- wrong\n+ ready\n\n",
+        "duration_ms": 15,
+        "engine": "selenium-unittest",
+        "business_status": "Fail",
+        "business_verified": false,
+        "verification": "failed",
+        "turn_count": 0,
+        "assertion_count": 1,
+        "detail_ref": {
+          "result_id": 2,
+          "case_id": "test_fixture.BusinessFailure.test_wrong_value",
+          "content_revision": "cb53decebb033a4ef77a4852cf8236a4ccc0a3a4f7dd233b3d4bbdd80884628c"
+        }
+      }
+    ]
+  }
+}

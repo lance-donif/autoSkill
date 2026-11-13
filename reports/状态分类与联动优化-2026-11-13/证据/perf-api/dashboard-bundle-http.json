@@ -1,0 +1,39 @@
+{
+  "workspace": "copied snapshot, original untouched",
+  "counts": {
+    "runs": 18,
+    "outcomes": {
+      "pass": 3,
+      "fail": 15,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    },
+    "failures": 15
+  },
+  "bundle_ms": [
+    200.1,
+    152.2,
+    136.5,
+    131.9,
+    152.1,
+    171.8
+  ],
+  "four_requests_ms": [
+    641.8,
+    519.6,
+    575.9,
+    551.9,
+    552.1,
+    632.4
+  ],
+  "current_ms": [
+    167.7,
+    160.0,
+    135.8,
+    144.1,
+    136.1,
+    171.3
+  ]
+}

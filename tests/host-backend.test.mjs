@@ -26,7 +26,9 @@ async function bodyOf(request) {
 }
 
 function application(state, url, body) {
-  if (url.pathname === '/api/host/context') return contextFor(url.searchParams.get('host_session_id'));
+  if (url.pathname === '/api/host/context') return ['1', 'true'].includes(url.searchParams.get('revision_only'))
+    ? { host_session_id: url.searchParams.get('host_session_id'), state_revision: 'opaque-workspace-revision' }
+    : contextFor(url.searchParams.get('host_session_id'));
   if (url.pathname === '/api/host/requests') return state.receipt;
   if (url.pathname === '/api/execution-requests') return body ? { ...state.execution, scope: body.scope, idempotency_key: body.idempotency_key } : state.execution;
   if (url.pathname === '/api/host/bindings') return { binding: { id: 'new', ...body }, selection: { binding_id: null, revision: 0 } };
@@ -75,6 +77,15 @@ test('two host sessions retain separate task identities through concurrent real 
   const files = await readdir(join(workspace, '.local', 'host-operations', 'dsh'));
   assert.equal(files.length, 2);
   assert.ok(files.every((file) => /^[a-f0-9]{64}\.json$/.test(file)));
+});
+
+test('opaque revision reads retain the owning session through the same host transport', async (t) => {
+  const { service, state } = await fixture(t);
+  const revision = await service.context(agent('session-A'), { revision_only: true, url: 'https://unrelated.invalid' });
+  assert.deepEqual(revision, { version: 1, host_session_id: 'session-A', state_revision: 'opaque-workspace-revision' });
+  assert.deepEqual(state.requests[0].query, { revision_only: '1', host: 'dsh', host_session_id: 'session-A' });
+  assert.equal(state.requests[0].body, null);
+  assert.ok(!('binding' in revision) && !('runs' in revision) && !('reports' in revision));
 });
 
 test('concurrent retries and reordered object keys retain one accepted request', async (t) => {
@@ -190,6 +201,8 @@ test('same-origin routes pass explicit session identity and expose no arbitrary 
   const response = await routes.get('/api/autoskill.context').fetch(new Request('https://host/api/autoskill.context?session_id=A&runs_limit=3'));
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
   assert.deepEqual(calls[0], { id: 'A', query: { runs_limit: 3 } });
+  await routes.get('/api/autoskill.context').fetch(new Request('https://host/api/autoskill.context?session_id=B&revision_only=true'));
+  assert.deepEqual(calls[1], { id: 'B', query: { revision_only: true } });
   const metadata = await routes.get('/api/autoskill.host').fetch(new Request('https://host/api/autoskill.host'));
   assert.deepEqual(await metadata.json(), { version: 1, dashboard_origin: 'http://127.0.0.1:38817' });
   assert.ok([...routes.values()].every((route) => route.path.startsWith('/api/') && route.requestBody === 'buffered'));

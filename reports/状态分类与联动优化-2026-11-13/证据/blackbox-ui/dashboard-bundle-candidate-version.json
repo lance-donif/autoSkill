@@ -1,0 +1,36 @@
+{
+  "phase": "dashboard-bundle-incremental-setup-not-timed",
+  "at": 1794582580.9698446,
+  "load_average": [
+    0.51953125,
+    0.97216796875,
+    1.61865234375
+  ],
+  "public_status": {
+    "name": "autoSkill",
+    "version": "2.2.4",
+    "ui_revision": "3ce7f69d701edf33a8874993bd08f8dbe8ab404c28f12f38f7fb16a76aa3ea9c",
+    "projects": 2,
+    "runtime": {
+      "bundled": false,
+      "chrome": true,
+      "selenium": false,
+      "recorder": false
+    },
+    "browser": {
+      "mode": "system",
+      "system": "/usr/bin/chromium",
+      "bundled": "/usr/bin/chromium",
+      "using": "/usr/bin/chromium"
+    },
+    "skill_path": "/workspace/autoSkill/skills/autoskill",
+    "workspace": "/workspace/autoskill-state-validation/blackbox-ui/data",
+    "case_skill": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/case-plans/default/autoskill-cases",
+    "bridge": true,
+    "instance": null
+  },
+  "incremental_scope": [
+    "dashboard_paint",
+    "normal_navigation_input_preservation"
+  ]
+}

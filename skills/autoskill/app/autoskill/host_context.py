@@ -1,11 +1,10 @@
 """Read-only host summaries derive business state from the kernel's existing records."""
 from __future__ import annotations
 
-import json
 from urllib.parse import quote
 
 from . import host_bindings as bindings
-from . import paging, paths, report_locations
+from . import paging, paths, report_locations, task_reports, task_state
 
 ACTIVE = ("Queued", "Running")
 OPEN_ITEMS = ("ready", "leased", "publishing", "waiting_execution", "recovering")
@@ -25,11 +24,16 @@ def _workflow(connection, binding: dict) -> dict | None:
                                "AND state IN ('ready','leased','publishing','waiting_execution','recovering') ORDER BY sequence LIMIT 1",
                                (workflow_id, binding["cycle_id"])).fetchone()
     stale = binding["cycle_id"] != flow["cycle_id"]
-    return {"workflow_id": workflow_id, "project_id": flow["project_id"], "title": flow["title"], "cycle_id": binding["cycle_id"],
+    value = {"workflow_id": workflow_id, "project_id": flow["project_id"], "title": flow["title"], "cycle_id": binding["cycle_id"],
             "current_cycle_id": flow["cycle_id"], "stale_cycle": stale, "revision": flow["revision"], "domain_head": flow["domain_head"],
             "lifecycle": flow["lifecycle"] if not stale else None, "current_lifecycle": flow["lifecycle"],
             "conclusion": flow["conclusion"] if not stale else None, "current_phase": phase["phase"] if phase else None,
             "counts": {row["state"]: row["n"] for row in states}, "updated_at": flow["updated_at"]}
+    counts = value["counts"]
+    stage = ("recovering" if counts.get("recovering") else "waiting_execution" if counts.get("waiting_execution") else
+             "awaiting_host" if any(counts.get(key) for key in ("ready", "leased", "publishing")) else "settled")
+    value["state"] = task_state.workflow({**value, "cycle_state": stage, "complete": stage == "settled"}, connection=connection)
+    return value
 
 
 def _run_scope(connection, binding: dict) -> tuple[str, tuple, str]:
@@ -57,11 +61,11 @@ def _run_counts(connection, where: str, parameters: tuple) -> dict:
     return {"states": counts, **progress}
 
 
-def _run_view(row) -> dict:
+def _run_view(row, connection) -> dict:
     value = dict(row)
     reason = value["reason"]
     value.update(can_cancel=value["status"] in ACTIVE and not value["delete_requested"],
-                 execution_status=value["status"], updated_at=value["finished_at"] or value["started_at"] or value["created_at"],
+                 state=task_state.run(value, connection=connection), updated_at=value["finished_at"] or value["started_at"] or value["created_at"],
                  reason=reason[:600], reason_truncated=len(reason) > 600,
                  read_url="/api/native-runs/" + quote(value["id"], safe="") if value["family"] == "native" else "/api/runs/" + quote(value["id"], safe=""))
     return value
@@ -76,10 +80,10 @@ def _runs(connection, binding: dict, *, limit: int, cursor: str | None) -> tuple
     revision = paging.revision([query, counts])
     offset = paging.position(cursor, revision, query)
     rows = connection.execute(
-        "SELECT r.id,r.project_id,r.family,r.status,r.total,r.done,r.passed,r.failed,r.blocked,r.current,r.reason,r.cancel,"
+        "SELECT r.id,r.project_id,r.family,r.task_id,r.status,r.total,r.done,r.passed,r.failed,r.blocked,r.current,r.reason,r.cancel,"
         "r.delete_requested,r.deletion_error,r.created_at,r.started_at,r.finished_at,r.session_id "
         f"FROM runs r WHERE {where} ORDER BY r.created_at DESC,r.id DESC LIMIT ? OFFSET ?", (*parameters, limit, offset))
-    items = [_run_view(row) for row in rows]
+    items = [_run_view(row, connection) for row in rows]
     page = bindings.page_info(sum(counts["states"].values()), len(items), limit, offset, revision, query)
     return {"items": items, "page": {**page, "consistency": "live"}, "association": source}, counts, (where, parameters)
 
@@ -112,18 +116,16 @@ def _report(report_id: str, *, run: dict | None = None) -> dict:
             return {**result, "receipt_status": "unavailable", "error": "报告路径不属于当前工作区"}
     except (OSError, ValueError, TypeError):
         return {**result, "receipt_status": "unavailable", "error": "现有报告位置无法读取"}
-    try:
-        receipt = json.loads(file.read_bytes())
-    except FileNotFoundError:
+    receipt = task_state.report(report_id, run_row=run)
+    if receipt["status"] == "not_generated":
         return result
-    except (OSError, ValueError):
-        return {**result, "receipt_status": "unavailable", "error": "现有报告收据无法读取"}
     if not isinstance(receipt, dict) or receipt.get("report_id") != report_id:
         return {**result, "receipt_status": "unavailable", "error": "现有报告收据身份不匹配"}
     result.update(receipt_status=receipt.get("status", "unavailable"),
                   **{key: receipt[key] for key in ("kind", "task_id", "generated_at", "updated_at", "source_hash", "error", "retryable") if key in receipt})
     result["artifacts"] = [{"format": kind, "declared_sha256": receipt.get(prefix + "sha256"), "declared_size": receipt.get(prefix + "size"),
                             "download_url": result["read_url"] + "/" + kind} for kind, prefix in (("excel", ""), ("markdown", "markdown_"), ("bugs", "bugs_")) if receipt.get(kind)]
+    result["verification"] = "verified" if receipt["status"] == "ready" else "invalid" if receipt["status"] == "failed" else "not_checked"
     return result
 
 
@@ -147,10 +149,14 @@ def _empty(binding_page: dict, selected: dict) -> dict:
 
 
 def read(host: str, host_session_id: str, *, binding_id: str | None = None, limit: int = 20, cursor: str | None = None,
-         runs_limit: int = 10, runs_cursor: str | None = None) -> dict:
+         runs_limit: int = 10, runs_cursor: str | None = None, revision_only: bool = False) -> dict:
     """Return bounded existing state; a selected reference never implies a lease or permission."""
     bindings.identity(host, host_session_id)
     with bindings.snapshot() as connection:
+        if revision_only:
+            if binding_id is not None:
+                bindings.binding(connection, host, host_session_id, binding_id)
+            return {"host_session_id": host_session_id, "state_revision": task_state.revision()}
         page = bindings.binding_page(connection, host, host_session_id, limit=limit, cursor=cursor)
         selected = bindings.selection(connection, host, host_session_id)
         target = binding_id if binding_id is not None else selected["binding_id"]
@@ -161,7 +167,7 @@ def read(host: str, host_session_id: str, *, binding_id: str | None = None, limi
             runs, counts, scope = _runs(connection, value, limit=runs_limit, cursor=runs_cursor)
             reports = [_report("run_" + run["id"], run=run) for run in runs["items"]]
             if workflow:
-                reports.insert(0, _report("workflow_" + paging.revision([value["workflow_id"], value["cycle_id"]])))
+                reports.insert(0, _report(task_reports.workflow_report_id(value["workflow_id"], value["cycle_id"], connection=connection)))
             status = "stale_cycle" if workflow and workflow.get("stale_cycle") else "bound"
             if (workflow and workflow.get("missing")) or (value["run_id"] and not runs["page"]["total"]):
                 status = "reference_missing"
@@ -169,4 +175,4 @@ def read(host: str, host_session_id: str, *, binding_id: str | None = None, limi
                           reports=reports, refs=_references(value, workflow, runs),
                           cli_context={"session_id": value["task_session_id"], "host": host, "host_session_id": host_session_id,
                                        "workflow_id": value["workflow_id"], "cycle_id": value["cycle_id"], "workflow_binding": None})
-        return {**result, "context_revision": paging.revision(result)}
+        return {**result, "context_revision": paging.revision(result), "state_revision": task_state.revision()}

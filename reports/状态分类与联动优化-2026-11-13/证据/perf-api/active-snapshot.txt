@@ -1,0 +1,23 @@
+         1344 function calls (1307 primitive calls) in 0.007 seconds
+
+   Ordered by: cumulative time
+   List reduced from 178 to 15 due to restriction <15>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.007    0.007 <stdin>:4(<lambda>)
+        1    0.000    0.000    0.007    0.007 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:330(runs)
+     18/6    0.000    0.000    0.006    0.001 {built-in method builtins.next}
+        2    0.000    0.000    0.006    0.003 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:69(snapshot)
+        2    0.000    0.000    0.005    0.003 /workspace/autoSkill/skills/autoskill/app/autoskill/db.py:101(connect)
+      9/3    0.000    0.000    0.005    0.002 /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py:132(__enter__)
+        2    0.000    0.000    0.004    0.002 /workspace/autoSkill/skills/autoskill/app/autoskill/db.py:107(_connection)
+        5    0.003    0.001    0.003    0.001 {method 'execute' of 'sqlite3.Connection' objects}
+        4    0.000    0.000    0.001    0.000 /workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py:61(access)
+        4    0.000    0.000    0.001    0.000 /workspace/autoSkill/skills/autoskill/app/autoskill/paths.py:55(workspace)
+        1    0.000    0.000    0.001    0.001 /workspace/autoSkill/skills/autoskill/app/autoskill/paths.py:61(local)
+      9/4    0.000    0.000    0.001    0.000 /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py:141(__exit__)
+        1    0.000    0.000    0.001    0.001 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:186(_selected)
+        6    0.000    0.000    0.000    0.000 /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py:1228(resolve)
+        2    0.000    0.000    0.000    0.000 /workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py:19(_shared)
+
+

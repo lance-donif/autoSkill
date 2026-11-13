@@ -1,0 +1,119 @@
+{
+  "all_raw_observations": [
+    {
+      "label": "044-api-observe-runs-007",
+      "at": "2026-11-13T14:28:06.024062+00:00",
+      "started_at": "2026-11-13T14:28:05.393+00:00",
+      "finished_at": null,
+      "phase": "running",
+      "status": "Running",
+      "seconds": 0.5455812729996978
+    },
+    {
+      "label": "044-api-observe-runs-008",
+      "at": "2026-11-13T14:28:06.597266+00:00",
+      "started_at": "2026-11-13T14:28:05.393+00:00",
+      "finished_at": null,
+      "phase": "running",
+      "status": "Running",
+      "seconds": 0.429652797000017
+    },
+    {
+      "label": "044-api-observe-runs-120",
+      "at": "2026-11-13T14:28:20.299647+00:00",
+      "started_at": "2026-11-13T14:28:05.393+00:00",
+      "finished_at": "2026-11-13T14:28:19.626+00:00",
+      "phase": "settled",
+      "status": "Pass",
+      "seconds": 0.5931751429998258
+    },
+    {
+      "label": "044-api-observe-runs-all",
+      "at": "2026-11-13T14:28:21.497035+00:00",
+      "started_at": "2026-11-13T14:28:05.393+00:00",
+      "finished_at": "2026-11-13T14:28:19.626+00:00",
+      "phase": "settled",
+      "status": "Pass",
+      "seconds": 0.6183303019988671
+    },
+    {
+      "label": "044-api-observe-runs-current",
+      "at": "2026-11-13T14:28:20.877264+00:00",
+      "started_at": "2026-11-13T14:28:05.393+00:00",
+      "finished_at": "2026-11-13T14:28:19.626+00:00",
+      "phase": "settled",
+      "status": "Pass",
+      "seconds": 0.5763871170001948
+    }
+  ],
+  "cycle_filters": {
+    "runs-current": {
+      "old_workflow_run_entries": 0,
+      "total": 5,
+      "returned": 5,
+      "state_counts": {
+        "pass": 2,
+        "fail": 2,
+        "blocked": 0,
+        "unverified": 0,
+        "cancelled": 1,
+        "pending": 0
+      }
+    },
+    "results-current": {
+      "old_workflow_run_entries": 0,
+      "total": 4,
+      "returned": 4,
+      "state_counts": {
+        "pass": 2,
+        "fail": 2,
+        "blocked": 0,
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0
+      }
+    },
+    "runs-all": {
+      "old_workflow_run_entries": 1,
+      "total": 6,
+      "returned": 6,
+      "state_counts": {
+        "pass": 2,
+        "fail": 3,
+        "blocked": 0,
+        "unverified": 0,
+        "cancelled": 1,
+        "pending": 0
+      }
+    },
+    "results-all": {
+      "old_workflow_run_entries": 2,
+      "total": 6,
+      "returned": 6,
+      "state_counts": {
+        "pass": 3,
+        "fail": 3,
+        "blocked": 0,
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0
+      }
+    }
+  },
+  "business_filters": {
+    "runs": {
+      "total": 3,
+      "returned": 3,
+      "all_business_fail": true
+    },
+    "results": {
+      "total": 3,
+      "returned": 3,
+      "all_business_fail": true
+    }
+  },
+  "revision_http_max_seconds": 0.06633976800003438,
+  "revision_http_samples": 121,
+  "earliest_running_api_delay_seconds": 0.631062,
+  "terminal_api_delay_seconds": 0.673647
+}

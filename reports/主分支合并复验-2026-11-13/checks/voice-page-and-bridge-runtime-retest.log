@@ -1,0 +1,9 @@
+test_permission_denial_reports_failure_and_releases_peers (voice_acceptance.VoiceLoopbackTests.test_permission_denial_reports_failure_and_releases_peers) ... ok
+test_microphone_track_is_released_on_stop_or_media_failure (voice_acceptance.VoiceLoopbackTests.test_microphone_track_is_released_on_stop_or_media_failure) ... ok
+test_recording_through_service_keeps_its_output_files (test_bridge.RestrictedProcessTests.test_recording_through_service_keeps_its_output_files) ... ok
+test_sandboxed_cli_records_switches_and_replays_through_service (test_tabs.TabBridgeTests.test_sandboxed_cli_records_switches_and_replays_through_service) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 39.257s
+
+OK

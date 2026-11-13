@@ -1,0 +1,514 @@
+.......................................................s..............................................................F.....E...........s...............................EEFFFFF..............................E...............................................................E..............................F.......Error occurred in event listener
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_page.py", line 308, in _on_route
+    handled = await route_handler.handle(route)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 455, in handle
+    raise e
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 442, in handle
+    return await self._handle_internal(route)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 478, in _handle_internal
+    await handler_finished_future
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 469, in _handler
+    self.handler(route, route.request)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_impl_to_api_mapping.py", line 139, in wrapper_func
+    return handler(
+           ^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 80, in route
+    route.fulfill(content_type="application/json", body=json.dumps(self.api(path)))
+                                                                   ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 101, in api
+    raise AssertionError("Unexpected API request: " + path)
+AssertionError: Unexpected API request: /api/state-revision
+FError occurred in event listener
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_page.py", line 308, in _on_route
+    handled = await route_handler.handle(route)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 455, in handle
+    raise e
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 442, in handle
+    return await self._handle_internal(route)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 478, in _handle_internal
+    await handler_finished_future
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 469, in _handler
+    self.handler(route, route.request)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_impl_to_api_mapping.py", line 139, in wrapper_func
+    return handler(
+           ^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 80, in route
+    route.fulfill(content_type="application/json", body=json.dumps(self.api(path)))
+                                                                   ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 101, in api
+    raise AssertionError("Unexpected API request: " + path)
+AssertionError: Unexpected API request: /api/state-revision
+FError occurred in event listener
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_page.py", line 308, in _on_route
+    handled = await route_handler.handle(route)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 455, in handle
+    raise e
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 442, in handle
+    return await self._handle_internal(route)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 478, in _handle_internal
+    await handler_finished_future
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_helper.py", line 469, in _handler
+    self.handler(route, route.request)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_impl_to_api_mapping.py", line 139, in wrapper_func
+    return handler(
+           ^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 80, in route
+    route.fulfill(content_type="application/json", body=json.dumps(self.api(path)))
+                                                                   ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 101, in api
+    raise AssertionError("Unexpected API request: " + path)
+AssertionError: Unexpected API request: /api/state-revision
+F...................................s..........sssss............................FF..................................................Fs..................ss..............................................ssssss.................................................{"Fail": 1}
+{"Fail": 1}
+Excel 和导出清单已生成
+{"Pass": 1}
+{"Pass": 1}
+{"Pass": 1}
+{"Blocked": 1}
+{"Blocked": 1}
+{"Pass": 1}
+Excel 和导出清单已生成
+报告已生成
+{"Pass": 1}
+{"Blocked": 1}
+{"Pass": 1}
+{"Pass": 1}
+{"Pass": 1}
+{"Pass": 1}
+............................ssssss.......s..sssssss.......E.....................F.............................ss.ss....................................................
+======================================================================
+ERROR: test_stale_enable_switch_reports_conflict_without_changing_latest_task (test_dashboard_schedules.DashboardScheduleTests.test_stale_enable_switch_reports_conflict_without_changing_latest_task)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_dashboard_schedules.py", line 148, in test_stale_enable_switch_reports_conflict_without_changing_latest_task
+    self.page.get_by_role("switch", name="启用「Original task」", exact=True).click()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 17876, in click
+    self._sync(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_locator.py", line 165, in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 593, in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for get_by_role("switch", name="启用「Original task」", exact=True)
+    - locator resolved to <button role="switch" class="switch" aria-checked="false" aria-label="启用「Original task」"></button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is not stable
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+  - element was detached from the DOM, retrying
+
+
+======================================================================
+ERROR: test_journal_write_failure_changes_no_database_rows_or_runtime_files (test_data_runtime.RelocationTests.test_journal_write_failure_changes_no_database_rows_or_runtime_files)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 50, in _shared
+    fcntl.flock(stream, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 183, in test_journal_write_failure_changes_no_database_rows_or_runtime_files
+    data_runtime.attach(self.root, force=True)
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py", line 236, in attach
+    with maintenance.exclusive(root):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 100, in exclusive
+    with file.open("a+b") as stream, _shared(stream, exclusive=True):
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 53, in _shared
+    raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
+ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试
+
+======================================================================
+ERROR: test_old_outbox_tokens_and_session_targets_are_fenced_until_explicit_investigation (test_data_runtime.RelocationTests.test_old_outbox_tokens_and_session_targets_are_fenced_until_explicit_investigation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 50, in _shared
+    fcntl.flock(stream, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 190, in test_old_outbox_tokens_and_session_targets_are_fenced_until_explicit_investigation
+    result = data_runtime.attach(self.root, force=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py", line 236, in attach
+    with maintenance.exclusive(root):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 100, in exclusive
+    with file.open("a+b") as stream, _shared(stream, exclusive=True):
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 53, in _shared
+    raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
+ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试
+
+======================================================================
+ERROR: test_legacy_shared_manifest_is_removed_only_after_last_referencing_run (test_deletion.DeletionTests.test_legacy_shared_manifest_is_removed_only_after_last_referencing_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_deletion.py", line 254, in test_legacy_shared_manifest_is_removed_only_after_last_referencing_run
+    runner.enqueue(other)
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/runner.py", line 52, in enqueue
+    return enqueue(prepared, connection=conn)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/runner.py", line 63, in enqueue
+    connection.execute(f"INSERT INTO runs ({keys}) VALUES ({marks})", values)
+sqlite3.OperationalError: table runs has no column named state
+
+======================================================================
+ERROR: test_concurrent_startups_migrate_old_runs_without_losing_them (test_execution_review_fixes.ExecutionReviewTests.test_concurrent_startups_migrate_old_runs_without_losing_them)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_execution_review_fixes.py", line 348, in test_concurrent_startups_migrate_old_runs_without_losing_them
+    conn.execute(f"ALTER TABLE runs DROP COLUMN {column}")
+sqlite3.OperationalError: error in trigger state_revision_runs_update after drop column: no such column: OLD.claim_token
+
+======================================================================
+ERROR: test_a_previous_workflow_cycle_can_add_markdown_without_using_the_new_cycle (test_task_markdown.TaskMarkdownDeliveryTests.test_a_previous_workflow_cycle_can_add_markdown_without_using_the_new_cycle)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_task_markdown.py", line 242, in test_a_previous_workflow_cycle_can_add_markdown_without_using_the_new_cycle
+    legacy = self.legacy(stopped["test_report"])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/tests/test_task_markdown.py", line 92, in legacy
+    Path(saved["markdown"]).unlink()
+         ~~~~~^^^^^^^^^^^^
+KeyError: 'markdown'
+
+======================================================================
+FAIL: test_refresh_preserves_focused_search_draft_and_selection (test_dashboard_review_fixes.DashboardReviewTests.test_refresh_preserves_focused_search_draft_and_selection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_dashboard_review_fixes.py", line 173, in test_refresh_preserves_focused_search_draft_and_selection
+    self.assertEqual(search.evaluate('(node) => [node.selectionStart,node.selectionEnd]'), [2, 5])
+AssertionError: Lists differ: [7, 7] != [2, 5]
+
+First differing element 0:
+7
+2
+
+- [7, 7]
++ [2, 5]
+
+======================================================================
+FAIL: test_partial_real_fail_enters_investigation_and_never_automatically_repeats (test_data_runtime.RelocationTests.test_partial_real_fail_enters_investigation_and_never_automatically_repeats)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 286, in test_partial_real_fail_enters_investigation_and_never_automatically_repeats
+    dispatch.assert_not_called()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 910, in assert_not_called
+    raise AssertionError(msg)
+AssertionError: Expected 'ensure_worker' to not have been called. Called 1 times.
+Calls: [call()].
+
+======================================================================
+FAIL: test_process_crash_after_database_commit_does_not_apply_revisions_twice (test_data_runtime.RelocationTests.test_process_crash_after_database_commit_does_not_apply_revisions_twice)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 171, in test_process_crash_after_database_commit_does_not_apply_revisions_twice
+    self.crash_and_resume("after_database")
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 157, in crash_and_resume
+    self.assertEqual(child.returncode, 77, child.stdout + child.stderr)
+AssertionError: 1 != 77 : Traceback (most recent call last):
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 50, in _shared
+    fcntl.flock(stream, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<string>", line 23, in <module>
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py", line 236, in attach
+    with maintenance.exclusive(root):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 100, in exclusive
+    with file.open("a+b") as stream, _shared(stream, exclusive=True):
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 53, in _shared
+    raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
+ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试
+
+
+======================================================================
+FAIL: test_process_crash_after_journal_before_database_resumes_original_intent (test_data_runtime.RelocationTests.test_process_crash_after_journal_before_database_resumes_original_intent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 168, in test_process_crash_after_journal_before_database_resumes_original_intent
+    self.crash_and_resume("before_database")
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 157, in crash_and_resume
+    self.assertEqual(child.returncode, 77, child.stdout + child.stderr)
+AssertionError: 1 != 77 : Traceback (most recent call last):
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 50, in _shared
+    fcntl.flock(stream, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<string>", line 23, in <module>
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py", line 236, in attach
+    with maintenance.exclusive(root):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 100, in exclusive
+    with file.open("a+b") as stream, _shared(stream, exclusive=True):
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 53, in _shared
+    raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
+ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试
+
+
+======================================================================
+FAIL: test_process_crash_after_marker_still_finishes_the_same_pending_journal (test_data_runtime.RelocationTests.test_process_crash_after_marker_still_finishes_the_same_pending_journal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 177, in test_process_crash_after_marker_still_finishes_the_same_pending_journal
+    self.crash_and_resume("after_marker")
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 157, in crash_and_resume
+    self.assertEqual(child.returncode, 77, child.stdout + child.stderr)
+AssertionError: 1 != 77 : Traceback (most recent call last):
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 50, in _shared
+    fcntl.flock(stream, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<string>", line 23, in <module>
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py", line 236, in attach
+    with maintenance.exclusive(root):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 100, in exclusive
+    with file.open("a+b") as stream, _shared(stream, exclusive=True):
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 53, in _shared
+    raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
+ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试
+
+
+======================================================================
+FAIL: test_process_crash_after_partial_runtime_archive_resumes_without_overwriting (test_data_runtime.RelocationTests.test_process_crash_after_partial_runtime_archive_resumes_without_overwriting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 174, in test_process_crash_after_partial_runtime_archive_resumes_without_overwriting
+    self.crash_and_resume("after_archive")
+  File "/workspace/autoSkill/tests/test_data_runtime.py", line 157, in crash_and_resume
+    self.assertEqual(child.returncode, 77, child.stdout + child.stderr)
+AssertionError: 1 != 77 : Traceback (most recent call last):
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 50, in _shared
+    fcntl.flock(stream, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<string>", line 23, in <module>
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py", line 236, in attach
+    with maintenance.exclusive(root):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 100, in exclusive
+    with file.open("a+b") as stream, _shared(stream, exclusive=True):
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py", line 53, in _shared
+    raise ValueError("数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试") from error
+ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试
+
+
+======================================================================
+FAIL: test_legacy_session_does_not_claim_all_unnamed_runs_and_reports_remain_unverified (test_host_context.HostContextTests.test_legacy_session_does_not_claim_all_unnamed_runs_and_reports_remain_unverified)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_host_context.py", line 230, in test_legacy_session_does_not_claim_all_unnamed_runs_and_reports_remain_unverified
+    self.assertEqual(result["reports"][0]["verification"], "not_checked")
+AssertionError: 'invalid' != 'not_checked'
+- invalid
++ not_checked
+
+
+======================================================================
+FAIL: test_download_has_same_styles_all_details_and_no_online_dependencies (test_html_report.HtmlReportTests.test_download_has_same_styles_all_details_and_no_online_dependencies)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_html_report.py", line 135, in test_download_has_same_styles_all_details_and_no_online_dependencies
+    self.assertGreaterEqual(self.page.locator(".report-heading").bounding_box()["width"], 280)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 17711, in bounding_box
+    self._sync(self._impl_obj.bounding_box(timeout=to_milliseconds(timeout)))
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_locator.py", line 133, in bounding_box
+    return await self._with_element(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_locator.py", line 118, in _with_element
+    return await task(
+           ^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_element_handle.py", line 319, in bounding_box
+    return await self._channel.send("boundingBox", None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+AssertionError: Locator.bounding_box: Unexpected API request: /api/state-revision
+
+======================================================================
+FAIL: test_empty_running_report_exports_progress_without_claiming_final_results (test_html_report.HtmlReportTests.test_empty_running_report_exports_progress_without_claiming_final_results)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_html_report.py", line 183, in test_empty_running_report_exports_progress_without_claiming_final_results
+    page, requests = self.offline(file)
+                     ^^^^^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 124, in offline
+    page.set_content(file.read_text(encoding="utf-8"))
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 9807, in set_content
+    self._sync(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_page.py", line 551, in set_content
+    return await self._main_frame.set_content(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 508, in set_content
+    await self._channel.send(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+AssertionError: Page.set_content: Unexpected API request: /api/state-revision
+
+======================================================================
+FAIL: test_missing_screenshot_is_disclosed_in_download_and_other_details_survive (test_html_report.HtmlReportTests.test_missing_screenshot_is_disclosed_in_download_and_other_details_survive)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_html_report.py", line 170, in test_missing_screenshot_is_disclosed_in_download_and_other_details_survive
+    file = self.download()
+           ^^^^^^^^^^^^^^^
+  File "/workspace/autoSkill/tests/test_html_report.py", line 114, in download
+    download.save_as(file)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 7969, in save_as
+    return mapping.from_maybe_impl(self._sync(self._impl_obj.save_as(path=path)))
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_download.py", line 61, in save_as
+    await self._artifact.save_as(path)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_artifact.py", line 46, in save_as
+    await self._channel.send(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+AssertionError: Download.save_as: Unexpected API request: /api/state-revision
+
+======================================================================
+FAIL: test_cli_and_http_share_pages_and_single_case_reads (test_native_reader.NativeReaderTests.test_cli_and_http_share_pages_and_single_case_reads)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_native_reader.py", line 91, in test_cli_and_http_share_pages_and_single_case_reads
+    self.assertEqual(response.json(), result)
+AssertionError: {'id'[1510 chars]le': False}, 'asset_id': 'asset-5dfeb5cbe2a9',[4729 chars]'}}]} != {'id'[1510 chars]le': True, 'retry_url': '/api/task-reports/run[4789 chars]'}}]}
+Diff is 10407 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_default_projection_is_bounded_and_explicit_case_and_all_are_complete (test_native_reader.NativeReaderTests.test_default_projection_is_bounded_and_explicit_case_and_all_are_complete)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_native_reader.py", line 67, in test_default_projection_is_bounded_and_explicit_case_and_all_are_complete
+    self.assertLess(len(json.dumps(first)), 20000)
+AssertionError: 22556 not less than 20000
+
+======================================================================
+FAIL: test_spawn_failure_keeps_original_queued_run_available_for_retry (test_queue_dispatcher.DispatcherTests.test_spawn_failure_keeps_original_queued_run_available_for_retry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 215, in test_spawn_failure_keeps_original_queued_run_available_for_retry
+    self.ensure()
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 178, in ensure
+    self.assertIn(result["status"], ("started", "running"), result)
+AssertionError: 'unavailable' not found in ('started', 'running') : {'status': 'unavailable', 'pid': None, 'reason': '后台队列在启动期间退出；运行已保存，可重试启动现有队列'}
+
+======================================================================
+FAIL: test_running_status_does_not_wait_for_an_independent_executor_guard (test_task_reports.TaskReportTests.test_running_status_does_not_wait_for_an_independent_executor_guard)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_task_reports.py", line 307, in test_running_status_does_not_wait_for_an_independent_executor_guard
+    self.assertEqual(response.json()["test_report"]["status"], "pending")
+AssertionError: 'pending' != 'not_generated'
+- pending
++ not_generated
+
+
+----------------------------------------------------------------------
+Ran 732 tests in 826.369s
+
+FAILED (failures=14, errors=6, skipped=35)
+Excel 和导出清单已生成
+{"Pass": 1}
+{"Blocked": 1}
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py:1127: ResourceWarning: subprocess 54803 is still running

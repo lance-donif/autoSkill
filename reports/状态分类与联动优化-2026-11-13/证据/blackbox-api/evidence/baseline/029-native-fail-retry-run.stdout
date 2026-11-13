@@ -1,0 +1,24 @@
+{
+ "id": "run-016c28a62f48",
+ "family": "native",
+ "project_id": "bb-api",
+ "engine": "selenium-unittest",
+ "trigger": "manual",
+ "task_id": null,
+ "status": "Queued",
+ "case_ids": [
+  "bb-fail"
+ ],
+ "total": 0,
+ "created_at": "2026-11-13T14:09:36.176+00:00",
+ "headed": 0,
+ "session_id": "blackbox-api-baseline",
+ "input_manifest": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/native-inputs/02c874582665052a9d2f805ad00183a6b3bbb6c7911e913b5ca89ece4ccfa7fb-704a625bad5342d797a21f378c1d2ff8.json",
+ "input_hash": "02c874582665052a9d2f805ad00183a6b3bbb6c7911e913b5ca89ece4ccfa7fb",
+ "queue_dispatcher": {
+  "status": "running",
+  "pid": 37497,
+  "reason": ""
+ },
+ "note": "已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定"
+}

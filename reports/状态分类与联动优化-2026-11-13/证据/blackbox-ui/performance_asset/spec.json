@@ -1,0 +1,14 @@
+{
+  "endpoint": {
+    "protocol": "http",
+    "url": "http://127.0.0.1:18783/api/order",
+    "method": "POST",
+    "body": {"question": "完成独立订单业务"},
+    "answer_pointer": "/message"
+  },
+  "samples": [
+    {"id": "order-business-fast-goal", "turns": [{"question": "完成独立订单业务", "expected": "订单完成"}]}
+  ],
+  "performance": {"total_ms": 50},
+  "load": {"concurrency": 1, "iterations": 1}
+}

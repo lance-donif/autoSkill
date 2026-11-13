@@ -1,0 +1,19 @@
+{
+  "label": "044-api-observe-revision-002",
+  "url": "http://127.0.0.1:18884/api/state-revision",
+  "started_at": "2026-11-13T14:28:04.882143+00:00",
+  "ended_at": "2026-11-13T14:28:04.892781+00:00",
+  "elapsed_seconds": 0.0108338130012271,
+  "http_status": 200,
+  "headers": {
+    "date": "Fri, 13 Nov 2026 14:28:04 GMT",
+    "server": "uvicorn",
+    "content-length": "79",
+    "content-type": "application/json",
+    "cache-control": "no-store",
+    "Connection": "close"
+  },
+  "response": {
+    "revision": "df8cf0fa4b877e3c174dd72d118ce4ff64a8ec984c572a1871877c67e0658f5d"
+  }
+}

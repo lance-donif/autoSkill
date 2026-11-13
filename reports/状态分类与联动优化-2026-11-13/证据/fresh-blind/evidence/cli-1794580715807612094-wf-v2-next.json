@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "workflow",
+    "next",
+    "wf-8bc34d6b55434423b2159bfdffcbc782",
+    "--idempotency-key",
+    "fresh-v2-next-after-requirements-0",
+    "--lease-seconds",
+    "1800"
+  ],
+  "started_ns": 1794580715807616506,
+  "finished_ns": 1794580716076880856,
+  "exit_code": 0,
+  "stdout": "{\n \"task\": {\n  \"id\": \"wfi-5c186004f92947a282d4cbab69c7d957\",\n  \"item_id\": \"wfi-5c186004f92947a282d4cbab69c7d957\",\n  \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n  \"phase\": \"design\",\n  \"attempt_id\": \"wfa-392e0eadf4c14d53b5a925a7f96c854b\",\n  \"lease_token\": \"lease-8e604615ee654c21bfeabad347675728\",\n  \"lease_until\": \"2026-11-13T15:08:36.018+00:00\",\n  \"binding_token\": \"eyJhdHRlbXB0X2lkIjoid2ZhLTM5MmUwZWFkZjRjMTRkNTNiNWE5MjVhN2Y5NmM4NTRiIiwiaXRlbV9pZCI6IndmaS01YzE4NjAwNGY5Mjk0N2EyODJkNGNiYWI2OWM3ZDk1NyIsImxlYXNlX3Rva2VuIjoibGVhc2UtOGU2MDQ2MTVlZTY1NGMyMWJmZWFiYWQzNDc2NzU3MjgiLCJ3b3JrZmxvd19pZCI6IndmLThiYzM0ZDZiNTU0MzQ0MjNiMjE1OWJmZGZmY2JjNzgyIn0=\",\n  \"input_hash\": \"1acabc0eeababdfd86ee8374e02b4eba2f588f5a7915f2e7f746c2728adee46a\",\n  \"input_refs\": {\n   \"definition\": \"workflows/wf-8bc34d6b55434423b2159bfdffcbc782/definition.json\",\n   \"knowledge\": \"workflows/wf-8bc34d6b55434423b2159bfdffcbc782/knowledge.json\",\n   \"requirements\": \"workflows/wf-8bc34d6b55434423b2159bfdffcbc782/requirements.json\",\n   \"sources\": \"workflows/wf-8bc34d6b55434423b2159bfdffcbc782/sources.json\"\n  },\n  \"checkpoint\": {},\n  \"context\": {},\n  \"payload_schema\": {\n   \"example\": {\n    \"scenarios\": [\n     {\n      \"id\": \"scenario-1\",\n      \"title\": \"验证业务预期\",\n      \"requirement_ids\": [\n       \"req-1\"\n      ],\n      \"oracle_ids\": [\n       \"oracle-1\"\n      ]\n     }\n    ],\n    \"oracles\": [\n     {\n      \"id\": \"oracle-1\",\n      \"kind\": \"api\",\n      \"requirement_ids\": [\n       \"req-1\"\n      ],\n      \"checks\": {\n       \"status\": 200,\n       \"json_equals\": {\n        \"/priority\": \"high\"\n       }\n      }\n     }\n    ]\n   },\n   \"rule\": \"预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。\"\n  }\n },\n \"workflow\": {\n  \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n  \"project_id\": \"fresh-arithmetic\",\n  \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n  \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 25,\n  \"report_generation\": 0,\n  \"domain_head\": \"2ae81aa2c05cd0283fc5a8c54900641e175b4a1337e3b1e85ae429736728c4c8\",\n  \"definition_hash\": \"1acabc0eeababdfd86ee8374e02b4eba2f588f5a7915f2e7f746c2728adee46a\",\n  \"counts\": {\n   \"completed\": 1,\n   \"leased\": 1\n  },\n  \"state\": {\n   \"lifecycle\": \"active\",\n   \"phase\": \"awaiting_host\",\n   \"outcome\": \"pending\",\n   \"checks\": {\n    \"business\": \"unverified\",\n    \"performance\": \"not_applicable\",\n    \"quality\": \"not_applicable\"\n   },\n   \"evidence\": \"unverified\",\n   \"report\": \"not_generated\",\n   \"delivery\": \"not_applicable\",\n   \"scope\": {\n    \"project_id\": \"fresh-arithmetic\",\n    \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n    \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n    \"run_id\": null,\n    \"case_id\": null,\n    \"attempt_id\": null\n   },\n   \"reason\": \"\",\n   \"revision\": \"27cdb8a54962650aa1f4df34e0d39bc82da973692a96435a62595cd47e565e81\"\n  }\n }\n}\n",
+  "stderr": ""
+}

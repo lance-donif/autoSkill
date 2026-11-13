@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 from fastapi.testclient import TestClient
 
-from autoskill import builder, db, execution_inputs, load_testing, paths, projects, reporting, runner, sessions, task_report_data
+from autoskill import builder, db, execution_inputs, load_testing, paths, projects, reporting, runner, sessions, task_report_data, task_reports
 from autoskill.server import jobs, metrics
 from autoskill.server.app import create_app
 
@@ -111,6 +111,32 @@ class LoadTests(unittest.TestCase):
         self.assertIsNone(detail["metrics"]["p95_ms"])
         self.assertEqual(detail["metrics"]["error_rate"], 1)
         self.assertEqual(len(task_report_data.run_snapshot(detail)["cases"]), 3)
+
+    def test_load_status_does_not_recreate_a_missing_report_receipt(self):
+        run = load_testing.enqueue("load", ["TARGET"], concurrency=1, iterations=1)
+        final = runner.execute(run["id"])
+        self.assertEqual(final["state"]["outcome"], "pass")
+        report = final["test_report"]
+        receipt = task_reports._folder(report["report_id"]) / "receipt.json"
+        receipt.unlink()
+        requests = len(self.server.seen)
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787") as client:
+            with patch.object(reporting, "write_task", side_effect=AssertionError("Status reads cannot export")) as render:
+                for _ in range(2):
+                    response = client.get("/api/load-tests/" + run["id"])
+                    self.assertEqual(response.status_code, 200, response.text)
+                    body = response.json()
+                    self.assertEqual(body["test_report"]["status"], "not_generated")
+                    self.assertEqual(body["state"]["report"], "not_generated")
+                    self.assertEqual(body["results"][-1]["state"]["evidence"], "valid")
+                    self.assertFalse(receipt.exists())
+                render.assert_not_called()
+            repaired = client.post("/api/task-reports/" + report["report_id"] + "/retry")
+        self.assertEqual(repaired.status_code, 200, repaired.text)
+        self.assertEqual(repaired.json()["status"], "ready")
+        self.assertEqual(repaired.json()["source_hash"], report["source_hash"])
+        self.assertEqual(len(self.server.seen), requests)
+        self.assertEqual(db.one("SELECT input_hash FROM runs WHERE id=?", (run["id"],))["input_hash"], final["input_hash"])
 
     def test_cancel_stops_ramp_and_retains_unexecuted_denominator(self):
         run = load_testing.enqueue("load", ["TARGET"], concurrency=3, iterations=100, ramp_up_seconds=30)

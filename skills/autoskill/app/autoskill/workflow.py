@@ -22,20 +22,39 @@ _binding_context = ContextVar("workflow_binding", default=_UNSET)
 
 
 def _report_delivery(function):
-    """Attach terminal delivery only after the workflow transaction and locks have exited."""
+    """Freeze terminal delivery, leaving artifact rendering to the background worker."""
     @wraps(function)
     def delivered(*args, **kwargs):
         result = function(*args, **kwargs)
         summary = result.get("workflow", result)
         if summary.get("complete") or summary.get("lifecycle") == "cancelled":
             from . import task_reports
+            from .server.jobs import ensure_worker
 
-            receipt = task_reports.for_workflow(summary["workflow_id"])
+            task_reports.prepare_workflow(summary["workflow_id"])
+            report_id = task_reports.workflow_report_id(summary["workflow_id"], summary["cycle_id"], generation=summary.get("report_generation", 0))
+            receipt = task_reports.peek(report_id)
+            if receipt["status"] == "generating":
+                ensure_worker()
             result = {**result, "test_report": receipt}
             if "workflow" in result:
                 result["workflow"] = {**summary, "test_report": receipt}
         return result
     return delivered
+
+
+def _monitor(function):
+    """Keep durable kernel work observable after the submitting process exits."""
+    @wraps(function)
+    def monitored(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        finally:
+            if needs_monitoring():
+                from .server.jobs import ensure_worker
+
+                ensure_worker()
+    return monitored
 
 
 def selected_binding_token() -> str | None:
@@ -62,6 +81,8 @@ def _binding_token(workflow_id: str, item_id: str, attempt: dict) -> str:
 
 
 def _summary(flow: dict, connection) -> dict:
+    from . import task_state
+
     counts = {r["state"]: r["n"] for r in connection.execute(
         "SELECT state,COUNT(*) n FROM workflow_items WHERE workflow_id = ? AND cycle_id = ? GROUP BY state", (flow["id"], flow["cycle_id"]))}
     if flow["lifecycle"] != "active":
@@ -74,10 +95,12 @@ def _summary(flow: dict, connection) -> dict:
         cycle_state = "awaiting_host"
     else:
         cycle_state = "settled"
-    return {"workflow_id": flow["id"], "project_id": flow["project_id"], "title": flow["title"],
-            "cycle_id": flow["cycle_id"], "lifecycle": flow["lifecycle"], "cycle_state": cycle_state,
-            "complete": cycle_state == "settled", "conclusion": flow["conclusion"], "revision": flow["revision"],
-            "domain_head": flow["domain_head"], "definition_hash": flow["definition_hash"], "counts": counts}
+    summary = {"workflow_id": flow["id"], "project_id": flow["project_id"], "title": flow["title"],
+               "cycle_id": flow["cycle_id"], "lifecycle": flow["lifecycle"], "cycle_state": cycle_state,
+               "complete": cycle_state == "settled", "conclusion": flow["conclusion"], "revision": flow["revision"],
+               "report_generation": state.report_generation(connection, flow["id"], flow["cycle_id"]),
+               "domain_head": flow["domain_head"], "definition_hash": flow["definition_hash"], "counts": counts}
+    return {**summary, "state": task_state.workflow(summary, connection=connection)}
 
 
 def _view(workflow_id: str) -> dict:
@@ -85,17 +108,20 @@ def _view(workflow_id: str) -> dict:
         return _summary(state.row(connection, "workflow_runtime", workflow_id), connection)
 
 
-@_report_delivery
-def status(workflow_id: str, *, limit: int = 50, cursor: str | None = None) -> dict:
+def status(workflow_id: str, *, limit: int = 50, cursor: str | None = None, cycle: str = "current") -> dict:
     """Read a bounded keyset page; polling does not claim or execute work."""
+    from . import task_reports
+
     state.init()
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
         raise WorkflowError("validation_error", "分页 limit 必须是正整数")
+    if cycle not in ("current", "all"):
+        raise WorkflowError("validation_error", "cycle 必须为 current 或 all")
     after, expected_revision = 0, None
     if cursor:
         try:
             value = json.loads(base64.urlsafe_b64decode(cursor))
-            if value["workflow_id"] != workflow_id or not isinstance(value["after"], int):
+            if value["workflow_id"] != workflow_id or value.get("cycle") != cycle or not isinstance(value["after"], int):
                 raise ValueError
             after = value["after"]
             expected_revision = value["revision"]
@@ -105,14 +131,19 @@ def status(workflow_id: str, *, limit: int = 50, cursor: str | None = None) -> d
         flow = state.row(connection, "workflow_runtime", workflow_id)
         if expected_revision is not None and flow["revision"] != expected_revision:
             raise WorkflowError("cursor_expired", "工作流状态已更新，请从第一页读取", revision=flow["revision"])
+        where = "workflow_id = ?" + (" AND cycle_id = ?" if cycle == "current" else "")
+        scope = (workflow_id, flow["cycle_id"]) if cycle == "current" else (workflow_id,)
         records = [dict(r) for r in connection.execute(
             "SELECT id,sequence,cycle_id,phase,state,attempt_id,run_id,created_at,finished_at FROM workflow_items "
-            "WHERE workflow_id = ? AND sequence > ? ORDER BY sequence LIMIT ?", (workflow_id, after, limit + 1))]
+            f"WHERE {where} AND sequence > ? ORDER BY sequence LIMIT ?", (*scope, after, limit + 1))]
         has_more = len(records) > limit
         records = records[:limit]
-        next_cursor = base64.urlsafe_b64encode(state.packed({"workflow_id": workflow_id, "after": records[-1]["sequence"], "revision": flow["revision"]}).encode()).decode() if has_more else None
-        total = connection.execute("SELECT COUNT(*) FROM workflow_items WHERE workflow_id = ?", (workflow_id,)).fetchone()[0]
-        return {**_summary(flow, connection), "items": records, "total": total, "cursor": cursor, "next_cursor": next_cursor}
+        position = {"workflow_id": workflow_id, "cycle": cycle, "after": records[-1]["sequence"], "revision": flow["revision"]} if has_more else None
+        next_cursor = base64.urlsafe_b64encode(state.packed(position).encode()).decode() if position else None
+        total = connection.execute(f"SELECT COUNT(*) FROM workflow_items WHERE {where}", scope).fetchone()[0]
+        result = {**_summary(flow, connection), "items": records, "total": total, "cycle_scope": cycle, "cursor": cursor, "next_cursor": next_cursor}
+    report_id = task_reports.workflow_report_id(workflow_id, flow["cycle_id"], generation=result["report_generation"])
+    return {**result, "test_report": task_reports.peek(report_id)}
 
 
 def read(workflow_id: str, *, kind: str = "definition", offset: int = 0, limit: int = 50, head: str | None = None,
@@ -171,6 +202,8 @@ def _finish_publication(scope: str, key: str, journal: dict) -> dict:
             following = journal["first_phase"]
         if following:
             state.item(connection, flow["id"], following)
+        connection.execute("INSERT OR IGNORE INTO workflow_report_heads(workflow_id,cycle_id,generation) "
+                           "SELECT id,cycle_id,0 FROM workflow_runtime WHERE id = ?", (flow["id"],))
         state.touch(connection, flow["id"])
         summary = _summary(state.row(connection, "workflow_runtime", flow["id"]), connection)
         result = {**summary, "accepted": True, "change_id": journal["change_id"], "workflow": summary}
@@ -189,6 +222,7 @@ def _request_spec(spec: dict) -> dict:
     return canonical
 
 
+@_monitor
 def create(project_id: str, spec: dict, *, idempotency_key: str) -> dict:
     """Stage the definition and journal its publication before changing domain HEAD."""
     state.init()
@@ -228,8 +262,10 @@ def _replace_cycle(connection, flow: dict, cycle_id: str) -> None:
     connection.execute("UPDATE runs SET cancel = 1 WHERE status IN ('Queued','Running') AND id IN "
                        "(SELECT run_id FROM workflow_items WHERE workflow_id = ?)", (flow["id"],))
     connection.execute("UPDATE workflow_runtime SET cycle_id = ?, conclusion = 'unassessed' WHERE id = ?", (cycle_id, flow["id"]))
+    connection.execute("INSERT INTO workflow_report_heads(workflow_id,cycle_id,generation) VALUES(?,?,0)", (flow["id"], cycle_id))
 
 
+@_monitor
 def revise(workflow_id: str, spec: dict, *, idempotency_key: str, expected_hash: str | None = None) -> dict:
     """Publish a new source generation and cycle; old failures remain attached to their old inputs."""
     flow = state.workflow(workflow_id)
@@ -237,6 +273,10 @@ def revise(workflow_id: str, spec: dict, *, idempotency_key: str, expected_hash:
         raise WorkflowError("validation_error", "来源修订需要非空 sources；使用新来源重新分析，不修改旧失败的预期")
     canonical = {"spec": _request_spec(spec), "expected_hash": expected_hash}
     with project_lock(flow["project_id"]):
+        from . import task_reports
+
+        # A fast source revision must not erase the prior terminal cycle's report inputs.
+        task_reports.prepare_workflow(workflow_id)
         _recover_publications(flow)
         with db.connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -296,6 +336,119 @@ def _advance(flow: dict) -> None:
     workflow_execution.advance(flow)
 
 
+def _pending_flows(*, monitor: bool = False) -> list[dict]:
+    """Select actionable kernel work without keeping idle host tasks alive."""
+    with db.connect() as connection:
+        tables = {row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if not {"workflow_runtime", "workflow_items", "workflow_attempts", "workflow_operations", "workflow_requests"} <= tables:
+            return []
+        candidates = connection.execute(
+            "SELECT DISTINCT f.* FROM workflow_runtime f WHERE f.lifecycle IN ('active','initializing','revising') AND ("
+            "EXISTS (SELECT 1 FROM workflow_requests q WHERE q.state = 'pending' AND q.action IN ('create','submit','revise') "
+            "AND json_extract(q.journal,'$.workflow_id') = f.id AND json_extract(q.journal,'$.stage_id') IS NOT NULL) OR "
+            "(f.lifecycle = 'active' AND EXISTS (SELECT 1 FROM workflow_items i LEFT JOIN runs r ON r.id = i.run_id "
+            "LEFT JOIN workflow_attempts a ON a.id = i.attempt_id WHERE i.workflow_id = f.id AND ("
+            "(i.cycle_id = f.cycle_id AND i.state = 'ready' AND i.phase IN ('coverage','execute')) OR "
+            "(i.state = 'waiting_execution' AND (? OR r.id IS NULL OR r.status IN ('Pass','Fail','Blocked','Cancelled'))) OR "
+            "(i.state = 'leased' AND (? OR a.lease_until <= ?)) OR i.state = 'recovering'))))",
+            (monitor, monitor, db.now())).fetchall()
+        result = []
+        for row in candidates:
+            flow = dict(row)
+            # Recovering operations wait for the host once an investigation exists. Do not
+            # keep a dispatcher spinning forever just because their effect is still unknown.
+            investigations = {json.loads(item["context"]).get("recover_item_id") for item in connection.execute(
+                "SELECT context FROM workflow_items WHERE workflow_id = ? AND phase = 'investigate' AND state IN ('ready','leased')", (flow["id"],))}
+            recovering = [item for item in connection.execute("SELECT id FROM workflow_items WHERE workflow_id = ? AND state = 'recovering'", (flow["id"],))
+                          if item["id"] not in investigations or not state.unresolved(connection, item["id"])]
+            other = connection.execute(
+                "SELECT 1 FROM workflow_requests WHERE state = 'pending' AND action IN ('create','submit','revise') "
+                "AND json_extract(journal,'$.workflow_id') = ? AND json_extract(journal,'$.stage_id') IS NOT NULL", (flow["id"],)).fetchone()
+            if not other and flow["lifecycle"] == "active":
+                other = connection.execute(
+                    "SELECT 1 FROM workflow_items i LEFT JOIN runs r ON r.id = i.run_id LEFT JOIN workflow_attempts a ON a.id = i.attempt_id "
+                    "WHERE i.workflow_id = ? AND ((i.cycle_id = ? AND i.state = 'ready' AND i.phase IN ('coverage','execute')) OR "
+                    "(i.state = 'waiting_execution' AND (? OR r.id IS NULL OR r.status IN ('Pass','Fail','Blocked','Cancelled'))) OR "
+                    "(i.state = 'leased' AND (? OR a.lease_until <= ?))) LIMIT 1",
+                    (flow["id"], flow["cycle_id"], monitor, monitor, db.now())).fetchone()
+            if recovering or other:
+                result.append(flow)
+        return result
+
+
+def needs_reconcile() -> bool:
+    """Whether the background coordinator has deterministic changes to apply now."""
+    return bool(_pending_flows())
+
+
+def needs_monitoring() -> bool:
+    """Keep live execution and leases monitored, but not unclaimed host work."""
+    return bool(_pending_flows(monitor=True) or _unprepared_reports() or pending_reports())
+
+
+def _unprepared_reports() -> list[str]:
+    """Find terminal cycles with no report receipt; failed receipts require explicit retry."""
+    from . import task_reports
+
+    with db.connect() as connection:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'workflow_runtime'").fetchone():
+            return []
+        rows = connection.execute(
+            "SELECT f.id,f.cycle_id FROM workflow_runtime f WHERE (f.lifecycle = 'cancelled' OR (f.lifecycle = 'active' "
+            "AND NOT EXISTS (SELECT 1 FROM workflow_items i WHERE i.workflow_id = f.id AND i.cycle_id = f.cycle_id "
+            "AND i.state IN ('ready','leased','publishing','waiting_execution','recovering')))) "
+            "AND NOT EXISTS (SELECT 1 FROM workflow_items i JOIN runs r ON r.id = i.run_id WHERE i.workflow_id = f.id "
+            "AND i.cycle_id = f.cycle_id AND r.status IN ('Queued','Running'))").fetchall()
+        candidates = [(row["id"], task_reports.workflow_report_id(row["id"], row["cycle_id"], connection=connection)) for row in rows]
+    return [identity for identity, report_id in candidates if not (task_reports._folder(report_id) / "receipt.json").exists()]
+
+
+def prepare_pending_reports() -> list[str]:
+    """Capture each finished cycle once without rendering or retrying failed exports."""
+    from . import task_reports
+
+    return [task_reports.prepare_workflow(identity)["report_id"] for identity in _unprepared_reports()]
+
+
+def pending_reports() -> list[str]:
+    """The frozen generating receipts are the durable first-render queue."""
+    from . import paths, task_reports
+
+    local = paths.workspace() / ".local"
+    candidates = {file.parent.name for file in (local / "task-reports").glob("workflow_*/receipt.json")}
+    candidates.update(file.stem for file in (local / "task-report-locations").glob("workflow_*.json"))
+    result = []
+    for report_id in sorted(candidates):
+        try:
+            folder = task_reports._folder(report_id)
+            file = folder / "receipt.json"
+            if file.resolve().parent != folder.resolve():
+                continue
+            saved = json.loads(file.read_bytes())
+        except (OSError, ValueError, TypeError, AttributeError):
+            # Invalid indexes or receipts must not hide independent, valid report work.
+            continue
+        if isinstance(saved, dict) and saved.get("status") == "generating" and saved.get("report_id") == report_id:
+            result.append(report_id)
+    return result
+
+
+def reconcile_pending() -> dict:
+    """Reconcile committed transitions without claiming host work or reading as a mutation."""
+    advanced, errors = [], []
+    for candidate in _pending_flows():
+        try:
+            with project_lock(candidate["project_id"]):
+                before = state.workflow(candidate["id"])
+                _advance(before)
+                after = state.workflow(candidate["id"])
+                if after["revision"] != before["revision"]:
+                    advanced.append(candidate["id"])
+        except Exception as error:  # noqa: BLE001  # One damaged flow must not starve other independently durable workflows.
+            errors.append({"workflow_id": candidate["id"], "error": str(error)})
+    return {"advanced": advanced, "errors": errors}
+
+
 def _task_view(flow: dict, task: dict, attempt: dict, current: dict) -> dict:
     return {"id": task["id"], "item_id": task["id"], "workflow_id": flow["id"], "phase": task["phase"],
             "attempt_id": attempt["id"], "lease_token": attempt["lease_token"], "lease_until": attempt["lease_until"],
@@ -306,6 +459,7 @@ def _task_view(flow: dict, task: dict, attempt: dict, current: dict) -> dict:
 
 
 @_report_delivery
+@_monitor
 def next_task(workflow_id: str, *, idempotency_key: str, owner: str | None = None, lease_seconds: int = 300) -> dict:
     """Reconcile deterministic work and atomically lease the next host operation."""
     flow = state.workflow(workflow_id)
@@ -348,6 +502,7 @@ def next_task(workflow_id: str, *, idempotency_key: str, owner: str | None = Non
 
 
 @_report_delivery
+@_monitor
 def submit(workflow_id: str, item_id: str, *, lease_token: str, attempt_id: str, idempotency_key: str, payload: dict) -> dict:
     """Validate a proposal, fence its lease, and publish a staged domain change."""
     flow = state.workflow(workflow_id)
@@ -386,6 +541,17 @@ def _control(workflow_id: str, action: str, idempotency_key: str) -> dict:
     with project_lock(flow["project_id"]):
         _recover_publications(flow)
         with db.connect() as connection:
+            found = connection.execute("SELECT * FROM workflow_requests WHERE scope = ? AND request_key = ?", (workflow_id, idempotency_key)).fetchone()
+            if found:
+                checked = state.request(connection, workflow_id, idempotency_key, action, {})
+                if replayed := state.replay(checked):
+                    return replayed
+            flow = state.row(connection, "workflow_runtime", workflow_id)
+        if action == "resume" and flow["lifecycle"] == "cancelled":
+            from . import task_reports
+
+            task_reports.prepare_workflow(workflow_id, cancelled_boundary=True)
+        with db.connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             found = state.request(connection, workflow_id, idempotency_key, action, {})
             if replayed := state.replay(found):
@@ -398,6 +564,10 @@ def _control(workflow_id: str, action: str, idempotency_key: str) -> dict:
                     connection.execute("UPDATE workflow_attempts SET state = 'cancelled', finished_at = ? WHERE id = ?", (db.now(), task["attempt_id"]))
                 connection.execute("UPDATE runs SET cancel = 1 WHERE id IN (SELECT run_id FROM workflow_items WHERE workflow_id = ?)", (workflow_id,))
             elif action == "resume":
+                fresh = state.row(connection, "workflow_runtime", workflow_id)
+                if fresh["lifecycle"] == "cancelled":
+                    connection.execute("INSERT INTO workflow_report_heads(workflow_id,cycle_id,generation) VALUES(?,?,1) "
+                                       "ON CONFLICT(workflow_id,cycle_id) DO UPDATE SET generation = generation + 1", (workflow_id, fresh["cycle_id"]))
                 connection.execute("UPDATE workflow_runtime SET lifecycle = 'active' WHERE id = ?", (workflow_id,))
             state.touch(connection, workflow_id)
             response = {"workflow": _summary(state.row(connection, "workflow_runtime", workflow_id), connection)}
@@ -413,11 +583,13 @@ def cancel(workflow_id: str, *, idempotency_key: str) -> dict:
 
 
 @_report_delivery
+@_monitor
 def resume(workflow_id: str, *, idempotency_key: str) -> dict:
     return _control(workflow_id, "resume", idempotency_key)
 
 
 @_report_delivery
+@_monitor
 def recover(workflow_id: str, *, idempotency_key: str) -> dict:
     flow = state.workflow(workflow_id)
     with project_lock(flow["project_id"]):

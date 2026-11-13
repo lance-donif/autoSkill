@@ -1,0 +1,1 @@
+{"requirements":[{"id":"BB-READY","text":"GET /api/value?value=ready must return HTTP 200 and JSON status equal to ready. The deliberate /api/value?value=wrong probe must fail this same independent requirement, preserving expected ready and actual wrong.","source_ids":["spec-v2"]}]}

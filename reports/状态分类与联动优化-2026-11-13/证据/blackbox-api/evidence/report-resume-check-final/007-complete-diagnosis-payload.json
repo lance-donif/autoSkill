@@ -1,0 +1,9 @@
+{
+  "disposition": "business_defect",
+  "reason": "Actual ready probe passed. Deliberate wrong probe completed but returned wrong against independent expected ready. Preserve requirement BB-READY and this controlled fixture business failure; do not classify it as an autoSkill execution crash.",
+  "evidence_refs": [
+    "run-f306302c4b9f",
+    "result:1",
+    "result:2"
+  ]
+}

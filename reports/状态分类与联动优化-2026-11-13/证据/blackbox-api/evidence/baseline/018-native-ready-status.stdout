@@ -1,0 +1,201 @@
+{
+ "id": "run-f464729539e8",
+ "batch_id": null,
+ "project_id": "bb-api",
+ "engine": "selenium-unittest",
+ "trigger": "manual",
+ "task_id": null,
+ "status": "Pass",
+ "case_ids": "[\"bb-ready\"]",
+ "total": 1,
+ "done": 1,
+ "passed": 1,
+ "failed": 0,
+ "blocked": 0,
+ "current": "",
+ "reason": "",
+ "cancel": 0,
+ "pid": 37434,
+ "created_at": "2026-11-13T14:08:21.322+00:00",
+ "started_at": "2026-11-13T14:08:21.441+00:00",
+ "finished_at": "2026-11-13T14:08:22.236+00:00",
+ "headed": 0,
+ "claim_token": "",
+ "force_login": 0,
+ "session_id": "blackbox-api-baseline",
+ "family": "native",
+ "input_manifest": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/native-inputs/1a5254f158bbb98d4139ef8742e6cb80375d893c5ea6285ee9861f5ae7a2d2ef-5a70e18cab9c479a875d2295aba6e645.json",
+ "input_hash": "1a5254f158bbb98d4139ef8742e6cb80375d893c5ea6285ee9861f5ae7a2d2ef",
+ "plan_path": "",
+ "delete_requested": 0,
+ "deletion_error": "",
+ "deletion_manifest": "",
+ "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"7aac9f147705cd48652efc63131fdb7591c9a527fdd6db467c9914a583810f4b\", \"pid\": 37434, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:996137\"}",
+ "evidence_dir": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/native",
+ "test_report": {
+  "bugs": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/test-report/Bug清单-156c8a650da52479.md",
+  "bugs_count": 0,
+  "bugs_counts": {
+   "business": 0,
+   "execution": 0,
+   "historical": 0,
+   "recording": 0,
+   "unverified": 0
+  },
+  "bugs_download_url": "/api/task-reports/run_run-f464729539e8/bugs",
+  "bugs_sha256": "df67b9f82feb281f90294d751d17cf88c48d60c039974d2480469aabe7a0cb8f",
+  "bugs_size": 942,
+  "cases": 1,
+  "download_url": "/api/task-reports/run_run-f464729539e8/excel",
+  "excel": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/test-report/测试用例-156c8a650da52479.xlsx",
+  "execution_rows": 1,
+  "generated_at": "2026-11-13T14:08:22.617+00:00",
+  "generation": {
+   "finished_at": "2026-11-13T14:08:22.236+00:00",
+   "input_hash": "1a5254f158bbb98d4139ef8742e6cb80375d893c5ea6285ee9861f5ae7a2d2ef",
+   "status": "Pass"
+  },
+  "kind": "run",
+  "markdown": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/test-report/测试简报-156c8a650da52479.md",
+  "markdown_download_url": "/api/task-reports/run_run-f464729539e8/markdown",
+  "markdown_sha256": "fe37c13f574dc8589a6bd1563e51c12770b8296d19490524eb8be2bed96a1038",
+  "markdown_size": 728,
+  "renderer": "test-cases-14-column-v1",
+  "report_id": "run_run-f464729539e8",
+  "retry_url": "/api/task-reports/run_run-f464729539e8/retry",
+  "retryable": false,
+  "run_ids": [
+   "run-f464729539e8"
+  ],
+  "sha256": "10fcdfaf3035f595d07a4c00774d1eedef8c2473d98d3d64cb0ee7d484db8ab4",
+  "size": 17054,
+  "source_hash": "156c8a650da524793565de97b78ec66b0671d6015f9af23964c3ba97e939eb00",
+  "status": "ready",
+  "summary_cases": 1,
+  "summary_counts": {
+   "Blocked": 0,
+   "Cancelled": 0,
+   "Fail": 0,
+   "NotRun": 0,
+   "Pass": 1,
+   "Unknown": 0,
+   "Unverified": 0
+  },
+  "summary_execution_rows": 1,
+  "task_id": "run-f464729539e8",
+  "template_id": "test-cases-14-column-v1",
+  "validation": {
+   "bugs_readable": true,
+   "case_ids_match": true,
+   "case_rows": 1,
+   "execution_rows": 1,
+   "markdown_readable": true,
+   "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+   "rule_files_sha256": {
+    "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+    "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+    "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+   },
+   "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+   "structure": {
+    "businessGroupCount": 2,
+    "caseCount": 1,
+    "caseGroupDepths": {
+     "2": 1
+    },
+    "errors": [],
+    "excludedRows": [],
+    "functionItemCount": 1,
+    "functionItems": [
+     {
+      "caseCount": 1,
+      "name": "【待确认：功能项】",
+      "path": [
+       "Blackbox API state",
+       "【待确认：功能项】"
+      ]
+     }
+    ],
+    "ok": true,
+    "rootCount": 1,
+    "sheet": "功能测试用例",
+    "uniqueIdCount": 1,
+    "warnings": []
+   },
+   "visual_validation": "not_performed_by_runtime",
+   "workbook_readable": true
+  }
+ },
+ "asset_id": "bb-ready",
+ "asset_version": "2a301a3f8ea85ef642496067525701c79924b892d9932825a1558b328d0bb168",
+ "head": "46d90a612e2d1ff308489ad556af807f09668b0ec13d36c66727c0c642e1b232",
+ "planned_unknown": true,
+ "outcome": {
+  "status": "Pass",
+  "reason": "",
+  "cases_ref": {
+   "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/native/outcome.json",
+   "sha256": "48efdad73d9b32e39bfcd0150d16c741981669e5bfa813b0764643fc93ec5ea0",
+   "size": 1408,
+   "available": true,
+   "json_pointer": "/cases",
+   "content_revision": "beeaa2bac5c3f9ce66fe7c7c40818bf92ff6cc48e11b3aa58ee411617e977f80",
+   "count": 1
+  },
+  "metrics": {},
+  "process": {
+   "state": "completed",
+   "exit_code": 0,
+   "duration_ms": 214
+  },
+  "execution_status": "completed",
+  "business_status": "Pass",
+  "verification": "verified",
+  "verdict_scope": "native_assertions",
+  "evidence_ref": {
+   "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/native/outcome.json",
+   "sha256": "48efdad73d9b32e39bfcd0150d16c741981669e5bfa813b0764643fc93ec5ea0",
+   "size": 1408,
+   "available": true,
+   "json_pointer": "/evidence",
+   "content_revision": "1ebaa334b722e35ed33898d032424343d7284672e09e7f053647f8c1ec99afd3",
+   "count": 7
+  },
+  "evidence_status": "bound"
+ },
+ "report": {
+  "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/native/outcome.json",
+  "sha256": "48efdad73d9b32e39bfcd0150d16c741981669e5bfa813b0764643fc93ec5ea0",
+  "size": 1408,
+  "available": true
+ },
+ "page": {
+  "total": 1,
+  "returned": 1,
+  "limit": 50,
+  "has_more": false,
+  "next_cursor": null,
+  "content_revision": "c1f603d7fc51ed69d10ec1dfc9af71575ff19acbaf311a66b6ad2e8f2c9de5e1"
+ },
+ "results": [
+  {
+   "id": 1,
+   "case_id": "test_fixture.Ready.test_ready",
+   "case_title": "test_ready (test_fixture.Ready.test_ready)",
+   "status": "Pass",
+   "reason": "",
+   "duration_ms": 18,
+   "engine": "selenium-unittest",
+   "business_status": "Pass",
+   "business_verified": true,
+   "verification": "verified",
+   "turn_count": 0,
+   "assertion_count": 1,
+   "detail_ref": {
+    "result_id": 1,
+    "case_id": "test_fixture.Ready.test_ready",
+    "content_revision": "98fc8a0f2faf982727a461c8328e404167018b5b75080a9600225bc5d79f55f4"
+   }
+  }
+ ]
+}

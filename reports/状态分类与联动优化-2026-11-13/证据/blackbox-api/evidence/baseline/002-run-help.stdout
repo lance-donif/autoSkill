@@ -1,0 +1,14 @@
+usage: autoskill run [-h] [--case CASES] [--engine {playwright,selenium}]
+                     [--kind {ui,api}] [--headed] [--headless]
+                     project
+
+positional arguments:
+  project
+
+options:
+  -h, --help            show this help message and exit
+  --case CASES          用例编号，可重复；省略则回放全部
+  --engine {playwright,selenium}
+  --kind {ui,api}       只回放某一类
+  --headed              显示浏览器窗口（默认就是显示）
+  --headless            不显示浏览器窗口，在后台运行（默认显示最大化的窗口）

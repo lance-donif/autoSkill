@@ -16,10 +16,12 @@ from ..locking import named_lock
 from . import scheduler
 
 _dispatchers: dict[int, subprocess.Popen] = {}
+_report_children: dict[str, tuple[subprocess.Popen, str]] = {}
+_report_lock = threading.RLock()
 
 
 def _state_file():
-    return paths.local() / "queue-worker.json"
+    return paths.workspace() / ".local" / "queue-worker.json"
 
 
 def _state() -> dict:
@@ -84,18 +86,24 @@ def ensure_worker() -> dict:
     with named_lock("queue-dispatcher", "startup"):
         deadline, child, token = time.monotonic() + 10, None, uuid.uuid4().hex
         while time.monotonic() < deadline:
-            with _worker_lock() as free:
+            if child is None:
+                with _worker_lock() as free:
+                    state = _state()
+                    if not free and runner.process_alive(state.get("pid")):
+                        return {"status": "running", "pid": state["pid"], "reason": ""}
+                    if free:
+                        _state_file().unlink(missing_ok=True)
+                if free:
+                    try:
+                        child = _launch_dispatcher(token)
+                    except OSError as error:
+                        return {"status": "unavailable", "pid": None, "reason": "后台队列无法启动：" + type(error).__name__}
+            else:
+                # The child writes its token only after taking the lifetime lock. Probing
+                # that lock during startup can make the child mistake us for a dispatcher.
                 state = _state()
-                if not free and runner.process_alive(state.get("pid")):
-                    status = "started" if state.get("token") == token else "running"
-                    return {"status": status, "pid": state["pid"], "reason": ""}
-                if free and child is None:
-                    _state_file().unlink(missing_ok=True)
-            if free and child is None:
-                try:
-                    child = _launch_dispatcher(token)
-                except OSError as error:
-                    return {"status": "unavailable", "pid": None, "reason": "后台队列无法启动：" + type(error).__name__}
+                if state.get("token") == token and state.get("pid") == child.pid and child.poll() is None:
+                    return {"status": "started", "pid": child.pid, "reason": ""}
             if child is not None and child.poll() is not None:
                 return {"status": "unavailable", "pid": None, "reason": "后台队列在启动期间退出；运行已保存，可重试启动现有队列"}
             time.sleep(0.02)
@@ -103,8 +111,74 @@ def ensure_worker() -> dict:
 
 
 def _pending() -> bool:
+    from .. import workflow
+
     return bool(db.one("SELECT id FROM runs WHERE status IN ('Queued', 'Running') OR delete_requested = 1 LIMIT 1")
-                or db.one("SELECT id FROM tasks WHERE enabled = 1 LIMIT 1"))
+                or db.one("SELECT id FROM tasks WHERE enabled = 1 LIMIT 1") or workflow.needs_monitoring()
+                or _reports_running())
+
+
+def _reports_running() -> bool:
+    from .. import task_reports
+
+    with _report_lock:
+        workspace = str(paths.workspace())
+        current = _report_children.get(workspace)
+        if current is None:
+            return False
+        child, report_id = current
+        code = child.poll()
+        if code is None:
+            return True
+        _report_children.pop(workspace, None)
+        saved = task_reports._saved(report_id)
+        if saved and saved.get("status") == "generating":
+            if saved.get("render_owner_identity"):
+                task_reports.fail_interrupted_export(report_id)
+            else:
+                task_reports._persist_failure(
+                    {**task_reports._base("workflow", saved["task_id"], report_id), "source_hash": saved.get("source_hash"), "snapshot_required": True},
+                    RuntimeError(f"报告生成进程提前退出（退出码 {code}），请手动重试"), saved.get("generation"))
+        return False
+
+
+def _start_workflow_report() -> None:
+    """Render frozen reports serially outside the state coordination loop."""
+    from .. import task_reports, workflow
+
+    with _report_lock:
+        if _reports_running():
+            return
+        pending = [report_id for report_id in workflow.pending_reports()
+                   if not (task_reports._saved(report_id) or {}).get("render_owner_identity")]
+        if not pending:
+            return
+        report_id = pending[0]
+        flags = (getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)) if os.name == "nt" else 0
+        try:
+            child = subprocess.Popen(
+                [sys.executable, "-m", "autoskill.server.jobs", "--workflow-report", report_id], cwd=str(paths.APP),
+                env=paths.child_env(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=flags, start_new_session=os.name != "nt")
+            _report_children[str(paths.workspace())] = (child, report_id)
+        except OSError as error:
+            saved = task_reports._saved(report_id)
+            if saved:
+                task_reports._persist_failure(
+                    {**task_reports._base("workflow", saved["task_id"], report_id), "source_hash": saved.get("source_hash"), "snapshot_required": True},
+                    error, saved.get("generation"))
+
+
+def reconcile_workflows() -> dict:
+    """Collect terminal execution into workflow state independently of host polling."""
+    from .. import task_reports, workflow
+
+    result = workflow.reconcile_pending()
+    for report_id in workflow.pending_reports():
+        task_reports.fail_interrupted_export(report_id)
+    workflow.prepare_pending_reports()
+    _start_workflow_report()
+    return result
 
 
 def _idle_seconds() -> float:
@@ -115,6 +189,9 @@ def _idle_seconds() -> float:
 
 
 def _dispatch(token: str) -> None:
+    database = paths.workspace() / ".local" / "autoskill.db"
+    if not database.is_file():
+        return
     with _worker_lock() as free:
         if not free:
             return
@@ -123,12 +200,15 @@ def _dispatch(token: str) -> None:
             initialized = False
             idle_since = time.monotonic()
             while True:
+                if not database.is_file():
+                    return
                 try:
                     if not initialized:
                         db.init()
                         initialized = True
                     scheduler.tick()
                     sweep()
+                    reconcile_workflows()
                     start_queued()
                     if _pending():
                         idle_since = time.monotonic()
@@ -197,17 +277,40 @@ class Worker:
         self.thread.start()
 
     def close(self) -> None:
+        from .. import workflow
+
         self.stop.set()
+        if self.thread.ident is None:
+            return
+        if self.thread.is_alive():
+            self.thread.join(timeout=5)
+        current = _report_children.get(str(paths.workspace()))
+        if current is not None:
+            child, _report_id = current
+            try:
+                child.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                ensure_worker()
+        # Committed frozen receipts remain discoverable by the independent dispatcher.
+        if _reports_running() or workflow.pending_reports():
+            ensure_worker()
 
     def loop(self) -> None:
-        while not self.stop.wait(1.0):
+        while not self.stop.is_set():
             try:
                 scheduler.tick()
                 sweep()
+                reconcile_workflows()
                 start_queued()
             except Exception:  # noqa: BLE001, S110  # Durable queue state lets the worker retry any failed pass without losing its thread.
                 pass  # state is durable; the next pass retries
+            self.stop.wait(0.2)
 
 
 if __name__ == "__main__":
-    _dispatch(sys.argv[sys.argv.index("--token") + 1] if "--token" in sys.argv else uuid.uuid4().hex)
+    if "--workflow-report" in sys.argv:
+        from .. import task_reports
+
+        task_reports.finish_workflow_report(sys.argv[sys.argv.index("--workflow-report") + 1])
+    else:
+        _dispatch(sys.argv[sys.argv.index("--token") + 1] if "--token" in sys.argv else uuid.uuid4().hex)

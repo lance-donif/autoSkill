@@ -1,0 +1,2521 @@
+{
+  "label": "revalidation-concurrent",
+  "started_at": 1794580077.7050476,
+  "start_load_average": [
+    3.19287109375,
+    3.57470703125,
+    2.25244140625
+  ],
+  "cpu_count": 3,
+  "checks": [
+    {
+      "name": "active_run_does_not_claim_business_pass",
+      "passed": true,
+      "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n1\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n执行中\n独立黑盒订单\n\n手动触发 · 执行引擎 selenium-unittest · 今天 14:28\n\n下载 HTML 报告\n取消运行\n取消并删除\n综合：待处理\n业务：未验证\n性能：不适用\n质量：不适用\n证据：未验证\n报告：待处理\n投递：不适用\n正在执行：准备中\n0 / 0\n用例结果\n\n点开一条查看每一步和每条断言。\n\n正在准备\n\n浏览器启动后，结果会一条条出现在这里。"
+    },
+    {
+      "name": "detail_online_refresh_within_1s",
+      "passed": true,
+      "run_id": "run-ba70a41f9e47",
+      "server_finished_at": 1794580092.349,
+      "first_terminal_observed_at": 1794580092.404885,
+      "ui_visible_at": 1794580093.0897563,
+      "delay_from_finished_ms": 740.8,
+      "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n已结束\n独立黑盒订单\n\n手动触发 · 执行引擎 selenium-unittest · 今天 14:28\n\n下载 HTML 报告\n重新运行\n只重跑未通过的 1 条\n删除运行\n综合：失败\n业务：失败\n性能：不适用\n质量：不适用\n证据：有效\n报告：尚未生成\n投递：不适用\n0\n通过\n1\n失败\n0\n阻塞\n0\n未验证\n1\n用例\n8.1 秒\n总耗时\n用例结果\n\n点开一条查看每一步和每条断言。\n\n已结束\ntest_order_completes (test_order.OrderBusinessTest.test_order_completes)　test_order.OrderBusinessTest.test_order_completes\n综合：失败\n业务：失败\n接口\n8.1 秒",
+      "api": {
+        "id": "run-ba70a41f9e47",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Fail",
+        "case_ids": [
+          "asset-864fcbae1cad"
+        ],
+        "total": 1,
+        "done": 1,
+        "passed": 0,
+        "failed": 1,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 47960,
+        "created_at": "2026-11-13T14:28:01.483+00:00",
+        "started_at": "2026-11-13T14:28:01.578+00:00",
+        "finished_at": "2026-11-13T14:28:12.349+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-ui",
+        "family": "native",
+        "input_manifest": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e-6681c94c72dd476d9cf37a1f28379031.json",
+        "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 47960, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1114151\"}",
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 0.0,
+        "state_counts": {
+          "pass": 0,
+          "fail": 1,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "not_generated",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-ba70a41f9e47",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "8d978de8c9e720ed5afdd6bb7fd1f006ee38686404e63c30a6d470a7d04b81bd"
+        },
+        "recorded_counts": {
+          "passed": 0,
+          "failed": 1,
+          "blocked": 0
+        },
+        "project_name": "独立黑盒订单",
+        "results": [
+          {
+            "id": 5,
+            "run_id": "run-ba70a41f9e47",
+            "project_id": "127-0-0-1",
+            "case_id": "test_order.OrderBusinessTest.test_order_completes",
+            "case_title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+            "kind": "native",
+            "engine": "selenium-unittest",
+            "status": "Fail",
+            "category": "native",
+            "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+            "actual": "",
+            "duration_ms": 8101,
+            "started_at": "2026-11-13T14:28:01.578+00:00",
+            "prerequisite": 0,
+            "case_revision": 1,
+            "detail": {
+              "id": "test_order.OrderBusinessTest.test_order_completes",
+              "title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+              "status": "Fail",
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "duration_ms": 8101,
+              "assertions": [
+                {
+                  "name": "原生 unittest 测试结果",
+                  "passed": false,
+                  "actual": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+                  "source": "native"
+                }
+              ],
+              "verdict_scope": "native_test",
+              "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+              "engine": "selenium-unittest",
+              "business_status": "Fail",
+              "business_verified": false,
+              "verification": "failed",
+              "evidence": [
+                {
+                  "path": "events.jsonl",
+                  "sha256": "05781bce1fed9510737a78ff9cefafd1c5f8c6b1aca7bb6d6267c60e58e567d6",
+                  "size": 192
+                },
+                {
+                  "path": "heartbeat.json",
+                  "sha256": "17e16d83546923345a80ff3945a44d39af72590563489cf357bd9ba3d988e648",
+                  "size": 366
+                },
+                {
+                  "path": "process-result.json",
+                  "sha256": "dd24bedfcc7deafc33f8451f6af5166f32f59bf111242422ffa52713927e18fb",
+                  "size": 59
+                },
+                {
+                  "path": "stderr.log",
+                  "sha256": "4a27299030976ce0591d8877d8d2529172c3ff1c1d7c563df9addf0fabc33c4f",
+                  "size": 712
+                },
+                {
+                  "path": "stdout.log",
+                  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "size": 0
+                },
+                {
+                  "path": "supervisor.json",
+                  "sha256": "bad6ee1ae3757d331b1a68052ca00ec7038e206a0cf96f146b1f2835285dc1df",
+                  "size": 289
+                },
+                {
+                  "path": "unittest.json",
+                  "sha256": "b028feb8af6a922edf47674ecc85b4edb7f204e3628873ae501199bffa3bb264",
+                  "size": 594
+                }
+              ],
+              "evidence_status": "bound"
+            },
+            "case_content_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "state": {
+              "lifecycle": "completed",
+              "phase": "settled",
+              "outcome": "fail",
+              "checks": {
+                "business": "fail",
+                "performance": "not_applicable",
+                "quality": "not_applicable"
+              },
+              "evidence": "valid",
+              "report": "not_generated",
+              "delivery": "not_applicable",
+              "scope": {
+                "project_id": "127-0-0-1",
+                "workflow_id": null,
+                "cycle_id": null,
+                "run_id": "run-ba70a41f9e47",
+                "case_id": "test_order.OrderBusinessTest.test_order_completes",
+                "attempt_id": null
+              },
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "last_attempt_outcome": "fail",
+              "revision": "8b04e1b3aff2f67fe015a80524ccde10b731eb02df969d92dd54cda9e3e9cae0"
+            }
+          }
+        ],
+        "test_report": {
+          "report_id": "run_run-ba70a41f9e47",
+          "status": "not_generated",
+          "retryable": true,
+          "retry_url": "/api/task-reports/run_run-ba70a41f9e47/retry"
+        }
+      }
+    },
+    {
+      "name": "list_online_refresh_within_1s",
+      "passed": false,
+      "run_id": "run-a5f23477c3d9",
+      "server_finished_at": 1794580106.496,
+      "first_terminal_observed_at": 1794580107.0806823,
+      "ui_visible_at": 1794580108.6187704,
+      "delay_from_finished_ms": 2122.8,
+      "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n\n范围内共 5 次运行\n\n按运行\n按用例结果\n全部状态\n通过\n失败\n阻塞\n执行中\n已取消\n周期\n当前周期\n包含历史周期\n执行阶段\n全部阶段\n排队中\n执行中\n等待宿主\n等待执行\n恢复中\n阻塞\n已结束\n已取消\n综合结果\n全部结果\n待处理\n通过\n失败\n阻塞\n未验证\n已取消\n业务验证\n全部业务结果\n通过\n失败\n未验证\n性能目标\n全部性能结果\n通过\n失败\n未验证\n不适用\n报告交付\n全部报告状态\n已就绪\n失败\n待生成\n生成中\n尚未生成\n\t状态\t项目\t结果\t触发\t引擎\t开始时间\t耗时\t\n\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:28\t9.9 秒\t\n删除运行\n\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:28\t10.8 秒\t\n删除运行\n\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:12\t5.9 秒\t\n删除运行\n\t\n已结束\n综合：通过\n业务：通过\n\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:11\t4.5 秒\t\n删除运行\n\t\n已结束\n综合：通过\n业务：通过\n\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:08\t4.9 秒\t\n删除运行",
+      "api": {
+        "id": "run-a5f23477c3d9",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Fail",
+        "case_ids": [
+          "asset-864fcbae1cad"
+        ],
+        "total": 1,
+        "done": 1,
+        "passed": 0,
+        "failed": 1,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 48014,
+        "created_at": "2026-11-13T14:28:16.402+00:00",
+        "started_at": "2026-11-13T14:28:16.585+00:00",
+        "finished_at": "2026-11-13T14:28:26.496+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-ui",
+        "family": "native",
+        "input_manifest": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e-d88e97c31b98481f9d3058433376f1b0.json",
+        "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 48014, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1115652\"}",
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 0.0,
+        "state_counts": {
+          "pass": 0,
+          "fail": 1,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "not_generated",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-a5f23477c3d9",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "6a76ceeafa60232072165fe3fc65af8522814c9425f48a14e378d797b4af50e6"
+        },
+        "recorded_counts": {
+          "passed": 0,
+          "failed": 1,
+          "blocked": 0
+        },
+        "project_name": "独立黑盒订单",
+        "results": [
+          {
+            "id": 6,
+            "run_id": "run-a5f23477c3d9",
+            "project_id": "127-0-0-1",
+            "case_id": "test_order.OrderBusinessTest.test_order_completes",
+            "case_title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+            "kind": "native",
+            "engine": "selenium-unittest",
+            "status": "Fail",
+            "category": "native",
+            "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+            "actual": "",
+            "duration_ms": 8066,
+            "started_at": "2026-11-13T14:28:16.585+00:00",
+            "prerequisite": 0,
+            "case_revision": 1,
+            "detail": {
+              "id": "test_order.OrderBusinessTest.test_order_completes",
+              "title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+              "status": "Fail",
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "duration_ms": 8066,
+              "assertions": [
+                {
+                  "name": "原生 unittest 测试结果",
+                  "passed": false,
+                  "actual": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+                  "source": "native"
+                }
+              ],
+              "verdict_scope": "native_test",
+              "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+              "engine": "selenium-unittest",
+              "business_status": "Fail",
+              "business_verified": false,
+              "verification": "failed",
+              "evidence": [
+                {
+                  "path": "events.jsonl",
+                  "sha256": "b190e1b546c86668cf5d18628cff6623eecd809a694938f39e9e48219801a098",
+                  "size": 192
+                },
+                {
+                  "path": "heartbeat.json",
+                  "sha256": "4799ba006afdb0f32aa2ff9dfff74ba116f69aceda36497c3f99062aaef9884f",
+                  "size": 366
+                },
+                {
+                  "path": "process-result.json",
+                  "sha256": "a13343e4bf2641ff217713eeebab7b2cc4afa77650c1fbc24ef2a88d5a057ee6",
+                  "size": 59
+                },
+                {
+                  "path": "stderr.log",
+                  "sha256": "9251c19f3d175c7d2a0c1fd19b454828c3b5cef1e0cea553ffec2231356d551e",
+                  "size": 712
+                },
+                {
+                  "path": "stdout.log",
+                  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "size": 0
+                },
+                {
+                  "path": "supervisor.json",
+                  "sha256": "b46a835f9d56e91ddb71869c47ef9ab02eb9eaaa091040fcb8c6c98a7927ec9e",
+                  "size": 289
+                },
+                {
+                  "path": "unittest.json",
+                  "sha256": "914587c45b3e33c7c90933df2e02d892cb2d7ca24babcc4b6087b1ec90310b78",
+                  "size": 594
+                }
+              ],
+              "evidence_status": "bound"
+            },
+            "case_content_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "state": {
+              "lifecycle": "completed",
+              "phase": "settled",
+              "outcome": "fail",
+              "checks": {
+                "business": "fail",
+                "performance": "not_applicable",
+                "quality": "not_applicable"
+              },
+              "evidence": "valid",
+              "report": "not_generated",
+              "delivery": "not_applicable",
+              "scope": {
+                "project_id": "127-0-0-1",
+                "workflow_id": null,
+                "cycle_id": null,
+                "run_id": "run-a5f23477c3d9",
+                "case_id": "test_order.OrderBusinessTest.test_order_completes",
+                "attempt_id": null
+              },
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "last_attempt_outcome": "fail",
+              "revision": "3b10cc6dc863f38feef14b572f78100bfd3e537be132e5bb1ca2f9c282bed08c"
+            }
+          }
+        ],
+        "test_report": {
+          "report_id": "run_run-a5f23477c3d9",
+          "status": "not_generated",
+          "retryable": true,
+          "retry_url": "/api/task-reports/run_run-a5f23477c3d9/retry"
+        }
+      }
+    },
+    {
+      "name": "filters_survive_auto_refresh",
+      "passed": true,
+      "before": [
+        "all",
+        "",
+        "",
+        "",
+        "not_applicable",
+        ""
+      ],
+      "after": [
+        "all",
+        "",
+        "",
+        "",
+        "not_applicable",
+        ""
+      ]
+    },
+    {
+      "name": "new_filtered_row_links_to_completed_run",
+      "passed": false,
+      "url": "http://127.0.0.1:18782/#/runs/run-a5f23477c3d9?cycle=all&performance=not_applicable",
+      "run_id": "run-a5f23477c3d9"
+    },
+    {
+      "name": "draft_inputs_survive_background_task_completion",
+      "passed": true,
+      "expected": {
+        "#np-name": "未提交草稿-不得被自动刷新清空",
+        "#np-url": "http://example.invalid/draft",
+        "#np-cat": "黑盒输入保留"
+      },
+      "actual": {
+        "#np-name": "未提交草稿-不得被自动刷新清空",
+        "#np-url": "http://example.invalid/draft",
+        "#np-cat": "黑盒输入保留"
+      },
+      "run_id": "run-9f420e0e635e"
+    },
+    {
+      "name": "draft_focus_and_selection_survive_background_task_completion",
+      "passed": true,
+      "before": {
+        "id": "np-cat",
+        "start": 1,
+        "end": 4
+      },
+      "after": {
+        "id": "np-cat",
+        "start": 1,
+        "end": 4
+      },
+      "run_id": "run-9f420e0e635e"
+    }
+  ],
+  "http": [
+    {
+      "at": 1794580082.4878724,
+      "url": "http://127.0.0.1:18782/api/settings",
+      "status": 200
+    },
+    {
+      "at": 1794580082.786768,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580082.7957065,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580082.8326178,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580083.1879215,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580083.494099,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580083.5978477,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580083.7793317,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580083.8323715,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580083.9278183,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580083.9997435,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580084.1709795,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580084.24177,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580084.2885191,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580084.471919,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580084.511257,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580084.8306568,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580084.9125686,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580084.9323993,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580085.011161,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580085.27621,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580085.4939857,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580085.5277243,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580085.6879795,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580085.8258355,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580086.019298,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580086.4161258,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580086.6161785,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580086.616459,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580086.7310076,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580086.7353768,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580087.0054646,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580087.1993837,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580087.1997318,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580087.2225678,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580087.5137672,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580087.6200144,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580087.6202285,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580087.6672392,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580087.7151842,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580087.9994397,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580088.1261384,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580088.1542766,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580088.174104,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580088.2362754,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580088.4599643,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580088.627237,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580088.704584,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580088.7050457,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580088.7187693,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580089.0118616,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580089.2041807,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580089.2148726,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580089.296108,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580089.3299718,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580089.4715025,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580089.724678,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580089.785573,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580089.8001986,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580089.8777351,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580089.9598196,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580090.0945518,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580090.0977006,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580090.186894,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580090.2193913,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580090.4791539,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580090.5549605,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580090.622102,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580090.6663365,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580090.7261524,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580090.964212,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580091.1018605,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580091.1417809,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580091.2166977,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580091.236845,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580091.470263,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580091.5785725,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580091.6482506,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580091.6895578,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580091.7337153,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580091.973004,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580092.1200676,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580092.147263,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580092.203336,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580092.2903938,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "run_id": "run-ba70a41f9e47",
+      "first_terminal_observed_at": 1794580092.404885,
+      "data": {
+        "id": "run-ba70a41f9e47",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Fail",
+        "case_ids": [
+          "asset-864fcbae1cad"
+        ],
+        "total": 1,
+        "done": 1,
+        "passed": 0,
+        "failed": 1,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 47960,
+        "created_at": "2026-11-13T14:28:01.483+00:00",
+        "started_at": "2026-11-13T14:28:01.578+00:00",
+        "finished_at": "2026-11-13T14:28:12.349+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-ui",
+        "family": "native",
+        "input_manifest": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e-6681c94c72dd476d9cf37a1f28379031.json",
+        "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 47960, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1114151\"}",
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 0.0,
+        "state_counts": {
+          "pass": 0,
+          "fail": 1,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "not_generated",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-ba70a41f9e47",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "8d978de8c9e720ed5afdd6bb7fd1f006ee38686404e63c30a6d470a7d04b81bd"
+        },
+        "recorded_counts": {
+          "passed": 0,
+          "failed": 1,
+          "blocked": 0
+        },
+        "project_name": "独立黑盒订单",
+        "results": [
+          {
+            "id": 5,
+            "run_id": "run-ba70a41f9e47",
+            "project_id": "127-0-0-1",
+            "case_id": "test_order.OrderBusinessTest.test_order_completes",
+            "case_title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+            "kind": "native",
+            "engine": "selenium-unittest",
+            "status": "Fail",
+            "category": "native",
+            "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+            "actual": "",
+            "duration_ms": 8101,
+            "started_at": "2026-11-13T14:28:01.578+00:00",
+            "prerequisite": 0,
+            "case_revision": 1,
+            "detail": {
+              "id": "test_order.OrderBusinessTest.test_order_completes",
+              "title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+              "status": "Fail",
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "duration_ms": 8101,
+              "assertions": [
+                {
+                  "name": "原生 unittest 测试结果",
+                  "passed": false,
+                  "actual": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+                  "source": "native"
+                }
+              ],
+              "verdict_scope": "native_test",
+              "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+              "engine": "selenium-unittest",
+              "business_status": "Fail",
+              "business_verified": false,
+              "verification": "failed",
+              "evidence": [
+                {
+                  "path": "events.jsonl",
+                  "sha256": "05781bce1fed9510737a78ff9cefafd1c5f8c6b1aca7bb6d6267c60e58e567d6",
+                  "size": 192
+                },
+                {
+                  "path": "heartbeat.json",
+                  "sha256": "17e16d83546923345a80ff3945a44d39af72590563489cf357bd9ba3d988e648",
+                  "size": 366
+                },
+                {
+                  "path": "process-result.json",
+                  "sha256": "dd24bedfcc7deafc33f8451f6af5166f32f59bf111242422ffa52713927e18fb",
+                  "size": 59
+                },
+                {
+                  "path": "stderr.log",
+                  "sha256": "4a27299030976ce0591d8877d8d2529172c3ff1c1d7c563df9addf0fabc33c4f",
+                  "size": 712
+                },
+                {
+                  "path": "stdout.log",
+                  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "size": 0
+                },
+                {
+                  "path": "supervisor.json",
+                  "sha256": "bad6ee1ae3757d331b1a68052ca00ec7038e206a0cf96f146b1f2835285dc1df",
+                  "size": 289
+                },
+                {
+                  "path": "unittest.json",
+                  "sha256": "b028feb8af6a922edf47674ecc85b4edb7f204e3628873ae501199bffa3bb264",
+                  "size": 594
+                }
+              ],
+              "evidence_status": "bound"
+            },
+            "case_content_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "state": {
+              "lifecycle": "completed",
+              "phase": "settled",
+              "outcome": "fail",
+              "checks": {
+                "business": "fail",
+                "performance": "not_applicable",
+                "quality": "not_applicable"
+              },
+              "evidence": "valid",
+              "report": "not_generated",
+              "delivery": "not_applicable",
+              "scope": {
+                "project_id": "127-0-0-1",
+                "workflow_id": null,
+                "cycle_id": null,
+                "run_id": "run-ba70a41f9e47",
+                "case_id": "test_order.OrderBusinessTest.test_order_completes",
+                "attempt_id": null
+              },
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-ba70a41f9e47/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "last_attempt_outcome": "fail",
+              "revision": "8b04e1b3aff2f67fe015a80524ccde10b731eb02df969d92dd54cda9e3e9cae0"
+            }
+          }
+        ],
+        "test_report": {
+          "report_id": "run_run-ba70a41f9e47",
+          "status": "not_generated",
+          "retryable": true,
+          "retry_url": "/api/task-reports/run_run-ba70a41f9e47/retry"
+        }
+      }
+    },
+    {
+      "at": 1794580092.6240194,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580092.8980684,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580092.8983874,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580092.9139497,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580093.082735,
+      "url": "http://127.0.0.1:18782/api/runs/run-ba70a41f9e47",
+      "status": 200
+    },
+    {
+      "at": 1794580093.2890902,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580093.504255,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580093.6152802,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580093.62155,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580093.755346,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=current&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580094.087378,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=current&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580094.2917461,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580094.468548,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580094.5679147,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580094.5753431,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580094.594974,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580094.839053,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580094.994248,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580095.418061,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&business=fail&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580095.468885,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580095.499038,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580095.5455997,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580095.59408,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580095.7525218,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580096.793011,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580096.7935655,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580096.7938707,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580096.7943044,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580096.7946417,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580096.967727,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580097.1158595,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580097.3750064,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580097.3773196,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580097.6195643,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580097.723837,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580097.9792037,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580098.08586,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580098.0979552,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580098.4312534,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580098.4927382,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580098.648194,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580098.720405,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580098.7212188,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580099.0055869,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580099.258955,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580099.4197881,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580099.4250634,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580099.5419292,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580100.031544,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580100.2678673,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580100.5174754,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580100.7887826,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580100.7893126,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580101.198952,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580101.3328795,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580101.5372386,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580101.5401793,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580101.6301844,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580102.137257,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580102.271965,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580102.535159,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580102.6000993,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580102.6205344,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580102.8767042,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580102.978896,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580103.2184522,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580103.237106,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580103.298984,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580103.5933862,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580103.7254534,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580104.0293558,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580104.075739,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580104.0919259,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580104.5233705,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580104.7210433,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580104.9528823,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580104.9836094,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580105.0688837,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580105.397551,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580105.5385976,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580105.8136873,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580105.89127,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580105.9232397,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "run_id": "run-a5f23477c3d9",
+      "first_terminal_observed_at": 1794580107.0806823,
+      "data": {
+        "id": "run-a5f23477c3d9",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Fail",
+        "case_ids": [
+          "asset-864fcbae1cad"
+        ],
+        "total": 1,
+        "done": 1,
+        "passed": 0,
+        "failed": 1,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 48014,
+        "created_at": "2026-11-13T14:28:16.402+00:00",
+        "started_at": "2026-11-13T14:28:16.585+00:00",
+        "finished_at": "2026-11-13T14:28:26.496+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-ui",
+        "family": "native",
+        "input_manifest": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e-d88e97c31b98481f9d3058433376f1b0.json",
+        "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 48014, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1115652\"}",
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 0.0,
+        "state_counts": {
+          "pass": 0,
+          "fail": 1,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "not_generated",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-a5f23477c3d9",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "6a76ceeafa60232072165fe3fc65af8522814c9425f48a14e378d797b4af50e6"
+        },
+        "recorded_counts": {
+          "passed": 0,
+          "failed": 1,
+          "blocked": 0
+        },
+        "project_name": "独立黑盒订单",
+        "results": [
+          {
+            "id": 6,
+            "run_id": "run-a5f23477c3d9",
+            "project_id": "127-0-0-1",
+            "case_id": "test_order.OrderBusinessTest.test_order_completes",
+            "case_title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+            "kind": "native",
+            "engine": "selenium-unittest",
+            "status": "Fail",
+            "category": "native",
+            "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+            "actual": "",
+            "duration_ms": 8066,
+            "started_at": "2026-11-13T14:28:16.585+00:00",
+            "prerequisite": 0,
+            "case_revision": 1,
+            "detail": {
+              "id": "test_order.OrderBusinessTest.test_order_completes",
+              "title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+              "status": "Fail",
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "duration_ms": 8066,
+              "assertions": [
+                {
+                  "name": "原生 unittest 测试结果",
+                  "passed": false,
+                  "actual": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+                  "source": "native"
+                }
+              ],
+              "verdict_scope": "native_test",
+              "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+              "engine": "selenium-unittest",
+              "business_status": "Fail",
+              "business_verified": false,
+              "verification": "failed",
+              "evidence": [
+                {
+                  "path": "events.jsonl",
+                  "sha256": "b190e1b546c86668cf5d18628cff6623eecd809a694938f39e9e48219801a098",
+                  "size": 192
+                },
+                {
+                  "path": "heartbeat.json",
+                  "sha256": "4799ba006afdb0f32aa2ff9dfff74ba116f69aceda36497c3f99062aaef9884f",
+                  "size": 366
+                },
+                {
+                  "path": "process-result.json",
+                  "sha256": "a13343e4bf2641ff217713eeebab7b2cc4afa77650c1fbc24ef2a88d5a057ee6",
+                  "size": 59
+                },
+                {
+                  "path": "stderr.log",
+                  "sha256": "9251c19f3d175c7d2a0c1fd19b454828c3b5cef1e0cea553ffec2231356d551e",
+                  "size": 712
+                },
+                {
+                  "path": "stdout.log",
+                  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "size": 0
+                },
+                {
+                  "path": "supervisor.json",
+                  "sha256": "b46a835f9d56e91ddb71869c47ef9ab02eb9eaaa091040fcb8c6c98a7927ec9e",
+                  "size": 289
+                },
+                {
+                  "path": "unittest.json",
+                  "sha256": "914587c45b3e33c7c90933df2e02d892cb2d7ca24babcc4b6087b1ec90310b78",
+                  "size": 594
+                }
+              ],
+              "evidence_status": "bound"
+            },
+            "case_content_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "state": {
+              "lifecycle": "completed",
+              "phase": "settled",
+              "outcome": "fail",
+              "checks": {
+                "business": "fail",
+                "performance": "not_applicable",
+                "quality": "not_applicable"
+              },
+              "evidence": "valid",
+              "report": "not_generated",
+              "delivery": "not_applicable",
+              "scope": {
+                "project_id": "127-0-0-1",
+                "workflow_id": null,
+                "cycle_id": null,
+                "run_id": "run-a5f23477c3d9",
+                "case_id": "test_order.OrderBusinessTest.test_order_completes",
+                "attempt_id": null
+              },
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-a5f23477c3d9/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "last_attempt_outcome": "fail",
+              "revision": "3b10cc6dc863f38feef14b572f78100bfd3e537be132e5bb1ca2f9c282bed08c"
+            }
+          }
+        ],
+        "test_report": {
+          "report_id": "run_run-a5f23477c3d9",
+          "status": "not_generated",
+          "retryable": true,
+          "retry_url": "/api/task-reports/run_run-a5f23477c3d9/retry"
+        }
+      }
+    },
+    {
+      "at": 1794580107.1072419,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580107.3041306,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580107.7212288,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580107.7304425,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580107.7689223,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580108.5878532,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580108.5881875,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580108.6904671,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580108.7051175,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580108.923586,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580109.424219,
+      "url": "http://127.0.0.1:18782/api/runs/run-a5f23477c3d9",
+      "status": 200
+    },
+    {
+      "at": 1794580109.4246418,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580109.6218488,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&performance=not_applicable&cycle=all&limit=50&offset=0",
+      "status": 200
+    },
+    {
+      "at": 1794580109.7283747,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580110.0138159,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580110.1103199,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580110.1106932,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580110.2120795,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580111.9943304,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580112.0068872,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580112.0073884,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580112.007741,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580112.0080287,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580112.0085194,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580112.0089452,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580112.0092266,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580112.009808,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580112.019111,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580112.0193388,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580112.4100254,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580112.4102612,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580112.4269574,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580112.527243,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580112.7307653,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580112.9325757,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580113.2232645,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580113.2278736,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580113.3209655,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580113.5291958,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580113.7690675,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580113.7833238,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580113.7981758,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580113.8162456,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580114.017152,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580114.1807055,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580114.2227466,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580114.2327032,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580114.2957957,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580114.459613,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580114.6073925,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580114.7037191,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580114.7772362,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580114.8118138,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580115.036164,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580115.0941575,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580115.213195,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580115.2311656,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580115.307927,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580115.4627516,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580115.7997377,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580115.8021092,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580115.8089118,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580115.823192,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580116.0237942,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580116.3308516,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580116.3320763,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580116.3814218,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580116.4967492,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580116.497077,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580116.8722274,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580116.8729062,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580116.8731925,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580116.878676,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580116.9727323,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580117.2906947,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580117.2965415,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580117.3221126,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580117.407912,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580117.470431,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580117.8273969,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580117.8926804,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580117.9264054,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580118.0244431,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580118.22464,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580118.615242,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580118.615653,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580118.8175557,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580118.8177865,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580118.9856973,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580119.5036523,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580119.5046968,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580119.5054824,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580119.5267413,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580119.7149699,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580120.119645,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580120.1200323,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580120.295394,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580120.2992463,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580120.5716336,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580120.7865365,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580120.9122636,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580120.9126875,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580120.9706576,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580121.215357,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580121.5752707,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580121.5756917,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580121.6117027,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580121.7109184,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580121.7320285,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "run_id": "run-9f420e0e635e",
+      "first_terminal_observed_at": 1794580121.9763932,
+      "data": {
+        "id": "run-9f420e0e635e",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Fail",
+        "case_ids": [
+          "asset-864fcbae1cad"
+        ],
+        "total": 1,
+        "done": 1,
+        "passed": 0,
+        "failed": 1,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 48098,
+        "created_at": "2026-11-13T14:28:31.098+00:00",
+        "started_at": "2026-11-13T14:28:31.321+00:00",
+        "finished_at": "2026-11-13T14:28:41.730+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-ui",
+        "family": "native",
+        "input_manifest": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e-b2c9bcdb39574bba99a8257dc6dea4f7.json",
+        "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 48098, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1117126\"}",
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 0.0,
+        "state_counts": {
+          "pass": 0,
+          "fail": 1,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "not_generated",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-9f420e0e635e",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "cbb917fb085db165c41deccc6985842b38c2f9e6dcce60ff7025be36a0be88f6"
+        },
+        "recorded_counts": {
+          "passed": 0,
+          "failed": 1,
+          "blocked": 0
+        },
+        "project_name": "独立黑盒订单",
+        "results": [
+          {
+            "id": 7,
+            "run_id": "run-9f420e0e635e",
+            "project_id": "127-0-0-1",
+            "case_id": "test_order.OrderBusinessTest.test_order_completes",
+            "case_title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+            "kind": "native",
+            "engine": "selenium-unittest",
+            "status": "Fail",
+            "category": "native",
+            "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-9f420e0e635e/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+            "actual": "",
+            "duration_ms": 8023,
+            "started_at": "2026-11-13T14:28:31.321+00:00",
+            "prerequisite": 0,
+            "case_revision": 1,
+            "detail": {
+              "id": "test_order.OrderBusinessTest.test_order_completes",
+              "title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+              "status": "Fail",
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-9f420e0e635e/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "duration_ms": 8023,
+              "assertions": [
+                {
+                  "name": "原生 unittest 测试结果",
+                  "passed": false,
+                  "actual": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-9f420e0e635e/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+                  "source": "native"
+                }
+              ],
+              "verdict_scope": "native_test",
+              "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+              "engine": "selenium-unittest",
+              "business_status": "Fail",
+              "business_verified": false,
+              "verification": "failed",
+              "evidence": [
+                {
+                  "path": "events.jsonl",
+                  "sha256": "e3ac87083c53c229ec5fbbf63c4ee65ddc2ab57b747cd912eac9772e005310bf",
+                  "size": 192
+                },
+                {
+                  "path": "heartbeat.json",
+                  "sha256": "94b5f6f04dd15f816456d5344e1863fec7e532c92b5747e6951aadab5742662d",
+                  "size": 366
+                },
+                {
+                  "path": "process-result.json",
+                  "sha256": "2bb8b52befe0687eba48b775ce8534edb740a4fb505612f25b86b83e6cfa5477",
+                  "size": 59
+                },
+                {
+                  "path": "stderr.log",
+                  "sha256": "2210aa68607baf7b0888222df043f717db9425be58856227d7cfaa7b937aa3bb",
+                  "size": 712
+                },
+                {
+                  "path": "stdout.log",
+                  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "size": 0
+                },
+                {
+                  "path": "supervisor.json",
+                  "sha256": "1bf68651eb2548116b91c88e21762df7bda5ecb967f5b9486361bfef24f4bb5d",
+                  "size": 289
+                },
+                {
+                  "path": "unittest.json",
+                  "sha256": "119552c70d44eccd5e258631a32787fb730b970f30fbfd71eb058d1442fc7cc7",
+                  "size": 594
+                }
+              ],
+              "evidence_status": "bound"
+            },
+            "case_content_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "input_hash": "ac36e64bfb205f161e40396dd1710e2a21bb3f40b502d7f19ee8abadfaed635e",
+            "state": {
+              "lifecycle": "completed",
+              "phase": "settled",
+              "outcome": "fail",
+              "checks": {
+                "business": "fail",
+                "performance": "not_applicable",
+                "quality": "not_applicable"
+              },
+              "evidence": "valid",
+              "report": "not_generated",
+              "delivery": "not_applicable",
+              "scope": {
+                "project_id": "127-0-0-1",
+                "workflow_id": null,
+                "cycle_id": null,
+                "run_id": "run-9f420e0e635e",
+                "case_id": "test_order.OrderBusinessTest.test_order_completes",
+                "attempt_id": null
+              },
+              "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-9f420e0e635e/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "last_attempt_outcome": "fail",
+              "revision": "4ba643a79e39fca93d3db1466ce4e1a360fa794957aaa617b8c78fae66b163e9"
+            }
+          }
+        ],
+        "test_report": {
+          "report_id": "run_run-9f420e0e635e",
+          "status": "not_generated",
+          "retryable": true,
+          "retry_url": "/api/task-reports/run_run-9f420e0e635e/retry"
+        }
+      }
+    },
+    {
+      "at": 1794580122.0922244,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580122.117609,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580122.1935258,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580122.2902615,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580122.5057137,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580122.8277085,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580123.0770342,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    },
+    {
+      "at": 1794580123.0773685,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580123.1167185,
+      "url": "http://127.0.0.1:18782/api/cases?start=2026-11-07T00%3A00%3A00.000Z&tz=0",
+      "status": 200
+    },
+    {
+      "at": 1794580123.229138,
+      "url": "http://127.0.0.1:18782/api/state-revision",
+      "status": 200
+    },
+    {
+      "at": 1794580123.603385,
+      "url": "http://127.0.0.1:18782/api/projects",
+      "status": 200
+    },
+    {
+      "at": 1794580123.6869056,
+      "url": "http://127.0.0.1:18782/api/status",
+      "status": 200
+    },
+    {
+      "at": 1794580123.6975439,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active",
+      "status": 200
+    }
+  ],
+  "ui": [
+    {
+      "run_id": "run-ba70a41f9e47",
+      "first_visible_at": 1794580093.0897563,
+      "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n已结束\n独立黑盒订单\n\n手动触发 · 执行引擎 selenium-unittest · 今天 14:28\n\n下载 HTML 报告\n重新运行\n只重跑未通过的 1 条\n删除运行\n综合：失败\n业务：失败\n性能：不适用\n质量：不适用\n证据：有效\n报告：尚未生成\n投递：不适用\n0\n通过\n1\n失败\n0\n阻塞\n0\n未验证\n1\n用例\n8.1 秒\n总耗时\n用例结果\n\n点开一条查看每一步和每条断言。\n\n已结束\ntest_order_completes (test_order.OrderBusinessTest.test_order_completes)　test_order.OrderBusinessTest.test_order_completes\n综合：失败\n业务：失败\n接口\n8.1 秒"
+    },
+    {
+      "run_id": "run-a5f23477c3d9",
+      "first_visible_at": 1794580108.6187704,
+      "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n\n范围内共 5 次运行\n\n按运行\n按用例结果\n全部状态\n通过\n失败\n阻塞\n执行中\n已取消\n周期\n当前周期\n包含历史周期\n执行阶段\n全部阶段\n排队中\n执行中\n等待宿主\n等待执行\n恢复中\n阻塞\n已结束\n已取消\n综合结果\n全部结果\n待处理\n通过\n失败\n阻塞\n未验证\n已取消\n业务验证\n全部业务结果\n通过\n失败\n未验证\n性能目标\n全部性能结果\n通过\n失败\n未验证\n不适用\n报告交付\n全部报告状态\n已就绪\n失败\n待生成\n生成中\n尚未生成\n\t状态\t项目\t结果\t触发\t引擎\t开始时间\t耗时\t\n\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:28\t9.9 秒\t\n删除运行\n\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:28\t10.8 秒\t\n删除运行\n\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:12\t5.9 秒\t\n删除运行\n\t\n已结束\n综合：通过\n业务：通过\n\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:11\t4.5 秒\t\n删除运行\n\t\n已结束\n综合：通过\n业务：通过\n\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\t手动\t\t今天 14:08\t4.9 秒\t\n删除运行"
+    },
+    {
+      "run_id": "run-9f420e0e635e",
+      "first_visible_at": 1794580112.0195062,
+      "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n1\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n项目与用例\n\n0 个项目 · 0 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。\n\n新建项目\n还没有带用例的项目\n\n项目在录到第一条用例后出现在这里。新建一个项目，或先加载示例项目看看效果。\n\n新建项目\n回到仪表盘加载示例\n新建项目\n\n同一个站点（域名）只建一个项目；站点下的功能区域用子项目区分。\n\n项目名称\n要测试的地址\n内网地址即可，例如 http://10.0.0.8:8080。\n分类\n取消\n创建项目"
+    }
+  ],
+  "document_visibility": "visible",
+  "finished_at": 1794580124.3768873,
+  "finish_load_average": [
+    5.47265625,
+    4.16015625,
+    2.5234375
+  ]
+}

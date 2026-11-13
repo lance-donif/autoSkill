@@ -1,0 +1,136 @@
+{
+ "task": {
+  "id": "wfi-eadace4bc7584367af59b9ae436f4678",
+  "item_id": "wfi-eadace4bc7584367af59b9ae436f4678",
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "phase": "diagnose",
+  "attempt_id": "wfa-8406b1ca4f3b4465b90d976ea235da92",
+  "lease_token": "lease-9b7e93350016401dab5b1eb18fa0b938",
+  "lease_until": "2026-11-13T14:34:53.623+00:00",
+  "binding_token": "eyJhdHRlbXB0X2lkIjoid2ZhLTg0MDZiMWNhNGYzYjQ0NjViOTBkOTc2ZWEyMzVkYTkyIiwiaXRlbV9pZCI6IndmaS1lYWRhY2U0YmM3NTg0MzY3YWY1OWI5YWU0MzZmNDY3OCIsImxlYXNlX3Rva2VuIjoibGVhc2UtOWI3ZTkzMzUwMDE2NDAxZGFiNWIxZWIxOGZhMGI5MzgiLCJ3b3JrZmxvd19pZCI6IndmLWM5ZTRhYjUwZWI5YzQ2YWZiNTc1OGEwYmI2NzY5MDNkIn0=",
+  "input_hash": "ad18a85179a21cb4909deff24ab5bf2cb00a9abc34105df52aacf8c5a2a31441",
+  "input_refs": {
+   "definition": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/definition.json",
+   "knowledge": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/knowledge.json",
+   "materialization": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/materialization.json",
+   "oracles": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/oracles.json",
+   "requirements": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/requirements.json",
+   "scenarios": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/scenarios.json",
+   "sources": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/sources.json"
+  },
+  "checkpoint": {},
+  "context": {
+   "execution": {
+    "business_verified": false,
+    "conclusion": "violated",
+    "evidence_valid": true,
+    "performance_status": "Unverified",
+    "results": [
+     {
+      "business_status": "Pass",
+      "case_id": "TC-API-BB-READY",
+      "evidence_valid": true,
+      "performance_status": "Unverified",
+      "reason": "",
+      "result_id": 7,
+      "status": "Pass",
+      "verification": "verified"
+     },
+     {
+      "business_status": "Fail",
+      "case_id": "TC-API-BB-WRONG",
+      "evidence_valid": true,
+      "performance_status": "Unverified",
+      "reason": "字段 /status：期望 ready，实际 wrong",
+      "result_id": 8,
+      "status": "Fail",
+      "verification": "verified"
+     }
+    ],
+    "run_id": "run-b7ffb833eb93",
+    "run_status": "Fail"
+   },
+   "publication": "bound_existing",
+   "validation_results": [
+    {
+     "business_verified": false,
+     "conclusion": "violated",
+     "evidence_valid": true,
+     "performance_status": "Unverified",
+     "results": [
+      {
+       "business_status": "Pass",
+       "case_id": "TC-API-BB-READY",
+       "evidence_valid": true,
+       "performance_status": "Unverified",
+       "reason": "",
+       "result_id": 7,
+       "status": "Pass",
+       "verification": "verified"
+      },
+      {
+       "business_status": "Fail",
+       "case_id": "TC-API-BB-WRONG",
+       "evidence_valid": true,
+       "performance_status": "Unverified",
+       "reason": "字段 /status：期望 ready，实际 wrong",
+       "result_id": 8,
+       "status": "Fail",
+       "verification": "verified"
+      }
+     ],
+     "run_id": "run-b7ffb833eb93",
+     "run_status": "Fail"
+    }
+   ]
+  },
+  "payload_schema": {
+   "example": {
+    "disposition": "business_defect",
+    "reason": "原预期与实际不一致，保留失败",
+    "evidence_refs": []
+   },
+   "rule": "预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。"
+  }
+ },
+ "workflow": {
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "violated",
+  "revision": 39,
+  "domain_head": "91640f6e52bf7a22e59685d9da46d7125c933e92f0197faad1ea8cc0cad32957",
+  "definition_hash": "ad18a85179a21cb4909deff24ab5bf2cb00a9abc34105df52aacf8c5a2a31441",
+  "counts": {
+   "completed": 5,
+   "leased": 1
+  },
+  "state": {
+   "lifecycle": "active",
+   "phase": "awaiting_host",
+   "outcome": "fail",
+   "checks": {
+    "business": "fail",
+    "performance": "not_applicable",
+    "quality": "not_applicable"
+   },
+   "evidence": "valid",
+   "report": "not_generated",
+   "delivery": "not_applicable",
+   "scope": {
+    "project_id": "bb-api",
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+    "run_id": null,
+    "case_id": null,
+    "attempt_id": null
+   },
+   "reason": "",
+   "revision": "623de2013e21d9208dd417fc9d11f6c43214e329c1df411c5af5bcdaf32793c1"
+  }
+ }
+}

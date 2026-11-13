@@ -1,0 +1,82 @@
+{
+ "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+ "project_id": "bb-api",
+ "title": "Blackbox HTTP lifecycle",
+ "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+ "lifecycle": "active",
+ "cycle_state": "awaiting_host",
+ "complete": false,
+ "conclusion": "unassessed",
+ "revision": 32,
+ "domain_head": "bcbd18d19ad321f1f17f5a26c82a7b7a1c77ccbe4d4112418c7be1b2e33973d9",
+ "definition_hash": "ccf445e34245706f70df79d04fb9729338373629130327de254c2797b113dbf3",
+ "counts": {
+  "completed": 2,
+  "ready": 1
+ },
+ "state": {
+  "lifecycle": "active",
+  "phase": "awaiting_host",
+  "outcome": "pending",
+  "checks": {
+   "business": "unverified",
+   "performance": "not_applicable",
+   "quality": "not_applicable"
+  },
+  "evidence": "unverified",
+  "report": "not_generated",
+  "delivery": "not_applicable",
+  "scope": {
+   "project_id": "bb-api",
+   "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+   "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+   "run_id": null,
+   "case_id": null,
+   "attempt_id": null
+  },
+  "reason": "",
+  "revision": "72610df1b73f20f69f4ba79c3641f78112cf67da84393ffe83ba67c96d942819"
+ },
+ "accepted": true,
+ "change_id": "change-1210a6e49a5c47aabfe8278a9f6d6af4",
+ "workflow": {
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "unassessed",
+  "revision": 32,
+  "domain_head": "bcbd18d19ad321f1f17f5a26c82a7b7a1c77ccbe4d4112418c7be1b2e33973d9",
+  "definition_hash": "ccf445e34245706f70df79d04fb9729338373629130327de254c2797b113dbf3",
+  "counts": {
+   "completed": 2,
+   "ready": 1
+  },
+  "state": {
+   "lifecycle": "active",
+   "phase": "awaiting_host",
+   "outcome": "pending",
+   "checks": {
+    "business": "unverified",
+    "performance": "not_applicable",
+    "quality": "not_applicable"
+   },
+   "evidence": "unverified",
+   "report": "not_generated",
+   "delivery": "not_applicable",
+   "scope": {
+    "project_id": "bb-api",
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+    "run_id": null,
+    "case_id": null,
+    "attempt_id": null
+   },
+   "reason": "",
+   "revision": "72610df1b73f20f69f4ba79c3641f78112cf67da84393ffe83ba67c96d942819"
+  }
+ }
+}

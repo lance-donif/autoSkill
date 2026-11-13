@@ -1,0 +1,38 @@
+{
+  "reviewed_utc": "2026-11-13T15:21:16.694345+00:00",
+  "verdict": "Pass",
+  "criterion": "The visible offline red status indicator has actual readable explanatory title text; it is not color only with no explanation.",
+  "actual_container": {
+    "tag": "DIV",
+    "title": "连不上本机服务",
+    "ariaLabel": null,
+    "role": null,
+    "outer": "<div class=\"line\" title=\"连不上本机服务\"><i class=\"dot off\"></i><span class=\"text\">服务已断开</span></div>",
+    "children": [
+      {
+        "tag": "I",
+        "title": null,
+        "ariaLabel": null,
+        "role": null,
+        "textContent": "",
+        "visible": true
+      },
+      {
+        "tag": "SPAN",
+        "title": null,
+        "ariaLabel": null,
+        "role": null,
+        "textContent": "服务已断开",
+        "visible": false
+      }
+    ]
+  },
+  "hover_executed": true,
+  "visible_dom_tooltips": [],
+  "native_title_popup_visible_in_page_screenshot": "not_observed; no claim of screenshot verification",
+  "scope_limit": "This verifies the real DOM title explanation and actual hover action; it does not assert that a browser-native title popup appeared in the page screenshot, nor assert broader assistive-technology conformance.",
+  "read_only_no_new_runs": true,
+  "evidence": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-hover-continuation-1794583206159347713/offline-status-hover.json",
+  "prior_detached_element_attempt_preserved": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-1794583168250257901/offline-accessibility.json",
+  "prior_blocked_judgment_preserved": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-1794583168250257901/prior-latest-8-results-Blocked.json"
+}

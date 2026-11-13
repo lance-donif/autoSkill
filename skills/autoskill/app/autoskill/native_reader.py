@@ -23,12 +23,14 @@ def _ref(report: dict, pointer: str, value) -> dict:
 
 def _summary(row: dict) -> dict:
     detail = row.get("detail", {})
-    item = {key: row[key] for key in ("id", "case_id", "case_title", "status", "reason", "duration_ms", "engine") if key in row}
-    if len(item.get("reason", "")) > 1200:
-        item.update(reason=item["reason"][:1200], reason_truncated=True)
+    item = {key: row[key] for key in ("id", "case_id", "case_title", "duration_ms") if key in row}
+    state = dict(row.get("state", {}))
+    if len(state.get("reason", "")) > 1200:
+        state["reason"] = state["reason"][:1200]
+        item["reason_truncated"] = True
+    item["state"] = state
     if len(item.get("case_title", "")) > 400:
         item.update(case_title=item["case_title"][:400], title_truncated=True)
-    item.update({key: detail[key] for key in ("business_status", "business_verified", "verification", "execution_status") if key in detail})
     return {**item, "turn_count": len(detail.get("turns", [])), "assertion_count": len(detail.get("assertions", [])),
             "detail_ref": {"result_id": row["id"], "case_id": row["case_id"], "content_revision": paging.revision(detail)}}
 

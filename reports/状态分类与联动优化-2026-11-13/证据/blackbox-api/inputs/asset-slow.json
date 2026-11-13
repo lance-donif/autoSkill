@@ -1,0 +1,1 @@
+{"source":"native-http","engine":"selenium-unittest","name":"Local HTTP slow","asset_id":"bb-slow","argv":["python3","-m","unittest","test_fixture.Slow"],"cwd":"."}

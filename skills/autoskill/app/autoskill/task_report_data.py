@@ -288,8 +288,12 @@ def _unexecuted(documents: dict, covered: set[str]) -> list[dict]:
     return rows
 
 
-def workflow_snapshot(flow: dict) -> dict:
-    from . import workflow_definition
+def workflow_snapshot(flow: dict, *, report_generation: int | None = None, cancelled_boundary: bool = False) -> dict:
+    from . import workflow_definition, workflow_state
+
+    if report_generation is None:
+        with db.connect() as connection:
+            report_generation = workflow_state.report_generation(connection, flow["id"], flow["cycle_id"])
 
     generation = workflow_definition.snapshot(flow, flow["domain_head"])
     documents = generation["documents"]
@@ -314,13 +318,23 @@ def workflow_snapshot(flow: dict) -> dict:
         bindings = context.get("materialization", {}).get("bindings", {})
         for row in rows:
             row.update(workflow_item_id=item["id"], validation_round=context.get("round"),
+                       report_generation=context.get("report_generation", 0),
+                       historical_report_generation=context.get("report_generation", 0) != report_generation,
                        scenario_ids=[key for key, identities in bindings.items() if row["definition"]["id"] in identities])
+            if row["historical_report_generation"]:
+                row["note"] = "较早报告代次的历史执行事实，不作为恢复后新执行的证明。 " + row.get("note", "")
         cases.extend(rows)
     cases.extend(_unexecuted(documents, {row["definition"]["id"] for row in cases}))
+    if any(row.get("historical_report_generation") for row in cases):
+        notes.append("本报告包含同一周期较早报告代次的历史尝试；已逐行标记，不得将它们解释为恢复后重新执行。")
     if not cases:
         notes.append("本周期尚未形成测试用例；此报告保留任务来源与未完成状态，不表示测试覆盖已经完成。")
-    return {"schema": 1, "kind": "workflow", "task_id": flow["id"], "cycle_id": flow["cycle_id"], "project_id": flow["project_id"],
+    if cancelled_boundary:
+        notes.append("本快照冻结于取消后恢复之前；仍在运行或尚未验证的行仅保留当时观察，不推断执行已结束或业务已通过。")
+    return {"schema": 1, "kind": "workflow", "task_id": flow["id"], "cycle_id": flow["cycle_id"], "report_generation": report_generation,
+            "project_id": flow["project_id"],
             "project": _project(flow["project_id"]), "title": flow["title"], "status": flow["conclusion"], "run_ids": run_ids,
             "cases": cases, "results": results, "sources": {"head": generation["head"], "definition_hash": generation["hash"], "documents": documents},
             "notes": list(dict.fromkeys([*notes, "只汇总本工作流当前周期的任务输入和实际结果；各轮分别保留，后续成功不会覆盖先前失败。"])),
-            "metadata": {key: flow.get(key) for key in ("id", "cycle_id", "lifecycle", "conclusion", "revision", "created_at", "updated_at")}}
+            "metadata": {**{key: flow.get(key) for key in ("id", "cycle_id", "lifecycle", "conclusion", "revision", "created_at", "updated_at")},
+                         "report_generation": report_generation, "cancelled_boundary": cancelled_boundary}}

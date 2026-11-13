@@ -8,6 +8,7 @@ function queryOf(request) {
     if (query[key] !== undefined) query[key] = Number(query[key]);
   }
   if (query.all !== undefined) query.all = query.all === '1' || query.all === 'true';
+  if (query.revision_only !== undefined) query.revision_only = query.revision_only === '1' || query.revision_only === 'true';
   return query;
 }
 

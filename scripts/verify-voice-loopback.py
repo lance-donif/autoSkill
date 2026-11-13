@@ -141,12 +141,18 @@ class VoiceLoopbackTests(unittest.TestCase):
         self.page.get_by_test_id("voice-start").click()
         self.page.wait_for_function("window.voiceObservedTracks.length === 1")
         self.assertEqual(self.page.evaluate("voiceObservedTracks[0].initialState"), "live")
-        if self.page.get_by_test_id("voice-stop").is_enabled():
-            self.page.get_by_test_id("voice-stop").click()
+        # Automatic media failure can release the session between separate browser calls.
+        stop_requested = self.page.get_by_test_id("voice-stop").evaluate("""button => {
+            if (button.disabled) return false;
+            button.click();
+            return true;
+        }""")
         self.page.wait_for_function("voiceHarness.snapshot().cleanup !== null")
         self.assertEqual(self.page.evaluate("voiceObservedTracks[0].track.readyState"), "ended")
-        self.assertTrue(all(self.page.evaluate("voiceHarness.snapshot().cleanup").values()))
-        self.record("released", self.page.evaluate("voiceHarness.snapshot()"))
+        snapshot = self.page.evaluate("voiceHarness.snapshot()")
+        self.assertIn(snapshot["status"], ("stopped", "error"))
+        self.assertTrue(all(snapshot["cleanup"].values()))
+        self.record("released", {**snapshot, "stop_requested": stop_requested})
 
 
 if __name__ == "__main__":

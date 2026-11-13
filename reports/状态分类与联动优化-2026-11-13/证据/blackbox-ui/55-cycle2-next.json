@@ -1,0 +1,14 @@
+{
+  "command": [
+    "workflow",
+    "next",
+    "wf-0decaa560df84c6e9c0761274fb4f490",
+    "--idempotency-key",
+    "revalidation-cycle2-claim-1"
+  ],
+  "started_at": 1794580147.81877,
+  "finished_at": 1794580149.2191722,
+  "exit_code": 0,
+  "stdout": "{\n \"task\": {\n  \"id\": \"wfi-cd9764a34ec840ecbf333cb2f6b97784\",\n  \"item_id\": \"wfi-cd9764a34ec840ecbf333cb2f6b97784\",\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"phase\": \"requirements\",\n  \"attempt_id\": \"wfa-e383b11f19084723b6d090674bcbc6bc\",\n  \"lease_token\": \"lease-7da7422c85074001928a7690cd8df077\",\n  \"lease_until\": \"2026-11-13T14:34:08.636+00:00\",\n  \"binding_token\": \"eyJhdHRlbXB0X2lkIjoid2ZhLWUzODNiMTFmMTkwODQ3MjNiNmQwOTA2NzRiY2JjNmJjIiwiaXRlbV9pZCI6IndmaS1jZDk3NjRhMzRlYzg0MGVjYmYzMzNjYjJmNmI5Nzc4NCIsImxlYXNlX3Rva2VuIjoibGVhc2UtN2RhNzQyMmM4NTA3NDAwMTkyOGE3NjkwY2Q4ZGYwNzciLCJ3b3JrZmxvd19pZCI6IndmLTBkZWNhYTU2MGRmODRjNmU5YzA3NjEyNzRmYjRmNDkwIn0=\",\n  \"input_hash\": \"a654d414fc736f14e72daff426884eabcf6d8658a0d59c37dc9f4195bca916dd\",\n  \"input_refs\": {\n   \"definition\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/definition.json\",\n   \"sources\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/sources.json\"\n  },\n  \"checkpoint\": {},\n  \"context\": {},\n  \"payload_schema\": {\n   \"example\": {\n    \"requirements\": [\n     {\n      \"id\": \"req-1\",\n      \"text\": \"独立业务预期\",\n      \"source_ids\": [\n       \"source-1\"\n      ]\n     }\n    ]\n   },\n   \"rule\": \"预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。\"\n  }\n },\n \"workflow\": {\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"project_id\": \"127-0-0-1\",\n  \"title\": \"独立黑盒订单维护\",\n  \"cycle_id\": \"cycle-f8e0f09686ee4490855cea8c3bef6bce\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 19,\n  \"domain_head\": \"56872b626b1bff65b90f9eee2123d9e003275ef9137b3bee9072222773007e2d\",\n  \"definition_hash\": \"a654d414fc736f14e72daff426884eabcf6d8658a0d59c37dc9f4195bca916dd\",\n  \"counts\": {\n   \"leased\": 1\n  },\n  \"state\": {\n   \"lifecycle\": \"active\",\n   \"phase\": \"awaiting_host\",\n   \"outcome\": \"pending\",\n   \"checks\": {\n    \"business\": \"unverified\",\n    \"performance\": \"not_applicable\",\n    \"quality\": \"not_applicable\"\n   },\n   \"evidence\": \"unverified\",\n   \"report\": \"not_generated\",\n   \"delivery\": \"not_applicable\",\n   \"scope\": {\n    \"project_id\": \"127-0-0-1\",\n    \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n    \"cycle_id\": \"cycle-f8e0f09686ee4490855cea8c3bef6bce\",\n    \"run_id\": null,\n    \"case_id\": null,\n    \"attempt_id\": null\n   },\n   \"reason\": \"\",\n   \"revision\": \"46ba9bf5bf7bacec6914714bb5efd428f9f0ebf23817e6b0a39eb5826a61221e\"\n  }\n }\n}\n",
+  "stderr": ""
+}

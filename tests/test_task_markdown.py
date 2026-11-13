@@ -83,6 +83,11 @@ class TaskMarkdownDeliveryTests(unittest.TestCase):
 
     def setUp(self):
         fixtures.TaskReportTests.setUp(self)
+        # These delivery tests finish frozen reports explicitly. A separate
+        # dispatcher would race fixture cleanup and steal that rendering work.
+        worker = patch("autoskill.server.jobs.ensure_worker", return_value={"status": "running"})
+        worker.start()
+        self.addCleanup(worker.stop)
 
     def execute(self, case_id="TC-API-001"):
         return runner.execute(runner.create(self.pid, [case_id])["id"])
@@ -239,7 +244,9 @@ class TaskMarkdownDeliveryTests(unittest.TestCase):
         created = workflow.create(self.pid, {"title": "Original cycle", "sources": [{"id": "source", "text": "Old expected priority"}]},
                                   idempotency_key="create-cycle")
         stopped = workflow.cancel(created["workflow_id"], idempotency_key="stop-cycle")
-        legacy = self.legacy(stopped["test_report"])
+        ready = task_reports.finish_workflow_report(stopped["test_report"]["report_id"])
+        self.assertEqual(ready["status"], "ready", ready)
+        legacy = self.legacy(ready)
         frozen = json.loads((task_reports._folder(legacy["report_id"]) / "snapshot.json").read_bytes())
         original = Path(legacy["excel"]).read_bytes()
         workflow.revise(created["workflow_id"], {"title": "New cycle", "sources": [{"id": "source", "text": "New requirement"}]},

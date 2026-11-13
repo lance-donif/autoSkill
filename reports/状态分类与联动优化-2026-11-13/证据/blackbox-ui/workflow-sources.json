@@ -1,0 +1,1 @@
+{"sources":[{"id":"order-business-rule","text":"POST /api/order 的业务要求为 JSON message 等于订单完成。HTTP 200 本身不能证明业务成功。"}]}

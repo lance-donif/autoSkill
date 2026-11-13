@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "native",
+    "run",
+    "fresh-arithmetic",
+    "asset-01a802c01af8"
+  ],
+  "started_ns": 1794580525920548146,
+  "finished_ns": 1794580530006458479,
+  "exit_code": 0,
+  "stdout": "{\n \"id\": \"run-fb74159d8a65\",\n \"family\": \"native\",\n \"project_id\": \"fresh-arithmetic\",\n \"engine\": \"ai-eval\",\n \"trigger\": \"manual\",\n \"task_id\": null,\n \"status\": \"Queued\",\n \"case_ids\": [\n  \"asset-01a802c01af8\"\n ],\n \"total\": 0,\n \"created_at\": \"2026-11-13T14:35:28.013+00:00\",\n \"headed\": 0,\n \"session_id\": \"fresh-blind\",\n \"input_manifest\": \"/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/native-inputs/096b8d5851fb5531fcb91e47737f7f5c6396d7f0eea7bf236354c4e4969e0abf-fcc83e3dad7a48ca8d1a8dfe7bdbf6f5.json\",\n \"input_hash\": \"096b8d5851fb5531fcb91e47737f7f5c6396d7f0eea7bf236354c4e4969e0abf\",\n \"state\": {\n  \"lifecycle\": \"pending\",\n  \"phase\": \"queued\",\n  \"outcome\": \"pending\",\n  \"checks\": {\n   \"business\": \"unverified\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"unverified\",\n  \"report\": \"pending\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"fresh-arithmetic\",\n   \"workflow_id\": null,\n   \"cycle_id\": null,\n   \"run_id\": \"run-fb74159d8a65\",\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"a202dbb1db7d1fb7cdb10ebf48b697e5f1bd2b0e4b4df61c345645b4e9f34a44\"\n },\n \"queue_dispatcher\": {\n  \"status\": \"started\",\n  \"pid\": 55767,\n  \"reason\": \"\"\n },\n \"note\": \"已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定\"\n}\n",
+  "stderr": ""
+}

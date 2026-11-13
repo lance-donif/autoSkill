@@ -1,0 +1,27 @@
+{
+  "label": "038-report-http-excel",
+  "started_at": "2026-11-13T14:11:03.880663+00:00",
+  "http_status": 200,
+  "headers": {
+    "date": "Fri, 13 Nov 2026 14:11:03 GMT",
+    "server": "uvicorn",
+    "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "accept-ranges": "bytes",
+    "content-disposition": "attachment; filename*=utf-8''%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B-156c8a650da52479.xlsx",
+    "content-length": "17111",
+    "last-modified": "Fri, 13 Nov 2026 14:10:43 GMT",
+    "etag": "\"4c31c3d3f90d2a5a1e8d2b7a88aaee45\"",
+    "cache-control": "no-store",
+    "Connection": "close"
+  },
+  "url": "http://127.0.0.1:18881/api/task-reports/run_run-f464729539e8/excel",
+  "method": "GET",
+  "request_body": null,
+  "returncode": 0,
+  "elapsed_seconds": 0.026637118000508053,
+  "ended_at": "2026-11-13T14:11:03.907297+00:00",
+  "response_artifact": {
+    "bytes": 17111,
+    "sha256": "a74c796782cb4ed025b342fd70d1c1531db1bb15039a4bd948e56beb52c95892"
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "test": "test_queue_dispatcher.DispatcherTests.test_cancelled_waiter_does_not_execute_when_a_slot_opens",
+  "classification": "confirmed dispatcher startup race, before cancellation logic or HTTP execution",
+  "full_run_log": "/workspace/autoskill-main-integration/checks/python-merged-startup-race.log",
+  "full_run_observation": {
+    "failure_at": "tests/test_queue_dispatcher.py:221 self.ensure()",
+    "status": "unavailable",
+    "reason": "后台队列在启动期间退出；运行已保存，可重试启动现有队列",
+    "trace": "/workspace/autoskill-main-integration/checks/queue-cancel-fulltrace.log",
+    "tests": 911,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 6
+  },
+  "modes": [
+    {
+      "mode": "original isolated method",
+      "tests": 1,
+      "target_method_executions": 1,
+      "passed": true,
+      "seconds": 2.299,
+      "log": "/workspace/autoskill-main-integration/checks/queue-cancel-diagnosis.log"
+    },
+    {
+      "mode": "same-process immediate predecessor then original target",
+      "tests": 2,
+      "target_method_executions": 1,
+      "passed": true,
+      "seconds": 4.444,
+      "log": "/workspace/autoskill-main-integration/checks/queue-cancel-predecessor.log"
+    },
+    {
+      "mode": "two original target executions in one process, with read-only stage observations",
+      "tests": 2,
+      "target_method_executions": 2,
+      "passed": true,
+      "seconds": 4.761,
+      "log": "/workspace/autoskill-main-integration/checks/queue-cancel-observed-repeat.log"
+    }
+  ],
+  "observed_cancellation": {
+    "before": "first Running with one HTTP request; second Queued with zero requests",
+    "after": "second Cancelled, cancel=1, done=0; first remains Running until test releases its real HTTP response gate",
+    "final_original_oracles": "first Pass; second Cancelled; second service entered event false",
+    "events": "/workspace/autoskill-main-integration/checks/queue-cancel-observations.json"
+  },
+  "code_review": {
+    "cancellation": "jobs.cancel sets Queued -> Cancelled and cancel=1 in the same SQL update",
+    "claim_fence": "db.claim_run requires status Queued AND cancel=0",
+    "controlled_execution": "Original test waits for first HTTP handler entry and keeps its response gated until after cancellation"
+  },
+  "scope": {
+    "python": "/workspace/autoskill-main-integration/runtime/python-env/bin/python",
+    "runtime_paths_preserved": true,
+    "browser_started": false,
+    "oracle_changed": false,
+    "timeouts_changed": false,
+    "extra_sleeps_added": false,
+    "repository_files_modified": true,
+    "repository_edit_authorized_after_full_run_completed": true
+  },
+  "proposed_patch": {
+    "applied": true,
+    "files": [
+      "skills/autoskill/app/autoskill/server/jobs.py",
+      "tests/test_queue_dispatcher.py"
+    ],
+    "behavior": "Before launch, use the lifetime lock to discover an existing worker. After launch, only read the receipt written after the child acquired that lock; require this call token, the owned Popen PID and a still-live Popen handle.",
+    "unchanged": [
+      "one launch attempt",
+      "original 10-second startup deadline",
+      "OSError unavailable response",
+      "durable queued run IDs",
+      "atomic claims and cancellation rules",
+      "all original no-execution assertions"
+    ]
+  },
+  "root_cause": "After spawning, ensure_worker repeatedly probes the same nonblocking lifetime lock the child needs once. The child may encounter its caller probe, mistake it for a real existing dispatcher and exit before writing its ownership receipt.",
+  "deterministic_process_probe": {
+    "script": "/workspace/autoskill-main-integration/checks/queue-startup-probe.py",
+    "mechanism": "Child uses a pass-through wrapper around its real OS lifetime lock; a stdin/stdout barrier releases the child during the parent state-read window. No production lock result, database status, timeout or business assertion is replaced.",
+    "before": {
+      "status": "FAIL",
+      "seconds": 0.492,
+      "child_lock": "busy",
+      "queued_runs": 2,
+      "business_requests": [
+        0,
+        0,
+        0
+      ],
+      "log": "/workspace/autoskill-main-integration/checks/queue-startup-before.log",
+      "observations": "/workspace/autoskill-main-integration/checks/queue-startup-before.json"
+    },
+    "after": {
+      "status": "PASS",
+      "seconds": 1.858,
+      "child_lock": "acquired",
+      "business_requests": [
+        1,
+        0,
+        0
+      ],
+      "first_run": "Pass done=1",
+      "second_run": "Cancelled cancel=1 done=0",
+      "log": "/workspace/autoskill-main-integration/checks/queue-startup-after.log",
+      "observations": "/workspace/autoskill-main-integration/checks/queue-startup-after.json"
+    }
+  },
+  "ruff": "passed",
+  "diff_check": "passed",
+  "required_regression_suites": {
+    "status": "passed",
+    "total_tests": 57,
+    "suites": [
+      {
+        "file": "test_queue_dispatcher.py",
+        "tests": 12,
+        "seconds": 34.219,
+        "log": "/workspace/autoskill-main-integration/checks/queue-startup-queue_dispatcher.log"
+      },
+      {
+        "file": "test_runtime_execution_identity.py",
+        "tests": 9,
+        "seconds": 7.793,
+        "log": "/workspace/autoskill-main-integration/checks/queue-startup-runtime_execution_identity.log"
+      },
+      {
+        "file": "test_task_reports.py",
+        "tests": 14,
+        "seconds": 24.698,
+        "log": "/workspace/autoskill-main-integration/checks/queue-startup-task_reports.log"
+      },
+      {
+        "file": "test_workflow_sync.py",
+        "tests": 22,
+        "seconds": 32.173,
+        "log": "/workspace/autoskill-main-integration/checks/queue-startup-workflow_sync.log"
+      }
+    ]
+  },
+  "source_before_sha256": {
+    "tests/test_queue_dispatcher.py": "1c5fa5f698e4937386bed4217ec178777bb8d5d8c4a5dcdb6732cfd4f2bfdd77",
+    "tests/test_execution_review_fixes.py": "3fb672e6c61b642bfbe9459defe7bf6c630d82cf2623f82f6fdcda016f47d94d",
+    "skills/autoskill/app/autoskill/server/jobs.py": "64511611ccbd1654c81225ab3750c6d27df1b94cf975e2b7f419d391e13a3725",
+    "skills/autoskill/app/autoskill/runner.py": "ec72009ae69aec23a4c1c3bdf38c1b0be6218d3a50af6a692d10151be8199fec",
+    "skills/autoskill/app/autoskill/db.py": "0c4fb78c4d8aef3a00cf324d1405f84771bc455f67aca1dea0aad53553fc33d9"
+  },
+  "source_after_sha256": {
+    "skills/autoskill/app/autoskill/server/jobs.py": "d2b7500419a860813db533d2c08246030783a9677b69a85177e49d29d5700dc3",
+    "tests/test_queue_dispatcher.py": "9534d4c3cecae8b82547f5910a517793741d7d8db428e4e70d9f3df83186f211"
+  },
+  "source_frozen": true
+}

@@ -150,13 +150,29 @@ class DashboardScheduleTests(unittest.TestCase):
         self.assertEqual(saved.json()["rule"]["minutes"], 120)
 
     def test_stale_enable_switch_reports_conflict_without_changing_latest_task(self):
-        updated = self.other_session_update()
+        updates = []
+
+        def concurrent_update(route):
+            if route.request.method == "PATCH":
+                # Commit the other session after this control captures its
+                # revision, so live refresh cannot remove the stale control.
+                updated = self.client.patch("/api/tasks/" + self.task["id"], json={
+                    "title": "Updated in another session", "rule": {"kind": "interval", "minutes": 360},
+                    "expected_revision": self.task["revision"],
+                })
+                updated.raise_for_status()
+                updates.append(updated.json())
+            route.continue_()
+
+        self.page.route("**/api/tasks/" + self.task["id"], concurrent_update)
         with self.page.expect_response(lambda response: response.request.method == "PATCH"
                                        and response.url.endswith("/api/tasks/" + self.task["id"])) as response:
             self.page.get_by_role("switch", name="启用「Original task」", exact=True).click()
         self.assertEqual(response.value.status, 400)
         self.assertEqual(response.value.request.post_data_json, {"enabled": True, "expected_revision": self.task["revision"]})
         expect(self.page.locator(".toast")).to_contain_text("已被其他会话修改")
+        self.assertEqual(len(updates), 1)
+        updated = updates[0]
         current = self.client.get("/api/tasks/" + self.task["id"]).json()
         self.assertFalse(current["enabled"])
         self.assertEqual((current["title"], current["revision"]), (updated["title"], updated["revision"]))

@@ -343,6 +343,8 @@ with deletion.execution_guard(sys.argv[1]):
             runner.execute(second)
             self.submit(identity, self.claim(identity), {"entries": [{"id": "knowledge", "text": "Retain initial defect", "evidence_refs": [first, second]}]})
             final = workflow.status(identity)
+            task_reports.finish_workflow_report(final["test_report"]["report_id"])
+            final = workflow.status(identity)
         self.assertTrue(final["complete"])
         self.assertEqual(final["conclusion"], "mixed")
         book = self.workbook(final["test_report"])
@@ -354,12 +356,13 @@ with deletion.execution_guard(sys.argv[1]):
         if "长文本" in book:
             source_text += "".join(row["全文片段"] for row in self.rows(book, "长文本") if row["原单元格"].startswith("来源与冻结定义!"))
         self.assertIn("priority must be high", source_text)
+        report_file = data_refs.resolve(final["test_report"]["excel"])
+        frozen_workbook = report_file.read_bytes()
         deletion.delete_runs([second])
         self.assertEqual(task_reports.get(final["test_report"]["report_id"])["status"], "failed")
         refreshed = workflow.status(identity)["test_report"]
-        refreshed_rows = self.rows(self.workbook(refreshed))
-        self.assertEqual([row["本次结果"] for row in refreshed_rows], ["失败", "未执行"])
-        self.assertIn("已删除", refreshed_rows[1]["失败或阻塞原因"])
+        self.assertEqual(refreshed["status"], "failed")
+        self.assertEqual(report_file.read_bytes(), frozen_workbook)
 
     def test_http_download_and_run_deletion_remove_report_without_resurrection(self):
         result = self.execute()

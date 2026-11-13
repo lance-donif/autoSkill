@@ -1,0 +1,109 @@
+{
+  "label": "035-workflow-submit-diagnosis",
+  "started_at": "2026-11-13T14:26:36.727600+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-final-retest",
+    "workflow",
+    "submit",
+    "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "wfi-b573baf4db5b4f3081c3f75b9006f548",
+    "--lease-token",
+    "lease-3c1abf61205b4f0991d0491e0f95f791",
+    "--attempt-id",
+    "wfa-7743792451744b12abf22d488fc8ccf7",
+    "--idempotency-key",
+    "035-workflow-submit-diagnosis",
+    "--file",
+    "/workspace/autoskill-state-validation/blackbox-api/evidence/final-retest/035-diagnosis-payload.json"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest",
+  "returncode": 0,
+  "elapsed_seconds": 0.9467480109997268,
+  "ended_at": "2026-11-13T14:26:37.674341+00:00",
+  "response": {
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "project_id": "bb-api",
+    "title": "Blackbox HTTP lifecycle",
+    "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+    "lifecycle": "active",
+    "cycle_state": "awaiting_host",
+    "complete": false,
+    "conclusion": "violated",
+    "revision": 22,
+    "domain_head": "bb808cc5cc02bc2ce4e60f9e0fdc00c805c3befc23e79229374df32ca997262b",
+    "definition_hash": "eb20c306c109bd673b1bc9429f99a7c1dcea6160d89cb0d0ea5aa406c6f68448",
+    "counts": {
+      "completed": 6,
+      "ready": 1
+    },
+    "state": {
+      "lifecycle": "active",
+      "phase": "awaiting_host",
+      "outcome": "fail",
+      "checks": {
+        "business": "fail",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "bb-api",
+        "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+        "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+        "run_id": null,
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "07460f547edfa757b947ab14cf8c584007156b82e0afeb3ff53a049d295d9416"
+    },
+    "accepted": true,
+    "change_id": "change-4457861083604784b2f3b6237040f1a6",
+    "workflow": {
+      "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+      "project_id": "bb-api",
+      "title": "Blackbox HTTP lifecycle",
+      "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+      "lifecycle": "active",
+      "cycle_state": "awaiting_host",
+      "complete": false,
+      "conclusion": "violated",
+      "revision": 22,
+      "domain_head": "bb808cc5cc02bc2ce4e60f9e0fdc00c805c3befc23e79229374df32ca997262b",
+      "definition_hash": "eb20c306c109bd673b1bc9429f99a7c1dcea6160d89cb0d0ea5aa406c6f68448",
+      "counts": {
+        "completed": 6,
+        "ready": 1
+      },
+      "state": {
+        "lifecycle": "active",
+        "phase": "awaiting_host",
+        "outcome": "fail",
+        "checks": {
+          "business": "fail",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "bb-api",
+          "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+          "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+          "run_id": null,
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "07460f547edfa757b947ab14cf8c584007156b82e0afeb3ff53a049d295d9416"
+      }
+    }
+  }
+}

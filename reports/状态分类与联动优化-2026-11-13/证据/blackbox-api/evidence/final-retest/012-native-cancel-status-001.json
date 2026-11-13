@@ -1,0 +1,222 @@
+{
+  "label": "012-native-cancel-status-001",
+  "started_at": "2026-11-13T14:24:59.210409+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-final-retest",
+    "native",
+    "status",
+    "run-22c5f74d45cc"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest",
+  "returncode": 0,
+  "elapsed_seconds": 3.3579391710009077,
+  "ended_at": "2026-11-13T14:25:02.568344+00:00",
+  "response": {
+    "id": "run-22c5f74d45cc",
+    "batch_id": null,
+    "project_id": "bb-api",
+    "engine": "selenium-unittest",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Cancelled",
+    "case_ids": "[\"bb-slow\"]",
+    "total": 0,
+    "done": 0,
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0,
+    "current": "",
+    "reason": "",
+    "cancel": 1,
+    "pid": 44803,
+    "created_at": "2026-11-13T14:24:50.027+00:00",
+    "started_at": "2026-11-13T14:24:50.784+00:00",
+    "finished_at": "2026-11-13T14:24:57.833+00:00",
+    "headed": 0,
+    "claim_token": "",
+    "force_login": 0,
+    "session_id": "blackbox-api-final-retest",
+    "family": "native",
+    "input_manifest": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/native-inputs/eca711b53c75c68858cd2dbf78e469b98c5646686484dfece75e704aed854622-02b7f8d245a84bf69e5db49cba75cd58.json",
+    "input_hash": "eca711b53c75c68858cd2dbf78e469b98c5646686484dfece75e704aed854622",
+    "plan_path": "",
+    "delete_requested": 0,
+    "deletion_error": "",
+    "deletion_manifest": "",
+    "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"7335b5952ef1e58eb583c4adc635b7f574d3b21f407aa097ced325c509421ca0\", \"pid\": 44803, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1095072\"}",
+    "state": {
+      "lifecycle": "cancelled",
+      "phase": "cancelled",
+      "outcome": "cancelled",
+      "checks": {
+        "business": "unverified",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "unverified",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "bb-api",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-22c5f74d45cc",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "32a68f86efd44760cd55a593810c7f5e43df6ad87478c9aed5e4d1d999b4579d"
+    },
+    "evidence_dir": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/native",
+    "test_report": {
+      "bugs": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/test-report/Bug清单-bacf6deefca288e3.md",
+      "bugs_count": 0,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 0,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "bugs_download_url": "/api/task-reports/run_run-22c5f74d45cc/bugs",
+      "bugs_sha256": "6145948cfcf6afffb082d65593e57b699144a22d13f7710cdab47ef9ee5f5c9f",
+      "bugs_size": 1099,
+      "cases": 1,
+      "download_url": "/api/task-reports/run_run-22c5f74d45cc/excel",
+      "excel": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/test-report/测试用例-bacf6deefca288e3.xlsx",
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:24:59.796+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T14:24:57.833+00:00",
+        "input_hash": "eca711b53c75c68858cd2dbf78e469b98c5646686484dfece75e704aed854622",
+        "status": "Cancelled"
+      },
+      "kind": "run",
+      "markdown": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/test-report/测试简报-bacf6deefca288e3.md",
+      "markdown_download_url": "/api/task-reports/run_run-22c5f74d45cc/markdown",
+      "markdown_sha256": "ea563669c54b505701784c7ee7ab5c05b83fa5b1be4688e66cc8ffdef0833e0a",
+      "markdown_size": 712,
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-22c5f74d45cc",
+      "retry_url": "/api/task-reports/run_run-22c5f74d45cc/retry",
+      "retryable": false,
+      "run_ids": [
+        "run-22c5f74d45cc"
+      ],
+      "sha256": "157d981b616fd1510f719b45a30195aa1663ff9bf1b6c6ded02aa464de3decd1",
+      "size": 15140,
+      "source_hash": "bacf6deefca288e3c65af74c7ce269145ea53d6b39f25b8da7f385d4c4812577",
+      "status": "ready",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 0,
+        "NotRun": 1,
+        "Pass": 0,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-22c5f74d45cc",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Blackbox API state",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      }
+    },
+    "asset_id": "bb-slow",
+    "asset_version": "6d4e5403478ed66ed972720d2ca4d0105a412e20a20be0812038d88c9f7a75bf",
+    "head": "5de309174df09de5e777f2ef6ecadafcf9f658a9ab7edf97a85b768766a31e72",
+    "planned_unknown": true,
+    "outcome": {
+      "status": "Cancelled",
+      "reason": "",
+      "cases_ref": {
+        "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/native/outcome.json",
+        "sha256": "72eb4657a440663549f0fe5f3d944c545b6d3d0833e63100ecfcd3505a48b803",
+        "size": 1121,
+        "available": true,
+        "json_pointer": "/cases",
+        "content_revision": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "count": 0
+      },
+      "metrics": {},
+      "process": {
+        "state": "cancelled",
+        "exit_code": -15,
+        "duration_ms": 3960
+      },
+      "execution_status": "cancelled",
+      "business_status": "Unverified",
+      "verification": "unverified",
+      "verdict_scope": "execution",
+      "evidence_ref": {
+        "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/native/outcome.json",
+        "sha256": "72eb4657a440663549f0fe5f3d944c545b6d3d0833e63100ecfcd3505a48b803",
+        "size": 1121,
+        "available": true,
+        "json_pointer": "/evidence",
+        "content_revision": "27ae6278971fc856d2a67d273e4decc71cbbfec831fef8a0c42e3a29b6a546fe",
+        "count": 7
+      },
+      "evidence_status": "bound"
+    },
+    "report": {
+      "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/native/outcome.json",
+      "sha256": "72eb4657a440663549f0fe5f3d944c545b6d3d0833e63100ecfcd3505a48b803",
+      "size": 1121,
+      "available": true
+    },
+    "page": {
+      "total": 0,
+      "returned": 0,
+      "limit": 50,
+      "has_more": false,
+      "next_cursor": null,
+      "content_revision": "ed668d504f2fb2f8c62986709a3b9433f53fe03c88dab570e9f85492341018b0"
+    },
+    "results": []
+  }
+}

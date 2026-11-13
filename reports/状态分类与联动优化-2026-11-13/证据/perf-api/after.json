@@ -1,0 +1,21 @@
+{
+  "active": {
+    "elapsed_ms": 3.303124000012758,
+    "size": 126,
+    "total": 0
+  },
+  "runs": {
+    "elapsed_ms": 581.9782880007551,
+    "size": 27702,
+    "total": 14
+  },
+  "summary": {
+    "elapsed_ms": 371.02521099950536,
+    "size": 1878,
+    "total": null
+  },
+  "source_hashes": {
+    "skills/autoskill/app/autoskill/server/metrics.py": "c99bb13f3ba999202866385a6fef7f94b18ffff852d09c8077d7697199b3c59f",
+    "skills/autoskill/app/autoskill/task_state.py": "83bc96ea34f5f4e60cd0582f1bdcfd1c0a83776bb735143da072416bc964f179"
+  }
+}

@@ -1,0 +1,76 @@
+{
+ "task": {
+  "id": "wfi-b03c609057d24df9aa974831245984fe",
+  "item_id": "wfi-b03c609057d24df9aa974831245984fe",
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "phase": "knowledge",
+  "attempt_id": "wfa-a867eb17623c4177a16c4c13b614926c",
+  "lease_token": "lease-9f1efa7216d7410ab5f1fead6f8cedbd",
+  "lease_until": "2026-11-13T14:31:39.619+00:00",
+  "binding_token": "eyJhdHRlbXB0X2lkIjoid2ZhLWE4NjdlYjE3NjIzYzQxNzdhMTZjNGMxM2I2MTQ5MjZjIiwiaXRlbV9pZCI6IndmaS1iMDNjNjA5MDU3ZDI0ZGY5YWE5NzQ4MzEyNDU5ODRmZSIsImxlYXNlX3Rva2VuIjoibGVhc2UtOWYxZWZhNzIxNmQ3NDEwYWI1ZjFmZWFkNmY4Y2VkYmQiLCJ3b3JrZmxvd19pZCI6IndmLWM5ZTRhYjUwZWI5YzQ2YWZiNTc1OGEwYmI2NzY5MDNkIn0=",
+  "input_hash": "eb20c306c109bd673b1bc9429f99a7c1dcea6160d89cb0d0ea5aa406c6f68448",
+  "input_refs": {
+   "definition": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/definition.json",
+   "diagnosis": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/diagnosis.json",
+   "materialization": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/materialization.json",
+   "oracles": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/oracles.json",
+   "requirements": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/requirements.json",
+   "scenarios": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/scenarios.json",
+   "sources": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/sources.json"
+  },
+  "checkpoint": {},
+  "context": {},
+  "payload_schema": {
+   "example": {
+    "entries": [
+     {
+      "id": "knowledge-1",
+      "text": "可复用的定位、环境或业务知识",
+      "evidence_refs": []
+     }
+    ]
+   },
+   "rule": "预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。"
+  }
+ },
+ "workflow": {
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "violated",
+  "revision": 23,
+  "domain_head": "bb808cc5cc02bc2ce4e60f9e0fdc00c805c3befc23e79229374df32ca997262b",
+  "definition_hash": "eb20c306c109bd673b1bc9429f99a7c1dcea6160d89cb0d0ea5aa406c6f68448",
+  "counts": {
+   "completed": 6,
+   "leased": 1
+  },
+  "state": {
+   "lifecycle": "active",
+   "phase": "awaiting_host",
+   "outcome": "fail",
+   "checks": {
+    "business": "fail",
+    "performance": "not_applicable",
+    "quality": "not_applicable"
+   },
+   "evidence": "valid",
+   "report": "ready",
+   "delivery": "not_applicable",
+   "scope": {
+    "project_id": "bb-api",
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+    "run_id": null,
+    "case_id": null,
+    "attempt_id": null
+   },
+   "reason": "",
+   "revision": "07460f547edfa757b947ab14cf8c584007156b82e0afeb3ff53a049d295d9416"
+  }
+ }
+}

@@ -22,6 +22,22 @@ from autoskill import builder, db, maintenance, paths, projects, runner
 from autoskill.server import jobs, scheduler
 
 ENSURE = "import json; from autoskill.server import jobs; print(json.dumps(jobs.ensure_worker()))"
+STARTUP_BARRIER = """
+import contextlib
+import sys
+from autoskill.server import jobs
+
+original_lock = jobs._worker_lock
+@contextlib.contextmanager
+def observed_lock():
+    with original_lock() as free:
+        print('acquired' if free else 'busy', flush=True)
+        yield free
+jobs._worker_lock = observed_lock
+print('ready', flush=True)
+sys.stdin.readline()
+jobs._dispatch(sys.argv[1])
+"""
 
 
 class MaintenanceProbe:
@@ -219,6 +235,50 @@ class DispatcherTests(unittest.TestCase):
     def test_cancelled_waiter_does_not_execute_when_a_slot_opens(self):
         first, second = self.queued(0), self.queued(1)
         self.ensure()
+        self.assertTrue(self.sites[0].entered.wait(10))
+        jobs.cancel(second["id"])
+        self.sites[0].release.set()
+        self.wait(lambda: db.one("SELECT status FROM runs WHERE id = ?", (first["id"],))["status"] == "Pass")
+        self.assertEqual(db.one("SELECT status FROM runs WHERE id = ?", (second["id"],))["status"], "Cancelled")
+        self.assertFalse(self.sites[1].entered.is_set())
+
+    def test_startup_ack_does_not_compete_with_the_new_dispatcher(self):
+        first, second = self.queued(0), self.queued(1)
+        ready, attempted = threading.Event(), threading.Event()
+        children, replies = [], []
+        original_state = jobs._state
+        released = False
+
+        def launch(token):
+            child = subprocess.Popen([sys.executable, "-c", STARTUP_BARRIER, token], cwd=paths.APP,
+                                     env=paths.child_env(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE, text=True)
+            self.children.append(child)
+            children.append(child)
+            jobs._dispatchers[child.pid] = child
+            def read_startup():
+                replies.append(child.stdout.readline().strip())
+                ready.set()
+                replies.append(child.stdout.readline().strip())
+                attempted.set()
+            reader = threading.Thread(target=read_startup, daemon=True)
+            reader.start()
+            self.addCleanup(reader.join, 5)
+            return child
+
+        def state():
+            nonlocal released
+            if ready.is_set() and not released:
+                released = True
+                self.assertEqual(replies[0], "ready")
+                children[0].stdin.write("start\n")
+                children[0].stdin.flush()
+                self.assertTrue(attempted.wait(5), "The child did not attempt its real lifetime lock")
+            return original_state()
+
+        with patch.object(jobs, "_launch_dispatcher", side_effect=launch), patch.object(jobs, "_state", side_effect=state):
+            self.ensure()
+        self.assertEqual(replies, ["ready", "acquired"])
         self.assertTrue(self.sites[0].entered.wait(10))
         jobs.cancel(second["id"])
         self.sites[0].release.set()

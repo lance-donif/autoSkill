@@ -1,0 +1,8 @@
+{
+  "url": "https://storage.googleapis.com/chrome-for-testing-public/156.0.8078.79/linux64/chromedriver-linux64.zip",
+  "sha256": "37db0fc8b90e75c89a3b2f1f42f41d93e3f77421b70b4cd17056db939fcda731",
+  "bytes": 11898513,
+  "driver": "/workspace/autoskill-main-integration/runtime/chromedriver-linux64/chromedriver",
+  "version": "ChromeDriver 156.0.8078.79 (a21ce95c24ce3964416f09ae1862f53f319eb4d0-refs/branch-heads/8078@{#1704})",
+  "scope": "External test dependency only; no product automatic download and no runtime binary staged in Git."
+}

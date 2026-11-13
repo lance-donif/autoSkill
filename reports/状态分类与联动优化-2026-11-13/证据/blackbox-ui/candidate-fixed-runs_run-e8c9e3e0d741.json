@@ -1,0 +1,57 @@
+{
+  "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n已结束\n历史周期\n独立黑盒订单\n\nworkflow触发 · 执行引擎 Playwright · 今天 14:11\n\n下载 HTML 报告\n下载本次用例 Excel\n下载 Markdown 汇总\n下载 Bug 清单\n重新运行\n删除运行\n综合：通过\n业务：通过\n性能：不适用\n质量：不适用\n证据：有效\n报告：已就绪\n投递：不适用\n\n历史周期：cycle-d40fb808592f4eb6bfd04fb3423e388b；当前周期：cycle-f8e0f09686ee4490855cea8c3bef6bce\n\n1\n通过\n0\n失败\n0\n阻塞\n0\n未验证\n1\n用例\n4.0 秒\n总耗时\n用例结果\n\n点开一条查看每一步和每条断言。\n\n已结束\n历史周期\n订单服务业务成功　TC-API-ORDER\n综合：通过\n业务：通过\n接口\n4.0 秒",
+  "fields": [],
+  "buttons": [
+    "深色",
+    "全部项目",
+    "近 7 天",
+    "回放设置",
+    "下载 HTML 报告",
+    "重新运行",
+    "删除运行",
+    "已结束历史周期订单服务业务成功　TC-API-ORDER综合：通过业务：通过接口4.0 秒"
+  ],
+  "links": [
+    {
+      "text": "autoSkill\n录一次，到处回放",
+      "href": "#/dashboard"
+    },
+    {
+      "text": "仪表盘",
+      "href": "#/dashboard"
+    },
+    {
+      "text": "项目与用例",
+      "href": "#/cases"
+    },
+    {
+      "text": "执行记录",
+      "href": "#/runs"
+    },
+    {
+      "text": "定时任务",
+      "href": "#/schedules"
+    },
+    {
+      "text": "数据管理",
+      "href": "#/data"
+    },
+    {
+      "text": "执行记录",
+      "href": "#/runs"
+    },
+    {
+      "text": "下载本次用例 Excel",
+      "href": "/api/task-reports/run_run-e8c9e3e0d741/excel"
+    },
+    {
+      "text": "下载 Markdown 汇总",
+      "href": "/api/task-reports/run_run-e8c9e3e0d741/markdown"
+    },
+    {
+      "text": "下载 Bug 清单",
+      "href": "/api/task-reports/run_run-e8c9e3e0d741/bugs"
+    }
+  ],
+  "errors": []
+}

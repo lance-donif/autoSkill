@@ -1,0 +1,30 @@
+         552069 function calls (544101 primitive calls) in 0.902 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1460 to 22 due to restriction <22>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.902    0.902 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:330(dashboard)
+        1    0.000    0.000    0.895    0.895 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:321(summary)
+        6    0.002    0.000    0.864    0.144 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:186(_selected)
+        1    0.000    0.000    0.863    0.863 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:285(run_counts)
+       18    0.000    0.000    0.861    0.048 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:164(_project_run)
+    72/36    0.001    0.000    0.859    0.024 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:38(read)
+       39    0.000    0.000    0.818    0.021 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:157(_project_result)
+       18    0.001    0.000    0.817    0.045 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:259(result)
+       18    0.001    0.000    0.485    0.027 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:209(_evidence)
+       36    0.001    0.000    0.328    0.009 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:178(report)
+  470/341    0.001    0.000    0.310    0.001 <frozen importlib._bootstrap>:1390(_handle_fromlist)
+    209/3    0.002    0.000    0.309    0.103 <frozen importlib._bootstrap>:1349(_find_and_load)
+    459/4    0.001    0.000    0.309    0.077 <frozen importlib._bootstrap>:480(_call_with_frames_removed)
+    209/3    0.003    0.000    0.309    0.103 <frozen importlib._bootstrap>:1304(_find_and_load_unlocked)
+     47/2    0.000    0.000    0.309    0.155 {built-in method builtins.__import__}
+    203/3    0.002    0.000    0.309    0.103 <frozen importlib._bootstrap>:911(_load_unlocked)
+    190/2    0.001    0.000    0.308    0.154 <frozen importlib._bootstrap_external>:993(exec_module)
+    205/2    0.006    0.000    0.307    0.154 {built-in method builtins.exec}
+        1    0.000    0.000    0.297    0.297 /workspace/autoSkill/skills/autoskill/app/autoskill/native_run.py:1(<module>)
+        1    0.000    0.000    0.294    0.294 /workspace/autoSkill/skills/autoskill/app/autoskill/engines/__init__.py:1(<module>)
+        1    0.000    0.000    0.284    0.284 /workspace/autoSkill/skills/autoskill/app/autoskill/engines/ai_eval.py:1(<module>)
+        1    0.000    0.000    0.225    0.225 /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/httpx/__init__.py:1(<module>)
+
+

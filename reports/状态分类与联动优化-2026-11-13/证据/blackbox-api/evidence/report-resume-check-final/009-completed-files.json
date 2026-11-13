@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "excel",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-report-resume-check-final/.local/task-reports/workflow_13f20a6ce692dbe0b9ea2a39350f02e99d61b1e61091c82cdf3a84393a618a31/测试用例-1e4a48cfe3aa21f1.xlsx",
+    "exists": true,
+    "size": 18917,
+    "sha256": "e9fe52bee8d66270dcfaefa1c45d4d32ce7c14e56ee072ca7240cfbc45649f68",
+    "hash_matches": true,
+    "size_matches": true,
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/report-resume-check-final/009-completed-files-excel.xlsx"
+  },
+  {
+    "kind": "markdown",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-report-resume-check-final/.local/task-reports/workflow_13f20a6ce692dbe0b9ea2a39350f02e99d61b1e61091c82cdf3a84393a618a31/测试简报-1e4a48cfe3aa21f1.md",
+    "exists": true,
+    "size": 846,
+    "sha256": "fefcd395103dfa0028d1706495b6dbd67fbd7117f2c18dead602bfd87de49422",
+    "hash_matches": true,
+    "size_matches": true,
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/report-resume-check-final/009-completed-files-markdown.md"
+  },
+  {
+    "kind": "bugs",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-report-resume-check-final/.local/task-reports/workflow_13f20a6ce692dbe0b9ea2a39350f02e99d61b1e61091c82cdf3a84393a618a31/Bug清单-1e4a48cfe3aa21f1.md",
+    "exists": true,
+    "size": 1608,
+    "sha256": "fbb4a2046434a53ded90a0fbd4a87232afa5317730e331b2d4642a1154a298cc",
+    "hash_matches": true,
+    "size_matches": true,
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/report-resume-check-final/009-completed-files-bugs.md"
+  }
+]

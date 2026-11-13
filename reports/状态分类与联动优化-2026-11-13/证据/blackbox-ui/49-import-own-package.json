@@ -1,0 +1,12 @@
+{
+  "command": [
+    "import",
+    "/workspace/autoskill-state-validation/blackbox-ui/own-public-import.zip",
+    "--overwrite"
+  ],
+  "started_at": 1794579357.851891,
+  "finished_at": 1794579358.2098615,
+  "exit_code": 0,
+  "stdout": "{\n \"imported\": [],\n \"skipped\": [\n  {\n   \"id\": \"localhost\",\n   \"reason\": \"内容没有通过校验：需求必填字段缺失\\nTC-API-STATISTICS: 未知需求 req-order-success\"\n  }\n ],\n \"secrets_restored\": [],\n \"missing_secrets\": [],\n \"next\": \"可以直接运行：autoskill run <项目>\"\n}\n",
+  "stderr": ""
+}

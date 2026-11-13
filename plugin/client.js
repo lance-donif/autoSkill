@@ -16,6 +16,9 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     materialize: '生成可执行用例', execute: '执行测试', diagnose: '分析结果', maintain: '维护用例', knowledge: '沉淀知识', investigate: '核实操作结果',
     publishing: '发布中', done: '已完成', not_generated: '尚未生成', stale_cycle: '当前查看历史周期', reference_missing: '任务引用已不存在',
     mixed: '部分不符合预期',
+    queued: '排队中', awaiting_host: '等待宿主', settled: '已结束', blocked: '阻塞',
+    pass: '通过', fail: '失败', unverified: '未验证', not_applicable: '不适用',
+    valid: '有效', invalid: '已失效', generating: '生成中', dispatching: '投递中', delivered: '已送达',
   };
   const STYLE = {
     card: { border: '1px solid currentColor', borderRadius: 12, padding: 12, margin: '8px 0', fontSize: 13, overflowWrap: 'anywhere' },
@@ -114,6 +117,16 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     };
   }
 
+  function stateSummary(entity) {
+    const state = entity?.state;
+    if (!state) return null;
+    const facts = [['当前阶段', state.phase || state.lifecycle], ['综合结果', state.outcome],
+      ['业务验证', state.checks?.business], ['性能', state.checks?.performance], ['质量', state.checks?.quality],
+      ['证据', state.evidence], ['报告', state.report], ['投递', state.delivery]];
+    if (state.scope?.historical) facts.push(['历史周期', state.scope.cycle_id], ['当前周期', state.scope.current_cycle_id]);
+    return facts.map(([title, value]) => title + '：' + label(value)).join('；');
+  }
+
   function sessionStore(sessionId) {
     let snapshot = { actions: {}, reports: {} };
     const listeners = new Set();
@@ -190,7 +203,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
         if (!currentGeneration(startedGeneration)) return;
         const receipt = result.data;
         const ready = result.request_state === 'completed' && receipt?.status === 'ready' && receipt.report_id === reportId
-          && receipt.excel && receipt.markdown && receipt.sha256 && receipt.markdown_sha256;
+          && receipt.excel && receipt.markdown && receipt.bugs && receipt.sha256 && receipt.markdown_sha256 && receipt.bugs_sha256;
         publish({ reports: { ...snapshot.reports, [reportId]: ready ? { state: 'ready', receipt }
           : { state: 'failed', error: receipt?.error || result.error?.message || '报告尚不可下载，请查看任务状态或重试导出。' } } });
       } catch (error) {
@@ -253,14 +266,12 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     if (!reportId) return null;
     const verified = snapshot.reports[reportId];
     const action = snapshot.actions[actionKey('report.retry', report)];
-    const missingBugs = verified?.state === 'ready' && !verified.receipt.bugs;
     return h('div', { key: reportId, style: { marginTop: 8 } },
       h('div', { style: STYLE.row }, h('span', {}, '测试报告：' + reportId),
         verified?.state === 'ready' ? reportLinks(store, reportId, verified.receipt)
           : button(verified?.state === 'checking' ? '正在校验报告…' : '校验并获取报告', () => { void store.verifyReport(reportId); }, verified?.state === 'checking'),
-        report.receipt_status === 'failed' || verified?.state === 'failed' || missingBugs
+        report.receipt_status === 'failed' || verified?.state === 'failed'
           ? button('重试导出报告', () => { void store.command('report.retry', { report_id: reportId }, bindingId); }, ['pending', 'unknown'].includes(action?.state)) : null),
-      missingBugs ? h('p', { style: STYLE.muted }, '旧报告缺少 Bug 清单，可重试导出补齐。') : null,
       verified?.error ? h('p', { role: 'status' }, verified.error) : null, actionNotice(store, action));
   }
 
@@ -309,14 +320,18 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     if (identity.task_session_id) facts.push('任务：' + identity.task_session_id);
     if (identity.workflow_id) facts.push('工作流：' + identity.workflow_id + (identity.cycle_id ? ' · ' + identity.cycle_id : ''));
     if (identity.run_id) facts.push('执行：' + identity.run_id);
-    if (data?.conclusion) facts.push('业务验证：' + label(data.conclusion));
+    const entity = data?.state ? data : recordedRun(record);
+    if (entity?.state) facts.push(stateSummary(entity));
+    else if (data?.conclusion) facts.push('业务验证：' + label(data.conclusion));
     return facts.map((fact) => h('p', { key: fact, style: STYLE.muted }, fact));
   }
 
   function recordedRun(record) {
     const runId = record.identity.run_id;
-    if (record.data?.id === runId && record.data?.status) {
-      return { ...record.data, can_cancel: ACTIVE.has(record.data.status) };
+    if (record.data?.id === runId && (record.data?.status || record.data?.state)) {
+      const run = record.data;
+      const canCancel = run.state ? ['pending', 'active'].includes(run.state.lifecycle) : ACTIVE.has(run.status);
+      return { ...run, can_cancel: run.can_cancel ?? canCancel };
     }
     return list(record.data?.runs?.items).find((run) => run.id === runId);
   }

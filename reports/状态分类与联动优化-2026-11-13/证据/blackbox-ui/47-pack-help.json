@@ -1,0 +1,11 @@
+{
+  "command": [
+    "pack",
+    "--help"
+  ],
+  "started_at": 1794579340.2083163,
+  "finished_at": 1794579340.3789496,
+  "exit_code": 0,
+  "stdout": "usage: autoskill pack [-h] [--out OUT] [--full] [--include-secrets]\n                      [--passphrase PASSPHRASE]\n                      [projects ...]\n\npositional arguments:\n  projects              项目标识；省略则打包全部项目\n\noptions:\n  -h, --help            show this help message and exit\n  --out OUT             输出文件或目录\n  --full                打出含运行时的完整包：对方解压即用（约 270 MB）\n  --include-secrets     把凭据用口令加密后一并带走（团队共用测试账号时）\n  --passphrase PASSPHRASE\n                        配合 --include-secrets；省略时从环境变量 AUTOSKILL_PASSPHRASE 读取\n",
+  "stderr": ""
+}

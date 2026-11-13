@@ -1,0 +1,8 @@
+{
+  "url": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.42.0.tgz",
+  "version": "agent-browser 0.42.0",
+  "sha256": "3c2546296646b858a29da3c0a2f0f891c322ab32941c84b251f63c0dd803dd98",
+  "bytes": 59645044,
+  "binary": "/workspace/autoskill-main-integration/runtime/agent-browser-linux-x64",
+  "scope": "Pinned maintainer test dependency outside Git; current full round environment remains unchanged."
+}

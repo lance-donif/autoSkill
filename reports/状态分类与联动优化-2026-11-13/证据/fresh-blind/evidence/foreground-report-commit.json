@@ -1,0 +1,361 @@
+{
+  "started_ns": 1794581201767594986,
+  "loadavg": [
+    2.42578125,
+    3.2744140625,
+    3.26953125
+  ],
+  "method": "Known local report-file unlink completion plus first public failed-report response; actual Chromium double-rAF paint. Both boundaries are preserved.",
+  "visible": {
+    "visibility": "visible",
+    "focus": true
+  },
+  "before_body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n已结束\nFresh blind arithmetic desk\n\n手动触发 · 执行引擎 ai-eval · 今天 14:34\n\n下载 HTML 报告\n下载本次用例 Excel\n下载 Markdown 汇总\n下载 Bug 清单\n重跑原生资产\n删除运行\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n证据：有效\n报告：已就绪\n投递：不适用\n\n响应时间不符合目标\n\n0\n通过\n1\n失败\n0\n阻塞\n0\n未验证\n1\n用例\n434 ms\n总耗时\n响应时间不符合目标\n用例结果\n\n点开一条查看每一步和每条断言。\n\n已结束\nslow six times seven　arithmetic-slow:1\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n接口\n434 ms\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n证据：有效\n报告：已就绪\n投递：不适用\n\n响应时间不符合目标\n\n失败：响应时间不符合目标\n\t断言\t期望\t实际\n\n\t\t42\t42",
+  "unlink_started_ns": 1794581205777511627,
+  "unlink_finished_ns": 1794581205777603535,
+  "first_failed_public_response": {
+    "started_ns": 1794581205777606138,
+    "finished_ns": 1794581205814860701,
+    "body": {
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 1,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "cases": 1,
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:40:39.294+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T14:34:46.057+00:00",
+        "input_hash": "e69082482dbbd28a1111699ee1c8a48c24a436657b6c24dbd3ab531106909f9c",
+        "status": "Fail"
+      },
+      "kind": "run",
+      "render_owner_identity": {
+        "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 54810,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1152824"
+      },
+      "render_started_at": "2026-11-13T14:40:38.100+00:00",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-6d5493ee196e",
+      "retry_url": "/api/task-reports/run_run-6d5493ee196e/retry",
+      "retryable": true,
+      "run_ids": [
+        "run-6d5493ee196e"
+      ],
+      "source_hash": "572066ce782208caa63297939e28bed74ccda0e7730be0997b2d7d7dfd6f90f9",
+      "status": "failed",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 1,
+        "NotRun": 0,
+        "Pass": 0,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-6d5493ee196e",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Fresh blind arithmetic desk",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      },
+      "error": "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。"
+    }
+  },
+  "after_failure_body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n已结束\nFresh blind arithmetic desk\n\n手动触发 · 执行引擎 ai-eval · 今天 14:34\n\n下载 HTML 报告\n报告导出未完成\n重试导出报告\n重跑原生资产\n删除运行\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n证据：有效\n报告：失败\n投递：不适用\n\n响应时间不符合目标\n\n0\n通过\n1\n失败\n0\n阻塞\n0\n未验证\n1\n用例\n434 ms\n总耗时\n响应时间不符合目标\n用例结果\n\n点开一条查看每一步和每条断言。\n\n已结束\nslow six times seven　arithmetic-slow:1\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n报告：失败\n接口\n434 ms\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n证据：有效\n报告：失败\n投递：不适用\n\n响应时间不符合目标\n\n失败：响应时间不符合目标\n\t断言\t期望\t实际\n\n\t\t42\t42",
+  "failed_paint": {
+    "kind": "paint",
+    "at": 1794581206031,
+    "status": "failed",
+    "domAt": 1794581206012
+  },
+  "unlink_to_failed_paint_ms": 253.396,
+  "public_failed_ack_to_paint_ms": 216.139,
+  "within_one_second_from_unlink": true,
+  "manual_retry": {
+    "started_ns": 1794581206346862199,
+    "finished_ns": 1794581206500813867,
+    "body": {
+      "report_id": "run_run-6d5493ee196e",
+      "kind": "run",
+      "task_id": "run-6d5493ee196e",
+      "retry_url": "/api/task-reports/run_run-6d5493ee196e/retry",
+      "render_owner_identity": {
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+        "pid": 54810,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1152824"
+      },
+      "render_started_at": "2026-11-13T14:46:46.431+00:00",
+      "status": "ready",
+      "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试用例-572066ce782208ca.xlsx",
+      "download_url": "/api/task-reports/run_run-6d5493ee196e/excel",
+      "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试简报-572066ce782208ca.md",
+      "markdown_download_url": "/api/task-reports/run_run-6d5493ee196e/markdown",
+      "markdown_sha256": "fd3e1f1ca4a8cf80e47374210b04ea2273d7a5aa88bff95320864fab3da22dac",
+      "markdown_size": 676,
+      "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/Bug清单-572066ce782208ca.md",
+      "bugs_download_url": "/api/task-reports/run_run-6d5493ee196e/bugs",
+      "bugs_sha256": "ff6845731eb4f2284eaf9f645630656ab539f22660b7833b67b82bb5b0cbff72",
+      "bugs_size": 1480,
+      "sha256": "26ac4caa1aabbae64c7f5f3781dbba7d9725486f904970e8b0330fe05ca7cd71",
+      "size": 18126,
+      "source_hash": "572066ce782208caa63297939e28bed74ccda0e7730be0997b2d7d7dfd6f90f9",
+      "generation": {
+        "input_hash": "e69082482dbbd28a1111699ee1c8a48c24a436657b6c24dbd3ab531106909f9c",
+        "finished_at": "2026-11-13T14:34:46.057+00:00",
+        "status": "Fail"
+      },
+      "generated_at": "2026-11-13T14:46:46.489+00:00",
+      "retryable": false,
+      "run_ids": [
+        "run-6d5493ee196e"
+      ],
+      "cases": 1,
+      "renderer": "test-cases-14-column-v1",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Fresh blind arithmetic desk",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      },
+      "execution_rows": 1,
+      "summary_counts": {
+        "Pass": 0,
+        "Fail": 1,
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Unverified": 0,
+        "NotRun": 0,
+        "Unknown": 0
+      },
+      "summary_cases": 1,
+      "summary_execution_rows": 1,
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 1,
+        "unverified": 0,
+        "recording": 0,
+        "historical": 0
+      }
+    }
+  },
+  "ready_public_response": {
+    "started_ns": 1794581206346862199,
+    "finished_ns": 1794581206500813867,
+    "body": {
+      "report_id": "run_run-6d5493ee196e",
+      "kind": "run",
+      "task_id": "run-6d5493ee196e",
+      "retry_url": "/api/task-reports/run_run-6d5493ee196e/retry",
+      "render_owner_identity": {
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+        "pid": 54810,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1152824"
+      },
+      "render_started_at": "2026-11-13T14:46:46.431+00:00",
+      "status": "ready",
+      "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试用例-572066ce782208ca.xlsx",
+      "download_url": "/api/task-reports/run_run-6d5493ee196e/excel",
+      "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试简报-572066ce782208ca.md",
+      "markdown_download_url": "/api/task-reports/run_run-6d5493ee196e/markdown",
+      "markdown_sha256": "fd3e1f1ca4a8cf80e47374210b04ea2273d7a5aa88bff95320864fab3da22dac",
+      "markdown_size": 676,
+      "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/Bug清单-572066ce782208ca.md",
+      "bugs_download_url": "/api/task-reports/run_run-6d5493ee196e/bugs",
+      "bugs_sha256": "ff6845731eb4f2284eaf9f645630656ab539f22660b7833b67b82bb5b0cbff72",
+      "bugs_size": 1480,
+      "sha256": "26ac4caa1aabbae64c7f5f3781dbba7d9725486f904970e8b0330fe05ca7cd71",
+      "size": 18126,
+      "source_hash": "572066ce782208caa63297939e28bed74ccda0e7730be0997b2d7d7dfd6f90f9",
+      "generation": {
+        "input_hash": "e69082482dbbd28a1111699ee1c8a48c24a436657b6c24dbd3ab531106909f9c",
+        "finished_at": "2026-11-13T14:34:46.057+00:00",
+        "status": "Fail"
+      },
+      "generated_at": "2026-11-13T14:46:46.489+00:00",
+      "retryable": false,
+      "run_ids": [
+        "run-6d5493ee196e"
+      ],
+      "cases": 1,
+      "renderer": "test-cases-14-column-v1",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Fresh blind arithmetic desk",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      },
+      "execution_rows": 1,
+      "summary_counts": {
+        "Pass": 0,
+        "Fail": 1,
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Unverified": 0,
+        "NotRun": 0,
+        "Unknown": 0
+      },
+      "summary_cases": 1,
+      "summary_execution_rows": 1,
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 1,
+        "unverified": 0,
+        "recording": 0,
+        "historical": 0
+      }
+    }
+  },
+  "events": [
+    {
+      "kind": "dom",
+      "at": 1794581206012,
+      "status": "failed"
+    },
+    {
+      "kind": "paint",
+      "at": 1794581206031,
+      "status": "failed",
+      "domAt": 1794581206012
+    },
+    {
+      "kind": "dom",
+      "at": 1794581206572,
+      "status": "ready"
+    },
+    {
+      "kind": "paint",
+      "at": 1794581206597,
+      "status": "ready",
+      "domAt": 1794581206572
+    }
+  ],
+  "after_repair_body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n已结束\nFresh blind arithmetic desk\n\n手动触发 · 执行引擎 ai-eval · 今天 14:34\n\n下载 HTML 报告\n下载本次用例 Excel\n下载 Markdown 汇总\n下载 Bug 清单\n重跑原生资产\n删除运行\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n证据：有效\n报告：已就绪\n投递：不适用\n\n响应时间不符合目标\n\n0\n通过\n1\n失败\n0\n阻塞\n0\n未验证\n1\n用例\n434 ms\n总耗时\n响应时间不符合目标\n用例结果\n\n点开一条查看每一步和每条断言。\n\n已结束\nslow six times seven　arithmetic-slow:1\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n接口\n434 ms\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n证据：有效\n报告：已就绪\n投递：不适用\n\n响应时间不符合目标\n\n失败：响应时间不符合目标\n\t断言\t期望\t实际\n\n\t\t42\t42",
+  "finished_ns": 1794581206966499140,
+  "final_loadavg": [
+    2.55224609375,
+    3.28662109375,
+    3.27392578125
+  ]
+}

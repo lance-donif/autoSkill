@@ -1,8 +1,9 @@
 // Configure concurrent runs of existing cases, then inspect each retained execution and its metrics.
-import { h, icon, replace, api, scope, scopeQuery, go, href, route, statusPill, attempt, toast,
+import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toast,
   fmtTime, fmtDuration, fmtNumber, fmtPercent, refresh, live } from '../core.js';
 import { drawer, closeOverlay, empty, errorState, definition, preferredEngine, preferredHeaded } from '../ui.js';
 import { downloadRunHtml } from './run-export.js';
+import { primaryState, stateResults, stateDetails } from '../status-view.js';
 
 const PAGE = 50;
 const active = (run) => ['Queued', 'Running'].includes(run.status);
@@ -118,11 +119,11 @@ async function history(view) {
   const body = data.items.length ? h('div', { class: 'load-table-wrap' }, h('table', { class: 'table' },
     h('thead', {}, h('tr', {}, ['状态', '项目', '负载', '进度', '结果', '创建时间', ''].map((text) => h('th', {}, text)))),
     h('tbody', {}, data.items.map((run) => h('tr', {},
-      h('td', {}, statusPill(run.status)),
+      h('td', {}, primaryState(run), stateResults(run)),
       h('td', {}, h('a', { class: 'title', href: href('load-tests/' + run.id) }, run.project_name), h('div', { class: 'sub mono' }, run.id)),
       h('td', { class: 'sub' }, `${run.load.concurrency} 并发 · ${run.load.iterations} 次迭代`),
       h('td', { class: 'num' }, `${run.done} / ${run.total}`),
-      h('td', { class: 'sub' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞`),
+      h('td', { class: 'sub' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞 · ${run.unverified || 0} 未验证`),
       h('td', { class: 'sub num' }, fmtTime(run.created_at)),
       h('td', { class: 'actions' }, h('a', { class: 'btn sm', href: href('load-tests/' + run.id) }, '查看结果')))))))
     : empty({ glyph: 'sliders', title: '还没有压测记录', text: '选择已有的页面或接口用例，配置并发数和迭代次数后开始压测。',
@@ -162,13 +163,13 @@ async function report(view, id) {
 
 function taskReportLinks(run) {
   const receipt = run.test_report;
-  if (receipt?.status === 'ready') return h('div', { class: 'row wrap' },
+  if (run.state?.report === 'ready' && receipt) return h('div', { class: 'row wrap' },
     h('a', { class: 'btn', href: receipt.download_url, download: '' }, icon('table'), '下载本次用例 Excel'),
     h('a', { class: 'btn', href: receipt.markdown_download_url, download: '' }, '下载 Markdown 汇总'),
     h('a', { class: 'btn', href: receipt.bugs_download_url, download: '' }, '下载 Bug 清单'));
-  if (receipt?.status !== 'failed') return null;
+  if (run.state?.report !== 'failed' || !receipt) return null;
   const retry = h('button', { class: 'btn', onClick: async () => {
-    const result = await attempt(() => api(receipt.retry_url.replace(/^\/api/, ''), { method: 'POST' }), retry);
+    const result = await attempt(() => api('/task-reports/' + encodeURIComponent(receipt.report_id) + '/retry', { method: 'POST' }), retry);
     if (result) { toast(result.status === 'ready' ? '报告已生成' : result.error || '报告尚未生成', { bad: result.status === 'failed' }); refresh(); }
   } }, icon('reset'), '重试导出报告');
   return h('div', { class: 'banner', role: 'status' }, icon('warn'), h('span', { class: 'grow' }, receipt.error || '报告导出未完成'), retry);
@@ -177,14 +178,16 @@ function taskReportLinks(run) {
 function reportSummary(run, action, download) {
   const config = run.load;
   return h('section', { class: 'card' }, h('div', { class: 'card-body' },
-    h('div', { class: 'row wrap' }, statusPill(run.status), h('div', { class: 'grow report-heading' }, h('h1', {}, `${run.project_name} · 压测`),
+    h('div', { class: 'row wrap' }, primaryState(run), h('div', { class: 'grow report-heading' }, h('h1', {}, `${run.project_name} · 压测`),
       h('p', { class: 'sub' }, `${config.concurrency} 并发 · ${config.iterations} 次迭代 · 渐增 ${config.ramp_up_seconds} 秒 · ${fmtTime(run.created_at)}`)), download, action),
     h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
       h('div', { class: 'progress', role: 'progressbar', 'aria-label': '压测进度', 'aria-valuemin': 0, 'aria-valuemax': run.total, 'aria-valuenow': run.done },
         h('i', { style: `width:${run.total ? Math.min(100, run.done / run.total * 100) : 0}%` })),
       h('div', { class: 'row sub' }, h('span', { class: 'grow' }, active(run) ? (run.current || '准备执行') : '执行结束'),
         h('span', { class: 'num' }, `${run.done} / ${run.total} 条次`))),
-    h('div', { class: 'stats' }, stat('执行通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'),
+    stateDetails(run),
+    h('div', { class: 'stats' }, stat('综合通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'),
+      stat('未验证', run.unverified || 0),
       stat('尚未执行', Math.max(0, run.total - run.done))),
     run.reason && h('div', { class: 'banner bad', style: 'margin-top:16px', role: 'alert' }, icon('warn'), run.reason)));
 }
@@ -213,7 +216,7 @@ function resultTable(run) {
   rows.length ? h('div', { class: 'load-table-wrap' }, h('table', { class: 'table' },
     h('thead', {}, h('tr', {}, ['结果', '用例', '用户 / 迭代', '耗时', '详情'].map((text) => h('th', {}, text)))),
     h('tbody', {}, rows.map((row) => h('tr', {},
-      h('td', {}, statusPill(row.status)),
+      h('td', {}, primaryState(row), stateResults(row)),
       h('td', {}, h('div', { class: 'title' }, row.case_title, row.prerequisite ? h('span', { class: 'tag' }, '前置') : null),
         h('div', { class: 'sub mono' }, row.case_id)),
       h('td', { class: 'num' }, `${row.detail.load_user} / ${row.detail.load_iteration}`),
@@ -226,7 +229,7 @@ function resultDetails(row) {
   const assertions = row.detail.assertions || [];
   const show = (value) => value == null ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value);
   return h('details', { class: 'more' }, h('summary', {}, row.reason || '查看断言与业务结论'),
-    h('p', { class: 'sub' }, '业务结论：' + ({ Pass: '通过', Fail: '失败', Unverified: '尚未验证' }[row.detail.business_status] || '尚未验证')),
+    stateDetails(row),
     assertions.length ? h('ul', {}, assertions.map((check) => h('li', {},
       `${check.passed ? '通过' : '失败'} · ${check.name || check.label} · 期望 ${show(check.expected)} · 实际 ${show(check.actual)}`)))
       : h('p', { class: 'sub' }, '本次没有业务断言结果。'));

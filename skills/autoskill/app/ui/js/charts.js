@@ -14,7 +14,11 @@ export const SERIES = [
   { key: 'passed', label: '通过', color: 'var(--good)' },
   { key: 'blocked', label: '阻塞', color: 'var(--warn)' },
   { key: 'failed', label: '失败', color: 'var(--bad)' },
+  { key: 'unverified', label: '未验证', color: 'var(--ink-3)' },
+  { key: 'cancelled', label: '已取消', color: 'var(--line-strong)' },
+  { key: 'pending', label: '待处理', color: 'var(--accent)' },
 ];
+export const outcomeTotal = (counts) => SERIES.reduce((sum, series) => sum + (counts[series.key] || 0), 0);
 
 function niceMax(value) {
   if (value <= 4) return 4;
@@ -54,12 +58,12 @@ export function legend() {
 export function trendChart(points, unit, onPick) {
   const width = 760, height = 236, left = 36, right = 8, top = 12, bottom = 26;
   const plotW = width - left - right, plotH = height - top - bottom;
-  const max = niceMax(Math.max(1, ...points.map((p) => p.passed + p.failed + p.blocked)));
+  const max = niceMax(Math.max(1, ...points.map(outcomeTotal)));
   const slot = plotW / Math.max(points.length, 1);
   const bar = Math.max(3, Math.min(24, slot - 6));
   const y = (value) => top + plotH - (value / max) * plotH;
   const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', class: 'chart-svg',
-    'aria-label': `执行趋势：${points.length} 个时间段的通过、阻塞、失败条次` });
+    'aria-label': `执行趋势：${points.length} 个时间段的综合结果条次` });
   for (let i = 0; i <= 4; i++) {
     const value = (max / 4) * i;
     root.append(svg('line', { x1: left, x2: width - right, y1: y(value), y2: y(value), class: i ? 'grid' : 'axis' }));
@@ -74,7 +78,7 @@ export function trendChart(points, unit, onPick) {
     const cx = left + slot * index + slot / 2;
     const group = svg('g', { class: 'col', tabindex: '0', role: 'button' });
     let base = 0;
-    const total = point.passed + point.failed + point.blocked;
+    const total = outcomeTotal(point);
     const visible = SERIES.filter((s) => point[s.key] > 0);
     visible.forEach((series, position) => {
       const from = y(base), to = y(base + point[series.key]);
@@ -89,12 +93,12 @@ export function trendChart(points, unit, onPick) {
     });
     group.append(svg('rect', { x: left + slot * index, y: top, width: slot, height: plotH, class: 'hit' }));
     const name = bucketLabel(point.bucket, unit);
-    group.setAttribute('aria-label', `${point.bucket}：通过 ${point.passed}，阻塞 ${point.blocked}，失败 ${point.failed}`);
+    group.setAttribute('aria-label', `${point.bucket}：` + SERIES.map((series) => series.label + ' ' + (point[series.key] || 0)).join('，'));
     const show = () => {
       tip.replaceChildren(
         h('div', { class: 'tip-title' }, unit === 'hour' ? point.bucket.slice(5) : point.bucket),
         ...SERIES.map((s) => h('div', { class: 'tip-row' }, h('i', { class: 'key', style: `background:${s.color}` }),
-          h('b', {}, String(point[s.key])), h('span', {}, s.label))),
+          h('b', {}, String(point[s.key] || 0)), h('span', {}, s.label))),
         h('div', { class: 'tip-foot' }, total ? `执行通过率 ${fmtPercent(point.pass_rate)}` : '没有执行'));
       tip.hidden = false;
       const share = (cx / width) * 100;
@@ -122,11 +126,11 @@ export function trendChart(points, unit, onPick) {
 /** The same data as a table: the accessible twin of the chart. */
 export function trendTable(points, unit) {
   return h('div', { class: 'chart-table' }, h('table', { class: 'table' },
-    h('thead', {}, h('tr', {}, ['时间', '通过', '阻塞', '失败', '执行通过率'].map((t) => h('th', {}, t)))),
-    h('tbody', {}, points.filter((p) => p.passed + p.failed + p.blocked).reverse().map((p) => h('tr', {},
+    h('thead', {}, h('tr', {}, ['时间', ...SERIES.map((series) => series.label), '综合通过率'].map((t) => h('th', {}, t)))),
+    h('tbody', {}, points.filter((point) => outcomeTotal(point)).reverse().map((p) => h('tr', {},
       h('td', { class: 'num' }, unit === 'hour' ? p.bucket.slice(5) : p.bucket),
-      h('td', { class: 'num' }, String(p.passed)), h('td', { class: 'num' }, String(p.blocked)),
-      h('td', { class: 'num' }, String(p.failed)), h('td', { class: 'num' }, fmtPercent(p.pass_rate)))))));
+      SERIES.map((series) => h('td', { class: 'num' }, String(p[series.key] || 0))),
+      h('td', { class: 'num' }, fmtPercent(p.pass_rate)))))));
 }
 
 /** Pass rate over time: a single-series sparkline in a muted hue, last point in the accent. */

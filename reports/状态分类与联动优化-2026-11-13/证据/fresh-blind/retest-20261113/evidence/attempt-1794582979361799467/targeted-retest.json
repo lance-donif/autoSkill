@@ -1,0 +1,1671 @@
+{
+  "started_ns": 1794582979361799467,
+  "load": [
+    {
+      "time_ns": 1794582979361800082,
+      "loadavg": [
+        0.67822265625,
+        0.66796875,
+        1.2255859375
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 9325481672\nuser_usec 7703063632\nsystem_usec 1622418039\nnice_usec 0\nnr_periods 93452\nnr_throttled 26992\nthrottled_usec 1530329913\nnr_bursts 0\nburst_usec 0\n"
+    },
+    {
+      "time_ns": 1794582995991962684,
+      "loadavg": [
+        1.28515625,
+        0.8125,
+        1.26513671875
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 9344947590\nuser_usec 7716788490\nsystem_usec 1628159100\nnice_usec 0\nnr_periods 93619\nnr_throttled 27040\nthrottled_usec 1533181973\nnr_bursts 0\nburst_usec 0\n"
+    }
+  ],
+  "steps": [
+    {
+      "name": "native_ui_rerun",
+      "time_ns": 1794582985238224466,
+      "value": {
+        "status": "Pass",
+        "new_run_id": "run-59b33d751d1d",
+        "old_business": "fail",
+        "new_business": "pass",
+        "ui_action": "重跑原生资产"
+      }
+    },
+    {
+      "name": "terminal_paint",
+      "time_ns": 1794582985239702759,
+      "value": {
+        "status": "Pass",
+        "receipt_finish_to_paint_ms": 245.0,
+        "boundary": "finished_at precedes commit; less than1s is a conservative upper bound. More than1s cannot establish exact commit violation."
+      }
+    },
+    {
+      "name": "report_failure_and_ready_paint",
+      "time_ns": 1794582987131359608,
+      "value": {
+        "failure_status": "Pass",
+        "unlink_to_failed_paint_ms": 44.481,
+        "ready_status": "Pass",
+        "last_artifact_write_to_ready_paint_ms": 297.231,
+        "retry_only_export": {
+          "fixture_queries_unchanged": true,
+          "run_ids_unchanged": true,
+          "source_hash_unchanged": true
+        }
+      }
+    },
+    {
+      "name": "offline_restore_fresh_result",
+      "time_ns": 1794582995551764824,
+      "value": {
+        "status": "Pass",
+        "restore_start_to_paint_ms": 326.594,
+        "restore_completed_to_paint_ms": 321.839,
+        "offline_notice_present": false,
+        "interaction_preserved": true
+      }
+    }
+  ],
+  "errors": [],
+  "browser": "/usr/bin/chromium",
+  "no_product_imports": true,
+  "first_round_report_sha256": "9fbdb916288fb627de6cc01238ea171f891356f3fe478acdb6a7b50d459d0a4c",
+  "attempt_directory": "evidence/attempt-1794582979361799467",
+  "native_rerun_action": "重跑原生资产",
+  "native_rerun_response": {
+    "status": 200,
+    "body": {
+      "id": "run-59b33d751d1d",
+      "total": 0,
+      "family": "native",
+      "dropped": 0,
+      "queue_dispatcher": {
+        "status": "started",
+        "pid": 68150,
+        "reason": ""
+      }
+    },
+    "posts": [
+      {
+        "url": "http://127.0.0.1:18890/api/runs/run-84f885b6f65d/rerun",
+        "method": "POST",
+        "request": "{}",
+        "status": 200,
+        "at_ns": 1794582983203590732,
+        "body": {
+          "id": "run-59b33d751d1d",
+          "total": 0,
+          "family": "native",
+          "dropped": 0,
+          "queue_dispatcher": {
+            "status": "started",
+            "pid": 68150,
+            "reason": ""
+          }
+        }
+      }
+    ]
+  },
+  "native_rerun_id": "run-59b33d751d1d",
+  "terminal_initial_statuses": [
+    {
+      "text": "执行中",
+      "html": "<span class=\"status running\" title=\"执行中\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>执行中</span>"
+    },
+    {
+      "text": "综合：待处理",
+      "html": "<span class=\"status idle\" title=\"综合：待处理\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>综合：待处理</span>"
+    },
+    {
+      "text": "业务：未验证",
+      "html": "<span class=\"status blocked\" title=\"业务：未验证\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>业务：未验证</span>"
+    },
+    {
+      "text": "性能：不适用",
+      "html": "<span class=\"status idle\" title=\"性能：不适用\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>性能：不适用</span>"
+    },
+    {
+      "text": "质量：不适用",
+      "html": "<span class=\"status idle\" title=\"质量：不适用\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>质量：不适用</span>"
+    },
+    {
+      "text": "证据：未验证",
+      "html": "<span class=\"status blocked\" title=\"证据：未验证\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>证据：未验证</span>"
+    },
+    {
+      "text": "报告：待处理",
+      "html": "<span class=\"status idle\" title=\"报告：待处理\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>报告：待处理</span>"
+    },
+    {
+      "text": "投递：不适用",
+      "html": "<span class=\"status idle\" title=\"投递：不适用\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 11v6M12 7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg>投递：不适用</span>"
+    }
+  ],
+  "native_release": {
+    "url": "http://127.0.0.1:37171/control",
+    "method": "POST",
+    "request": {
+      "hold": false
+    },
+    "started_ns": 1794582983431563375,
+    "finished_ns": 1794582983436182787,
+    "http_status": 200,
+    "body": {
+      "retry_answer": 42,
+      "hold": false
+    }
+  },
+  "terminal_paint": {
+    "event": {
+      "kind": "paint",
+      "at": 1794582983916,
+      "value": {
+        "phase": "已结束",
+        "pass": true
+      },
+      "domAt": 1794582983898
+    },
+    "events": [
+      {
+        "kind": "initial",
+        "at": 1794582983428,
+        "value": {
+          "phase": "执行中",
+          "pass": false
+        }
+      },
+      {
+        "kind": "dom",
+        "at": 1794582983898,
+        "value": {
+          "phase": "已结束",
+          "pass": true
+        }
+      },
+      {
+        "kind": "paint",
+        "at": 1794582983916,
+        "value": {
+          "phase": "已结束",
+          "pass": true
+        },
+        "domAt": 1794582983898
+      }
+    ]
+  },
+  "native_current": {
+    "body": {
+      "id": "run-59b33d751d1d",
+      "batch_id": null,
+      "project_id": "fresh-arithmetic",
+      "engine": "ai-eval",
+      "trigger": "manual",
+      "task_id": null,
+      "status": "Pass",
+      "case_ids": "[\"asset-e4243c9eb456\"]",
+      "total": 1,
+      "done": 1,
+      "passed": 1,
+      "failed": 0,
+      "blocked": 0,
+      "current": "",
+      "reason": "",
+      "cancel": 0,
+      "pid": 68151,
+      "created_at": "2026-11-13T15:16:22.796+00:00",
+      "started_at": "2026-11-13T15:16:22.818+00:00",
+      "finished_at": "2026-11-13T15:16:23.671+00:00",
+      "headed": 0,
+      "claim_token": "",
+      "force_login": 0,
+      "session_id": "fresh-blind",
+      "family": "native",
+      "input_manifest": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/native-inputs/80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0-a3c172cfb96c46c0900e9021e44f277e.json",
+      "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+      "plan_path": "",
+      "delete_requested": 0,
+      "deletion_error": "",
+      "deletion_manifest": "",
+      "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\", \"pid\": 68151, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1404275\"}",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "settled",
+        "outcome": "pass",
+        "checks": {
+          "business": "pass",
+          "performance": "not_applicable",
+          "quality": "pass"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "fresh-arithmetic",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-59b33d751d1d",
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "8d9c5fa15752896a1e8723204cc6f045604437c0b338684f2ac2d3ebc36edff2"
+      },
+      "results": [
+        {
+          "id": 14,
+          "run_id": "run-59b33d751d1d",
+          "project_id": "fresh-arithmetic",
+          "case_id": "arithmetic-retry:1",
+          "case_title": "retry six times seven",
+          "kind": "native",
+          "engine": "ai-eval",
+          "status": "Pass",
+          "category": "native",
+          "reason": "",
+          "actual": "",
+          "duration_ms": 138,
+          "started_at": "2026-11-13T15:16:22.818+00:00",
+          "prerequisite": 0,
+          "case_revision": 1,
+          "detail": {
+            "id": "arithmetic-retry:1",
+            "title": "retry six times seven",
+            "status": "Pass",
+            "reason": "",
+            "business_status": "Pass",
+            "verification": "verified",
+            "assertions": [
+              {
+                "label": "回答符合独立预期",
+                "expected": 42,
+                "actual": 42,
+                "passed": true,
+                "source": "explicit",
+                "reference": null,
+                "error": ""
+              }
+            ],
+            "turns": [
+              {
+                "answer": 42,
+                "query": null,
+                "status_code": 200,
+                "protocol_complete": true,
+                "events": [
+                  {
+                    "kind": "message",
+                    "elapsed_ms": 20.273,
+                    "content": "42",
+                    "content_mode": "delta",
+                    "complete": false
+                  }
+                ],
+                "bindings": {},
+                "audio_sent": {},
+                "audio_received": {
+                  "bytes": 0,
+                  "chunks": 0
+                },
+                "timings": {
+                  "first_byte_ms": 17.092,
+                  "first_content_ms": 20.29,
+                  "first_audio_ms": null,
+                  "last_content_ms": 20.29,
+                  "protocol_complete_ms": 20.293,
+                  "total_ms": 20.3
+                },
+                "error": "",
+                "status": "Pass",
+                "reason": "",
+                "business_status": "Pass",
+                "assertions": [
+                  {
+                    "label": "回答符合独立预期",
+                    "expected": 42,
+                    "actual": 42,
+                    "passed": true,
+                    "source": "explicit",
+                    "reference": null,
+                    "error": ""
+                  }
+                ],
+                "performance_assertions": [],
+                "judgement": null,
+                "turn": 1,
+                "question": "retry six times seven",
+                "dynamic": false
+              }
+            ],
+            "duration_ms": 137.945,
+            "attempts": 1,
+            "user_id": "user-1",
+            "conversation_id": "384dd76bd14d4f78b5a9bb86e68f9a70",
+            "expected_turns": 1,
+            "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+            "engine": "ai-eval",
+            "business_verified": true,
+            "evidence": [
+              {
+                "path": "ai-evaluation.json",
+                "sha256": "f297951ce9fc8f857ca8e73e324cb0ee07eeaf5a6e465a728e58ec2148bc8d3c",
+                "size": 2656
+              }
+            ],
+            "evidence_status": "bound"
+          },
+          "case_content_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+          "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+          "state": {
+            "lifecycle": "completed",
+            "phase": "settled",
+            "outcome": "pass",
+            "checks": {
+              "business": "pass",
+              "performance": "not_applicable",
+              "quality": "pass"
+            },
+            "evidence": "valid",
+            "report": "ready",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-59b33d751d1d",
+              "case_id": "arithmetic-retry:1",
+              "attempt_id": null
+            },
+            "reason": "",
+            "last_attempt_outcome": "pass",
+            "revision": "854c5de7d01eec279b200cd4ff6892464f0d05dacc3c4358cd570538d56b5bae"
+          }
+        }
+      ],
+      "outcome": {
+        "status": "Pass",
+        "reason": "",
+        "execution_status": "completed",
+        "business_status": "Pass",
+        "verification": "verified",
+        "verdict_scope": "quality_and_performance",
+        "cases": [
+          {
+            "id": "arithmetic-retry:1",
+            "title": "retry six times seven",
+            "status": "Pass",
+            "reason": "",
+            "business_status": "Pass",
+            "verification": "verified",
+            "assertions": [
+              {
+                "label": "回答符合独立预期",
+                "expected": 42,
+                "actual": 42,
+                "passed": true,
+                "source": "explicit",
+                "reference": null,
+                "error": ""
+              }
+            ],
+            "turns": [
+              {
+                "answer": 42,
+                "query": null,
+                "status_code": 200,
+                "protocol_complete": true,
+                "events": [
+                  {
+                    "kind": "message",
+                    "elapsed_ms": 20.273,
+                    "content": "42",
+                    "content_mode": "delta",
+                    "complete": false
+                  }
+                ],
+                "bindings": {},
+                "audio_sent": {},
+                "audio_received": {
+                  "bytes": 0,
+                  "chunks": 0
+                },
+                "timings": {
+                  "first_byte_ms": 17.092,
+                  "first_content_ms": 20.29,
+                  "first_audio_ms": null,
+                  "last_content_ms": 20.29,
+                  "protocol_complete_ms": 20.293,
+                  "total_ms": 20.3
+                },
+                "error": "",
+                "status": "Pass",
+                "reason": "",
+                "business_status": "Pass",
+                "assertions": [
+                  {
+                    "label": "回答符合独立预期",
+                    "expected": 42,
+                    "actual": 42,
+                    "passed": true,
+                    "source": "explicit",
+                    "reference": null,
+                    "error": ""
+                  }
+                ],
+                "performance_assertions": [],
+                "judgement": null,
+                "turn": 1,
+                "question": "retry six times seven",
+                "dynamic": false
+              }
+            ],
+            "duration_ms": 137.945,
+            "attempts": 1,
+            "user_id": "user-1",
+            "conversation_id": "384dd76bd14d4f78b5a9bb86e68f9a70",
+            "expected_turns": 1
+          }
+        ],
+        "metrics": {
+          "planned_cases": 1,
+          "completed_cases": 1,
+          "quality_passed": 1,
+          "quality_pass_rate": 1.0,
+          "failed_cases": 0,
+          "blocked_cases": 0,
+          "cancelled_cases": 0,
+          "sent_turns": 1,
+          "concurrency": 1,
+          "elapsed_ms": 145.882,
+          "throughput_turns_per_second": 6.854875922324833,
+          "p50_ms": 20.3,
+          "p95_ms": 20.3,
+          "p99_ms": 20.3
+        },
+        "spec_hash": "6c801efa7385090a196750e9c82467d078761dbbbd8b89e889b8d5636fddd232",
+        "evidence": [
+          {
+            "path": "ai-evaluation.json",
+            "sha256": "f297951ce9fc8f857ca8e73e324cb0ee07eeaf5a6e465a728e58ec2148bc8d3c",
+            "size": 2656
+          }
+        ],
+        "evidence_status": "bound"
+      },
+      "evidence_dir": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-59b33d751d1d/native",
+      "test_report": {
+        "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-59b33d751d1d/test-report/Bug清单-585ecd7b5eaf064a.md",
+        "bugs_count": 0,
+        "bugs_counts": {
+          "business": 0,
+          "execution": 0,
+          "historical": 0,
+          "recording": 0,
+          "unverified": 0
+        },
+        "bugs_download_url": "/api/task-reports/run_run-59b33d751d1d/bugs",
+        "bugs_sha256": "aed0d043383cbe55c17ce519f240deb9d8985692195ce255342c30276617d028",
+        "bugs_size": 928,
+        "cases": 1,
+        "download_url": "/api/task-reports/run_run-59b33d751d1d/excel",
+        "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-59b33d751d1d/test-report/测试用例-585ecd7b5eaf064a.xlsx",
+        "execution_rows": 1,
+        "generated_at": "2026-11-13T15:16:24.430+00:00",
+        "generation": {
+          "finished_at": "2026-11-13T15:16:23.671+00:00",
+          "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+          "status": "Pass"
+        },
+        "kind": "run",
+        "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-59b33d751d1d/test-report/测试简报-585ecd7b5eaf064a.md",
+        "markdown_download_url": "/api/task-reports/run_run-59b33d751d1d/markdown",
+        "markdown_sha256": "9366e061e8483ed7f07b5507e4c59913fe5f9df9f71c383d71adc338ce507eed",
+        "markdown_size": 714,
+        "render_owner_identity": {
+          "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+          "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+          "pid": 68151,
+          "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1404275"
+        },
+        "render_started_at": "2026-11-13T15:16:23.690+00:00",
+        "renderer": "test-cases-14-column-v1",
+        "report_id": "run_run-59b33d751d1d",
+        "retry_url": "/api/task-reports/run_run-59b33d751d1d/retry",
+        "retryable": false,
+        "run_ids": [
+          "run-59b33d751d1d"
+        ],
+        "sha256": "2110a79d54218055a0aee542b7c3694dc52b9f5271f0ce8d7634a885b32a2a7e",
+        "size": 17843,
+        "source_hash": "585ecd7b5eaf064a8efe1c74eafdd81290d3e4e6e401cdca673d03cd0f13fea6",
+        "status": "ready",
+        "summary_cases": 1,
+        "summary_counts": {
+          "Blocked": 0,
+          "Cancelled": 0,
+          "Fail": 0,
+          "NotRun": 0,
+          "Pass": 1,
+          "Unknown": 0,
+          "Unverified": 0
+        },
+        "summary_execution_rows": 1,
+        "task_id": "run-59b33d751d1d",
+        "template_id": "test-cases-14-column-v1",
+        "validation": {
+          "bugs_readable": true,
+          "case_ids_match": true,
+          "case_rows": 1,
+          "execution_rows": 1,
+          "markdown_readable": true,
+          "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+          "rule_files_sha256": {
+            "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+            "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+            "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+          },
+          "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+          "structure": {
+            "businessGroupCount": 2,
+            "caseCount": 1,
+            "caseGroupDepths": {
+              "2": 1
+            },
+            "errors": [],
+            "excludedRows": [],
+            "functionItemCount": 1,
+            "functionItems": [
+              {
+                "caseCount": 1,
+                "name": "【待确认：功能项】",
+                "path": [
+                  "Fresh blind arithmetic desk",
+                  "【待确认：功能项】"
+                ]
+              }
+            ],
+            "ok": true,
+            "rootCount": 1,
+            "sheet": "功能测试用例",
+            "uniqueIdCount": 1,
+            "warnings": []
+          },
+          "visual_validation": "not_performed_by_runtime",
+          "workbook_readable": true
+        }
+      },
+      "asset_id": "asset-e4243c9eb456",
+      "asset_version": "d874e4c29f9a5acb05eb72228e28fc2f7e5cc749b50b9497b3edd0156dac3671",
+      "head": "4f84df01a7e7797843ed9237e137f24c30dbd4b9d2c9cce145618b51519fd7a0",
+      "planned_unknown": false,
+      "page": {
+        "total": 1,
+        "returned": 1,
+        "limit": null,
+        "has_more": false,
+        "next_cursor": null,
+        "content_revision": "3d5b0f15aa695fb9b8143243d5bf915e70135d0d5a6314ef27f00ecbdcfd3d01"
+      }
+    },
+    "exit_code": 0,
+    "evidence": "evidence/cli-1794582983980420451-native-ui-rerun-status.json"
+  },
+  "native_original": {
+    "body": {
+      "id": "run-84f885b6f65d",
+      "batch_id": null,
+      "project_id": "fresh-arithmetic",
+      "engine": "ai-eval",
+      "trigger": "manual",
+      "task_id": null,
+      "status": "Fail",
+      "case_ids": "[\"asset-e4243c9eb456\"]",
+      "total": 1,
+      "done": 1,
+      "passed": 0,
+      "failed": 1,
+      "blocked": 0,
+      "current": "",
+      "reason": "回答不符合独立预期",
+      "cancel": 0,
+      "pid": 56058,
+      "created_at": "2026-11-13T14:35:36.606+00:00",
+      "started_at": "2026-11-13T14:35:37.024+00:00",
+      "finished_at": "2026-11-13T14:35:38.275+00:00",
+      "headed": 0,
+      "claim_token": "",
+      "force_login": 0,
+      "session_id": "fresh-blind",
+      "family": "native",
+      "input_manifest": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/native-inputs/80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0-194c68a9ebcd4de5b5d61394c3e9ea99.json",
+      "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+      "plan_path": "",
+      "delete_requested": 0,
+      "deletion_error": "",
+      "deletion_manifest": "",
+      "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\", \"pid\": 56058, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1159701\"}",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "settled",
+        "outcome": "fail",
+        "checks": {
+          "business": "fail",
+          "performance": "not_applicable",
+          "quality": "fail"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "fresh-arithmetic",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-84f885b6f65d",
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "回答不符合独立预期",
+        "revision": "fe050703a99fe8e2cfa8cf1ac706b6253d3d64fda29b3c22e100b72358209f59"
+      },
+      "results": [
+        {
+          "id": 4,
+          "run_id": "run-84f885b6f65d",
+          "project_id": "fresh-arithmetic",
+          "case_id": "arithmetic-retry:1",
+          "case_title": "retry six times seven",
+          "kind": "native",
+          "engine": "ai-eval",
+          "status": "Fail",
+          "category": "native",
+          "reason": "回答不符合独立预期",
+          "actual": "",
+          "duration_ms": 381,
+          "started_at": "2026-11-13T14:35:37.024+00:00",
+          "prerequisite": 0,
+          "case_revision": 1,
+          "detail": {
+            "id": "arithmetic-retry:1",
+            "title": "retry six times seven",
+            "status": "Fail",
+            "reason": "回答不符合独立预期",
+            "business_status": "Fail",
+            "verification": "verified",
+            "assertions": [
+              {
+                "label": "回答符合独立预期",
+                "expected": 42,
+                "actual": 41,
+                "passed": false,
+                "source": "explicit",
+                "reference": null,
+                "error": ""
+              }
+            ],
+            "turns": [
+              {
+                "answer": 41,
+                "query": null,
+                "status_code": 200,
+                "protocol_complete": true,
+                "events": [
+                  {
+                    "kind": "message",
+                    "elapsed_ms": 65.644,
+                    "content": "41",
+                    "content_mode": "delta",
+                    "complete": false
+                  }
+                ],
+                "bindings": {},
+                "audio_sent": {},
+                "audio_received": {
+                  "bytes": 0,
+                  "chunks": 0
+                },
+                "timings": {
+                  "first_byte_ms": 63.729,
+                  "first_content_ms": 65.663,
+                  "first_audio_ms": null,
+                  "last_content_ms": 65.663,
+                  "protocol_complete_ms": 65.666,
+                  "total_ms": 65.674
+                },
+                "error": "",
+                "status": "Fail",
+                "reason": "回答不符合独立预期",
+                "business_status": "Fail",
+                "assertions": [
+                  {
+                    "label": "回答符合独立预期",
+                    "expected": 42,
+                    "actual": 41,
+                    "passed": false,
+                    "source": "explicit",
+                    "reference": null,
+                    "error": ""
+                  }
+                ],
+                "performance_assertions": [],
+                "judgement": null,
+                "turn": 1,
+                "question": "retry six times seven",
+                "dynamic": false
+              }
+            ],
+            "duration_ms": 380.697,
+            "attempts": 1,
+            "user_id": "user-1",
+            "conversation_id": "388d2bfa92954d8ea8bb9ead12d8fb04",
+            "expected_turns": 1,
+            "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+            "engine": "ai-eval",
+            "business_verified": false,
+            "evidence": [
+              {
+                "path": "ai-evaluation.json",
+                "sha256": "405e4edd432f4e60a2d6cfe3b7e7b0cbf9ec0ad6fe292fbd359bbae8e118eb44",
+                "size": 2744
+              }
+            ],
+            "evidence_status": "bound"
+          },
+          "case_content_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+          "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+          "state": {
+            "lifecycle": "completed",
+            "phase": "settled",
+            "outcome": "fail",
+            "checks": {
+              "business": "fail",
+              "performance": "not_applicable",
+              "quality": "fail"
+            },
+            "evidence": "valid",
+            "report": "ready",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-84f885b6f65d",
+              "case_id": "arithmetic-retry:1",
+              "attempt_id": null
+            },
+            "reason": "回答不符合独立预期",
+            "last_attempt_outcome": "fail",
+            "revision": "a4a49267d6929de40d58e3f37d2afdcdba33f95ec1359c92c4a2cb20a9ca5df6"
+          }
+        }
+      ],
+      "outcome": {
+        "status": "Fail",
+        "reason": "回答不符合独立预期",
+        "execution_status": "fail",
+        "business_status": "Fail",
+        "verification": "verified",
+        "verdict_scope": "quality_and_performance",
+        "cases": [
+          {
+            "id": "arithmetic-retry:1",
+            "title": "retry six times seven",
+            "status": "Fail",
+            "reason": "回答不符合独立预期",
+            "business_status": "Fail",
+            "verification": "verified",
+            "assertions": [
+              {
+                "label": "回答符合独立预期",
+                "expected": 42,
+                "actual": 41,
+                "passed": false,
+                "source": "explicit",
+                "reference": null,
+                "error": ""
+              }
+            ],
+            "turns": [
+              {
+                "answer": 41,
+                "query": null,
+                "status_code": 200,
+                "protocol_complete": true,
+                "events": [
+                  {
+                    "kind": "message",
+                    "elapsed_ms": 65.644,
+                    "content": "41",
+                    "content_mode": "delta",
+                    "complete": false
+                  }
+                ],
+                "bindings": {},
+                "audio_sent": {},
+                "audio_received": {
+                  "bytes": 0,
+                  "chunks": 0
+                },
+                "timings": {
+                  "first_byte_ms": 63.729,
+                  "first_content_ms": 65.663,
+                  "first_audio_ms": null,
+                  "last_content_ms": 65.663,
+                  "protocol_complete_ms": 65.666,
+                  "total_ms": 65.674
+                },
+                "error": "",
+                "status": "Fail",
+                "reason": "回答不符合独立预期",
+                "business_status": "Fail",
+                "assertions": [
+                  {
+                    "label": "回答符合独立预期",
+                    "expected": 42,
+                    "actual": 41,
+                    "passed": false,
+                    "source": "explicit",
+                    "reference": null,
+                    "error": ""
+                  }
+                ],
+                "performance_assertions": [],
+                "judgement": null,
+                "turn": 1,
+                "question": "retry six times seven",
+                "dynamic": false
+              }
+            ],
+            "duration_ms": 380.697,
+            "attempts": 1,
+            "user_id": "user-1",
+            "conversation_id": "388d2bfa92954d8ea8bb9ead12d8fb04",
+            "expected_turns": 1
+          }
+        ],
+        "metrics": {
+          "planned_cases": 1,
+          "completed_cases": 1,
+          "quality_passed": 0,
+          "quality_pass_rate": 0.0,
+          "failed_cases": 1,
+          "blocked_cases": 0,
+          "cancelled_cases": 0,
+          "sent_turns": 1,
+          "concurrency": 1,
+          "elapsed_ms": 389.683,
+          "throughput_turns_per_second": 2.566190014916129,
+          "p50_ms": 65.674,
+          "p95_ms": 65.674,
+          "p99_ms": 65.674
+        },
+        "spec_hash": "6c801efa7385090a196750e9c82467d078761dbbbd8b89e889b8d5636fddd232",
+        "evidence": [
+          {
+            "path": "ai-evaluation.json",
+            "sha256": "405e4edd432f4e60a2d6cfe3b7e7b0cbf9ec0ad6fe292fbd359bbae8e118eb44",
+            "size": 2744
+          }
+        ],
+        "evidence_status": "bound"
+      },
+      "evidence_dir": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-84f885b6f65d/native",
+      "test_report": {
+        "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-84f885b6f65d/test-report/Bug清单-ccb7283ddd9d67eb.md",
+        "bugs_count": 1,
+        "bugs_counts": {
+          "business": 1,
+          "execution": 0,
+          "historical": 0,
+          "recording": 0,
+          "unverified": 0
+        },
+        "bugs_download_url": "/api/task-reports/run_run-84f885b6f65d/bugs",
+        "bugs_sha256": "e933888a9905b9410ba8dba02f3dce9a0987a0ad50156d402f660e0e3179a9e4",
+        "bugs_size": 1489,
+        "cases": 1,
+        "download_url": "/api/task-reports/run_run-84f885b6f65d/excel",
+        "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-84f885b6f65d/test-report/测试用例-ccb7283ddd9d67eb.xlsx",
+        "execution_rows": 1,
+        "generated_at": "2026-11-13T14:35:39.477+00:00",
+        "generation": {
+          "finished_at": "2026-11-13T14:35:38.275+00:00",
+          "input_hash": "80579c50ce651429157bdaf59fb5e2f837f3b11856f4baa337f3b9184dff40f0",
+          "status": "Fail"
+        },
+        "kind": "run",
+        "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-84f885b6f65d/test-report/测试简报-ccb7283ddd9d67eb.md",
+        "markdown_download_url": "/api/task-reports/run_run-84f885b6f65d/markdown",
+        "markdown_sha256": "d781c2b66ad9b1879aa2a896d71769ba6feaccb09f05cfeeddb5a2fb81e84592",
+        "markdown_size": 677,
+        "render_owner_identity": {
+          "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+          "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+          "pid": 56058,
+          "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1159701"
+        },
+        "render_started_at": "2026-11-13T14:35:38.312+00:00",
+        "renderer": "test-cases-14-column-v1",
+        "report_id": "run_run-84f885b6f65d",
+        "retry_url": "/api/task-reports/run_run-84f885b6f65d/retry",
+        "retryable": false,
+        "run_ids": [
+          "run-84f885b6f65d"
+        ],
+        "sha256": "ec5edddba0d374ae38dd016e2843024e20837aa511cc93522a21b343c356ba07",
+        "size": 17983,
+        "source_hash": "ccb7283ddd9d67ebf2fa4cf6347b97b2739c981a93bff74def182fd6886ac5ce",
+        "status": "ready",
+        "summary_cases": 1,
+        "summary_counts": {
+          "Blocked": 0,
+          "Cancelled": 0,
+          "Fail": 1,
+          "NotRun": 0,
+          "Pass": 0,
+          "Unknown": 0,
+          "Unverified": 0
+        },
+        "summary_execution_rows": 1,
+        "task_id": "run-84f885b6f65d",
+        "template_id": "test-cases-14-column-v1",
+        "validation": {
+          "bugs_readable": true,
+          "case_ids_match": true,
+          "case_rows": 1,
+          "execution_rows": 1,
+          "markdown_readable": true,
+          "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+          "rule_files_sha256": {
+            "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+            "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+            "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+          },
+          "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+          "structure": {
+            "businessGroupCount": 2,
+            "caseCount": 1,
+            "caseGroupDepths": {
+              "2": 1
+            },
+            "errors": [],
+            "excludedRows": [],
+            "functionItemCount": 1,
+            "functionItems": [
+              {
+                "caseCount": 1,
+                "name": "【待确认：功能项】",
+                "path": [
+                  "Fresh blind arithmetic desk",
+                  "【待确认：功能项】"
+                ]
+              }
+            ],
+            "ok": true,
+            "rootCount": 1,
+            "sheet": "功能测试用例",
+            "uniqueIdCount": 1,
+            "warnings": []
+          },
+          "visual_validation": "not_performed_by_runtime",
+          "workbook_readable": true
+        }
+      },
+      "asset_id": "asset-e4243c9eb456",
+      "asset_version": "d874e4c29f9a5acb05eb72228e28fc2f7e5cc749b50b9497b3edd0156dac3671",
+      "head": "4f84df01a7e7797843ed9237e137f24c30dbd4b9d2c9cce145618b51519fd7a0",
+      "planned_unknown": false,
+      "page": {
+        "total": 1,
+        "returned": 1,
+        "limit": null,
+        "has_more": false,
+        "next_cursor": null,
+        "content_revision": "71572926ec0587d75ed4e0d86fe6b738a675e190a9c70708737596ad3d85750b"
+      }
+    },
+    "exit_code": 0,
+    "evidence": "evidence/cli-1794582984849487941-original-failure-still-present.json"
+  },
+  "terminal_receipt_finish_to_paint_ms": 245.0,
+  "terminal_sample_status": "Pass",
+  "report_unlink_started_ns": 1794582985496573555,
+  "report_unlink_finished_ns": 1794582985497519267,
+  "report_failed_paint": {
+    "event": {
+      "kind": "paint",
+      "at": 1794582985542,
+      "value": "failed",
+      "domAt": 1794582985528
+    },
+    "events": [
+      {
+        "kind": "initial",
+        "at": 1794582985495,
+        "value": "ready"
+      },
+      {
+        "kind": "dom",
+        "at": 1794582985528,
+        "value": "failed"
+      },
+      {
+        "kind": "paint",
+        "at": 1794582985542,
+        "value": "failed",
+        "domAt": 1794582985528
+      }
+    ]
+  },
+  "report_failed_public": {
+    "url": "http://127.0.0.1:18890/api/task-reports/run_run-6d5493ee196e",
+    "method": "GET",
+    "request": null,
+    "started_ns": 1794582985583138838,
+    "finished_ns": 1794582985597100114,
+    "http_status": 200,
+    "body": {
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 1,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "cases": 1,
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:46:46.489+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T14:34:46.057+00:00",
+        "input_hash": "e69082482dbbd28a1111699ee1c8a48c24a436657b6c24dbd3ab531106909f9c",
+        "status": "Fail"
+      },
+      "kind": "run",
+      "render_owner_identity": {
+        "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 54810,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1152824"
+      },
+      "render_started_at": "2026-11-13T14:46:46.431+00:00",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-6d5493ee196e",
+      "retry_url": "/api/task-reports/run_run-6d5493ee196e/retry",
+      "retryable": true,
+      "run_ids": [
+        "run-6d5493ee196e"
+      ],
+      "source_hash": "572066ce782208caa63297939e28bed74ccda0e7730be0997b2d7d7dfd6f90f9",
+      "status": "failed",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 1,
+        "NotRun": 0,
+        "Pass": 0,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-6d5493ee196e",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Fresh blind arithmetic desk",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      },
+      "error": "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。"
+    }
+  },
+  "report_unlink_to_paint_ms": 44.481,
+  "report_failure_sample_status": "Pass",
+  "report_retry_response": {
+    "status": 200,
+    "body": {
+      "report_id": "run_run-6d5493ee196e",
+      "kind": "run",
+      "task_id": "run-6d5493ee196e",
+      "retry_url": "/api/task-reports/run_run-6d5493ee196e/retry",
+      "render_owner_identity": {
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+        "pid": 67991,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1403322"
+      },
+      "render_started_at": "2026-11-13T15:16:26.247+00:00",
+      "status": "ready",
+      "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试用例-572066ce782208ca.xlsx",
+      "download_url": "/api/task-reports/run_run-6d5493ee196e/excel",
+      "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试简报-572066ce782208ca.md",
+      "markdown_download_url": "/api/task-reports/run_run-6d5493ee196e/markdown",
+      "markdown_sha256": "fd3e1f1ca4a8cf80e47374210b04ea2273d7a5aa88bff95320864fab3da22dac",
+      "markdown_size": 676,
+      "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/Bug清单-572066ce782208ca.md",
+      "bugs_download_url": "/api/task-reports/run_run-6d5493ee196e/bugs",
+      "bugs_sha256": "ff6845731eb4f2284eaf9f645630656ab539f22660b7833b67b82bb5b0cbff72",
+      "bugs_size": 1480,
+      "sha256": "26ac4caa1aabbae64c7f5f3781dbba7d9725486f904970e8b0330fe05ca7cd71",
+      "size": 18126,
+      "source_hash": "572066ce782208caa63297939e28bed74ccda0e7730be0997b2d7d7dfd6f90f9",
+      "generation": {
+        "input_hash": "e69082482dbbd28a1111699ee1c8a48c24a436657b6c24dbd3ab531106909f9c",
+        "finished_at": "2026-11-13T14:34:46.057+00:00",
+        "status": "Fail"
+      },
+      "generated_at": "2026-11-13T15:16:26.715+00:00",
+      "retryable": false,
+      "run_ids": [
+        "run-6d5493ee196e"
+      ],
+      "cases": 1,
+      "renderer": "test-cases-14-column-v1",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Fresh blind arithmetic desk",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      },
+      "execution_rows": 1,
+      "summary_counts": {
+        "Pass": 0,
+        "Fail": 1,
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Unverified": 0,
+        "NotRun": 0,
+        "Unknown": 0
+      },
+      "summary_cases": 1,
+      "summary_execution_rows": 1,
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 1,
+        "unverified": 0,
+        "recording": 0,
+        "historical": 0
+      }
+    }
+  },
+  "report_ready_paint": {
+    "event": {
+      "kind": "paint",
+      "at": 1794582986994,
+      "value": "ready",
+      "domAt": 1794582986979
+    },
+    "events": [
+      {
+        "kind": "initial",
+        "at": 1794582985495,
+        "value": "ready"
+      },
+      {
+        "kind": "dom",
+        "at": 1794582985528,
+        "value": "failed"
+      },
+      {
+        "kind": "paint",
+        "at": 1794582985542,
+        "value": "failed",
+        "domAt": 1794582985528
+      },
+      {
+        "kind": "dom",
+        "at": 1794582986979,
+        "value": "ready"
+      },
+      {
+        "kind": "paint",
+        "at": 1794582986994,
+        "value": "ready",
+        "domAt": 1794582986979
+      }
+    ]
+  },
+  "report_repaired": {
+    "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/Bug清单-572066ce782208ca.md",
+    "bugs_count": 1,
+    "bugs_counts": {
+      "business": 0,
+      "execution": 1,
+      "historical": 0,
+      "recording": 0,
+      "unverified": 0
+    },
+    "bugs_download_url": "/api/task-reports/run_run-6d5493ee196e/bugs",
+    "bugs_sha256": "ff6845731eb4f2284eaf9f645630656ab539f22660b7833b67b82bb5b0cbff72",
+    "bugs_size": 1480,
+    "cases": 1,
+    "download_url": "/api/task-reports/run_run-6d5493ee196e/excel",
+    "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试用例-572066ce782208ca.xlsx",
+    "execution_rows": 1,
+    "generated_at": "2026-11-13T15:16:26.715+00:00",
+    "generation": {
+      "finished_at": "2026-11-13T14:34:46.057+00:00",
+      "input_hash": "e69082482dbbd28a1111699ee1c8a48c24a436657b6c24dbd3ab531106909f9c",
+      "status": "Fail"
+    },
+    "kind": "run",
+    "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-6d5493ee196e/test-report/测试简报-572066ce782208ca.md",
+    "markdown_download_url": "/api/task-reports/run_run-6d5493ee196e/markdown",
+    "markdown_sha256": "fd3e1f1ca4a8cf80e47374210b04ea2273d7a5aa88bff95320864fab3da22dac",
+    "markdown_size": 676,
+    "render_owner_identity": {
+      "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+      "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+      "pid": 67991,
+      "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1403322"
+    },
+    "render_started_at": "2026-11-13T15:16:26.247+00:00",
+    "renderer": "test-cases-14-column-v1",
+    "report_id": "run_run-6d5493ee196e",
+    "retry_url": "/api/task-reports/run_run-6d5493ee196e/retry",
+    "retryable": false,
+    "run_ids": [
+      "run-6d5493ee196e"
+    ],
+    "sha256": "26ac4caa1aabbae64c7f5f3781dbba7d9725486f904970e8b0330fe05ca7cd71",
+    "size": 18126,
+    "source_hash": "572066ce782208caa63297939e28bed74ccda0e7730be0997b2d7d7dfd6f90f9",
+    "status": "ready",
+    "summary_cases": 1,
+    "summary_counts": {
+      "Blocked": 0,
+      "Cancelled": 0,
+      "Fail": 1,
+      "NotRun": 0,
+      "Pass": 0,
+      "Unknown": 0,
+      "Unverified": 0
+    },
+    "summary_execution_rows": 1,
+    "task_id": "run-6d5493ee196e",
+    "template_id": "test-cases-14-column-v1",
+    "validation": {
+      "bugs_readable": true,
+      "case_ids_match": true,
+      "case_rows": 1,
+      "execution_rows": 1,
+      "markdown_readable": true,
+      "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+      "rule_files_sha256": {
+        "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+        "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+        "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+      },
+      "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+      "structure": {
+        "businessGroupCount": 2,
+        "caseCount": 1,
+        "caseGroupDepths": {
+          "2": 1
+        },
+        "errors": [],
+        "excludedRows": [],
+        "functionItemCount": 1,
+        "functionItems": [
+          {
+            "caseCount": 1,
+            "name": "【待确认：功能项】",
+            "path": [
+              "Fresh blind arithmetic desk",
+              "【待确认：功能项】"
+            ]
+          }
+        ],
+        "ok": true,
+        "rootCount": 1,
+        "sheet": "功能测试用例",
+        "uniqueIdCount": 1,
+        "warnings": []
+      },
+      "visual_validation": "not_performed_by_runtime",
+      "workbook_readable": true
+    }
+  },
+  "report_last_artifact_write_to_ready_paint_ms": 297.231,
+  "report_ready_sample_status": "Pass",
+  "report_retry_only_export": {
+    "fixture_queries_unchanged": true,
+    "run_ids_unchanged": true,
+    "source_hash_unchanged": true
+  },
+  "offline_before_interaction": {
+    "value": "Six",
+    "focused": true,
+    "start": 1,
+    "end": 3,
+    "scrollY": 31
+  },
+  "offline_started_ns": 1794582988100804172,
+  "offline_notice": {
+    "event": null,
+    "events": [
+      {
+        "kind": "initial",
+        "at": 1794582988099,
+        "value": {
+          "offline": false,
+          "caseFailed": false
+        }
+      }
+    ],
+    "error": "Page.wait_for_function: Timeout 6000ms exceeded."
+  },
+  "offline_committed_run": {
+    "body": {
+      "run_id": "run-28947f22dde1",
+      "status": "Fail",
+      "status_text": "失败",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "settled",
+        "outcome": "fail",
+        "checks": {
+          "business": "fail",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "fresh-arithmetic",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-28947f22dde1",
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "bff597e32ceb55f210bd74c420be4a5a762907b2f1d9b3fc865e4c511dfea2bc"
+      },
+      "engine": "playwright",
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "blocked": 0,
+      "reason": "",
+      "results": [
+        {
+          "case_id": "TC-API-FRESH-001",
+          "title": "Six times seven retains independent expected42",
+          "kind": "api",
+          "status": "Fail",
+          "prerequisite": false,
+          "ms": 5,
+          "detail": "HTTP 200，5 ms",
+          "state": {
+            "lifecycle": "completed",
+            "phase": "settled",
+            "outcome": "fail",
+            "checks": {
+              "business": "fail",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "valid",
+            "report": "ready",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-28947f22dde1",
+              "case_id": "TC-API-FRESH-001",
+              "attempt_id": "attempt-fabc253022244532a54f4db8f242542a"
+            },
+            "reason": "字段 /answer：期望 42，实际 41",
+            "last_attempt_outcome": "fail",
+            "revision": "d69d2dab9c52c1aaefc7c2f06edb802855ae4e798d0e5b2b8b21418a296d4027"
+          }
+        }
+      ],
+      "test_report": {
+        "report_id": "run_run-28947f22dde1",
+        "kind": "run",
+        "task_id": "run-28947f22dde1",
+        "retry_url": "/api/task-reports/run_run-28947f22dde1/retry",
+        "render_owner_identity": {
+          "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+          "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+          "pid": 68184,
+          "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1405419"
+        },
+        "render_started_at": "2026-11-13T15:16:34.753+00:00",
+        "status": "ready",
+        "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-28947f22dde1/test-report/测试用例-ddcf55a9b39480b9.xlsx",
+        "download_url": "/api/task-reports/run_run-28947f22dde1/excel",
+        "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-28947f22dde1/test-report/测试简报-ddcf55a9b39480b9.md",
+        "markdown_download_url": "/api/task-reports/run_run-28947f22dde1/markdown",
+        "markdown_sha256": "05acbef8d0c4a1d461278672de99559612c9dbd8dfd5c58d18e04b31d07c189f",
+        "markdown_size": 768,
+        "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-28947f22dde1/test-report/Bug清单-ddcf55a9b39480b9.md",
+        "bugs_download_url": "/api/task-reports/run_run-28947f22dde1/bugs",
+        "bugs_sha256": "3a3a1259f98a2ee18ed7acd20192cc3225e5360d3a2dc5b0817e2942de1cd2d2",
+        "bugs_size": 1527,
+        "sha256": "a07044dcd6a7903fad48970f02f55e631fd3739c9be177b1ecbe360e77636af6",
+        "size": 18244,
+        "source_hash": "ddcf55a9b39480b9ea592017d3de5c95ba2cdb4af256ce57e2ee672d7dbbf47f",
+        "generation": {
+          "input_hash": "c9c05a0bf49f1dd3969a17dec4bb39043dd2a1b618acf32133bbc2c150a334b6",
+          "finished_at": "2026-11-13T15:16:34.723+00:00",
+          "status": "Fail"
+        },
+        "generated_at": "2026-11-13T15:16:35.077+00:00",
+        "retryable": false,
+        "run_ids": [
+          "run-28947f22dde1"
+        ],
+        "cases": 1,
+        "renderer": "test-cases-14-column-v1",
+        "template_id": "test-cases-14-column-v1",
+        "execution_rows": 1,
+        "validation": {
+          "workbook_readable": true,
+          "structure": {
+            "ok": true,
+            "sheet": "功能测试用例",
+            "rootCount": 1,
+            "businessGroupCount": 2,
+            "caseGroupDepths": {
+              "2": 1
+            },
+            "functionItemCount": 1,
+            "functionItems": [
+              {
+                "path": [
+                  "Fresh blind arithmetic desk",
+                  "Arithmetic multiplication"
+                ],
+                "name": "Arithmetic multiplication",
+                "caseCount": 1
+              }
+            ],
+            "caseCount": 1,
+            "uniqueIdCount": 1,
+            "excludedRows": [],
+            "errors": [],
+            "warnings": []
+          },
+          "rule_files_sha256": {
+            "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+            "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+            "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+          },
+          "case_rows": 1,
+          "case_ids_match": true,
+          "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+          "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+          "visual_validation": "not_performed_by_runtime",
+          "execution_rows": 1,
+          "markdown_readable": true,
+          "bugs_readable": true
+        },
+        "summary_counts": {
+          "Pass": 0,
+          "Fail": 1,
+          "Blocked": 0,
+          "Cancelled": 0,
+          "Unverified": 0,
+          "NotRun": 0,
+          "Unknown": 0
+        },
+        "summary_cases": 1,
+        "summary_execution_rows": 1,
+        "bugs_count": 1,
+        "bugs_counts": {
+          "business": 1,
+          "execution": 0,
+          "unverified": 0,
+          "recording": 0,
+          "historical": 0
+        }
+      }
+    },
+    "exit_code": 1,
+    "evidence": "evidence/cli-1794582994258606362-business-committed-while-browser-offline.json"
+  },
+  "restore_started_ns": 1794582995199405588,
+  "restore_completed_ns": 1794582995204160845,
+  "offline_recovered_paint": {
+    "event": {
+      "kind": "paint",
+      "at": 1794582995526,
+      "value": {
+        "offline": false,
+        "caseFailed": true
+      },
+      "domAt": 1794582995511
+    },
+    "events": [
+      {
+        "kind": "initial",
+        "at": 1794582988099,
+        "value": {
+          "offline": false,
+          "caseFailed": false
+        }
+      },
+      {
+        "kind": "dom",
+        "at": 1794582995511,
+        "value": {
+          "offline": false,
+          "caseFailed": true
+        }
+      },
+      {
+        "kind": "paint",
+        "at": 1794582995526,
+        "value": {
+          "offline": false,
+          "caseFailed": true
+        },
+        "domAt": 1794582995511
+      }
+    ]
+  },
+  "offline_after_interaction": {
+    "value": "Six",
+    "focused": true,
+    "start": 1,
+    "end": 3,
+    "scrollY": 31
+  },
+  "restore_start_to_fresh_result_paint_ms": 326.594,
+  "restore_completed_to_fresh_result_paint_ms": 321.839,
+  "restore_sample_status": "Pass",
+  "offline_interaction_preserved": true,
+  "recorder_recheck": {
+    "body": {
+      "error": "没有找到随包的 agent-browser；请使用完整离线包（不会联网下载）",
+      "code": "validation_error",
+      "details": {}
+    },
+    "exit_code": 2,
+    "evidence": "evidence/cli-1794582995818294988-real-recorder-recheck.json"
+  },
+  "finished_ns": 1794582995992193875,
+  "first_round_report_unchanged": true
+}

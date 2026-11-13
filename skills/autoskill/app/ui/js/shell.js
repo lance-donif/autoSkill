@@ -112,6 +112,8 @@ function runSettings() {
 export function renderScope() {
   const s = scope();
   const bar = document.getElementById('scope');
+  // Background state changes must not dismiss an open scope picker or its date draft.
+  if (bar.querySelector('.menu')) return;
   const { page } = route();
   if (page === 'data') {
     replace(bar, h('span', { class: 'scope-label' }, '数据管理'), h('span', { class: 'scope-text' }, '设置保存在当前数据目录中'),

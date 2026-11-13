@@ -1,0 +1,78 @@
+{
+  "run_id": "run-946309975b4b",
+  "initial_status": "Queued",
+  "cancel_requested": false,
+  "observations": [
+    {
+      "observed_at": "2026-11-13T14:24:23.830991+00:00",
+      "elapsed_seconds": 2.2992537949994585,
+      "command_seconds": 0.8490032259996951,
+      "status": "Running",
+      "started_at": "2026-11-13T14:24:22.701+00:00",
+      "finished_at": null,
+      "outcome_execution_status": null,
+      "test_report_status": "pending"
+    },
+    {
+      "observed_at": "2026-11-13T14:24:25.317844+00:00",
+      "elapsed_seconds": 3.7871147420009947,
+      "command_seconds": 1.1079445380000834,
+      "status": "Running",
+      "started_at": "2026-11-13T14:24:22.701+00:00",
+      "finished_at": null,
+      "outcome_execution_status": null,
+      "test_report_status": "pending"
+    },
+    {
+      "observed_at": "2026-11-13T14:24:26.434073+00:00",
+      "elapsed_seconds": 4.929205713000556,
+      "command_seconds": 0.6615300700013904,
+      "status": "Pass",
+      "started_at": "2026-11-13T14:24:22.701+00:00",
+      "finished_at": "2026-11-13T14:24:25.336+00:00",
+      "outcome_execution_status": "completed",
+      "test_report_status": "not_generated"
+    }
+  ],
+  "final_status": "Pass",
+  "final_outcome": {
+    "status": "Pass",
+    "reason": "",
+    "cases_ref": {
+      "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-946309975b4b/native/outcome.json",
+      "sha256": "8d363f1094059472757cee93f8b27f9f3ee0d55cf0462eda5447cee4f8b0ceb7",
+      "size": 1408,
+      "available": true,
+      "json_pointer": "/cases",
+      "content_revision": "d8ffdd4fecf24c2c8dd70d810e4b5ba23423a35c5af1c39dc5294133e8efae0a",
+      "count": 1
+    },
+    "metrics": {},
+    "process": {
+      "state": "completed",
+      "exit_code": 0,
+      "duration_ms": 662
+    },
+    "execution_status": "completed",
+    "business_status": "Pass",
+    "verification": "verified",
+    "verdict_scope": "native_assertions",
+    "evidence_ref": {
+      "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-946309975b4b/native/outcome.json",
+      "sha256": "8d363f1094059472757cee93f8b27f9f3ee0d55cf0462eda5447cee4f8b0ceb7",
+      "size": 1408,
+      "available": true,
+      "json_pointer": "/evidence",
+      "content_revision": "0746a89623af845e89683db5834b2278fba2133d77bcf8325420771678a4c815",
+      "count": 7
+    },
+    "evidence_status": "bound"
+  },
+  "test_report": {
+    "report_id": "run_run-946309975b4b",
+    "status": "not_generated",
+    "retryable": true,
+    "retry_url": "/api/task-reports/run_run-946309975b4b/retry"
+  },
+  "terminal_observation_delay_seconds": 1.098073
+}

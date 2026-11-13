@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 import openpyxl
+from dashboard_revision_fixture import change_project_and_wait_for_ui
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
@@ -108,13 +109,21 @@ class FeatureDashboardTests(DashboardWorkspace):
             self.assertTrue(any("/reports/" in name for name in manifest["files"]))
         self.page.get_by_role("button", name="分享与导入", exact=True).click()
         self.page.get_by_role("button", name="生成分享包", exact=True).click()
+        receipt = self.page.get_by_role('link', name='下载分享包', exact=True).element_handle()
         with self.page.expect_download() as shared:
             self.page.get_by_role("link", name="下载分享包", exact=True).click()
         package = Path(shared.value.path()).read_bytes()
         self.assertTrue(zipfile.is_zipfile(io.BytesIO(package)))
         self.page.get_by_label("从这台设备选择 ZIP", exact=True).set_input_files({"name": "project-share.zip", "mimeType": "application/zip", "buffer": package})
+        category = change_project_and_wait_for_ui(self, self.pid)
+        self.assertTrue(receipt.evaluate('node => node.isConnected'))
+        expect(self.page.get_by_role('link', name='下载分享包', exact=True)).to_be_visible()
+        self.assertEqual(self.page.get_by_label('从这台设备选择 ZIP', exact=True).evaluate(
+            'node => [...node.files].map(file => ({name: file.name, size: file.size}))'),
+            [{'name': 'project-share.zip', 'size': len(package)}])
         self.page.get_by_role("button", name="导入项目分享包", exact=True).click()
         expect(self.page.get_by_text("已导入 0 个项目 · 1 个未导入", exact=True)).to_be_visible()
+        self.assertEqual(self.client.get('/api/projects/' + self.pid).json()['category'], category)
         self.evidence("project-materials.png")
 
     def test_workflow_page_explains_twenty_of_hundred_and_creates_scoped_maintenance(self):

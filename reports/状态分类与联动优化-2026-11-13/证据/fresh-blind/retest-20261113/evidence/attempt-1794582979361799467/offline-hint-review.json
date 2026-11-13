@@ -1,0 +1,16 @@
+{
+  "reviewed_utc": "2026-11-13T15:18:30.390701+00:00",
+  "source_dom": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/offline-visible.json",
+  "source_screenshot": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/offline-visible.png",
+  "actual_dom": "After6s offline, case table remains visible with the old Pass and no offline/synchronization-warning body text.",
+  "actual_screenshot": "A red status dot is visible at the bottom of the collapsed sidebar in1100px viewport.",
+  "not_captured": [
+    "status dot title",
+    "status dot aria-label",
+    "hover tooltip"
+  ],
+  "verdict": "Blocked",
+  "reason": "A detector phrase miss is not proof of missing connection indication. The screenshot shows a red indicator but its explicit meaning cannot be established from the captured body-only DOM. No confirmed Bug is created.",
+  "timing_and_restore_verdict": "Pass",
+  "offline_restore_fresh_result_paint_ms": 326.594
+}

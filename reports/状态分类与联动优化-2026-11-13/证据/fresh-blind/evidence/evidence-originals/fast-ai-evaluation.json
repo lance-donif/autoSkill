@@ -1,0 +1,102 @@
+{
+  "status": "Pass",
+  "reason": "",
+  "execution_status": "completed",
+  "business_status": "Pass",
+  "verification": "verified",
+  "verdict_scope": "quality_and_performance",
+  "cases": [
+    {
+      "id": "arithmetic-fast:1",
+      "title": "fast six times seven",
+      "status": "Pass",
+      "reason": "",
+      "business_status": "Pass",
+      "verification": "verified",
+      "assertions": [
+        {
+          "label": "回答符合独立预期",
+          "expected": 42,
+          "actual": 42,
+          "passed": true,
+          "source": "explicit",
+          "reference": null,
+          "error": ""
+        }
+      ],
+      "turns": [
+        {
+          "answer": 42,
+          "query": null,
+          "status_code": 200,
+          "protocol_complete": true,
+          "events": [
+            {
+              "kind": "message",
+              "elapsed_ms": 31.13,
+              "content": "42",
+              "content_mode": "delta",
+              "complete": false
+            }
+          ],
+          "bindings": {},
+          "audio_sent": {},
+          "audio_received": {
+            "bytes": 0,
+            "chunks": 0
+          },
+          "timings": {
+            "first_byte_ms": 26.787,
+            "first_content_ms": 31.153,
+            "first_audio_ms": null,
+            "last_content_ms": 31.153,
+            "protocol_complete_ms": 31.157,
+            "total_ms": 31.167
+          },
+          "error": "",
+          "status": "Pass",
+          "reason": "",
+          "business_status": "Pass",
+          "assertions": [
+            {
+              "label": "回答符合独立预期",
+              "expected": 42,
+              "actual": 42,
+              "passed": true,
+              "source": "explicit",
+              "reference": null,
+              "error": ""
+            }
+          ],
+          "performance_assertions": [],
+          "judgement": null,
+          "turn": 1,
+          "question": "six times seven",
+          "dynamic": false
+        }
+      ],
+      "duration_ms": 288.873,
+      "attempts": 1,
+      "user_id": "user-1",
+      "conversation_id": "4f6c908ddd6e453b81338e14248c70fc",
+      "expected_turns": 1
+    }
+  ],
+  "metrics": {
+    "planned_cases": 1,
+    "completed_cases": 1,
+    "quality_passed": 1,
+    "quality_pass_rate": 1.0,
+    "failed_cases": 0,
+    "blocked_cases": 0,
+    "cancelled_cases": 0,
+    "sent_turns": 1,
+    "concurrency": 1,
+    "elapsed_ms": 317.245,
+    "throughput_turns_per_second": 3.1521366756859646,
+    "p50_ms": 31.167,
+    "p95_ms": 31.167,
+    "p99_ms": 31.167
+  },
+  "spec_hash": "bbc3619bed8f6dca0a52bf606c4488588a0e450fbce9f4a33a2c1d2decd2b42c"
+}

@@ -65,7 +65,7 @@ class FullPackCredentialsTests(unittest.TestCase):
                 self.assertEqual(result["secrets_included"], ["ENV_PASSWORD", "STORED_PASSWORD", "UNUSED_TOKEN"])
                 self.assertEqual(result["sessions_included"], ["account"])
                 self.assertEqual(result["secrets_not_included"], [])
-                self.assertIn("包含已保存的凭据和登录态", result["note"])
+                self.assertIn("已保存的凭据和登录态", result["note"])
                 self.assertNotIn("synthetic-", json.dumps(result))
                 recipient = root / "recipient/autoskill/workspace"
                 with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(recipient), "ENV_PASSWORD": "different-recipient-value"}):

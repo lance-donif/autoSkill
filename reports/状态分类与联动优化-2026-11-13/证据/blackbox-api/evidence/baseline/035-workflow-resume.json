@@ -1,0 +1,39 @@
+{
+  "label": "035-workflow-resume",
+  "started_at": "2026-11-13T14:10:20.180374+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "workflow",
+    "resume",
+    "wf-1693b9093d974b1888df501d634aee83",
+    "--idempotency-key",
+    "bb-resume-v1"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.19231459999900835,
+  "ended_at": "2026-11-13T14:10:20.372687+00:00",
+  "response": {
+    "workflow": {
+      "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+      "project_id": "bb-api",
+      "title": "Blackbox HTTP lifecycle",
+      "cycle_id": "cycle-f9b3fb18ff764ffca35b720f7cbdf981",
+      "lifecycle": "active",
+      "cycle_state": "awaiting_host",
+      "complete": false,
+      "conclusion": "unassessed",
+      "revision": 12,
+      "domain_head": "7041cb3d37514dd644cff688dfdb45e2e16de68ca325c7a09d23c35fa100cfc2",
+      "definition_hash": "dc099cdde940b12330cf1e3ad75bc723ac2ca4c5a10f16a979ed54188b45756b",
+      "counts": {
+        "completed": 3,
+        "ready": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "source_files_sha256": {
+    "task_state.py": "29b3aed2c61a47df5674945adab23b76c70a9f2e09078634530f234d06e8a69f",
+    "native_run.py": "f6eb86a1ff6c745447bb82756264b574cc75e9d512f26d2edabf600782a76c71",
+    "engines/ai_eval.py": "4c9c6dd6edbbdaa3b9769bb265eae392dae8f9af716d31db12cd2e225340864a"
+  },
+  "data_root": "/workspace/autoskill-state-validation/audit/native-data-5c6c3d2a",
+  "native_input_integrity": {
+    "run_id": "run-19ec5fe6f25d",
+    "execution_status": "Pass",
+    "before": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "pass",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-native",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-19ec5fe6f25d",
+        "case_id": "test_fixture.Fixture.test_pass",
+        "attempt_id": null
+      },
+      "reason": "",
+      "last_attempt_outcome": "pass",
+      "revision": "e951fed1145f3c6c59ef8c6d3d07fe60cb9a584d9748ec821ef28c0def85c040"
+    },
+    "canonical_frozen_rejected": "原生执行输入清单校验失败",
+    "after": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "unverified",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "invalid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-native",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-19ec5fe6f25d",
+        "case_id": "test_fixture.Fixture.test_pass",
+        "attempt_id": null
+      },
+      "reason": "",
+      "last_attempt_outcome": "pass",
+      "revision": "d3eb07e5c06ca47ac417ac36999a863c2bca01f5f31a06e10ba496ede9a30014"
+    }
+  },
+  "ai_performance": {
+    "run_id": "run-90c63ee7135c",
+    "http_calls": 1,
+    "execution_status": "Fail",
+    "actual_performance_assertions": [
+      {
+        "label": "total_ms 不超过 1 ms",
+        "expected": 1,
+        "actual": 86.732,
+        "source": "performance_target",
+        "passed": false
+      }
+    ],
+    "result_state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "fail",
+      "checks": {
+        "business": "pass",
+        "performance": "fail",
+        "quality": "pass"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-native",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-90c63ee7135c",
+        "case_id": "single:1",
+        "attempt_id": null
+      },
+      "reason": "响应时间不符合目标",
+      "last_attempt_outcome": "fail",
+      "revision": "8ce8dc7f42f81d86da372c874b3685e949b68a8a0bae4cabf9e2cba0dfa7ec15"
+    },
+    "run_state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "fail",
+      "checks": {
+        "business": "pass",
+        "performance": "fail",
+        "quality": "pass"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-native",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-90c63ee7135c",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "响应时间不符合目标",
+      "revision": "0f996f24e87f84e0fbb03fad48029eb6944a6dfaa4376d1fae569009322dd2e6"
+    }
+  }
+}

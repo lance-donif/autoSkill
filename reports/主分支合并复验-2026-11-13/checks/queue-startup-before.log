@@ -1,0 +1,17 @@
+test_startup_ack_does_not_compete_with_the_new_dispatcher (test_queue_dispatcher.DispatcherTests.test_startup_ack_does_not_compete_with_the_new_dispatcher) ... FAIL
+
+======================================================================
+FAIL: test_startup_ack_does_not_compete_with_the_new_dispatcher (test_queue_dispatcher.DispatcherTests.test_startup_ack_does_not_compete_with_the_new_dispatcher)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoskill-main-integration/checks/queue-startup-probe.py", line 73, in test_startup_ack_does_not_compete_with_the_new_dispatcher
+    result = self.ensure()
+             ^^^^^^^^^^^^^
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 178, in ensure
+    self.assertIn(result["status"], ("started", "running"), result)
+AssertionError: 'unavailable' not found in ('started', 'running') : {'status': 'unavailable', 'pid': None, 'reason': '后台队列在启动期间退出；运行已保存，可重试启动现有队列'}
+
+----------------------------------------------------------------------
+Ran 1 test in 0.492s
+
+FAILED (failures=1)

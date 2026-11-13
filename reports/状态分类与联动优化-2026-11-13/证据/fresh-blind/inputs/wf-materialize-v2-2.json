@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "schema_version": "1.1.0",
+      "id": "TC-API-FRESH-001",
+      "kind": "api",
+      "revision": 2,
+      "lifecycle": "active",
+      "requirement_ids": [
+        "req-multiply"
+      ],
+      "module": "Arithmetic multiplication",
+      "title": "Six times seven retains independent expected42",
+      "priority": "P1",
+      "preconditions": "Local arithmetic fixture reachable; independent contract frozen before candidate test.",
+      "steps": [
+        "POST /query with retry six times seven",
+        "Compare numeric answer with independent multiplication result42"
+      ],
+      "test_data": {
+        "question": "retry six times seven"
+      },
+      "expected": "HTTP200 and numeric answer42",
+      "source": "arithmetic-contract-v2",
+      "risk": "read",
+      "tags": [
+        "fresh-blind"
+      ],
+      "extensions": {
+        "oracle": {
+          "source": "requirement"
+        }
+      },
+      "api_source": "source-and-official-docs",
+      "source_ref": "arithmetic-contract-v2",
+      "method": "POST",
+      "path": "/query",
+      "json": {
+        "question": "retry six times seven"
+      },
+      "assertions": {
+        "status": 200,
+        "json_equals": {
+          "/answer": 42
+        }
+      }
+    }
+  ],
+  "bindings": {
+    "scenario-multiply": [
+      "TC-API-FRESH-001"
+    ]
+  }
+}

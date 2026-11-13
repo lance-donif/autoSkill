@@ -1,0 +1,69 @@
+{
+ "task": {
+  "id": "wfi-374dbaab1e60436f88fbfe8fa6fda798",
+  "item_id": "wfi-374dbaab1e60436f88fbfe8fa6fda798",
+  "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+  "phase": "design",
+  "attempt_id": "wfa-73b06e7c1da84998b28ab836c27f3808",
+  "lease_token": "lease-95f3340d37154ca7b9ad7129b0ece0d6",
+  "lease_until": "2026-11-13T14:14:15.599+00:00",
+  "binding_token": "eyJhdHRlbXB0X2lkIjoid2ZhLTczYjA2ZTdjMWRhODQ5OThiMjhhYjgzNmMyN2YzODA4IiwiaXRlbV9pZCI6IndmaS0zNzRkYmFhYjFlNjA0MzZmODhmYmZlOGZhNmZkYTc5OCIsImxlYXNlX3Rva2VuIjoibGVhc2UtOTVmMzM0MGQzNzE1NGNhN2I5YWQ3MTI5YjBlY2UwZDYiLCJ3b3JrZmxvd19pZCI6IndmLTE2OTNiOTA5M2Q5NzRiMTg4OGRmNTAxZDYzNGFlZTgzIn0=",
+  "input_hash": "f1431d08a23ddcdee6dda08bb215822a136596661bd81f212a9d73841efd7cd7",
+  "input_refs": {
+   "definition": "workflows/wf-1693b9093d974b1888df501d634aee83/definition.json",
+   "requirements": "workflows/wf-1693b9093d974b1888df501d634aee83/requirements.json",
+   "sources": "workflows/wf-1693b9093d974b1888df501d634aee83/sources.json"
+  },
+  "checkpoint": {},
+  "context": {},
+  "payload_schema": {
+   "example": {
+    "scenarios": [
+     {
+      "id": "scenario-1",
+      "title": "验证业务预期",
+      "requirement_ids": [
+       "req-1"
+      ],
+      "oracle_ids": [
+       "oracle-1"
+      ]
+     }
+    ],
+    "oracles": [
+     {
+      "id": "oracle-1",
+      "kind": "api",
+      "requirement_ids": [
+       "req-1"
+      ],
+      "checks": {
+       "status": 200,
+       "json_equals": {
+        "/priority": "high"
+       }
+      }
+     }
+    ]
+   },
+   "rule": "预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。"
+  }
+ },
+ "workflow": {
+  "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-f9b3fb18ff764ffca35b720f7cbdf981",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "unassessed",
+  "revision": 6,
+  "domain_head": "3cc3ccac5ab69660d071d055b163b5d3db46e327d8605318d8dcdf6af98fb7cc",
+  "definition_hash": "f1431d08a23ddcdee6dda08bb215822a136596661bd81f212a9d73841efd7cd7",
+  "counts": {
+   "completed": 1,
+   "leased": 1
+  }
+ }
+}

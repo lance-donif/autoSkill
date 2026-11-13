@@ -1,0 +1,66 @@
+{
+  "label": "044-api-observe-native-run",
+  "started_at": "2026-11-13T14:28:04.725433+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-final-retest",
+    "native",
+    "run",
+    "bb-api",
+    "bb-slow"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest",
+  "returncode": 0,
+  "elapsed_seconds": 1.2065404170007241,
+  "ended_at": "2026-11-13T14:28:05.931963+00:00",
+  "response": {
+    "id": "run-eaf4380414d2",
+    "family": "native",
+    "project_id": "bb-api",
+    "engine": "selenium-unittest",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Queued",
+    "case_ids": [
+      "bb-slow"
+    ],
+    "total": 0,
+    "created_at": "2026-11-13T14:28:05.331+00:00",
+    "headed": 0,
+    "session_id": "blackbox-api-final-retest",
+    "input_manifest": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/native-inputs/cfda43e1d5b7f46a1992ecfe2857884d294836f0917452c66b785df0f730efaf-88927005cd7b40c2a2bd4f5b7fa6bb58.json",
+    "input_hash": "cfda43e1d5b7f46a1992ecfe2857884d294836f0917452c66b785df0f730efaf",
+    "state": {
+      "lifecycle": "pending",
+      "phase": "queued",
+      "outcome": "pending",
+      "checks": {
+        "business": "unverified",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "unverified",
+      "report": "pending",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "bb-api",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-eaf4380414d2",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "1396c0b216e56b8666d8d0ec7d4f4968d5ec072fe53c25affad0a93da38e9032"
+    },
+    "queue_dispatcher": {
+      "status": "started",
+      "pid": 47989,
+      "reason": ""
+    },
+    "note": "已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定"
+  }
+}

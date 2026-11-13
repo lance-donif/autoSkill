@@ -1,0 +1,39 @@
+{
+  "report_id": "workflow_927570c5a7b96f5e3f7e88058de9270dddbe4a8e74ca194a20bb5db638d19a44",
+  "status": "ready",
+  "source_hash_retained": true,
+  "artifacts": {
+    "excel": {
+      "exists": true,
+      "sha256_matches": true,
+      "size_matches": true,
+      "readable": true,
+      "sheets": [
+        "功能测试用例",
+        "编号映射",
+        "任务概览",
+        "用例与结果",
+        "执行明细",
+        "来源与冻结定义",
+        "长文本"
+      ],
+      "main_columns": 18,
+      "main_data_rows": 1,
+      "functional_sheet_columns": 14
+    },
+    "markdown": {
+      "exists": true,
+      "sha256_matches": true,
+      "size_matches": true,
+      "readable": true,
+      "utf8_characters": 577
+    },
+    "bugs": {
+      "exists": true,
+      "sha256_matches": true,
+      "size_matches": true,
+      "readable": true,
+      "utf8_characters": 612
+    }
+  }
+}

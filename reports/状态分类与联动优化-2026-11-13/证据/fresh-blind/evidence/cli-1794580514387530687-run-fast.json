@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "native",
+    "run",
+    "fresh-arithmetic",
+    "asset-101b7a6ea95d"
+  ],
+  "started_ns": 1794580514387535449,
+  "finished_ns": 1794580519318512779,
+  "exit_code": 0,
+  "stdout": "{\n \"id\": \"run-a96971529716\",\n \"family\": \"native\",\n \"project_id\": \"fresh-arithmetic\",\n \"engine\": \"ai-eval\",\n \"trigger\": \"manual\",\n \"task_id\": null,\n \"status\": \"Queued\",\n \"case_ids\": [\n  \"asset-101b7a6ea95d\"\n ],\n \"total\": 0,\n \"created_at\": \"2026-11-13T14:35:16.270+00:00\",\n \"headed\": 0,\n \"session_id\": \"fresh-blind\",\n \"input_manifest\": \"/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/native-inputs/6a25492e508432dde8525ecc3ae5867fc3e7edbce05c6fd1837a94acd1a9eca7-d540eb93fb924ce5a35762a1e72c3b3c.json\",\n \"input_hash\": \"6a25492e508432dde8525ecc3ae5867fc3e7edbce05c6fd1837a94acd1a9eca7\",\n \"state\": {\n  \"lifecycle\": \"pending\",\n  \"phase\": \"queued\",\n  \"outcome\": \"pending\",\n  \"checks\": {\n   \"business\": \"unverified\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"unverified\",\n  \"report\": \"pending\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"fresh-arithmetic\",\n   \"workflow_id\": null,\n   \"cycle_id\": null,\n   \"run_id\": \"run-a96971529716\",\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"84e7365eafb7ba6b7dd37a233f45def9b97ccfc3b7d9576363d998106b02addc\"\n },\n \"queue_dispatcher\": {\n  \"status\": \"started\",\n  \"pid\": 55228,\n  \"reason\": \"\"\n },\n \"note\": \"已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定\"\n}\n",
+  "stderr": ""
+}

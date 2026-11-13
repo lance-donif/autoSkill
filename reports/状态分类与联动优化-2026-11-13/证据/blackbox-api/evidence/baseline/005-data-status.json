@@ -1,0 +1,33 @@
+{
+  "label": "005-data-status",
+  "started_at": "2026-11-13T14:07:35.590409+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "data",
+    "status"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.11919367400150804,
+  "ended_at": "2026-11-13T14:07:35.709603+00:00",
+  "response": {
+    "root": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+    "data_id": null,
+    "initialized": false,
+    "legacy_source": null,
+    "external_case_skill": {
+      "path": null,
+      "resolved": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/case-plans/90adfc32c35d60c32d1cc47d33c65adf/autoskill-cases",
+      "exists": false,
+      "inside_data_root": true
+    },
+    "activity": [],
+    "suggested_import_target": "/workspace/autoskill-state-validation/blackbox-api/workspace-imported",
+    "legacy_dashboard_import_eligible": false,
+    "note": "数据目录包含用例、凭据、登录态、工作流、执行记录和证据；程序更新只替换程序目录。"
+  }
+}

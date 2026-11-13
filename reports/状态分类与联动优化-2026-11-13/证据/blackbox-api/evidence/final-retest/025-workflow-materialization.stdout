@@ -1,0 +1,122 @@
+{
+ "domain_head": "bf1b66afdd39182cf63856af75316fe727b071b9336910c16fff33052b99c5aa",
+ "head": "bf1b66afdd39182cf63856af75316fe727b071b9336910c16fff33052b99c5aa",
+ "definition_hash": "5901c61e8a2789c3d9032edd56e996fa27a6ced7ecd14ed6b6e8cbea33b61a54",
+ "document": {
+  "base_case_hashes": {
+   "TC-API-BB-READY": null,
+   "TC-API-BB-WRONG": null
+  },
+  "bindings": {
+   "scenario-ready": [
+    "TC-API-BB-READY"
+   ],
+   "scenario-wrong": [
+    "TC-API-BB-WRONG"
+   ]
+  },
+  "case_hashes": {
+   "TC-API-BB-READY": "662a938936021f8c80541964da779ce234d8b910a3295f3f443eb46fee16a99d",
+   "TC-API-BB-WRONG": "9cd70033c9f91ef5bdc18796acbea4f1f2ddf4987a13d2a9d595d830023a1a6d"
+  },
+  "case_ids": [
+   "TC-API-BB-READY",
+   "TC-API-BB-WRONG"
+  ],
+  "cases": [
+   {
+    "api_source": "source-and-official-docs",
+    "assertions": {
+     "json_equals": {
+      "/status": "ready"
+     },
+     "status": 200
+    },
+    "expected": "HTTP 200 and JSON status equals ready",
+    "extensions": {
+     "oracle": {
+      "source": "requirement"
+     }
+    },
+    "id": "TC-API-BB-READY",
+    "kind": "api",
+    "lifecycle": "active",
+    "method": "GET",
+    "module": "Local HTTP fixture",
+    "params": {
+     "value": "ready"
+    },
+    "path": "/api/value",
+    "preconditions": "Local deterministic fixture is running on 127.0.0.1:18882",
+    "priority": "P1",
+    "requirement_ids": [
+     "BB-READY"
+    ],
+    "revision": 1,
+    "risk": "read",
+    "schema_version": "1.1.0",
+    "source": "Independent local fixture requirement spec-v1",
+    "source_ref": "spec-v1",
+    "steps": [
+     "Send GET /api/value?value=ready",
+     "Compare HTTP status and JSON status against the independent requirement"
+    ],
+    "tags": [
+     "blackbox",
+     "state"
+    ],
+    "test_data": {
+     "value": "ready"
+    },
+    "title": "Ready endpoint satisfies ready requirement"
+   },
+   {
+    "api_source": "source-and-official-docs",
+    "assertions": {
+     "json_equals": {
+      "/status": "ready"
+     },
+     "status": 200
+    },
+    "expected": "HTTP 200 and JSON status equals ready; actual wrong must remain a business failure",
+    "extensions": {
+     "oracle": {
+      "source": "requirement"
+     }
+    },
+    "id": "TC-API-BB-WRONG",
+    "kind": "api",
+    "lifecycle": "active",
+    "method": "GET",
+    "module": "Local HTTP fixture",
+    "params": {
+     "value": "wrong"
+    },
+    "path": "/api/value",
+    "preconditions": "Local deterministic fixture is running on 127.0.0.1:18882",
+    "priority": "P1",
+    "requirement_ids": [
+     "BB-READY"
+    ],
+    "revision": 1,
+    "risk": "read",
+    "schema_version": "1.1.0",
+    "source": "Independent local fixture requirement spec-v1",
+    "source_ref": "spec-v1",
+    "steps": [
+     "Send GET /api/value?value=wrong",
+     "Compare HTTP status and JSON status against the independent ready requirement"
+    ],
+    "tags": [
+     "blackbox",
+     "state"
+    ],
+    "test_data": {
+     "value": "wrong"
+    },
+    "title": "Wrong endpoint preserves business violation"
+   }
+  ],
+  "origin": "materialize"
+ }
+}

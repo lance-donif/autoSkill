@@ -225,17 +225,24 @@ class HostContextTests(unittest.TestCase):
         folder.mkdir(parents=True)
         report_id = "run_" + run["id"]
         receipt = {"report_id": report_id, "kind": "run", "task_id": run["id"], "status": "ready", "excel": str(folder / "missing.xlsx"), "sha256": "declared"}
-        (folder / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+        file = folder / "receipt.json"
+        file.write_text(json.dumps(receipt), encoding="utf-8")
+        db.update("runs", run["id"], {"status": "Pass"})
+        original = file.read_bytes()
+        revision = db.one("SELECT revision FROM state_revision WHERE id=1")["revision"]
         result = self.context(binding_id=explicit["id"])
-        self.assertEqual(result["reports"][0]["verification"], "not_checked")
-        self.assertEqual(result["reports"][0]["receipt_status"], "ready")
+        self.assertEqual(result["reports"][0]["verification"], "invalid")
+        self.assertEqual(result["reports"][0]["receipt_status"], "failed")
+        self.assertEqual(file.read_bytes(), original)
+        self.assertEqual(sorted(path.name for path in folder.iterdir()), ["receipt.json"])
+        self.assertEqual(db.one("SELECT revision FROM state_revision WHERE id=1")["revision"], revision)
         self.assertEqual(task_reports.get(report_id)["status"], "failed")
         db.execute("DELETE FROM runs WHERE id=?", (run["id"],))
         result = self.context(binding_id=explicit["id"])
         self.assertEqual(result["status"], "reference_missing")
         self.assertEqual(result["reports"], [])
 
-    def test_project_report_receipts_are_read_without_export_or_verification(self):
+    def test_project_reports_are_verified_without_export_or_persistence(self):
         project = self.project()
         run = runner.create(project, session_id="task-A")
         finished = jobs.cancel(run["id"])
@@ -243,14 +250,25 @@ class HostContextTests(unittest.TestCase):
         self.assertTrue(Path(finished["test_report"]["excel"]).is_relative_to(projects.path(project) / "reports"))
         binding = self.bind(project_id=project, run_id=run["id"])
         before, files = self.logical_state(), self.files()
-        with patch.object(task_reports, "for_run", side_effect=AssertionError("Reading must not export")), \
-                patch.object(task_reports, "get", side_effect=AssertionError("Reading must not verify artifacts")):
+        with patch.object(task_reports, "for_run", side_effect=AssertionError("Reading must not export")):
             result = self.context(binding_id=binding["id"])
         report = result["reports"][0]
-        self.assertEqual((report["receipt_status"], report["verification"]), ("ready", "not_checked"))
+        self.assertEqual((report["receipt_status"], report["verification"]), ("ready", "verified"))
         self.assertEqual({item["format"] for item in report["artifacts"]}, {"excel", "markdown", "bugs"})
         self.assertEqual(self.logical_state(), before)
         self.assertEqual(self.files(), files)
+        for kind in ("excel", "markdown", "bugs"):
+            with self.subTest(artifact=kind):
+                artifact = Path(finished["test_report"][kind])
+                original = artifact.read_bytes()
+                artifact.write_bytes(original + b"tampered")
+                facts, files = self.logical_state(), self.files()
+                with patch.object(task_reports, "for_run", side_effect=AssertionError("Reading must not repair artifacts")):
+                    invalid = self.context(binding_id=binding["id"])["reports"][0]
+                self.assertEqual((invalid["receipt_status"], invalid["verification"]), ("failed", "invalid"))
+                self.assertEqual(self.logical_state(), facts)
+                self.assertEqual(self.files(), files)
+                artifact.write_bytes(original)
         index = paths.local() / "task-report-locations" / ("run_" + run["id"] + ".json")
         index.write_text(json.dumps({"project_id": project, "folder": str(self.folder / "outside")}), encoding="utf-8")
         files = self.files()

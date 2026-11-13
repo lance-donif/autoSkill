@@ -1,0 +1,11 @@
+{
+  "requirements": [
+    {
+      "id": "req-multiply",
+      "text": "Answer six multiplied by seven as numeric42. The original independent expectation remains unchanged after service repair.",
+      "source_ids": [
+        "arithmetic-contract-v2"
+      ]
+    }
+  ]
+}

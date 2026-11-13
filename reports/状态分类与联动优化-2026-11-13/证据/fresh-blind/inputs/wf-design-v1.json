@@ -1,0 +1,29 @@
+{
+  "scenarios": [
+    {
+      "id": "scenario-multiply",
+      "title": "Verify six times seven against independent arithmetic contract",
+      "requirement_ids": [
+        "req-multiply"
+      ],
+      "oracle_ids": [
+        "oracle-multiply"
+      ]
+    }
+  ],
+  "oracles": [
+    {
+      "id": "oracle-multiply",
+      "kind": "api",
+      "requirement_ids": [
+        "req-multiply"
+      ],
+      "checks": {
+        "status": 200,
+        "json_equals": {
+          "/answer": 42
+        }
+      }
+    }
+  ]
+}

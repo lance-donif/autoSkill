@@ -1,0 +1,13 @@
+{
+  "command": [
+    "native",
+    "run",
+    "127-0-0-1",
+    "asset-0128a2dc1f63"
+  ],
+  "started_at": 1794580554.2896388,
+  "finished_at": 1794580556.2790449,
+  "exit_code": 0,
+  "stdout": "{\n \"id\": \"run-cf6bd69cfb1e\",\n \"family\": \"native\",\n \"project_id\": \"127-0-0-1\",\n \"engine\": \"selenium-unittest\",\n \"trigger\": \"manual\",\n \"task_id\": null,\n \"status\": \"Queued\",\n \"case_ids\": [\n  \"asset-0128a2dc1f63\"\n ],\n \"total\": 0,\n \"created_at\": \"2026-11-13T14:35:55.567+00:00\",\n \"headed\": 0,\n \"session_id\": \"blackbox-native-only\",\n \"input_manifest\": \"/workspace/autoskill-state-validation/blackbox-ui/native-only-data/.local/native-inputs/560d6d455430a9b7bf23acd6fa4e9a0c3936ff83baf99807e7a3661ace76cfae-f362b645010b4f0688d882b188c116ac.json\",\n \"input_hash\": \"560d6d455430a9b7bf23acd6fa4e9a0c3936ff83baf99807e7a3661ace76cfae\",\n \"state\": {\n  \"lifecycle\": \"pending\",\n  \"phase\": \"queued\",\n  \"outcome\": \"pending\",\n  \"checks\": {\n   \"business\": \"unverified\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"unverified\",\n  \"report\": \"pending\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"127-0-0-1\",\n   \"workflow_id\": null,\n   \"cycle_id\": null,\n   \"run_id\": \"run-cf6bd69cfb1e\",\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"b11e2d114086917af7a1e24758415193cdc3cc159cf7d6564f0c0333d8e0886c\"\n },\n \"queue_dispatcher\": {\n  \"status\": \"started\",\n  \"pid\": 56133,\n  \"reason\": \"\"\n },\n \"note\": \"已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定\"\n}\n",
+  "stderr": ""
+}

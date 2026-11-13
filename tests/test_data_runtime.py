@@ -84,6 +84,11 @@ class RelocationTests(unittest.TestCase):
                                               "AUTOSKILL_CASE_SKILL": str(self.root / ".local/case-plans/default/autoskill-cases"), "AUTOSKILL_HEADED": "0"})
         environment.start()
         self.addCleanup(environment.stop)
+        # These fixtures represent a stopped foreign runtime. Its fake owners and
+        # pending writes must not be reaped by an unrelated live dispatcher.
+        monitor = patch.object(jobs, "ensure_worker")
+        monitor.start()
+        self.addCleanup(monitor.stop)
         self.project = projects.create("Relocation", f"http://127.0.0.1:{self.server.server_port}", project_id="relocation")["id"]
         self.before_calls = Handler.calls
         self.now = datetime.datetime.now(datetime.UTC)
@@ -283,7 +288,9 @@ class RelocationTests(unittest.TestCase):
             self.assertEqual(db.one("SELECT COUNT(*) n FROM runs")["n"], 1)
             self.assertEqual(Handler.calls - self.before_calls, 2)
             spawn.assert_not_called()
-            dispatch.assert_not_called()
+            # The new host investigation lease is monitored, without replaying
+            # the original run or issuing another business request.
+            dispatch.assert_called_once()
             with self.assertRaisesRegex(ValueError, "收据"):
                 workflow.operation_receipt({"operation_id": operation["id"], "receipt_token": operation["receipt_token"]}, {"stale": True})
 

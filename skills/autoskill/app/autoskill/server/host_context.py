@@ -21,9 +21,9 @@ def register(app: FastAPI) -> None:
 
     @app.get("/api/host/context")
     def context(host: str, host_session_id: str, binding_id: str | None = None, limit: int = 20, cursor: str | None = None,
-                runs_limit: int = 10, runs_cursor: str | None = None):
+                runs_limit: int = 10, runs_cursor: str | None = None, revision_only: bool = False):
         return host_context.read(host, host_session_id, binding_id=binding_id, limit=limit, cursor=cursor,
-                                 runs_limit=runs_limit, runs_cursor=runs_cursor)
+                                 runs_limit=runs_limit, runs_cursor=runs_cursor, revision_only=revision_only)
 
     @app.get("/api/host/requests")
     def request_receipt(host: str, host_session_id: str, kind: str, key: str, scope: str = ""):

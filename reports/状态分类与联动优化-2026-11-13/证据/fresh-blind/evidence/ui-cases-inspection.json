@@ -1,0 +1,34 @@
+{
+  "started_ns": 1794580883916668530,
+  "url": "http://127.0.0.1:18890/#/cases",
+  "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n项目与用例\n\n1 个项目 · 1 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。\n\n新建项目\n全部\n页面\n接口\nFresh blind arithmetic desk\n\nhttp://127.0.0.1:37171 · 页面 0 · 接口 1 · 未定义登录方式\n\n运行全部\n\t用例\t类型\t子项目\t最近结果\t最近执行\t\n\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：未验证\n业务：通过\n\t今天 14:38\t\n运行",
+  "inputs": [
+    {
+      "tag": "INPUT",
+      "type": "search",
+      "placeholder": "搜索用例编号、标题或模块",
+      "value": "",
+      "outer": "<input class=\"input\" type=\"search\" placeholder=\"搜索用例编号、标题或模块\" aria-label=\"搜索用例\" style=\"width: 280px;\">"
+    },
+    {
+      "tag": "INPUT",
+      "type": "checkbox",
+      "placeholder": "",
+      "value": "on",
+      "outer": "<input class=\"check\" type=\"checkbox\" aria-label=\"选择「Fresh blind arithmetic desk」的全部用例\">"
+    },
+    {
+      "tag": "INPUT",
+      "type": "checkbox",
+      "placeholder": "",
+      "value": "on",
+      "outer": "<input class=\"check\" type=\"checkbox\" aria-label=\"选择 TC-API-FRESH-001\">"
+    }
+  ],
+  "rows": [
+    {
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：未验证\n业务：通过\n\t今天 14:38\t\n运行",
+      "html": "<tr class=\"click\"><td><input class=\"check\" type=\"checkbox\" aria-label=\"选择 TC-API-FRESH-001\"></td><td><div class=\"title\">Six times seven retains independent expected42</div><div class=\"sub mono\">TC-API-FRESH-001</div></td><td><span class=\"tag\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14\"></path></svg>接口</span></td><td class=\"sub\">Arithmetic multiplication</td><td><span class=\"status idle\" title=\"已结束\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-h"
+    }
+  ]
+}

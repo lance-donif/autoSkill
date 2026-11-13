@@ -1,0 +1,344 @@
+[
+  {
+    "scenario": "fast",
+    "asset_id": "asset-101b7a6ea95d",
+    "run_id": "run-a96971529716",
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "pass",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "pass"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "fresh-arithmetic",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-a96971529716",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "4045fe1dfc1158c34315e931f0f460423716c696989a6f61a6e17504693ecc78"
+    },
+    "status": "Pass",
+    "report": {
+      "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-a96971529716/test-report/Bug清单-80a8c0608ada0450.md",
+      "bugs_count": 0,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 0,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "bugs_download_url": "/api/task-reports/run_run-a96971529716/bugs",
+      "bugs_sha256": "5eb68c9acc9f372d7f78e2ec703d9ac7d7a43503664685aed1a6939e480a8c25",
+      "bugs_size": 928,
+      "cases": 1,
+      "download_url": "/api/task-reports/run_run-a96971529716/excel",
+      "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-a96971529716/test-report/测试用例-80a8c0608ada0450.xlsx",
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:35:21.104+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T14:35:18.383+00:00",
+        "input_hash": "6a25492e508432dde8525ecc3ae5867fc3e7edbce05c6fd1837a94acd1a9eca7",
+        "status": "Pass"
+      },
+      "kind": "run",
+      "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-a96971529716/test-report/测试简报-80a8c0608ada0450.md",
+      "markdown_download_url": "/api/task-reports/run_run-a96971529716/markdown",
+      "markdown_sha256": "3752221c24d5c09c03e40bf59f3749ac3d2b277befb0823b5959f06dbe7586c6",
+      "markdown_size": 714,
+      "render_owner_identity": {
+        "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 55230,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1157652"
+      },
+      "render_started_at": "2026-11-13T14:35:18.421+00:00",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-a96971529716",
+      "retry_url": "/api/task-reports/run_run-a96971529716/retry",
+      "retryable": false,
+      "run_ids": [
+        "run-a96971529716"
+      ],
+      "sha256": "42410f4da785edfd0a8ea6a863a96541ae5d931dc85789409f0338ab7cd64d4d",
+      "size": 17842,
+      "source_hash": "80a8c0608ada04509e8acc0cc072a7c6c830d700e702f4c17ca5ee5ce4c77ace",
+      "status": "ready",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 0,
+        "NotRun": 0,
+        "Pass": 1,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-a96971529716",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Fresh blind arithmetic desk",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      }
+    },
+    "final_evidence": "evidence/cli-1794580519318953067-status-fast.json",
+    "asset_evidence": "evidence/cli-1794580512814920703-import-fast.json",
+    "start_evidence": "evidence/cli-1794580514387530687-run-fast.json"
+  },
+  {
+    "scenario": "wrong",
+    "asset_id": "asset-01a802c01af8",
+    "run_id": "run-fb74159d8a65",
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "fail",
+      "checks": {
+        "business": "fail",
+        "performance": "not_applicable",
+        "quality": "fail"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "fresh-arithmetic",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-fb74159d8a65",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "回答不符合独立预期",
+      "revision": "ddd482850776820c0007b29a4880399119fcdbd5c020ddfc347b9718287b60ee"
+    },
+    "status": "Fail",
+    "report": {
+      "bugs": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-fb74159d8a65/test-report/Bug清单-46946eb1c182da6d.md",
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 1,
+        "execution": 0,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "bugs_download_url": "/api/task-reports/run_run-fb74159d8a65/bugs",
+      "bugs_sha256": "44bd56880a0ba62783f17eb8ca15b95e209bf76dfd061c4ade3c207de2ff5bd2",
+      "bugs_size": 1489,
+      "cases": 1,
+      "download_url": "/api/task-reports/run_run-fb74159d8a65/excel",
+      "excel": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-fb74159d8a65/test-report/测试用例-46946eb1c182da6d.xlsx",
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:35:31.468+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T14:35:30.524+00:00",
+        "input_hash": "096b8d5851fb5531fcb91e47737f7f5c6396d7f0eea7bf236354c4e4969e0abf",
+        "status": "Fail"
+      },
+      "kind": "run",
+      "markdown": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/runs/run-fb74159d8a65/test-report/测试简报-46946eb1c182da6d.md",
+      "markdown_download_url": "/api/task-reports/run_run-fb74159d8a65/markdown",
+      "markdown_sha256": "82b88c8237e3cbdf220d208550332dc9eef4aa26457c91a6d51ac26a8704190c",
+      "markdown_size": 677,
+      "render_owner_identity": {
+        "location_id": "d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 55775,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1158843"
+      },
+      "render_started_at": "2026-11-13T14:35:30.572+00:00",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-fb74159d8a65",
+      "retry_url": "/api/task-reports/run_run-fb74159d8a65/retry",
+      "retryable": false,
+      "run_ids": [
+        "run-fb74159d8a65"
+      ],
+      "sha256": "1120d1627047fb0e2b4b61c05109d6ee30312491347d1cb4cceb9803ab958a16",
+      "size": 17983,
+      "source_hash": "46946eb1c182da6d6ef742c9a342274ca2ab788471f8809c731d8bc7a18cb7a3",
+      "status": "ready",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 1,
+        "NotRun": 0,
+        "Pass": 0,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-fb74159d8a65",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "Fresh blind arithmetic desk",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      }
+    },
+    "final_evidence": "evidence/cli-1794580530006887793-status-wrong.json",
+    "asset_evidence": "evidence/cli-1794580523677043490-import-wrong.json",
+    "start_evidence": "evidence/cli-1794580525920544521-run-wrong.json"
+  },
+  {
+    "scenario": "retry",
+    "asset_id": "asset-e4243c9eb456",
+    "run_id": "run-84f885b6f65d",
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "fail",
+      "checks": {
+        "business": "fail",
+        "performance": "not_applicable",
+        "quality": "fail"
+      },
+      "evidence": "valid",
+      "report": "not_generated",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "fresh-arithmetic",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-84f885b6f65d",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "回答不符合独立预期",
+      "revision": "72f858d17f35aba383d5fc5a1900f2b94601fb33b1fb77111fb417458f9b9267"
+    },
+    "status": "Fail",
+    "report": {
+      "report_id": "run_run-84f885b6f65d",
+      "status": "not_generated",
+      "retryable": true,
+      "retry_url": "/api/task-reports/run_run-84f885b6f65d/retry"
+    },
+    "final_evidence": "evidence/cli-1794580537820915437-status-retry.json",
+    "asset_evidence": "evidence/cli-1794580533681270261-import-retry.json",
+    "start_evidence": "evidence/cli-1794580535495202208-run-retry.json"
+  },
+  {
+    "scenario": "probe",
+    "asset_id": "asset-92366712c852",
+    "run_id": "run-0b94e12e5a83",
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "unverified",
+      "checks": {
+        "business": "unverified",
+        "performance": "not_applicable",
+        "quality": "unverified"
+      },
+      "evidence": "valid",
+      "report": "not_generated",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "fresh-arithmetic",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-0b94e12e5a83",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "04255f17e5d13f49ada860d4bea754d34b1a46fabae53f737006094c7395d504"
+    },
+    "status": "Pass",
+    "report": {
+      "report_id": "run_run-0b94e12e5a83",
+      "status": "not_generated",
+      "retryable": true,
+      "retry_url": "/api/task-reports/run_run-0b94e12e5a83/retry"
+    },
+    "final_evidence": "evidence/cli-1794580542773840390-status-probe.json",
+    "asset_evidence": "evidence/cli-1794580539130123690-import-probe.json",
+    "start_evidence": "evidence/cli-1794580540208846016-run-probe.json"
+  }
+]

@@ -5,6 +5,8 @@ import { empty, errorState, startRun, confirm, preferredHeaded } from '../ui.js'
 import { splitBar } from '../charts.js';
 import { refreshShell } from '../shell.js';
 import { downloadRunHtml } from './run-export.js';
+import { primaryState, stateResults, stateDetails, statePill, stateLabel } from '../status-view.js';
+import { updateLiveView } from '../live-refresh.js';
 
 const PAGE = 50;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'native' ? '原生' : value === 'ui' ? '页面' : '接口');
@@ -16,6 +18,7 @@ let deletionErrors = [];
 let deletionTimer = null;
 let checkingDeletions = false;
 const deleting = (run) => !!run.delete_requested && !run.deletion_error;
+const changeHistory = (patch) => go('runs', { ...Object.fromEntries(route().params), ...patch, offset: null });
 
 // biome-ignore lint/suspicious/useAwait: Preserve the asynchronous render contract and its existing promise adoption.
 export async function render(view, { id }) {
@@ -35,8 +38,9 @@ export function commit(view, next, { id }) {
     for (const button of oldToolbar.querySelectorAll('button')) button.setAttribute('aria-pressed', pressed.get(button.textContent));
   } else oldToolbar.replaceWith(newToolbar);
   view.querySelector('.page-head p').textContent = next.querySelector('.page-head p').textContent;
+  updateLiveView(view.querySelector('[data-history-region="filters"]'), next.querySelector('[data-history-region="filters"]'));
   for (const name of ['notices', 'content', 'selection']) {
-    view.querySelector(`[data-history-region="${name}"]`).replaceChildren(...next.querySelector(`[data-history-region="${name}"]`).childNodes);
+    updateLiveView(view.querySelector(`[data-history-region="${name}"]`), next.querySelector(`[data-history-region="${name}"]`));
   }
 }
 
@@ -45,10 +49,12 @@ async function history(view) {
   const { params } = route();
   const mode = params.get('view') === 'results' ? 'results' : 'runs';
   const status = params.get('status') || '';
+  const stateFilters = Object.fromEntries(['phase', 'outcome', 'business', 'performance', 'report'].map((key) => [key, params.get(key) || '']));
+  stateFilters.cycle = params.get('cycle') || 'current';
   const offset = Number(params.get('offset') || 0);
   let data;
   try {
-    data = await api((mode === 'results' ? '/results' : '/runs') + scopeQuery({ status, limit: PAGE, offset }));
+    data = await api((mode === 'results' ? '/results' : '/runs') + scopeQuery({ status, ...stateFilters, limit: PAGE, offset }));
   } catch (error) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
@@ -59,13 +65,13 @@ async function history(view) {
   }
   updateSelection(data.items, params, mode);
   const tabs = h('div', { class: 'seg', role: 'group', 'aria-label': '查看方式' },
-    h('button', { 'aria-pressed': String(mode === 'runs'), onClick: () => go('runs', { view: null, status: null, offset: null }) }, '按运行'),
-    h('button', { 'aria-pressed': String(mode === 'results'), onClick: () => go('runs', { view: 'results', status: null, offset: null }) }, '按用例结果'));
+    h('button', { 'aria-pressed': String(mode === 'runs'), onClick: () => changeHistory({ view: null, status: null }) }, '按运行'),
+    h('button', { 'aria-pressed': String(mode === 'results'), onClick: () => changeHistory({ view: 'results', status: null }) }, '按用例结果'));
   const options = mode === 'results'
     ? [['', '全部结果'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞']]
     : [['', '全部状态'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞'], ['Running', '执行中'], ['Cancelled', '已取消']];
   const filter = h('div', { class: 'seg', role: 'group', 'aria-label': '结果筛选' }, options.map(([value, label]) => h('button', {
-    'aria-pressed': String(status === value), onClick: () => go('runs', { view: mode === 'results' ? 'results' : null, status: value || null, offset: null }),
+    'aria-pressed': String(status === value), onClick: () => changeHistory({ view: mode === 'results' ? 'results' : null, status: value || null }),
   }, label)));
 
   let body;
@@ -82,11 +88,11 @@ async function history(view) {
     body = h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, ['结果', '用例', '类型', '项目', '原因', '时间', '耗时'].map((t) => h('th', {}, t)))),
       h('tbody', {}, data.items.map((item) => h('tr', { class: 'click', onClick: () => go('runs/' + item.run_id, { ...Object.fromEntries(params), case: item.case_id }) },
-        h('td', {}, statusPill(item.status)),
+        h('td', {}, primaryState(item), stateResults(item)),
         h('td', {}, h('div', { class: 'title' }, item.case_title), h('div', { class: 'sub mono' }, item.case_id)),
         h('td', {}, kindTag(item.kind)),
         h('td', { class: 'sub' }, item.project_name),
-        h('td', { class: 'sub', style: 'max-width:340px' }, item.status === 'Pass' ? '—'
+        h('td', { class: 'sub', style: 'max-width:340px' }, item.state?.outcome === 'pass' ? '—'
           : h('div', { class: 'ellipsis', title: item.reason }, h('b', {}, CATEGORY[item.category] || '未分类'), item.reason ? '：' + item.reason : '')),
         h('td', { class: 'sub num' }, fmtTime(item.started_at)),
         h('td', { class: 'sub num' }, fmtDuration(item.duration_ms))))));
@@ -99,11 +105,29 @@ async function history(view) {
   replace(view,
     h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '执行记录'),
       h('p', { class: 'sub' }, mode === 'results' ? `范围内共 ${data.total} 条用例结果（不含自动执行的前置）` : `范围内共 ${data.total} 次运行`))),
-    h('div', { class: 'toolbar', dataset: { historyRegion: 'toolbar', historyMode: mode } }, tabs, filter),
+    h('div', { class: 'toolbar wrap', dataset: { historyRegion: 'toolbar', historyMode: mode } }, tabs, filter),
+    h('div', { dataset: { historyRegion: 'filters' } }, stateFilterControls(params, stateFilters)),
     h('div', { dataset: { historyRegion: 'notices' } }, deletionNotice()),
     h('section', { class: 'card', dataset: { historyRegion: 'content' } },
       h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': '执行记录表格' }, body), pager),
     h('div', { dataset: { historyRegion: 'selection' } }, selectionBar));
+}
+
+function stateFilterControls(params, filters) {
+  const choices = {
+    cycle: ['周期', [['current', '当前周期'], ['all', '包含历史周期']]],
+    phase: ['执行阶段', [['', '全部阶段'], ['queued', '排队中'], ['running', '执行中'], ['awaiting_host', '等待宿主'],
+      ['waiting_execution', '等待执行'], ['recovering', '恢复中'], ['blocked', '阻塞'], ['settled', '已结束'], ['cancelled', '已取消']]],
+    outcome: ['综合结果', [['', '全部结果'], ['pending', '待处理'], ['pass', '通过'], ['fail', '失败'], ['blocked', '阻塞'], ['unverified', '未验证'], ['cancelled', '已取消']]],
+    business: ['业务验证', [['', '全部业务结果'], ['pass', '通过'], ['fail', '失败'], ['unverified', '未验证']]],
+    performance: ['性能目标', [['', '全部性能结果'], ['pass', '通过'], ['fail', '失败'], ['unverified', '未验证'], ['not_applicable', '不适用']]],
+    report: ['报告交付', [['', '全部报告状态'], ['ready', '已就绪'], ['failed', '失败'], ['pending', '待生成'], ['generating', '生成中'], ['not_generated', '尚未生成']]],
+  };
+  return h('div', { class: 'toolbar wrap', 'aria-label': '状态分类筛选' }, Object.entries(choices).map(([key, [title, options]]) =>
+    h('label', { class: 'row', style: 'gap:6px' }, h('span', { class: 'sub' }, title),
+      h('select', { class: 'select', value: filters[key], 'aria-label': title, style: 'width:auto', onChange: (event) => {
+        go('runs', { ...Object.fromEntries(params), [key]: event.target.value || null, offset: null });
+      } }, options.map(([value, text]) => h('option', { value, selected: value === filters[key] }, text))))));
 }
 
 function updateSelection(items, params, mode) {
@@ -153,12 +177,12 @@ function historyRow(run, params, repaint) {
   const note = run.deletion_error || (deleting(run) ? '正在取消并删除，等待执行器退出及清理完成' :
     active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
   return h('tr', { class: 'click' + (selected.has(run.id) ? ' selected' : ''), onClick: () => go((run.family === 'load' ? 'load-tests/' : 'runs/') + run.id, Object.fromEntries(params)) },
-    h('td', {}, box), h('td', {}, statusPill(run.status, deleting(run) ? '正在取消并删除' : null)),
+    h('td', {}, box), h('td', {}, primaryState(run), stateResults(run)),
     h('td', {}, h('div', { class: 'title' }, run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
     h('td', { style: 'min-width:170px' }, active(run)
       ? h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })), h('span', { class: 'sub num' }, `${run.done}/${run.total}`))
-      : h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run), h('span', { class: 'sub num' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞`))),
-    h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine] || run.engine),
+      : h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run), h('span', { class: 'sub num' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞 · ${run.unverified || 0} 未验证`))),
+    h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine] || run.engine || '未记录'),
     h('td', { class: 'sub num' }, fmtTime(run.created_at)),
     h('td', { class: 'sub num' }, run.finished_at && run.started_at ? fmtDuration(new Date(run.finished_at) - new Date(run.started_at)) : '—'),
     h('td', { class: 'actions' }, runDeleteButton([run], { small: true })));
@@ -289,7 +313,7 @@ async function report(view, runId) {
     return;
   }
   if (run.family === 'load') { go('load-tests/' + runId); return; }
-  if (run.family === 'native') { go('native-runs/' + runId); return; }
+  if (run.family === 'native') { go('native-runs/' + runId, Object.fromEntries(route().params)); return; }
   watchDeletion(run);
   const focus = route().params.get('case');
   prepareReportRows(run, runId, focus);
@@ -297,15 +321,16 @@ async function report(view, runId) {
   if (running) live.until = Date.now() + 8000;
   const counted = run.results.filter((row) => !row.prerequisite);
   const spent = run.results.reduce((sum, row) => sum + row.duration_ms, 0);
-  const notPassed = counted.filter((row) => row.status !== 'Pass').length;
+  const notPassed = counted.filter((row) => row.state?.outcome !== 'pass').length;
 
-  const again = h('button', { class: 'btn' }, icon('reset'), '重新运行');
+  const native = run.family === 'native';
+  const again = h('button', { class: 'btn' }, icon('reset'), native ? '重跑原生资产' : '重新运行');
   again.addEventListener('click', async () => {
-    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: { headed: preferredHeaded() } }), again);
+    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: native ? {} : { headed: preferredHeaded() } }), again);
     if (made) go('runs/' + made.id, { case: null });
   });
-  const retry = h('button', { class: 'btn primary' }, icon('play'), `只重跑未通过的 ${notPassed} 条`);
-  retry.addEventListener('click', async () => {
+  const retry = !native && h('button', { class: 'btn primary' }, icon('play'), `只重跑未通过的 ${notPassed} 条`);
+  if (retry) retry.addEventListener('click', async () => {
     const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: { failed_only: true, headed: preferredHeaded() } }), retry);
     if (made) go('runs/' + made.id, { case: null });
   });
@@ -349,19 +374,19 @@ function prepareReportRows(run, runId, focus) {
     reportFor = runId;
     openRows.clear();
     for (const row of run.results) {
-      if (focus ? row.case_id === focus : !row.prerequisite && row.status !== 'Pass') openRows.add(resultKey(row));
+      if (focus ? row.case_id === focus : !row.prerequisite && row.state?.outcome !== 'pass') openRows.add(resultKey(row));
     }
   }
 }
 
 function testReportControl(run) {
   const receipt = run.test_report;
-  if (receipt?.status === 'ready') {
+  if (run.state?.report === 'ready' && receipt) {
     return [h('a', { class: 'btn', href: receipt.download_url, download: '', title: '本次任务的用例、步骤、断言与实际结果' }, icon('table'), '下载本次用例 Excel'),
       receipt.markdown_download_url && h('a', { class: 'btn', href: receipt.markdown_download_url, download: '', title: '本次任务的简单字段、结果汇总和主要问题' }, icon('table'), '下载 Markdown 汇总'),
       receipt.bugs_download_url && h('a', { class: 'btn', href: receipt.bugs_download_url, download: '', title: '同轮业务失败、执行问题及证据线索' }, icon('table'), '下载 Bug 清单')];
   }
-  if (receipt?.status !== 'failed') return null;
+  if (run.state?.report !== 'failed' || !receipt) return null;
   const retry = h('button', { class: 'btn', onClick: async () => {
     const result = await attempt(() => api('/task-reports/' + encodeURIComponent(receipt.report_id) + '/retry', { method: 'POST' }), retry);
     if (result) {
@@ -390,18 +415,19 @@ function runSummary(run, running, stop, again, notPassed, retry, spent, remove, 
   return h('section', { class: 'card run-summary' },
     h('div', { class: 'card-body' },
       h('div', { class: 'row wrap', style: 'gap:16px' },
-        statusPill(run.status, deleting(run) ? '正在取消并删除' : null),
+        primaryState(run),
         h('div', { class: 'grow report-heading' }, h('h1', {}, run.project_name),
           h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 执行引擎 ${ENGINE[run.engine] || run.engine || '未记录'} · ${fmtTime(run.created_at)}`)),
         !offline && htmlReportControl(run),
         !offline && !deleting(run) && (running ? stop : [testReportControl(run), again, notPassed > 0 && retry]), remove),
+      stateDetails(run),
       running
         ? h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
           h('div', { class: 'row sub' }, h('i', { class: 'spin' }), run.status === 'Queued' ? '排队中，等待前一个运行结束' : `正在执行：${run.current || '准备中'}`,
             h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`)))
         : h('div', { class: 'stats' },
-          stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'),
+          stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'), stat('未验证', run.unverified || 0),
           stat('用例', run.total), stat('总耗时', fmtDuration(spent))),
       run.reason && h('div', { class: 'banner bad', style: 'margin-top:16px' }, icon('warn'), run.reason)));
 }
@@ -417,20 +443,21 @@ function resultRow(run, row, offline = false) {
     if (open) openRows.delete(key); else openRows.add(key);
     refresh();
   } },
-  icon('right', 'icon-svg caret'), statusPill(row.status),
+  icon('right', 'icon-svg caret'), primaryState(row),
   h('span', { class: 'grow' }, h('span', { class: 'title' }, row.case_title),
     h('span', { class: 'sub' }, `　${row.case_id}`),
     row.prerequisite ? h('span', { class: 'tag accent', style: 'margin-left:8px' }, '前置') : null,
     row.detail.reused ? h('span', { class: 'tag', style: 'margin-left:6px' }, '复用登录态') : null,
     row.detail.relogin ? h('span', { class: 'tag', style: 'margin-left:6px' }, '已自动重新登录') : null,
-    row.detail.fallbacks ? h('span', { class: 'tag', style: 'margin-left:6px', title: '首选定位没有匹配，用了备选定位' }, '定位已降级') : null),
+    row.detail.fallbacks ? h('span', { class: 'tag', style: 'margin-left:6px', title: '首选定位没有匹配，用了备选定位' }, '定位已降级') : null,
+    stateResults(row)),
   kindTag(row.kind), h('span', { class: 'sub num', style: 'min-width:72px;text-align:right' }, fmtDuration(row.duration_ms)));
   return h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id, result: key } }, head, open && resultBody(run, row, offline));
 }
 
 function resultBody(run, row, offline = false) {
   const d = row.detail;
-  const parts = [];
+  const parts = [stateDetails(row), attemptHistory(d)];
   if (row.status !== 'Pass') {
     parts.push(h('div', { class: 'banner ' + (row.status === 'Fail' ? 'bad' : '') }, icon(row.status === 'Fail' ? 'x' : 'warn'),
       h('span', {}, h('b', {}, CATEGORY[row.category] || (row.status === 'Fail' ? '失败' : '阻塞')), row.reason ? '：' + row.reason : '')));
@@ -452,12 +479,24 @@ function resultBody(run, row, offline = false) {
   }
   appendRequestDetails(parts, d, row);
   appendScreenshots(parts, d, run, row);
-  if (!offline && row.status !== 'Pass' && !row.prerequisite) {
+  if (!offline && run.family !== 'native' && row.state?.outcome !== 'pass' && !row.prerequisite) {
     const again = h('button', { class: 'btn sm' }, icon('play'), '只重跑这一条');
     again.addEventListener('click', () => startRun([{ project_id: run.project_id, case_ids: [row.case_id] }], again));
     parts.push(h('div', { class: 'row' }, again));
   }
   return h('div', { class: 'result-body' }, parts);
+}
+
+function attemptHistory(detail) {
+  const attempts = detail.attempts || [];
+  if (!attempts.length && !detail.last_attempt_status) return null;
+  return h('section', { class: 'stack', 'aria-label': '执行尝试历史' }, h('h3', {}, '执行尝试'),
+    detail.last_attempt_status && h('p', { class: 'sub' }, '末次尝试：', statusPill(detail.last_attempt_status)),
+    attempts.length > 0 && h('ol', { class: 'steps timeline' }, attempts.map((entry, index) => h('li', {},
+      h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.status ? statusPill(entry.status) : statePill(entry.execution_status),
+        entry.business_status ? h('span', { class: 'tag' }, '业务：' + stateLabel(entry.business_status.toLowerCase())) : null),
+      h('span', { class: 'step-sub' }, entry.reason || entry.error || '详见本次尝试的执行记录'),
+      h('details', {}, h('summary', {}, '查看本次记录'), h('pre', { class: 'mono' }, JSON.stringify(entry, null, 2)))))));
 }
 
 function appendAssertionResults(parts, d) {

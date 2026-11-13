@@ -37,6 +37,24 @@
 
 验证后才增加负载：将 `{"load":{"concurrency":3,"iterations":6}}` 保存为 `load.json`，执行 `autoskill native run <项目> <资产> --file load.json`。原生任务用独立输入与证据目录，同项目也可并行；本机队列总并发仍由 `AUTOSKILL_MAX_PARALLEL` 管理，单次资产内部的 load 是另一层虚拟会话并发。
 
+## 独立 HTTP 答案与性能目标
+
+已有明确 HTTP 协议时，可将以下 `spec.json` 保存到独立资产目录，再使用 `asset import <项目> --source <目录> --engine ai-eval` 导入，`native run <项目> <资产>` 执行。地址、请求映射和预期必须来自实际接口及需求；以下数值仅说明格式。
+
+```json
+{
+  "endpoint": {
+    "protocol": "http", "url": "http://127.0.0.1:9000/query", "method": "POST",
+    "body": {"question": "{{question}}"}, "answer_pointer": "/answer"
+  },
+  "samples": [{"id": "sample-1", "turns": [{"question": "给出确认过的结果", "expected": 42}]}],
+  "performance": {"total_ms": 1000},
+  "load": {"concurrency": 1, "iterations": 1}
+}
+```
+
+接口返回 `{"answer":42}` 时，`expected` 只校验答案；`performance.total_ms` 单独校验总响应毫秒数。答案正确但超过声明性能目标时，业务/质量为通过，性能和综合结果为失败。未设置性能目标时显示不适用；HTTP 200 本身不证明答案正确。
+
 ## 流式音频与网页语音
 
 已知真实 WebSocket 协议时，可在原生 `ai-eval` 资产的 endpoint 中提供音频输入，音频文件随完整目录一起导入：

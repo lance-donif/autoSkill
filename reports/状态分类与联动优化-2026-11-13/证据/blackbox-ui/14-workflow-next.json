@@ -1,0 +1,14 @@
+{
+  "command": [
+    "workflow",
+    "next",
+    "wf-0decaa560df84c6e9c0761274fb4f490",
+    "--idempotency-key",
+    "blackbox-ui-claim-2"
+  ],
+  "started_at": 1794578979.0041304,
+  "finished_at": 1794578979.33003,
+  "exit_code": 0,
+  "stdout": "{\n \"task\": {\n  \"id\": \"wfi-202e64a880244589891b272c05f22c0a\",\n  \"item_id\": \"wfi-202e64a880244589891b272c05f22c0a\",\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"phase\": \"requirements\",\n  \"attempt_id\": \"wfa-489daa05f9eb432faebb553b0ca5a062\",\n  \"lease_token\": \"lease-bfdff20a115344ab970ea23f0db43884\",\n  \"lease_until\": \"2026-11-13T14:14:39.147+00:00\",\n  \"binding_token\": \"eyJhdHRlbXB0X2lkIjoid2ZhLTQ4OWRhYTA1ZjllYjQzMmZhZWJiNTUzYjBjYTVhMDYyIiwiaXRlbV9pZCI6IndmaS0yMDJlNjRhODgwMjQ0NTg5ODkxYjI3MmMwNWYyMmMwYSIsImxlYXNlX3Rva2VuIjoibGVhc2UtYmZkZmYyMGExMTUzNDRhYjk3MGVhMjNmMGRiNDM4ODQiLCJ3b3JrZmxvd19pZCI6IndmLTBkZWNhYTU2MGRmODRjNmU5YzA3NjEyNzRmYjRmNDkwIn0=\",\n  \"input_hash\": \"060f69b1d877b14025c510af9180997a0d871c8b86b84f6272742615d2ef9fcc\",\n  \"input_refs\": {\n   \"definition\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/definition.json\",\n   \"sources\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/sources.json\"\n  },\n  \"checkpoint\": {},\n  \"context\": {},\n  \"payload_schema\": {\n   \"example\": {\n    \"requirements\": [\n     {\n      \"id\": \"req-1\",\n      \"text\": \"独立业务预期\",\n      \"source_ids\": [\n       \"source-1\"\n      ]\n     }\n    ]\n   },\n   \"rule\": \"预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。\"\n  }\n },\n \"workflow\": {\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"project_id\": \"127-0-0-1\",\n  \"title\": \"独立黑盒订单维护\",\n  \"cycle_id\": \"cycle-d40fb808592f4eb6bfd04fb3423e388b\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 6,\n  \"domain_head\": \"20368d2db8b6d4b29e646d1287a07b8593b0c49d5d311da31cd4c709fbc1ed29\",\n  \"definition_hash\": \"060f69b1d877b14025c510af9180997a0d871c8b86b84f6272742615d2ef9fcc\",\n  \"counts\": {\n   \"completed\": 1,\n   \"leased\": 1\n  }\n }\n}\n",
+  "stderr": ""
+}

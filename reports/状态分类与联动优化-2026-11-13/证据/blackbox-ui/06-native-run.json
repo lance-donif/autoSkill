@@ -1,0 +1,13 @@
+{
+  "command": [
+    "native",
+    "run",
+    "127-0-0-1",
+    "asset-864fcbae1cad"
+  ],
+  "started_at": 1794578882.3672345,
+  "finished_at": 1794578882.8220937,
+  "exit_code": 0,
+  "stdout": "{\n \"id\": \"run-109d89264273\",\n \"family\": \"native\",\n \"project_id\": \"127-0-0-1\",\n \"engine\": \"selenium-unittest\",\n \"trigger\": \"manual\",\n \"task_id\": null,\n \"status\": \"Queued\",\n \"case_ids\": [\n  \"asset-864fcbae1cad\"\n ],\n \"total\": 0,\n \"created_at\": \"2026-11-13T14:08:02.627+00:00\",\n \"headed\": 0,\n \"session_id\": \"blackbox-ui\",\n \"input_manifest\": \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed-ac90e0704df94ca0a5e215e165cbff64.json\",\n \"input_hash\": \"99facfbbc33fc97dd2250fe8a97d982f0966f8e7fe946844ff2b13b5813963ed\",\n \"queue_dispatcher\": {\n  \"status\": \"started\",\n  \"pid\": 37212,\n  \"reason\": \"\"\n },\n \"note\": \"已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定\"\n}\n",
+  "stderr": ""
+}

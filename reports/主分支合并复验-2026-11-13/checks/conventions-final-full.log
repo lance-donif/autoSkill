@@ -1,0 +1,12 @@
+test_code_comments_are_english (test_conventions.ConventionTests.test_code_comments_are_english) ... ok
+test_colours_are_defined_in_tokens_css_only (test_conventions.ConventionTests.test_colours_are_defined_in_tokens_css_only) ... ok
+test_every_command_is_documented_for_the_agent (test_conventions.ConventionTests.test_every_command_is_documented_for_the_agent) ... ok
+test_every_css_variable_in_use_is_defined (test_conventions.ConventionTests.test_every_css_variable_in_use_is_defined) ... ok
+test_every_step_kind_is_named_and_reaches_both_exported_scripts (test_conventions.ConventionTests.test_every_step_kind_is_named_and_reaches_both_exported_scripts) ... ok
+test_product_rules_are_not_reintroduced (test_conventions.ConventionTests.test_product_rules_are_not_reintroduced) ... ok
+test_source_files_are_clean_text (test_conventions.ConventionTests.test_source_files_are_clean_text) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.318s
+
+OK

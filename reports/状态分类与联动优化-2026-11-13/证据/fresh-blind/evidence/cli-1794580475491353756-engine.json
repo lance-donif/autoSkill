@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "engine",
+    "probe",
+    "ai-eval"
+  ],
+  "started_ns": 1794580475491356661,
+  "finished_ns": 1794580476093534246,
+  "exit_code": 0,
+  "stdout": "{\n \"engines\": [\n  {\n   \"id\": \"ai-eval\",\n   \"available\": true,\n   \"version\": \"1\",\n   \"protocols\": [\n    \"http\",\n    \"sse\",\n    \"websocket\"\n   ],\n   \"diagnosis\": \"可用\"\n  }\n ]\n}\n",
+  "stderr": ""
+}

@@ -1,0 +1,91 @@
+{
+  "scope": "/workspace/autoSkill",
+  "status": "preliminary, implementation changing; requires final rerun",
+  "confirmed": [
+    {
+      "id": "AUD-001",
+      "file": "skills/autoskill/app/autoskill/execution_inputs.py",
+      "lines": "265-294",
+      "finding": "真实Fail收据与元数据Pass矛盾时仍result_evidence=True，报告用例结果变Pass",
+      "impact": "真实执行收据不能约束派生业务结论",
+      "evidence": "receipt-binding-result.json",
+      "condition": "隔离数据根中模拟结果元数据损坏，未改真实收据"
+    },
+    {
+      "id": "AUD-002",
+      "file": "skills/autoskill/app/autoskill/task_state.py",
+      "lines": "119-128",
+      "finding": "原生manifest.parameters被改且_frozen拒绝后，投影仍evidence valid/outcome pass",
+      "impact": "失效冻结输入仍被显示为有效通过",
+      "evidence": "native-state-result.json"
+    },
+    {
+      "id": "AUD-003",
+      "file": "skills/autoskill/app/autoskill/task_state.py",
+      "lines": "167-176",
+      "finding": "真实AI total_ms性能失败，run/result性能分项仍not_applicable",
+      "impact": "独立性能分项和性能筛选不可信",
+      "evidence": "native-state-result.json"
+    }
+  ],
+  "pending": [
+    {
+      "id": "AUD-P01",
+      "file": "skills/autoskill/app/autoskill/task_state.py",
+      "lines": "227-240",
+      "finding": "工作流conclusion无法区分纯性能失败与业务失败，且工作流证据未重新聚合"
+    },
+    {
+      "id": "AUD-P02",
+      "file": "skills/autoskill/app/autoskill/task_reports.py",
+      "finding": "报告导出失败仅允许手动重试；待新prepare/peek/background代码稳定后验证"
+    },
+    {
+      "id": "AUD-P03",
+      "file": "skills/autoskill/app/autoskill/workflow.py",
+      "finding": "新status默认current周期、历史分页和完全只读待最终复测"
+    },
+    {
+      "id": "AUD-P04",
+      "file": "skills/autoskill/app/autoskill/workflow_execution.py",
+      "finding": "最后一个用例执行期间取消，done==total但run Cancelled，_collect是否仍发布并把workflow标satisfied"
+    },
+    {
+      "id": "AUD-P05",
+      "file": "skills/autoskill/app/autoskill/task_state.py",
+      "finding": "JMeter verdict_scope=performance的source=native断言能否正确归类性能"
+    },
+    {
+      "id": "AUD-P06",
+      "file": "skills/autoskill/app/autoskill/server/metrics.py",
+      "finding": "状态筛选和可靠性分母是否保持相同粒度/范围；待最终实现"
+    }
+  ],
+  "correct_by_static_review": [
+    {
+      "file": "skills/autoskill/app/autoskill/workflow_state.py",
+      "lines": "135-144",
+      "finding": "租约校验item/attempt/token/deadline/lifecycle，阻止旧attempt提交"
+    },
+    {
+      "file": "skills/autoskill/app/autoskill/workflow.py",
+      "lines": "614-632",
+      "finding": "操作迟到真实回执只更新原operation并要求receipt_token；不同终态结果不能覆盖"
+    },
+    {
+      "file": "skills/autoskill/app/autoskill/workflow_recovery.py",
+      "lines": "24-77",
+      "finding": "未知副作用需本次实际只读check收据匹配原postcondition，禁止文字成功声明直接恢复"
+    },
+    {
+      "file": "skills/autoskill/app/autoskill/runtime_identity.py",
+      "lines": "108-112",
+      "finding": "进程所有权包含machine/location/birth，复制数字PID不能授权操作"
+    },
+    {
+      "file": "skills/autoskill/app/autoskill/db.py",
+      "lines": "194-202",
+      "finding": "运行结束原子校验执行者身份并使cancel请求在最后用例/清理阶段生效"
+    }
+  ]
+}

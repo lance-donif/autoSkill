@@ -1,0 +1,267 @@
+{
+  "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n服务已断开\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n\n范围内共 3 次运行\n\n按运行\n按用例结果\n全部状态\n通过\n失败\n阻塞\n执行中\n已取消\n周期\n当前周期\n包含历史周期\n执行阶段\n全部阶段\n排队中\n执行中\n等待宿主\n等待执行\n恢复中\n阻塞\n已结束\n已取消\n综合结果\n全部结果\n待处理\n通过\n失败\n阻塞\n未验证\n已取消\n业务验证\n全部业务结果\n通过\n失败\n未验证\n性能目标\n全部性能结果\n通过\n失败\n未验证\n不适用\n报告交付\n全部报告状态\n已就绪\n失败\n待生成\n生成中\n尚未生成\n\t状态\t项目\t结果\t触发\t引擎\t开始时间\t耗时\t\n\t\n未同步状态尚未同步\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞\n\t手动\t\t今天 14:12\t5.9 秒\t\n删除运行\n\t\n未同步状态尚未同步\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞\n\tworkflow\tPlaywright\t今天 14:11\t4.5 秒\t\n删除运行\n\t\n未同步状态尚未同步\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞\n\t手动\t\t今天 14:08\t4.9 秒\t\n删除运行",
+  "fields": [
+    {
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "value": "current",
+      "placeholder": null,
+      "options": [
+        {
+          "text": "当前周期",
+          "value": "current"
+        },
+        {
+          "text": "包含历史周期",
+          "value": "all"
+        }
+      ]
+    },
+    {
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "value": "",
+      "placeholder": null,
+      "options": [
+        {
+          "text": "全部阶段",
+          "value": ""
+        },
+        {
+          "text": "排队中",
+          "value": "queued"
+        },
+        {
+          "text": "执行中",
+          "value": "running"
+        },
+        {
+          "text": "等待宿主",
+          "value": "awaiting_host"
+        },
+        {
+          "text": "等待执行",
+          "value": "waiting_execution"
+        },
+        {
+          "text": "恢复中",
+          "value": "recovering"
+        },
+        {
+          "text": "阻塞",
+          "value": "blocked"
+        },
+        {
+          "text": "已结束",
+          "value": "settled"
+        },
+        {
+          "text": "已取消",
+          "value": "cancelled"
+        }
+      ]
+    },
+    {
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "value": "",
+      "placeholder": null,
+      "options": [
+        {
+          "text": "全部结果",
+          "value": ""
+        },
+        {
+          "text": "待处理",
+          "value": "pending"
+        },
+        {
+          "text": "通过",
+          "value": "pass"
+        },
+        {
+          "text": "失败",
+          "value": "fail"
+        },
+        {
+          "text": "阻塞",
+          "value": "blocked"
+        },
+        {
+          "text": "未验证",
+          "value": "unverified"
+        },
+        {
+          "text": "已取消",
+          "value": "cancelled"
+        }
+      ]
+    },
+    {
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "value": "",
+      "placeholder": null,
+      "options": [
+        {
+          "text": "全部业务结果",
+          "value": ""
+        },
+        {
+          "text": "通过",
+          "value": "pass"
+        },
+        {
+          "text": "失败",
+          "value": "fail"
+        },
+        {
+          "text": "未验证",
+          "value": "unverified"
+        }
+      ]
+    },
+    {
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "value": "",
+      "placeholder": null,
+      "options": [
+        {
+          "text": "全部性能结果",
+          "value": ""
+        },
+        {
+          "text": "通过",
+          "value": "pass"
+        },
+        {
+          "text": "失败",
+          "value": "fail"
+        },
+        {
+          "text": "未验证",
+          "value": "unverified"
+        },
+        {
+          "text": "不适用",
+          "value": "not_applicable"
+        }
+      ]
+    },
+    {
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "value": "",
+      "placeholder": null,
+      "options": [
+        {
+          "text": "全部报告状态",
+          "value": ""
+        },
+        {
+          "text": "已就绪",
+          "value": "ready"
+        },
+        {
+          "text": "失败",
+          "value": "failed"
+        },
+        {
+          "text": "待生成",
+          "value": "pending"
+        },
+        {
+          "text": "生成中",
+          "value": "generating"
+        },
+        {
+          "text": "尚未生成",
+          "value": "not_generated"
+        }
+      ]
+    },
+    {
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "value": "on",
+      "placeholder": "",
+      "options": null
+    },
+    {
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "value": "on",
+      "placeholder": "",
+      "options": null
+    },
+    {
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "value": "on",
+      "placeholder": "",
+      "options": null
+    },
+    {
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "value": "on",
+      "placeholder": "",
+      "options": null
+    }
+  ],
+  "buttons": [
+    "深色",
+    "全部项目",
+    "近 7 天",
+    "回放设置",
+    "按运行",
+    "按用例结果",
+    "全部状态",
+    "通过",
+    "失败",
+    "阻塞",
+    "执行中",
+    "已取消",
+    "删除运行",
+    "删除运行",
+    "删除运行"
+  ],
+  "links": [
+    {
+      "text": "autoSkill\n录一次，到处回放",
+      "href": "#/dashboard"
+    },
+    {
+      "text": "仪表盘",
+      "href": "#/dashboard"
+    },
+    {
+      "text": "项目与用例",
+      "href": "#/cases"
+    },
+    {
+      "text": "执行记录",
+      "href": "#/runs"
+    },
+    {
+      "text": "定时任务",
+      "href": "#/schedules"
+    },
+    {
+      "text": "数据管理",
+      "href": "#/data"
+    }
+  ],
+  "errors": []
+}

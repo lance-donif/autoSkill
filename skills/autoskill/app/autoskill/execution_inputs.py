@@ -283,6 +283,7 @@ def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
         if not attempts:
             return False
         folder = (paths.local() / "runs" / run["id"]).resolve()
+        outcomes = []
         for ref in attempts:
             file = data_refs.resolve(ref["path"])
             if not file.resolve().is_relative_to(folder / "attempts"):
@@ -292,11 +293,26 @@ def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
                     or receipt["input_hash"] != run["input_hash"] or receipt["case_content_hash"] != result["case_content_hash"]
                     or receipt["case_id"] != result["case_id"] or receipt["state"] != "completed"):
                 return False
+            outcome = receipt["outcome"]
+            if (ref.get("status") != outcome.get("status") or ref.get("business_status") != outcome.get("business_status")
+                    or ref.get("kind") != receipt.get("kind")):
+                return False
+            outcomes.append(outcome)
             for artifact in receipt.get("artifacts", []):
                 file = (folder / artifact["path"]).resolve()
                 if not file.is_relative_to(folder) or hashlib.sha256(file.read_bytes()).hexdigest() != artifact["sha256"]:
                     return False
-        return True
+        failed = next((outcome for outcome in outcomes if outcome.get("business_status") == "Fail"), None)
+        last = outcomes[-1]
+        selected = failed or last
+        expected_status = "Fail" if failed else last.get("status")
+        expected_business = "Fail" if failed else last.get("business_status", "Unverified")
+        return (result.get("status") == expected_status and detail.get("business_status") == expected_business
+                and detail.get("business_verified") == (expected_business == "Pass")
+                and detail.get("execution_status") == last.get("execution_status")
+                and detail.get("performance_status") == last.get("performance_status")
+                and detail.get("assertions", []) == selected.get("assertions", [])
+                and detail.get("performance_assertions", []) == last.get("performance_assertions", []))
     except (ValueError, KeyError, OSError, TypeError):
         return False
 

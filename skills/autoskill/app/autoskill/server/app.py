@@ -31,6 +31,7 @@ from .. import (
     sessions,
     task_context,
     task_reports,
+    task_state,
 )
 from ..replay import ir
 from . import jobs, metrics, scheduler
@@ -58,15 +59,17 @@ for _type, _ext in (("text/javascript", ".js"), ("text/css", ".css"), ("image/sv
 
 def scope_of(request: Request) -> metrics.Scope:
     q = request.query_params
-    return metrics.Scope.parse(q.get("projects"), q.get("start"), q.get("end"))
+    return metrics.Scope.parse(q.get("projects"), q.get("start"), q.get("end"), cycle=q.get("cycle", "current"),
+                               **{key: q.get(key) for key in ("phase", "outcome", "business", "performance", "quality", "evidence", "report", "delivery")})
 
 
-def page(request: Request) -> tuple[int, int]:
+def page(request: Request, default_limit: int = 50) -> tuple[int, int]:
     q = request.query_params
-    return max(1, min(200, int(q.get("limit", 50)))), max(0, int(q.get("offset", 0)))
+    return max(1, min(200, int(q.get("limit", default_limit)))), max(0, int(q.get("offset", 0)))
 
 
 def run_view(run: dict) -> dict:
+    run = metrics.run_values(run)
     run = runner.public_run(run)
     run["case_ids"] = json.loads(run["case_ids"])
     project = db.one("SELECT name FROM projects WHERE id = ?", (run["project_id"],))
@@ -82,7 +85,32 @@ def result_view(row: dict) -> dict:
             if isinstance(attempt, dict) and attempt.get("path"):
                 with contextlib.suppress(ValueError):
                     attempt["path"] = str(data_refs.resolve(attempt["path"]))
-    return {**row, "detail": detail}
+    return {**row, "detail": detail, "state": task_state.result(row, detail)}
+
+
+def report_view(run: dict) -> dict:
+    """Read existing delivery evidence without generating or retrying a report."""
+    return task_reports.peek("run_" + run["id"])
+
+
+def rerun_native(run: dict, body: dict) -> dict | JSONResponse:
+    """Create a distinct full-asset run from the original frozen native identity."""
+    from .. import native_run
+
+    if body.get("failed_only") or "case_ids" in body:
+        message = "原生资产暂不支持按失败项或单例精确重跑，请重跑完整原生资产"
+        return JSONResponse({"detail": message, "error": message, "code": "native_partial_rerun_unsupported",
+                             "details": {"supported": "full_asset"}}, status_code=400)
+    if any(key in body for key in ("parameters", "head", "asset_id")) or body.get("engine", run["engine"]) != run["engine"]:
+        message = "重新运行使用原资产版本和冻结参数；变更资产或参数请新建原生运行"
+        return JSONResponse({"detail": message, "error": message, "code": "native_rerun_override_unsupported", "details": {}}, status_code=400)
+    manifest = native_run._frozen(run)
+    context = manifest.get("runtime_context", {})
+    prepared = native_run.prepare(run["project_id"], manifest["asset_id"], head=manifest["head"], parameters=manifest["parameters"],
+                                  session_id=run.get("session_id"), host=context.get("host", "generic"), host_session_id=context.get("host_session_id", ""))
+    prepared["headed"] = run.get("headed", prepared["headed"])
+    created = runner.enqueue(prepared)
+    return {"id": created["id"], "total": created["total"], "family": "native", "dropped": 0, "queue_dispatcher": jobs.ensure_worker()}
 
 
 def case_view(project_id: str, case: dict) -> dict:
@@ -90,8 +118,16 @@ def case_view(project_id: str, case: dict) -> dict:
     view = {k: case.get(k) for k in ("id", "kind", "title", "module", "priority", "risk", "revision", "expected")}
     view.update(project_id=project_id, depends_on=projects.depends_on(case), replayable=ir.is_replayable(case),
                 category=case.get("extensions", {}).get("category", ""))
-    current = case_editing.verification(project_id, case)
-    view.update(current=current["current"], current_status=current["current_status"], last_status=current["last_status"])
+    scope = metrics.Scope(projects=[project_id])
+    with metrics.snapshot(scope) as snapshot:
+        connection = snapshot["connection"]
+        latest = connection.execute("SELECT r.* FROM results r JOIN runs u ON u.id=r.run_id WHERE r.project_id=? AND r.case_id=? "
+                                    "AND r.prerequisite=0 AND u.trigger!='login' AND u.family!='load' AND " + metrics._cycle(scope, "u") +
+                                    " ORDER BY r.id DESC LIMIT 1", (project_id, case["id"])).fetchone()
+        state = task_state.current_result(project_id, case, dict(latest), connection=connection) if latest else None
+    current = bool(state and state["current"])
+    view.update(state=state, last_state=state, current=current, current_status=state["outcome"].capitalize() if current else None,
+                last_status=latest["status"] if latest else None)
     if case["kind"] == "ui":
         automation = case.get("extensions", {}).get("automation") or {}
         view["start_url"] = automation.get("start_url")
@@ -232,6 +268,10 @@ def _register_overview_routes(app: FastAPI) -> None:
                 "skill_path": str(paths.SKILL), "workspace": str(paths.workspace()), "case_skill": str(paths.case_skill()), "bridge": bridge.enabled(),
                 "instance": os.environ.get("AUTOSKILL_INSTANCE_ID")}
 
+    @app.get("/api/state-revision")
+    def state_revision():
+        return {"revision": task_state.revision()}
+
     @app.post("/api/bridge")
     def run_command(body: dict, request: Request):
         """Run one autoskill command for a caller whose own process is sandboxed (see bridge.py).
@@ -255,6 +295,11 @@ def _register_overview_routes(app: FastAPI) -> None:
     @app.get("/api/summary")
     def summary(request: Request, tz: int = 480):
         return metrics.summary(scope_of(request), tz)
+
+    @app.get("/api/dashboard")
+    def dashboard(request: Request, tz: int = 480, current: bool = False):
+        limit, _ = page(request, 6)
+        return metrics.dashboard(scope_of(request), tz, current_only=current, limit=limit)
 
     @app.get("/api/results")
     def results(request: Request, status: str | None = None, current: bool = False):
@@ -410,7 +455,7 @@ def _register_run_detail_routes(app: FastAPI) -> None:
         if not run:
             raise HTTPException(404, "运行不存在")
         rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
-        return {**run_view(run), "results": [result_view(row) for row in rows], "test_report": task_reports.for_run(run_id)}
+        return {**run_view(run), "results": [result_view(row) for row in rows], "test_report": report_view(run)}
 
     @app.post("/api/runs/{run_id}/cancel")
     def cancel_run(run_id: str):
@@ -420,13 +465,17 @@ def _register_run_detail_routes(app: FastAPI) -> None:
     async def rerun(run_id: str, request: Request):
         """Run again as a new run; `failed_only` keeps just the cases that did not pass."""
         body = await request.json()
+        if not isinstance(body, dict):
+            raise ValueError("重新运行参数必须是对象")
         run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
         if not run:
             raise HTTPException(404, "运行不存在")
+        if run.get("family") == "native":
+            return await asyncio.to_thread(rerun_native, run, body)
         case_ids = json.loads(run["case_ids"])
         if body.get("failed_only"):
-            rows = db.rows("SELECT case_id FROM results WHERE run_id = ? AND prerequisite = 0 AND status != 'Pass'", (run_id,))
-            case_ids = [r["case_id"] for r in rows]
+            rows = db.rows("SELECT * FROM results WHERE run_id = ? AND prerequisite = 0", (run_id,))
+            case_ids = [row["case_id"] for row in rows if task_state.result(row)["outcome"] != "pass"]
             if not case_ids:
                 raise ValueError("这次运行没有未通过的用例")
         active = {c["id"] for c in projects.cases(run["project_id"])}
@@ -609,7 +658,8 @@ def _register_workflow_routes(app: FastAPI) -> None:
     def status(workflow_id: str, request: Request):
         from .. import workflow
 
-        return workflow.status(workflow_id, limit=int(request.query_params.get("limit", 50)), cursor=request.query_params.get("cursor"))
+        return workflow.status(workflow_id, limit=int(request.query_params.get("limit", 50)), cursor=request.query_params.get("cursor"),
+                               cycle=request.query_params.get("cycle", "current"))
 
     @app.get("/api/workflows/{workflow_id}/read")
     def read(workflow_id: str, request: Request):

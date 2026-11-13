@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "schema_version": "1.1.0",
+      "id": "TC-API-BB-READY",
+      "kind": "api",
+      "revision": 1,
+      "lifecycle": "active",
+      "requirement_ids": [
+        "BB-READY"
+      ],
+      "module": "Local HTTP fixture",
+      "title": "Ready endpoint satisfies ready requirement",
+      "priority": "P1",
+      "preconditions": "Local deterministic fixture is running on 127.0.0.1:18882",
+      "steps": [
+        "Send GET /api/value?value=ready",
+        "Compare HTTP status and JSON status against the independent requirement"
+      ],
+      "test_data": {
+        "value": "ready"
+      },
+      "expected": "HTTP 200 and JSON status equals ready",
+      "source": "Independent local fixture requirement spec-v1",
+      "risk": "read",
+      "tags": [
+        "blackbox",
+        "state"
+      ],
+      "extensions": {
+        "oracle": {
+          "source": "requirement"
+        }
+      },
+      "api_source": "source-and-official-docs",
+      "source_ref": "spec-v1",
+      "method": "GET",
+      "path": "/api/value",
+      "params": {
+        "value": "ready"
+      },
+      "assertions": {
+        "status": 200,
+        "json_equals": {
+          "/status": "ready"
+        }
+      }
+    },
+    {
+      "schema_version": "1.1.0",
+      "id": "TC-API-BB-WRONG",
+      "kind": "api",
+      "revision": 1,
+      "lifecycle": "active",
+      "requirement_ids": [
+        "BB-READY"
+      ],
+      "module": "Local HTTP fixture",
+      "title": "Wrong endpoint preserves business violation",
+      "priority": "P1",
+      "preconditions": "Local deterministic fixture is running on 127.0.0.1:18882",
+      "steps": [
+        "Send GET /api/value?value=wrong",
+        "Compare HTTP status and JSON status against the independent ready requirement"
+      ],
+      "test_data": {
+        "value": "wrong"
+      },
+      "expected": "HTTP 200 and JSON status equals ready; actual wrong must remain a business failure",
+      "source": "Independent local fixture requirement spec-v1",
+      "risk": "read",
+      "tags": [
+        "blackbox",
+        "state"
+      ],
+      "extensions": {
+        "oracle": {
+          "source": "requirement"
+        }
+      },
+      "api_source": "source-and-official-docs",
+      "source_ref": "spec-v1",
+      "method": "GET",
+      "path": "/api/value",
+      "params": {
+        "value": "wrong"
+      },
+      "assertions": {
+        "status": 200,
+        "json_equals": {
+          "/status": "ready"
+        }
+      }
+    }
+  ],
+  "bindings": {
+    "scenario-ready": [
+      "TC-API-BB-READY"
+    ],
+    "scenario-wrong": [
+      "TC-API-BB-WRONG"
+    ]
+  }
+}

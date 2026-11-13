@@ -1,6 +1,7 @@
 // Requirement sources, traceable changes and durable workflow review.
 import { h, icon, replace, api, scopeQuery, go, href, refresh, attempt, toast, fmtTime, live } from '../core.js';
 import { drawer, closeOverlay, empty } from '../ui.js';
+import { primaryState, stateResults, stateDetails } from '../status-view.js';
 
 const PHASE = { sources: '来源整理', requirements: '需求拆分', design: '用例设计', coverage: '覆盖审查', completion: '补充设计', materialize: '候选用例', execute: '真实回归', diagnose: '失败分析', maintain: '维护候选', knowledge: '知识整理', investigate: '恢复调查' };
 const STATE = { active: '进行中', cancelled: '已暂停', awaiting_host: '等待 AI 处理', waiting_execution: '正在回归', settled: '已完成', recovering: '等待恢复调查', ready: '待处理', leased: '处理中', completed: '已完成', obsolete: '已替代', publishing: '正在保存' };
@@ -19,10 +20,10 @@ export async function render(view, { id } = {}) {
     h('div', { class: 'grow' }, h('h1', {}, '需求与工作流'), h('p', { class: 'sub' }, '从需求来源、用例设计到真实回归，查看关联、候选更新和历史结果。')),
     h('button', { class: 'btn primary', onClick: () => createWorkflow() }, icon('plus'), '新建工作流')),
   h('section', { class: 'card' }, data.items.length ? h('table', { class: 'table' },
-    h('thead', {}, h('tr', {}, ['工作流', '状态', '业务结论', '版本', ''].map((label) => h('th', {}, label)))),
+    h('thead', {}, h('tr', {}, ['工作流', '执行阶段', '综合与分项结果', '版本', ''].map((label) => h('th', {}, label)))),
     h('tbody', {}, data.items.map((item) => h('tr', { class: 'click', onClick: () => go('workflows/' + item.workflow_id) },
       h('td', {}, h('div', { class: 'title' }, item.title), h('div', { class: 'sub' }, item.project_id)),
-      h('td', {}, STATE[item.cycle_state] || item.cycle_state), h('td', {}, CONCLUSION[item.conclusion] || item.conclusion),
+      h('td', {}, primaryState(item)), h('td', {}, stateResults(item)),
       h('td', { class: 'num' }, item.revision), h('td', {}, h('a', { class: 'btn sm', href: href('workflows/' + item.workflow_id) }, '查看'))))))
     : empty({ glyph: 'link', title: '还没有需求工作流', text: '导入需求正文后，AI 可以持续完成拆分、设计、执行与维护。',
       actions: h('button', { class: 'btn primary', onClick: () => createWorkflow() }, '新建工作流') })));
@@ -62,11 +63,12 @@ async function detail(view, identity) {
   };
   const documents = data.documents;
   const title = h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, flow.title),
-    h('p', { class: 'sub' }, `${STATE[flow.cycle_state] || flow.cycle_state} · ${CONCLUSION[flow.conclusion] || flow.conclusion} · 版本 ${flow.revision}`)),
+    h('p', { class: 'sub row wrap' }, primaryState(flow), `版本 ${flow.revision}`)),
   h('button', { class: 'btn', onClick: () => impactDrawer(data) }, icon('edit'), '需求迭代'),
   flow.lifecycle === 'active' ? control('暂停', 'cancel') : control('恢复', 'resume'),
   h('button', { class: 'btn primary', disabled: flow.lifecycle !== 'active', onClick: () => dispatchDrawer(identity) }, icon('spark'), '交给 AI 处理'));
   replace(view, h('a', { class: 'back', href: href('workflows') }, icon('right'), '需求与工作流'), title,
+    h('section', { class: 'card card-body stack' }, h('h2', {}, '当前任务状态'), stateDetails(flow)),
     documents['definition.json']?.extensions?.change_scope && maintenanceSummary(documents['definition.json'].extensions.change_scope),
     h('section', { class: 'card' }, h('div', { class: 'card-body stack' }, h('h2', {}, '覆盖与进度'),
       h('p', {}, `已设计覆盖 ${data.coverage.covered} / ${data.coverage.required} 条需求。`, data.coverage.missing_requirement_ids.length ? ` 待补充：${data.coverage.missing_requirement_ids.join('、')}` : ''),
@@ -85,8 +87,8 @@ async function detail(view, identity) {
 }
 
 function executionSummary(summary) {
-  return h('details', { class: 'more' }, h('summary', {}, CONCLUSION[summary.conclusion] || summary.conclusion),
-    h('table', { class: 'table' }, h('thead', {}, h('tr', {}, ['回归用例', '执行', '业务验证', '证据'].map((label) => h('th', {}, label)))),
+  return h('details', { class: 'more' }, h('summary', {}, '历史回归结论：', CONCLUSION[summary.conclusion] || summary.conclusion),
+    h('table', { class: 'table' }, h('thead', {}, h('tr', {}, ['回归用例', '历史执行结果', '业务验证', '证据'].map((label) => h('th', {}, label)))),
       h('tbody', {}, (summary.results || []).map((item) => h('tr', {}, h('td', {}, item.case_id), h('td', {}, VERDICT[item.status] || '未执行'),
         h('td', {}, VERDICT[item.business_status] || item.business_status), h('td', {}, item.evidence_valid ? '已核验' : (item.reason || '待补充')))))));
 }
@@ -95,10 +97,19 @@ function workflowReport(flow) {
   const receipt = flow.test_report;
   if (!receipt) return null;
   return h('section', { class: 'card' }, h('div', { class: 'card-body stack' }, h('h2', {}, '工作流报告'),
-    receipt.status === 'ready' ? h('div', { class: 'row wrap' },
+    flow.state?.report === 'ready' ? h('div', { class: 'row wrap' },
       [['download_url', 'Excel'], ['markdown_download_url', '测试简报'], ['bugs_download_url', '问题清单']].map(([name, label]) =>
         receipt[name] && h('a', { class: 'btn', href: receipt[name], download: '' }, label)))
-      : h('p', { class: 'sub' }, receipt.reason || '报告尚未生成完成')));
+      : h('p', { class: 'sub' }, receipt.error || receipt.reason || '报告尚未生成完成'),
+    flow.state?.report === 'failed' && retryWorkflowReport(receipt)));
+}
+
+function retryWorkflowReport(receipt) {
+  const retry = h('button', { class: 'btn', onClick: async () => {
+    const result = await attempt(() => api('/task-reports/' + encodeURIComponent(receipt.report_id) + '/retry', { method: 'POST' }), retry);
+    if (result) { toast(result.status === 'ready' ? '报告已生成' : result.error || '报告尚未生成', { bad: result.status === 'failed' }); refresh(); }
+  } }, icon('reset'), '重试导出报告');
+  return retry;
 }
 
 function sourceCards(documents) {

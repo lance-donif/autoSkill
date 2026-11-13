@@ -1,0 +1,14 @@
+{
+  "command": [
+    "workflow",
+    "next",
+    "wf-0decaa560df84c6e9c0761274fb4f490",
+    "--idempotency-key",
+    "blackbox-ui-claim-4"
+  ],
+  "started_at": 1794578992.9812098,
+  "finished_at": 1794578993.134535,
+  "exit_code": 0,
+  "stdout": "{\n \"task\": {\n  \"id\": \"wfi-d399a5a6b49a463dbf6688678b13a2f5\",\n  \"item_id\": \"wfi-d399a5a6b49a463dbf6688678b13a2f5\",\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"phase\": \"materialize\",\n  \"attempt_id\": \"wfa-49610847675449dab44f6774f6750c1a\",\n  \"lease_token\": \"lease-7682bf51b10c41eda9f2c74d0a5840af\",\n  \"lease_until\": \"2026-11-13T14:14:53.094+00:00\",\n  \"binding_token\": \"eyJhdHRlbXB0X2lkIjoid2ZhLTQ5NjEwODQ3Njc1NDQ5ZGFiNDRmNjc3NGY2NzUwYzFhIiwiaXRlbV9pZCI6IndmaS1kMzk5YTVhNmI0OWE0NjNkYmY2Njg4Njc4YjEzYTJmNSIsImxlYXNlX3Rva2VuIjoibGVhc2UtNzY4MmJmNTFiMTBjNDFlZGE5ZjJjNzRkMGE1ODQwYWYiLCJ3b3JrZmxvd19pZCI6IndmLTBkZWNhYTU2MGRmODRjNmU5YzA3NjEyNzRmYjRmNDkwIn0=\",\n  \"input_hash\": \"209d98f069687f945d8370385dfd03c146da85528e33debbb3c5dc47bfe26053\",\n  \"input_refs\": {\n   \"definition\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/definition.json\",\n   \"oracles\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/oracles.json\",\n   \"requirements\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/requirements.json\",\n   \"scenarios\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/scenarios.json\",\n   \"sources\": \"workflows/wf-0decaa560df84c6e9c0761274fb4f490/sources.json\"\n  },\n  \"checkpoint\": {},\n  \"context\": {\n   \"covered\": 1,\n   \"missing_requirement_ids\": [],\n   \"required\": 1\n  },\n  \"payload_schema\": {\n   \"example\": {\n    \"cases\": [],\n    \"bindings\": {\n     \"scenario-1\": [\n      \"TC-API-001\"\n     ]\n    }\n   },\n   \"rule\": \"预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。\"\n  }\n },\n \"workflow\": {\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"project_id\": \"127-0-0-1\",\n  \"title\": \"独立黑盒订单维护\",\n  \"cycle_id\": \"cycle-d40fb808592f4eb6bfd04fb3423e388b\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 13,\n  \"domain_head\": \"34117a3f7c1fa40f5239ee53ab7c922f80590a4d2f1d12a63357722d2d9cbfd0\",\n  \"definition_hash\": \"209d98f069687f945d8370385dfd03c146da85528e33debbb3c5dc47bfe26053\",\n  \"counts\": {\n   \"completed\": 4,\n   \"leased\": 1\n  }\n }\n}\n",
+  "stderr": ""
+}

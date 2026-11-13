@@ -1,0 +1,26 @@
+         696096 function calls (687002 primitive calls) in 0.727 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1427 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.727    0.727 <stdin>:5(<lambda>)
+        1    0.000    0.000    0.727    0.727 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:257(runs)
+        1    0.001    0.001    0.724    0.724 /workspace/autoSkill/skills/autoskill/app/autoskill/server/metrics.py:127(_selected)
+       14    0.000    0.000    0.715    0.051 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:253(run)
+       14    0.001    0.000    0.547    0.039 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:196(result)
+       14    0.001    0.000    0.367    0.026 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:153(_evidence)
+       28    0.001    0.000    0.339    0.012 /workspace/autoSkill/skills/autoskill/app/autoskill/task_state.py:126(report)
+     2790    0.008    0.000    0.248    0.000 /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py:1228(resolve)
+       28    0.000    0.000    0.233    0.008 /workspace/autoSkill/skills/autoskill/app/autoskill/task_reports.py:83(_validate)
+  522/393    0.001    0.000    0.216    0.001 <frozen importlib._bootstrap>:1390(_handle_fromlist)
+    209/3    0.002    0.000    0.216    0.072 <frozen importlib._bootstrap>:1349(_find_and_load)
+    459/4    0.001    0.000    0.216    0.054 <frozen importlib._bootstrap>:480(_call_with_frames_removed)
+    209/3    0.001    0.000    0.216    0.072 <frozen importlib._bootstrap>:1304(_find_and_load_unlocked)
+     47/2    0.000    0.000    0.216    0.108 {built-in method builtins.__import__}
+    203/3    0.001    0.000    0.215    0.072 <frozen importlib._bootstrap>:911(_load_unlocked)
+    190/2    0.001    0.000    0.215    0.108 <frozen importlib._bootstrap_external>:993(exec_module)
+    205/2    0.005    0.000    0.215    0.107 {built-in method builtins.exec}
+        1    0.000    0.000    0.209    0.209 /workspace/autoSkill/skills/autoskill/app/autoskill/native_run.py:1(<module>)
+
+

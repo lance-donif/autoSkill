@@ -1,0 +1,97 @@
+{
+  "counts": {
+    "Pass": 7,
+    "Fail": 1,
+    "Blocked": 2
+  },
+  "cases": [
+    {
+      "id": "UI-01",
+      "task": "执行阶段与业务/性能/报告分离",
+      "status": "Pass",
+      "evidence": [
+        "performance-ui-checks.json",
+        "report-retry-ui-results.json"
+      ]
+    },
+    {
+      "id": "UI-02",
+      "task": "列表详情统计一致",
+      "status": "Pass",
+      "evidence": [
+        "consistency-ui-results.json",
+        "statistics-ui-checks.json"
+      ]
+    },
+    {
+      "id": "UI-03",
+      "task": "在线前台1秒内更新",
+      "status": "Fail",
+      "evidence": [
+        "revalidation-concurrent-realtime-ui-results.json",
+        "final-quiet-realtime-ui-results.json",
+        "final-quiet-dashboard-results.json"
+      ]
+    },
+    {
+      "id": "UI-04",
+      "task": "筛选输入焦点选区保留",
+      "status": "Pass",
+      "evidence": [
+        "final-quiet-realtime-ui-results.json",
+        "candidate-fixed-filter-combination.json"
+      ]
+    },
+    {
+      "id": "UI-05",
+      "task": "当前历史周期区分",
+      "status": "Pass",
+      "evidence": [
+        "candidate-fixed-historical-check.json",
+        "candidate-fixed-filter-combination.json"
+      ]
+    },
+    {
+      "id": "UI-06",
+      "task": "报告失败手动重试且不重跑",
+      "status": "Pass",
+      "evidence": [
+        "report-retry-ui-results.json"
+      ]
+    },
+    {
+      "id": "UI-07",
+      "task": "原生-only首页统计",
+      "status": "Pass",
+      "evidence": [
+        "candidate-fixed-native-only-results.json"
+      ]
+    },
+    {
+      "id": "UI-08",
+      "task": "工作流完成与业务通过分离",
+      "status": "Pass",
+      "evidence": [
+        "68-cycle2-status.json"
+      ]
+    },
+    {
+      "id": "UI-09",
+      "task": "真实DSH宿主联动",
+      "status": "Blocked",
+      "evidence": [
+        "revalidation-results.md"
+      ]
+    },
+    {
+      "id": "UI-10",
+      "task": "完整真实录制器链路",
+      "status": "Blocked",
+      "evidence": [
+        "02-record-start.json",
+        "candidate-fixed-version.json"
+      ]
+    }
+  ],
+  "intentional_business_failure_is_product_bug": false
+}

@@ -1,6 +1,7 @@
 // Entry point: routing, the shared frame, and a quiet refresh while runs are in progress.
-import { route, scope, onChange, h, replace, live, toast } from './core.js';
+import { route, scope, onChange, h, replace, api, toast } from './core.js';
 import { refreshShell, renderSide, renderScope, applyTheme, state } from './shell.js';
+import { revisionPoll, updateLiveView } from './live-refresh.js';
 import { skeletonRows, errorState } from './ui.js';
 import { loadPreferences, onPreferences, preferredTheme } from './preferences.js';
 
@@ -23,6 +24,20 @@ const view = document.getElementById('view');
 let token = 0;
 let lastKey = '';
 let lastScope = '';
+let refreshingFrame = null;
+
+function projectSignature() {
+  return JSON.stringify(state.projects);
+}
+
+function refreshFrame() {
+  if (refreshingFrame) return refreshingFrame;
+  const before = projectSignature();
+  refreshingFrame = refreshShell().then(async () => {
+    if (state.online && projectSignature() !== before && ['cases', 'dashboard'].includes(route().page)) await show({ quiet: true });
+  }).finally(() => { refreshingFrame = null; });
+  return refreshingFrame;
+}
 
 async function show({ quiet = false } = {}) {
   const { page, id } = route();
@@ -44,6 +59,7 @@ async function show({ quiet = false } = {}) {
     await module.render(holder, { id, quiet });
     if (mine !== token) return;
     if (!fresh && module.commit) module.commit(view, holder, { id, quiet });
+    else if (quiet && !fresh) updateLiveView(view, holder);
     else view.replaceChildren(...holder.childNodes);
     if (fresh) window.scrollTo(0, 0);
     lastKey = key;
@@ -56,26 +72,31 @@ async function show({ quiet = false } = {}) {
   }
 }
 
-function busy() {
-  const focused = document.activeElement;
-  return document.hidden || document.getElementById('layer').childElementCount > 0 || document.querySelector('.menu')
-    || (focused && view.contains(focused) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(focused.tagName));
-}
-
 applyTheme(preferredTheme());
 onPreferences(() => { applyTheme(preferredTheme()); renderSide(); });
 if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embed = 'true';
 if (!location.hash) location.hash = '#/dashboard';
 
 try { await loadPreferences(); } catch (error) { toast('偏好没能加载：' + error.message + '。刷新页面后重试。', { bad: true }); }
+// Read before the initial data so writes during rendering still trigger the next check.
+const initialRevision = await api('/state-revision').then((value) => value.revision).catch(() => null);
 await refreshShell();
 onChange(() => show());
 await show();
 
-// While something is running, keep numbers and progress current without flashing the page.
-setInterval(async () => {
-  if (busy()) return;
-  const wasActive = state.active;
-  await refreshShell();
-  if (route().page !== 'data' && (state.active > 0 || wasActive > 0 || !state.online || Date.now() < live.until)) show({ quiet: true });
-}, 2500);
+// Revision checks also observe external tasks that finish entirely between two polls.
+const polling = revisionPoll({
+  initialRevision,
+  read: () => api('/state-revision'),
+  changed: async () => {
+    // Request-owned screens keep drafts and receipts until an explicit refresh.
+    if (!['data', 'diagnostics', 'conversations', 'project-materials'].includes(route().page)) await show({ quiet: true });
+    // Updating a run must not wait for slower project and runtime metadata reads.
+    void refreshFrame();
+  },
+  unavailable: () => { state.online = false; renderSide(); },
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) void polling.check(); });
+window.addEventListener('focus', () => { void polling.check(); });
+window.addEventListener('pageshow', () => { void polling.check(); });
+window.addEventListener('pagehide', (event) => { if (!event.persisted) polling.close(); });

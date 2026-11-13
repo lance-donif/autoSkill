@@ -7,7 +7,7 @@ import json
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .. import data_refs, db, paths, projects, runner, task_context
+from .. import data_refs, db, paths, projects, runner, task_context, task_state
 from .deliveries import ack_delivery, claim_delivery, pending_deliveries, release_delivery, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
 
 UTC = datetime.UTC
@@ -142,12 +142,20 @@ def _clean(spec: dict) -> dict:
             "headed": None if headed is None else int(headed)}
 
 
-def view(row: dict) -> dict:
+def view(row: dict, *, connection=None, include_state: bool = True) -> dict:
     rule = json.loads(row["rule"])
     row = runner.public_run(row)
+    last_state = None
+    if include_state and row.get("last_run_id"):
+        if connection is None:
+            run = db.one("SELECT * FROM runs WHERE id=?", (row["last_run_id"],))
+        else:
+            saved = connection.execute("SELECT * FROM runs WHERE id=?", (row["last_run_id"],)).fetchone()
+            run = dict(saved) if saved else None
+        last_state = task_state.run(run, connection=connection) if run else None
     return {**row, "rule": rule, "case_ids": json.loads(row["case_ids"]), "enabled": bool(row["enabled"]),
             "headed": bool(row["headed"]) if row.get("headed") is not None else None, "effective_headed": _headed(row),
-            "parameters": json.loads(row.get("parameters", "{}")), "rule_text": describe(rule)}
+            "parameters": json.loads(row.get("parameters", "{}")), "rule_text": describe(rule), "last_run_state": last_state}
 
 
 def _packed(value):
@@ -200,7 +208,7 @@ def create(spec: dict) -> dict:
         if receipt:
             return receipt
         _insert(conn, "tasks", task)
-        result = view(dict(conn.execute("SELECT * FROM tasks WHERE id = ?", (task["id"],)).fetchone()))
+        result = view(dict(conn.execute("SELECT * FROM tasks WHERE id = ?", (task["id"],)).fetchone()), connection=conn)
         _remember(conn, "create", key, digest, result)
     return result
 
@@ -232,7 +240,7 @@ def page(project_ids: list[str] | None = None, offset: int = 0, limit: int = 50,
         bindings = [*args, limit, offset] if not all_items else [*args, offset]
         rows = conn.execute("SELECT t.*, COALESCE(p.name, t.project_id) project_name, u.status last_status, u.finished_at last_finished "
                             + query + " ORDER BY t.enabled DESC, t.next_due IS NULL, t.next_due, t.created_at DESC" + paging, bindings)
-        items = [view(dict(row)) for row in rows]
+        items = [view(dict(row), connection=conn) for row in rows]
     more = offset + len(items) < total
     return {"items": items, "total": total, "has_more": more, "next_offset": offset + len(items) if more else None}
 
@@ -250,7 +258,7 @@ def _update_definition(task_id: str, spec: dict, values: dict, expected: int) ->
                                [*[_packed(value) for value in values.values()], task_id, expected]).rowcount
         if not changed:
             raise ValueError("定时任务已被其他会话修改，请读取最新版本后重试")
-        result = view(dict(conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()))
+        result = view(dict(conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()), connection=conn)
         _remember(conn, scope, key, digest, result)
     return result
 
@@ -298,7 +306,12 @@ def _prepare(task: dict, trigger: str) -> dict:
 
 def _maintenance(conn, task: dict, occurrence_id: str) -> dict:
     stamp, delivery_id = db.now(), db.new_id("delivery")
+    cycle = None
+    if task["workflow_id"] and conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workflow_runtime'").fetchone():
+        flow = conn.execute("SELECT cycle_id FROM workflow_runtime WHERE id=?", (task["workflow_id"],)).fetchone()
+        cycle = flow["cycle_id"] if flow else None
     payload = {"project_id": task["project_id"], "workflow_id": task["workflow_id"], "task_id": task["id"],
+               "cycle_id": cycle,
                "occurrence_id": occurrence_id, "schedule_revision": task["revision"],
                "session_id": task["session_id"] or occurrence_id, "parameters": {**task["parameters"], "host_session_id": task["host_session_id"]}}
     delivery = {"id": delivery_id, "task_id": task["id"], "occurrence_id": occurrence_id,
@@ -378,7 +391,7 @@ def tick(now: datetime.datetime | None = None) -> list[dict]:
     now = now or datetime.datetime.now(UTC)
     started = []
     for row in db.rows("SELECT * FROM tasks WHERE enabled = 1 AND next_due IS NOT NULL AND next_due <= ?", (_stamp(now),)):
-        task = view(row)
+        task = view(row, include_state=False)
         prepared = None if task["kind"] == "maintenance" else _prepare(task, "schedule")
         result = _claim_occurrence(task, prepared, now)
         if result and result["status"] == "Queued":

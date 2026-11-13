@@ -1,0 +1,137 @@
+{
+  "label": "047-cycle2-execution-status-01",
+  "started_at": "2026-11-13T14:29:52.437506+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-final-retest",
+    "workflow",
+    "status",
+    "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "--all"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest",
+  "returncode": 0,
+  "elapsed_seconds": 0.589724624000155,
+  "ended_at": "2026-11-13T14:29:53.027229+00:00",
+  "response": {
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "project_id": "bb-api",
+    "title": "Blackbox HTTP lifecycle",
+    "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+    "lifecycle": "active",
+    "cycle_state": "awaiting_host",
+    "complete": false,
+    "conclusion": "violated",
+    "revision": 38,
+    "domain_head": "91640f6e52bf7a22e59685d9da46d7125c933e92f0197faad1ea8cc0cad32957",
+    "definition_hash": "ad18a85179a21cb4909deff24ab5bf2cb00a9abc34105df52aacf8c5a2a31441",
+    "counts": {
+      "completed": 5,
+      "ready": 1
+    },
+    "state": {
+      "lifecycle": "active",
+      "phase": "awaiting_host",
+      "outcome": "fail",
+      "checks": {
+        "business": "fail",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "not_generated",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "bb-api",
+        "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "run_id": null,
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "623de2013e21d9208dd417fc9d11f6c43214e329c1df411c5af5bcdaf32793c1"
+    },
+    "items": [
+      {
+        "id": "wfi-f20ef7479cdd458a8ea01da0d26872c7",
+        "sequence": 8,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "requirements",
+        "state": "completed",
+        "attempt_id": "wfa-18a2fc3b52ec4e83be2fe465e575f65c",
+        "run_id": null,
+        "created_at": "2026-11-13T14:27:15.496+00:00",
+        "finished_at": "2026-11-13T14:29:46.568+00:00"
+      },
+      {
+        "id": "wfi-d671254c03ee41d0ace46d47d90ce21e",
+        "sequence": 9,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "design",
+        "state": "completed",
+        "attempt_id": "wfa-2182fcd27e1946bfa4e194de34f28b7d",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:46.568+00:00",
+        "finished_at": "2026-11-13T14:29:47.813+00:00"
+      },
+      {
+        "id": "wfi-60548f92c23544faa6db951bf3b27700",
+        "sequence": 10,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "coverage",
+        "state": "completed",
+        "attempt_id": "wfa-8cbe35d961a54022bb1b2316e1425746",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:47.813+00:00",
+        "finished_at": "2026-11-13T14:29:47.925+00:00"
+      },
+      {
+        "id": "wfi-a845a685ef2f4ba1aa7cd714359dc1c6",
+        "sequence": 11,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "materialize",
+        "state": "completed",
+        "attempt_id": "wfa-dcaba0d72c6b44b2bb81efdcc8111717",
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:47.926+00:00",
+        "finished_at": "2026-11-13T14:29:49.889+00:00"
+      },
+      {
+        "id": "wfi-8f0a63370c2645a39bc811d58695a0f4",
+        "sequence": 12,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "execute",
+        "state": "completed",
+        "attempt_id": "wfa-3f4cd726208d49fe9f6fe698b7247f65",
+        "run_id": "run-b7ffb833eb93",
+        "created_at": "2026-11-13T14:29:49.889+00:00",
+        "finished_at": "2026-11-13T14:29:52.500+00:00"
+      },
+      {
+        "id": "wfi-eadace4bc7584367af59b9ae436f4678",
+        "sequence": 13,
+        "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+        "phase": "diagnose",
+        "state": "ready",
+        "attempt_id": null,
+        "run_id": null,
+        "created_at": "2026-11-13T14:29:52.501+00:00",
+        "finished_at": null
+      }
+    ],
+    "total": 6,
+    "cycle_scope": "current",
+    "cursor": null,
+    "next_cursor": null,
+    "test_report": {
+      "report_id": "workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da",
+      "status": "not_generated",
+      "retryable": false,
+      "retry_url": "/api/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/retry"
+    }
+  }
+}

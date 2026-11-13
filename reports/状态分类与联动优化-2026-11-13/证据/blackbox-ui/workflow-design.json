@@ -1,0 +1,1 @@
+{"scenarios":[{"id":"scenario-order-success","title":"订单服务业务成功","requirement_ids":["req-order-success"],"oracle_ids":["oracle-order-success"]}],"oracles":[{"id":"oracle-order-success","kind":"api","requirement_ids":["req-order-success"],"checks":{"status":200,"json_equals":{"/message":"订单完成"}}}]}

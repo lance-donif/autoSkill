@@ -1,0 +1,41 @@
+✔ the host model snapshot preserves all state axes without legacy success aliases (6.567486ms)
+✔ paged run summaries keep the projected state while omitting large result details (70.884038ms)
+✔ native cards and sidebar panels register without any conversation task dock or passive polling (34.998951ms)
+✔ panels resolve the actual host runtime port before loading any iframe (5.98535ms)
+✔ only requested report reads run, delayed receipts stay in their owning session, and subscribing never polls (3.699268ms)
+✔ an inactive host route shows a useful unavailable message instead of a JSON parse exception (1.699012ms)
+✔ disconnect invalidates pending responses and unloading aborts requested reads without restarting them (2.841745ms)
+✔ completed, failed and uncertain actions keep their receipts without notifications or automatic navigation (1.790629ms)
+✔ a completed workflow retains its violated business conclusion in a closed inline record without progress popups (2.102471ms)
+✔ a lost cancel response is queried by request id and never automatically repeated (3.829938ms)
+✔ historical cards navigate and cancel their recorded run without borrowing the selected task (15.575897ms)
+✔ a terminal run in the recorded tool snapshot keeps report navigation without a cancel action (4.423764ms)
+✔ binding choice includes the observed selection revision and never claims next work (6.087845ms)
+✔ report links appear only after same-report verification and include a real Bug artifact (4.546903ms)
+✔ changed or missing artifacts never inherit ready state from the context listing (3.540243ms)
+✔ a receipt missing a required Bug artifact cannot become ready (2.909975ms)
+✔ unknown tool history can query its own receipt without issuing a new task (2.740025ms)
+✔ rendering and subscribing to native tool results never reads a task, claims work or starts progress timers (37.157042ms)
+✔ unloading aborts pending writes and never leaves polling or completion notifications running (2.296351ms)
+✔ inline state axes retain the failed SLA and invalid evidence independently of delivery (3.180155ms)
+✔ a selected historical run in an inline query keeps its own state facts (2.857536ms)
+✔ report retry is explicit and cannot replay a test after verification fails (11.393168ms)
+✔ the primary phase remains ended while business and performance verdicts differ (2.565926ms)
+✔ an unverified business result is explicit and does not inherit an execution pass (1.108149ms)
+✔ historical executions are labelled without changing their original verdict (0.350876ms)
+✔ an edited case keeps the current version unexecuted and labels prior passing facts as history (1.195616ms)
+✔ an executed current version with unverified business checks keeps its ended phase (0.416039ms)
+✔ revision polling notices idle external completion and skips unchanged snapshots (1.529127ms)
+✔ a pre-render baseline skips redundant work and still observes writes during initial rendering (0.444881ms)
+✔ a response arriving after disposal cannot update the current page (38.829944ms)
+✔ polling never overlaps and recovering a connection refreshes even the same revision (0.497942ms)
+✔ visible polling checks at 250 ms without requiring an active task (19.133917ms)
+✔ slow content updates do not block version checks and intermediate versions are coalesced (1.399381ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 830.667176

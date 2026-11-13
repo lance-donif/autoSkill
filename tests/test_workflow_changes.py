@@ -138,6 +138,7 @@ class ChangeTests(unittest.TestCase):
             "steps": ["1. 使用普通身份查询业务规则。", "2. 检查管理员规则的可见范围。"],
             "expected": "2. 不应显示管理员规则。", "source": "合成权限需求：普通身份不能读取管理员规则。"}
         documents = {"definition.json": {"id": "manual-design"}, "scenarios.json": [{"id": "SC", "oracle_ids": ["O"]}],
+                     "requirements.json": workflow_definition.snapshot(workflow_state.workflow(self.flow))["documents"]["requirements.json"],
                      "oracles.json": [{"id": "O", "kind": "api", "checks": candidate["assertions"],
                                        "functional_expected": candidate["extensions"]["test_case_document"]["expected"]}]}
         materialized = workflow_definition._materialize({"cases": [candidate], "bindings": {"SC": ["CASE-000"]}}, documents, self.project, False)
@@ -160,6 +161,7 @@ class ChangeTests(unittest.TestCase):
         candidate = copy.deepcopy(original)
         candidate["extensions"]["automation"]["actions"][0]["selector"] = "#new-submit"
         documents = {"definition.json": {"id": "locator-maintenance"}, "scenarios.json": [{"id": "SC", "oracle_ids": ["O"]}],
+                     "requirements.json": workflow_definition.snapshot(workflow_state.workflow(self.flow))["documents"]["requirements.json"],
                      "oracles.json": [{"id": "O", "kind": "ui", "checks": workflow_definition.oracle_of(original)}],
                      "materialization.json": {"cases": [original], "bindings": {"SC": [original["id"]]}}}
         materialized = workflow_definition._materialize({"cases": [candidate]}, documents, self.project, True)
@@ -192,6 +194,7 @@ class ChangeTests(unittest.TestCase):
         flow = workflow_state.workflow(made["workflow_id"])
         definition = workflow_definition.snapshot(flow)["documents"]["definition.json"]
         documents = {"definition.json": definition,
+                     "requirements.json": workflow_definition.snapshot(workflow_state.workflow(self.flow))["documents"]["requirements.json"],
                      "scenarios.json": [{"id": "SC", "requirement_ids": ["R"], "oracle_ids": ["O"]}],
                      "oracles.json": [{"id": "O", "kind": "api", "checks": self.cases[99]["assertions"]}]}
         with self.assertRaisesRegex(workflow_state.WorkflowError, "只能包含本次已选择"):

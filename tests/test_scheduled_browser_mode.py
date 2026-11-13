@@ -112,7 +112,11 @@ class ScheduledBrowserModeTests(unittest.TestCase):
 
     def test_schema_adoption_preserves_old_task_and_rejects_non_boolean_choices(self):
         task = scheduler.create(self.spec)
-        db.execute("ALTER TABLE tasks DROP COLUMN headed")
+        with db.connect() as connection:
+            # Reconstruct the old schema without triggers installed by the newer version.
+            for trigger in connection.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='tasks'").fetchall():
+                connection.execute('DROP TRIGGER "' + trigger["name"].replace('"', '""') + '"')
+            connection.execute("ALTER TABLE tasks DROP COLUMN headed")
         db.init()
         paths.save_settings(dashboard={"headed": False})
         migrated = scheduler.get(task["id"])

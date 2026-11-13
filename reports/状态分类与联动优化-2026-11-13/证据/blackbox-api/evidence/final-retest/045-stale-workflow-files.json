@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "excel",
+    "original": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_3d354c29494a79e79444bb897374686967cea4dc50577c1f8c6ea94ba5fca5d6/测试用例-8a86d2182c5b417e.xlsx",
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/final-retest/045-stale-workflow-excel.xlsx",
+    "sha256": "cfe86094c69bb66a3810e5ab844350fa735c0c34d5aa571d2ac99ddf13a87f59",
+    "size": 12942
+  },
+  {
+    "kind": "markdown",
+    "original": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_3d354c29494a79e79444bb897374686967cea4dc50577c1f8c6ea94ba5fca5d6/测试简报-8a86d2182c5b417e.md",
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/final-retest/045-stale-workflow-markdown.md",
+    "sha256": "d0e1dda735415965ae1048356873b6c71e97f40e9c88e13dc6a8305178bb458a",
+    "size": 761
+  },
+  {
+    "kind": "bugs",
+    "original": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_3d354c29494a79e79444bb897374686967cea4dc50577c1f8c6ea94ba5fca5d6/Bug清单-8a86d2182c5b417e.md",
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/final-retest/045-stale-workflow-bugs.md",
+    "sha256": "5ddb799b0e1ec4650f7eef883936c616c83db0c8b93b6557a18ecf2326e86b05",
+    "size": 968
+  }
+]

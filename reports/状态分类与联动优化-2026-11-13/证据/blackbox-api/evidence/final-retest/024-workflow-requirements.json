@@ -1,0 +1,36 @@
+{
+  "label": "024-workflow-requirements",
+  "started_at": "2026-11-13T14:25:26.669271+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-final-retest",
+    "workflow",
+    "read",
+    "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "--kind",
+    "requirements"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest",
+  "returncode": 0,
+  "elapsed_seconds": 1.149223789001553,
+  "ended_at": "2026-11-13T14:25:27.818489+00:00",
+  "response": {
+    "domain_head": "bf1b66afdd39182cf63856af75316fe727b071b9336910c16fff33052b99c5aa",
+    "head": "bf1b66afdd39182cf63856af75316fe727b071b9336910c16fff33052b99c5aa",
+    "definition_hash": "5901c61e8a2789c3d9032edd56e996fa27a6ced7ecd14ed6b6e8cbea33b61a54",
+    "items": [
+      {
+        "id": "BB-READY",
+        "source_ids": [
+          "spec-v1"
+        ],
+        "text": "GET /api/value?value=ready must return HTTP 200 and JSON status equal to ready. The deliberate /api/value?value=wrong probe must fail this same independent requirement, preserving expected ready and actual wrong."
+      }
+    ],
+    "total": 1,
+    "next_offset": null
+  }
+}

@@ -1,7 +1,8 @@
 // Schedules: run chosen cases at fixed times. Create, edit, pause, delete, run now.
-import { h, icon, replace, api, scope, scopeQuery, go, href, route, statusPill, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
+import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
 import { empty, errorState, drawer, closeOverlay, confirm, preferredHeaded } from '../ui.js';
 import { targetEditor } from '../schedule-target.js';
+import { primaryState, stateResults } from '../status-view.js';
 
 const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
@@ -52,7 +53,8 @@ export async function render(view) {
           h('td', {}, task.rule_text),
           h('td', { class: 'sub num' }, task.enabled ? [fmtUntil(task.next_due), h('div', { class: 'muted' }, fmtTime(task.next_due))] : '已暂停'),
           h('td', {}, task.last_status
-            ? h('a', { href: href('runs/' + task.last_run_id), onClick: (event) => event.stopPropagation(), class: 'row' }, statusPill(task.last_status), h('span', { class: 'sub num' }, fmtTime(task.last_finished)))
+            ? h('a', { href: href('runs/' + task.last_run_id), onClick: (event) => event.stopPropagation(), class: 'stack' },
+              primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state }), h('span', { class: 'sub num' }, fmtTime(task.last_finished)))
             : h('span', { class: 'sub' }, '尚未执行')),
           h('td', { class: 'actions' }, h('div', { class: 'row', style: 'justify-content:flex-end' }, now, remove)));
       })));

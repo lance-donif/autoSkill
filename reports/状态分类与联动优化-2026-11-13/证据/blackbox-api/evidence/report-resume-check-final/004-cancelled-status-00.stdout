@@ -1,0 +1,78 @@
+{
+ "workflow_id": "wf-d3359b6ee0064472bc3378e095ff4022",
+ "project_id": "bb-api",
+ "title": "Blackbox HTTP lifecycle",
+ "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+ "lifecycle": "cancelled",
+ "cycle_state": "cancelled",
+ "complete": false,
+ "conclusion": "unassessed",
+ "revision": 3,
+ "report_generation": 0,
+ "domain_head": "fb115dddc3ba4d3d65133f5281cfabc12eb275b2644fb0121dc9b5aa3a46aef9",
+ "definition_hash": "838a41d965fcb0f84669b25d6abdd05f051bf9c97d17bbdb3fc43fb10a229c1d",
+ "counts": {
+  "ready": 1
+ },
+ "state": {
+  "lifecycle": "cancelled",
+  "phase": "cancelled",
+  "outcome": "cancelled",
+  "checks": {
+   "business": "unverified",
+   "performance": "not_applicable",
+   "quality": "not_applicable"
+  },
+  "evidence": "unverified",
+  "report": "generating",
+  "delivery": "not_applicable",
+  "scope": {
+   "project_id": "bb-api",
+   "workflow_id": "wf-d3359b6ee0064472bc3378e095ff4022",
+   "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+   "run_id": null,
+   "case_id": null,
+   "attempt_id": null
+  },
+  "reason": "",
+  "revision": "3a84b8013858f1f073fbfadf873644e09d7c0cb63e1c9ce892281e27226ddfb4"
+ },
+ "items": [
+  {
+   "id": "wfi-037192f5cf5442d1882c1225c80bb7d9",
+   "sequence": 1,
+   "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+   "phase": "requirements",
+   "state": "ready",
+   "attempt_id": null,
+   "run_id": null,
+   "created_at": "2026-11-13T14:35:01.912+00:00",
+   "finished_at": null
+  }
+ ],
+ "total": 1,
+ "cycle_scope": "current",
+ "cursor": null,
+ "next_cursor": null,
+ "test_report": {
+  "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+  "generation": 3,
+  "kind": "workflow",
+  "render_owner_identity": {
+   "location_id": "ad3265d147d9eed95326a360155e1c6c65d8ece0dbfc57dd869cfe628cf32a88",
+   "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+   "pid": 54961,
+   "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1156284"
+  },
+  "render_started_at": "2026-11-13T14:35:03.370+00:00",
+  "report_generation": 0,
+  "report_id": "workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1",
+  "retry_url": "/api/task-reports/workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1/retry",
+  "retryable": false,
+  "snapshot_required": true,
+  "source_hash": "4ec20c93a6d975511169c68bd7d9a12fae07d32a65df0cf13e37c37b46c10066",
+  "status": "generating",
+  "task_id": "wf-d3359b6ee0064472bc3378e095ff4022",
+  "updated_at": "2026-11-13T14:35:02.533+00:00"
+ }
+}

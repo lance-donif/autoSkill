@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "workflow",
+    "next",
+    "wf-8bc34d6b55434423b2159bfdffcbc782",
+    "--idempotency-key",
+    "fresh-v2-next-after-materialize-2",
+    "--lease-seconds",
+    "1800"
+  ],
+  "started_ns": 1794580717008554599,
+  "finished_ns": 1794580717587407559,
+  "exit_code": 0,
+  "stdout": "{\n \"task\": null,\n \"workflow\": {\n  \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n  \"project_id\": \"fresh-arithmetic\",\n  \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n  \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"waiting_execution\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 32,\n  \"report_generation\": 0,\n  \"domain_head\": \"0dcb5331042a9bfdb876c168a0c524d0ad102af35499f3a674dcacb6066e8c92\",\n  \"definition_hash\": \"461a19b0a755b8f09a6887501f3f2496ad602c7ed64a29fbab2f252e55211d4e\",\n  \"counts\": {\n   \"completed\": 4,\n   \"waiting_execution\": 1\n  },\n  \"state\": {\n   \"lifecycle\": \"active\",\n   \"phase\": \"waiting_execution\",\n   \"outcome\": \"pending\",\n   \"checks\": {\n    \"business\": \"unverified\",\n    \"performance\": \"not_applicable\",\n    \"quality\": \"not_applicable\"\n   },\n   \"evidence\": \"unverified\",\n   \"report\": \"not_generated\",\n   \"delivery\": \"not_applicable\",\n   \"scope\": {\n    \"project_id\": \"fresh-arithmetic\",\n    \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n    \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n    \"run_id\": null,\n    \"case_id\": null,\n    \"attempt_id\": null\n   },\n   \"reason\": \"\",\n   \"revision\": \"3f6f1295b9fa3f0ea2fda036d27742f672d4390b667e6eea710f3bcd69d1c8bc\"\n  }\n }\n}\n",
+  "stderr": ""
+}

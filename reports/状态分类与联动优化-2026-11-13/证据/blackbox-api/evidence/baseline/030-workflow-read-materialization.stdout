@@ -1,0 +1,7 @@
+{
+ "error": "该阶段还没有已发布的定义",
+ "code": "not_found",
+ "details": {
+  "kind": "materialization"
+ }
+}

@@ -1,0 +1,250 @@
+{
+  "started_at": 1794580598.7942379,
+  "public_version": {
+    "name": "autoSkill",
+    "version": "2.2.4",
+    "ui_revision": "328192f4b6afc82fcd5b3c2b5a1587795fa52fb0c41c8cdc7a212399ef2227b2",
+    "projects": 1,
+    "runtime": {
+      "bundled": false,
+      "chrome": true,
+      "selenium": false,
+      "recorder": false
+    },
+    "browser": {
+      "mode": "system",
+      "system": "/usr/bin/chromium",
+      "bundled": "/usr/bin/chromium",
+      "using": "/usr/bin/chromium"
+    },
+    "skill_path": "/workspace/autoSkill/skills/autoskill",
+    "workspace": "/workspace/autoskill-state-validation/blackbox-ui/native-only-data",
+    "case_skill": "/workspace/autoskill-state-validation/blackbox-ui/native-only-data/.local/case-plans/default/autoskill-cases",
+    "bridge": true,
+    "instance": null
+  },
+  "projects": [
+    {
+      "id": "127-0-0-1",
+      "name": "原生资产独立项目",
+      "category": "",
+      "base_url": "http://127.0.0.1:18783",
+      "start_url": "http://127.0.0.1:18783",
+      "allowed_origins": [
+        "http://127.0.0.1:18783"
+      ],
+      "timeout_seconds": 20,
+      "page_load_seconds": 90,
+      "ignore_https_errors": false,
+      "cases": {
+        "total": 0,
+        "ui": 0,
+        "api": 0
+      },
+      "login": {
+        "ui_case": null,
+        "api_case": null
+      },
+      "missing_secrets": []
+    }
+  ],
+  "runs": {
+    "total": 1,
+    "items": [
+      {
+        "id": "run-cf6bd69cfb1e",
+        "batch_id": null,
+        "project_id": "127-0-0-1",
+        "engine": "selenium-unittest",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Pass",
+        "case_ids": "[\"asset-0128a2dc1f63\"]",
+        "total": 1,
+        "done": 1,
+        "passed": 1,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 56138,
+        "created_at": "2026-11-13T14:35:55.567+00:00",
+        "started_at": "2026-11-13T14:35:55.781+00:00",
+        "finished_at": "2026-11-13T14:35:59.181+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "blackbox-native-only",
+        "family": "native",
+        "input_manifest": ".local/native-inputs/560d6d455430a9b7bf23acd6fa4e9a0c3936ff83baf99807e7a3661ace76cfae-f362b645010b4f0688d882b188c116ac.json",
+        "input_hash": "560d6d455430a9b7bf23acd6fa4e9a0c3936ff83baf99807e7a3661ace76cfae",
+        "plan_path": "",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"42303ec7b711787bc40a3931de4b8170d881303238723573307a98ce053fa1ee\", \"pid\": 56138, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1161572\"}",
+        "project_name": "原生资产独立项目",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-cf6bd69cfb1e",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "f0577c74ed92586aabe2e580bbed9fccb123f6b186dab3ab594dadd17a2d2f5c"
+        },
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 1.0,
+        "state_counts": {
+          "pass": 1,
+          "fail": 0,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "recorded_counts": {
+          "passed": 1,
+          "failed": 0,
+          "blocked": 0
+        }
+      }
+    ],
+    "state_counts": {
+      "pass": 1,
+      "fail": 0,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    }
+  },
+  "summary": {
+    "scope": {
+      "projects": [],
+      "start": null,
+      "end": null,
+      "cycle": "current",
+      "filters": {}
+    },
+    "cases": {
+      "total": 0,
+      "ui": 0,
+      "api": 0,
+      "replayable": 0,
+      "added": 0
+    },
+    "runs": {
+      "total": 1,
+      "scheduled": 0,
+      "active": 0,
+      "passed": 1,
+      "failed": 0,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0,
+      "judged": 1,
+      "pass_rate": 1.0,
+      "state_counts": {
+        "pass": 1,
+        "fail": 0,
+        "blocked": 0,
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0
+      }
+    },
+    "results": {
+      "executions": 1,
+      "passed": 1,
+      "failed": 0,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0,
+      "judged": 1,
+      "pass_rate": 1.0,
+      "state_counts": {
+        "pass": 1,
+        "fail": 0,
+        "blocked": 0,
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0
+      },
+      "still_failing": 0,
+      "reliability": {
+        "observed": 1,
+        "first_passed": 1,
+        "final_passed": 1,
+        "recovered_after_failure": 0,
+        "unverified": 0,
+        "blocked": 0,
+        "cancelled": 0,
+        "denominator": 1,
+        "unexecuted": 0,
+        "unknown_target_runs": 0,
+        "first_pass_rate": 1.0,
+        "final_pass_rate": 1.0,
+        "window": "run_created_at",
+        "basis": "historical_attempts",
+        "denominator_definition": "本范围创建的运行内全部目标用例，含阻塞、取消、未完成和无业务断言",
+        "verification_note": "首轮与末次业务结果为历史尝试事实；当前有效通过数使用独立核验后的 state.outcome"
+      }
+    },
+    "trend": {
+      "unit": "day",
+      "points": [
+        {
+          "bucket": "2026-11-13",
+          "passed": 1,
+          "failed": 0,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0,
+          "judged": 1,
+          "pass_rate": 1.0,
+          "state_counts": {
+            "pass": 1,
+            "fail": 0,
+            "blocked": 0,
+            "unverified": 0,
+            "cancelled": 0,
+            "pending": 0
+          }
+        }
+      ]
+    },
+    "tasks": {
+      "total": 0,
+      "enabled": 0,
+      "paused": 0,
+      "fired_in_range": 0,
+      "next": null,
+      "tasks": []
+    }
+  },
+  "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n仪表盘\n\n下面所有数字、图表和列表都按上方的项目与时间范围统计。\n\n历史首轮业务通过率\n100%\n1 历史首轮业务通过 / 1 已知目标 · 历史重试后通过 100% · 0 业务未验证 · 当前有效结果见分项状态\n用例总数\n0\n页面 0 · 接口 0\n执行次数\n1\n共 1 条次\n失败\n0\n没有失败\n阻塞\n0\n没有阻塞\n未验证\n0\n执行记录尚不能证明业务结果\n执行趋势\n\n每天的用例执行条次\n\n通过\n阻塞\n失败\n未验证\n已取消\n待处理\n图表\n表格\n0\n1\n2\n3\n4\n11/7\n11/8\n11/9\n11/10\n11/11\n11/12\n11/13\n定时任务\n\n所选项目内\n\n还没有定时任务\n\n把稳定的回归安排在固定时间自动执行。\n\n新建定时任务\n失败与阻塞\n\n范围内共 0 条次\n\n范围内全部\n当前仍失败\n没有失败或阻塞\n\n这个范围内没有失败或阻塞记录；业务验证度见上方汇总。\n\n最近执行\n\n范围内共 1 次\n\n全部\n已结束\n综合：通过\n业务：通过\n原生资产独立项目\n1/1 通过 · 手动 · selenium-unittest · 3.4 秒\n今天 14:35",
+  "passed": true,
+  "finished_at": 1794580604.1356134
+}

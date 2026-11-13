@@ -87,6 +87,8 @@ class HtmlReportTests(unittest.TestCase):
                 route.fulfill(status=404, body="Not found")
 
     def api(self, path):
+        if path == "/api/state-revision":
+            return {"revision": "html-report-fixture"}
         if path == "/api/projects":
             return [{"id": "example", "name": "Report fixture", "category": "", "base_url": "https://example.invalid",
                      "cases": {"total": 3, "ui": 1, "api": 2}, "login": {"ui_case": None, "api_case": None}, "missing_secrets": []}]
@@ -97,6 +99,18 @@ class HtmlReportTests(unittest.TestCase):
         if path == "/api/runs":
             return {"items": [], "total": 0}
         if path == "/api/runs/run-report":
+            for entity in [self.run, *self.run["results"]]:
+                status = entity["status"]
+                entity["state"] = {
+                    "lifecycle": "active" if status == "Running" else "completed",
+                    "phase": "running" if status == "Running" else "blocked" if status == "Blocked" else "settled",
+                    "outcome": "pending" if status == "Running" else status.lower(),
+                    "checks": {"business": "unverified" if status in ("Running", "Blocked") else status.lower(),
+                               "performance": "not_applicable", "quality": "not_applicable"},
+                    "evidence": "unverified" if status == "Running" else "valid", "report": "pending" if status == "Running" else "ready",
+                    "delivery": "not_applicable", "scope": {},
+                }
+            self.run["test_report"]["bugs_download_url"] = "/api/task-reports/r/bugs"
             return self.run
         raise AssertionError("Unexpected API request: " + path)
 
@@ -127,12 +141,15 @@ class HtmlReportTests(unittest.TestCase):
 
     @staticmethod
     def report_style(page):
-        return page.locator(".run-summary").evaluate("el => { const s = getComputedStyle(el); return [s.backgroundColor, s.borderRadius, s.boxShadow, s.fontFamily, s.color, s.fontSize]; }")
+        return page.evaluate("() => { const s = getComputedStyle(document.querySelector('.run-summary')); "
+                             "return [s.backgroundColor, s.borderRadius, s.boxShadow, s.fontFamily, s.color, s.fontSize]; }")
 
     def test_download_has_same_styles_all_details_and_no_online_dependencies(self):
         self.open()
         expect(self.page.get_by_role("link", name="下载 Markdown 汇总", exact=True)).to_have_attribute("href", "/api/task-reports/r/markdown")
-        self.assertGreaterEqual(self.page.locator(".report-heading").bounding_box()["width"], 280)
+        expect(self.page.locator(".report-heading")).to_be_visible()
+        width = self.page.evaluate("document.querySelector('.report-heading').getBoundingClientRect().width")
+        self.assertGreaterEqual(width, 280)
         expect(self.page.locator(".result[data-result='1'] .result-body")).to_have_count(0)
         online_style = self.report_style(self.page)
         file = self.download()
@@ -182,7 +199,7 @@ class HtmlReportTests(unittest.TestCase):
         file = self.download()
         page, requests = self.offline(file)
         expect(page.locator("header")).to_contain_text("导出时任务尚未完成")
-        expect(page.locator(".run-summary")).to_contain_text("正在执行")
+        expect(page.locator(".run-summary")).to_contain_text("执行中")
         expect(page.locator(".run-summary")).to_contain_text("执行引擎 ai-eval")
         expect(page.locator("#view")).to_contain_text("正在准备")
         expect(page.get_by_role("button", name="取消运行", exact=True)).to_have_count(0)

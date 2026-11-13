@@ -1,0 +1,54 @@
+{
+ "task": {
+  "id": "wfi-1a31172f0d184ea5a5a463f9a5e23a57",
+  "item_id": "wfi-1a31172f0d184ea5a5a463f9a5e23a57",
+  "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+  "phase": "materialize",
+  "attempt_id": "wfa-474aa548bdf4424cafa66647ab477d1a",
+  "lease_token": "lease-2b7ae1f3c44f4a12ae917bfb0a054500",
+  "lease_until": "2026-11-13T14:14:35.324+00:00",
+  "binding_token": "eyJhdHRlbXB0X2lkIjoid2ZhLTQ3NGFhNTQ4YmRmNDQyNGNhZmE2NjY0N2FiNDc3ZDFhIiwiaXRlbV9pZCI6IndmaS0xYTMxMTcyZjBkMTg0ZWE1YTVhNDYzZjlhNWUyM2E1NyIsImxlYXNlX3Rva2VuIjoibGVhc2UtMmI3YWUxZjNjNDRmNGExMmFlOTE3YmZiMGEwNTQ1MDAiLCJ3b3JrZmxvd19pZCI6IndmLTE2OTNiOTA5M2Q5NzRiMTg4OGRmNTAxZDYzNGFlZTgzIn0=",
+  "input_hash": "dc099cdde940b12330cf1e3ad75bc723ac2ca4c5a10f16a979ed54188b45756b",
+  "input_refs": {
+   "definition": "workflows/wf-1693b9093d974b1888df501d634aee83/definition.json",
+   "oracles": "workflows/wf-1693b9093d974b1888df501d634aee83/oracles.json",
+   "requirements": "workflows/wf-1693b9093d974b1888df501d634aee83/requirements.json",
+   "scenarios": "workflows/wf-1693b9093d974b1888df501d634aee83/scenarios.json",
+   "sources": "workflows/wf-1693b9093d974b1888df501d634aee83/sources.json"
+  },
+  "checkpoint": {},
+  "context": {
+   "covered": 1,
+   "missing_requirement_ids": [],
+   "required": 1
+  },
+  "payload_schema": {
+   "example": {
+    "cases": [],
+    "bindings": {
+     "scenario-1": [
+      "TC-API-001"
+     ]
+    }
+   },
+   "rule": "预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。"
+  }
+ },
+ "workflow": {
+  "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-f9b3fb18ff764ffca35b720f7cbdf981",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "unassessed",
+  "revision": 10,
+  "domain_head": "7041cb3d37514dd644cff688dfdb45e2e16de68ca325c7a09d23c35fa100cfc2",
+  "definition_hash": "dc099cdde940b12330cf1e3ad75bc723ac2ca4c5a10f16a979ed54188b45756b",
+  "counts": {
+   "completed": 3,
+   "leased": 1
+  }
+ }
+}

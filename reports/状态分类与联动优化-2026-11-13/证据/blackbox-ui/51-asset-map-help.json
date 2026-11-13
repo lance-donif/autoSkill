@@ -1,0 +1,12 @@
+{
+  "command": [
+    "asset",
+    "map",
+    "--help"
+  ],
+  "started_at": 1794579389.890881,
+  "finished_at": 1794579390.2284055,
+  "exit_code": 2,
+  "stdout": "{\n \"error\": \"命令参数有误：argument action: invalid choice: 'map' (choose from import, list, show)\",\n \"code\": \"validation_error\"\n}\n",
+  "stderr": ""
+}

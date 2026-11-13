@@ -1,0 +1,24 @@
+{
+  "data_root": "/workspace/autoskill-state-validation/audit/cache-race-data-35109a88",
+  "run_id": "run-7d06845674af",
+  "before_evidence": "valid",
+  "outcome_read_calls": 1,
+  "direct_current_evidence_valid": false,
+  "after_race_evidence": "valid",
+  "later_independent_reads": [
+    {
+      "evidence": "invalid",
+      "outcome": "unverified"
+    },
+    {
+      "evidence": "invalid",
+      "outcome": "unverified"
+    },
+    {
+      "evidence": "invalid",
+      "outcome": "unverified"
+    }
+  ],
+  "stored_result_status": "Pass",
+  "current_outcome_case_status": "Fail"
+}

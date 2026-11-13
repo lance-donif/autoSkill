@@ -1,0 +1,80 @@
+{
+ "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+ "project_id": "bb-api",
+ "title": "Blackbox HTTP lifecycle",
+ "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+ "lifecycle": "active",
+ "cycle_state": "awaiting_host",
+ "complete": false,
+ "conclusion": "unassessed",
+ "revision": 2,
+ "domain_head": "2c5fb3ad6c869153a25f1709bdef89d70c7495c5f5f41088167df9945078b07b",
+ "definition_hash": "98b91b3101ad17181953a45c7ed6fd8cf90ba21333c05c8742739d8062df28b6",
+ "counts": {
+  "ready": 1
+ },
+ "state": {
+  "lifecycle": "active",
+  "phase": "awaiting_host",
+  "outcome": "pending",
+  "checks": {
+   "business": "unverified",
+   "performance": "not_applicable",
+   "quality": "not_applicable"
+  },
+  "evidence": "unverified",
+  "report": "not_generated",
+  "delivery": "not_applicable",
+  "scope": {
+   "project_id": "bb-api",
+   "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+   "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+   "run_id": null,
+   "case_id": null,
+   "attempt_id": null
+  },
+  "reason": "",
+  "revision": "e28a6aa29fa7674c7d068217ea927a83a9ddcac5fe18acdeb9e2c71003144114"
+ },
+ "accepted": true,
+ "change_id": "change-ff8ed3dea58a4f0fa7ec4aff961d0d81",
+ "workflow": {
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "unassessed",
+  "revision": 2,
+  "domain_head": "2c5fb3ad6c869153a25f1709bdef89d70c7495c5f5f41088167df9945078b07b",
+  "definition_hash": "98b91b3101ad17181953a45c7ed6fd8cf90ba21333c05c8742739d8062df28b6",
+  "counts": {
+   "ready": 1
+  },
+  "state": {
+   "lifecycle": "active",
+   "phase": "awaiting_host",
+   "outcome": "pending",
+   "checks": {
+    "business": "unverified",
+    "performance": "not_applicable",
+    "quality": "not_applicable"
+   },
+   "evidence": "unverified",
+   "report": "not_generated",
+   "delivery": "not_applicable",
+   "scope": {
+    "project_id": "bb-api",
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+    "run_id": null,
+    "case_id": null,
+    "attempt_id": null
+   },
+   "reason": "",
+   "revision": "e28a6aa29fa7674c7d068217ea927a83a9ddcac5fe18acdeb9e2c71003144114"
+  }
+ }
+}

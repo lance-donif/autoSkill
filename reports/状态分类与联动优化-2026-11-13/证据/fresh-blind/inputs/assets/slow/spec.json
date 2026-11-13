@@ -1,0 +1,30 @@
+{
+  "endpoint": {
+    "protocol": "http",
+    "url": "http://127.0.0.1:37171/query",
+    "method": "POST",
+    "body": {
+      "question": "{{question}}"
+    },
+    "answer_pointer": "/answer"
+  },
+  "samples": [
+    {
+      "id": "arithmetic-slow",
+      "title": "slow six times seven",
+      "turns": [
+        {
+          "question": "slow six times seven",
+          "expected": 42
+        }
+      ]
+    }
+  ],
+  "load": {
+    "concurrency": 1,
+    "iterations": 1
+  },
+  "performance": {
+    "total_ms": 30
+  }
+}

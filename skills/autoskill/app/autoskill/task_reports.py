@@ -20,6 +20,22 @@ def _base(kind: str, task_id: str, report_id: str, project_id: str | None = None
             "retry_url": "/api/task-reports/" + quote(report_id, safe="") + "/retry"}
 
 
+def workflow_report_id(workflow_id: str, cycle_id: str, *, connection=None, generation: int | None = None) -> str:
+    """Address the current report head, or a frozen generation independent of later resumes."""
+    from . import workflow_state
+
+    if generation is None:
+        if connection is None:
+            with db.connect() as current:
+                generation = workflow_state.report_generation(current, workflow_id, cycle_id)
+        else:
+            generation = workflow_state.report_generation(connection, workflow_id, cycle_id)
+    if type(generation) is not int or generation < 0:
+        raise ValueError("工作流报告代次必须为非负整数")
+    identity = [workflow_id, cycle_id] if generation == 0 else [workflow_id, cycle_id, generation]
+    return "workflow_" + execution_inputs.content_hash(identity)
+
+
 def _hash(file: Path) -> str:
     with file.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
@@ -57,6 +73,12 @@ def _available(receipt: dict, artifact: str) -> bool:
 
 
 def _validate(receipt: dict) -> dict:
+    if receipt["status"] == "generating" and receipt.get("render_owner_identity"):
+        from . import runner, runtime_identity
+
+        owner = receipt["render_owner_identity"]
+        if not (runtime_identity.owns(owner.get("pid"), owner) and runner.process_alive(owner.get("pid"))):
+            return _unavailable(receipt, "报告导出进程已中断，请手动重试；原执行不会重跑。")
     if receipt["status"] != "ready":
         return _public(receipt)
     if not all(_available(receipt, artifact) for artifact in ("excel", "markdown", "bugs")):
@@ -80,6 +102,13 @@ def get(report_id: str) -> dict:
     if not saved:
         raise ValueError("测试报告不存在；任务尚未生成报告或记录已删除")
     return _validate(saved)
+
+
+def peek(report_id: str) -> dict:
+    """Read delivery state without creating artifacts or retrying a failed export."""
+    from . import task_state
+
+    return task_state.report(report_id)
 
 
 def _persist_failure(base: dict, error: Exception, generation, *, save: bool = True) -> dict:
@@ -119,7 +148,8 @@ def _snapshot(base: dict, saved: dict) -> dict | None:
         raise ValueError("报告冻结快照不属于当前任务，不能混用其他任务的数据")
     if saved.get("source_hash") and execution_inputs.content_hash(snapshot) != saved["source_hash"]:
         raise ValueError("报告冻结快照内容校验失败，不能改用当前数据补写历史")
-    if base["kind"] == "workflow" and "workflow_" + execution_inputs.content_hash([snapshot["task_id"], snapshot.get("cycle_id")]) != base["report_id"]:
+    if base["kind"] == "workflow" and workflow_report_id(snapshot["task_id"], snapshot.get("cycle_id"),
+                                                       generation=snapshot.get("report_generation", 0)) != base["report_id"]:
         raise ValueError("报告冻结快照不属于当前工作流周期")
     return snapshot
 
@@ -156,6 +186,11 @@ def _markdown_artifact(snapshot: dict, folder: Path, digest: str, excel_link: st
 
 
 def _render(base: dict, snapshot: dict, generation, existing: dict | None = None) -> dict:
+    from . import runtime_identity
+
+    base = {**base, "render_owner_identity": runtime_identity.current(), "render_started_at": db.now()}
+    if base["kind"] == "workflow":
+        base.update(cycle_id=snapshot["cycle_id"], report_generation=snapshot.get("report_generation", 0))
     folder = _folder(base["report_id"])
     digest = execution_inputs.content_hash(snapshot)
     snapshot_file = folder / "snapshot.json"
@@ -193,12 +228,14 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
 
 def _ensure(base: dict, generation, capture, retry: bool) -> dict:
     try:
-        with project_lock(base["project_id"]) if base.get("project_id") else contextlib.nullcontext(), named_lock("test-report", base["report_id"]):
-            if base.get("project_id"):
+        with project_lock(base["project_id"]) if base.get("project_id") and base["kind"] != "workflow" else contextlib.nullcontext(), named_lock("test-report", base["report_id"]):
+            if base.get("project_id") and base["kind"] != "workflow":
                 report_locations.bind(base["report_id"], base["project_id"])
             failure_base = base
             try:
                 saved = _saved(base["report_id"])
+                if saved and saved.get("status") == "failed" and not retry:
+                    return _validate(saved)
                 same_generation = saved and saved.get("generation") == generation
                 if same_generation:
                     failure_base = {**base, **({"source_hash": saved["source_hash"]} if saved.get("source_hash") else {}),
@@ -259,17 +296,91 @@ def _workflow_ready(flow: dict) -> bool:
     return all(not item["run_id"] or not db.one("SELECT id FROM runs WHERE id = ? AND status NOT IN ('Pass','Fail','Blocked','Cancelled')", (item["run_id"],)) for item in tasks)
 
 
-def for_workflow(workflow_id: str, *, retry: bool = False) -> dict:
+def prepare_workflow(workflow_id: str, *, cancelled_boundary: bool = False) -> dict:
+    """Freeze a completed cycle before returning to a caller or starting a new cycle."""
     from . import workflow_state
 
     flow = workflow_state.workflow(workflow_id)
     with project_lock(flow["project_id"]):
         flow = workflow_state.workflow(workflow_id)
-        identity = execution_inputs.content_hash([workflow_id, flow["cycle_id"]])
-        base = _base("workflow", workflow_id, "workflow_" + identity, flow["project_id"])
-        if not _workflow_ready(flow):
+        with db.connect() as connection:
+            report_generation = workflow_state.report_generation(connection, workflow_id, flow["cycle_id"])
+        base = {**_base("workflow", workflow_id, workflow_report_id(workflow_id, flow["cycle_id"], generation=report_generation), flow["project_id"]),
+                "cycle_id": flow["cycle_id"], "report_generation": report_generation}
+        boundary = cancelled_boundary and flow["lifecycle"] == "cancelled"
+        if not boundary and not _workflow_ready(flow):
             return {**base, "status": "pending", "reason": "本周期尚未结束，保留各次运行报告，周期完成后汇总", "retryable": False}
-        return _ensure(base, flow["revision"], lambda: task_report_data.workflow_snapshot(flow), retry)
+        with named_lock("test-report", base["report_id"]):
+            report_locations.bind(base["report_id"], flow["project_id"])
+            saved = _saved(base["report_id"])
+            if saved:
+                return _validate(saved)
+            try:
+                snapshot = task_report_data.workflow_snapshot(flow, report_generation=report_generation, cancelled_boundary=boundary)
+                digest = execution_inputs.content_hash(snapshot)
+                execution_inputs.write_json(_folder(base["report_id"]) / "snapshot.json", snapshot)
+                receipt = {**base, "status": "generating", "generation": flow["revision"], "source_hash": digest,
+                           "snapshot_required": True, "updated_at": db.now(), "retryable": False}
+                execution_inputs.write_json(_folder(base["report_id"]) / "receipt.json", receipt)
+                return receipt
+            except Exception as error:  # noqa: BLE001  # Capture failures are durable and require an explicit user retry.
+                return _persist_failure(base, error, flow["revision"])
+
+
+def finish_workflow_report(report_id: str) -> dict:
+    """Render a prepared cycle once, outside the project lock; failures never auto-retry."""
+    with named_lock("test-report", report_id):
+        saved = _saved(report_id)
+        if not saved:
+            return peek(report_id)
+        if saved.get("status") != "generating":
+            return _validate(saved)
+        if saved.get("render_owner_identity"):
+            return fail_interrupted_export(report_id)
+        from . import runtime_identity
+
+        base = {**_base("workflow", saved["task_id"], report_id, saved.get("project_id")),
+                "render_owner_identity": runtime_identity.current(), "render_started_at": db.now()}
+        try:
+            execution_inputs.write_json(_folder(report_id) / "receipt.json", {**saved, **base})
+            snapshot = _snapshot(base, saved)
+            if snapshot is None:
+                raise ValueError("工作流报告冻结快照缺失，不能用当前周期替代")
+            return _validate(_render(base, snapshot, saved["generation"], _retained_artifacts(saved, saved.get("source_hash"))))
+        except Exception as error:  # noqa: BLE001  # Preserve failed first generation for manual retry.
+            return _persist_failure({**base, "source_hash": saved.get("source_hash"), "snapshot_required": True}, error, saved["generation"])
+
+
+def fail_interrupted_export(report_id: str) -> dict:
+    """An abandoned rendering attempt requires manual retry, including after worker restart."""
+    from . import runner, runtime_identity
+
+    def abandoned(receipt):
+        owner = (receipt or {}).get("render_owner_identity")
+        return bool(receipt and receipt.get("status") == "generating" and owner
+                    and not (runtime_identity.owns(owner.get("pid"), owner) and runner.process_alive(owner.get("pid"))))
+
+    saved = _saved(report_id)
+    if not abandoned(saved):
+        return _validate(saved) if saved else peek(report_id)
+    with named_lock("test-report", report_id):
+        saved = _saved(report_id)
+        if not abandoned(saved):
+            return _validate(saved) if saved else peek(report_id)
+        base = {**_base("workflow", saved["task_id"], report_id, saved.get("project_id")), "source_hash": saved.get("source_hash"),
+                "snapshot_required": True, "render_owner_identity": saved["render_owner_identity"], "render_started_at": saved.get("render_started_at")}
+        return _persist_failure(base, RuntimeError("报告导出进程已中断，请手动重试；原执行不会重跑"), saved["generation"])
+
+
+def for_workflow(workflow_id: str, *, retry: bool = False) -> dict:
+    receipt = prepare_workflow(workflow_id)
+    if receipt["status"] == "generating":
+        return finish_workflow_report(receipt["report_id"])
+    if retry and receipt["status"] not in ("pending", "skipped"):
+        saved = _saved(receipt["report_id"])
+        base = _base("workflow", workflow_id, receipt["report_id"], saved.get("project_id"))
+        return _ensure(base, saved["generation"], lambda: _snapshot(base, saved), True)
+    return receipt
 
 
 def for_recording(project_id: str, recording: dict, cases: list[dict]) -> dict:
@@ -298,11 +409,10 @@ def retry(report_id: str) -> dict:
         flow = workflow_state.workflow(saved["task_id"])
         if (_folder(report_id) / "snapshot.json").is_file():
             base = _base(saved["kind"], saved["task_id"], report_id, saved.get("project_id"))
-            with project_lock(flow["project_id"]):
-                return _ensure(base, saved["generation"], lambda: _snapshot(base, saved), True)
-        expected = "workflow_" + execution_inputs.content_hash([flow["id"], flow["cycle_id"]])
+            return _ensure(base, saved["generation"], lambda: _snapshot(base, saved), True)
+        expected = workflow_report_id(flow["id"], flow["cycle_id"])
         if expected != report_id:
-            raise ValueError("工作流已开始新周期；请读取当前周期报告，不能覆盖旧周期的快照")
+            raise ValueError("工作流已开始新报告代次或新周期；请读取当前报告，不能用当前数据补写已缺失的历史快照")
         return for_workflow(saved["task_id"], retry=True)
     snapshot_file = _folder(report_id) / "snapshot.json"
     base = _base(saved["kind"], saved["task_id"], report_id, saved.get("project_id"))

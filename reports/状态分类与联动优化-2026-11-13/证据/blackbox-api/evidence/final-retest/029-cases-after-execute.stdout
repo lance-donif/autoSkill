@@ -1,0 +1,40 @@
+{
+ "cases": [
+  {
+   "id": "TC-API-BB-READY",
+   "kind": "api",
+   "title": "Ready endpoint satisfies ready requirement",
+   "module": "Local HTTP fixture",
+   "revision": 1,
+   "requirement_ids": [
+    "BB-READY"
+   ],
+   "lifecycle": "active",
+   "depends_on": [],
+   "replayable": true,
+   "content_revision": "662a938936021f8c80541964da779ce234d8b910a3295f3f443eb46fee16a99d"
+  },
+  {
+   "id": "TC-API-BB-WRONG",
+   "kind": "api",
+   "title": "Wrong endpoint preserves business violation",
+   "module": "Local HTTP fixture",
+   "revision": 1,
+   "requirement_ids": [
+    "BB-READY"
+   ],
+   "lifecycle": "active",
+   "depends_on": [],
+   "replayable": true,
+   "content_revision": "9cd70033c9f91ef5bdc18796acbea4f1f2ddf4987a13d2a9d595d830023a1a6d"
+  }
+ ],
+ "page": {
+  "total": 2,
+  "returned": 2,
+  "limit": null,
+  "has_more": false,
+  "next_cursor": null,
+  "content_revision": "325500473378385381ef03322142ed28bd2594ef6b568bb1c5ee39052b3b2eff"
+ }
+}

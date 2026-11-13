@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import db, native_assets, native_reader, native_run, paging, paths, projects
+from autoskill import data_refs, db, native_assets, native_reader, native_run, paging, paths, projects
 from autoskill.engines.process import write_json
 from autoskill.server.app import create_app
 
@@ -65,6 +65,11 @@ class NativeReaderTests(unittest.TestCase):
         self.assertNotIn("events", first["outcome"])
         self.assertEqual(first["outcome"]["evidence_ref"]["count"], 500)
         self.assertLess(len(json.dumps(first)), 20000)
+        fields = {"lifecycle", "phase", "outcome", "checks", "evidence", "report", "delivery", "scope", "reason", "revision"}
+        for row in first["results"]:
+            self.assertTrue(fields <= row["state"].keys())
+            self.assertNotIn("business_status", row)
+            self.assertNotIn("execution_status", row)
         report = Path(first["report"]["path"])
         self.assertEqual(first["report"]["sha256"], hashlib.sha256(report.read_bytes()).hexdigest())
         second = native_reader.status(run_id, limit=50, cursor=first["page"]["next_cursor"])
@@ -96,9 +101,23 @@ class NativeReaderTests(unittest.TestCase):
     def test_real_native_wait_returns_summary_and_case_evidence_remains_readable(self):
         code, result = self.command("native", "run", self.pid, self.asset["id"], "--wait")
         self.assertEqual((code, result["status"], result["page"]["total"]), (0, "Pass", 1))
+        self.assertEqual((result["passed"], result["recorded_counts"]["passed"]), (1, 1))
         self.assertNotIn("cases", result["outcome"])
         detail = self.command("native", "status", result["id"], "--case", result["results"][0]["case_id"])[1]
         self.assertEqual(detail["case"]["status"], "Pass")
+
+        complete = native_run.get(result["id"])
+        reference = complete["outcome"]["evidence"][0]["path"]
+        artifact = data_refs.resolve(reference) if data_refs.is_absolute(reference) else Path(complete["evidence_dir"]) / reference
+        artifact.write_bytes(artifact.read_bytes() + b"tampered")
+        original = db.one("SELECT * FROM runs WHERE id=?", (result["id"],))
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787") as client:
+            damaged = client.get("/api/native-runs/" + result["id"]).json()
+        self.assertEqual((damaged["passed"], damaged["unverified"], damaged["recorded_counts"]["passed"]), (0, 1, 1))
+        self.assertEqual((damaged["state"]["outcome"], damaged["state"]["evidence"]), ("unverified", "invalid"))
+        self.assertEqual(db.one("SELECT * FROM runs WHERE id=?", (result["id"],)), original)
+        self.assertEqual(native_reader.status(result["id"])["passed"], 0)
+        self.assertEqual(result["passed"], 1)
 
 
 if __name__ == "__main__":

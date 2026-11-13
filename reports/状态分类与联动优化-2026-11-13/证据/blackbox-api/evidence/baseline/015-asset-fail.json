@@ -1,0 +1,84 @@
+{
+  "label": "015-asset-fail",
+  "started_at": "2026-11-13T14:08:19.608370+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "asset",
+    "import",
+    "bb-api",
+    "--file",
+    "/workspace/autoskill-state-validation/blackbox-api/inputs/asset-fail.json"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.2919291880007222,
+  "ended_at": "2026-11-13T14:08:19.900300+00:00",
+  "response": {
+    "schema": 1,
+    "id": "bb-fail",
+    "project_id": "bb-api",
+    "name": "Local HTTP wrong value",
+    "engine": "selenium-unittest",
+    "argv": [
+      "python3",
+      "-m",
+      "unittest",
+      "test_fixture.BusinessFailure"
+    ],
+    "cwd": ".",
+    "files": [
+      {
+        "path": "test_fixture.py",
+        "sha256": "15282e139c62894da8b2adab738d354e526f974290ec0a31755338ef9d0ad3c7",
+        "size": 656,
+        "mode": 384
+      }
+    ],
+    "origin": {
+      "original_source": "/workspace/autoskill-state-validation/blackbox-api/inputs/native-http"
+    },
+    "source_root": "/workspace/autoskill-state-validation/blackbox-api/inputs/native-http",
+    "semantics": {
+      "mode": "native",
+      "converted": false,
+      "notes": "保留原文件、入口和工作目录；不转换测试语义"
+    },
+    "head": "82c591d67b5737a1e843f203c649af168ca25f4eceba9675b5a85194276b1797",
+    "asset_version": "16048d0b564454f3abc2f0a362300f51a64c90408fcf747e052d68af4e2b436c",
+    "manifest": {
+      "schema": 1,
+      "id": "bb-fail",
+      "project_id": "bb-api",
+      "name": "Local HTTP wrong value",
+      "engine": "selenium-unittest",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "test_fixture.BusinessFailure"
+      ],
+      "cwd": ".",
+      "files": [
+        {
+          "path": "test_fixture.py",
+          "sha256": "15282e139c62894da8b2adab738d354e526f974290ec0a31755338ef9d0ad3c7",
+          "size": 656,
+          "mode": 384
+        }
+      ],
+      "origin": {
+        "original_source": "/workspace/autoskill-state-validation/blackbox-api/inputs/native-http"
+      },
+      "source_root": "/workspace/autoskill-state-validation/blackbox-api/inputs/native-http",
+      "semantics": {
+        "mode": "native",
+        "converted": false,
+        "notes": "保留原文件、入口和工作目录；不转换测试语义"
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "url": "http://127.0.0.1:37171/counts",
+  "method": "GET",
+  "request": null,
+  "started_ns": 1794582985777062961,
+  "finished_ns": 1794582985783595696,
+  "http_status": 200,
+  "body": {
+    "queries": 1,
+    "entries": 3,
+    "state": {
+      "retry_answer": 42,
+      "hold": false
+    }
+  }
+}

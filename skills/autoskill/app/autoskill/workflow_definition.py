@@ -230,26 +230,35 @@ def _functional_mappings(candidates: list[dict], current: dict, documents: dict,
         _functional_mapping(case, current.get(case["id"]), expected, scenarios, documents["definition.json"])
 
 
-def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool) -> dict:
+def _validate_materialized_candidates(candidates: list[dict], requirement_ids: set[str], originals: dict, maintain: bool) -> None:
     import jsonschema
 
     from .replay import ir
 
+    for case in candidates:
+        errors = list(jsonschema.Draft202012Validator(store.read(paths.SKILL / "references/case.schema.json")).iter_errors(case))
+        if errors:
+            raise WorkflowError("validation_error", "候选用例结构错误：" + errors[0].message)
+        if not set(case["requirement_ids"]).issubset(requirement_ids):
+            raise WorkflowError("validation_error", "候选用例关联未知需求", case_id=case["id"])
+        if case["kind"] == "ui":
+            ir.validate(case.get("extensions", {}).get("automation"))
+        if maintain:
+            original = originals.get(case["id"])
+            if not original or not _binding_only(original, case):
+                raise WorkflowError("oracle_change", "维护候选只能修复定位；业务动作和原始检查条件必须保留，需求变化应建立新版本", case_id=case["id"])
+
+
+def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool) -> dict:
     current = {case["id"]: case for case in projects.cases(project_id, active_only=False)}
     change_scope = documents["definition.json"].get("extensions", {}).get("change_scope")
     previous = documents.get("materialization.json", {})
     candidates = _functional_candidates(_records(payload["cases"], "cases"), maintain=maintain) if payload.get("cases") else []
     old_candidates = {case["id"]: case for case in previous.get("cases", [])}
-    for case in candidates:
-        errors = list(jsonschema.Draft202012Validator(store.read(paths.SKILL / "references/case.schema.json")).iter_errors(case))
-        if errors:
-            raise WorkflowError("validation_error", "候选用例结构错误：" + errors[0].message)
-        if case["kind"] == "ui":
-            ir.validate(case.get("extensions", {}).get("automation"))
-        if maintain:
-            original = old_candidates.get(case["id"], current.get(case["id"]))
-            if not original or not _binding_only(original, case):
-                raise WorkflowError("oracle_change", "维护候选只能修复定位；业务动作和原始检查条件必须保留，需求变化应建立新版本", case_id=case["id"])
+    requirement_ids = {record["id"] for record in documents["requirements.json"]}
+    requirement_ids.update(record["id"] for record in store.read(projects.path(project_id) / "analysis/requirements.json"))
+    requirement_ids.add("REQ-RECORDED")
+    _validate_materialized_candidates(candidates, requirement_ids, {**current, **old_candidates}, maintain)
     available = {**current, **{case["id"]: case for case in candidates}}
     bindings = payload.get("bindings", previous.get("bindings") if maintain else None)
     if not isinstance(bindings, dict):

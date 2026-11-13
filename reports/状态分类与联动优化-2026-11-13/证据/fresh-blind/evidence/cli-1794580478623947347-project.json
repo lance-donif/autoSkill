@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "project",
+    "create",
+    "--name",
+    "Fresh blind arithmetic desk",
+    "--url",
+    "http://127.0.0.1:37171",
+    "--id",
+    "fresh-arithmetic"
+  ],
+  "started_ns": 1794580478623950347,
+  "finished_ns": 1794580479002545511,
+  "exit_code": 0,
+  "stdout": "{\n \"created\": {\n  \"id\": \"fresh-arithmetic\",\n  \"name\": \"Fresh blind arithmetic desk\",\n  \"category\": \"\",\n  \"base_url\": \"http://127.0.0.1:37171\",\n  \"start_url\": \"http://127.0.0.1:37171\",\n  \"allowed_origins\": [\n   \"http://127.0.0.1:37171\"\n  ],\n  \"timeout_seconds\": 20,\n  \"page_load_seconds\": 90,\n  \"ignore_https_errors\": false,\n  \"cases\": {\n   \"total\": 0,\n   \"ui\": 0,\n   \"api\": 0\n  },\n  \"login\": {\n   \"ui_case\": null,\n   \"api_case\": null\n  },\n  \"missing_secrets\": []\n }\n}\n",
+  "stderr": ""
+}

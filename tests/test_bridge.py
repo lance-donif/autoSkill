@@ -53,7 +53,8 @@ class Sandbox(unittest.TestCase):
         self.tmp.cleanup()
 
     def env(self, **extra) -> dict:
-        env = {k: v for k, v in os.environ.items() if not k.startswith("AUTOSKILL_")}
+        runtime = {"AUTOSKILL_CHROMIUM", "AUTOSKILL_CHROMEDRIVER", "AUTOSKILL_AGENT_BROWSER", "AUTOSKILL_HEADED"}
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AUTOSKILL_") or k in runtime}
         env.update(PYTHONPATH=str(APP), PYTHONUTF8="1", AUTOSKILL_WORKSPACE=str(self.workspace))
         env.update(extra)
         return env

@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "workflow",
+    "submit",
+    "wf-8bc34d6b55434423b2159bfdffcbc782",
+    "wfi-8cf82f1572724f029fe5567a86aec1ae",
+    "--lease-token",
+    "lease-e31fdaa34e744cdeb2e047ad9daaf2a4",
+    "--attempt-id",
+    "wfa-8e33ab48341e414992f869b63e8e2537",
+    "--idempotency-key",
+    "fresh-v2-submit-knowledge-final",
+    "--file",
+    "/workspace/autoskill-state-validation/fresh-blind/inputs/wf-knowledge-v2-final.json"
+  ],
+  "started_ns": 1794580743771003636,
+  "finished_ns": 1794580744071624568,
+  "exit_code": 0,
+  "stdout": "{\n \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n \"project_id\": \"fresh-arithmetic\",\n \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n \"lifecycle\": \"active\",\n \"cycle_state\": \"settled\",\n \"complete\": true,\n \"conclusion\": \"satisfied\",\n \"revision\": 36,\n \"report_generation\": 0,\n \"domain_head\": \"beda898151e7308de1c5144da5201029f3f1bc7fc398e9dd41de04039fc4037e\",\n \"definition_hash\": \"6358f0b4f87bd3ef7706f58c5e8bde1adeb69ce4abc8ddbb9b53579a7acd7196\",\n \"counts\": {\n  \"completed\": 6\n },\n \"state\": {\n  \"lifecycle\": \"completed\",\n  \"phase\": \"settled\",\n  \"outcome\": \"pass\",\n  \"checks\": {\n   \"business\": \"pass\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"valid\",\n  \"report\": \"not_generated\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"fresh-arithmetic\",\n   \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n   \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n   \"run_id\": null,\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"93e37fa276819802fd0319ecc30c9cdbfa9597480f15e4cd707a2be9b9c86226\"\n },\n \"accepted\": true,\n \"change_id\": \"change-cb0d370b917a4651913814bb74a07994\",\n \"workflow\": {\n  \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n  \"project_id\": \"fresh-arithmetic\",\n  \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n  \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"settled\",\n  \"complete\": true,\n  \"conclusion\": \"satisfied\",\n  \"revision\": 36,\n  \"report_generation\": 0,\n  \"domain_head\": \"beda898151e7308de1c5144da5201029f3f1bc7fc398e9dd41de04039fc4037e\",\n  \"definition_hash\": \"6358f0b4f87bd3ef7706f58c5e8bde1adeb69ce4abc8ddbb9b53579a7acd7196\",\n  \"counts\": {\n   \"completed\": 6\n  },\n  \"state\": {\n   \"lifecycle\": \"completed\",\n   \"phase\": \"settled\",\n   \"outcome\": \"pass\",\n   \"checks\": {\n    \"business\": \"pass\",\n    \"performance\": \"not_applicable\",\n    \"quality\": \"not_applicable\"\n   },\n   \"evidence\": \"valid\",\n   \"report\": \"not_generated\",\n   \"delivery\": \"not_applicable\",\n   \"scope\": {\n    \"project_id\": \"fresh-arithmetic\",\n    \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n    \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n    \"run_id\": null,\n    \"case_id\": null,\n    \"attempt_id\": null\n   },\n   \"reason\": \"\",\n   \"revision\": \"93e37fa276819802fd0319ecc30c9cdbfa9597480f15e4cd707a2be9b9c86226\"\n  },\n  \"test_report\": {\n   \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n   \"generation\": 36,\n   \"kind\": \"workflow\",\n   \"report_generation\": 0,\n   \"report_id\": \"workflow_20d31f76aed30da4cd598c7e6367df5612e23fa2e8839285582840a829839f8e\",\n   \"retry_url\": \"/api/task-reports/workflow_20d31f76aed30da4cd598c7e6367df5612e23fa2e8839285582840a829839f8e/retry\",\n   \"retryable\": false,\n   \"snapshot_required\": true,\n   \"source_hash\": \"7442fcf2fdd9e5989ef891497494236a866807149fd4d6673c2f8e60ed6d2c21\",\n   \"status\": \"generating\",\n   \"task_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n   \"updated_at\": \"2026-11-13T14:39:04.037+00:00\"\n  }\n },\n \"test_report\": {\n  \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n  \"generation\": 36,\n  \"kind\": \"workflow\",\n  \"report_generation\": 0,\n  \"report_id\": \"workflow_20d31f76aed30da4cd598c7e6367df5612e23fa2e8839285582840a829839f8e\",\n  \"retry_url\": \"/api/task-reports/workflow_20d31f76aed30da4cd598c7e6367df5612e23fa2e8839285582840a829839f8e/retry\",\n  \"retryable\": false,\n  \"snapshot_required\": true,\n  \"source_hash\": \"7442fcf2fdd9e5989ef891497494236a866807149fd4d6673c2f8e60ed6d2c21\",\n  \"status\": \"generating\",\n  \"task_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n  \"updated_at\": \"2026-11-13T14:39:04.037+00:00\"\n }\n}\n",
+  "stderr": ""
+}

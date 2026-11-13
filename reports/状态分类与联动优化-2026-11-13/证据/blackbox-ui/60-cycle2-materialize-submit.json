@@ -1,0 +1,21 @@
+{
+  "command": [
+    "workflow",
+    "submit",
+    "wf-0decaa560df84c6e9c0761274fb4f490",
+    "wfi-50f889378a1343dcae5985b49fcee643",
+    "--attempt-id",
+    "wfa-e77bb3c8d8d8469da1f8b1920a8f300e",
+    "--lease-token",
+    "lease-f902e2b346464739830b7b4ba4c50f74",
+    "--idempotency-key",
+    "60-cycle2-materialize-submit",
+    "--file",
+    "workflow-materialize-cycle2.json"
+  ],
+  "started_at": 1794580174.1988978,
+  "finished_at": 1794580175.0178797,
+  "exit_code": 0,
+  "stdout": "{\n \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n \"project_id\": \"127-0-0-1\",\n \"title\": \"独立黑盒订单维护\",\n \"cycle_id\": \"cycle-f8e0f09686ee4490855cea8c3bef6bce\",\n \"lifecycle\": \"active\",\n \"cycle_state\": \"awaiting_host\",\n \"complete\": false,\n \"conclusion\": \"unassessed\",\n \"revision\": 28,\n \"domain_head\": \"ba3e5b5e506b51c6066f0074e8e1c4eeafb50422c3c552d0ac21a06a59cb6cbd\",\n \"definition_hash\": \"79d4b31ae3730876c86674dbbd23b009610f5acd1b33cc939d996265e1d0fbc1\",\n \"counts\": {\n  \"completed\": 4,\n  \"ready\": 1\n },\n \"state\": {\n  \"lifecycle\": \"active\",\n  \"phase\": \"awaiting_host\",\n  \"outcome\": \"pending\",\n  \"checks\": {\n   \"business\": \"unverified\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"unverified\",\n  \"report\": \"not_generated\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"127-0-0-1\",\n   \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n   \"cycle_id\": \"cycle-f8e0f09686ee4490855cea8c3bef6bce\",\n   \"run_id\": null,\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"46ba9bf5bf7bacec6914714bb5efd428f9f0ebf23817e6b0a39eb5826a61221e\"\n },\n \"accepted\": true,\n \"change_id\": \"change-5672b8c518fc43e08b24ac5f94a4980d\",\n \"workflow\": {\n  \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n  \"project_id\": \"127-0-0-1\",\n  \"title\": \"独立黑盒订单维护\",\n  \"cycle_id\": \"cycle-f8e0f09686ee4490855cea8c3bef6bce\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 28,\n  \"domain_head\": \"ba3e5b5e506b51c6066f0074e8e1c4eeafb50422c3c552d0ac21a06a59cb6cbd\",\n  \"definition_hash\": \"79d4b31ae3730876c86674dbbd23b009610f5acd1b33cc939d996265e1d0fbc1\",\n  \"counts\": {\n   \"completed\": 4,\n   \"ready\": 1\n  },\n  \"state\": {\n   \"lifecycle\": \"active\",\n   \"phase\": \"awaiting_host\",\n   \"outcome\": \"pending\",\n   \"checks\": {\n    \"business\": \"unverified\",\n    \"performance\": \"not_applicable\",\n    \"quality\": \"not_applicable\"\n   },\n   \"evidence\": \"unverified\",\n   \"report\": \"not_generated\",\n   \"delivery\": \"not_applicable\",\n   \"scope\": {\n    \"project_id\": \"127-0-0-1\",\n    \"workflow_id\": \"wf-0decaa560df84c6e9c0761274fb4f490\",\n    \"cycle_id\": \"cycle-f8e0f09686ee4490855cea8c3bef6bce\",\n    \"run_id\": null,\n    \"case_id\": null,\n    \"attempt_id\": null\n   },\n   \"reason\": \"\",\n   \"revision\": \"46ba9bf5bf7bacec6914714bb5efd428f9f0ebf23817e6b0a39eb5826a61221e\"\n  }\n }\n}\n",
+  "stderr": ""
+}

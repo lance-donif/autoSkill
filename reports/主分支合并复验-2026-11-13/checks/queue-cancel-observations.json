@@ -1,0 +1,338 @@
+[
+  {
+    "phase": "before_ensure",
+    "at": 22402.132125769,
+    "workspace": "/tmp/tmpna3uhfb6",
+    "runs": [
+      {
+        "id": "run-6ddc4b881e20",
+        "project_id": "dispatcher-0",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      },
+      {
+        "id": "run-f4ec81ff5c3b",
+        "project_id": "dispatcher-1",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "phase": "after_ensure",
+    "at": 22402.544633862,
+    "workspace": "/tmp/tmpna3uhfb6",
+    "runs": [
+      {
+        "id": "run-6ddc4b881e20",
+        "project_id": "dispatcher-0",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      },
+      {
+        "id": "run-f4ec81ff5c3b",
+        "project_id": "dispatcher-1",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      0,
+      0,
+      0
+    ],
+    "worker": {
+      "status": "started",
+      "pid": 158785,
+      "reason": ""
+    }
+  },
+  {
+    "phase": "before_cancel",
+    "at": 22403.636516425,
+    "workspace": "/tmp/tmpna3uhfb6",
+    "runs": [
+      {
+        "id": "run-6ddc4b881e20",
+        "project_id": "dispatcher-0",
+        "status": "Running",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "Queued effect",
+        "reason": "",
+        "pid": 158786,
+        "claim_token": ""
+      },
+      {
+        "id": "run-f4ec81ff5c3b",
+        "project_id": "dispatcher-1",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      1,
+      0,
+      0
+    ],
+    "run_id": "run-f4ec81ff5c3b"
+  },
+  {
+    "phase": "after_cancel",
+    "at": 22404.11898828,
+    "workspace": "/tmp/tmpna3uhfb6",
+    "runs": [
+      {
+        "id": "run-6ddc4b881e20",
+        "project_id": "dispatcher-0",
+        "status": "Running",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "Queued effect",
+        "reason": "",
+        "pid": 158786,
+        "claim_token": ""
+      },
+      {
+        "id": "run-f4ec81ff5c3b",
+        "project_id": "dispatcher-1",
+        "status": "Cancelled",
+        "cancel": 1,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      1,
+      0,
+      0
+    ],
+    "run_id": "run-f4ec81ff5c3b",
+    "returned_status": "Cancelled"
+  },
+  {
+    "phase": "before_ensure",
+    "at": 22405.053779264,
+    "workspace": "/tmp/tmpnmissv03",
+    "runs": [
+      {
+        "id": "run-3ad16623fecd",
+        "project_id": "dispatcher-0",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      },
+      {
+        "id": "run-518c72f51e11",
+        "project_id": "dispatcher-1",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "phase": "after_ensure",
+    "at": 22405.209876406,
+    "workspace": "/tmp/tmpnmissv03",
+    "runs": [
+      {
+        "id": "run-3ad16623fecd",
+        "project_id": "dispatcher-0",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      },
+      {
+        "id": "run-518c72f51e11",
+        "project_id": "dispatcher-1",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      0,
+      0,
+      0
+    ],
+    "worker": {
+      "status": "started",
+      "pid": 158801,
+      "reason": ""
+    }
+  },
+  {
+    "phase": "before_cancel",
+    "at": 22405.709048884,
+    "workspace": "/tmp/tmpnmissv03",
+    "runs": [
+      {
+        "id": "run-3ad16623fecd",
+        "project_id": "dispatcher-0",
+        "status": "Running",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "Queued effect",
+        "reason": "",
+        "pid": 158802,
+        "claim_token": ""
+      },
+      {
+        "id": "run-518c72f51e11",
+        "project_id": "dispatcher-1",
+        "status": "Queued",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      1,
+      0,
+      0
+    ],
+    "run_id": "run-518c72f51e11"
+  },
+  {
+    "phase": "after_cancel",
+    "at": 22405.86362205,
+    "workspace": "/tmp/tmpnmissv03",
+    "runs": [
+      {
+        "id": "run-3ad16623fecd",
+        "project_id": "dispatcher-0",
+        "status": "Running",
+        "cancel": 0,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "Queued effect",
+        "reason": "",
+        "pid": 158802,
+        "claim_token": ""
+      },
+      {
+        "id": "run-518c72f51e11",
+        "project_id": "dispatcher-1",
+        "status": "Cancelled",
+        "cancel": 1,
+        "done": 0,
+        "passed": 0,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "pid": null,
+        "claim_token": ""
+      }
+    ],
+    "requests": [
+      1,
+      0,
+      0
+    ],
+    "run_id": "run-518c72f51e11",
+    "returned_status": "Cancelled"
+  }
+]

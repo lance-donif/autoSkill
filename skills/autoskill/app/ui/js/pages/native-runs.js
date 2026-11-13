@@ -1,6 +1,7 @@
 // Native reports keep business quality, performance and each conversation turn visible.
-import { h, icon, replace, api, go, href, route, live, refresh, statusPill, attempt, fmtTime, fmtDuration, fmtPercent, fmtNumber } from '../core.js';
+import { h, icon, replace, api, go, href, route, live, refresh, statusPill, attempt, toast, fmtTime, fmtDuration, fmtPercent, fmtNumber } from '../core.js';
 import { empty, errorState } from '../ui.js';
+import { primaryState, stateDetails } from '../status-view.js';
 
 const expanded = new Map();
 const show = (value) => value == null ? '—' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
@@ -48,9 +49,10 @@ export async function render(view, { id }) {
       h('p', { class: 'sub' }, runIdentity(run))),
     running ? stop : again),
     h('section', { class: 'card card-body stack' },
-      h('div', { class: 'row wrap' }, statusPill(run.status), h('span', { class: 'tag' }, quality(outcome.business_status)),
+      h('div', { class: 'row wrap' }, primaryState(run),
         h('span', { class: 'sub' }, `${run.done || 0} / ${run.planned_unknown ? '目标数待执行器发现' : run.total} 已记录`)),
       h('p', { class: 'sub mono' }, `${run.id} · 资产 ${run.asset_id} · 版本 ${run.asset_version}`),
+      stateDetails(run),
       outcomeReason(run),
       h('p', { class: 'sub' }, '执行状态、业务质量和性能目标分别判定。后续通过不会改写已有失败；尚未完成的目标不计为通过。'),
       metricsTable(outcome.metrics || {}), reportLinks(run)),
@@ -75,10 +77,19 @@ function reportLinks(run) {
   const report = run.test_report;
   return h('div', { class: 'row wrap' },
     run.report?.available && h('a', { class: 'btn', href: fileUrl(run.id, 'outcome.json'), download: '' }, icon('table'), '下载原生汇总 JSON'),
-    report?.status === 'ready' && [h('a', { class: 'btn', href: report.download_url, download: '' }, 'Excel 用例报告'),
+    run.state?.report === 'ready' && report && [h('a', { class: 'btn', href: report.download_url, download: '' }, 'Excel 用例报告'),
       h('a', { class: 'btn', href: report.markdown_download_url, download: '' }, '测试简报'),
       h('a', { class: 'btn', href: report.bugs_download_url, download: '' }, 'Bug 清单')],
-    report?.status === 'failed' && h('span', { class: 'error' }, report.error || report.reason || '用例报告生成失败'));
+    run.state?.report === 'failed' && h('span', { class: 'error' }, report?.error || report?.reason || '用例报告生成失败'),
+    run.state?.report === 'failed' && report?.report_id && retryReportButton(report));
+}
+
+function retryReportButton(report) {
+  const retry = h('button', { class: 'btn', onClick: async () => {
+    const result = await attempt(() => api('/task-reports/' + encodeURIComponent(report.report_id) + '/retry', { method: 'POST' }), retry);
+    if (result) { toast(result.status === 'ready' ? '报告已生成' : result.error || '报告尚未生成', { bad: result.status === 'failed' }); refresh(); }
+  } }, icon('reset'), '重试导出报告');
+  return retry;
 }
 
 function checksTable(checks, title) {
@@ -112,7 +123,7 @@ function caseRow(run, row) {
     try {
       const data = await api(`/native-runs/${encodeURIComponent(run.id)}?case=${encodeURIComponent('result:' + row.id)}`);
       const detail = data.case;
-      replace(body, h('div', { class: 'row wrap' }, h('span', { class: 'tag' }, quality(detail.business_status)), h('span', { class: 'sub' }, fmtDuration(row.duration_ms))),
+      replace(body, stateDetails({ state: detail.state || row.state }), h('span', { class: 'sub' }, fmtDuration(row.duration_ms)),
         detail.reason && h('p', { class: 'error' }, detail.reason),
         detail.turns?.length ? detail.turns.map(turnBody) : checksTable(detail.assertions, '原生断言'),
         h('details', { class: 'more' }, h('summary', {}, '完整用例结果'), h('pre', { class: 'code' }, show(detail))));
@@ -125,7 +136,7 @@ function caseRow(run, row) {
     body.hidden = !open;
     button.setAttribute('aria-expanded', String(open));
     if (open && !loaded) load();
-  } }, icon('right', 'icon-svg caret'), statusPill(row.status),
+  } }, icon('right', 'icon-svg caret'), primaryState(row),
   h('span', { class: 'grow' }, h('b', {}, row.case_title), h('span', { class: 'sub mono' }, '　' + row.case_id)),
   h('span', { class: 'sub' }, `${row.turn_count || 0} 轮 · ${fmtDuration(row.duration_ms)}`));
   if (expanded.get(key)) load();

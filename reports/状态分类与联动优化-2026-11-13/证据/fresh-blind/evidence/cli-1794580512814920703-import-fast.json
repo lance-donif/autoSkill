@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "asset",
+    "import",
+    "fresh-arithmetic",
+    "--source",
+    "/workspace/autoskill-state-validation/fresh-blind/inputs/assets/fast",
+    "--engine",
+    "ai-eval",
+    "--name",
+    "fresh-fast"
+  ],
+  "started_ns": 1794580512814936619,
+  "finished_ns": 1794580514387047547,
+  "exit_code": 0,
+  "stdout": "{\n \"schema\": 1,\n \"id\": \"asset-101b7a6ea95d\",\n \"project_id\": \"fresh-arithmetic\",\n \"name\": \"fresh-fast\",\n \"engine\": \"ai-eval\",\n \"argv\": [\n  \"spec.json\"\n ],\n \"cwd\": \".\",\n \"files\": [\n  {\n   \"path\": \"spec.json\",\n   \"sha256\": \"831fd2212fdc6ee05d7451c11e98ef056bde5b4b1c6a1426b0b2819616b6226e\",\n   \"size\": 470,\n   \"mode\": 384\n  }\n ],\n \"origin\": {\n  \"original_source\": \"/workspace/autoskill-state-validation/fresh-blind/inputs/assets/fast\"\n },\n \"source_root\": \"/workspace/autoskill-state-validation/fresh-blind/inputs/assets/fast\",\n \"semantics\": {\n  \"mode\": \"native\",\n  \"converted\": false,\n  \"notes\": \"保留原文件、入口和工作目录；不转换测试语义\"\n },\n \"head\": \"f4a6e8b92fc4e0b5d58883fe1a0ef04751ce72b5049e8e549d0d7409c3ef39b8\",\n \"asset_version\": \"9c93451915e5661d9f10fdb6c6da5970b2cd9af02ed6dc41223158dccc3cc8ed\",\n \"manifest\": {\n  \"schema\": 1,\n  \"id\": \"asset-101b7a6ea95d\",\n  \"project_id\": \"fresh-arithmetic\",\n  \"name\": \"fresh-fast\",\n  \"engine\": \"ai-eval\",\n  \"argv\": [\n   \"spec.json\"\n  ],\n  \"cwd\": \".\",\n  \"files\": [\n   {\n    \"path\": \"spec.json\",\n    \"sha256\": \"831fd2212fdc6ee05d7451c11e98ef056bde5b4b1c6a1426b0b2819616b6226e\",\n    \"size\": 470,\n    \"mode\": 384\n   }\n  ],\n  \"origin\": {\n   \"original_source\": \"/workspace/autoskill-state-validation/fresh-blind/inputs/assets/fast\"\n  },\n  \"source_root\": \"/workspace/autoskill-state-validation/fresh-blind/inputs/assets/fast\",\n  \"semantics\": {\n   \"mode\": \"native\",\n   \"converted\": false,\n   \"notes\": \"保留原文件、入口和工作目录；不转换测试语义\"\n  }\n }\n}\n",
+  "stderr": ""
+}

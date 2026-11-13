@@ -1,0 +1,699 @@
+{
+  "data_root": "/workspace/autoskill-state-validation/audit/workflow-data-8ea4572d",
+  "http_calls": 3,
+  "performance_separation": {
+    "workflow_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+    "actual_result_detail": {
+      "assertions": [
+        {
+          "name": "状态码",
+          "passed": true,
+          "expected": 200,
+          "actual": 200,
+          "scope": "business"
+        },
+        {
+          "name": "响应时间不超过(ms)",
+          "passed": false,
+          "expected": 1,
+          "actual": 23,
+          "scope": "performance"
+        },
+        {
+          "name": "字段 /value",
+          "passed": true,
+          "expected": "actual",
+          "actual": "actual",
+          "scope": "business"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44081/",
+        "headers": {},
+        "params": {},
+        "json": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "BaseHTTP/0.6 Python/3.12.14",
+          "date": "Fri, 13 Nov 2026 14:22:26 GMT",
+          "content-type": "application/json",
+          "content-length": "18"
+        },
+        "body": "{\n  \"value\": \"actual\"\n}",
+        "bytes": 18
+      },
+      "attempts": [
+        {
+          "id": "attempt-a60cd3af2b434ed5af4c13509da4469b",
+          "path": ".local/runs/run-f28930598849/attempts/attempt-a60cd3af2b434ed5af4c13509da4469b.json",
+          "sha256": "c1d66540b436c52d66c56c9bb2bbd1e9ec308ad03042af09d543e93b93c696ff",
+          "case_id": "TC-API-001",
+          "kind": "case",
+          "status": "Fail",
+          "business_status": "Pass"
+        }
+      ],
+      "verification": "verified",
+      "business_status": "Pass",
+      "business_verified": true,
+      "performance_status": "Fail",
+      "performance_assertions": [
+        {
+          "name": "响应时间不超过(ms)",
+          "passed": false,
+          "expected": 1,
+          "actual": 23,
+          "scope": "performance"
+        }
+      ],
+      "execution_status": "completed",
+      "case_scope_hash": "1dd59ce81f60f33bbc68df129675b1882bdab47c291c8f7a560699b7faf836c7"
+    },
+    "workflow_summary": {
+      "workflow_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+      "project_id": "audit-flow",
+      "title": "独立审计工作流",
+      "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+      "lifecycle": "active",
+      "cycle_state": "awaiting_host",
+      "complete": false,
+      "conclusion": "violated",
+      "revision": 14,
+      "domain_head": "db40a8c906b024f3494cf7d859d28db972822430cee01a0609c0bffb99916d8e",
+      "definition_hash": "1fa016f40203264e51bd39b70feecdeeb3b902863144ddeb4b5ed842cb17a734",
+      "counts": {
+        "completed": 5,
+        "ready": 1
+      },
+      "state": {
+        "lifecycle": "active",
+        "phase": "awaiting_host",
+        "outcome": "fail",
+        "checks": {
+          "business": "pass",
+          "performance": "fail",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "not_generated",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "audit-flow",
+          "workflow_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+          "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+          "run_id": null,
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "1f5971bd839ce32a4de788dcce534e3969a908556aab964a889c88656dd54511"
+      },
+      "items": [
+        {
+          "id": "wfi-c7d1c3eaa17f4b72b130f01354280914",
+          "sequence": 1,
+          "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+          "phase": "requirements",
+          "state": "completed",
+          "attempt_id": "wfa-299d330890bb42c3bcaddd36b3e05864",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:25.677+00:00",
+          "finished_at": "2026-11-13T14:22:25.821+00:00"
+        },
+        {
+          "id": "wfi-a3309262976044988413e152966b2019",
+          "sequence": 2,
+          "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+          "phase": "design",
+          "state": "completed",
+          "attempt_id": "wfa-283f0d4cb6124684900481ccb4e07d4e",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:25.821+00:00",
+          "finished_at": "2026-11-13T14:22:25.983+00:00"
+        },
+        {
+          "id": "wfi-6738896e3f184aca94f27dabee0611a9",
+          "sequence": 3,
+          "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+          "phase": "coverage",
+          "state": "completed",
+          "attempt_id": "wfa-ed086c5335b944c6b1c6e32e9bb93d17",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:25.983+00:00",
+          "finished_at": "2026-11-13T14:22:26.026+00:00"
+        },
+        {
+          "id": "wfi-c072e862754741d4bc826b6fd5e2a472",
+          "sequence": 4,
+          "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+          "phase": "materialize",
+          "state": "completed",
+          "attempt_id": "wfa-0fc08a4c28104a5aa3e232507951a1b2",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:26.026+00:00",
+          "finished_at": "2026-11-13T14:22:26.082+00:00"
+        },
+        {
+          "id": "wfi-3266024b0d46456f9e25f30a0733ce6a",
+          "sequence": 5,
+          "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+          "phase": "execute",
+          "state": "completed",
+          "attempt_id": "wfa-db60587c9c864c4cad8ae6dc85231185",
+          "run_id": "run-f28930598849",
+          "created_at": "2026-11-13T14:22:26.083+00:00",
+          "finished_at": "2026-11-13T14:22:27.209+00:00"
+        },
+        {
+          "id": "wfi-9d3ed838418542e5a1151a6bcebcde4d",
+          "sequence": 6,
+          "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+          "phase": "diagnose",
+          "state": "ready",
+          "attempt_id": null,
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:27.210+00:00",
+          "finished_at": null
+        }
+      ],
+      "total": 6,
+      "cycle_scope": "current",
+      "cursor": null,
+      "next_cursor": null,
+      "test_report": {
+        "report_id": "workflow_888ea4e5e150efd44de60a58a9ff2a539b4828df38874276be69241198228057",
+        "status": "not_generated",
+        "retryable": false
+      }
+    },
+    "workflow_state": {
+      "lifecycle": "active",
+      "phase": "awaiting_host",
+      "outcome": "fail",
+      "checks": {
+        "business": "pass",
+        "performance": "fail",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "not_generated",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-flow",
+        "workflow_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+        "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+        "run_id": null,
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "1f5971bd839ce32a4de788dcce534e3969a908556aab964a889c88656dd54511"
+    },
+    "run_state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "fail",
+      "checks": {
+        "business": "pass",
+        "performance": "fail",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-flow",
+        "workflow_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+        "cycle_id": "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+        "run_id": "run-f28930598849",
+        "case_id": null,
+        "attempt_id": null,
+        "workflow_attempt_id": "wfa-db60587c9c864c4cad8ae6dc85231185"
+      },
+      "reason": "",
+      "revision": "93883925c75d4abd2426ca7672fdc49941f1aff3f49d8fdf4ce58d4c6a13bb4a"
+    }
+  },
+  "status_read": {
+    "render_calls_from_status_read": 0,
+    "returned_test_report": {
+      "generation": 20,
+      "kind": "workflow",
+      "report_id": "workflow_888ea4e5e150efd44de60a58a9ff2a539b4828df38874276be69241198228057",
+      "retry_url": "/api/task-reports/workflow_888ea4e5e150efd44de60a58a9ff2a539b4828df38874276be69241198228057/retry",
+      "retryable": false,
+      "snapshot_required": true,
+      "source_hash": "000d445f3450b4f43db93740bc0cc771fd6f65bd99b9f68aacea08ee67bee285",
+      "status": "generating",
+      "task_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+      "updated_at": "2026-11-13T14:22:27.631+00:00"
+    }
+  },
+  "report_consistency": {
+    "canonical": {
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 0,
+        "execution": 1,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "cases": 1,
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T14:22:27.758+00:00",
+      "generation": 20,
+      "kind": "workflow",
+      "render_owner_identity": {
+        "location_id": "a0e3a4f17b67faee650fc9de89a0d02f5fa319caa8563cd6568435711d48262c",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 42828,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1080485"
+      },
+      "render_started_at": "2026-11-13T14:22:27.654+00:00",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "workflow_888ea4e5e150efd44de60a58a9ff2a539b4828df38874276be69241198228057",
+      "retry_url": "/api/task-reports/workflow_888ea4e5e150efd44de60a58a9ff2a539b4828df38874276be69241198228057/retry",
+      "retryable": true,
+      "run_ids": [
+        "run-f28930598849"
+      ],
+      "source_hash": "000d445f3450b4f43db93740bc0cc771fd6f65bd99b9f68aacea08ee67bee285",
+      "status": "failed",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 1,
+        "NotRun": 0,
+        "Pass": 0,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "审计工作流状态",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      },
+      "error": "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。"
+    },
+    "host_summary": {
+      "report_id": "workflow_888ea4e5e150efd44de60a58a9ff2a539b4828df38874276be69241198228057",
+      "receipt_status": "failed",
+      "verification": "invalid",
+      "read_url": "/api/task-reports/workflow_888ea4e5e150efd44de60a58a9ff2a539b4828df38874276be69241198228057",
+      "kind": "workflow",
+      "task_id": "wf-fd81d4f29c164f90b9e9760cb22a7302",
+      "generated_at": "2026-11-13T14:22:27.758+00:00",
+      "source_hash": "000d445f3450b4f43db93740bc0cc771fd6f65bd99b9f68aacea08ee67bee285",
+      "error": "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。",
+      "retryable": true,
+      "artifacts": []
+    }
+  },
+  "manual_retry_policy": {
+    "before": {
+      "report_id": "workflow_927570c5a7b96f5e3f7e88058de9270dddbe4a8e74ca194a20bb5db638d19a44",
+      "kind": "workflow",
+      "task_id": "wf-e834c408019b4226a1a554e1168a73f1",
+      "retry_url": "/api/task-reports/workflow_927570c5a7b96f5e3f7e88058de9270dddbe4a8e74ca194a20bb5db638d19a44/retry",
+      "render_owner_identity": {
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "location_id": "a0e3a4f17b67faee650fc9de89a0d02f5fa319caa8563cd6568435711d48262c",
+        "pid": 42828,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1080485"
+      },
+      "render_started_at": "2026-11-13T14:22:28.919+00:00",
+      "source_hash": "26d594672331cc2a430117e305db5f587ed650a91ed258986c057570a4366edc",
+      "snapshot_required": true,
+      "status": "failed",
+      "error": "测试报告生成失败：audit forced export failure",
+      "retryable": true,
+      "generation": 17,
+      "updated_at": "2026-11-13T14:22:28.923+00:00"
+    },
+    "render_calls_from_resume": 0,
+    "after": {
+      "error": "测试报告生成失败：audit forced export failure",
+      "generation": 17,
+      "kind": "workflow",
+      "render_owner_identity": {
+        "location_id": "a0e3a4f17b67faee650fc9de89a0d02f5fa319caa8563cd6568435711d48262c",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 42828,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1080485"
+      },
+      "render_started_at": "2026-11-13T14:22:28.919+00:00",
+      "report_id": "workflow_927570c5a7b96f5e3f7e88058de9270dddbe4a8e74ca194a20bb5db638d19a44",
+      "retry_url": "/api/task-reports/workflow_927570c5a7b96f5e3f7e88058de9270dddbe4a8e74ca194a20bb5db638d19a44/retry",
+      "retryable": true,
+      "snapshot_required": true,
+      "source_hash": "26d594672331cc2a430117e305db5f587ed650a91ed258986c057570a4366edc",
+      "status": "failed",
+      "task_id": "wf-e834c408019b4226a1a554e1168a73f1",
+      "updated_at": "2026-11-13T14:22:28.923+00:00"
+    },
+    "manual_retry_status": "ready",
+    "manual_retry_http_calls": 0,
+    "manual_retry_extra_runs": 0
+  },
+  "execution_evidence_invalidation": {
+    "workflow_state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "unverified",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "invalid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-flow",
+        "workflow_id": "wf-e834c408019b4226a1a554e1168a73f1",
+        "cycle_id": "cycle-deed5ca82a53458db0c80f64d99ea657",
+        "run_id": null,
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "a6308f6b4a70ccd52cf0e7e6c9cc4bb72d543cf93f706c488dda6c507a5e17e9"
+    },
+    "run_state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "unverified",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "invalid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "audit-flow",
+        "workflow_id": "wf-e834c408019b4226a1a554e1168a73f1",
+        "cycle_id": "cycle-deed5ca82a53458db0c80f64d99ea657",
+        "run_id": "run-145559cafcad",
+        "case_id": null,
+        "attempt_id": null,
+        "workflow_attempt_id": "wfa-d1e574c21a354cc7aab25118bf5eaae3"
+      },
+      "reason": "",
+      "revision": "f651fb5821aa15e9be6442dfe69929da813f6ae605bb87f8af1798a46b7a98c4"
+    }
+  },
+  "lease_unknown_effect": {
+    "stale_heartbeat_error": "stale_lease",
+    "items": [
+      {
+        "id": "wfi-d7aca699c7b24b3a9032f3918e661ef8",
+        "sequence": 1,
+        "cycle_id": "cycle-8dd972f0ed534e1eb188ee4e0dd79b83",
+        "phase": "requirements",
+        "state": "recovering",
+        "attempt_id": "wfa-e9634b963d22466abb8d5d77667786fe",
+        "run_id": null,
+        "created_at": "2026-11-13T14:22:30.303+00:00",
+        "finished_at": null
+      },
+      {
+        "id": "wfi-80f002485a054fbc9f9b044db371e81b",
+        "sequence": 2,
+        "cycle_id": "cycle-8dd972f0ed534e1eb188ee4e0dd79b83",
+        "phase": "investigate",
+        "state": "ready",
+        "attempt_id": null,
+        "run_id": null,
+        "created_at": "2026-11-13T14:22:30.433+00:00",
+        "finished_at": null
+      }
+    ],
+    "operations": [
+      {
+        "kind": "click",
+        "state": "unknown"
+      }
+    ]
+  },
+  "last_case_cancellation": {
+    "workflow": {
+      "workflow_id": "wf-94c1879f7d524df4a13832de36e59c43",
+      "project_id": "audit-flow",
+      "title": "独立审计工作流",
+      "cycle_id": "cycle-59e0cb9f923a4e72bf0261126f6968b6",
+      "lifecycle": "active",
+      "cycle_state": "recovering",
+      "complete": false,
+      "conclusion": "unassessed",
+      "revision": 14,
+      "domain_head": "6761a6d85f794be54ff2d8fd981f316c1186ba33ab16cf116b61f58d3bd475fc",
+      "definition_hash": "ccda399f26eaf5a359d6a7377c118c8f9916d97319589cb43d24780eed54fa4d",
+      "counts": {
+        "completed": 4,
+        "recovering": 1
+      },
+      "state": {
+        "lifecycle": "active",
+        "phase": "recovering",
+        "outcome": "pending",
+        "checks": {
+          "business": "pass",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "not_generated",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "audit-flow",
+          "workflow_id": "wf-94c1879f7d524df4a13832de36e59c43",
+          "cycle_id": "cycle-59e0cb9f923a4e72bf0261126f6968b6",
+          "run_id": null,
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "f4ec6f32166397e92b3a095c6846193c5e2adeec17d0a5ae84a9908b4f8254e7"
+      },
+      "items": [
+        {
+          "id": "wfi-db389dbbde744d88816d50b624f72258",
+          "sequence": 1,
+          "cycle_id": "cycle-59e0cb9f923a4e72bf0261126f6968b6",
+          "phase": "requirements",
+          "state": "completed",
+          "attempt_id": "wfa-1a807a0a917f435394398bfd60c808e8",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:29.263+00:00",
+          "finished_at": "2026-11-13T14:22:29.378+00:00"
+        },
+        {
+          "id": "wfi-f24ad510a7dc4c21a3427e15cdc0f2f9",
+          "sequence": 2,
+          "cycle_id": "cycle-59e0cb9f923a4e72bf0261126f6968b6",
+          "phase": "design",
+          "state": "completed",
+          "attempt_id": "wfa-c7cd52f2f95747e69c0b49c68428ead6",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:29.378+00:00",
+          "finished_at": "2026-11-13T14:22:29.472+00:00"
+        },
+        {
+          "id": "wfi-6fb7b9bd637d4ade98bb723381ed813c",
+          "sequence": 3,
+          "cycle_id": "cycle-59e0cb9f923a4e72bf0261126f6968b6",
+          "phase": "coverage",
+          "state": "completed",
+          "attempt_id": "wfa-ecfa270b2d1a40b7866ac28958ec3dd6",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:29.472+00:00",
+          "finished_at": "2026-11-13T14:22:29.512+00:00"
+        },
+        {
+          "id": "wfi-37409a737fdf4aa1b28245ba19a04696",
+          "sequence": 4,
+          "cycle_id": "cycle-59e0cb9f923a4e72bf0261126f6968b6",
+          "phase": "materialize",
+          "state": "completed",
+          "attempt_id": "wfa-90afd627480a435c9992cebe9b50715d",
+          "run_id": null,
+          "created_at": "2026-11-13T14:22:29.512+00:00",
+          "finished_at": "2026-11-13T14:22:29.626+00:00"
+        },
+        {
+          "id": "wfi-50388dc81bb04eb2a339c04c25e39fee",
+          "sequence": 5,
+          "cycle_id": "cycle-59e0cb9f923a4e72bf0261126f6968b6",
+          "phase": "execute",
+          "state": "recovering",
+          "attempt_id": "wfa-6cc438ad74ee446587c4d69ff4d57041",
+          "run_id": "run-1e08d40215c6",
+          "created_at": "2026-11-13T14:22:29.626+00:00",
+          "finished_at": null
+        }
+      ],
+      "total": 5,
+      "cycle_scope": "current",
+      "cursor": null,
+      "next_cursor": null,
+      "test_report": {
+        "report_id": "workflow_c68781f07b95f4fd7c16d17f44bcdbb241ae4b777ab9e4852aeb1fc1909fe2fc",
+        "status": "not_generated",
+        "retryable": false
+      }
+    },
+    "run": {
+      "status": "Cancelled",
+      "cancel": 1,
+      "total": 1,
+      "done": 1
+    },
+    "execute_context": {
+      "execution_request_id": "execution-request-5a1f5f5d70f8402683fdc5c2216eaa05",
+      "input_hash": "fc9814b04e05381c2100be70f6a6d59b13b9537d6d3e61406f7bbfd47cf98690",
+      "materialization": {
+        "base_case_hashes": {
+          "TC-API-001": "5f14d237380ad5bd7d3ed202236f5aa6de428562c692a8ade1ac3203a71223a0"
+        },
+        "bindings": {
+          "sc1": [
+            "TC-API-001"
+          ]
+        },
+        "case_hashes": {
+          "TC-API-001": "5f14d237380ad5bd7d3ed202236f5aa6de428562c692a8ade1ac3203a71223a0"
+        },
+        "case_ids": [
+          "TC-API-001"
+        ],
+        "cases": [
+          {
+            "api_source": "browser",
+            "assertions": {
+              "json_equals": {
+                "/value": "actual"
+              },
+              "status": 200
+            },
+            "expected": "HTTP 200，并满足录制到的字段与结构",
+            "extensions": {
+              "traffic": "business"
+            },
+            "id": "TC-API-001",
+            "kind": "api",
+            "lifecycle": "active",
+            "method": "GET",
+            "module": "未分组",
+            "path": "/",
+            "preconditions": "无",
+            "priority": "P1",
+            "requirement_ids": [
+              "REQ-RECORDED"
+            ],
+            "revision": 1,
+            "risk": "read",
+            "schema_version": "1.1.0",
+            "source": "autoskill record",
+            "source_ref": "autoskill record",
+            "steps": [
+              "GET /"
+            ],
+            "tags": [],
+            "test_data": "仅合成数据；凭据以 ${ENV:名称} 引用",
+            "title": "审计响应"
+          }
+        ],
+        "origin": "materialize"
+      },
+      "publication": "interrupted",
+      "publication_expected_hashes": {
+        "TC-API-001": "5f14d237380ad5bd7d3ed202236f5aa6de428562c692a8ade1ac3203a71223a0"
+      },
+      "repetitions": 1,
+      "round": 1,
+      "summary": {
+        "business_verified": true,
+        "conclusion": "incomplete",
+        "evidence_valid": true,
+        "performance_status": "Unverified",
+        "results": [
+          {
+            "business_status": "Pass",
+            "case_id": "TC-API-001",
+            "evidence_valid": true,
+            "performance_status": "Unverified",
+            "reason": "",
+            "result_id": 3,
+            "status": "Pass",
+            "verification": "verified"
+          }
+        ],
+        "run_id": "run-1e08d40215c6",
+        "run_status": "Cancelled"
+      },
+      "validation_id": "validation-cdea73001e194c979bf1bb35f5e5bb90",
+      "validation_scope": {
+        "TC-API-001": "c5d66a430add9df46afcec8610917f4819e2615fb0f9e209c1619cd15182bb23"
+      },
+      "workflow_input_hash": "ccda399f26eaf5a359d6a7377c118c8f9916d97319589cb43d24780eed54fa4d"
+    }
+  },
+  "cycle_scope": {
+    "current_cycle_id": "cycle-abe2841623ea40eb84a32021b8674adc",
+    "default_item_cycle_ids": [
+      "cycle-abe2841623ea40eb84a32021b8674adc"
+    ],
+    "current_total": 1,
+    "all_total": 8,
+    "all_item_cycle_ids": [
+      "cycle-97b633d332c247a2a7e2087bf8bfb81d",
+      "cycle-abe2841623ea40eb84a32021b8674adc"
+    ]
+  }
+}

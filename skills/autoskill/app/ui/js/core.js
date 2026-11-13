@@ -1,5 +1,6 @@
 // Small shared toolkit: DOM building, API calls, URL-backed filter state, formatting.
 // Everything that comes from data is inserted with textContent, never as HTML.
+import { listen } from './dom-events.js';
 
 export function h(tag, props = {}, ...children) {
   const node = document.createElement(tag);
@@ -7,7 +8,7 @@ export function h(tag, props = {}, ...children) {
     if (value == null || value === false) continue;
     if (key === 'class') node.className = value;
     else if (key === 'dataset') Object.assign(node.dataset, value);
-    else if (key.startsWith('on')) node.addEventListener(key.slice(2).toLowerCase(), value);
+    else if (key.startsWith('on')) listen(node, key.slice(2).toLowerCase(), value);
     else if (key in node && key !== 'list' && key !== 'form') node[key] = value;
     else node.setAttribute(key, value === true ? '' : value);
   }

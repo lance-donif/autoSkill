@@ -1,0 +1,35 @@
+{
+  "attempt": "UI public DOM with domcontentloaded",
+  "start_ns": 1794580557306856983,
+  "url": "http://127.0.0.1:18890/#/dashboard",
+  "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置",
+  "links": [
+    {
+      "text": "autoSkill\n录一次，到处回放",
+      "href": "#/dashboard"
+    },
+    {
+      "text": "仪表盘",
+      "href": "#/dashboard"
+    },
+    {
+      "text": "项目与用例",
+      "href": "#/cases"
+    },
+    {
+      "text": "执行记录",
+      "href": "#/runs"
+    },
+    {
+      "text": "定时任务",
+      "href": "#/schedules"
+    },
+    {
+      "text": "数据管理",
+      "href": "#/data"
+    }
+  ],
+  "selects": [],
+  "inputs": [],
+  "finished_ns": 1794580570417424969
+}

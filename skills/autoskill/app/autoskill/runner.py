@@ -52,16 +52,17 @@ def enqueue(prepared: dict, connection=None) -> dict:
             return enqueue(prepared, connection=conn)
     if connection.execute("SELECT 1 FROM deleted_runs WHERE id = ?", (prepared["id"],)).fetchone():
         raise ValueError("此执行记录已删除，请新建运行")
-    stored = dict(prepared)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(runs)")}
+    stored = {key: value for key, value in prepared.items() if key in columns}
     if stored.get("input_manifest"):
         stored["input_manifest"] = data_refs.store(stored["input_manifest"])
     if stored.get("plan_path"):
         stored["plan_path"] = plan_reference(stored["plan_path"])
     keys = ", ".join(stored)
-    marks = ", ".join("?" for _ in prepared)
+    marks = ", ".join("?" for _ in stored)
     values = [json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value for value in stored.values()]
     connection.execute(f"INSERT INTO runs ({keys}) VALUES ({marks})", values)
-    return public_run(prepared)
+    return public_run(stored)
 
 
 def plan_folder(value: str | Path) -> Path:
@@ -82,7 +83,7 @@ def plan_reference(value: str | Path) -> str:
         return str(plan_folder(value))
 
 
-def public_run(run: dict) -> dict:
+def public_run(run: dict, *, state: dict | None = None) -> dict:
     """Project stored locations for callers without changing durable rows or frozen evidence."""
     result = dict(run)
     if result.get("input_manifest"):
@@ -93,6 +94,10 @@ def public_run(run: dict) -> dict:
         # A foreign external sheet is provenance, not a path on this machine.
         with contextlib.suppress(ValueError):
             result["plan_path"] = str(plan_folder(result["plan_path"]))
+    from . import task_state
+
+    if "status" in run and "input_hash" in run and "total" in run:
+        result["state"] = state if state is not None else task_state.run(run)
     return result
 
 
@@ -500,17 +505,13 @@ def recover_runs() -> None:
 
 
 def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
-    """Join an existing run or become its sole executor; only the designated child can use a reservation."""
-    while True:
-        claimed = (db.activate_run(run_id, os.getpid(), token) if token is not None
-                   else db.claim_run(run_id, os.getpid(), parallel_limit()))
-        run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
-        if not run:
-            raise ValueError(f"运行 {run_id} 不存在")
-        if claimed or token is not None or run["status"] in db.FINISHED:
-            return run, claimed
-        recover_runs()
-        time.sleep(0.1)
+    """Try ownership once while guarded; joining must wait after releasing the execution lock."""
+    claimed = (db.activate_run(run_id, os.getpid(), token) if token is not None
+               else db.claim_run(run_id, os.getpid(), parallel_limit()))
+    run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
+    if not run:
+        raise ValueError(f"运行 {run_id} 不存在")
+    return run, claimed
 
 
 def execute(run_id: str, force_login: bool = False, *, claim_token: str | None = None) -> dict:
@@ -518,21 +519,28 @@ def execute(run_id: str, force_login: bool = False, *, claim_token: str | None =
     from . import deletion, task_reports
 
     db.init()
-    with deletion.execution_guard(run_id):
-        result = _execute_guarded(run_id, force_login, claim_token)
-        result = {**result, "test_report": task_reports.for_run(run_id)}
+    while True:
+        with deletion.execution_guard(run_id):
+            result = _execute_guarded(run_id, force_login, claim_token)
+            if result is not None:
+                result = {**result, "test_report": task_reports.for_run(run_id)}
+                break
+        # A dispatcher may already have reserved this row for a child waiting on
+        # the same guard. Keep joining/recovery outside that child's execution lock.
+        recover_runs()
+        time.sleep(0.1)
     deletion._cleanup_result(run_id)
     if not db.one("SELECT id FROM runs WHERE id = ?", (run_id,)):
         result["test_report"] = {"status": "skipped", "reason": "运行已删除，报告已随记录清理", "retryable": False}
     return public_run(result)
 
 
-def _execute_guarded(run_id: str, force_login: bool, claim_token: str | None) -> dict:
+def _execute_guarded(run_id: str, force_login: bool, claim_token: str | None) -> dict | None:
     if force_login:
         db.execute("UPDATE runs SET force_login = 1 WHERE id = ? AND status = 'Queued'", (run_id,))
     run, claimed = _acquire(run_id, claim_token)
     if not claimed:
-        return run
+        return run if claim_token is not None or run["status"] in db.FINISHED else None
     with task_context.use_session(run["session_id"] or None):
         try:
             if run.get("family") == "load":

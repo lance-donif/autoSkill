@@ -1,0 +1,17 @@
+{
+  "label": "001-cli-help",
+  "started_at": "2026-11-13T14:07:20.489401+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "--help"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.15594575999966764,
+  "ended_at": "2026-11-13T14:07:20.645349+00:00",
+  "response_text": "usage: autoskill [-h] [--session SESSION] [--runtime-context RUNTIME_CONTEXT]\n                 [--workflow-binding WORKFLOW_BINDING]\n                 [--host-session HOST_SESSION]\n                 {project,context,cases,knowledge,workflow,asset,engine,native,conversation,judge,schedule,data,delete,secret,login,record,browser,check,run,export,report,task-report,pack,import,demo,dashboard,doctor,verify,settings,plan}\n                 ...\n\n录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。\n\npositional arguments:\n  {project,context,cases,knowledge,workflow,asset,engine,native,conversation,judge,schedule,data,delete,secret,login,record,browser,check,run,export,report,task-report,pack,import,demo,dashboard,doctor,verify,settings,plan}\n    project             项目：create / list / show / update\n    context             项目摘要、分页用例与知识索引\n    cases               分页列出用例，或读取完整定义\n    knowledge           知识索引与按需正文读取\n    workflow            持久化测试工作流\n    asset               导入与查看原生测试资产\n    engine              执行适配器与实际安装能力\n    native              运行原生测试资产并读取实际结果\n    conversation        捕获页面会话接口并生成多轮问数资产\n    judge               宿主 AI 领取并提交对话质量判定\n    schedule            持久化回放、原生执行与 AI 维护调度\n    data                独立数据目录：状态、完整导入和导出\n    delete              删除指定用例或执行记录\n    secret              本机凭据：set / list / delete\n    login               执行项目的登录用例并保存登录态\n    record              录制：start / stop / status / undo / cancel\n    browser             在录制中操作页面：open snapshot click fill select press …\n    check               保存预期并检查页面实际结果\n    run                 回放用例；前置用例（如登录）自动先执行\n    export              导出：postman / scripts\n    report              导出 Excel 用例表与执行报告（每条用例取最近一次回放结果）\n    task-report         读取本次任务的 Excel 与 Markdown 交付结果；不使用其他任务的最近结果\n    pack                把项目（用例、知识库、登录方式）打成一个分享包\n    import              导入别人给的分享包\n    demo                安装示例项目（示例工单系统）\n    dashboard           启动仪表盘\n    doctor              检查运行时是否齐全；不联网\n    verify              按清单校验随包运行时文件的完整性（SHA-256）\n    settings            本机设置：用哪个浏览器；不带参数时显示当前设置\n    plan                用例表（用例 Skill）：write / show / mark / sync\n\noptions:\n  -h, --help            show this help message and exit\n  --session SESSION     AI 测试会话标识；同一任务每条命令使用同一个值，也可设 AUTOSKILL_SESSION\n  --runtime-context RUNTIME_CONTEXT\n                        插件提供的工作区与服务绑定；沿用注册 Skill 中的前缀\n  --workflow-binding WORKFLOW_BINDING\n                        workflow next 返回的 binding_token；把操作明确关联到该任务尝试\n  --host-session HOST_SESSION\n                        宿主提供的会话身份，供后续判定投递；不是浏览器任务身份\n"
+}

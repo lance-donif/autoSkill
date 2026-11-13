@@ -1,0 +1,62 @@
+{
+  "data_root": "/workspace/autoskill-state-validation/audit/blocked-target-data-0769287b",
+  "run_status": "Blocked",
+  "results": [
+    {
+      "case_id": "TC-API-001",
+      "stored_performance": "Unverified",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "blocked",
+        "outcome": "blocked",
+        "checks": {
+          "business": "unverified",
+          "performance": "unverified",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "audit-target",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-cd864c3dc1a1",
+          "case_id": "TC-API-001",
+          "attempt_id": "attempt-34b444d8625241a1b0dd7f47dd2c3ad7"
+        },
+        "reason": "无法连接目标服务：ConnectError",
+        "last_attempt_outcome": "blocked",
+        "revision": "6cead8cb1054c8c1d8f15431b388a0711a6334bf3f4c8a93783a2669543692b7"
+      }
+    },
+    {
+      "case_id": "TC-API-002",
+      "stored_performance": "Unverified",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "blocked",
+        "outcome": "blocked",
+        "checks": {
+          "business": "unverified",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "ready",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "audit-target",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-cd864c3dc1a1",
+          "case_id": "TC-API-002",
+          "attempt_id": "attempt-00aae86be4ec471ab06e232f40f4e9b9"
+        },
+        "reason": "无法连接目标服务：ConnectError",
+        "last_attempt_outcome": "blocked",
+        "revision": "8f975d18f50835b2036d48836e97cb3a4075f1ecc0ab368c51fc530fb7813951"
+      }
+    }
+  ]
+}

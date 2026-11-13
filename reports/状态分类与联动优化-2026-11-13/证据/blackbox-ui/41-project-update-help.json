@@ -1,0 +1,12 @@
+{
+  "command": [
+    "project",
+    "update",
+    "--help"
+  ],
+  "started_at": 1794579305.9470153,
+  "finished_at": 1794579306.057696,
+  "exit_code": 0,
+  "stdout": "usage: autoskill project update [-h] [--name NAME] [--category CATEGORY]\n                                [--timeout TIMEOUT] [--page-load PAGE_LOAD]\n                                [--insecure-tls {on,off}]\n                                project\n\npositional arguments:\n  project\n\noptions:\n  -h, --help            show this help message and exit\n  --name NAME\n  --category CATEGORY\n  --timeout TIMEOUT     单步等待元素的秒数，默认 20\n  --page-load PAGE_LOAD\n                        等待页面打开的秒数，默认 90；页面本身很慢时调大（10–600）\n  --insecure-tls {on,off}\n                        内网自签名证书：on 表示不校验证书\n",
+  "stderr": ""
+}

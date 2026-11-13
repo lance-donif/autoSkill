@@ -1,0 +1,13 @@
+usage: autoskill asset import [-h] [--source SOURCE] [--engine ENGINE]
+                              [--name NAME] [--file FILE]
+                              project
+
+positional arguments:
+  project
+
+options:
+  -h, --help       show this help message and exit
+  --source SOURCE  原生目录或文件，相对调用目录
+  --engine ENGINE
+  --name NAME
+  --file FILE      可选 JSON：source、engine、name、argv 数组、cwd 等

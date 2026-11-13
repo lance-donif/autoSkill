@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QA canonical testcase v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "revision",
+    "lifecycle",
+    "requirement_ids",
+    "module",
+    "title",
+    "priority",
+    "preconditions",
+    "steps",
+    "test_data",
+    "expected",
+    "source",
+    "risk",
+    "tags",
+    "extensions"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "module": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expected": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "ui",
+        "api"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lifecycle": {
+      "enum": [
+        "active",
+        "archived"
+      ]
+    },
+    "requirement_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "priority": {
+      "enum": [
+        "P0",
+        "P1",
+        "P2"
+      ]
+    },
+    "preconditions": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "test_data": {
+      "type": [
+        "string",
+        "object"
+      ]
+    },
+    "risk": {
+      "enum": [
+        "read",
+        "write",
+        "delete",
+        "payment",
+        "refund",
+        "message"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "properties": {
+        "oracle": {
+          "$ref": "#/$defs/oracle"
+        },
+        "automation": {
+          "type": "object",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/uiStep"
+              }
+            },
+            "assertions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/uiStep"
+              }
+            }
+          }
+        }
+      }
+    },
+    "api_source": {
+      "enum": [
+        "openapi",
+        "browser",
+        "inferred",
+        "source-and-official-docs"
+      ]
+    },
+    "source_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "method": {
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^/[^\\\\]*$"
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "params": {
+      "type": "object"
+    },
+    "json": {},
+    "form": {
+      "type": "object"
+    },
+    "assertions": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "json_equals": {
+          "type": "object"
+        },
+        "schema": {
+          "type": [
+            "object",
+            "boolean"
+          ]
+        },
+        "header_contains": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "body_contains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "max_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "api"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "api_source",
+          "source_ref",
+          "method",
+          "path",
+          "assertions"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "api_source"
+              ]
+            },
+            {
+              "required": [
+                "source_ref"
+              ]
+            },
+            {
+              "required": [
+                "method"
+              ]
+            },
+            {
+              "required": [
+                "path"
+              ]
+            },
+            {
+              "required": [
+                "headers"
+              ]
+            },
+            {
+              "required": [
+                "params"
+              ]
+            },
+            {
+              "required": [
+                "json"
+              ]
+            },
+            {
+              "required": [
+                "assertions"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uiStep": {
+      "type": "object",
+      "properties": {
+        "timeout_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "本步骤的等待秒数，未声明时使用项目设置；断言不再限制为五秒。"
+        },
+        "stable_for_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "断言目标必须连续成立的采样窗口，单位秒。"
+        },
+        "mode": {
+          "enum": [
+            "eventually",
+            "always"
+          ],
+          "description": "eventually 等待稳定目标；always 在窗口内首次观测不成立即失败。"
+        },
+        "transition_from": {
+          "type": "object",
+          "description": "先观测到的普通来源断言；定位缺省时沿用目标定位，不允许嵌套时间配置。"
+        },
+        "oracle": {
+          "$ref": "#/$defs/oracle"
+        },
+        "recording_result": {
+          "type": "object",
+          "description": "录制现场观测，独立保留 expected、actual、passed；不会改写回放期望。"
+        }
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "如 requirement、explicit、observation；observation 只代表观测基线，不是独立业务预期。"
+        }
+      }
+    }
+  }
+}

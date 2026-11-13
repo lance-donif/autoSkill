@@ -1,0 +1,385 @@
+{
+  "schema_version": "fresh-blind-8-items-v2",
+  "completed_utc": "2026-11-13T15:21:16.694754+00:00",
+  "first_round_report": "/workspace/autoskill-state-validation/fresh-blind/reports/独立验收.md",
+  "first_round_report_unchanged": true,
+  "candidate_restart": {
+    "time_utc": "2026-11-13T15:16:13.297847+00:00",
+    "new_dashboard_pid": 67991,
+    "instruction": "第二安静窗口开始; final backend/UI frozen; other testing/browser processes stopped by parent",
+    "workspace": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate",
+    "public_state_revision": {
+      "revision": "9b16cb5592093d8572fd4110e7022346c2d6af26df7909d887126dbb6b94d4de"
+    },
+    "fixture_health": {
+      "status": "ready",
+      "time_ns": 1794582974660298323
+    }
+  },
+  "retest_attempt": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/targeted-retest.json",
+  "latest_counts": {
+    "Pass": 7,
+    "Fail": 0,
+    "Blocked": 1
+  },
+  "items": [
+    {
+      "id": 1,
+      "task": "执行阶段与分项可理解",
+      "first_round_status": "Pass",
+      "latest_status": "Pass",
+      "verification_scope": "carried_forward",
+      "first_round_finding": "真实Chromium详情分别展示综合、业务、性能、质量、证据、报告与投递；运行/结果API筛选在分页前生效。",
+      "latest_finding": "沿用首轮判定，本次定向复验未重跑该整项。",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-sla-detail.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-sla-detail.png",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/api-filter-pagination.json"
+      ],
+      "latest_evidence": [],
+      "status": "Pass"
+    },
+    {
+      "id": 2,
+      "task": "业务、性能和未验证分别判断",
+      "first_round_status": "Pass",
+      "latest_status": "Pass",
+      "verification_scope": "carried_forward",
+      "first_round_finding": "独立expected42；正确+慢为business pass/performance fail/quality pass/outcome fail；错误答案为business/quality fail；无独立预期为unverified；未声明SLA为not_applicable。",
+      "latest_finding": "沿用首轮判定，本次定向复验未重跑该整项。",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/inputs/independent-oracles.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/cli-1794580487785405605-native.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/native-matrix.json"
+      ],
+      "latest_evidence": [],
+      "status": "Pass"
+    },
+    {
+      "id": 3,
+      "task": "当前周期及历史追溯、只读无推进",
+      "first_round_status": "Pass",
+      "latest_status": "Pass",
+      "verification_scope": "carried_forward",
+      "first_round_finding": "默认current6项，all13项且跨两周期；旧失败运行仅all保留。纯读3次workflow revision36不变，state_revision/fixture查询/run/result集合不变；旧失败报告与新通过报告各自冻结。",
+      "latest_finding": "沿用首轮判定，本次定向复验未重跑该整项。",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/cycle-scope-checks.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/readonly-and-frozen-snapshots.json"
+      ],
+      "latest_evidence": [],
+      "status": "Pass"
+    },
+    {
+      "id": 4,
+      "task": "失败后重试保留旧事实",
+      "first_round_status": "Fail",
+      "latest_status": "Pass",
+      "verification_scope": "targeted_retest",
+      "first_round_finding": "旧Fail与后续CLI重执行Pass均保留。原生运行详情的“只重跑未通过的1条”却HTTP400错误称用例已归档；同资产公开native CLI随后真实执行Pass，资产未被归档。",
+      "latest_finding": "当前UI原生重跑动作与旧失败保留的实际结果：{\"status\": \"Pass\", \"new_run_id\": \"run-59b33d751d1d\", \"old_business\": \"fail\", \"new_business\": \"pass\", \"ui_action\": \"重跑原生资产\"}",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-retry.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-retry-before.png",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-retry-after.png",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/cli-1794580825280305189-native.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/cli-1794580829776498573-native.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/readonly-and-frozen-snapshots.json"
+      ],
+      "latest_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/targeted-retest.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/native-rerun-before.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/native-rerun-after.json"
+      ],
+      "status": "Pass"
+    },
+    {
+      "id": 5,
+      "task": "证据及当前有效性",
+      "first_round_status": "Pass",
+      "latest_status": "Pass",
+      "verification_scope": "carried_forward",
+      "first_round_finding": "原hash核验正确；保留原件后只追加空白破坏附件hash，state.evidence=invalid、outcome=unverified，原始status=Pass和末次尝试事实保留。",
+      "latest_finding": "沿用首轮判定，本次定向复验未重跑该整项。",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/evidence-integrity.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/evidence-originals/fast-ai-evaluation.json"
+      ],
+      "latest_evidence": [],
+      "status": "Pass"
+    },
+    {
+      "id": 6,
+      "task": "报告失败仅手动重导出",
+      "first_round_status": "Pass",
+      "latest_status": "Pass",
+      "verification_scope": "targeted_retest",
+      "first_round_finding": "Excel/Markdown/Bug三件套hash及下载验证；删除自产Markdown后连续读取failed且不自动修复；手动retry恢复ready，冻结source_hash不变，fixture业务查询9→9，run集合不变。",
+      "latest_finding": "再次以真实UI手动重导出：{\"fixture_queries_unchanged\": true, \"run_ids_unchanged\": true, \"source_hash_unchanged\": true}",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/scripts/report-integrity-retry.py",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/report-integrity-retry.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/report-originals/excel.xlsx",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/report-originals/markdown.md",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/report-originals/bugs.md"
+      ],
+      "latest_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/targeted-retest.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/report-failed.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/report-ready.json"
+      ],
+      "status": "Pass"
+    },
+    {
+      "id": 7,
+      "task": "在线前台≤1秒、交互保留与断线恢复",
+      "first_round_status": "Blocked",
+      "latest_status": "Pass",
+      "verification_scope": "targeted_retest_plus_readonly_accessibility_evidence",
+      "first_round_finding": "已知报告文件unlink完成→failed双rAF253.396ms，公开failed响应ack→paint216.139ms；执行阶段相对receipt起点951/797ms；稳定筛选及输入/焦点/选区/滚动通过；断线有明确连接错误并恢复。严格业务DB commit→paint未能精确确认：三次相对run.finished_at为1238/1190/788ms，finished_at早于commit且API首次终态晚于paint，环境2核配额和CPU节流。完整原始尝试保留，不能把前两次写成精确commit Fail或全部SLA通过。",
+      "latest_finding": "真实终态保守上界245ms、报告unlink→失败44.481ms、三件套最后写入→ready297.231ms、断网恢复→新业务失败326.594ms均小于1秒，输入/焦点/选区/滚动保持。追加只读补证确认离线红点容器实际title=连不上本机服务，DOM含服务已断开；1100px折叠侧栏隐藏文本但保留title说明，并非只有颜色。悬停已执行，截图未见原生title气泡，不宣称气泡可见已验证。",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/scripts/foreground-sync.py",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-sync.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-phase-offline.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/filter-preservation-confirmation.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-report-commit.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-offline.png",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-restored.png"
+      ],
+      "latest_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/targeted-retest.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/offline-visible.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/offline-restored-fresh-failure.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/offline-hint-review.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-1794583168250257901/offline-accessibility.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-hover-continuation-1794583206159347713/offline-status-hover.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-hover-continuation-1794583206159347713/offline-hint-final-review.json",
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-hover-continuation-1794583206159347713/offline-status-hover.png"
+      ],
+      "measurements_ms": {
+        "terminal_receipt_finish_to_paint_ms": 245.0,
+        "report_unlink_to_paint_ms": 44.481,
+        "report_last_artifact_write_to_ready_paint_ms": 297.231,
+        "restore_start_to_fresh_result_paint_ms": 326.594,
+        "restore_completed_to_fresh_result_paint_ms": 321.839
+      },
+      "sample_statuses": {
+        "terminal_sample_status": "Pass",
+        "report_failure_sample_status": "Pass",
+        "report_ready_sample_status": "Pass",
+        "restore_sample_status": "Pass"
+      },
+      "status": "Pass",
+      "subchecks": {
+        "terminal_latency": "Pass",
+        "report_failure_latency": "Pass",
+        "report_ready_latency": "Pass",
+        "offline_restore_fresh_state_latency": "Pass",
+        "input_focus_selection_scroll_preserved": "Pass",
+        "offline_hint_explicitness": "Pass_real_title_explanation",
+        "native_title_popup_screenshot_visibility": "not_observed_no_claim"
+      }
+    },
+    {
+      "id": 8,
+      "task": "真实录制与真实DSH投递",
+      "first_round_status": "Blocked",
+      "latest_status": "Blocked",
+      "verification_scope": "carried_forward_with_recorder_recheck",
+      "first_round_finding": "公开record start退出2：没有找到随包agent-browser，请使用完整离线包；当前工具目录没有真实DSH/宿主文件投递入口。只实测了独立真实Chromium仪表盘和HTTP，不模拟录制器/DSH。",
+      "latest_finding": "真实DSH/完整录制器验收继续Blocked；未模拟。录制器公开入口复查：{\"body\": {\"error\": \"没有找到随包的 agent-browser；请使用完整离线包（不会联网下载）\", \"code\": \"validation_error\", \"details\": {}}, \"exit_code\": 2, \"evidence\": \"evidence/cli-1794582995818294988-real-recorder-recheck.json\"}",
+      "first_round_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/cli-1794580684489663761-record.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/environment-preparation.json",
+        "/workspace/autoskill-state-validation/fresh-blind/evidence/host-and-recorder-blockers.json"
+      ],
+      "latest_evidence": [
+        "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/cli-1794582995818294988-real-recorder-recheck.json"
+      ],
+      "status": "Blocked"
+    }
+  ],
+  "strict_latency_boundary": "finished_at precedes commit, so finished_at→paint<1s is a conservative sample upper bound. Values above1s remain unconfirmed for exact commit latency. Response acknowledgement is not substituted for the target.",
+  "retained_first_round_observations": {
+    "business_receipt_to_paint_ms": [
+      1238,
+      1190,
+      788
+    ],
+    "source": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-sync.json"
+  },
+  "errors": [],
+  "load": [
+    {
+      "time_ns": 1794582979361800082,
+      "loadavg": [
+        0.67822265625,
+        0.66796875,
+        1.2255859375
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 9325481672\nuser_usec 7703063632\nsystem_usec 1622418039\nnice_usec 0\nnr_periods 93452\nnr_throttled 26992\nthrottled_usec 1530329913\nnr_bursts 0\nburst_usec 0\n"
+    },
+    {
+      "time_ns": 1794582995991962684,
+      "loadavg": [
+        1.28515625,
+        0.8125,
+        1.26513671875
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 9344947590\nuser_usec 7716788490\nsystem_usec 1628159100\nnice_usec 0\nnr_periods 93619\nnr_throttled 27040\nthrottled_usec 1533181973\nnr_bursts 0\nburst_usec 0\n"
+    }
+  ],
+  "direct_timing_samples": {
+    "terminal_finished_at_to_double_raf_ms": 245.0,
+    "report_unlink_to_failed_double_raf_ms": 44.481,
+    "report_last_artifact_write_to_ready_double_raf_ms": 297.231,
+    "offline_restore_start_to_fresh_result_double_raf_ms": 326.594,
+    "offline_restore_complete_to_fresh_result_double_raf_ms": 321.839,
+    "all_samples_below_1000ms": true,
+    "ack_used_as_commit_boundary": false
+  },
+  "offline_hint_review": {
+    "reviewed_utc": "2026-11-13T15:18:30.390701+00:00",
+    "source_dom": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/offline-visible.json",
+    "source_screenshot": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/attempt-1794582979361799467/offline-visible.png",
+    "actual_dom": "After6s offline, case table remains visible with the old Pass and no offline/synchronization-warning body text.",
+    "actual_screenshot": "A red status dot is visible at the bottom of the collapsed sidebar in1100px viewport.",
+    "not_captured": [
+      "status dot title",
+      "status dot aria-label",
+      "hover tooltip"
+    ],
+    "verdict": "Blocked",
+    "reason": "A detector phrase miss is not proof of missing connection indication. The screenshot shows a red indicator but its explicit meaning cannot be established from the captured body-only DOM. No confirmed Bug is created.",
+    "timing_and_restore_verdict": "Pass",
+    "offline_restore_fresh_result_paint_ms": 326.594
+  },
+  "original_fail_blocked_evidence_integrity": {
+    "all_checked_unchanged": true,
+    "checks": [
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-retry.json",
+        "first_status": "Fail",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-retry-before.png",
+        "first_status": "Fail",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/ui-retry-after.png",
+        "first_status": "Fail",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/cli-1794580825280305189-native.json",
+        "first_status": "Fail",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/cli-1794580829776498573-native.json",
+        "first_status": "Fail",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/readonly-and-frozen-snapshots.json",
+        "first_status": "Fail",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-sync.json",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-phase-offline.json",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/filter-preservation-confirmation.json",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-report-commit.json",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-offline.png",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-restored.png",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/cli-1794580684489663761-record.json",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/environment-preparation.json",
+        "first_status": "Blocked",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/autoskill-state-validation/fresh-blind/evidence/host-and-recorder-blockers.json",
+        "first_status": "Blocked",
+        "unchanged": true
+      }
+    ]
+  },
+  "offline_hint_additional_review": {
+    "reviewed_utc": "2026-11-13T15:21:16.694345+00:00",
+    "verdict": "Pass",
+    "criterion": "The visible offline red status indicator has actual readable explanatory title text; it is not color only with no explanation.",
+    "actual_container": {
+      "tag": "DIV",
+      "title": "连不上本机服务",
+      "ariaLabel": null,
+      "role": null,
+      "outer": "<div class=\"line\" title=\"连不上本机服务\"><i class=\"dot off\"></i><span class=\"text\">服务已断开</span></div>",
+      "children": [
+        {
+          "tag": "I",
+          "title": null,
+          "ariaLabel": null,
+          "role": null,
+          "textContent": "",
+          "visible": true
+        },
+        {
+          "tag": "SPAN",
+          "title": null,
+          "ariaLabel": null,
+          "role": null,
+          "textContent": "服务已断开",
+          "visible": false
+        }
+      ]
+    },
+    "hover_executed": true,
+    "visible_dom_tooltips": [],
+    "native_title_popup_visible_in_page_screenshot": "not_observed; no claim of screenshot verification",
+    "scope_limit": "This verifies the real DOM title explanation and actual hover action; it does not assert that a browser-native title popup appeared in the page screenshot, nor assert broader assistive-technology conformance.",
+    "read_only_no_new_runs": true,
+    "evidence": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-hover-continuation-1794583206159347713/offline-status-hover.json",
+    "prior_detached_element_attempt_preserved": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-1794583168250257901/offline-accessibility.json",
+    "prior_blocked_judgment_preserved": "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-1794583168250257901/prior-latest-8-results-Blocked.json"
+  },
+  "additional_evidence_attempts": [
+    "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-1794583168250257901/offline-accessibility.json",
+    "/workspace/autoskill-state-validation/fresh-blind/retest-20261113/evidence/accessibility-hover-continuation-1794583206159347713/offline-status-hover.json"
+  ],
+  "previous_offline_hint_blocked_review_retained": true
+}

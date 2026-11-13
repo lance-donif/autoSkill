@@ -1,0 +1,130 @@
+{
+  "kind": "one_minimal_readonly_offline_accessibility_evidence",
+  "time_utc": "2026-11-13T15:19:28.251147+00:00",
+  "viewport": {
+    "width": 1100,
+    "height": 430
+  },
+  "new_business_run_requested": false,
+  "latency_measurement": false,
+  "product_source_modified": false,
+  "run_ids_before": [
+    "run-0b94e12e5a83",
+    "run-0e950776ad98",
+    "run-28947f22dde1",
+    "run-59b33d751d1d",
+    "run-6d5493ee196e",
+    "run-84f885b6f65d",
+    "run-89efc3ffb2b7",
+    "run-94bf958c6d04",
+    "run-96660d99ed1b",
+    "run-a96971529716",
+    "run-bfb31ef378f5",
+    "run-cdc664ed903b",
+    "run-f41904f1d34a",
+    "run-f817ebcf8993",
+    "run-fb74159d8a65"
+  ],
+  "sidebar_attributes": [
+    {
+      "tag": "NAV",
+      "title": null,
+      "ariaLabel": "主导航",
+      "role": null,
+      "text": "",
+      "outer": "<nav class=\"nav\" aria-label=\"主导航\"><a href=\"#/dashboard\" title=\"仪表盘\" aria-label=\"仪表盘\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z\"></path></svg><span class=\"label\">仪表盘</span></a><a href=\"#/cases\" aria-current=\"page\" title=\"项目与用例\" aria-label=\"项目与用例\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01\"></path></svg><span class=\"label\">项目与用例</span></a><a href=\"#/runs\" title=\"执行记录\" aria-label=\"执行记录\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"0\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M7 4v16l13-8z\"></path></svg><span class=\"label\">执行记录</span></a><a href=\"#/schedules\" title=\"定时任务\" aria-label=\"定时任务\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg><span class=\"label\">定时任务</span></a><a href=\"#/data\" title=\"数据管理\" aria-label=\"数据管理\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" cla"
+    },
+    {
+      "tag": "A",
+      "title": "仪表盘",
+      "ariaLabel": "仪表盘",
+      "role": null,
+      "text": "",
+      "outer": "<a href=\"#/dashboard\" title=\"仪表盘\" aria-label=\"仪表盘\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z\"></path></svg><span class=\"label\">仪表盘</span></a>"
+    },
+    {
+      "tag": "A",
+      "title": "项目与用例",
+      "ariaLabel": "项目与用例",
+      "role": null,
+      "text": "",
+      "outer": "<a href=\"#/cases\" aria-current=\"page\" title=\"项目与用例\" aria-label=\"项目与用例\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01\"></path></svg><span class=\"label\">项目与用例</span></a>"
+    },
+    {
+      "tag": "A",
+      "title": "执行记录",
+      "ariaLabel": "执行记录",
+      "role": null,
+      "text": "",
+      "outer": "<a href=\"#/runs\" title=\"执行记录\" aria-label=\"执行记录\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"0\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M7 4v16l13-8z\"></path></svg><span class=\"label\">执行记录</span></a>"
+    },
+    {
+      "tag": "A",
+      "title": "定时任务",
+      "ariaLabel": "定时任务",
+      "role": null,
+      "text": "",
+      "outer": "<a href=\"#/schedules\" title=\"定时任务\" aria-label=\"定时任务\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0\"></path></svg><span class=\"label\">定时任务</span></a>"
+    },
+    {
+      "tag": "A",
+      "title": "数据管理",
+      "ariaLabel": "数据管理",
+      "role": null,
+      "text": "",
+      "outer": "<a href=\"#/data\" title=\"数据管理\" aria-label=\"数据管理\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path></svg><span class=\"label\">数据管理</span></a>"
+    },
+    {
+      "tag": "DIV",
+      "title": "连不上本机服务",
+      "ariaLabel": null,
+      "role": null,
+      "text": "",
+      "outer": "<div class=\"line\" title=\"连不上本机服务\"><i class=\"dot off\"></i><span class=\"text\">服务已断开</span></div>"
+    },
+    {
+      "tag": "DIV",
+      "title": "离线运行：不联网、不更新、不上报",
+      "ariaLabel": null,
+      "role": null,
+      "text": "",
+      "outer": "<div class=\"line\" title=\"离线运行：不联网、不更新、不上报\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z\"></path></svg><span class=\"text\">开发环境运行时</span></div>"
+    },
+    {
+      "tag": "BUTTON",
+      "title": "切换深浅色",
+      "ariaLabel": "深色",
+      "role": null,
+      "text": "",
+      "outer": "<button aria-label=\"深色\" title=\"切换深浅色\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"></path></svg><span class=\"text\">深色</span></button>"
+    }
+  ],
+  "red_dot_found": true,
+  "body_before_hover": "当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n项目与用例\n\n1 个项目 · 1 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。\n\n新建项目\n全部\n页面\n接口\nFresh blind arithmetic desk\n\nhttp://127.0.0.1:37171 · 页面 0 · 接口 1 · 未定义登录方式\n\n运行全部\n\t用例\t类型\t子项目\t最近结果\t最近执行\t\n\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 15:16\t\n运行",
+  "dot": {
+    "tag": "I",
+    "title": null,
+    "ariaLabel": null,
+    "role": null,
+    "tabIndex": -1,
+    "outer": "<i class=\"dot off\"></i>",
+    "ancestors": [
+      {
+        "tag": "DIV",
+        "title": "连不上本机服务",
+        "ariaLabel": null,
+        "role": null,
+        "outer": "<div class=\"line\" title=\"连不上本机服务\"><i class=\"dot off\"></i><span class=\"text\">服务已断开</span></div>"
+      },
+      {
+        "tag": "DIV",
+        "title": null,
+        "ariaLabel": null,
+        "role": null,
+        "outer": "<div class=\"side-foot\"><div class=\"line\" title=\"连不上本机服务\"><i class=\"dot off\"></i><span class=\"text\">服务已断开</span></div><div class=\"line\" title=\"离线运行：不联网、不更新、不上报\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z\"></path></svg><span class=\"text\">开发环境运行时</span></div><button aria-label=\"深色\" title=\"切换深浅色\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"icon-svg\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"></path></svg><span class=\"text\">深色</span></button></div>"
+      }
+    ]
+  },
+  "error": "Traceback (most recent call last):\n  File \"<stdin>\", line 28, in <module>\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/sync_api/_generated.py\", line 2274, in hover\n    self._sync(\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_sync_base.py\", line 115, in _sync\n    return task.result()\n           ^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_element_handle.py\", line 126, in hover\n    await self._channel.send(\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py\", line 76, in send\n    return await self._connection.wrap_api_call(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_connection.py\", line 632, in wrap_api_call\n    raise rewrite_error(error, f\"{parsed_st['apiName']}: {error}\") from None\nplaywright._impl._errors.Error: ElementHandle.hover: Element is not attached to the DOM\nCall log:\n  - attempting hover action\n    - waiting for element to be visible and stable\n\n",
+  "browser_closed": true
+}

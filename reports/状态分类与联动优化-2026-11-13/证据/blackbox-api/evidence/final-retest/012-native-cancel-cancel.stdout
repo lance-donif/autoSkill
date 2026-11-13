@@ -1,0 +1,82 @@
+{
+ "id": "run-22c5f74d45cc",
+ "batch_id": null,
+ "project_id": "bb-api",
+ "engine": "selenium-unittest",
+ "trigger": "manual",
+ "task_id": null,
+ "status": "Running",
+ "case_ids": "[\"bb-slow\"]",
+ "total": 0,
+ "done": 0,
+ "passed": 0,
+ "failed": 0,
+ "blocked": 0,
+ "current": "",
+ "reason": "",
+ "cancel": 1,
+ "pid": 44803,
+ "created_at": "2026-11-13T14:24:50.027+00:00",
+ "started_at": "2026-11-13T14:24:50.784+00:00",
+ "finished_at": null,
+ "headed": 0,
+ "claim_token": "",
+ "force_login": 0,
+ "session_id": "blackbox-api-final-retest",
+ "family": "native",
+ "input_manifest": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/native-inputs/eca711b53c75c68858cd2dbf78e469b98c5646686484dfece75e704aed854622-02b7f8d245a84bf69e5db49cba75cd58.json",
+ "input_hash": "eca711b53c75c68858cd2dbf78e469b98c5646686484dfece75e704aed854622",
+ "plan_path": "",
+ "delete_requested": 0,
+ "deletion_error": "",
+ "deletion_manifest": "",
+ "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"7335b5952ef1e58eb583c4adc635b7f574d3b21f407aa097ced325c509421ca0\", \"pid\": 44803, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1095072\"}",
+ "state": {
+  "lifecycle": "active",
+  "phase": "running",
+  "outcome": "pending",
+  "checks": {
+   "business": "unverified",
+   "performance": "not_applicable",
+   "quality": "not_applicable"
+  },
+  "evidence": "unverified",
+  "report": "pending",
+  "delivery": "not_applicable",
+  "scope": {
+   "project_id": "bb-api",
+   "workflow_id": null,
+   "cycle_id": null,
+   "run_id": "run-22c5f74d45cc",
+   "case_id": null,
+   "attempt_id": null
+  },
+  "reason": "",
+  "revision": "16168463bc1b8941871c5c9bdc0e900c86455c7a16e2d420af034afddc305168"
+ },
+ "evidence_dir": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/native",
+ "test_report": {
+  "report_id": "run_run-22c5f74d45cc",
+  "status": "pending",
+  "retryable": false,
+  "reason": "运行尚未结束"
+ },
+ "asset_id": "bb-slow",
+ "asset_version": "6d4e5403478ed66ed972720d2ca4d0105a412e20a20be0812038d88c9f7a75bf",
+ "head": "5de309174df09de5e777f2ef6ecadafcf9f658a9ab7edf97a85b768766a31e72",
+ "planned_unknown": true,
+ "outcome": {},
+ "report": {
+  "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/runs/run-22c5f74d45cc/native/outcome.json",
+  "available": false
+ },
+ "page": {
+  "total": 0,
+  "returned": 0,
+  "limit": 50,
+  "has_more": false,
+  "next_cursor": null,
+  "content_revision": "158d257f37c01499775071ec44a4d4beaaf527df3f5c378cf01e0af1e88e91a9"
+ },
+ "results": []
+}

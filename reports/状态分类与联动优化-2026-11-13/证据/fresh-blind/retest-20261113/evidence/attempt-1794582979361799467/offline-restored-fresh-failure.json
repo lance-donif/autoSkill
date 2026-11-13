@@ -1,0 +1,20 @@
+{
+  "url": "http://127.0.0.1:18890/#/cases",
+  "body": "当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n项目与用例\n\n1 个项目 · 1 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。\n\n新建项目\n全部\n页面\n接口\nFresh blind arithmetic desk\n\nhttp://127.0.0.1:37171 · 页面 0 · 接口 1 · 未定义登录方式\n\n运行全部\n\t用例\t类型\t子项目\t最近结果\t最近执行\t\n\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 15:16\t\n运行",
+  "buttons": [
+    "深色",
+    "全部项目",
+    "近 7 天",
+    "回放设置",
+    "新建项目",
+    "全部",
+    "页面",
+    "接口",
+    "运行全部",
+    "",
+    "运行",
+    ""
+  ],
+  "visibility": "visible",
+  "hasFocus": true
+}

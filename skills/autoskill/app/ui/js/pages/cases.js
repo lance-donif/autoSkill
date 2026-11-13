@@ -1,11 +1,12 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
-import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
+import { h, icon, replace, api, scope, scopeQuery, go, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
 import { runtimeFields, credentialControls } from '../project-settings.js';
 import { state, refreshShell } from '../shell.js';
 import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
 import { editCase } from '../case-editor.js';
+import { primaryState, stateResults, stateDetails } from '../status-view.js';
 
 
 const selected = new Map();  // "project/case" -> {project_id, case_id}
@@ -41,8 +42,8 @@ export async function render(view) {
 
   const list = h('div', { class: 'stack' });
   const bar = h('div', { class: 'select-bar', hidden: true });
-  const search = h('input', { class: 'input', type: 'search', placeholder: '搜索用例编号、标题或模块', value: query, 'aria-label': '搜索用例', style: 'width:280px' });
-  search.addEventListener('input', () => { query = search.value; paint(); });
+  const search = h('input', { class: 'input', type: 'search', placeholder: '搜索用例编号、标题或模块', value: query, 'aria-label': '搜索用例', style: 'width:280px',
+    onInput: (event) => { query = event.currentTarget.value; paint(); } });
   const kinds = h('div', { class: 'seg', role: 'group', 'aria-label': '用例类型' },
     [['', '全部'], ['ui', '页面'], ['api', '接口']].map(([value, label]) => h('button', {
       'aria-pressed': String(kind === value),
@@ -317,7 +318,7 @@ async function projectSettings(projectId) {
 async function caseDrawer(projectId, caseId) {
   let item;
   try { item = await api(`/projects/${projectId}/cases/${encodeURIComponent(caseId)}`); } catch (error) { toast(error.message, { bad: true }); return; }
-  const body = [];
+  const body = item.state ? [h('div', { class: 'stack' }, primaryState(item), stateDetails(item))] : [];
   if (item.current_status === null) body.push(h('div', { class: 'banner info' }, icon('info'), h('span', {},
     '当前版本尚待验证，请手动运行检查。', item.last_status && '历史执行结果不代表当前版本已经验证。')));
   if (item.current_status === 'Unverified') body.push(h('div', { class: 'banner info' }, icon('info'),
@@ -362,9 +363,8 @@ async function caseDrawer(projectId, caseId) {
 }
 
 function caseStatus(item) {
-  const current = item.current_status === undefined ? item.last_status : item.current_status;
-  return h('div', { class: 'stack', style: 'gap:4px' }, statusPill(current),
-    item.current_status === null && item.last_status && h('span', { class: 'sub' }, '历史：', statusPill(item.last_status)));
+  return item.state ? h('div', { class: 'stack', style: 'gap:4px' }, primaryState(item), stateResults(item))
+    : h('span', { class: 'status idle' }, icon('blocked'), '未执行');
 }
 
 function apiAssertionRows(rules) {

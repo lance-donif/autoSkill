@@ -1,0 +1,104 @@
+{
+ "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+ "project_id": "bb-api",
+ "title": "Blackbox HTTP lifecycle",
+ "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+ "lifecycle": "active",
+ "cycle_state": "settled",
+ "complete": true,
+ "conclusion": "violated",
+ "revision": 44,
+ "domain_head": "76d100dd2419c296a4d21ea27a02b5b41cc78ad276880431d7c51972eb69b7a7",
+ "definition_hash": "eac6c087f2f7694178f9cd76421b70ea5d9a14c1b2af83c2dc24dccaf63dc115",
+ "counts": {
+  "completed": 7
+ },
+ "state": {
+  "lifecycle": "completed",
+  "phase": "settled",
+  "outcome": "fail",
+  "checks": {
+   "business": "fail",
+   "performance": "not_applicable",
+   "quality": "not_applicable"
+  },
+  "evidence": "valid",
+  "report": "not_generated",
+  "delivery": "not_applicable",
+  "scope": {
+   "project_id": "bb-api",
+   "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+   "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+   "run_id": null,
+   "case_id": null,
+   "attempt_id": null
+  },
+  "reason": "",
+  "revision": "f9a84e8cec4c5f674757151bd1ef937f25e4d8d5f90be8db07de9c3c1d92bd54"
+ },
+ "accepted": true,
+ "change_id": "change-28af429bb5894a65a6068d4e8e5cd386",
+ "workflow": {
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+  "lifecycle": "active",
+  "cycle_state": "settled",
+  "complete": true,
+  "conclusion": "violated",
+  "revision": 44,
+  "domain_head": "76d100dd2419c296a4d21ea27a02b5b41cc78ad276880431d7c51972eb69b7a7",
+  "definition_hash": "eac6c087f2f7694178f9cd76421b70ea5d9a14c1b2af83c2dc24dccaf63dc115",
+  "counts": {
+   "completed": 7
+  },
+  "state": {
+   "lifecycle": "completed",
+   "phase": "settled",
+   "outcome": "fail",
+   "checks": {
+    "business": "fail",
+    "performance": "not_applicable",
+    "quality": "not_applicable"
+   },
+   "evidence": "valid",
+   "report": "not_generated",
+   "delivery": "not_applicable",
+   "scope": {
+    "project_id": "bb-api",
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+    "run_id": null,
+    "case_id": null,
+    "attempt_id": null
+   },
+   "reason": "",
+   "revision": "f9a84e8cec4c5f674757151bd1ef937f25e4d8d5f90be8db07de9c3c1d92bd54"
+  },
+  "test_report": {
+   "generation": 44,
+   "kind": "workflow",
+   "report_id": "workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da",
+   "retry_url": "/api/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/retry",
+   "retryable": false,
+   "snapshot_required": true,
+   "source_hash": "d0e08a58ff3e40ae86761170fad28465333215db8a021842414fa7ac6cb93bcd",
+   "status": "generating",
+   "task_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+   "updated_at": "2026-11-13T14:29:55.706+00:00"
+  }
+ },
+ "test_report": {
+  "generation": 44,
+  "kind": "workflow",
+  "report_id": "workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da",
+  "retry_url": "/api/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/retry",
+  "retryable": false,
+  "snapshot_required": true,
+  "source_hash": "d0e08a58ff3e40ae86761170fad28465333215db8a021842414fa7ac6cb93bcd",
+  "status": "generating",
+  "task_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "updated_at": "2026-11-13T14:29:55.706+00:00"
+ }
+}

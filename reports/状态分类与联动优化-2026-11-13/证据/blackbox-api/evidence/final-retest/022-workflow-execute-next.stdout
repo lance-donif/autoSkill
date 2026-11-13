@@ -1,0 +1,43 @@
+{
+ "task": null,
+ "workflow": {
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+  "lifecycle": "active",
+  "cycle_state": "waiting_execution",
+  "complete": false,
+  "conclusion": "unassessed",
+  "revision": 15,
+  "domain_head": "bf1b66afdd39182cf63856af75316fe727b071b9336910c16fff33052b99c5aa",
+  "definition_hash": "5901c61e8a2789c3d9032edd56e996fa27a6ced7ecd14ed6b6e8cbea33b61a54",
+  "counts": {
+   "completed": 4,
+   "waiting_execution": 1
+  },
+  "state": {
+   "lifecycle": "active",
+   "phase": "waiting_execution",
+   "outcome": "pending",
+   "checks": {
+    "business": "unverified",
+    "performance": "not_applicable",
+    "quality": "not_applicable"
+   },
+   "evidence": "unverified",
+   "report": "ready",
+   "delivery": "not_applicable",
+   "scope": {
+    "project_id": "bb-api",
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "cycle_id": "cycle-7ed65b4c991a4e339c09f0ee9c2b30d8",
+    "run_id": null,
+    "case_id": null,
+    "attempt_id": null
+   },
+   "reason": "",
+   "revision": "cc286ebcc617d69489a88f9ee82dd479f638005135754a84ce41c7343288dad0"
+  }
+ }
+}

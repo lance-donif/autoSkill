@@ -1,0 +1,7 @@
+usage: autoskill dashboard [-h] [--port PORT] [--headed] [--headless]
+
+options:
+  -h, --help   show this help message and exit
+  --port PORT
+  --headed     显示浏览器窗口（默认就是显示）
+  --headless   不显示浏览器窗口，在后台运行（默认显示最大化的窗口）

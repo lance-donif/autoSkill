@@ -1,0 +1,118 @@
+{
+  "completed_utc": "2026-11-13T14:49:12.020658+00:00",
+  "counts": {
+    "Pass": 5,
+    "Fail": 1,
+    "Blocked": 2
+  },
+  "items": [
+    {
+      "id": 1,
+      "task": "执行阶段与分项可理解",
+      "status": "Pass",
+      "finding": "真实Chromium详情分别展示综合、业务、性能、质量、证据、报告与投递；运行/结果API筛选在分页前生效。",
+      "evidence": [
+        "evidence/ui-sla-detail.json",
+        "evidence/ui-sla-detail.png",
+        "evidence/api-filter-pagination.json"
+      ]
+    },
+    {
+      "id": 2,
+      "task": "业务、性能和未验证分别判断",
+      "status": "Pass",
+      "finding": "独立expected42；正确+慢为business pass/performance fail/quality pass/outcome fail；错误答案为business/quality fail；无独立预期为unverified；未声明SLA为not_applicable。",
+      "evidence": [
+        "inputs/independent-oracles.json",
+        "evidence/cli-1794580487785405605-native.json",
+        "evidence/native-matrix.json"
+      ]
+    },
+    {
+      "id": 3,
+      "task": "当前周期及历史追溯、只读无推进",
+      "status": "Pass",
+      "finding": "默认current6项，all13项且跨两周期；旧失败运行仅all保留。纯读3次workflow revision36不变，state_revision/fixture查询/run/result集合不变；旧失败报告与新通过报告各自冻结。",
+      "evidence": [
+        "evidence/cycle-scope-checks.json",
+        "evidence/readonly-and-frozen-snapshots.json"
+      ]
+    },
+    {
+      "id": 4,
+      "task": "失败后重试保留旧事实",
+      "status": "Fail",
+      "finding": "旧Fail与后续CLI重执行Pass均保留。原生运行详情的“只重跑未通过的1条”却HTTP400错误称用例已归档；同资产公开native CLI随后真实执行Pass，资产未被归档。",
+      "evidence": [
+        "evidence/ui-retry.json",
+        "evidence/ui-retry-before.png",
+        "evidence/ui-retry-after.png",
+        "evidence/cli-1794580825280305189-native.json",
+        "evidence/cli-1794580829776498573-native.json",
+        "evidence/readonly-and-frozen-snapshots.json"
+      ]
+    },
+    {
+      "id": 5,
+      "task": "证据及当前有效性",
+      "status": "Pass",
+      "finding": "原hash核验正确；保留原件后只追加空白破坏附件hash，state.evidence=invalid、outcome=unverified，原始status=Pass和末次尝试事实保留。",
+      "evidence": [
+        "evidence/evidence-integrity.json",
+        "evidence/evidence-originals/fast-ai-evaluation.json"
+      ]
+    },
+    {
+      "id": 6,
+      "task": "报告失败仅手动重导出",
+      "status": "Pass",
+      "finding": "Excel/Markdown/Bug三件套hash及下载验证；删除自产Markdown后连续读取failed且不自动修复；手动retry恢复ready，冻结source_hash不变，fixture业务查询9→9，run集合不变。",
+      "evidence": [
+        "scripts/report-integrity-retry.py",
+        "evidence/report-integrity-retry.json",
+        "evidence/report-originals/excel.xlsx",
+        "evidence/report-originals/markdown.md",
+        "evidence/report-originals/bugs.md"
+      ]
+    },
+    {
+      "id": 7,
+      "task": "在线前台≤1秒、交互保留与断线恢复",
+      "status": "Blocked",
+      "finding": "已知报告文件unlink完成→failed双rAF253.396ms，公开failed响应ack→paint216.139ms；执行阶段相对receipt起点951/797ms；稳定筛选及输入/焦点/选区/滚动通过；断线有明确连接错误并恢复。严格业务DB commit→paint未能精确确认：三次相对run.finished_at为1238/1190/788ms，finished_at早于commit且API首次终态晚于paint，环境2核配额和CPU节流。完整原始尝试保留，不能把前两次写成精确commit Fail或全部SLA通过。",
+      "evidence": [
+        "scripts/foreground-sync.py",
+        "evidence/foreground-sync.json",
+        "evidence/foreground-phase-offline.json",
+        "evidence/filter-preservation-confirmation.json",
+        "evidence/foreground-report-commit.json",
+        "evidence/foreground-offline.png",
+        "evidence/foreground-restored.png"
+      ]
+    },
+    {
+      "id": 8,
+      "task": "真实录制与真实DSH投递",
+      "status": "Blocked",
+      "finding": "公开record start退出2：没有找到随包agent-browser，请使用完整离线包；当前工具目录没有真实DSH/宿主文件投递入口。只实测了独立真实Chromium仪表盘和HTTP，不模拟录制器/DSH。",
+      "evidence": [
+        "evidence/cli-1794580684489663761-record.json",
+        "evidence/environment-preparation.json",
+        "evidence/host-and-recorder-blockers.json"
+      ]
+    }
+  ],
+  "independence": "Only allowed public docs and public CLI/API/real Chromium UI used; no implementation, internal tests, other agents evidence/reports read; no product changes.",
+  "candidate": {
+    "received": "候选冻结",
+    "start_time_utc": "2026-11-13T14:34:28.314541+00:00",
+    "start_time_ns": 1794580468314551959,
+    "source_baseline": "same repository frozen uncommitted working tree, not inspected",
+    "workspace": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate",
+    "background_load": "parent full Python regression still running; UI latency scheduled last"
+  },
+  "services_left_for_reproduction": {
+    "dashboard": "http://127.0.0.1:18890",
+    "fixture": "http://127.0.0.1:37171"
+  }
+}

@@ -192,12 +192,12 @@ def _percentile(values: list, fraction: float):
     return sorted(values)[max(0, math.ceil(len(values) * fraction) - 1)] if values else None
 
 
-def metrics(run: dict) -> dict:
+def metrics(run: dict, *, results: list[dict] | None = None) -> dict:
     """Count target executions, sent HTTP attempts and elapsed time as distinct measures."""
-    rows = db.rows("SELECT prerequisite, duration_ms, detail FROM results WHERE run_id = ?", (run["id"],))
+    rows = results if results is not None else db.rows("SELECT prerequisite, duration_ms, detail FROM results WHERE run_id = ?", (run["id"],))
     targets, requests = [], 0
     for row in rows:
-        detail = json.loads(row["detail"])
+        detail = row["detail"] if isinstance(row["detail"], dict) else json.loads(row["detail"])
         requests += int(bool(detail.get("request")))
         if not row["prerequisite"] and (detail.get("request") or detail.get("steps")):
             targets.append(row["duration_ms"])
@@ -208,20 +208,36 @@ def metrics(run: dict) -> dict:
             "latency_samples": len(targets), "p50_ms": _percentile(targets, .5), "p95_ms": _percentile(targets, .95), "p99_ms": _percentile(targets, .99)}
 
 
-def summary(run: dict) -> dict:
-    manifest = execution_inputs.load(run)
-    project = db.one("SELECT name FROM projects WHERE id = ?", (run["project_id"],))
-    return {**runner.public_run(run), "case_ids": manifest["selected"], "load": manifest["load"],
-            "project_name": project["name"] if project else run["project_id"], "metrics": metrics(run)}
+def summary(run: dict, *, results=None, result_states=None, connection=None) -> dict:
+    from . import task_state
+
+    with task_state.projection():
+        if connection is None:
+            with db.connect() as current:
+                current.execute("BEGIN")
+                return summary(run, results=results, result_states=result_states, connection=current)
+        rows = results if results is not None else [dict(row) for row in connection.execute("SELECT * FROM results WHERE run_id=? ORDER BY id", (run["id"],))]
+        targets = [row for row in rows if not row["prerequisite"]]
+        values = task_state.run_values(run, results=targets, result_states=result_states, connection=connection)
+        manifest = execution_inputs.load(run)
+        project = connection.execute("SELECT name FROM projects WHERE id = ?", (run["project_id"],)).fetchone()
+        return {**runner.public_run(values, state=values["state"]), "case_ids": manifest["selected"], "load": manifest["load"],
+                "project_name": project["name"] if project else run["project_id"], "metrics": metrics(run, results=rows)}
 
 
 def get(run_id: str) -> dict:
-    from . import task_reports
+    from . import task_reports, task_state
 
-    run = db.one("SELECT * FROM runs WHERE id = ? AND family = 'load'", (run_id,))
-    if not run:
-        raise ValueError("压测运行不存在")
-    rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
-    for row in rows:
-        row["detail"] = json.loads(row["detail"])
-    return {**summary(run), "results": rows, "test_report": task_reports.for_run(run_id)}
+    with db.connect() as connection, task_state.projection():
+        connection.execute("BEGIN")
+        saved = connection.execute("SELECT * FROM runs WHERE id = ? AND family = 'load'", (run_id,)).fetchone()
+        if saved is None:
+            raise ValueError("压测运行不存在")
+        run = dict(saved)
+        rows = [dict(row) for row in connection.execute("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))]
+        for row in rows:
+            row["detail"] = json.loads(row["detail"])
+            row["state"] = task_state.result(row, connection=connection)
+        states = [row["state"] for row in rows if not row["prerequisite"]]
+        return {**summary(run, results=rows, result_states=states, connection=connection), "results": rows,
+                "test_report": task_reports.peek("run_" + run_id)}

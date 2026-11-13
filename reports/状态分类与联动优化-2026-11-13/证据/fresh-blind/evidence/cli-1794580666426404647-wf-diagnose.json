@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "workflow",
+    "submit",
+    "wf-8bc34d6b55434423b2159bfdffcbc782",
+    "wfi-e870c05aaed0495197514d959ca14e3f",
+    "--lease-token",
+    "lease-72064a7b33304130bd760c1d0fce3fa9",
+    "--attempt-id",
+    "wfa-22a9eb7520ac40b791e706c721f8b0d4",
+    "--idempotency-key",
+    "fresh-submit-diagnose-v1",
+    "--file",
+    "/workspace/autoskill-state-validation/fresh-blind/inputs/wf-diagnose-v1.json"
+  ],
+  "started_ns": 1794580666426407860,
+  "finished_ns": 1794580666668781998,
+  "exit_code": 0,
+  "stdout": "{\n \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n \"project_id\": \"fresh-arithmetic\",\n \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n \"cycle_id\": \"cycle-3924a017d6eb4a6bb5bda982d215430e\",\n \"lifecycle\": \"active\",\n \"cycle_state\": \"awaiting_host\",\n \"complete\": false,\n \"conclusion\": \"violated\",\n \"revision\": 17,\n \"report_generation\": 0,\n \"domain_head\": \"b8b5a1e1f389b406140eeb52906065f26a38183461434c7ac8b1d4411fba7dff\",\n \"definition_hash\": \"759b8f9de28fee28566661d5747939deb6e06e3b19dae82eee59de747a85d8b8\",\n \"counts\": {\n  \"completed\": 6,\n  \"ready\": 1\n },\n \"state\": {\n  \"lifecycle\": \"active\",\n  \"phase\": \"awaiting_host\",\n  \"outcome\": \"fail\",\n  \"checks\": {\n   \"business\": \"fail\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"valid\",\n  \"report\": \"not_generated\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"fresh-arithmetic\",\n   \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n   \"cycle_id\": \"cycle-3924a017d6eb4a6bb5bda982d215430e\",\n   \"run_id\": null,\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"a184cd767177cdc3007c240838df053ddc860bebffacb87c9e11dfb6836604e8\"\n },\n \"accepted\": true,\n \"change_id\": \"change-3751bd2b1cb14f22bb8c2cde66948005\",\n \"workflow\": {\n  \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n  \"project_id\": \"fresh-arithmetic\",\n  \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n  \"cycle_id\": \"cycle-3924a017d6eb4a6bb5bda982d215430e\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"violated\",\n  \"revision\": 17,\n  \"report_generation\": 0,\n  \"domain_head\": \"b8b5a1e1f389b406140eeb52906065f26a38183461434c7ac8b1d4411fba7dff\",\n  \"definition_hash\": \"759b8f9de28fee28566661d5747939deb6e06e3b19dae82eee59de747a85d8b8\",\n  \"counts\": {\n   \"completed\": 6,\n   \"ready\": 1\n  },\n  \"state\": {\n   \"lifecycle\": \"active\",\n   \"phase\": \"awaiting_host\",\n   \"outcome\": \"fail\",\n   \"checks\": {\n    \"business\": \"fail\",\n    \"performance\": \"not_applicable\",\n    \"quality\": \"not_applicable\"\n   },\n   \"evidence\": \"valid\",\n   \"report\": \"not_generated\",\n   \"delivery\": \"not_applicable\",\n   \"scope\": {\n    \"project_id\": \"fresh-arithmetic\",\n    \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n    \"cycle_id\": \"cycle-3924a017d6eb4a6bb5bda982d215430e\",\n    \"run_id\": null,\n    \"case_id\": null,\n    \"attempt_id\": null\n   },\n   \"reason\": \"\",\n   \"revision\": \"a184cd767177cdc3007c240838df053ddc860bebffacb87c9e11dfb6836604e8\"\n  }\n }\n}\n",
+  "stderr": ""
+}

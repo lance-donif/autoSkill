@@ -1,0 +1,186 @@
+{
+  "started_at": 1794580588.1196656,
+  "requests": [
+    {
+      "at": 1794580591.5221167,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    },
+    {
+      "at": 1794580592.4192383,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=current&limit=50&offset=0"
+    },
+    {
+      "at": 1794580593.318888,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    },
+    {
+      "at": 1794580593.732624,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=current&limit=50&offset=0"
+    },
+    {
+      "at": 1794580594.0538468,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    },
+    {
+      "at": 1794580594.3196492,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=current&limit=50&offset=0"
+    },
+    {
+      "at": 1794580594.7848942,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=all&limit=50&offset=0"
+    },
+    {
+      "at": 1794580594.8191667,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    },
+    {
+      "at": 1794580595.387383,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=all&limit=50&offset=0"
+    },
+    {
+      "at": 1794580596.0579886,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    },
+    {
+      "at": 1794580596.4296062,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&cycle=all&limit=50&offset=0"
+    },
+    {
+      "at": 1794580596.6281886,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&business=fail&cycle=all&limit=50&offset=0"
+    },
+    {
+      "at": 1794580597.808068,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    },
+    {
+      "at": 1794580598.276083,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&business=fail&cycle=all&limit=50&offset=0"
+    },
+    {
+      "at": 1794580598.6327884,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&business=fail&performance=not_applicable&cycle=all&limit=50&offset=0"
+    },
+    {
+      "at": 1794580599.1735723,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    },
+    {
+      "at": 1794580599.8363717,
+      "url": "http://127.0.0.1:18782/api/runs?start=2026-11-07T00%3A00%3A00.000Z&tz=0&business=fail&performance=not_applicable&cycle=all&limit=50&offset=0"
+    },
+    {
+      "at": 1794580600.6099224,
+      "url": "http://127.0.0.1:18782/api/runs?limit=1&status=active"
+    }
+  ],
+  "snapshots": [
+    {
+      "name": "initial",
+      "at": 1794580594.6845274,
+      "url": "http://127.0.0.1:18782/#/runs",
+      "values": [
+        "current",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "rows": [
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t12.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.3 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:29\t9.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t9.9 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.8 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n\t\n独立黑盒订单\n响应时间不符合目标\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tai-eval\t今天 14:27\t855 ms\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:12\t5.9 秒\t\n删除运行",
+        "\t\n已结束\n综合：通过\n业务：通过\n\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:08\t4.9 秒\t\n删除运行"
+      ]
+    },
+    {
+      "name": "after-select-0",
+      "at": 1794580596.4972806,
+      "url": "http://127.0.0.1:18782/#/runs?cycle=all",
+      "values": [
+        "all",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "rows": [
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t12.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.3 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:29\t9.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t9.9 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.8 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n\t\n独立黑盒订单\n响应时间不符合目标\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tai-eval\t今天 14:27\t855 ms\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:12\t5.9 秒\t\n删除运行",
+        "\t\n已结束\n历史周期\n综合：通过\n业务：通过\n\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:11\t4.5 秒\t\n删除运行",
+        "\t\n已结束\n综合：通过\n业务：通过\n\t\n独立黑盒订单\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:08\t4.9 秒\t\n删除运行"
+      ]
+    },
+    {
+      "name": "after-select-3",
+      "at": 1794580598.490396,
+      "url": "http://127.0.0.1:18782/#/runs?cycle=all&business=fail",
+      "values": [
+        "all",
+        "",
+        "",
+        "fail",
+        "",
+        ""
+      ],
+      "rows": [
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t12.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.3 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:29\t9.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t9.9 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.8 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:12\t5.9 秒\t\n删除运行"
+      ]
+    },
+    {
+      "name": "after-select-4",
+      "at": 1794580600.2993581,
+      "url": "http://127.0.0.1:18782/#/runs?cycle=all&business=fail&performance=not_applicable",
+      "values": [
+        "all",
+        "",
+        "",
+        "fail",
+        "not_applicable",
+        ""
+      ],
+      "rows": [
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t12.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:33\t10.3 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:29\t9.2 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.4 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t9.9 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:28\t10.8 秒\t\n删除运行",
+        "\t\n已结束\n综合：失败\n业务：失败\n\t\n独立黑盒订单\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tselenium-unittest\t今天 14:12\t5.9 秒\t\n删除运行"
+      ]
+    }
+  ],
+  "passed": true,
+  "expected": [
+    "all",
+    "",
+    "",
+    "fail",
+    "not_applicable",
+    ""
+  ],
+  "finished_at": 1794580601.0927403
+}

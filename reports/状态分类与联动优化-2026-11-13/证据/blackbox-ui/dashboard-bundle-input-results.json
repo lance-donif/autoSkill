@@ -1,0 +1,362 @@
+{
+  "started_at": 1794582920.39124,
+  "start_public_version": {
+    "name": "autoSkill",
+    "version": "2.2.4",
+    "ui_revision": "3ce7f69d701edf33a8874993bd08f8dbe8ab404c28f12f38f7fb16a76aa3ea9c",
+    "projects": 2,
+    "runtime": {
+      "bundled": false,
+      "chrome": true,
+      "selenium": false,
+      "recorder": false
+    },
+    "browser": {
+      "mode": "system",
+      "system": "/usr/bin/chromium",
+      "bundled": "/usr/bin/chromium",
+      "using": "/usr/bin/chromium"
+    },
+    "skill_path": "/workspace/autoSkill/skills/autoskill",
+    "workspace": "/workspace/autoskill-state-validation/blackbox-ui/data",
+    "case_skill": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/case-plans/default/autoskill-cases",
+    "bridge": true,
+    "instance": null
+  },
+  "errors": [],
+  "before": {
+    "values": {
+      "#np-name": "未提交草稿-不得被自动刷新清空",
+      "#np-url": "http://example.invalid/draft",
+      "#np-cat": "黑盒输入保留"
+    },
+    "focus": {
+      "id": "np-cat",
+      "start": 1,
+      "end": 4
+    }
+  },
+  "run_id": "run-6ed961d0991d",
+  "terminal_detail": {
+    "id": "run-6ed961d0991d",
+    "batch_id": null,
+    "project_id": "127-0-0-1",
+    "engine": "selenium-unittest",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Fail",
+    "case_ids": [
+      "asset-864fcbae1cad"
+    ],
+    "total": 1,
+    "done": 1,
+    "passed": 0,
+    "failed": 1,
+    "blocked": 0,
+    "current": "",
+    "reason": "",
+    "cancel": 0,
+    "pid": 67952,
+    "created_at": "2026-11-13T15:15:24.084+00:00",
+    "started_at": "2026-11-13T15:15:24.277+00:00",
+    "finished_at": "2026-11-13T15:15:28.453+00:00",
+    "headed": 0,
+    "claim_token": "",
+    "force_login": 0,
+    "session_id": "blackbox-ui",
+    "family": "native",
+    "input_manifest": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/native-inputs/b5a1b285baf881bc922e68fa6945e7be444373d371f853246787d259831394ae-bbcbe295bca44185bdaa533f9db254b5.json",
+    "input_hash": "b5a1b285baf881bc922e68fa6945e7be444373d371f853246787d259831394ae",
+    "plan_path": "",
+    "delete_requested": 0,
+    "deletion_error": "",
+    "deletion_manifest": "",
+    "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da\", \"pid\": 67952, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1398421\"}",
+    "unverified": 0,
+    "cancelled": 0,
+    "pending": 0,
+    "judged": 1,
+    "pass_rate": 0.0,
+    "state_counts": {
+      "pass": 0,
+      "fail": 1,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    },
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "fail",
+      "checks": {
+        "business": "fail",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "ready",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "127-0-0-1",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-6ed961d0991d",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "8919b0adf33b0a679c7cb3e460d8fe893e6ea955bd2c726e948f7bf9930792e7"
+    },
+    "recorded_counts": {
+      "passed": 0,
+      "failed": 1,
+      "blocked": 0
+    },
+    "project_name": "独立黑盒订单",
+    "results": [
+      {
+        "id": 22,
+        "run_id": "run-6ed961d0991d",
+        "project_id": "127-0-0-1",
+        "case_id": "test_order.OrderBusinessTest.test_order_completes",
+        "case_title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+        "kind": "native",
+        "engine": "selenium-unittest",
+        "status": "Fail",
+        "category": "native",
+        "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-6ed961d0991d/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+        "actual": "",
+        "duration_ms": 3017,
+        "started_at": "2026-11-13T15:15:24.277+00:00",
+        "prerequisite": 0,
+        "case_revision": 1,
+        "detail": {
+          "id": "test_order.OrderBusinessTest.test_order_completes",
+          "title": "test_order_completes (test_order.OrderBusinessTest.test_order_completes)",
+          "status": "Fail",
+          "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-6ed961d0991d/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+          "duration_ms": 3017,
+          "assertions": [
+            {
+              "name": "原生 unittest 测试结果",
+              "passed": false,
+              "actual": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-6ed961d0991d/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+              "source": "native"
+            }
+          ],
+          "verdict_scope": "native_test",
+          "input_hash": "b5a1b285baf881bc922e68fa6945e7be444373d371f853246787d259831394ae",
+          "engine": "selenium-unittest",
+          "business_status": "Fail",
+          "business_verified": false,
+          "verification": "failed",
+          "evidence": [
+            {
+              "path": "events.jsonl",
+              "sha256": "b547431613cc52f62170fee041c52017ee1211aab0cdd7ec7dba3d86f6a11f28",
+              "size": 192
+            },
+            {
+              "path": "heartbeat.json",
+              "sha256": "b6b7c9bb9a76f4aaf7a149cca7a9524ceef918135abe0057a0a74e8a4fcf3c4c",
+              "size": 367
+            },
+            {
+              "path": "process-result.json",
+              "sha256": "89f8407edcc99939b1273074fc0444e29b9178fba92001a970a1c85c484591d4",
+              "size": 59
+            },
+            {
+              "path": "stderr.log",
+              "sha256": "6c28f8793ab3003055afe57bb69545f25258408a55706181ef834fd6e56b31e2",
+              "size": 712
+            },
+            {
+              "path": "stdout.log",
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "size": 0
+            },
+            {
+              "path": "supervisor.json",
+              "sha256": "9804b1fa1ab26fefb537f6a3c971663c303429953af2309a3ce33883f5be5538",
+              "size": 289
+            },
+            {
+              "path": "unittest.json",
+              "sha256": "49bf06e384e046a4917677c8267a0567a9ca3f351ecac7333ead0af833f1517a",
+              "size": 594
+            }
+          ],
+          "evidence_status": "bound"
+        },
+        "case_content_hash": "b5a1b285baf881bc922e68fa6945e7be444373d371f853246787d259831394ae",
+        "input_hash": "b5a1b285baf881bc922e68fa6945e7be444373d371f853246787d259831394ae",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "127-0-0-1",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-6ed961d0991d",
+            "case_id": "test_order.OrderBusinessTest.test_order_completes",
+            "attempt_id": null
+          },
+          "reason": "Traceback (most recent call last):\n  File \"/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-6ed961d0991d/native/input/test_order.py\", line 9, in test_order_completes\n    self.assertEqual(body['message'],'订单完成','订单业务必须完成')\nAssertionError: '订单失败' != '订单完成'\n- 订单失败\n+ 订单完成\n : 订单业务必须完成\n",
+          "last_attempt_outcome": "fail",
+          "revision": "7b8e8bbe571857a0014511443c0b679cbbbb021b4fd038d75bbacf8b1c34382d"
+        }
+      }
+    ],
+    "test_report": {
+      "bugs": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-6ed961d0991d/test-report/Bug清单-58094a49f5373cf1.md",
+      "bugs_count": 1,
+      "bugs_counts": {
+        "business": 1,
+        "execution": 0,
+        "historical": 0,
+        "recording": 0,
+        "unverified": 0
+      },
+      "bugs_download_url": "/api/task-reports/run_run-6ed961d0991d/bugs",
+      "bugs_sha256": "08b6d4412030b241e084cc7d5f2906cc7021cebfef5b10eb0ad3ea09f423e1e2",
+      "bugs_size": 2349,
+      "cases": 1,
+      "download_url": "/api/task-reports/run_run-6ed961d0991d/excel",
+      "excel": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-6ed961d0991d/test-report/测试用例-58094a49f5373cf1.xlsx",
+      "execution_rows": 1,
+      "generated_at": "2026-11-13T15:15:29.033+00:00",
+      "generation": {
+        "finished_at": "2026-11-13T15:15:28.453+00:00",
+        "input_hash": "b5a1b285baf881bc922e68fa6945e7be444373d371f853246787d259831394ae",
+        "status": "Fail"
+      },
+      "kind": "run",
+      "markdown": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/runs/run-6ed961d0991d/test-report/测试简报-58094a49f5373cf1.md",
+      "markdown_download_url": "/api/task-reports/run_run-6ed961d0991d/markdown",
+      "markdown_sha256": "911e5a737078f7d75a0d698927d5aee1bb4c1c165841605f75e46eda4c882d60",
+      "markdown_size": 732,
+      "render_owner_identity": {
+        "location_id": "9b63cd9faa55b27dc7a3f8284fe525ad9a24fd75b0e945a7637e7a65f5ac61da",
+        "machine_id": "bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70",
+        "pid": 67952,
+        "process_started_at": "linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1398421"
+      },
+      "render_started_at": "2026-11-13T15:15:28.470+00:00",
+      "renderer": "test-cases-14-column-v1",
+      "report_id": "run_run-6ed961d0991d",
+      "retry_url": "/api/task-reports/run_run-6ed961d0991d/retry",
+      "retryable": false,
+      "run_ids": [
+        "run-6ed961d0991d"
+      ],
+      "sha256": "1812f27a5f2cfb1722e7a217762830d33249af0921ffe5209d430c00cd61f2cf",
+      "size": 18168,
+      "source_hash": "58094a49f5373cf1c21b15325a05a08e661f576e53319d1160cfe5a6fc863772",
+      "status": "ready",
+      "summary_cases": 1,
+      "summary_counts": {
+        "Blocked": 0,
+        "Cancelled": 0,
+        "Fail": 1,
+        "NotRun": 0,
+        "Pass": 0,
+        "Unknown": 0,
+        "Unverified": 0
+      },
+      "summary_execution_rows": 1,
+      "task_id": "run-6ed961d0991d",
+      "template_id": "test-cases-14-column-v1",
+      "validation": {
+        "bugs_readable": true,
+        "case_ids_match": true,
+        "case_rows": 1,
+        "execution_rows": 1,
+        "markdown_readable": true,
+        "numbering_scope": "报告快照内一对一映射；至少三位序号，1000 以上自然扩位。",
+        "rule_files_sha256": {
+          "SKILL.md": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+          "references/workbook-rules.md": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+          "scripts/validate_test_cases.py": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9"
+        },
+        "semantic_validation": "结构检查不证明业务事实、独立预期或覆盖完整性；待确认项保留在用例中。",
+        "structure": {
+          "businessGroupCount": 2,
+          "caseCount": 1,
+          "caseGroupDepths": {
+            "2": 1
+          },
+          "errors": [],
+          "excludedRows": [],
+          "functionItemCount": 1,
+          "functionItems": [
+            {
+              "caseCount": 1,
+              "name": "【待确认：功能项】",
+              "path": [
+                "独立黑盒订单",
+                "【待确认：功能项】"
+              ]
+            }
+          ],
+          "ok": true,
+          "rootCount": 1,
+          "sheet": "功能测试用例",
+          "uniqueIdCount": 1,
+          "warnings": []
+        },
+        "visual_validation": "not_performed_by_runtime",
+        "workbook_readable": true
+      }
+    }
+  },
+  "after": {
+    "values": {
+      "#np-name": "未提交草稿-不得被自动刷新清空",
+      "#np-url": "http://example.invalid/draft",
+      "#np-cat": "黑盒输入保留"
+    },
+    "focus": {
+      "id": "np-cat",
+      "start": 1,
+      "end": 4
+    }
+  },
+  "body": "autoSkill\n录一次，到处回放\n仪表盘\n项目与用例\n执行记录\n定时任务\n数据管理\n本机服务运行中\n开发环境运行时\n深色\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n项目与用例\n\n1 个项目 · 1 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。\n\n新建项目\n全部\n页面\n接口\n独立黑盒订单\n\nhttp://127.0.0.1:18783 · 页面 0 · 接口 1 · 未定义登录方式\n\n运行全部\n\t用例\t类型\t子项目\t最近结果\t最近执行\t\n\t\n订单服务业务成功\nTC-API-ORDER\n\t\n接口\t订单业务\t\n已结束\n综合：通过\n业务：通过\n\t今天 15:15\t\n运行\n新建项目\n\n同一个站点（域名）只建一个项目；站点下的功能区域用子项目区分。\n\n项目名称\n要测试的地址\n内网地址即可，例如 http://10.0.0.8:8080。\n分类\n取消\n创建项目",
+  "document_visibility": "visible",
+  "passed": true,
+  "finished_at": 1794582930.56936,
+  "finish_public_version": {
+    "name": "autoSkill",
+    "version": "2.2.4",
+    "ui_revision": "3ce7f69d701edf33a8874993bd08f8dbe8ab404c28f12f38f7fb16a76aa3ea9c",
+    "projects": 2,
+    "runtime": {
+      "bundled": false,
+      "chrome": true,
+      "selenium": false,
+      "recorder": false
+    },
+    "browser": {
+      "mode": "system",
+      "system": "/usr/bin/chromium",
+      "bundled": "/usr/bin/chromium",
+      "using": "/usr/bin/chromium"
+    },
+    "skill_path": "/workspace/autoSkill/skills/autoskill",
+    "workspace": "/workspace/autoskill-state-validation/blackbox-ui/data",
+    "case_skill": "/workspace/autoskill-state-validation/blackbox-ui/data/.local/case-plans/default/autoskill-cases",
+    "bridge": true,
+    "instance": null
+  }
+}

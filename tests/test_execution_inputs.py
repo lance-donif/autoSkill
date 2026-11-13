@@ -235,7 +235,7 @@ class ExecutionInputTests(unittest.TestCase):
 
     def test_captcha_retry_keeps_distinct_screenshots_and_first_business_failure(self):
         case = builder.ui_case("TC-UI-001", "Retry", {"start_url": "/", "actions": [
-            {"action": "captcha", "selector": "#captcha", "image": "#image"}],
+            {"action": "captcha", "selector": "#captcha", "image": [{"by": "css", "value": "#image"}]}],
             "assertions": [{"assertion": "text", "selector": "#priority", "expected": "high"}]})
         projects.save_cases(self.pid, [case])
         prepared = runner.prepare(self.pid, [case["id"]])

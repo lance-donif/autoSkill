@@ -1,0 +1,14 @@
+{
+  "command": [
+    "workflow",
+    "read",
+    "wf-0decaa560df84c6e9c0761274fb4f490",
+    "--kind",
+    "requirements"
+  ],
+  "started_at": 1794579219.9743912,
+  "finished_at": 1794579220.6710486,
+  "exit_code": 0,
+  "stdout": "{\n \"domain_head\": \"052302f00cbc0c828d226e36fd187b0d78f19960b91f713b080e133500c47f24\",\n \"head\": \"052302f00cbc0c828d226e36fd187b0d78f19960b91f713b080e133500c47f24\",\n \"definition_hash\": \"f1cfa8ff703c25ed2c10983038f17069eeceb030483a7d3f6e2b662cd6aa0683\",\n \"items\": [\n  {\n   \"id\": \"req-order-success\",\n   \"source_ids\": [\n    \"order-business-rule\"\n   ],\n   \"text\": \"POST /api/order 返回的 JSON message 必须等于订单完成。\"\n  }\n ],\n \"total\": 1,\n \"next_offset\": null\n}\n",
+  "stderr": ""
+}

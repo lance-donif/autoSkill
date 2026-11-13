@@ -1,0 +1,90 @@
+{
+  "label": "003-cancel",
+  "started_at": "2026-11-13T14:35:02.173253+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-report-resume-check-final",
+    "workflow",
+    "cancel",
+    "wf-d3359b6ee0064472bc3378e095ff4022",
+    "--idempotency-key",
+    "report-repro-cancel"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace-report-resume-check-final",
+  "returncode": 0,
+  "elapsed_seconds": 0.8469158480002079,
+  "ended_at": "2026-11-13T14:35:03.020162+00:00",
+  "response": {
+    "workflow": {
+      "workflow_id": "wf-d3359b6ee0064472bc3378e095ff4022",
+      "project_id": "bb-api",
+      "title": "Blackbox HTTP lifecycle",
+      "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+      "lifecycle": "cancelled",
+      "cycle_state": "cancelled",
+      "complete": false,
+      "conclusion": "unassessed",
+      "revision": 3,
+      "report_generation": 0,
+      "domain_head": "fb115dddc3ba4d3d65133f5281cfabc12eb275b2644fb0121dc9b5aa3a46aef9",
+      "definition_hash": "838a41d965fcb0f84669b25d6abdd05f051bf9c97d17bbdb3fc43fb10a229c1d",
+      "counts": {
+        "ready": 1
+      },
+      "state": {
+        "lifecycle": "cancelled",
+        "phase": "cancelled",
+        "outcome": "cancelled",
+        "checks": {
+          "business": "unverified",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "unverified",
+        "report": "not_generated",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "bb-api",
+          "workflow_id": "wf-d3359b6ee0064472bc3378e095ff4022",
+          "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+          "run_id": null,
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "004dd04e8e23995c4217f883e7c4ad463b9aaf6bd641c4515e34573a883d3df6"
+      },
+      "test_report": {
+        "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+        "generation": 3,
+        "kind": "workflow",
+        "report_generation": 0,
+        "report_id": "workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1",
+        "retry_url": "/api/task-reports/workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1/retry",
+        "retryable": false,
+        "snapshot_required": true,
+        "source_hash": "4ec20c93a6d975511169c68bd7d9a12fae07d32a65df0cf13e37c37b46c10066",
+        "status": "generating",
+        "task_id": "wf-d3359b6ee0064472bc3378e095ff4022",
+        "updated_at": "2026-11-13T14:35:02.533+00:00"
+      }
+    },
+    "test_report": {
+      "cycle_id": "cycle-707724aa170447abb4c114e87db6a35d",
+      "generation": 3,
+      "kind": "workflow",
+      "report_generation": 0,
+      "report_id": "workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1",
+      "retry_url": "/api/task-reports/workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1/retry",
+      "retryable": false,
+      "snapshot_required": true,
+      "source_hash": "4ec20c93a6d975511169c68bd7d9a12fae07d32a65df0cf13e37c37b46c10066",
+      "status": "generating",
+      "task_id": "wf-d3359b6ee0064472bc3378e095ff4022",
+      "updated_at": "2026-11-13T14:35:02.533+00:00"
+    }
+  }
+}

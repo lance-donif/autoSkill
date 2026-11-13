@@ -9,7 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import command_input, context_service, db, demo, paths, projects, runner, secrets, sessions, task_context
+from . import command_input, context_service, db, demo, paths, projects, runner, secrets, sessions, task_context, task_state
 from .locking import session_lock
 from .replay import ir
 
@@ -77,11 +77,12 @@ def run_summary(run: dict) -> dict:
     rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
     return {
         "run_id": run["id"], "status": run["status"], "status_text": STATUS_TEXT.get(run["status"], run["status"]),
+        "state": task_state.run(run, results=rows),
         "engine": run["engine"], "total": run["total"], "passed": run["passed"], "failed": run["failed"],
         "blocked": run["blocked"], "reason": run["reason"],
         "results": [{"case_id": r["case_id"], "title": r["case_title"], "kind": r["kind"], "status": r["status"],
                      "prerequisite": bool(r["prerequisite"]), "ms": r["duration_ms"],
-                     "detail": r["actual"] or r["reason"]} for r in rows],
+                     "detail": r["actual"] or r["reason"], "state": task_state.result(r)} for r in rows],
         **({"test_report": run["test_report"]} if "test_report" in run else {}),
     }
 
@@ -140,6 +141,7 @@ def _workflow_commands(sub) -> None:
     revise.add_argument("--expected-hash")
     status = workflow.add_parser("status")
     status.add_argument("workflow")
+    status.add_argument("--cycle", choices=("current", "all"), default="current", help="默认当前周期；all 包含历史周期")
     _page_options(status)
     reader = workflow.add_parser("read")
     reader.add_argument("workflow")
@@ -590,13 +592,13 @@ def _dispatch_workflow(args) -> tuple[dict, int]:
         return workflow.read(args.workflow, kind=args.kind, offset=args.offset, limit=args.limit,
                              head=args.head, text_offset=args.text_offset, text_length=args.text_length), 0
     if args.action == "status":
-        value = workflow.status(args.workflow, limit=args.limit, cursor=args.cursor)
+        value = workflow.status(args.workflow, limit=args.limit, cursor=args.cursor, cycle=args.cycle)
         if args.all_items:
             if args.cursor:
                 raise ValueError("--all 不能与 --cursor 同时使用")
             items = list(value["items"])
             while value.get("next_cursor"):
-                value = workflow.status(args.workflow, limit=args.limit, cursor=value["next_cursor"])
+                value = workflow.status(args.workflow, limit=args.limit, cursor=value["next_cursor"], cycle=args.cycle)
                 items.extend(value["items"])
             value = {**value, "items": items, "cursor": None, "next_cursor": None}
         return value, 0

@@ -1,0 +1,111 @@
+[
+  {
+    "kind": "excel",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/测试用例-d0e08a58ff3e40ae.xlsx",
+    "size": 18553,
+    "sha256": "9e93e9bd27299cea96d6febc1bedd6176d438c184964b3496f06dac5b883abc1",
+    "hash_matches": true,
+    "size_matches": true
+  },
+  {
+    "kind": "markdown",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/测试简报-d0e08a58ff3e40ae.md",
+    "size": 842,
+    "sha256": "ff003361ee312fa75963e4b187a5f769922dee6bb88dbf039d11f968d7afd24b",
+    "hash_matches": true,
+    "size_matches": true
+  },
+  {
+    "kind": "bugs",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest/.local/task-reports/workflow_da92224d0f639055872077750c30794a9ba1ae28af4a97c33fa2b930dd2409da/Bug清单-d0e08a58ff3e40ae.md",
+    "size": 1604,
+    "sha256": "7344968e48f238c6a0c8c72977f41b096e04a84432b168d1145c6411a8b0d9dd",
+    "hash_matches": true,
+    "size_matches": true
+  },
+  {
+    "workbook_rows": [
+      [
+        "用例标识",
+        "用例名称",
+        "功能需求追踪",
+        "测试说明",
+        "前置条件",
+        "测试步骤",
+        "预期结果",
+        "用例编制人",
+        "实际结果",
+        "测试结论",
+        "测试执行人",
+        "验证环境",
+        "备注",
+        "截图"
+      ],
+      [
+        "Blackbox API state",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "Local HTTP fixture",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "FT-WQR1BB6D0C22990-001",
+        "Blackbox API state-Local HTTP fixture",
+        "Local HTTP fixture",
+        "Ready endpoint satisfies ready requirement",
+        "Local deterministic fixture is running on 127.0.0.1:18882",
+        "1. Send GET /api/value?value=ready\n2. Compare HTTP status and JSON status against the independent requirement",
+        "2. HTTP 200 and JSON status equals ready",
+        "【待确认：用例编制人】",
+        "run-b7ffb833eb93：通过；HTTP 200，6 ms，2 条断言通过",
+        "通过",
+        "",
+        "被测地址：http://127.0.0.1:18882\n任务引擎：http\nPython：3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+        "原始标识：TC-API-BB-READY；冻结定义：662a938936021f8c80541964da779ce234d8b910a3295f3f443eb46fee16a99d\n仅已保存的项目/模块归属；更细业务层级未提供，不补造层级。\n【待确认：功能项拼音缩写】；WQR 编号仅为本报告临时显示标识，原用例标识未修改。\n【待确认：用例编制人】\n本表每个冻结定义一行；全部轮次、重试和证据引用见「执行明细」。",
+        ""
+      ],
+      [
+        "FT-WQR1BB6D0C22990-002",
+        "Blackbox API state-Local HTTP fixture",
+        "Local HTTP fixture",
+        "Wrong endpoint preserves business violation",
+        "Local deterministic fixture is running on 127.0.0.1:18882",
+        "1. Send GET /api/value?value=wrong\n2. Compare HTTP status and JSON status against the independent ready requirement",
+        "2. HTTP 200 and JSON status equals ready; actual wrong must remain a business failure",
+        "【待确认：用例编制人】",
+        "run-b7ffb833eb93：失败；HTTP 200，6 ms",
+        "失败",
+        "",
+        "被测地址：http://127.0.0.1:18882\n任务引擎：http\nPython：3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+        "原始标识：TC-API-BB-WRONG；冻结定义：9cd70033c9f91ef5bdc18796acbea4f1f2ddf4987a13d2a9d595d830023a1a6d\n仅已保存的项目/模块归属；更细业务层级未提供，不补造层级。\n【待确认：功能项拼音缩写】；WQR 编号仅为本报告临时显示标识，原用例标识未修改。\n【待确认：用例编制人】\n本表每个冻结定义一行；全部轮次、重试和证据引用见「执行明细」。",
+        ""
+      ]
+    ],
+    "maximum_columns": 14
+  }
+]

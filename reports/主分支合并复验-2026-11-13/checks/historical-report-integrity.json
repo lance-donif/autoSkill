@@ -1,0 +1,26 @@
+[
+  {
+    "report": "reports/自动化模型实测-2026-11-13",
+    "receipt_files": 7,
+    "actual_files": 8,
+    "index_byte_mismatches": []
+  },
+  {
+    "report": "reports/自动化模型重测-Jev式接法-2026-11-13",
+    "receipt_files": 341,
+    "actual_files": 343,
+    "index_byte_mismatches": []
+  },
+  {
+    "report": "reports/模型扩展实测-2026-11-13",
+    "receipt_files": 334,
+    "actual_files": 335,
+    "index_byte_mismatches": []
+  },
+  {
+    "report": "reports/状态分类与联动优化-2026-11-13",
+    "receipt_files": 1399,
+    "actual_files": 1400,
+    "index_byte_mismatches": []
+  }
+]

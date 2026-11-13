@@ -1,0 +1,63 @@
+{
+  "label": "052-workflow-v2-materialize",
+  "started_at": "2026-11-13T14:12:00.735012+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "workflow",
+    "submit",
+    "wf-1693b9093d974b1888df501d634aee83",
+    "wfi-2e72de898acd48d4943dd2658335f390",
+    "--lease-token",
+    "lease-ff3736c3f3cc42bdb0e294fa35ad9e18",
+    "--attempt-id",
+    "wfa-64836e9faa634bb995009269c7ca90a7",
+    "--idempotency-key",
+    "052-workflow-v2-materialize",
+    "--file",
+    "/workspace/autoskill-state-validation/blackbox-api/inputs/materialize-v2.json"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.2545418289992085,
+  "ended_at": "2026-11-13T14:12:00.989556+00:00",
+  "response": {
+    "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+    "project_id": "bb-api",
+    "title": "Blackbox HTTP lifecycle",
+    "cycle_id": "cycle-d82498cb8913415b8b2a261a3a4e451a",
+    "lifecycle": "active",
+    "cycle_state": "awaiting_host",
+    "complete": false,
+    "conclusion": "unassessed",
+    "revision": 24,
+    "domain_head": "4146cbeed23118fc39a3be158ade19d56d66cc7852f657786352a53e3b3790aa",
+    "definition_hash": "39cb5c6d57787bc7cec29e06ae2cf4d0e8c9efc57b072307ffaa2921f47a2f58",
+    "counts": {
+      "completed": 4,
+      "ready": 1
+    },
+    "accepted": true,
+    "change_id": "change-7d774fef16c74a3791a6cc18a0754c11",
+    "workflow": {
+      "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+      "project_id": "bb-api",
+      "title": "Blackbox HTTP lifecycle",
+      "cycle_id": "cycle-d82498cb8913415b8b2a261a3a4e451a",
+      "lifecycle": "active",
+      "cycle_state": "awaiting_host",
+      "complete": false,
+      "conclusion": "unassessed",
+      "revision": 24,
+      "domain_head": "4146cbeed23118fc39a3be158ade19d56d66cc7852f657786352a53e3b3790aa",
+      "definition_hash": "39cb5c6d57787bc7cec29e06ae2cf4d0e8c9efc57b072307ffaa2921f47a2f58",
+      "counts": {
+        "completed": 4,
+        "ready": 1
+      }
+    }
+  }
+}

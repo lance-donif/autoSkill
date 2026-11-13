@@ -1,0 +1,802 @@
+{
+  "started_ns": 1794581084897492493,
+  "method": "Actual Chromium visible foreground page; MutationObserver plus double requestAnimationFrame; run.finished_at is the conservative receipt timestamp before the DB commit; API first visible sampled independently. No product imports.",
+  "experiments": [
+    {
+      "index": 0,
+      "expected_answer": 42,
+      "fixture_answer": 42,
+      "target": "pass",
+      "started_ns": 1794581089525972197,
+      "before_row": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：未验证\n业务：通过\n\t今天 14:38\t\n运行",
+      "before_interaction": {
+        "value": "Six",
+        "focused": true,
+        "selectionStart": 1,
+        "selectionEnd": 3,
+        "scrollX": 0,
+        "scrollY": 31,
+        "visibility": "visible",
+        "hasFocus": true
+      },
+      "api_observations": [
+        {
+          "poll_start_ns": 1794581092830575179,
+          "received_ns": 1794581093921250496,
+          "run_id": "run-89efc3ffb2b7",
+          "status": "Running",
+          "state": {
+            "lifecycle": "active",
+            "phase": "running",
+            "outcome": "pending",
+            "checks": {
+              "business": "unverified",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "unverified",
+            "report": "pending",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-89efc3ffb2b7",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "02de3379c7eed80b95a669634ba53a6e4619617855a4e79c33f46f9daae43b22"
+          },
+          "finished_at": null
+        },
+        {
+          "poll_start_ns": 1794581094280890073,
+          "received_ns": 1794581096078502496,
+          "run_id": "run-89efc3ffb2b7",
+          "status": "Running",
+          "state": {
+            "lifecycle": "active",
+            "phase": "running",
+            "outcome": "pending",
+            "checks": {
+              "business": "pass",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "valid",
+            "report": "pending",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-89efc3ffb2b7",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "40768f32b79c2d83b618737cc57a9a730b25df9e8993b19a46079d715a14e872"
+          },
+          "finished_at": null
+        },
+        {
+          "poll_start_ns": 1794581096120466929,
+          "received_ns": 1794581097307479927,
+          "run_id": "run-89efc3ffb2b7",
+          "status": "Pass",
+          "state": {
+            "lifecycle": "completed",
+            "phase": "settled",
+            "outcome": "pass",
+            "checks": {
+              "business": "pass",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "valid",
+            "report": "ready",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-89efc3ffb2b7",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "b6bc7eaf6b2ca5613fb9c97a56b01b8ce821baf82e0037967816abca1fa3c874"
+          },
+          "finished_at": "2026-11-13T14:44:54.393+00:00"
+        }
+      ],
+      "cli_started_ns": 1794581091019258574,
+      "fixture_released_ns": 1794581094231178670,
+      "run_id": "run-89efc3ffb2b7",
+      "terminal": {
+        "id": "run-89efc3ffb2b7",
+        "batch_id": null,
+        "project_id": "fresh-arithmetic",
+        "engine": "playwright",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Pass",
+        "case_ids": "[\"TC-API-FRESH-001\"]",
+        "total": 1,
+        "done": 1,
+        "passed": 1,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 59623,
+        "created_at": "2026-11-13T14:44:51.867+00:00",
+        "started_at": "2026-11-13T14:44:51.898+00:00",
+        "finished_at": "2026-11-13T14:44:54.393+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "fresh-blind",
+        "family": "replay",
+        "input_manifest": ".local/execution-inputs/734f1e8c4998dd2a81f01859d04f1b0be4c101401548693568de199f98c0a0d0-4a20bf7db56d4ea7a5c347def9408f72.json",
+        "input_hash": "734f1e8c4998dd2a81f01859d04f1b0be4c101401548693568de199f98c0a0d0",
+        "plan_path": ".local/case-plans/88c672af95215957fef9ebe30aa98c5e/autoskill-cases",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\", \"pid\": 59623, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1215116\"}",
+        "project_name": "Fresh blind arithmetic desk",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "fresh-arithmetic",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-89efc3ffb2b7",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "b6bc7eaf6b2ca5613fb9c97a56b01b8ce821baf82e0037967816abca1fa3c874"
+        },
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 1.0,
+        "state_counts": {
+          "pass": 1,
+          "fail": 0,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "recorded_counts": {
+          "passed": 1,
+          "failed": 0,
+          "blocked": 0
+        }
+      },
+      "terminal_first_public_ns": 1794581097307479927,
+      "paint": {
+        "at": 1794581095631,
+        "kind": "paint",
+        "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:44\t\n运行",
+        "domAt": 1794581095615
+      },
+      "events": [
+        {
+          "at": 1794581095615,
+          "kind": "dom",
+          "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:44\t\n运行"
+        },
+        {
+          "at": 1794581095631,
+          "kind": "paint",
+          "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:44\t\n运行",
+          "domAt": 1794581095615
+        }
+      ],
+      "after_row": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:44\t\n运行",
+      "after_interaction": {
+        "value": "Six",
+        "focused": true,
+        "selectionStart": 1,
+        "selectionEnd": 3,
+        "scrollX": 0,
+        "scrollY": 31,
+        "visibility": "visible",
+        "hasFocus": true
+      },
+      "cli_evidence": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-cli-0.json",
+      "finished_ns": 1794581097368930688,
+      "paint_minus_receipt_finish_ms": 1238.0,
+      "paint_minus_first_public_visible_ms": -1676.48,
+      "within_one_second": false,
+      "interaction_preserved": true
+    },
+    {
+      "index": 1,
+      "expected_answer": 42,
+      "fixture_answer": 41,
+      "target": "fail",
+      "started_ns": 1794581097727206068,
+      "before_row": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:44\t\n运行",
+      "before_interaction": {
+        "value": "Six",
+        "focused": true,
+        "selectionStart": 1,
+        "selectionEnd": 3,
+        "scrollX": 0,
+        "scrollY": 31,
+        "visibility": "visible",
+        "hasFocus": true
+      },
+      "api_observations": [
+        {
+          "poll_start_ns": 1794581100473101125,
+          "received_ns": 1794581101214960612,
+          "run_id": "run-bfb31ef378f5",
+          "status": "Running",
+          "state": {
+            "lifecycle": "active",
+            "phase": "running",
+            "outcome": "pending",
+            "checks": {
+              "business": "unverified",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "unverified",
+            "report": "pending",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-bfb31ef378f5",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "a30a2fa05718321ce2d0731fb5adfaa845a1e43579db334309c2b25bbc7c13be"
+          },
+          "finished_at": null
+        },
+        {
+          "poll_start_ns": 1794581101616290645,
+          "received_ns": 1794581103122028899,
+          "run_id": "run-bfb31ef378f5",
+          "status": "Running",
+          "state": {
+            "lifecycle": "active",
+            "phase": "running",
+            "outcome": "fail",
+            "checks": {
+              "business": "fail",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "valid",
+            "report": "pending",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-bfb31ef378f5",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "2e05281af16dde757ab7ce9c925d4e6695c9afb1e4672fb16816d7637a143c1c"
+          },
+          "finished_at": null
+        },
+        {
+          "poll_start_ns": 1794581103170812956,
+          "received_ns": 1794581105207652771,
+          "run_id": "run-bfb31ef378f5",
+          "status": "Fail",
+          "state": {
+            "lifecycle": "completed",
+            "phase": "settled",
+            "outcome": "fail",
+            "checks": {
+              "business": "fail",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "valid",
+            "report": "ready",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-bfb31ef378f5",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "98c9724c324f053605d36a3ddf34d2a255c91b4a97786c9affa3dfa1220427c9"
+          },
+          "finished_at": "2026-11-13T14:45:01.686+00:00"
+        }
+      ],
+      "cli_started_ns": 1794581099071059063,
+      "fixture_released_ns": 1794581101522383764,
+      "run_id": "run-bfb31ef378f5",
+      "terminal": {
+        "id": "run-bfb31ef378f5",
+        "batch_id": null,
+        "project_id": "fresh-arithmetic",
+        "engine": "playwright",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Fail",
+        "case_ids": "[\"TC-API-FRESH-001\"]",
+        "total": 1,
+        "done": 1,
+        "passed": 0,
+        "failed": 1,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 59646,
+        "created_at": "2026-11-13T14:44:59.472+00:00",
+        "started_at": "2026-11-13T14:44:59.487+00:00",
+        "finished_at": "2026-11-13T14:45:01.686+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "fresh-blind",
+        "family": "replay",
+        "input_manifest": ".local/execution-inputs/3df0a64f4d2f9e2f6cee55562b27a1fc949fa3c364aa07f39c2118e43e3de20a-26f992afc0e2489c9346cccfc009ccae.json",
+        "input_hash": "3df0a64f4d2f9e2f6cee55562b27a1fc949fa3c364aa07f39c2118e43e3de20a",
+        "plan_path": ".local/case-plans/88c672af95215957fef9ebe30aa98c5e/autoskill-cases",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\", \"pid\": 59646, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1215905\"}",
+        "project_name": "Fresh blind arithmetic desk",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "fail",
+          "checks": {
+            "business": "fail",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "fresh-arithmetic",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-bfb31ef378f5",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "98c9724c324f053605d36a3ddf34d2a255c91b4a97786c9affa3dfa1220427c9"
+        },
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 0.0,
+        "state_counts": {
+          "pass": 0,
+          "fail": 1,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "recorded_counts": {
+          "passed": 0,
+          "failed": 1,
+          "blocked": 0
+        }
+      },
+      "terminal_first_public_ns": 1794581105207652771,
+      "paint": {
+        "at": 1794581102876,
+        "kind": "paint",
+        "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 14:44\t\n运行",
+        "domAt": 1794581102846
+      },
+      "events": [
+        {
+          "at": 1794581102846,
+          "kind": "dom",
+          "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 14:44\t\n运行"
+        },
+        {
+          "at": 1794581102876,
+          "kind": "paint",
+          "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 14:44\t\n运行",
+          "domAt": 1794581102846
+        }
+      ],
+      "after_row": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 14:44\t\n运行",
+      "after_interaction": {
+        "value": "Six",
+        "focused": true,
+        "selectionStart": 1,
+        "selectionEnd": 3,
+        "scrollX": 0,
+        "scrollY": 31,
+        "visibility": "visible",
+        "hasFocus": true
+      },
+      "cli_evidence": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-cli-1.json",
+      "finished_ns": 1794581105286489844,
+      "paint_minus_receipt_finish_ms": 1190.0,
+      "paint_minus_first_public_visible_ms": -2331.653,
+      "within_one_second": false,
+      "interaction_preserved": true
+    },
+    {
+      "index": 2,
+      "expected_answer": 42,
+      "fixture_answer": 42,
+      "target": "pass",
+      "started_ns": 1794581105525794946,
+      "before_row": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 14:44\t\n运行",
+      "before_interaction": {
+        "value": "Six",
+        "focused": true,
+        "selectionStart": 1,
+        "selectionEnd": 3,
+        "scrollX": 0,
+        "scrollY": 31,
+        "visibility": "visible",
+        "hasFocus": true
+      },
+      "api_observations": [
+        {
+          "poll_start_ns": 1794581108771640993,
+          "received_ns": 1794581110609655014,
+          "run_id": "run-96660d99ed1b",
+          "status": "Running",
+          "state": {
+            "lifecycle": "active",
+            "phase": "running",
+            "outcome": "pending",
+            "checks": {
+              "business": "unverified",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "unverified",
+            "report": "pending",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-96660d99ed1b",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "340059a77a7cdeac6e460a01e5a5da57037178cca90174f5220a2eedf25e39fc"
+          },
+          "finished_at": null
+        },
+        {
+          "poll_start_ns": 1794581111007091798,
+          "received_ns": 1794581113906592135,
+          "run_id": "run-96660d99ed1b",
+          "status": "Running",
+          "state": {
+            "lifecycle": "active",
+            "phase": "running",
+            "outcome": "pending",
+            "checks": {
+              "business": "pass",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "valid",
+            "report": "pending",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-96660d99ed1b",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "a29044d81685c1e17ca16aafe03382abfc57f5d88cd6c13b753b48daab4db272"
+          },
+          "finished_at": null
+        },
+        {
+          "poll_start_ns": 1794581113971020909,
+          "received_ns": 1794581115187113113,
+          "run_id": "run-96660d99ed1b",
+          "status": "Pass",
+          "state": {
+            "lifecycle": "completed",
+            "phase": "settled",
+            "outcome": "pass",
+            "checks": {
+              "business": "pass",
+              "performance": "not_applicable",
+              "quality": "not_applicable"
+            },
+            "evidence": "valid",
+            "report": "ready",
+            "delivery": "not_applicable",
+            "scope": {
+              "project_id": "fresh-arithmetic",
+              "workflow_id": null,
+              "cycle_id": null,
+              "run_id": "run-96660d99ed1b",
+              "case_id": null,
+              "attempt_id": null
+            },
+            "reason": "",
+            "revision": "920e8df976f898e329bc3f48f4df70abde9a65de40924061a892aba11469c308"
+          },
+          "finished_at": "2026-11-13T14:45:11.985+00:00"
+        }
+      ],
+      "cli_started_ns": 1794581106782101559,
+      "fixture_released_ns": 1794581110928552211,
+      "run_id": "run-96660d99ed1b",
+      "terminal": {
+        "id": "run-96660d99ed1b",
+        "batch_id": null,
+        "project_id": "fresh-arithmetic",
+        "engine": "playwright",
+        "trigger": "manual",
+        "task_id": null,
+        "status": "Pass",
+        "case_ids": "[\"TC-API-FRESH-001\"]",
+        "total": 1,
+        "done": 1,
+        "passed": 1,
+        "failed": 0,
+        "blocked": 0,
+        "current": "",
+        "reason": "",
+        "cancel": 0,
+        "pid": 59679,
+        "created_at": "2026-11-13T14:45:07.787+00:00",
+        "started_at": "2026-11-13T14:45:07.884+00:00",
+        "finished_at": "2026-11-13T14:45:11.985+00:00",
+        "headed": 0,
+        "claim_token": "",
+        "force_login": 0,
+        "session_id": "fresh-blind",
+        "family": "replay",
+        "input_manifest": ".local/execution-inputs/5258d7d676e4f2768c37d0336d3beefc996be7214ba8da35e0264eb69be4f31a-2bd26ab4731843c8a2215e0f9a2bbfa1.json",
+        "input_hash": "5258d7d676e4f2768c37d0336d3beefc996be7214ba8da35e0264eb69be4f31a",
+        "plan_path": ".local/case-plans/88c672af95215957fef9ebe30aa98c5e/autoskill-cases",
+        "delete_requested": 0,
+        "deletion_error": "",
+        "deletion_manifest": "",
+        "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\", \"pid\": 59679, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1216689\"}",
+        "project_name": "Fresh blind arithmetic desk",
+        "state": {
+          "lifecycle": "completed",
+          "phase": "settled",
+          "outcome": "pass",
+          "checks": {
+            "business": "pass",
+            "performance": "not_applicable",
+            "quality": "not_applicable"
+          },
+          "evidence": "valid",
+          "report": "ready",
+          "delivery": "not_applicable",
+          "scope": {
+            "project_id": "fresh-arithmetic",
+            "workflow_id": null,
+            "cycle_id": null,
+            "run_id": "run-96660d99ed1b",
+            "case_id": null,
+            "attempt_id": null
+          },
+          "reason": "",
+          "revision": "920e8df976f898e329bc3f48f4df70abde9a65de40924061a892aba11469c308"
+        },
+        "unverified": 0,
+        "cancelled": 0,
+        "pending": 0,
+        "judged": 1,
+        "pass_rate": 1.0,
+        "state_counts": {
+          "pass": 1,
+          "fail": 0,
+          "blocked": 0,
+          "unverified": 0,
+          "cancelled": 0,
+          "pending": 0
+        },
+        "recorded_counts": {
+          "passed": 1,
+          "failed": 0,
+          "blocked": 0
+        }
+      },
+      "terminal_first_public_ns": 1794581115187113113,
+      "paint": {
+        "at": 1794581112773,
+        "kind": "paint",
+        "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:45\t\n运行",
+        "domAt": 1794581112718
+      },
+      "events": [
+        {
+          "at": 1794581112718,
+          "kind": "dom",
+          "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:45\t\n运行"
+        },
+        {
+          "at": 1794581112773,
+          "kind": "paint",
+          "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:45\t\n运行",
+          "domAt": 1794581112718
+        }
+      ],
+      "after_row": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:45\t\n运行",
+      "after_interaction": {
+        "value": "Six",
+        "focused": true,
+        "selectionStart": 1,
+        "selectionEnd": 3,
+        "scrollX": 0,
+        "scrollY": 31,
+        "visibility": "visible",
+        "hasFocus": true
+      },
+      "cli_evidence": "/workspace/autoskill-state-validation/fresh-blind/evidence/foreground-cli-2.json",
+      "finished_ns": 1794581115212999894,
+      "paint_minus_receipt_finish_ms": 788.0,
+      "paint_minus_first_public_visible_ms": -2414.113,
+      "within_one_second": true,
+      "interaction_preserved": true
+    }
+  ],
+  "load": [
+    {
+      "time_ns": 1794581084897518215,
+      "loadavg": [
+        2.96337890625,
+        3.41455078125,
+        3.2919921875
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 8201556308\nuser_usec 6843737066\nsystem_usec 1357819241\nnice_usec 0\nnr_periods 74509\nnr_throttled 24631\nthrottled_usec 1375763883\nnr_bursts 0\nburst_usec 0\n"
+    },
+    {
+      "time_ns": 1794581089571088549,
+      "loadavg": [
+        3.046875,
+        3.42431640625,
+        3.2958984375
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 8210872315\nuser_usec 6850173919\nsystem_usec 1360698396\nnice_usec 0\nnr_periods 74556\nnr_throttled 24676\nthrottled_usec 1379217499\nnr_bursts 0\nburst_usec 0\n"
+    },
+    {
+      "time_ns": 1794581097737395722,
+      "loadavg": [
+        3.09423828125,
+        3.42578125,
+        3.2978515625
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 8227140575\nuser_usec 6862431048\nsystem_usec 1364709526\nnice_usec 0\nnr_periods 74637\nnr_throttled 24752\nthrottled_usec 1384572985\nnr_bursts 0\nburst_usec 0\n"
+    },
+    {
+      "time_ns": 1794581105578584283,
+      "loadavg": [
+        3.84912109375,
+        3.57666015625,
+        3.3486328125
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 8242790068\nuser_usec 6874300372\nsystem_usec 1368489695\nnice_usec 0\nnr_periods 74716\nnr_throttled 24831\nthrottled_usec 1390580863\nnr_bursts 0\nburst_usec 0\n"
+    },
+    {
+      "time_ns": 1794581115721328435,
+      "loadavg": [
+        3.859375,
+        3.59033203125,
+        3.35595703125
+      ],
+      "cpu_count": 3,
+      "cpu.max": "200000 100000\n",
+      "cpu.stat": "usage_usec 8263092572\nuser_usec 6889990652\nsystem_usec 1373101919\nnice_usec 0\nnr_periods 74817\nnr_throttled 24929\nthrottled_usec 1398640229\nnr_bursts 0\nburst_usec 0\n"
+    }
+  ],
+  "initial_interaction": {
+    "value": "Six",
+    "focused": true,
+    "selectionStart": 1,
+    "selectionEnd": 3,
+    "scrollX": 0,
+    "scrollY": 31,
+    "visibility": "visible",
+    "hasFocus": true
+  },
+  "initial_row": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：未验证\n业务：通过\n\t今天 14:38\t\n运行",
+  "browser": {
+    "version": "156.0.8078.79",
+    "executable": "/usr/bin/chromium",
+    "viewport": {
+      "width": 1100,
+      "height": 430
+    }
+  },
+  "final_events": [
+    {
+      "at": 1794581089503,
+      "kind": "initial",
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：未验证\n业务：通过\n\t今天 14:38\t\n运行"
+    },
+    {
+      "at": 1794581095615,
+      "kind": "dom",
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:44\t\n运行"
+    },
+    {
+      "at": 1794581095631,
+      "kind": "paint",
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:44\t\n运行",
+      "domAt": 1794581095615
+    },
+    {
+      "at": 1794581102846,
+      "kind": "dom",
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 14:44\t\n运行"
+    },
+    {
+      "at": 1794581102876,
+      "kind": "paint",
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：失败\n业务：失败\n\t今天 14:44\t\n运行",
+      "domAt": 1794581102846
+    },
+    {
+      "at": 1794581112718,
+      "kind": "dom",
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:45\t\n运行"
+    },
+    {
+      "at": 1794581112773,
+      "kind": "paint",
+      "text": "\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:45\t\n运行",
+      "domAt": 1794581112718
+    }
+  ],
+  "final_body": "当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n项目与用例\n\n1 个项目 · 1 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。\n\n新建项目\n全部\n页面\n接口\nFresh blind arithmetic desk\n\nhttp://127.0.0.1:37171 · 页面 0 · 接口 1 · 未定义登录方式\n\n运行全部\n\t用例\t类型\t子项目\t最近结果\t最近执行\t\n\t\nSix times seven retains independent expected42\nTC-API-FRESH-001\n\t\n接口\tArithmetic multiplication\t\n已结束\n综合：通过\n业务：通过\n\t今天 14:45\t\n运行",
+  "finished_ns": 1794581115721576797
+}

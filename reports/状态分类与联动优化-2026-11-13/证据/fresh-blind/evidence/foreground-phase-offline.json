@@ -1,0 +1,366 @@
+{
+  "started_ns": 1794581143014027349,
+  "loadavg": [
+    3.359375,
+    3.49462890625,
+    3.3310546875
+  ],
+  "cpu_count": 3,
+  "events": [
+    {
+      "received_ns": 1794581152894282639,
+      "id": "run-94bf958c6d04",
+      "status": "Running",
+      "state": {
+        "lifecycle": "active",
+        "phase": "running",
+        "outcome": "pending",
+        "checks": {
+          "business": "unverified",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "unverified",
+        "report": "pending",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "fresh-arithmetic",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-94bf958c6d04",
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "7913680abaf489ae858bc027ec57d30f4283fbfaa07aedc174b0aff898af7b47"
+      },
+      "started_at": "2026-11-13T14:45:51.283+00:00",
+      "finished_at": null
+    },
+    {
+      "received_ns": 1794581154101600820,
+      "id": "run-94bf958c6d04",
+      "status": "Pass",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "settled",
+        "outcome": "pass",
+        "checks": {
+          "business": "pass",
+          "performance": "not_applicable",
+          "quality": "pass"
+        },
+        "evidence": "valid",
+        "report": "generating",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "fresh-arithmetic",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-94bf958c6d04",
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "e6bec1cbd4ac0dcc332d38861c956d34aa008c4328a9c48b3381f5c059c3f1b2"
+      },
+      "started_at": "2026-11-13T14:45:51.283+00:00",
+      "finished_at": "2026-11-13T14:45:52.974+00:00"
+    }
+  ],
+  "before_view": {
+    "filters": [
+      "all",
+      "running",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "focusedSelect": 1,
+    "scrollY": 20,
+    "visibility": "visible",
+    "hasFocus": true,
+    "rows": [
+      "\t\n已结束\n综合：通过\n业务：通过\n\t\nFresh blind arithmetic desk\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\t手动\tPlaywright\t今天 14:45\t4.1 秒\t\n删除运行",
+      "\t\n已结束\n综合：失败\n业务：失败\n\t\nFresh blind arithmetic desk\n1 条用例\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tPlaywright\t今天 14:44\t2.2 秒\t\n删除运行",
+      "\t\n已结束\n综合：通过\n业务：通过\n\t\nFresh blind arithmetic desk\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\t手动\tPlaywright\t今天 14:44\t2.5 秒\t\n删除运行",
+      "\t\n已结束\n综合：通过\n业务：通过\n质量：通过\n\t\nFresh blind arithmetic desk\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\t手动\tai-eval\t今天 14:40\t829 ms\t\n删除运行",
+      "\t\n已结束\n综合：通过\n业务：通过\n\t\nFresh blind arithmetic desk\n1 条用例\n\t\n1 通过 · 0 失败 · 0 阻塞 · 0 未验证\n\tworkflow\tPlaywright\t今天 14:38\t1.1 秒\t\n删除运行",
+      "\t\n已结束\n综合：未验证\n业务：未验证\n质量：未验证\n\t\nFresh blind arithmetic desk\n1 条用例\n\t\n0 通过 · 0 失败 · 0 阻塞 · 1 未验证\n\t手动\tai-eval\t今天 14:35\t2.2 秒\t\n删除运行",
+      "\t\n已结束\n综合：失败\n业务：失败\n质量：失败\n\t\nFresh blind arithmetic desk\n回答不符合独立预期\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tai-eval\t今天 14:35\t1.3 秒\t\n删除运行",
+      "\t\n已结束\n综合：失败\n业务：失败\n质量：失败\n\t\nFresh blind arithmetic desk\n回答不符合独立预期\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tai-eval\t今天 14:35\t2.1 秒\t\n删除运行",
+      "\t\n已结束\n综合：未验证\n业务：通过\n质量：通过\n证据：已失效\n\t\nFresh blind arithmetic desk\n1 条用例\n\t\n0 通过 · 0 失败 · 0 阻塞 · 1 未验证\n\t手动\tai-eval\t今天 14:35\t1.8 秒\t\n删除运行",
+      "\t\n已结束\n综合：失败\n业务：通过\n性能：失败\n质量：通过\n\t\nFresh blind arithmetic desk\n响应时间不符合目标\n\t\n0 通过 · 1 失败 · 0 阻塞 · 0 未验证\n\t手动\tai-eval\t今天 14:34\t969 ms\t\n删除运行"
+    ]
+  },
+  "native_cli_started_ns": 1794581150491428874,
+  "released_ns": 1794581152917555129,
+  "native_cli": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+      "/workspace/autoskill-state-validation/fresh-blind/scripts/cli.py",
+      "native",
+      "run",
+      "fresh-arithmetic",
+      "asset-101b7a6ea95d"
+    ],
+    "exit_code": 0,
+    "stdout": "{\n  \"exit_code\": 0,\n  \"result\": {\n    \"id\": \"run-94bf958c6d04\",\n    \"family\": \"native\",\n    \"project_id\": \"fresh-arithmetic\",\n    \"engine\": \"ai-eval\",\n    \"trigger\": \"manual\",\n    \"task_id\": null,\n    \"status\": \"Queued\",\n    \"case_ids\": [\n      \"asset-101b7a6ea95d\"\n    ],\n    \"total\": 0,\n    \"created_at\": \"2026-11-13T14:45:51.019+00:00\",\n    \"headed\": 0,\n    \"session_id\": \"fresh-blind\",\n    \"input_manifest\": \"/workspace/autoskill-state-validation/fresh-blind/workspace-candidate/.local/native-inputs/90a63d38ff5f6f28b8aea9ef1352f2e6770183ed2ab930e08f8a8b9238282692-f2b5ddea570b4590983c0b6a97bdbdab.json\",\n    \"input_hash\": \"90a63d38ff5f6f28b8aea9ef1352f2e6770183ed2ab930e08f8a8b9238282692\",\n    \"state\": {\n      \"lifecycle\": \"pending\",\n      \"phase\": \"queued\",\n      \"outcome\": \"pending\",\n      \"checks\": {\n        \"business\": \"unverified\",\n        \"performance\": \"not_applicable\",\n        \"quality\": \"not_applicable\"\n      },\n      \"evidence\": \"unverified\",\n      \"report\": \"pending\",\n      \"delivery\": \"not_applicable\",\n      \"scope\": {\n        \"project_id\": \"fresh-arithmetic\",\n        \"workflow_id\": null,\n        \"cycle_id\": null,\n        \"run_id\": \"run-94bf958c6d04\",\n        \"case_id\": null,\n        \"attempt_id\": null\n      },\n      \"reason\": \"\",\n      \"revision\": \"7079fb12d2656fbc7ebed7e8e446a559207c93a8ef11da51d086de8a1dc11d19\"\n    },\n    \"queue_dispatcher\": {\n      \"status\": \"started\",\n      \"pid\": 59929,\n      \"reason\": \"\"\n    },\n    \"note\": \"已入队；用 native status 查看实际结果，并用 judge next 处理宿主判定\"\n  },\n  \"evidence\": \"evidence/cli-1794581150539629192-native.json\"\n}\n",
+    "stderr": ""
+  },
+  "run_id": "run-94bf958c6d04",
+  "running": {
+    "id": "run-94bf958c6d04",
+    "batch_id": null,
+    "project_id": "fresh-arithmetic",
+    "engine": "ai-eval",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Running",
+    "case_ids": "[\"asset-101b7a6ea95d\"]",
+    "total": 0,
+    "done": 0,
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0,
+    "current": "",
+    "reason": "",
+    "cancel": 0,
+    "pid": 59930,
+    "created_at": "2026-11-13T14:45:51.019+00:00",
+    "started_at": "2026-11-13T14:45:51.283+00:00",
+    "finished_at": null,
+    "headed": 0,
+    "claim_token": "",
+    "force_login": 0,
+    "session_id": "fresh-blind",
+    "family": "native",
+    "input_manifest": ".local/native-inputs/90a63d38ff5f6f28b8aea9ef1352f2e6770183ed2ab930e08f8a8b9238282692-f2b5ddea570b4590983c0b6a97bdbdab.json",
+    "input_hash": "90a63d38ff5f6f28b8aea9ef1352f2e6770183ed2ab930e08f8a8b9238282692",
+    "plan_path": "",
+    "delete_requested": 0,
+    "deletion_error": "",
+    "deletion_manifest": "",
+    "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\", \"pid\": 59930, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1221130\"}",
+    "project_name": "Fresh blind arithmetic desk",
+    "state": {
+      "lifecycle": "active",
+      "phase": "running",
+      "outcome": "pending",
+      "checks": {
+        "business": "unverified",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "unverified",
+      "report": "pending",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "fresh-arithmetic",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-94bf958c6d04",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "7913680abaf489ae858bc027ec57d30f4283fbfaa07aedc174b0aff898af7b47"
+    },
+    "unverified": 0,
+    "cancelled": 0,
+    "pending": 0,
+    "judged": 0,
+    "pass_rate": null,
+    "state_counts": {
+      "pass": 0,
+      "fail": 0,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    },
+    "recorded_counts": {
+      "passed": 0,
+      "failed": 0,
+      "blocked": 0
+    }
+  },
+  "run_paint": {
+    "at": 1794581152234,
+    "kind": "paint",
+    "text": "\t\n执行中\n综合：待处理\n业务：未验证\n\t\nFresh blind arithmetic desk\n准备中\n\t\n0/0\n\t手动\tai-eval\t今天 14:45\t—\t\n取消并删除",
+    "domAt": 1794581152228
+  },
+  "terminal": {
+    "id": "run-94bf958c6d04",
+    "batch_id": null,
+    "project_id": "fresh-arithmetic",
+    "engine": "ai-eval",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Pass",
+    "case_ids": "[\"asset-101b7a6ea95d\"]",
+    "total": 1,
+    "done": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "current": "",
+    "reason": "",
+    "cancel": 0,
+    "pid": 59930,
+    "created_at": "2026-11-13T14:45:51.019+00:00",
+    "started_at": "2026-11-13T14:45:51.283+00:00",
+    "finished_at": "2026-11-13T14:45:52.974+00:00",
+    "headed": 0,
+    "claim_token": "",
+    "force_login": 0,
+    "session_id": "fresh-blind",
+    "family": "native",
+    "input_manifest": ".local/native-inputs/90a63d38ff5f6f28b8aea9ef1352f2e6770183ed2ab930e08f8a8b9238282692-f2b5ddea570b4590983c0b6a97bdbdab.json",
+    "input_hash": "90a63d38ff5f6f28b8aea9ef1352f2e6770183ed2ab930e08f8a8b9238282692",
+    "plan_path": "",
+    "delete_requested": 0,
+    "deletion_error": "",
+    "deletion_manifest": "",
+    "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"d16c9e402ad3b83ad4106f3e4612761e0e42e473fa2e7bbd32a3348e62d8da22\", \"pid\": 59930, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1221130\"}",
+    "project_name": "Fresh blind arithmetic desk",
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "pass",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "pass"
+      },
+      "evidence": "valid",
+      "report": "generating",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "fresh-arithmetic",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-94bf958c6d04",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "e6bec1cbd4ac0dcc332d38861c956d34aa008c4328a9c48b3381f5c059c3f1b2"
+    },
+    "unverified": 0,
+    "cancelled": 0,
+    "pending": 0,
+    "judged": 1,
+    "pass_rate": 1.0,
+    "state_counts": {
+      "pass": 1,
+      "fail": 0,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    },
+    "recorded_counts": {
+      "passed": 1,
+      "failed": 0,
+      "blocked": 0
+    }
+  },
+  "end_paint": {
+    "at": 1794581153771,
+    "kind": "paint",
+    "text": "",
+    "domAt": 1794581153745
+  },
+  "after_view": {
+    "filters": [
+      "current",
+      "running",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "focusedSelect": -1,
+    "scrollY": 20,
+    "visibility": "visible",
+    "hasFocus": true,
+    "rows": []
+  },
+  "paint_events": [
+    {
+      "at": 1794581148560,
+      "kind": "dom",
+      "text": ""
+    },
+    {
+      "at": 1794581148562,
+      "kind": "paint",
+      "text": "",
+      "domAt": 1794581148560
+    },
+    {
+      "at": 1794581152228,
+      "kind": "dom",
+      "text": "\t\n执行中\n综合：待处理\n业务：未验证\n\t\nFresh blind arithmetic desk\n准备中\n\t\n0/0\n\t手动\tai-eval\t今天 14:45\t—\t\n取消并删除"
+    },
+    {
+      "at": 1794581152234,
+      "kind": "paint",
+      "text": "\t\n执行中\n综合：待处理\n业务：未验证\n\t\nFresh blind arithmetic desk\n准备中\n\t\n0/0\n\t手动\tai-eval\t今天 14:45\t—\t\n取消并删除",
+      "domAt": 1794581152228
+    },
+    {
+      "at": 1794581153745,
+      "kind": "dom",
+      "text": ""
+    },
+    {
+      "at": 1794581153771,
+      "kind": "paint",
+      "text": "",
+      "domAt": 1794581153745
+    }
+  ],
+  "running_paint_ms": 951.0,
+  "running_within_one_second": true,
+  "settled_paint_ms": 797.0,
+  "settled_within_one_second": true,
+  "filters_focus_scroll_preserved": false,
+  "offline_before_body": "1\n当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n\n范围内共 0 次运行\n\n按运行\n按用例结果\n全部状态\n通过\n失败\n阻塞\n执行中\n已取消\n周期\n当前周期\n包含历史周期\n执行阶段\n全部阶段\n排队中\n执行中\n等待宿主\n等待执行\n恢复中\n阻塞\n已结束\n已取消\n综合结果\n全部结果\n待处理\n通过\n失败\n阻塞\n未验证\n已取消\n业务验证\n全部业务结果\n通过\n失败\n未验证\n性能目标\n全部性能结果\n通过\n失败\n未验证\n不适用\n报告交付\n全部报告状态\n已就绪\n失败\n待生成\n生成中\n尚未生成\n这个范围内还没有执行\n\n到「项目与用例」运行一次，结果会出现在这里。\n\n去运行用例",
+  "offline_started_ns": 1794581154135352969,
+  "offline_body": "当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n没能加载\n\n连不上 autoSkill 服务，请确认它还在运行\n\n重试",
+  "offline_view": {
+    "filters": [],
+    "focusedSelect": -1,
+    "scrollY": 0,
+    "visibility": "visible",
+    "hasFocus": true,
+    "rows": []
+  },
+  "online_restored_ns": 1794581155804376512,
+  "restored_body": "当前范围\n全部项目\n近 7 天\n全部项目 · 近 7 天\n回放设置\n执行记录\n\n范围内共 0 次运行\n\n按运行\n按用例结果\n全部状态\n通过\n失败\n阻塞\n执行中\n已取消\n周期\n当前周期\n包含历史周期\n执行阶段\n全部阶段\n排队中\n执行中\n等待宿主\n等待执行\n恢复中\n阻塞\n已结束\n已取消\n综合结果\n全部结果\n待处理\n通过\n失败\n阻塞\n未验证\n已取消\n业务验证\n全部业务结果\n通过\n失败\n未验证\n性能目标\n全部性能结果\n通过\n失败\n未验证\n不适用\n报告交付\n全部报告状态\n已就绪\n失败\n待生成\n生成中\n尚未生成\n这个范围内还没有执行\n\n到「项目与用例」运行一次，结果会出现在这里。\n\n去运行用例",
+  "restored_view": {
+    "filters": [
+      "current",
+      "running",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "focusedSelect": -1,
+    "scrollY": 0,
+    "visibility": "visible",
+    "hasFocus": true,
+    "rows": []
+  },
+  "finished_ns": 1794581156995122376,
+  "final_loadavg": [
+    4.23486328125,
+    3.69580078125,
+    3.400390625
+  ]
+}

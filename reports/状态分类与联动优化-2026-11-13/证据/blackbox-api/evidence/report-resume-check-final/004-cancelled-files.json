@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "excel",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-report-resume-check-final/.local/task-reports/workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1/测试用例-4ec20c93a6d97551.xlsx",
+    "exists": true,
+    "size": 12980,
+    "sha256": "5d28ffcd43ae14601407cb0f9a053c1d58c1d6831ad58442d4fc609a1e8eccbb",
+    "hash_matches": true,
+    "size_matches": true,
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/report-resume-check-final/004-cancelled-files-excel.xlsx"
+  },
+  {
+    "kind": "markdown",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-report-resume-check-final/.local/task-reports/workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1/测试简报-4ec20c93a6d97551.md",
+    "exists": true,
+    "size": 765,
+    "sha256": "4b9da731ed3df9a5144cdffe37428c85b8c7f23bc0a378671fa36b0ab8d34f5d",
+    "hash_matches": true,
+    "size_matches": true,
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/report-resume-check-final/004-cancelled-files-markdown.md"
+  },
+  {
+    "kind": "bugs",
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace-report-resume-check-final/.local/task-reports/workflow_92b1464ab16f3b2ab0bb03ccbdc77e28a33851d019594712218fcc5c0f7341b1/Bug清单-4ec20c93a6d97551.md",
+    "exists": true,
+    "size": 972,
+    "sha256": "759990d0eb78512fce2b1002f53fb32705545d96d291fd79bf1ef87606bc5fe4",
+    "hash_matches": true,
+    "size_matches": true,
+    "snapshot": "/workspace/autoskill-state-validation/blackbox-api/evidence/report-resume-check-final/004-cancelled-files-bugs.md"
+  }
+]

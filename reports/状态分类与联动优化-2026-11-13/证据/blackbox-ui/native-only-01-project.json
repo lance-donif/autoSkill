@@ -1,0 +1,15 @@
+{
+  "command": [
+    "project",
+    "create",
+    "--name",
+    "原生资产独立项目",
+    "--url",
+    "http://127.0.0.1:18783"
+  ],
+  "started_at": 1794580542.906402,
+  "finished_at": 1794580543.9206855,
+  "exit_code": 0,
+  "stdout": "{\n \"created\": {\n  \"id\": \"127-0-0-1\",\n  \"name\": \"原生资产独立项目\",\n  \"category\": \"\",\n  \"base_url\": \"http://127.0.0.1:18783\",\n  \"start_url\": \"http://127.0.0.1:18783\",\n  \"allowed_origins\": [\n   \"http://127.0.0.1:18783\"\n  ],\n  \"timeout_seconds\": 20,\n  \"page_load_seconds\": 90,\n  \"ignore_https_errors\": false,\n  \"cases\": {\n   \"total\": 0,\n   \"ui\": 0,\n   \"api\": 0\n  },\n  \"login\": {\n   \"ui_case\": null,\n   \"api_case\": null\n  },\n  \"missing_secrets\": []\n }\n}\n",
+  "stderr": ""
+}

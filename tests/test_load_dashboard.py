@@ -25,7 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import builder, db, paths, projects, runner, sessions, task_report_data
+from autoskill import builder, db, paths, projects, runtime_identity, sessions, task_report_data, workflow
+from autoskill.server import jobs, scheduler
 
 
 class LoadTarget(BaseHTTPRequestHandler):
@@ -78,6 +79,8 @@ class LoadTarget(BaseHTTPRequestHandler):
                 if parsed.path == "/ui-work":
                     state["ui_tokens"].append(self.headers.get("Cookie", ""))
             try:
+                if parsed.path == "/ui-work" and state.get("ui_rendezvous") is not None:
+                    state["ui_rendezvous"].wait(timeout=20)
                 time.sleep(0.25)
                 marker = query.get("token", [""])[0]
                 ok = (self.headers.get("Cookie", "") == "marker=" + marker) if parsed.path == "/check" else True
@@ -157,12 +160,30 @@ class DashboardWorkspace(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait(timeout=5)
-        deadline = time.monotonic() + 10
+        # Release fixture-owned host leases so the independent worker can retire.
+        for task in scheduler.list_all():
+            if task["enabled"]:
+                scheduler.update(task["id"], {"enabled": False})
+        if db.one("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workflow_items'"):
+            leases = db.rows("SELECT i.id,i.workflow_id,a.id AS attempt_id,a.lease_token,a.checkpoint FROM workflow_items i "
+                             "JOIN workflow_attempts a ON a.id=i.attempt_id JOIN workflow_runtime f ON f.id=i.workflow_id "
+                             "WHERE i.state='leased' AND f.lifecycle='active'")
+            for lease in leases:
+                with contextlib.suppress(workflow.WorkflowError):
+                    workflow.release(lease["workflow_id"], lease["id"], lease_token=lease["lease_token"],
+                                     attempt_id=lease["attempt_id"], idempotency_key=uuid.uuid4().hex,
+                                     checkpoint=json.loads(lease["checkpoint"]))
+        for run in db.rows("SELECT id FROM runs WHERE status IN ('Queued','Running')"):
+            jobs.cancel(run["id"])
+        deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
-            active = any(runner.process_alive(row["pid"]) for row in db.rows("SELECT pid FROM runs WHERE pid IS NOT NULL"))
+            # Synchronous execution in this test process has already finished writing.
+            active = any(row["pid"] != os.getpid() and runtime_identity.owns(row["pid"], row["owner_identity"])
+                         for row in db.rows("SELECT pid,owner_identity FROM runs WHERE pid IS NOT NULL"))
             if not active and not (self.folder / "workspace/.local/queue-worker.json").exists():
                 return
             time.sleep(0.05)
+        self.fail("Fixture writers did not stop before temporary workspace cleanup")
 
     def wait_for_server(self):
         deadline = time.monotonic() + 15
@@ -245,6 +266,8 @@ class LoadDashboardTests(DashboardWorkspace):
         self.assertEqual(self.client.get("/api/cases").json()["items"][0]["last_status"], None)
 
     def test_ui_cases_use_independent_real_browsers(self):
+        # Browser startup may be staggered; require both real requests to overlap.
+        self.target.fixture["ui_rendezvous"] = threading.Barrier(2)
         run_id = self.start(self.editor_from_case("TC-UI"), concurrency=2, iterations=2)
         run = self.wait_finished(run_id)
         self.assertEqual((run["status"], run["done"], run["passed"]), ("Pass", 2, 2), run)

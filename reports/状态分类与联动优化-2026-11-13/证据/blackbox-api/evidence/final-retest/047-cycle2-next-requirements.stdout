@@ -1,0 +1,73 @@
+{
+ "task": {
+  "id": "wfi-f20ef7479cdd458a8ea01da0d26872c7",
+  "item_id": "wfi-f20ef7479cdd458a8ea01da0d26872c7",
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "phase": "requirements",
+  "attempt_id": "wfa-18a2fc3b52ec4e83be2fe465e575f65c",
+  "lease_token": "lease-e205a543b0ec45ab94d88d320ba222d9",
+  "lease_until": "2026-11-13T14:34:45.729+00:00",
+  "binding_token": "eyJhdHRlbXB0X2lkIjoid2ZhLTE4YTJmYzNiNTJlYzRlODNiZTJmZTQ2NWU1NzVmNjVjIiwiaXRlbV9pZCI6IndmaS1mMjBlZjc0NzljZGQ0NThhOGVhMDFkYTBkMjY4NzJjNyIsImxlYXNlX3Rva2VuIjoibGVhc2UtZTIwNWE1NDNiMGVjNDVhYjk0ZDg4ZDMyMGJhMjIyZDkiLCJ3b3JrZmxvd19pZCI6IndmLWM5ZTRhYjUwZWI5YzQ2YWZiNTc1OGEwYmI2NzY5MDNkIn0=",
+  "input_hash": "ffecf1861159ed00b3079a3c074d1baf5fc6c4a7a55e23dcc037ce24c584172e",
+  "input_refs": {
+   "definition": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/definition.json",
+   "knowledge": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/knowledge.json",
+   "sources": "workflows/wf-c9e4ab50eb9c46afb5758a0bb676903d/sources.json"
+  },
+  "checkpoint": {},
+  "context": {},
+  "payload_schema": {
+   "example": {
+    "requirements": [
+     {
+      "id": "req-1",
+      "text": "独立业务预期",
+      "source_ids": [
+       "source-1"
+      ]
+     }
+    ]
+   },
+   "rule": "预期来自需求，保留真实失败；候选先暂存和验证，不先覆盖已有用例。"
+  }
+ },
+ "workflow": {
+  "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+  "project_id": "bb-api",
+  "title": "Blackbox HTTP lifecycle",
+  "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+  "lifecycle": "active",
+  "cycle_state": "awaiting_host",
+  "complete": false,
+  "conclusion": "unassessed",
+  "revision": 27,
+  "domain_head": "03d1bc8c6024de6c09961b2b6c9326e619e95a0529fefb99fd0fe7642c073e22",
+  "definition_hash": "ffecf1861159ed00b3079a3c074d1baf5fc6c4a7a55e23dcc037ce24c584172e",
+  "counts": {
+   "leased": 1
+  },
+  "state": {
+   "lifecycle": "active",
+   "phase": "awaiting_host",
+   "outcome": "pending",
+   "checks": {
+    "business": "unverified",
+    "performance": "not_applicable",
+    "quality": "not_applicable"
+   },
+   "evidence": "unverified",
+   "report": "not_generated",
+   "delivery": "not_applicable",
+   "scope": {
+    "project_id": "bb-api",
+    "workflow_id": "wf-c9e4ab50eb9c46afb5758a0bb676903d",
+    "cycle_id": "cycle-47b1cd9092c54a8e845aebdb41c84930",
+    "run_id": null,
+    "case_id": null,
+    "attempt_id": null
+   },
+   "reason": "",
+   "revision": "72610df1b73f20f69f4ba79c3641f78112cf67da84393ffe83ba67c96d942819"
+  }
+ }
+}

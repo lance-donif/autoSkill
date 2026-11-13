@@ -1,0 +1,6 @@
+test_schema_adoption_preserves_old_task_and_rejects_non_boolean_choices (test_scheduled_browser_mode.ScheduledBrowserModeTests.test_schema_adoption_preserves_old_task_and_rejects_non_boolean_choices) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.515s
+
+OK

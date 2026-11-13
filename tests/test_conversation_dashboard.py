@@ -7,6 +7,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from dashboard_revision_fixture import change_project_and_wait_for_ui
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
@@ -159,10 +160,25 @@ class ConversationDashboardTests(DashboardWorkspace):
         for index, expected in ((1, "700"), (2, "200")):
             self.page.get_by_label(f"第 {index} 轮预期类型", exact=True).select_option("json")
             self.page.get_by_label(f"第 {index} 轮独立预期", exact=True).fill(expected)
+        original = self.page.locator('#view form').element_handle()
+        change_project_and_wait_for_ui(self, self.project['id'])
+        self.assertTrue(original.evaluate("node => node === document.querySelector('#view form') && node.isConnected"))
+        expect(self.page.get_by_label('轮次请求序号', exact=True)).to_have_value('1, 1')
+        expect(self.page.get_by_label('回答字段', exact=True)).to_have_value('/result')
+        expect(self.page.get_by_label('请求中的会话字段', exact=True)).to_have_value('/conversation_id')
+        expect(self.page.get_by_label('响应中的会话字段', exact=True)).to_have_value('/conversation_id')
+        expect(self.page.get_by_label('第 2 轮问题', exact=True)).to_have_value('北京呢？')
+        for index, expected in ((1, '700'), (2, '200')):
+            expect(self.page.get_by_label(f'第 {index} 轮预期类型', exact=True)).to_have_value('json')
+            expect(self.page.get_by_label(f'第 {index} 轮独立预期', exact=True)).to_have_value(expected)
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/build")) as built:
             self.page.get_by_role("button", name="构建多轮资产", exact=True).click()
         self.assertEqual(built.value.status, 200, built.value.text())
         self.assertEqual(built.value.json()["turns"], 2)
+        mapping = built.value.request.post_data_json['mapping']
+        self.assertEqual(mapping['turns'], [1, 1])
+        self.assertEqual([item['expected'] for item in mapping['turn_overrides']], [700, 200])
+        self.assertEqual(mapping['turn_overrides'][1]['question'], '北京呢？')
         dialog = self.page.get_by_role("dialog", name="运行多轮对话", exact=True)
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/native-runs")) as started:
             dialog.get_by_role("button", name="开始运行", exact=True).click()

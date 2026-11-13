@@ -1,0 +1,24 @@
+{
+  "label": "030-execute-run-status",
+  "started_at": "2026-11-13T14:25:47.590504+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-final-retest",
+    "native",
+    "status",
+    "run-26a5ae93d80b",
+    "--all"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace-final-retest",
+  "returncode": 2,
+  "elapsed_seconds": 0.4928349950005213,
+  "ended_at": "2026-11-13T14:25:48.083337+00:00",
+  "response": {
+    "error": "原生运行不存在",
+    "code": "validation_error",
+    "details": {}
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:37171/control",
+  "method": "POST",
+  "request": {
+    "retry_answer": 42,
+    "hold": true
+  },
+  "started_ns": 1794582979362820562,
+  "finished_ns": 1794582979383790996,
+  "http_status": 200,
+  "body": {
+    "retry_answer": 42,
+    "hold": true
+  }
+}

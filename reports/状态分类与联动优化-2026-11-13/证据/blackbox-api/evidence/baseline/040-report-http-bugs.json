@@ -1,0 +1,27 @@
+{
+  "label": "040-report-http-bugs",
+  "started_at": "2026-11-13T14:11:04.854396+00:00",
+  "http_status": 200,
+  "headers": {
+    "date": "Fri, 13 Nov 2026 14:11:04 GMT",
+    "server": "uvicorn",
+    "content-type": "text/markdown; charset=utf-8",
+    "accept-ranges": "bytes",
+    "content-disposition": "attachment; filename*=utf-8''Bug%E6%B8%85%E5%8D%95-156c8a650da52479.md",
+    "content-length": "942",
+    "last-modified": "Fri, 13 Nov 2026 14:10:43 GMT",
+    "etag": "\"0d15716b943bdc33d0a4d43626fb9b94\"",
+    "cache-control": "no-store",
+    "Connection": "close"
+  },
+  "url": "http://127.0.0.1:18881/api/task-reports/run_run-f464729539e8/bugs",
+  "method": "GET",
+  "request_body": null,
+  "returncode": 0,
+  "elapsed_seconds": 0.08557381700120459,
+  "ended_at": "2026-11-13T14:11:04.939968+00:00",
+  "response_artifact": {
+    "bytes": 942,
+    "sha256": "df67b9f82feb281f90294d751d17cf88c48d60c039974d2480469aabe7a0cb8f"
+  }
+}

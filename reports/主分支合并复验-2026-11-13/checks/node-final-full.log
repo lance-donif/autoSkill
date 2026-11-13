@@ -1,0 +1,86 @@
+﹣ real DSH native and Node PTC run_code share one kernel request and preserve business failure (1.278877ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH run.start enqueues and executes one frozen run across native and PTC retries (0.191881ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH CommandsService exposes only parameterless skill activation and queues full instructions without waking a model (0.084367ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH Connection Fetch registry routes an owner peer to this kernel and exact report (0.114024ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH rejects invalid arguments and pre-dispatch abort without touching the kernel (0.14655ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH abort after kernel acceptance retains an honest recovery receipt and does not repeat work (0.121011ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH present commits only accessible reports in an owning Agent open turn (0.119953ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ host context is read-only, explicitly selected and isolated between real DSH Agents (1.418148ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH pre-step waterfall preserves peers and rejection, deduplicates context and changes no kernel state (0.154491ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+✔ delivers through the actual SDK-shaped prompt API and acknowledges only after persistence (26.762063ms)
+✔ a lost local acknowledgement retries the receipt without sending another prompt (9.314027ms)
+✔ an uncertain send is recovered from the matching SDK request identity and flush (10.482752ms)
+✔ missing evidence never causes an unknown delivery to be sent again (26.120993ms)
+✔ activation failure releases only the current token before prompt admission (17.496244ms)
+✔ an already completed judgement satisfies its delivery without waking another host turn (2.779053ms)
+✔ an empty optional host identity creates a stable independent session (5.677258ms)
+✔ confirmed data root wins over program location and inherited workspace in every host adapter (21.003898ms)
+✔ two host sessions retain separate task identities through concurrent real HTTP calls (80.054788ms)
+✔ opaque revision reads retain the owning session through the same host transport (6.754237ms)
+✔ concurrent retries and reordered object keys retain one accepted request (21.656978ms)
+✔ lost enqueue response is recovered by GET and never reenqueued (33.789012ms)
+✔ unknown workflow claim queries its original receipt scope without another next (16.437464ms)
+✔ a deleted or missing accepted run is reported without recreating its request (21.348621ms)
+✔ an already aborted call sends no write and native run metadata uses the real host identity (20.932183ms)
+✔ report parameters require actual host-readable bytes and never claim present delivery (9.857035ms)
+✔ explicit source files retain bytes in the selected data directory and unrelated file keys stay unchanged (7.757427ms)
+✔ same-origin routes pass explicit session identity and expose no arbitrary URL proxy (4.234704ms)
+✔ native tool definitions require an owning Agent and keep business failure in the service result (0.972905ms)
+✔ the only advertised command has no input descriptor and queues complete skill instructions for its own Agent (4.366337ms)
+✔ arguments are rejected without mode dispatch, registry work or task execution (0.578458ms)
+✔ missing, unavailable or aborted skills never report successful activation (0.557802ms)
+✔ the host model snapshot preserves all state axes without legacy success aliases (6.630988ms)
+✔ paged run summaries keep the projected state while omitting large result details (65.114651ms)
+✔ native cards and sidebar panels register without any conversation task dock or passive polling (9.563893ms)
+✔ panels resolve the actual host runtime port before loading any iframe (3.813368ms)
+✔ only requested report reads run, delayed receipts stay in their owning session, and subscribing never polls (6.591416ms)
+✔ an inactive host route shows a useful unavailable message instead of a JSON parse exception (2.649511ms)
+✔ disconnect invalidates pending responses and unloading aborts requested reads without restarting them (1.98434ms)
+✔ completed, failed and uncertain actions keep their receipts without notifications or automatic navigation (4.073386ms)
+✔ a completed workflow retains its violated business conclusion in a closed inline record without progress popups (3.453149ms)
+✔ a lost cancel response is queried by request id and never automatically repeated (2.820793ms)
+✔ historical cards navigate and cancel their recorded run without borrowing the selected task (49.493879ms)
+✔ a terminal run in the recorded tool snapshot keeps report navigation without a cancel action (3.503653ms)
+✔ binding choice includes the observed selection revision and never claims next work (15.681082ms)
+✔ report links appear only after same-report verification and include a real Bug artifact (4.364443ms)
+✔ changed or missing artifacts never inherit ready state from the context listing (7.926665ms)
+✔ a receipt missing a required Bug artifact cannot become ready (7.074101ms)
+✔ unknown tool history can query its own receipt without issuing a new task (4.620077ms)
+✔ rendering and subscribing to native tool results never reads a task, claims work or starts progress timers (2.443044ms)
+✔ unloading aborts pending writes and never leaves polling or completion notifications running (2.245273ms)
+✔ inline state axes retain the failed SLA and invalid evidence independently of delivery (2.305367ms)
+✔ a selected historical run in an inline query keeps its own state facts (2.378577ms)
+✔ report retry is explicit and cannot replay a test after verification fails (8.394385ms)
+✔ the default data directory is independent of the program and supports explicit overrides (2.032841ms)
+✔ registered case sheets come from the selected data folder when the old program still exists (60.850557ms)
+✔ registers autoSkill and case-writing rules with independent resource bases (9.903895ms)
+✔ dashboard is started by argv with offline switches, never through a shell (3.073341ms)
+✔ Python proxy spelling preserves host policy, domain ports and lowercase precedence (10.250517ms)
+✔ actual Python launch environment constructs synchronous and async HTTPX clients (482.111901ms)
+✔ registered commands bind the same custom workspace and port as the service (4.424062ms)
+✔ host guidance accompanies the entry skill without rewriting a user case skill (7.583275ms)
+✔ without a provisioned runtime the plugin reports it instead of looking for one online (0.597014ms)
+✔ Linux source deployment uses its local venv and keeps paths with spaces as argv (0.889417ms)
+✔ client registers dashboard and schedules panels pointing at the loopback dashboard (7.540081ms)
+✔ the skill is found in both the offline package layout and a source checkout (1.872281ms)
+✔ Linux offline bundle takes its native Python before the source venv (1.188548ms)
+✔ package manifest points at files that exist (2.238181ms)
+✔ the primary phase remains ended while business and performance verdicts differ (5.598656ms)
+✔ an unverified business result is explicit and does not inherit an execution pass (0.453901ms)
+✔ historical executions are labelled without changing their original verdict (0.416316ms)
+✔ an edited case keeps the current version unexecuted and labels prior passing facts as history (0.954678ms)
+✔ an executed current version with unverified business checks keeps its ended phase (0.362134ms)
+✔ revision polling notices idle external completion and skips unchanged snapshots (1.08171ms)
+✔ a pre-render baseline skips redundant work and still observes writes during initial rendering (0.497376ms)
+✔ a response arriving after disposal cannot update the current page (1.35777ms)
+✔ polling never overlaps and recovering a connection refreshes even the same revision (0.485794ms)
+✔ visible polling checks at 250 ms without requiring an active task (8.355052ms)
+✔ slow content updates do not block version checks and intermediate versions are coalesced (1.183391ms)
+ℹ tests 78
+ℹ suites 0
+ℹ pass 69
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 9
+ℹ todo 0
+ℹ duration_ms 2398.380321

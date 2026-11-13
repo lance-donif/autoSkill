@@ -1,0 +1,63 @@
+{
+  "label": "027-workflow-submit-design",
+  "started_at": "2026-11-13T14:09:34.286864+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "autoskill",
+    "--session",
+    "blackbox-api-baseline",
+    "workflow",
+    "submit",
+    "wf-1693b9093d974b1888df501d634aee83",
+    "wfi-374dbaab1e60436f88fbfe8fa6fda798",
+    "--lease-token",
+    "lease-95f3340d37154ca7b9ad7129b0ece0d6",
+    "--attempt-id",
+    "wfa-73b06e7c1da84998b28ab836c27f3808",
+    "--idempotency-key",
+    "027-workflow-submit-design",
+    "--file",
+    "/workspace/autoskill-state-validation/blackbox-api/inputs/design-v1.json"
+  ],
+  "workspace": "/workspace/autoskill-state-validation/blackbox-api/workspace",
+  "returncode": 0,
+  "elapsed_seconds": 0.27083069299987983,
+  "ended_at": "2026-11-13T14:09:34.557692+00:00",
+  "response": {
+    "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+    "project_id": "bb-api",
+    "title": "Blackbox HTTP lifecycle",
+    "cycle_id": "cycle-f9b3fb18ff764ffca35b720f7cbdf981",
+    "lifecycle": "active",
+    "cycle_state": "awaiting_host",
+    "complete": false,
+    "conclusion": "unassessed",
+    "revision": 8,
+    "domain_head": "7041cb3d37514dd644cff688dfdb45e2e16de68ca325c7a09d23c35fa100cfc2",
+    "definition_hash": "dc099cdde940b12330cf1e3ad75bc723ac2ca4c5a10f16a979ed54188b45756b",
+    "counts": {
+      "completed": 2,
+      "ready": 1
+    },
+    "accepted": true,
+    "change_id": "change-a1bcf3e98a8e4f5e9a6e12c104461706",
+    "workflow": {
+      "workflow_id": "wf-1693b9093d974b1888df501d634aee83",
+      "project_id": "bb-api",
+      "title": "Blackbox HTTP lifecycle",
+      "cycle_id": "cycle-f9b3fb18ff764ffca35b720f7cbdf981",
+      "lifecycle": "active",
+      "cycle_state": "awaiting_host",
+      "complete": false,
+      "conclusion": "unassessed",
+      "revision": 8,
+      "domain_head": "7041cb3d37514dd644cff688dfdb45e2e16de68ca325c7a09d23c35fa100cfc2",
+      "definition_hash": "dc099cdde940b12330cf1e3ad75bc723ac2ca4c5a10f16a979ed54188b45756b",
+      "counts": {
+        "completed": 2,
+        "ready": 1
+      }
+    }
+  }
+}

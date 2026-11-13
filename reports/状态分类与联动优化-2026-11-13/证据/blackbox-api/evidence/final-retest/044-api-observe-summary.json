@@ -1,0 +1,1084 @@
+{
+  "run_id": "run-eaf4380414d2",
+  "observations": [
+    {
+      "observed_at": "2026-11-13T14:28:06.597266+00:00",
+      "http_seconds": 0.429652797000017,
+      "status": "Running",
+      "state": {
+        "lifecycle": "active",
+        "phase": "running",
+        "outcome": "pending",
+        "checks": {
+          "business": "unverified",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "unverified",
+        "report": "pending",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "bb-api",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-eaf4380414d2",
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "5ef7832de4f2c7267ace17ba85326bc5aed1d8b12d9f590d2eb85a3a5e3ab9a8"
+      },
+      "started_at": "2026-11-13T14:28:05.393+00:00",
+      "finished_at": null
+    },
+    {
+      "observed_at": "2026-11-13T14:28:20.299647+00:00",
+      "http_seconds": 0.5931751429998258,
+      "status": "Pass",
+      "state": {
+        "lifecycle": "completed",
+        "phase": "settled",
+        "outcome": "pass",
+        "checks": {
+          "business": "pass",
+          "performance": "not_applicable",
+          "quality": "not_applicable"
+        },
+        "evidence": "valid",
+        "report": "not_generated",
+        "delivery": "not_applicable",
+        "scope": {
+          "project_id": "bb-api",
+          "workflow_id": null,
+          "cycle_id": null,
+          "run_id": "run-eaf4380414d2",
+          "case_id": null,
+          "attempt_id": null
+        },
+        "reason": "",
+        "revision": "ca9250e06e8193a8b068341dd6a81a7e09a8588660f17f4e9b11edd78ebf35c4"
+      },
+      "started_at": "2026-11-13T14:28:05.393+00:00",
+      "finished_at": "2026-11-13T14:28:19.626+00:00"
+    }
+  ],
+  "final_row": {
+    "id": "run-eaf4380414d2",
+    "batch_id": null,
+    "project_id": "bb-api",
+    "engine": "selenium-unittest",
+    "trigger": "manual",
+    "task_id": null,
+    "status": "Pass",
+    "case_ids": "[\"bb-slow\"]",
+    "total": 1,
+    "done": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "current": "",
+    "reason": "",
+    "cancel": 0,
+    "pid": 47990,
+    "created_at": "2026-11-13T14:28:05.331+00:00",
+    "started_at": "2026-11-13T14:28:05.393+00:00",
+    "finished_at": "2026-11-13T14:28:19.626+00:00",
+    "headed": 0,
+    "claim_token": "",
+    "force_login": 0,
+    "session_id": "blackbox-api-final-retest",
+    "family": "native",
+    "input_manifest": ".local/native-inputs/cfda43e1d5b7f46a1992ecfe2857884d294836f0917452c66b785df0f730efaf-88927005cd7b40c2a2bd4f5b7fa6bb58.json",
+    "input_hash": "cfda43e1d5b7f46a1992ecfe2857884d294836f0917452c66b785df0f730efaf",
+    "plan_path": "",
+    "delete_requested": 0,
+    "deletion_error": "",
+    "deletion_manifest": "",
+    "owner_identity": "{\"machine_id\": \"bf47c3287c9b1847fb1c80f187c9cd619cec86fe69a4945a062c6ce7e5b93a70\", \"location_id\": \"7335b5952ef1e58eb583c4adc635b7f574d3b21f407aa097ced325c509421ca0\", \"pid\": 47990, \"process_started_at\": \"linux:1dca4ab0-92a9-4469-8597-70e5c7486b3d:1114533\"}",
+    "project_name": "Blackbox API state",
+    "state": {
+      "lifecycle": "completed",
+      "phase": "settled",
+      "outcome": "pass",
+      "checks": {
+        "business": "pass",
+        "performance": "not_applicable",
+        "quality": "not_applicable"
+      },
+      "evidence": "valid",
+      "report": "not_generated",
+      "delivery": "not_applicable",
+      "scope": {
+        "project_id": "bb-api",
+        "workflow_id": null,
+        "cycle_id": null,
+        "run_id": "run-eaf4380414d2",
+        "case_id": null,
+        "attempt_id": null
+      },
+      "reason": "",
+      "revision": "ca9250e06e8193a8b068341dd6a81a7e09a8588660f17f4e9b11edd78ebf35c4"
+    },
+    "unverified": 0,
+    "cancelled": 0,
+    "pending": 0,
+    "judged": 1,
+    "pass_rate": 1.0,
+    "state_counts": {
+      "pass": 1,
+      "fail": 0,
+      "blocked": 0,
+      "unverified": 0,
+      "cancelled": 0,
+      "pending": 0
+    },
+    "recorded_counts": {
+      "passed": 1,
+      "failed": 0,
+      "blocked": 0
+    }
+  },
+  "requests": [
+    {
+      "label": "044-api-observe-initial-revision",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:03.284393+00:00",
+      "ended_at": "2026-11-13T14:28:03.317828+00:00",
+      "elapsed_seconds": 0.03343114900053479
+    },
+    {
+      "label": "044-api-observe-initial-runs",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:03.318330+00:00",
+      "ended_at": "2026-11-13T14:28:03.980536+00:00",
+      "elapsed_seconds": 0.6622119630010275
+    },
+    {
+      "label": "044-api-observe-initial-results",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:03.982364+00:00",
+      "ended_at": "2026-11-13T14:28:04.243656+00:00",
+      "elapsed_seconds": 0.2612938820002455
+    },
+    {
+      "label": "044-api-observe-revision-000",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:04.247229+00:00",
+      "ended_at": "2026-11-13T14:28:04.276250+00:00",
+      "elapsed_seconds": 0.029021455000474816
+    },
+    {
+      "label": "044-api-observe-runs-000",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:04.277433+00:00",
+      "ended_at": "2026-11-13T14:28:04.671339+00:00",
+      "elapsed_seconds": 0.39387160899968876
+    },
+    {
+      "label": "044-api-observe-revision-001",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:04.773009+00:00",
+      "ended_at": "2026-11-13T14:28:04.779025+00:00",
+      "elapsed_seconds": 0.005887714998607407
+    },
+    {
+      "label": "044-api-observe-revision-002",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:04.882143+00:00",
+      "ended_at": "2026-11-13T14:28:04.892781+00:00",
+      "elapsed_seconds": 0.0108338130012271
+    },
+    {
+      "label": "044-api-observe-revision-003",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:04.993581+00:00",
+      "ended_at": "2026-11-13T14:28:05.006701+00:00",
+      "elapsed_seconds": 0.013116241998432088
+    },
+    {
+      "label": "044-api-observe-revision-004",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:05.107355+00:00",
+      "ended_at": "2026-11-13T14:28:05.112296+00:00",
+      "elapsed_seconds": 0.004934626000249409
+    },
+    {
+      "label": "044-api-observe-revision-005",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:05.212936+00:00",
+      "ended_at": "2026-11-13T14:28:05.224821+00:00",
+      "elapsed_seconds": 0.011879989000590285
+    },
+    {
+      "label": "044-api-observe-revision-006",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:05.327730+00:00",
+      "ended_at": "2026-11-13T14:28:05.337181+00:00",
+      "elapsed_seconds": 0.009446633001061855
+    },
+    {
+      "label": "044-api-observe-revision-007",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:05.467545+00:00",
+      "ended_at": "2026-11-13T14:28:05.478115+00:00",
+      "elapsed_seconds": 0.010562082001342787
+    },
+    {
+      "label": "044-api-observe-runs-007",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:05.478489+00:00",
+      "ended_at": "2026-11-13T14:28:06.024062+00:00",
+      "elapsed_seconds": 0.5455812729996978
+    },
+    {
+      "label": "044-api-observe-revision-008",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:06.125271+00:00",
+      "ended_at": "2026-11-13T14:28:06.136131+00:00",
+      "elapsed_seconds": 0.01083853199997975
+    },
+    {
+      "label": "044-api-observe-runs-008",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:06.167617+00:00",
+      "ended_at": "2026-11-13T14:28:06.597266+00:00",
+      "elapsed_seconds": 0.429652797000017
+    },
+    {
+      "label": "044-api-observe-revision-009",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:06.698456+00:00",
+      "ended_at": "2026-11-13T14:28:06.707733+00:00",
+      "elapsed_seconds": 0.009271941999031696
+    },
+    {
+      "label": "044-api-observe-revision-010",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:06.809046+00:00",
+      "ended_at": "2026-11-13T14:28:06.820365+00:00",
+      "elapsed_seconds": 0.011314727998978924
+    },
+    {
+      "label": "044-api-observe-revision-011",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:06.921896+00:00",
+      "ended_at": "2026-11-13T14:28:06.975647+00:00",
+      "elapsed_seconds": 0.05374824799946509
+    },
+    {
+      "label": "044-api-observe-revision-012",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.076749+00:00",
+      "ended_at": "2026-11-13T14:28:07.097842+00:00",
+      "elapsed_seconds": 0.02108650700029102
+    },
+    {
+      "label": "044-api-observe-revision-013",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.199822+00:00",
+      "ended_at": "2026-11-13T14:28:07.212344+00:00",
+      "elapsed_seconds": 0.012519060999693465
+    },
+    {
+      "label": "044-api-observe-revision-014",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.314554+00:00",
+      "ended_at": "2026-11-13T14:28:07.322709+00:00",
+      "elapsed_seconds": 0.008150993000526796
+    },
+    {
+      "label": "044-api-observe-revision-015",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.423310+00:00",
+      "ended_at": "2026-11-13T14:28:07.430063+00:00",
+      "elapsed_seconds": 0.00674590999915381
+    },
+    {
+      "label": "044-api-observe-revision-016",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.531771+00:00",
+      "ended_at": "2026-11-13T14:28:07.545202+00:00",
+      "elapsed_seconds": 0.013424943001155043
+    },
+    {
+      "label": "044-api-observe-revision-017",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.646489+00:00",
+      "ended_at": "2026-11-13T14:28:07.656205+00:00",
+      "elapsed_seconds": 0.009710486001495156
+    },
+    {
+      "label": "044-api-observe-revision-018",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.757335+00:00",
+      "ended_at": "2026-11-13T14:28:07.764409+00:00",
+      "elapsed_seconds": 0.007099975000528502
+    },
+    {
+      "label": "044-api-observe-revision-019",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.865005+00:00",
+      "ended_at": "2026-11-13T14:28:07.877967+00:00",
+      "elapsed_seconds": 0.012956749000295531
+    },
+    {
+      "label": "044-api-observe-revision-020",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:07.978503+00:00",
+      "ended_at": "2026-11-13T14:28:07.985596+00:00",
+      "elapsed_seconds": 0.007087177998982952
+    },
+    {
+      "label": "044-api-observe-revision-021",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.086099+00:00",
+      "ended_at": "2026-11-13T14:28:08.092967+00:00",
+      "elapsed_seconds": 0.0068605300002673175
+    },
+    {
+      "label": "044-api-observe-revision-022",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.193652+00:00",
+      "ended_at": "2026-11-13T14:28:08.203720+00:00",
+      "elapsed_seconds": 0.010060479000458145
+    },
+    {
+      "label": "044-api-observe-revision-023",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.304274+00:00",
+      "ended_at": "2026-11-13T14:28:08.310683+00:00",
+      "elapsed_seconds": 0.006404068000847474
+    },
+    {
+      "label": "044-api-observe-revision-024",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.411522+00:00",
+      "ended_at": "2026-11-13T14:28:08.415928+00:00",
+      "elapsed_seconds": 0.004401870000947383
+    },
+    {
+      "label": "044-api-observe-revision-025",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.516516+00:00",
+      "ended_at": "2026-11-13T14:28:08.521947+00:00",
+      "elapsed_seconds": 0.005424390001280699
+    },
+    {
+      "label": "044-api-observe-revision-026",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.622603+00:00",
+      "ended_at": "2026-11-13T14:28:08.633688+00:00",
+      "elapsed_seconds": 0.011079791000156547
+    },
+    {
+      "label": "044-api-observe-revision-027",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.734837+00:00",
+      "ended_at": "2026-11-13T14:28:08.741655+00:00",
+      "elapsed_seconds": 0.006811564999225084
+    },
+    {
+      "label": "044-api-observe-revision-028",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.842225+00:00",
+      "ended_at": "2026-11-13T14:28:08.850229+00:00",
+      "elapsed_seconds": 0.007997160000741133
+    },
+    {
+      "label": "044-api-observe-revision-029",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:08.950834+00:00",
+      "ended_at": "2026-11-13T14:28:08.957457+00:00",
+      "elapsed_seconds": 0.006617074001042056
+    },
+    {
+      "label": "044-api-observe-revision-030",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.069247+00:00",
+      "ended_at": "2026-11-13T14:28:09.100045+00:00",
+      "elapsed_seconds": 0.03079231799893023
+    },
+    {
+      "label": "044-api-observe-revision-031",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.201882+00:00",
+      "ended_at": "2026-11-13T14:28:09.213536+00:00",
+      "elapsed_seconds": 0.011648875999526354
+    },
+    {
+      "label": "044-api-observe-revision-032",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.315045+00:00",
+      "ended_at": "2026-11-13T14:28:09.381389+00:00",
+      "elapsed_seconds": 0.06633976800003438
+    },
+    {
+      "label": "044-api-observe-revision-033",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.484258+00:00",
+      "ended_at": "2026-11-13T14:28:09.500756+00:00",
+      "elapsed_seconds": 0.016491645001224242
+    },
+    {
+      "label": "044-api-observe-revision-034",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.601322+00:00",
+      "ended_at": "2026-11-13T14:28:09.615173+00:00",
+      "elapsed_seconds": 0.013596071001302334
+    },
+    {
+      "label": "044-api-observe-revision-035",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.722893+00:00",
+      "ended_at": "2026-11-13T14:28:09.769725+00:00",
+      "elapsed_seconds": 0.04683005799961393
+    },
+    {
+      "label": "044-api-observe-revision-036",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.870578+00:00",
+      "ended_at": "2026-11-13T14:28:09.875758+00:00",
+      "elapsed_seconds": 0.0051738619986281265
+    },
+    {
+      "label": "044-api-observe-revision-037",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:09.976320+00:00",
+      "ended_at": "2026-11-13T14:28:09.983685+00:00",
+      "elapsed_seconds": 0.007361021998804063
+    },
+    {
+      "label": "044-api-observe-revision-038",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.084139+00:00",
+      "ended_at": "2026-11-13T14:28:10.091551+00:00",
+      "elapsed_seconds": 0.007407745000818977
+    },
+    {
+      "label": "044-api-observe-revision-039",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.196227+00:00",
+      "ended_at": "2026-11-13T14:28:10.207813+00:00",
+      "elapsed_seconds": 0.011581806000322104
+    },
+    {
+      "label": "044-api-observe-revision-040",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.308392+00:00",
+      "ended_at": "2026-11-13T14:28:10.314714+00:00",
+      "elapsed_seconds": 0.006571255000380916
+    },
+    {
+      "label": "044-api-observe-revision-041",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.416667+00:00",
+      "ended_at": "2026-11-13T14:28:10.423889+00:00",
+      "elapsed_seconds": 0.0072199440000986215
+    },
+    {
+      "label": "044-api-observe-revision-042",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.524587+00:00",
+      "ended_at": "2026-11-13T14:28:10.533522+00:00",
+      "elapsed_seconds": 0.008930972000598558
+    },
+    {
+      "label": "044-api-observe-revision-043",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.634329+00:00",
+      "ended_at": "2026-11-13T14:28:10.650626+00:00",
+      "elapsed_seconds": 0.016291084000840783
+    },
+    {
+      "label": "044-api-observe-revision-044",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.752218+00:00",
+      "ended_at": "2026-11-13T14:28:10.780681+00:00",
+      "elapsed_seconds": 0.0284615019991179
+    },
+    {
+      "label": "044-api-observe-revision-045",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.882322+00:00",
+      "ended_at": "2026-11-13T14:28:10.890271+00:00",
+      "elapsed_seconds": 0.007941560999825015
+    },
+    {
+      "label": "044-api-observe-revision-046",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:10.991351+00:00",
+      "ended_at": "2026-11-13T14:28:11.012693+00:00",
+      "elapsed_seconds": 0.021335866000299575
+    },
+    {
+      "label": "044-api-observe-revision-047",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.113583+00:00",
+      "ended_at": "2026-11-13T14:28:11.126210+00:00",
+      "elapsed_seconds": 0.01262106399917684
+    },
+    {
+      "label": "044-api-observe-revision-048",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.226868+00:00",
+      "ended_at": "2026-11-13T14:28:11.231796+00:00",
+      "elapsed_seconds": 0.004924613000184763
+    },
+    {
+      "label": "044-api-observe-revision-049",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.333474+00:00",
+      "ended_at": "2026-11-13T14:28:11.343050+00:00",
+      "elapsed_seconds": 0.009570264001013129
+    },
+    {
+      "label": "044-api-observe-revision-050",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.444360+00:00",
+      "ended_at": "2026-11-13T14:28:11.451178+00:00",
+      "elapsed_seconds": 0.0068152139992889715
+    },
+    {
+      "label": "044-api-observe-revision-051",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.551928+00:00",
+      "ended_at": "2026-11-13T14:28:11.565775+00:00",
+      "elapsed_seconds": 0.01384580800004187
+    },
+    {
+      "label": "044-api-observe-revision-052",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.667376+00:00",
+      "ended_at": "2026-11-13T14:28:11.677015+00:00",
+      "elapsed_seconds": 0.009632995001084055
+    },
+    {
+      "label": "044-api-observe-revision-053",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.777937+00:00",
+      "ended_at": "2026-11-13T14:28:11.786640+00:00",
+      "elapsed_seconds": 0.00869641600002069
+    },
+    {
+      "label": "044-api-observe-revision-054",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.887484+00:00",
+      "ended_at": "2026-11-13T14:28:11.892851+00:00",
+      "elapsed_seconds": 0.005364082999221864
+    },
+    {
+      "label": "044-api-observe-revision-055",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:11.993460+00:00",
+      "ended_at": "2026-11-13T14:28:12.001824+00:00",
+      "elapsed_seconds": 0.008360497999092331
+    },
+    {
+      "label": "044-api-observe-revision-056",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.104097+00:00",
+      "ended_at": "2026-11-13T14:28:12.112148+00:00",
+      "elapsed_seconds": 0.007983368999703089
+    },
+    {
+      "label": "044-api-observe-revision-057",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.213140+00:00",
+      "ended_at": "2026-11-13T14:28:12.227634+00:00",
+      "elapsed_seconds": 0.014488197999526164
+    },
+    {
+      "label": "044-api-observe-revision-058",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.328459+00:00",
+      "ended_at": "2026-11-13T14:28:12.335257+00:00",
+      "elapsed_seconds": 0.006791032999899471
+    },
+    {
+      "label": "044-api-observe-revision-059",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.438678+00:00",
+      "ended_at": "2026-11-13T14:28:12.477364+00:00",
+      "elapsed_seconds": 0.038681523999912315
+    },
+    {
+      "label": "044-api-observe-revision-060",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.578178+00:00",
+      "ended_at": "2026-11-13T14:28:12.589039+00:00",
+      "elapsed_seconds": 0.01085615199917811
+    },
+    {
+      "label": "044-api-observe-revision-061",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.689838+00:00",
+      "ended_at": "2026-11-13T14:28:12.707144+00:00",
+      "elapsed_seconds": 0.017301327001405298
+    },
+    {
+      "label": "044-api-observe-revision-062",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.807998+00:00",
+      "ended_at": "2026-11-13T14:28:12.820208+00:00",
+      "elapsed_seconds": 0.01220411000031163
+    },
+    {
+      "label": "044-api-observe-revision-063",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:12.920882+00:00",
+      "ended_at": "2026-11-13T14:28:12.935711+00:00",
+      "elapsed_seconds": 0.014821036998910131
+    },
+    {
+      "label": "044-api-observe-revision-064",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.036202+00:00",
+      "ended_at": "2026-11-13T14:28:13.074553+00:00",
+      "elapsed_seconds": 0.03834649199961859
+    },
+    {
+      "label": "044-api-observe-revision-065",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.178857+00:00",
+      "ended_at": "2026-11-13T14:28:13.188244+00:00",
+      "elapsed_seconds": 0.0093828429999121
+    },
+    {
+      "label": "044-api-observe-revision-066",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.289291+00:00",
+      "ended_at": "2026-11-13T14:28:13.298544+00:00",
+      "elapsed_seconds": 0.009249988001101883
+    },
+    {
+      "label": "044-api-observe-revision-067",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.399253+00:00",
+      "ended_at": "2026-11-13T14:28:13.409783+00:00",
+      "elapsed_seconds": 0.010523962999286596
+    },
+    {
+      "label": "044-api-observe-revision-068",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.510487+00:00",
+      "ended_at": "2026-11-13T14:28:13.517008+00:00",
+      "elapsed_seconds": 0.0065170210000360385
+    },
+    {
+      "label": "044-api-observe-revision-069",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.617645+00:00",
+      "ended_at": "2026-11-13T14:28:13.629873+00:00",
+      "elapsed_seconds": 0.01233730099920649
+    },
+    {
+      "label": "044-api-observe-revision-070",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.730495+00:00",
+      "ended_at": "2026-11-13T14:28:13.745195+00:00",
+      "elapsed_seconds": 0.014695686999402824
+    },
+    {
+      "label": "044-api-observe-revision-071",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.870858+00:00",
+      "ended_at": "2026-11-13T14:28:13.881519+00:00",
+      "elapsed_seconds": 0.010654649999196408
+    },
+    {
+      "label": "044-api-observe-revision-072",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:13.982739+00:00",
+      "ended_at": "2026-11-13T14:28:13.996392+00:00",
+      "elapsed_seconds": 0.013647177998791449
+    },
+    {
+      "label": "044-api-observe-revision-073",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.101037+00:00",
+      "ended_at": "2026-11-13T14:28:14.114102+00:00",
+      "elapsed_seconds": 0.013059442999292514
+    },
+    {
+      "label": "044-api-observe-revision-074",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.215333+00:00",
+      "ended_at": "2026-11-13T14:28:14.227233+00:00",
+      "elapsed_seconds": 0.01189462000002095
+    },
+    {
+      "label": "044-api-observe-revision-075",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.328946+00:00",
+      "ended_at": "2026-11-13T14:28:14.372785+00:00",
+      "elapsed_seconds": 0.04383807900012471
+    },
+    {
+      "label": "044-api-observe-revision-076",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.474897+00:00",
+      "ended_at": "2026-11-13T14:28:14.499892+00:00",
+      "elapsed_seconds": 0.02477559999897494
+    },
+    {
+      "label": "044-api-observe-revision-077",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.600679+00:00",
+      "ended_at": "2026-11-13T14:28:14.610106+00:00",
+      "elapsed_seconds": 0.00942137099991669
+    },
+    {
+      "label": "044-api-observe-revision-078",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.710753+00:00",
+      "ended_at": "2026-11-13T14:28:14.717021+00:00",
+      "elapsed_seconds": 0.006263490999117494
+    },
+    {
+      "label": "044-api-observe-revision-079",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.817995+00:00",
+      "ended_at": "2026-11-13T14:28:14.832678+00:00",
+      "elapsed_seconds": 0.014678190998893115
+    },
+    {
+      "label": "044-api-observe-revision-080",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:14.934847+00:00",
+      "ended_at": "2026-11-13T14:28:14.970768+00:00",
+      "elapsed_seconds": 0.035981057000753935
+    },
+    {
+      "label": "044-api-observe-revision-081",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.076365+00:00",
+      "ended_at": "2026-11-13T14:28:15.084577+00:00",
+      "elapsed_seconds": 0.008186985998690943
+    },
+    {
+      "label": "044-api-observe-revision-082",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.186839+00:00",
+      "ended_at": "2026-11-13T14:28:15.223439+00:00",
+      "elapsed_seconds": 0.036723589000757784
+    },
+    {
+      "label": "044-api-observe-revision-083",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.326406+00:00",
+      "ended_at": "2026-11-13T14:28:15.374093+00:00",
+      "elapsed_seconds": 0.04765881800085481
+    },
+    {
+      "label": "044-api-observe-revision-084",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.474629+00:00",
+      "ended_at": "2026-11-13T14:28:15.480566+00:00",
+      "elapsed_seconds": 0.0059306969997123815
+    },
+    {
+      "label": "044-api-observe-revision-085",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.582857+00:00",
+      "ended_at": "2026-11-13T14:28:15.593169+00:00",
+      "elapsed_seconds": 0.010307522001312464
+    },
+    {
+      "label": "044-api-observe-revision-086",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.693849+00:00",
+      "ended_at": "2026-11-13T14:28:15.699688+00:00",
+      "elapsed_seconds": 0.005834596999193309
+    },
+    {
+      "label": "044-api-observe-revision-087",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.800263+00:00",
+      "ended_at": "2026-11-13T14:28:15.804745+00:00",
+      "elapsed_seconds": 0.004478535000089323
+    },
+    {
+      "label": "044-api-observe-revision-088",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:15.905619+00:00",
+      "ended_at": "2026-11-13T14:28:15.917265+00:00",
+      "elapsed_seconds": 0.011641241999313934
+    },
+    {
+      "label": "044-api-observe-revision-089",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.017839+00:00",
+      "ended_at": "2026-11-13T14:28:16.026484+00:00",
+      "elapsed_seconds": 0.008641353000712115
+    },
+    {
+      "label": "044-api-observe-revision-090",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.127586+00:00",
+      "ended_at": "2026-11-13T14:28:16.136340+00:00",
+      "elapsed_seconds": 0.00874871399901167
+    },
+    {
+      "label": "044-api-observe-revision-091",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.268472+00:00",
+      "ended_at": "2026-11-13T14:28:16.279051+00:00",
+      "elapsed_seconds": 0.010573421999652055
+    },
+    {
+      "label": "044-api-observe-revision-092",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.382854+00:00",
+      "ended_at": "2026-11-13T14:28:16.401062+00:00",
+      "elapsed_seconds": 0.018202416998974513
+    },
+    {
+      "label": "044-api-observe-revision-093",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.501827+00:00",
+      "ended_at": "2026-11-13T14:28:16.509519+00:00",
+      "elapsed_seconds": 0.0076856960004079156
+    },
+    {
+      "label": "044-api-observe-revision-094",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.610232+00:00",
+      "ended_at": "2026-11-13T14:28:16.631080+00:00",
+      "elapsed_seconds": 0.020843506999881356
+    },
+    {
+      "label": "044-api-observe-revision-095",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.732354+00:00",
+      "ended_at": "2026-11-13T14:28:16.775152+00:00",
+      "elapsed_seconds": 0.0427962160010793
+    },
+    {
+      "label": "044-api-observe-revision-096",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.875842+00:00",
+      "ended_at": "2026-11-13T14:28:16.894868+00:00",
+      "elapsed_seconds": 0.019022436001250753
+    },
+    {
+      "label": "044-api-observe-revision-097",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:16.995834+00:00",
+      "ended_at": "2026-11-13T14:28:17.007270+00:00",
+      "elapsed_seconds": 0.011413370999434846
+    },
+    {
+      "label": "044-api-observe-revision-098",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.107799+00:00",
+      "ended_at": "2026-11-13T14:28:17.131842+00:00",
+      "elapsed_seconds": 0.024038230998485233
+    },
+    {
+      "label": "044-api-observe-revision-099",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.234848+00:00",
+      "ended_at": "2026-11-13T14:28:17.241960+00:00",
+      "elapsed_seconds": 0.0071065410011215135
+    },
+    {
+      "label": "044-api-observe-revision-100",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.369735+00:00",
+      "ended_at": "2026-11-13T14:28:17.381845+00:00",
+      "elapsed_seconds": 0.0121029969996016
+    },
+    {
+      "label": "044-api-observe-revision-101",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.482452+00:00",
+      "ended_at": "2026-11-13T14:28:17.495525+00:00",
+      "elapsed_seconds": 0.01306814900090103
+    },
+    {
+      "label": "044-api-observe-revision-102",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.596345+00:00",
+      "ended_at": "2026-11-13T14:28:17.601593+00:00",
+      "elapsed_seconds": 0.0052446889985731104
+    },
+    {
+      "label": "044-api-observe-revision-103",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.706579+00:00",
+      "ended_at": "2026-11-13T14:28:17.713278+00:00",
+      "elapsed_seconds": 0.006694338000670541
+    },
+    {
+      "label": "044-api-observe-revision-104",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.813862+00:00",
+      "ended_at": "2026-11-13T14:28:17.828526+00:00",
+      "elapsed_seconds": 0.01446257899988268
+    },
+    {
+      "label": "044-api-observe-revision-105",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:17.930021+00:00",
+      "ended_at": "2026-11-13T14:28:17.983706+00:00",
+      "elapsed_seconds": 0.053680830000303104
+    },
+    {
+      "label": "044-api-observe-revision-106",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.084626+00:00",
+      "ended_at": "2026-11-13T14:28:18.091050+00:00",
+      "elapsed_seconds": 0.006418902999939746
+    },
+    {
+      "label": "044-api-observe-revision-107",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.193630+00:00",
+      "ended_at": "2026-11-13T14:28:18.204443+00:00",
+      "elapsed_seconds": 0.010807379001562367
+    },
+    {
+      "label": "044-api-observe-revision-108",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.306684+00:00",
+      "ended_at": "2026-11-13T14:28:18.314665+00:00",
+      "elapsed_seconds": 0.007959386000948143
+    },
+    {
+      "label": "044-api-observe-revision-109",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.418624+00:00",
+      "ended_at": "2026-11-13T14:28:18.423136+00:00",
+      "elapsed_seconds": 0.004506872001002193
+    },
+    {
+      "label": "044-api-observe-revision-110",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.523786+00:00",
+      "ended_at": "2026-11-13T14:28:18.529572+00:00",
+      "elapsed_seconds": 0.005799295999167953
+    },
+    {
+      "label": "044-api-observe-revision-111",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.631758+00:00",
+      "ended_at": "2026-11-13T14:28:18.646015+00:00",
+      "elapsed_seconds": 0.014253523000661517
+    },
+    {
+      "label": "044-api-observe-revision-112",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.770902+00:00",
+      "ended_at": "2026-11-13T14:28:18.783119+00:00",
+      "elapsed_seconds": 0.012212916999487788
+    },
+    {
+      "label": "044-api-observe-revision-113",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:18.883813+00:00",
+      "ended_at": "2026-11-13T14:28:18.908135+00:00",
+      "elapsed_seconds": 0.02431723600057012
+    },
+    {
+      "label": "044-api-observe-revision-114",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.010848+00:00",
+      "ended_at": "2026-11-13T14:28:19.026168+00:00",
+      "elapsed_seconds": 0.015314139000111027
+    },
+    {
+      "label": "044-api-observe-revision-115",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.126830+00:00",
+      "ended_at": "2026-11-13T14:28:19.144946+00:00",
+      "elapsed_seconds": 0.01811084899964044
+    },
+    {
+      "label": "044-api-observe-revision-116",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.247092+00:00",
+      "ended_at": "2026-11-13T14:28:19.256402+00:00",
+      "elapsed_seconds": 0.009335807999377721
+    },
+    {
+      "label": "044-api-observe-revision-117",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.367368+00:00",
+      "ended_at": "2026-11-13T14:28:19.373224+00:00",
+      "elapsed_seconds": 0.00585090599997784
+    },
+    {
+      "label": "044-api-observe-revision-118",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.474832+00:00",
+      "ended_at": "2026-11-13T14:28:19.486856+00:00",
+      "elapsed_seconds": 0.012020788999507204
+    },
+    {
+      "label": "044-api-observe-revision-119",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.587298+00:00",
+      "ended_at": "2026-11-13T14:28:19.595389+00:00",
+      "elapsed_seconds": 0.008085867999398033
+    },
+    {
+      "label": "044-api-observe-revision-120",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.697653+00:00",
+      "ended_at": "2026-11-13T14:28:19.706097+00:00",
+      "elapsed_seconds": 0.008438668999588117
+    },
+    {
+      "label": "044-api-observe-runs-120",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:19.706478+00:00",
+      "ended_at": "2026-11-13T14:28:20.299647+00:00",
+      "elapsed_seconds": 0.5931751429998258
+    },
+    {
+      "label": "044-api-observe-runs-current",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:20.300883+00:00",
+      "ended_at": "2026-11-13T14:28:20.877264+00:00",
+      "elapsed_seconds": 0.5763871170001948
+    },
+    {
+      "label": "044-api-observe-runs-all",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:20.878707+00:00",
+      "ended_at": "2026-11-13T14:28:21.497035+00:00",
+      "elapsed_seconds": 0.6183303019988671
+    },
+    {
+      "label": "044-api-observe-results-current",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:21.498752+00:00",
+      "ended_at": "2026-11-13T14:28:21.619127+00:00",
+      "elapsed_seconds": 0.12037933800093015
+    },
+    {
+      "label": "044-api-observe-results-all",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:21.620306+00:00",
+      "ended_at": "2026-11-13T14:28:21.783786+00:00",
+      "elapsed_seconds": 0.16348460100016382
+    },
+    {
+      "label": "044-api-observe-runs-business-fail",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:21.784969+00:00",
+      "ended_at": "2026-11-13T14:28:22.139077+00:00",
+      "elapsed_seconds": 0.35411002000000735
+    },
+    {
+      "label": "044-api-observe-results-business-fail",
+      "http_status": 200,
+      "started_at": "2026-11-13T14:28:22.140076+00:00",
+      "ended_at": "2026-11-13T14:28:22.412305+00:00",
+      "elapsed_seconds": 0.27223519800099893
+    }
+  ],
+  "metric_scope": "Public HTTP revision + run API observation only; browser paint and frontend focus/scroll are not measured.",
+  "terminal_observation_delay_seconds": 0.673647,
+  "first_state_observation_delay_seconds": 1.204266
+}

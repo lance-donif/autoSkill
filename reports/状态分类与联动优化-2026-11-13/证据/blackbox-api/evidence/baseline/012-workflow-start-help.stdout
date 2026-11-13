@@ -1,0 +1,11 @@
+usage: autoskill workflow start [-h] --file FILE --idempotency-key
+                                IDEMPOTENCY_KEY
+                                project
+
+positional arguments:
+  project
+
+options:
+  -h, --help            show this help message and exit
+  --file FILE           工作流 JSON；- 表示完整标准输入
+  --idempotency-key IDEMPOTENCY_KEY

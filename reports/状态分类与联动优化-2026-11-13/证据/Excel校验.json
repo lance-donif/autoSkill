@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "sheet": "功能测试用例",
+  "rootCount": 1,
+  "businessGroupCount": 10,
+  "caseGroupDepths": {
+    "3": 30
+  },
+  "functionItemCount": 8,
+  "functionItems": [
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "状态分类"
+      ],
+      "name": "状态分类",
+      "caseCount": 5
+    },
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "查询与统计"
+      ],
+      "name": "查询与统计",
+      "caseCount": 4
+    },
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "状态时效"
+      ],
+      "name": "状态时效",
+      "caseCount": 3
+    },
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "重试与恢复"
+      ],
+      "name": "重试与恢复",
+      "caseCount": 3
+    },
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "当前与历史"
+      ],
+      "name": "当前与历史",
+      "caseCount": 3
+    },
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "工作流推进"
+      ],
+      "name": "工作流推进",
+      "caseCount": 2
+    },
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "报告与证据"
+      ],
+      "name": "报告与证据",
+      "caseCount": 5
+    },
+    {
+      "path": [
+        "autoSkill",
+        "状态分类与联动",
+        "界面与宿主"
+      ],
+      "name": "界面与宿主",
+      "caseCount": 5
+    }
+  ],
+  "caseCount": 30,
+  "uniqueIdCount": 30,
+  "excludedRows": [],
+  "errors": [],
+  "warnings": [],
+  "workbook": "/workspace/autoSkill/reports/状态分类与联动优化-2026-11-13/测试用例与结果.xlsx"
+}

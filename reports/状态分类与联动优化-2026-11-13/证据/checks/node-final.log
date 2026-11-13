@@ -1,0 +1,80 @@
+﹣ real DSH native and Node PTC run_code share one kernel request and preserve business failure (1.676178ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH run.start enqueues and executes one frozen run across native and PTC retries (0.35557ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH CommandsService slash reads and selection never open a model turn or claim present (0.196881ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH Connection Fetch registry routes an owner peer to this kernel and exact report (0.206719ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH rejects invalid arguments and pre-dispatch abort without touching the kernel (0.516309ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH abort after kernel acceptance retains an honest recovery receipt and does not repeat work (0.186071ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH present commits only accessible reports in an owning Agent open turn (0.138406ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ host context is read-only, explicitly selected and isolated between real DSH Agents (1.3362ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+﹣ real DSH pre-step waterfall preserves peers and rejection, deduplicates context and changes no kernel state (0.339842ms) # Real DSH SDK unavailable; set AUTOSKILL_DSH_SDK_ROOT. This skip is not SDK acceptance.
+✔ delivers through the actual SDK-shaped prompt API and acknowledges only after persistence (36.603038ms)
+✔ a lost local acknowledgement retries the receipt without sending another prompt (7.039946ms)
+✔ an uncertain send is recovered from the matching SDK request identity and flush (10.63795ms)
+✔ missing evidence never causes an unknown delivery to be sent again (7.36269ms)
+✔ activation failure releases only the current token before prompt admission (13.787284ms)
+✔ an already completed judgement satisfies its delivery without waking another host turn (4.210488ms)
+✔ an empty optional host identity creates a stable independent session (6.226782ms)
+✔ confirmed data root wins over program location and inherited workspace in every host adapter (21.314696ms)
+✔ two host sessions retain separate task identities through concurrent real HTTP calls (77.678589ms)
+✔ opaque revision reads retain the owning session through the same host transport (7.163111ms)
+✔ concurrent retries and reordered object keys retain one accepted request (20.619915ms)
+✔ lost enqueue response is recovered by GET and never reenqueued (24.744901ms)
+✔ unknown workflow claim queries its original receipt scope without another next (22.490538ms)
+✔ a deleted or missing accepted run is reported without recreating its request (31.494089ms)
+✔ an already aborted call sends no write and native run metadata uses the real host identity (26.812723ms)
+✔ report parameters require actual host-readable bytes and never claim present delivery (17.666897ms)
+✔ explicit source files retain bytes in the selected data directory and unrelated file keys stay unchanged (6.223184ms)
+✔ same-origin routes pass explicit session identity and expose no arbitrary URL proxy (4.773759ms)
+✔ native tool definitions require an owning Agent and keep business failure in the service result (1.98524ms)
+✔ the host model snapshot preserves all state axes without legacy success aliases (4.08179ms)
+✔ paged run summaries keep the projected state while omitting large result details (34.858187ms)
+✔ native cards and the list dock register without replacing voice activity (6.783861ms)
+✔ panels resolve the actual host runtime port before loading any iframe (2.411512ms)
+✔ delayed reads stay in their owning session and polling stops after the last subscriber (13.96376ms)
+✔ an inactive host route shows a useful unavailable message instead of a JSON parse exception (3.011196ms)
+✔ disconnect invalidates pending responses and aborts reads on unmount (2.980252ms)
+✔ completion notifications name the real result and stay with the original session (2.640026ms)
+✔ a completed workflow retains its violated business conclusion in the notification and dock (2.857477ms)
+✔ a lost cancel response is queried by request id and never automatically repeated (2.748628ms)
+✔ historical cards navigate and cancel their recorded run without borrowing the selected task (6.6648ms)
+✔ a terminal run in the recorded tool snapshot keeps report navigation without a cancel action (1.545931ms)
+✔ binding choice includes the observed selection revision and never claims next work (2.613001ms)
+✔ report links appear only after same-report verification and include a real Bug artifact (3.666673ms)
+✔ changed or missing artifacts never inherit ready state from the context listing (2.6597ms)
+✔ a receipt missing a required Bug artifact cannot become ready (2.528043ms)
+✔ unknown tool history can query its own receipt without issuing a new task (2.345317ms)
+✔ binding and run pagination use independent cursors without changing the selected binding (2.157217ms)
+✔ unloading aborts pending writes and never leaves polling or completion notifications running (1.518735ms)
+✔ independent state axes show an ended execution with a passing business and failed SLA (3.870617ms)
+✔ idle context polling uses 250 ms and unchanged revisions do not rerender subscribers (1.56556ms)
+✔ scheduled polls request only the opaque session revision until it changes (2.697831ms)
+✔ an unrelated workspace revision is remembered without repeatedly fetching or rerendering context (2.182865ms)
+✔ an aborted revision response cannot fetch a full context after session reset (2.424703ms)
+✔ the default data directory is independent of the program and supports explicit overrides (1.995457ms)
+✔ registered case sheets come from the selected data folder when the old program still exists (45.530952ms)
+✔ registers autoSkill and case-writing rules with independent resource bases (9.764453ms)
+✔ dashboard is started by argv with offline switches, never through a shell (2.458201ms)
+✔ registered commands bind the same custom workspace and port as the service (9.186039ms)
+✔ host guidance accompanies the entry skill without rewriting a user case skill (7.061423ms)
+✔ without a provisioned runtime the plugin reports it instead of looking for one online (1.067212ms)
+✔ Linux source deployment uses its local venv and keeps paths with spaces as argv (1.140213ms)
+✔ client registers dashboard and schedules panels pointing at the loopback dashboard (9.572916ms)
+✔ the skill is found in both the offline package layout and a source checkout (1.318526ms)
+✔ Linux offline bundle takes its native Python before the source venv (1.505452ms)
+✔ package manifest points at files that exist (1.651608ms)
+✔ the primary phase remains ended while business and performance verdicts differ (1.871983ms)
+✔ an unverified business result is explicit and does not inherit an execution pass (0.411058ms)
+✔ historical executions are labelled without changing their original verdict (0.737852ms)
+✔ revision polling notices idle external completion and skips unchanged snapshots (1.813609ms)
+✔ a response arriving after disposal cannot update the current page (0.574014ms)
+✔ polling never overlaps and recovering a connection refreshes even the same revision (0.355985ms)
+✔ visible polling checks at 250 ms without requiring an active task (9.599798ms)
+✔ slow content updates do not block version checks and intermediate versions are coalesced (1.222826ms)
+ℹ tests 72
+ℹ suites 0
+ℹ pass 63
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 9
+ℹ todo 0
+ℹ duration_ms 1480.75792

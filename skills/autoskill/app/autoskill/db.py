@@ -15,6 +15,9 @@ from . import maintenance, paths, runtime_identity
 from .locking import named_lock
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS state_revision (
+  id INTEGER PRIMARY KEY CHECK(id = 1), revision INTEGER NOT NULL DEFAULT 0);
+INSERT OR IGNORE INTO state_revision(id,revision) VALUES(1,0);
 CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL DEFAULT '',
   base_url TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
@@ -120,6 +123,24 @@ def init() -> None:
         _initialize()
 
 
+def install_state_triggers(connection) -> None:
+    """Increment one committed workspace revision only for real business-row changes."""
+    tables = [row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'state_revision'")]
+    for table in tables:
+        quoted = '"' + table.replace('"', '""') + '"'
+        columns = [row[1] for row in connection.execute(f"PRAGMA table_info({quoted})")]
+        changed = " OR ".join('OLD."' + name.replace('"', '""') + '" IS NOT NEW."' + name.replace('"', '""') + '"' for name in columns)
+        for event in ("INSERT", "UPDATE", "DELETE"):
+            identity = "state_revision_" + table + "_" + event.lower()
+            name = '"' + identity.replace('"', '""') + '"'
+            condition = " WHEN " + changed if event == "UPDATE" else ""
+            statement = f"CREATE TRIGGER {name} AFTER {event} ON {quoted}{condition} BEGIN UPDATE state_revision SET revision = revision + 1 WHERE id=1; END"
+            existing = connection.execute("SELECT sql FROM sqlite_master WHERE type='trigger' AND name=?", (identity,)).fetchone()
+            if existing and existing["sql"] != statement:
+                connection.execute(f"DROP TRIGGER IF EXISTS {name}")
+            connection.execute(statement.replace("CREATE TRIGGER ", "CREATE TRIGGER IF NOT EXISTS ", 1))
+
+
 def _initialize() -> None:
     fresh = not (paths.workspace() / ".local/autoskill.db").exists()
     with connect() as conn:
@@ -148,6 +169,7 @@ def _initialize() -> None:
         for name in ("case_content_hash", "input_hash"):
             if name not in result_columns:
                 conn.execute(f"ALTER TABLE results ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
+        install_state_triggers(conn)
     if fresh:
         runtime_identity.note_new_database(paths.workspace())
 

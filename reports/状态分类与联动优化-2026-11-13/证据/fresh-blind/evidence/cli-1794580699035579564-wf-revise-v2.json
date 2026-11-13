@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+    "-m",
+    "autoskill",
+    "workflow",
+    "revise",
+    "wf-8bc34d6b55434423b2159bfdffcbc782",
+    "--file",
+    "/workspace/autoskill-state-validation/fresh-blind/inputs/workflow-v2.json",
+    "--idempotency-key",
+    "fresh-revise-v2"
+  ],
+  "started_ns": 1794580699035582642,
+  "finished_ns": 1794580699347860158,
+  "exit_code": 0,
+  "stdout": "{\n \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n \"project_id\": \"fresh-arithmetic\",\n \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n \"lifecycle\": \"active\",\n \"cycle_state\": \"awaiting_host\",\n \"complete\": false,\n \"conclusion\": \"unassessed\",\n \"revision\": 21,\n \"report_generation\": 0,\n \"domain_head\": \"aa99c649042e50b6aace54ae35a85132f96b389becfa6cfe13eb151c57113dc7\",\n \"definition_hash\": \"3e9dd14b1a171b9b4d5a52c7e094c178c1a449b37e754fb926026f2fc4b8cd40\",\n \"counts\": {\n  \"ready\": 1\n },\n \"state\": {\n  \"lifecycle\": \"active\",\n  \"phase\": \"awaiting_host\",\n  \"outcome\": \"pending\",\n  \"checks\": {\n   \"business\": \"unverified\",\n   \"performance\": \"not_applicable\",\n   \"quality\": \"not_applicable\"\n  },\n  \"evidence\": \"unverified\",\n  \"report\": \"not_generated\",\n  \"delivery\": \"not_applicable\",\n  \"scope\": {\n   \"project_id\": \"fresh-arithmetic\",\n   \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n   \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n   \"run_id\": null,\n   \"case_id\": null,\n   \"attempt_id\": null\n  },\n  \"reason\": \"\",\n  \"revision\": \"27cdb8a54962650aa1f4df34e0d39bc82da973692a96435a62595cd47e565e81\"\n },\n \"accepted\": true,\n \"change_id\": \"change-2933c0cc30ee418fa1507e2c5f2e7ce8\",\n \"workflow\": {\n  \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n  \"project_id\": \"fresh-arithmetic\",\n  \"title\": \"Fresh blind two-cycle arithmetic maintenance\",\n  \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n  \"lifecycle\": \"active\",\n  \"cycle_state\": \"awaiting_host\",\n  \"complete\": false,\n  \"conclusion\": \"unassessed\",\n  \"revision\": 21,\n  \"report_generation\": 0,\n  \"domain_head\": \"aa99c649042e50b6aace54ae35a85132f96b389becfa6cfe13eb151c57113dc7\",\n  \"definition_hash\": \"3e9dd14b1a171b9b4d5a52c7e094c178c1a449b37e754fb926026f2fc4b8cd40\",\n  \"counts\": {\n   \"ready\": 1\n  },\n  \"state\": {\n   \"lifecycle\": \"active\",\n   \"phase\": \"awaiting_host\",\n   \"outcome\": \"pending\",\n   \"checks\": {\n    \"business\": \"unverified\",\n    \"performance\": \"not_applicable\",\n    \"quality\": \"not_applicable\"\n   },\n   \"evidence\": \"unverified\",\n   \"report\": \"not_generated\",\n   \"delivery\": \"not_applicable\",\n   \"scope\": {\n    \"project_id\": \"fresh-arithmetic\",\n    \"workflow_id\": \"wf-8bc34d6b55434423b2159bfdffcbc782\",\n    \"cycle_id\": \"cycle-e203fbda11de4744afaf8003a20527c4\",\n    \"run_id\": null,\n    \"case_id\": null,\n    \"attempt_id\": null\n   },\n   \"reason\": \"\",\n   \"revision\": \"27cdb8a54962650aa1f4df34e0d39bc82da973692a96435a62595cd47e565e81\"\n  }\n }\n}\n",
+  "stderr": ""
+}

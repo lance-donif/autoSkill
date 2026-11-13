@@ -44,7 +44,10 @@ class NativeDashboardTests(unittest.TestCase):
         run_dialog.get_by_label("运行参数（JSON）", exact=True).fill("{}")
         run_dialog.get_by_role("button", name="开始运行", exact=True).click()
         expect(self.page.locator("#view h1")).to_have_text("原生执行报告")
-        expect(self.page.locator("#view section").first.locator(".status").first).to_have_text("通过", timeout=30000)
+        summary = self.page.locator("#view section").first
+        expect(summary.locator(".status").first).to_have_text("已结束", timeout=30000)
+        expect(summary.locator(".state-details")).to_contain_text("综合：通过", timeout=30000)
+        expect(summary.locator(".state-details")).to_contain_text("业务：通过")
         self.page.locator(".result-head").first.click()
         expect(self.page.locator(".result-body .checks")).to_be_visible()
         with self.page.expect_download() as event:

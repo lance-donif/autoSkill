@@ -1,0 +1,8 @@
+{
+  "disposition": "business_defect",
+  "reason": "Independent arithmetic contract requires42; fixture returned41, while HTTP and evidence were valid. Preserve failed attempt and original expectation.",
+  "evidence_refs": [
+    "run:run-cdc664ed903b",
+    "result:6"
+  ]
+}

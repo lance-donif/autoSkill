@@ -20,7 +20,7 @@
 .tip-row span { color: var(--ink-2); }
 .tip-row .key { width: 10px; height: 3px; border-radius: 2px; }
 .tip-foot { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); color: var(--ink-2); }
-.legend { display: flex; gap: var(--s-4); font-size: var(--t-xs); color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--s-3); font-size: var(--t-xs); color: var(--ink-2); }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { width: 10px; height: 10px; border-radius: 3px; }
 .chart-table { max-height: 236px; overflow: auto; }
@@ -31,7 +31,7 @@
 .split i { display: block; min-width: 3px; }
 
 /* ---- dashboard ---- */
-.kpis { display: grid; grid-template-columns: minmax(300px, 1.5fr) repeat(4, minmax(0, 1fr)); gap: var(--s-4); }
+.kpis { display: grid; grid-template-columns: minmax(260px, 1.5fr) repeat(5, minmax(0, 1fr)); gap: var(--s-4); }
 .kpi {
   position: relative; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: var(--s-4) var(--s-5);
   background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--ring);
@@ -67,7 +67,7 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .list-row .primary-text { font-weight: 600; font-size: var(--t-sm); }
 .list-row .secondary-text { font-size: var(--t-xs); color: var(--ink-3); }
 @media (max-width: 1280px) {
-  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .kpi.hero { grid-column: 1 / -1; }
   .dash-grid, .dash-grid.even { grid-template-columns: minmax(0, 1fr); }
 }

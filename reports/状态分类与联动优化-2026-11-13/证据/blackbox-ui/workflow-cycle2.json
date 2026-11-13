@@ -1,0 +1,1 @@
+{"goal":"第二周期重新验证订单业务；历史周期结果单独保留。","sources":[{"id":"order-business-rule-v2","kind":"requirement","title":"订单业务规则第二版","text":"POST /api/order 的业务要求仍为 JSON message 等于订单完成。第二周期必须独立执行后才能给出业务结论。"}]}

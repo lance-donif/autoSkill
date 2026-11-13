@@ -1,0 +1,20 @@
+[
+  {
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/test-report/测试用例-156c8a650da52479.xlsx",
+    "exists": true,
+    "size": 17054,
+    "sha256": "10fcdfaf3035f595d07a4c00774d1eedef8c2473d98d3d64cb0ee7d484db8ab4"
+  },
+  {
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/test-report/测试简报-156c8a650da52479.md",
+    "exists": true,
+    "size": 728,
+    "sha256": "fe37c13f574dc8589a6bd1563e51c12770b8296d19490524eb8be2bed96a1038"
+  },
+  {
+    "path": "/workspace/autoskill-state-validation/blackbox-api/workspace/.local/runs/run-f464729539e8/test-report/Bug清单-156c8a650da52479.md",
+    "exists": true,
+    "size": 942,
+    "sha256": "df67b9f82feb281f90294d751d17cf88c48d60c039974d2480469aabe7a0cb8f"
+  }
+]

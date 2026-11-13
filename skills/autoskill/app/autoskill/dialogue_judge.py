@@ -28,6 +28,7 @@ def init() -> None:
     state.init()
     with db.connect() as connection:
         connection.executescript(SCHEMA)
+        db.install_state_triggers(connection)
 
 
 def _view(record: dict) -> dict:

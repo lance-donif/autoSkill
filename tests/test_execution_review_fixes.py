@@ -14,7 +14,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, db, paths, projects, runner, sessions, task_context
+from autoskill import builder, db, deletion, paths, projects, runner, runtime_identity, sessions, task_context
 from autoskill.server import jobs
 
 SESSION_EXECUTOR = """
@@ -30,6 +30,34 @@ class CheckedSession(runner.Session):
 runner.Session = CheckedSession
 result = runner.execute(sys.argv[1])
 raise SystemExit(0 if result['status'] == 'Pass' else 2)
+"""
+
+RESERVED_EXECUTOR = """
+import json
+import sys
+import time
+from pathlib import Path
+from autoskill import db, runner
+
+run_id, role, signal, gate, output = sys.argv[1:]
+signal, gate, output = Path(signal), Path(gate), Path(output)
+if role == 'join':
+    claim = db.claim_run
+    def observed(*args, **kwargs):
+        acquired = claim(*args, **kwargs)
+        if not acquired:
+            signal.touch()
+        return acquired
+    db.claim_run = observed
+else:
+    signal.touch()
+    deadline = time.monotonic() + 10
+    while not gate.exists():
+        if time.monotonic() >= deadline:
+            raise TimeoutError('Test did not release the reserved executor')
+        time.sleep(0.01)
+result = runner.execute(run_id, claim_token=None if role == 'join' else role)
+output.write_text(json.dumps(result))
 """
 
 
@@ -154,6 +182,68 @@ class ExecutionReviewTests(unittest.TestCase):
         self.assertEqual(self.final(run["id"])["status"], "Pass")
         self.assertEqual(self.sites[0].requests, 1)
         self.assertEqual(len(db.rows("SELECT * FROM results")), 1)
+
+    def reserved_join(self, run_id):
+        """Start the joiner before the designated executor can enter its execution guard."""
+        token = "designated-reservation"
+        self.assertTrue(db.claim_run(run_id, os.getpid(), 2, token))
+        root = Path(self.tmp.name)
+        gate = root / "owner-release"
+        owner_signal, join_signal = root / "owner-ready", root / "join-attempted"
+        owner_output, join_output = root / "owner-result.json", root / "join-result.json"
+        def launch(role, signal, output):
+            child = subprocess.Popen([sys.executable, "-c", RESERVED_EXECUTOR, run_id, role, str(signal), str(gate), str(output)],
+                                     cwd=paths.APP, env=paths.child_env(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.children.append(child)
+            return child
+        owner = launch(token, owner_signal, owner_output)
+        self.wait_for_file(owner_signal)
+        with db.connect() as connection:
+            changed = connection.execute("UPDATE runs SET pid = ?, owner_identity = ? WHERE id = ? AND claim_token = ?",
+                                         (owner.pid, json.dumps(runtime_identity.current(owner.pid)), run_id, token)).rowcount
+        self.assertEqual(changed, 1)
+        joiner = launch("join", join_signal, join_output)
+        self.wait_for_file(join_signal)
+        self.assertFalse(owner_output.exists())
+        self.assertFalse(join_output.exists())
+        return owner, joiner, gate, owner_output, join_output
+
+    def wait_for_file(self, file):
+        deadline = time.monotonic() + 5
+        while not file.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(file.exists(), "The child did not reach its controlled reservation barrier")
+
+    def test_direct_join_releases_guard_before_waiting_for_designated_executor(self):
+        run = self.queued()
+        owner, joiner, gate, owner_output, join_output = self.reserved_join(run["id"])
+        gate.touch()
+        self.assertTrue(self.sites[0].entered.wait(5), "A joining process must not hold the guard needed by the designated executor")
+        active = db.one("SELECT pid,claim_token FROM runs WHERE id = ?", (run["id"],))
+        self.assertEqual((active["pid"], active["claim_token"]), (owner.pid, ""))
+        with deletion._try_execution(run["id"]) as acquired:
+            self.assertFalse(acquired)
+        self.assertFalse(join_output.exists())
+        self.assertEqual(self.sites[0].requests, 1)
+        self.sites[0].release.set()
+        self.assert_exited(owner)
+        self.assert_exited(joiner)
+        results = [json.loads(file.read_text()) for file in (owner_output, join_output)]
+        self.assertEqual([(row["status"], row["done"]) for row in results], [("Pass", 1), ("Pass", 1)])
+        self.assertEqual(self.sites[0].requests, 1)
+        self.assertEqual(len(db.rows("SELECT * FROM results WHERE run_id = ?", (run["id"],))), 1)
+
+    def test_direct_join_of_cancelled_reservation_does_not_execute_or_block_owner(self):
+        run = self.queued()
+        owner, joiner, gate, owner_output, join_output = self.reserved_join(run["id"])
+        jobs.cancel(run["id"])
+        gate.touch()
+        self.assert_exited(owner)
+        self.assert_exited(joiner)
+        results = [json.loads(file.read_text()) for file in (owner_output, join_output)]
+        self.assertEqual([row["status"] for row in results], ["Cancelled", "Cancelled"])
+        self.assertEqual(self.sites[0].requests, 0)
+        self.assertEqual(db.rows("SELECT * FROM results WHERE run_id = ?", (run["id"],)), [])
 
     def test_reservation_token_is_consumed_once_and_rejects_other_children(self):
         run = self.queued()
@@ -344,6 +434,9 @@ class ExecutionReviewTests(unittest.TestCase):
         run = self.queued()
         with db.connect() as conn:
             conn.execute("DROP INDEX runs_by_session")
+            # Old databases predate revision triggers; remove modern metadata before constructing that fixture.
+            for trigger in conn.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='runs'").fetchall():
+                conn.execute('DROP TRIGGER "' + trigger["name"].replace('"', '""') + '"')
             for column in ("claim_token", "force_login", "session_id", "headed", "owner_identity"):
                 conn.execute(f"ALTER TABLE runs DROP COLUMN {column}")
         for _ in range(2):
@@ -355,6 +448,11 @@ class ExecutionReviewTests(unittest.TestCase):
         row = db.one("SELECT * FROM runs WHERE id = ?", (run["id"],))
         self.assertEqual((row["status"], row["claim_token"], row["force_login"], row["session_id"], row["headed"], row["owner_identity"]),
                          ("Queued", "", 0, "", 0, "{}"))
+        revision = db.one("SELECT revision FROM state_revision WHERE id=1")["revision"]
+        db.update("runs", run["id"], {"claim_token": ""})
+        self.assertEqual(db.one("SELECT revision FROM state_revision WHERE id=1")["revision"], revision)
+        db.update("runs", run["id"], {"claim_token": "migrated"})
+        self.assertGreater(db.one("SELECT revision FROM state_revision WHERE id=1")["revision"], revision)
 
 
 if __name__ == "__main__":

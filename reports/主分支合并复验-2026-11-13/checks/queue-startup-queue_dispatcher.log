@@ -1,0 +1,17 @@
+test_a_new_enqueue_restarts_after_idle_shutdown (test_queue_dispatcher.DispatcherTests.test_a_new_enqueue_restarts_after_idle_shutdown) ... ok
+test_cancelled_waiter_does_not_execute_when_a_slot_opens (test_queue_dispatcher.DispatcherTests.test_cancelled_waiter_does_not_execute_when_a_slot_opens) ... ok
+test_concurrent_cli_submitters_share_worker_and_queue_drains_without_dashboard (test_queue_dispatcher.DispatcherTests.test_concurrent_cli_submitters_share_worker_and_queue_drains_without_dashboard) ... ok
+test_enabled_future_schedule_keeps_worker_until_paused (test_queue_dispatcher.DispatcherTests.test_enabled_future_schedule_keeps_worker_until_paused) ... ok
+test_future_maintenance_creates_one_durable_host_delivery (test_queue_dispatcher.DispatcherTests.test_future_maintenance_creates_one_durable_host_delivery) ... ok
+test_future_schedule_fires_after_submitter_exits_and_idle_timeout_passes (test_queue_dispatcher.DispatcherTests.test_future_schedule_fires_after_submitter_exits_and_idle_timeout_passes) ... ok
+test_maintenance_before_idle_lock_rechecks_new_schedule_instead_of_exiting (test_queue_dispatcher.DispatcherTests.test_maintenance_before_idle_lock_rechecks_new_schedule_instead_of_exiting) ... ok
+test_maintenance_during_initialization_retries_before_processing_work (test_queue_dispatcher.DispatcherTests.test_maintenance_during_initialization_retries_before_processing_work) ... ok
+test_maintenance_during_pending_check_retries_and_keeps_future_schedule (test_queue_dispatcher.DispatcherTests.test_maintenance_during_pending_check_retries_and_keeps_future_schedule) ... ok
+test_replacement_dispatcher_respects_a_surviving_executor_after_worker_crash (test_queue_dispatcher.DispatcherTests.test_replacement_dispatcher_respects_a_surviving_executor_after_worker_crash) ... ok
+test_spawn_failure_keeps_original_queued_run_available_for_retry (test_queue_dispatcher.DispatcherTests.test_spawn_failure_keeps_original_queued_run_available_for_retry) ... ok
+test_startup_ack_does_not_compete_with_the_new_dispatcher (test_queue_dispatcher.DispatcherTests.test_startup_ack_does_not_compete_with_the_new_dispatcher) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 34.219s
+
+OK

@@ -61,6 +61,8 @@ DSH 注册命令中的 `--runtime-context <绑定值>` 同时固定 workspace �
 
 ## 原生资产、会话捕获与宿主判定
 
+运行、结果与宿主上下文的统一 `state`、当前/历史周期、1 秒内联动和报告手动重试，见 [状态分类与联动](state-contract.md)。`workflow status <工作流> --cycle current|all` 默认 current；状态读取不触发执行或报告生成。
+
 | 命令 | 说明 |
 | --- | --- |
 | `engine list` / `engine probe [引擎]` | 已注册适配器与实际安装/运行诊断 |

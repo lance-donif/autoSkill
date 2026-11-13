@@ -1,0 +1,7 @@
+test_cancelled_waiter_does_not_execute_when_a_slot_opens (test_queue_dispatcher.DispatcherTests.test_cancelled_waiter_does_not_execute_when_a_slot_opens) ... ok
+test_cancelled_waiter_does_not_execute_when_a_slot_opens (test_queue_dispatcher.DispatcherTests.test_cancelled_waiter_does_not_execute_when_a_slot_opens) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 4.761s
+
+OK

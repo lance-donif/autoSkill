@@ -1,0 +1,48 @@
+{
+  "cases": [
+    {
+      "schema_version": "1.1.0",
+      "id": "TC-API-ORDER",
+      "kind": "api",
+      "revision": 1,
+      "lifecycle": "active",
+      "requirement_ids": [
+        "req-order-success"
+      ],
+      "module": "订单业务",
+      "title": "订单服务业务成功",
+      "priority": "P1",
+      "preconditions": "本地订单站可访问",
+      "steps": [
+        "向 /api/order 发送 POST 请求，核对业务返回为订单完成"
+      ],
+      "test_data": {},
+      "expected": "订单完成",
+      "source": "order-business-rule",
+      "risk": "write",
+      "tags": [
+        "独立黑盒"
+      ],
+      "extensions": {
+        "oracle": {
+          "source": "requirement"
+        }
+      },
+      "api_source": "source-and-official-docs",
+      "source_ref": "order-business-rule",
+      "method": "POST",
+      "path": "/api/order",
+      "assertions": {
+        "status": 200,
+        "json_equals": {
+          "/message": "订单完成"
+        }
+      }
+    }
+  ],
+  "bindings": {
+    "scenario-order-success": [
+      "TC-API-ORDER"
+    ]
+  }
+}

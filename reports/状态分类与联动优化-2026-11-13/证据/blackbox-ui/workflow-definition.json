@@ -1,0 +1,12 @@
+{
+  "title": "独立黑盒订单维护",
+  "goal": "验证订单服务返回业务成功；每个周期分别保存执行阶段、业务结论与报告状态，不将历史结果作为当前周期结论。",
+  "sources": [
+    {
+      "id": "order-business-rule",
+      "kind": "requirement",
+      "title": "订单业务规则",
+      "content": "本地独立订单站 POST /api/order 的业务要求为 JSON message 等于订单完成。HTTP 200 本身不能证明业务成功。"
+    }
+  ]
+}
