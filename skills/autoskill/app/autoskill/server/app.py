@@ -12,9 +12,29 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from .. import __version__, bridge, command_input, context_service, data_preferences, data_refs, data_store, db, deletion, demo, paths, projects, runner, secrets, sessions, task_context, task_reports
+from .. import (
+    __version__,
+    bridge,
+    case_editing,
+    command_input,
+    context_service,
+    data_preferences,
+    data_refs,
+    data_store,
+    db,
+    deletion,
+    demo,
+    paths,
+    projects,
+    runner,
+    secrets,
+    sessions,
+    task_context,
+    task_reports,
+)
 from ..replay import ir
 from . import jobs, metrics, scheduler
+from .case_editing import register as register_case_editing
 from .case_folders import register as register_case_folders
 from .case_plans import register as register_case_plans
 from .conversations import register as register_conversations
@@ -70,6 +90,8 @@ def case_view(project_id: str, case: dict) -> dict:
     view = {k: case.get(k) for k in ("id", "kind", "title", "module", "priority", "risk", "revision", "expected")}
     view.update(project_id=project_id, depends_on=projects.depends_on(case), replayable=ir.is_replayable(case),
                 category=case.get("extensions", {}).get("category", ""))
+    current = case_editing.verification(project_id, case)
+    view.update(current=current["current"], current_status=current["current_status"], last_status=current["last_status"])
     if case["kind"] == "ui":
         automation = case.get("extensions", {}).get("automation") or {}
         view["start_url"] = automation.get("start_url")
@@ -144,6 +166,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     register_project_materials(app)
     register_case_folders(app)
     register_case_plans(app)
+    register_case_editing(app)
     register_load_testing(app)
     register_conversations(app)
     register_native_tools(app)
@@ -533,7 +556,7 @@ def _register_context_routes(app: FastAPI) -> None:
 
     @app.get("/api/case-definitions/{project_id}/{case_id}")
     def case(project_id: str, case_id: str):
-        return context_service.case(project_id, case_id)
+        return case_editing.get(project_id, case_id)
 
     @app.get("/api/knowledge/{project_id}")
     def knowledge(project_id: str, request: Request):

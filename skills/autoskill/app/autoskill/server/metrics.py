@@ -1,4 +1,4 @@
-"""Dashboard numbers. Cards, charts and lists are all computed in SQL from one scope, so they always agree.
+"""Dashboard counts share one SQL scope; current case verdicts additionally qualify frozen execution evidence.
 
 Definitions (shown next to each figure in the dashboard):
 - cases      active cases as of the end of the range
@@ -9,9 +9,11 @@ Definitions (shown next to each figure in the dashboard):
 from __future__ import annotations
 
 import datetime
+import json
 from dataclasses import dataclass, field
 
-from .. import db
+from .. import db, execution_inputs, projects
+from ..replay import ir
 
 COUNTED = "r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load'"
 RESULTS = "FROM results r JOIN runs u ON u.id = r.run_id LEFT JOIN projects p ON p.id = r.project_id"
@@ -216,6 +218,42 @@ def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> di
         "(SELECT r.status FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
         " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) last_status, "
         "(SELECT r.started_at FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
-        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) last_run_at "
+        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) last_run_at, "
+        "(SELECT r.id FROM results r JOIN runs u ON u.id = r.run_id WHERE r.project_id = c.project_id AND r.case_id = c.case_id "
+        " AND r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load' ORDER BY r.id DESC LIMIT 1) latest_result_id "
         f"FROM cases c LEFT JOIN projects p ON p.id = c.project_id WHERE {where} ORDER BY c.project_id, c.kind DESC, c.case_id", args)
+    _current_case_results(items)
     return {"total": len(items), "items": items}
+
+
+def _current_case_results(items: list[dict]) -> None:
+    """Keep historical facts while qualifying the displayed current verdict against all frozen inputs."""
+    if not items:
+        return
+    selected = sorted({item["project_id"] for item in items})
+    where = "r.project_id IN (" + ",".join("?" for _ in selected) + ")"
+    histories = {row["id"]: row for row in db.rows(f"SELECT r.* {RESULTS} WHERE {COUNTED} AND {LATEST} AND {where}", selected)}
+    definitions, captures = {}, {}
+    for item in items:
+        project_id = item["project_id"]
+        item.update(current=False, current_status=None)
+        result = histories.get(item.pop("latest_result_id"))
+        if result is None:
+            continue
+        if project_id not in definitions:
+            definitions[project_id] = {case["id"]: case for case in projects.cases(project_id)}
+        case = definitions[project_id].get(item["case_id"])
+        key = (project_id, result["engine"])
+        if key not in captures:
+            captures[key] = _current_capture(project_id, definitions[project_id], result["engine"])
+        if case is not None and execution_inputs.result_current(project_id, case, result, current=captures[key]):
+            business = json.loads(result["detail"]).get("business_status")
+            item.update(current=True, current_status="Unverified" if result["status"] == "Pass" and business != "Pass" else result["status"])
+
+
+def _current_capture(project_id: str, definitions: dict, engine: str) -> dict | None:
+    chosen = [case["id"] for case in definitions.values() if ir.is_replayable(case)]
+    try:
+        return execution_inputs.capture(project_id, chosen, engine, persist=False) if chosen else None
+    except (ValueError, OSError, TypeError):
+        return None
