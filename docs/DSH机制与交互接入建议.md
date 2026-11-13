@@ -1,22 +1,22 @@
 # DSH 机制与交互接入建议
 
-核对日期：2026-11-13。范围：本机 DSH `0.2.2-rc.1` SDK 和官方 commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。以下新增交互是后续提案，未加入 v2.2.3，也没有声称已通过真实 DSH 模型会话验收。
+核对日期：2026-11-13。范围：本机 DSH `0.2.2-rc.1` SDK 和官方 commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。以下交互在 v2.2.3 之后实现。已完成真实 SDK 和隔离 DSH Web 的本机协议夹具验证；远端模型调用被 CONNECT 403 阻断，未声称真实模型自主完成业务测试。
 
 | 机制 | 已核实入口 | autoSkill 现状与可以增加的交互 |
 | --- | --- | --- |
-| 原生工具 | `ctx.tools.register`；输入/输出 Schema、execute、取消信号 | 当前走 Skill + shell/CLI。可把领取任务、读取状态、提交判断、读取报告接成少量原生工具，仍调用同一内核 |
-| 工具卡片 | `presentCall/presentResult`；`tool.call.toolview` React 插槽 | 当前没有专属工具卡。可展示实际任务、阶段、数量和报告。通用卡没有任意 actions 字段；按钮必须由自有 React 组件连接真实业务 API |
-| 动态上下文 | `ctx.on('agent/pre-step', …)` waterfall | 可注入当前绑定任务的简短状态、版本和读取引用；调用 next 保留其他插件内容，摘要未变时不重复注入 |
+| 原生工具 | `ctx.tools.register`；输入/输出 Schema、execute、取消信号 | 已注册 autoskill_read / autoskill_task，查询、绑定、工作流、judge、运行与报告均调用同一内核，其他能力保留 CLI |
+| 工具卡片 | `presentCall/presentResult`；`tool.call.toolview` React 插槽 | 已实现查询卡、任务卡、运行取消与报告按钮。通用卡没有任意 actions 字段；按钮必须由自有 React 组件连接真实业务 API |
+| 动态上下文 | `ctx.on('agent/pre-step', …)` waterfall | 已注入当前明确绑定任务的只读摘要；保留 pre-step waterfall，按实际接纳历史去重，外层拒绝后仍可重试 |
 | Skill 按需发现 | `ctx.skills.register`、`registerProvider` 的 list/get 与失效通知 | 已注册产品 Skill、上传的用例规则 Skill 和存在时的用例 Skill。可进一步按工作区提供动态项目入口，不把几千用例全部展开进目录或正文 |
-| Slash 命令 | `/<Skill 名>`；另有 `ctx.commands.register` | 前者让模型读 Skill；后者直接处理人类命令。可增加确定性的进度、报告和恢复快捷入口，复用现有持久状态 |
+| Slash 命令 | `/<Skill 名>`；另有 `ctx.commands.register` | 前者让模型读 Skill；后者直接处理人类命令。已增加 /autoskill-status、/autoskill-use、/autoskill-report，复用持久状态，不开启模型 turn 或伪造交付 |
 | 原生进度 | `todo_write` 完整替换清单 | 已有宿主调用指导。下一 turn/start 会清空展示，需要根据内核状态重建；completed 仅表示阶段完成，不表示业务 Pass |
-| 输入框交互 | `conversation.input.dock/activity`；`SessionInput.notify` | 可展示当前任务、运行数量、待判断数量和报告入口；通知精确落在所属会话。已核实的是输入框通知，不是系统桌面推送 |
-| 文件交付卡 | `present({files:[{path,description}]})`；`conversation.chat.turnTail` | 已有 Excel/MD 文件、receipt 与宿主指导。仍要在真实 DSH 验证路径可达性和原生文件卡；present 不复制文件、不校验 Excel 内容 |
-| 会话投递 | `sessionController.create/resolveAgent/prompt`、`sessions.flush` | 已接入持久任务投递。可增加会话绑定与恢复展示。prompt 接受表示进入 inbox，不等于测试完成；取消会话与取消具体 run 是不同操作 |
+| 输入框交互 | `conversation.input.dock/activity`；`SessionInput.notify` | 已在会话 dock 展示绑定、进度与报告，通知落在所属会话；不占用语音使用的 activity 单例插槽。已核实的是输入框通知，不是系统桌面推送 |
+| 文件交付卡 | `present({files:[{path,description}]})`；`conversation.chat.turnTail` | Excel、简报、Bug 清单经当前宿主 fs 读取并核验后才提供 present 参数；真实 SDK 已验证 owning Agent、open turn 与成功事件。present 本身不复制文件 |
+| 会话投递 | `sessionController.create/resolveAgent/prompt`、`sessions.flush` | 已接入持久任务投递。已增加显式绑定和恢复展示。prompt 接受表示进入 inbox，不等于测试完成；取消会话与取消具体 run 是不同操作 |
 | 调度 | DSH `ctx.schedule`；autoSkill 自有 scheduler/outbox | 当前由 autoSkill 负责调度，DSH adapter 消费任务。不要为同一任务再创建第二个 DSH 时钟；DSH 进程需要运行才能处理宿主 AI 工作 |
-| 插件面板 | `main`、`sidebar.panellist` | 已有仪表盘和定时任务 iframe。可让对话中的任务卡直接打开对应 project/run，而不是只到首页 |
+| 插件面板 | `main`、`sidebar.panellist` | 已有仪表盘和定时任务 iframe。任务卡可打开精确运行报告，iframe 从受认证 Host metadata 获取实际端口 |
 
-## 建议实施顺序
+## 已实现的集成顺序
 
 1. **会话绑定与恢复摘要**：明确当前对话属于哪个 workspace、task session、workflow/cycle，跨轮按真实持久状态继续。
 2. **原生工具薄适配和任务卡**：选择少量高频入口，保留通用 CLI；异步执行先返回 run_id，避免宿主同步等待本来需要它处理的 judge。
@@ -30,7 +30,7 @@ Skill 负责测试方法和命令约定；Python 内核负责任务、用例、�
 
 分开保存 DSH host session、autoSkill task session，以及 workflow/item/attempt 身份。同一会话有多个任务时使用明确绑定，不猜“最新任务”。pre-step 仅查询摘要，不调用会领取租约的 workflow next，也不自动重播业务动作。用例和知识继续分页/按引用读取，避免把几千条定义一次塞进模型上下文。
 
-输入框进度不使用 /plan 审批模式替代；新增这些展示和适配不需要再加一层用户审批。宿主模型、沙箱与权限设置仍由 DSH 管理。真实 DSH 默认沙箱、模型执行、原生卡片链路尚未完成验收，现有本机服务和 SDK 替身测试不能代替该结论。
+输入框进度不使用 /plan 审批模式替代；新增这些展示和适配不需要再加一层用户审批。宿主模型、沙箱与权限设置仍由 DSH 管理。真实 DSH 原生卡片、三文件下载、A/B 隔离与取消恢复已用本机协议夹具验证；默认沙箱里的远端模型自主执行仍未完成，不能用 SDK/协议成功替代模型业务验收。
 
 ## 核对依据
 

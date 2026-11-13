@@ -1,0 +1,25 @@
+{
+  "checks": [
+    {
+      "name": "最终代码冷加载后，真实 autoskill_task 调用显示原生任务卡和正确会话回执",
+      "passed": true,
+      "request_id": "native-card-58b2e6dd77da44c4bc52a63865977530"
+    },
+    {
+      "name": "历史查询卡使用自己的终态快照保留报告入口，不再显示终态取消按钮",
+      "passed": true
+    },
+    {
+      "name": "最终冷加载以Host实际非默认端口打开精确运行，真实报告页面可见",
+      "passed": true,
+      "dashboard_port": 38517,
+      "run_id": "run-bc381f2254b2"
+    }
+  ],
+  "errors": [],
+  "stage": "runtime-origin-and-report",
+  "client_sha256": "5089eee227cd1e8051db934d31cb09874215cb0c337260f12bb19f8ec25dea11",
+  "passed": true,
+  "client_unchanged": true,
+  "body": "新会话\n插件\n自动化任务\n▦\nautoSkill 仪表盘\n◷\nautoSkill 定时任务\n更多\n工作区\nworkspace\n这是隔离的客户端验收 A。请\n刚刚\nB 会话独立任务验收：请读取 a\n12分钟\nB 会话独立任务验收：请读取 a\n13分钟\n更多"
+}
