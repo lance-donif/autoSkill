@@ -55,8 +55,12 @@ Python 使用真实本机浏览器及已安装的 Selenium、Newman、Apifox、J
 - 真实 DSH Web 原生任务卡记录在 `evidence/2026-11-13-dsh-native/client/`。原始 A/H/B、详细私有执行环境与失败证据保留于开发验证目录，不打入用户程序包。
 - [现行更新与数据分享步骤](../docs/升级与数据保留.md)。发布后的三平台 ZIP 大小、SHA-256 与上传验证以 `release-status.json`、`offline-package.json` 为准；源码通过不代表附件已经发布。
 
+v2.2.4 已由构建提交 `a6c77905331383d88d24aa5bfd2d6818a51578d7` 发布：[Release](https://github.com/lance-donif/autoSkill/releases/tag/v2.2.4)。Windows x64 为 327,065,340 字节，Linux x64 为 410,462,845 字节，Linux ARM64 为 384,725,802 字节。三个附件的上传大小、digest 与本地构建摘要一致，每个包的 17 个 UI 文件与标签源码一致；244 个受检源码文件也与标签字节一致。独立核对见 `evidence/releases/v2.2.4/final-verification.json`，CI 未重复运行功能回归。
+
 ## 验证边界
 
 没有 Windows/UOS ARM64 真机验收，也没有对全部历史数据格式完成兼容矩阵。普通手工 ZIP 的 CRC 与清点不能证明压缩工具跨文件时点一致；用户需停止写入后压缩。旧机器加密存储仍依赖原环境的读取能力；保留加密文件不等于跨机器已经解密。
+
+通用 native 的报告设计映射仍不完整：本轮执行前的 `requirements.md` 已冻结且哈希有效，但当前适配器对 Selenium unittest/pytest、Newman、JMeter 等只形成标识、标题和原生来源定义，尚不能把设计资料关联成同轮中文步骤与预期。只有 `ai-eval` 有专门的设计提取。因此交付 Excel 的部分设计字段如实标为“待确认”；10 项真实执行与证据结论有效，不能据此称该 Excel 已是完整业务设计用例。现有独立 plan 表也不能补入通用 native 的同轮快照。本轮没有手改报告、反推预期或改动旧快照来遮盖这一限制。
 
 远端模型连接被当前环境 CONNECT 403 阻断；未完成真实远端模型在 DSH 默认沙箱内自主执行全部任务的验收。DSH 本地协议模型夹具不是模型能力成绩。WebRTC 接收的既有 ICE 阻塞保持独立的未通过记录，不能被此次数据和 SDK 结果替代。
