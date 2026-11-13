@@ -5,9 +5,11 @@ browser. Secrets are read from environment variables of the same name.
 """
 from __future__ import annotations
 
+import ast
 import inspect
 import json
 import re
+import textwrap
 from pathlib import Path
 
 from .. import projects, runner
@@ -16,7 +18,6 @@ from .playwright_driver import PlaywrightAction
 from .tabs import Tabs, playwright_tabs, selenium_tabs
 
 SECRET = re.compile(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}")
-KEYS = {"Enter": "ENTER", "Escape": "ESCAPE", "Tab": "TAB", "Backspace": "BACKSPACE", "Delete": "DELETE", "Space": "SPACE"}
 
 
 def lit(value) -> str:
@@ -44,33 +45,6 @@ def url_expr(url: str) -> str:
     return lit(url) if "://" in url else f"BASE_URL + {lit(url if url.startswith('/') else '/' + url)}"
 
 
-def pw_locator(locator: dict) -> str:
-    kind, value = locator["by"], locator.get("value")
-    if kind == "testid":
-        code = f"page.get_by_test_id({lit(value)})"
-    elif kind == "role":
-        name = f", name={lit(locator['name'])}, exact=True" if locator.get("name") else ""
-        code = f"page.get_by_role({lit(locator['role'])}{name})"
-    elif kind in ("label", "placeholder", "text"):
-        code = f"page.get_by_{kind}({lit(value)}, exact=True)"
-    else:
-        code = f"page.locator({lit(value)})"
-    return code + (f".nth({locator['nth']})" if locator.get("nth") else "")
-
-
-def css_for(step: dict) -> tuple[str, int]:
-    """Selenium scripts use plain CSS: the recorded CSS candidate, or one derived from a test id or placeholder."""
-    candidates = ir.locators(step)
-    for locator in candidates:
-        if locator["by"] == "css":
-            return locator["value"], locator.get("nth", 0)
-    for locator in candidates:
-        if locator["by"] in ("testid", "placeholder"):
-            attribute = "data-testid" if locator["by"] == "testid" else "placeholder"
-            return f'[{attribute}="{locator["value"]}"]', locator.get("nth", 0)
-    raise ValueError("这一步没有可用于 Selenium 独立脚本的 CSS 定位：" + ir.describe(step))
-
-
 def tab_step_expr(step: dict) -> str:
     return "{" + ", ".join(lit(k) + ": " + (url_expr(v) if k == "url" else lit(v))
                            for k, v in step.items() if k in ("action", "tab", "active", "url")) + "}"
@@ -83,7 +57,6 @@ def tab_change_expr(change: dict) -> str:
 
 
 def pw_step(step: dict) -> str:
-    target = pw_locator(ir.locators(step)[0]) if ir.locators(step) else None
     if "action" in step:
         op = step["action"]
         if op.startswith("tab_"):
@@ -92,19 +65,7 @@ def pw_step(step: dict) -> str:
             return f"page.goto({url_expr(step['url'])})"
         if op == "reload":
             return "page.reload()"
-        if op == "press":
-            return f"{target}.press({lit(step['key'])})" if target else f"page.keyboard.press({lit(step['key'])})"
-        if op == "fill":
-            return f"{target}.fill({lit(step['value'])})"
-        if op == "type":
-            return f"{target}.press_sequentially({lit(step['value'])})"
-        if op == "select":
-            return f"{target}.select_option({lit(step['value'])})"
-        if op == "captcha":  # a standalone script has no captcha model: a person types it
-            return f'{target}.fill(input("请输入验证码："))'
-        if op in ("wait_visible", "wait_hidden"):
-            return f"{target}.wait_for(state={lit(op[5:])})"
-        return f"{target}.{op}()"
+        return _action_call(step, "page")
     return _pw_assertion(step)
 
 
@@ -114,28 +75,26 @@ def _pw_assertion(step: dict) -> str:
 
 
 def _assertion_call(step: dict, browser: str) -> str:
-    definition = {key: value for key, value in step.items() if key != "recording_result"}
-    definition.update(name=step.get("name") or ir.describe(step), locators=ir.locators(step))
+    definition = _step_definition(step)
     if step.get("transition_from") and ir.locators(step["transition_from"]):
-        definition["transition_from"] = {**step["transition_from"], "locators": ir.locators(step["transition_from"])}
+        definition["transition_from"] = _step_definition(step["transition_from"])
     return f"verify(AssertionDriver({browser}), {lit(definition)})"
 
 
-KEY_NAMES = {**KEYS, "Control": "CONTROL", "Shift": "SHIFT", "Alt": "ALT", "Meta": "META", "ArrowUp": "ARROW_UP",
-             "ArrowDown": "ARROW_DOWN", "ArrowLeft": "ARROW_LEFT", "ArrowRight": "ARROW_RIGHT", "Home": "HOME", "End": "END"}
+def _step_definition(step: dict) -> dict:
+    """Keep runtime data intact while normalizing legacy locator aliases exactly once."""
+    definition = {key: value for key, value in step.items() if key not in ("recording_result", "selector", "placeholder", "role")}
+    definition.update(name=step.get("name") or ir.describe(step), locators=ir.locators(step))
+    return definition
 
 
-def key_expr(key: str) -> str:
-    return ", ".join(f"Keys.{KEY_NAMES[part]}" if part in KEY_NAMES else lit(part) for part in key.split("+"))
+def _action_call(step: dict, browser: str) -> str:
+    return f"execute(AssertionDriver({browser}), {lit(_step_definition(step))})"
 
 
 def se_step(step: dict) -> str:
     if "assertion" in step:
         return _assertion_call(step, "driver")
-    has_target = bool(ir.locators(step))
-    css, nth = css_for(step) if has_target else ("", 0)
-    at = f"{lit(css)}, {nth}"
-    message = json.dumps(ir.describe(step), ensure_ascii=False)  # never expands secrets
     op = step["action"]
     if op.startswith("tab_"):
         return f"tabs.action({tab_step_expr(step)}, TIMEOUT)"
@@ -143,36 +102,16 @@ def se_step(step: dict) -> str:
         return f"driver.get({url_expr(step['url'])})"
     if op == "reload":
         return "driver.refresh()"
-    if op == "press":
-        keys = key_expr(step["key"])
-        return f"find(driver, {at}).send_keys({keys})" if has_target else f"ActionChains(driver).send_keys({keys}).perform()"
-    if op == "fill":
-        return f"fill(driver, {at}, {lit(step['value'])})"
-    if op == "type":
-        return f"find(driver, {at}).send_keys({lit(step['value'])})"
-    if op == "select":
-        return f"Select(find(driver, {at})).select_by_value({lit(step['value'])})"
-    if op == "click":
-        return f"find(driver, {at}).click()"
-    if op == "dblclick":
-        return f"ActionChains(driver).double_click(find(driver, {at})).perform()"
-    if op == "hover":
-        return f"ActionChains(driver).move_to_element(find(driver, {at})).perform()"
-    if op in ("check", "uncheck"):
-        return f"set_checked(driver, {at}, {op == 'check'})"
-    if op == "captcha":
-        return f'fill(driver, {at}, input("请输入验证码："))'
-    return f"wait_until(lambda: shown(driver, {at}) is {op == 'wait_visible'}, {message})"
+    return _action_call(step, "driver")
 
 
 PW_HEADER = r'''import os
-import re
 import time
+from urllib.parse import urljoin, urlsplit
 
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import sync_playwright
 
 BASE_URL = os.environ.get("BASE_URL", @@BASE@@).rstrip("/")
-CLASS_L, CLASS_R = r"(^|\s)", r"(\s|$)"
 TIMEOUT = float(os.environ.get("TIMEOUT", "90"))
 RAND = os.environ.get("RAND") or os.urandom(3).hex()  # unique text for the data this run creates
 '''
@@ -186,6 +125,7 @@ def main():
         browser = p.chromium.launch(**options)
         context = browser.new_context(viewport={"width": 1920, "height": 1080})
         context.on("dialog", lambda dialog: dialog.accept())
+        context.set_default_timeout(TIMEOUT * 1000)
         page = context.new_page()
         try:
 @@CALLS@@
@@ -199,82 +139,13 @@ if __name__ == "__main__":
 '''
 SE_HEADER = r'''import os
 import time
+from urllib.parse import urljoin, urlsplit
 
 from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import Select
 
 BASE_URL = os.environ.get("BASE_URL", @@BASE@@).rstrip("/")
 TIMEOUT = float(os.environ.get("TIMEOUT", "10"))
 RAND = os.environ.get("RAND") or os.urandom(3).hex()  # unique text for the data this run creates
-
-
-def wait_until(test, message):
-    deadline = time.monotonic() + TIMEOUT
-    while True:
-        try:
-            if test():
-                return
-        except Exception:
-            pass
-        if time.monotonic() >= deadline:
-            raise AssertionError(message)
-        time.sleep(0.1)
-
-
-def find(driver, css, nth=0):
-    found = []
-
-    def ready():
-        found[:] = driver.find_elements(By.CSS_SELECTOR, css)
-        return len(found) > nth
-
-    try:
-        wait_until(ready, "找不到元素 " + css)
-    except AssertionError as error:
-        # Keep the actual page identity when a navigation or window selection failed.
-        try:
-            detail = ("；当前页面：" + Tabs.destination(driver.current_url)
-                      + "；标题：" + driver.title
-                      + "；加载状态：" + str(driver.execute_script("return document.readyState")))
-        except Exception as diagnostic:
-            detail = "；页面诊断不可用：" + type(diagnostic).__name__
-        raise AssertionError(str(error) + detail) from None
-    return found[nth]
-
-
-def shown(driver, css, nth=0):
-    found = driver.find_elements(By.CSS_SELECTOR, css)
-    return len(found) > nth and found[nth].is_displayed()
-
-
-def read(driver, css, nth, what):
-    element = driver.find_elements(By.CSS_SELECTOR, css)[nth]
-    if what == "text":
-        return driver.execute_script("return arguments[0].innerText ?? arguments[0].textContent ?? '';", element)
-    if what == "value":
-        return element.get_property("value")
-    if what == "checked":
-        return element.is_selected()
-    return element.get_dom_attribute(what[5:])
-
-
-def norm(text):
-    return " ".join(str(text).split())
-
-
-def fill(driver, css, nth, text):
-    element = find(driver, css, nth)
-    driver.execute_script("arguments[0].focus(); if (arguments[0].select) arguments[0].select();", element)
-    element.send_keys(text if text else Keys.DELETE)
-
-
-def set_checked(driver, css, nth, wanted):
-    element = find(driver, css, nth)
-    if element.is_selected() != wanted:
-        element.click()
 '''
 SE_MAIN = '''
 
@@ -303,17 +174,33 @@ if __name__ == "__main__":
 '''
 
 
-def _assertion_support(engine: str) -> str:
-    """Embed the shared checks and primitive reads without importing autoSkill in the script."""
-    from .playwright_driver import PlaywrightDriver
-    from .selenium_driver import FIND, SeleniumDriver
+class _StandaloneSource(ast.NodeTransformer):
+    """Bind shared runtime imports to the definitions embedded in an exported script."""
 
-    driver = PlaywrightDriver if engine == "playwright" else SeleniumDriver
+    def visit_ImportFrom(self, node):
+        return None if node.level else node
+
+    def visit_Name(self, node):
+        if node.id == "TIMEOUT":
+            return ast.copy_location(ast.Name(id="STEP_TIMEOUT", ctx=node.ctx), node)
+        return node
+
+
+def _standalone_source(value) -> str:
+    tree = ast.parse(textwrap.dedent(inspect.getsource(value)))
+    return ast.unparse(_StandaloneSource().visit(tree))
+
+
+def _runtime_support(engine: str) -> str:
+    """Embed the same locators, actions and checks without requiring an autoSkill installation."""
+    from . import playwright_driver, selenium_driver
+
+    module = playwright_driver if engine == "playwright" else selenium_driver
+    driver = module.PlaywrightDriver if engine == "playwright" else module.SeleniumDriver
     field = "page" if engine == "playwright" else "wd"
     support = '''
 class _IR:
     expand = staticmethod(lambda value: value)
-    locators = staticmethod(lambda step: step.get("locators", []))
     describe = staticmethod(lambda step: step.get("name", step.get("assertion", "断言")))
     describe_locator = staticmethod(str)
 
@@ -322,19 +209,37 @@ class _Secrets:
     resolve = staticmethod(lambda value: value)
 
 
-ir, secrets = _IR(), _Secrets()
-POLL, PRIMARY_GRACE, LOCATOR = 0.1, 1.5, "locator_not_found"
+class _Captcha:
+    solve = staticmethod(lambda _image: input("请输入验证码："))
+
+
+ir, secrets, captcha = _IR(), _Secrets(), _Captcha()
+POLL, PRIMARY_GRACE, LOCATOR, STEP_TIMEOUT = 0.1, 1.5, "locator_not_found", "timeout"
 '''
-    support += "\n\n" + inspect.getsource(ui.StepError)
-    for function in (ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion, ui._poll_assertion, ui.check):
-        support += "\n\n" + inspect.getsource(function)
-    support += "\n\nFIND = " + repr(FIND if engine == "selenium" else "")
-    support += f"\n\nclass AssertionDriver:\n    def __init__(self, browser):\n        self.{field} = browser\n\n"
-    support += "    def _one(self, locator):\n        return self._all(locator).nth(locator.get('nth', 0))\n" if engine == "playwright" else (
-        "    def _one(self, locator):\n        return self._all(locator)[locator.get('nth', 0)]\n")
-    for method in ("_all", "count", "read", "url", "title"):
-        support += "\n" + inspect.getsource(getattr(driver, method))
+    for function in (ir.locators, ir.absolute_url, ir.check_origin):
+        support += "\n\n" + _standalone_source(function) + f"\nir.{function.__name__} = {function.__name__}"
+    for function in (ui.StepError, ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion,
+                     ui._poll_assertion, ui.check, ui.navigate, ui.perform):
+        support += "\n\n" + _standalone_source(function)
+    for name, value in vars(module).items():
+        if name.isupper() and isinstance(value, (str, int, float, dict, list, tuple)):
+            support += f"\n\n{name} = {value!r}"
+    support += (f"\n\nclass AssertionDriver:\n    name = {engine!r}\n\n    def __init__(self, browser):\n"
+                f"        self.{field} = browser\n        self.timeout_ms = int(TIMEOUT * 1000)\n")
+    public = {"count", "read", "url", "title", "image", "act", "press"}
+    for name in driver.__dict__:
+        if name in public or (name.startswith("_") and not name.startswith("__")):
+            method = getattr(driver, name)
+            if callable(method):
+                support += "\n\n" + textwrap.indent(_standalone_source(method), "    ")
     support += '''
+
+def execute(driver, step):
+    fallback = perform(driver, step, BASE_URL, [], TIMEOUT)
+    if fallback:
+        print("已使用备选定位")
+    return fallback
+
 
 def verify(driver, step):
     result = check(driver, step, TIMEOUT)
@@ -352,10 +257,10 @@ def _function(case: dict, engine: str) -> tuple[str, str]:
     name = re.sub(r"[^a-z0-9]+", "_", case["id"].lower()).strip("_")
     arg, opener, emit = ("page", "page.goto", pw_step) if engine == "playwright" else ("driver", "driver.get", se_step)
     factory = "playwright_tabs" if engine == "playwright" else "selenium_tabs"
-    body = [f"def {name}({arg}):", f"    # {case['id']} {case['title']}",
+    body = [f"def {name}({arg}):", *["    # " + line for line in f"{case['id']} {case['title']}".splitlines()],
             f"    tabs = {factory}({arg})", f"    {opener}({url_expr(automation['start_url'])})"]
     for step in [*automation.get("actions", []), *automation.get("assertions", [])]:
-        body.append(f"    # {ir.describe(step)}")
+        body.extend("    # " + line for line in ir.describe(step).splitlines())
         if engine == "playwright" and step.get("action") and step.get("tabs", {}).get("closed"):
             body += [f"    with PlaywrightAction(page, tabs, {tab_change_expr(step['tabs'])}):", f"        {emit(step)}"]
         else:
@@ -373,11 +278,12 @@ def script(chain: list[dict], base_url: str, engine: str) -> str:
     header, main, arg, pad = (PW_HEADER, PW_MAIN, "page", " " * 12) if engine == "playwright" else (SE_HEADER, SE_MAIN, "driver", " " * 8)
     functions = [_function(case, engine) for case in chain]
     wanted = sorted({name for case in chain for name in SECRET.findall(json.dumps(case, ensure_ascii=False))})
-    notes = ['"""' + f"{chain[-1]['id']} {chain[-1]['title']}", "",
+    notes = [f"{chain[-1]['id']} {chain[-1]['title']}", "",
              "由 autoSkill 根据录制生成的独立回放脚本；运行它不需要 autoSkill。",
-             "可用环境变量：BASE_URL、HEADED=1、CHROME_BINARY" + ("、CHROMEDRIVER、TIMEOUT" if engine == "selenium" else "") + "。"]
-    notes += ["断言使用与内置回放相同的轮询、来源状态和持续后置条件语义。",
-              "差异：独立脚本遇到首个失败立即停止；内置回放会继续收集业务断言。动作定位只使用导出时选定的候选。",
+             "可用环境变量：BASE_URL、HEADED=1、CHROME_BINARY、TIMEOUT" + ("、CHROMEDRIVER" if engine == "selenium" else "") + "。"]
+    notes += ["动作与断言使用共享的定位候选、XPath、iframe 与开放 Shadow DOM 上下文规则。",
+              "断言使用与内置回放相同的轮询、来源状态和持续后置条件语义。",
+              "差异：独立脚本遇到首个失败立即停止；内置回放会继续收集业务断言。",
               "验证码需要人工输入；登录态复用、运行历史和截图由内置执行器管理，不随脚本导出。"]
     if wanted:
         notes.append("运行前需要设置凭据环境变量：" + "、".join(wanted) + "。")
@@ -385,8 +291,8 @@ def script(chain: list[dict], base_url: str, engine: str) -> str:
     tab_support = inspect.getsource(Tabs) + "\n\n" + inspect.getsource(playwright_tabs if engine == "playwright" else selenium_tabs)
     if engine == "playwright":
         tab_support += "\n\n" + inspect.getsource(PlaywrightAction)
-    return ("\n".join(notes) + '\n"""\n' + header.replace("@@BASE@@", json.dumps(base_url)) + "\n\n"
-            + tab_support + "\n\n" + _assertion_support(engine) + "\n\n" + "\n\n\n".join(source for _, source in functions)
+    return (repr("\n".join(notes)) + "\n" + header.replace("@@BASE@@", json.dumps(base_url)) + "\n\n"
+            + tab_support + "\n\n" + _runtime_support(engine) + "\n\n" + "\n\n\n".join(source for _, source in functions)
             + main.replace("@@CALLS@@", calls).replace("@@ID@@", chain[-1]["id"]))
 
 
