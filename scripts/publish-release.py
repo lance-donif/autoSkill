@@ -22,15 +22,31 @@ TARGETS = {
 }
 
 
+def verify_inventory(bundle: zipfile.ZipFile, version: str) -> None:
+    """Require the complete program inventory before an archive becomes a public upgrade source."""
+    manifest = json.loads(bundle.read("package-manifest.json"))
+    files = {item.filename for item in bundle.infolist() if not item.is_dir()}
+    expected = manifest.get("files", {})
+    if manifest.get("format") != 1 or manifest.get("version") != version or not isinstance(expected, dict):
+        raise ValueError("Invalid upgrade package manifest")
+    if files - {"package-manifest.json"} != set(expected):
+        raise ValueError("Incomplete upgrade package inventory")
+    for name, digest in expected.items():
+        with bundle.open(name) as source:
+            actual = hashlib.file_digest(source, "sha256").hexdigest()
+        if actual != digest:
+            raise ValueError("Upgrade package digest mismatch: " + name)
+
+
 def describe_archive(archive: Path, version: str) -> dict:
     target, interpreter = TARGETS[archive.name]
     prefix = f"autoskill/vendor/{target}/"
-    required = {"package.json", "cordis.patch.yml", "plugin/index.mjs", "autoskill/SKILL.md",
+    required = {"package.json", "package-manifest.json", "autoskill-upgrade.py", "cordis.patch.yml", "plugin/index.mjs", "autoskill/SKILL.md",
                 "autoskill/offline-manifest.json", prefix + interpreter, prefix + "runtime-manifest.json"}
     required.add("autoskill/autoskill.cmd" if target.startswith("windows") else "setup-linux.sh")
     with zipfile.ZipFile(archive) as bundle:
         names = bundle.namelist()
-        if not required.issubset(names) or any("workspace" in Path(n).parts or ".local" in Path(n).parts
+        if len(names) != len(set(names)) or not required.issubset(names) or any("workspace" in Path(n).parts or ".local" in Path(n).parts
                                               or n.startswith("/") or ".." in Path(n).parts for n in names):
             raise ValueError("Incorrect package layout or private data included: " + archive.name)
         if bundle.testzip() is not None:
@@ -40,6 +56,7 @@ def describe_archive(archive: Path, version: str) -> dict:
             raise ValueError("Archive version mismatch: " + archive.name)
         if target.startswith("linux") and manifest.get("target") != target:
             raise ValueError("Archive architecture mismatch: " + archive.name)
+        verify_inventory(bundle, version)
     with archive.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
     return {**manifest, "target": target, "file": archive.name, "bytes": archive.stat().st_size, "sha256": digest,
@@ -99,9 +116,15 @@ def main():
              "Linux / UOS 需要 glibc >= 2.28 和浏览器依赖的系统共享库，包不替换系统库。旧版 UOS 的系统库可能无法运行包内 Chrome；"
              "可在 setup-linux.sh 中指定系统 Chromium 和匹配驱动。UOS 不在 Playwright 官方支持的发行版列表内，"
              "尚未在 UOS ARM64 真机验证，不承诺所有 UOS 版本开箱即用。DSH 宿主需 Node >= 24.9。\n\n"
-             "按维护者要求，本次发布跳过完整功能回归与浏览器启动测试；仅执行组装导入检查、原生 ELF 架构检查、ZIP 结构/CRC、大小和 SHA-256 校验。\n\n"
+             "本版增加可恢复的 Skill 工作流、原生 Selenium/Postman/Apifox/JMeter 资产执行、页面捕获转多轮 AI 对话评测与并发压测、"
+             "独立宿主 AI 判定、后台调度和按需分页读取。多轮对话作为一条用例，保留首次真实失败，业务与性能结论分别记录。\n\n"
+             "旧版本升级：先在新包目录使用独立 `autoskill-upgrade.py` 检查和准备，再停止旧进程并应用；不要直接覆盖或删除旧 workspace。"
+             "新版本也提供 `autoskill upgrade` 给 AI 操作，包含备份、校验、中断恢复与回滚。具体命令与外置数据目录处理见包内升级文档。\n\n"
+             "CI 打包阶段不重复运行功能回归；执行组装导入检查、原生 ELF 架构检查、ZIP 结构/CRC、全文件清单、大小和 SHA-256 校验。"
+             f"本地功能实测及限制见[验证报告](https://github.com/lance-donif/autoSkill/blob/{tag}/reports/系统化技能与多轮对话验证.md)。\n\n"
              "已知问题：Windows 独立 Selenium 导出脚本曾偶发停留在初始空白页 data:,；本次未宣称已修复。"
-             "DSH 默认沙箱智能体验收仍未完成，环境模型网关被出站代理 403 阻断。\n\n"
+             "DSH 宿主接口已用 SDK 替身和真实本地 HTTP/CLI 验证，尚未完成真实 DSH 模型及默认沙箱验收。"
+             "本机完整 WebRTC 音频接收受浏览器管理策略阻塞，未计为通过；Windows/UOS ARM64 功能未做真机验证。\n\n"
              f"源码提交：`{commit}`\n\n| 附件 | 字节 | SHA-256 |\n| --- | ---: | --- |\n" +
              "".join(f"| {p['file']} | {p['bytes']:,} | `{p['sha256']}` |\n" for p in packages))
     release, finals = publish(files, notes, tag, commit)
