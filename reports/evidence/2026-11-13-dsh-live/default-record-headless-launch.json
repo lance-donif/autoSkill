@@ -1,0 +1,18 @@
+{
+  "time": 1794562786.6537132,
+  "pid": 21627,
+  "ppid": 21622,
+  "headless": true,
+  "headless_flag": [
+    "--headless=new"
+  ],
+  "headed_env_present": false,
+  "headed_env": "",
+  "display": ":99",
+  "workspace": "/workspace/scratch/dsh-acceptance-private/data",
+  "agent_control": "/tmp/asb-1000/92baaa8b69c18351686e",
+  "remote_debugging": [
+    "--remote-debugging-port=0"
+  ],
+  "profile": "/tmp/agent-browser-chrome-f715a98b-32ee-4b0a-a434-e191aa2dad05"
+}

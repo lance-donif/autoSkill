@@ -1,0 +1,16 @@
+{
+  "id": "run-82a5ccc545e0",
+  "status": "Running",
+  "total": 0,
+  "done": 0,
+  "passed": 0,
+  "failed": 0,
+  "blocked": 0,
+  "started_at": "2026-11-13T10:51:50.791+00:00",
+  "finished_at": null,
+  "pid": 79641,
+  "reason": "",
+  "input_hash": "385bc3ddf49119a219edbbea4e291201f3985c8e108c26d84c250a4695357cde",
+  "engine": "selenium-unittest",
+  "family": "native"
+}

@@ -1,0 +1,35 @@
+{
+  "scope": "Summary of the actual bundled Skill validator executions after the real DSH iframe downloads; structural checks are separate from source semantics and execution verdicts.",
+  "checks": [
+    {
+      "file": "selenium-project-v2.xlsx",
+      "command": "validate_test_cases.py selenium-project-v2.xlsx --expected-cases 17",
+      "exit_code": 0,
+      "ok": true,
+      "caseCount": 17,
+      "functionItemCount": 7,
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "file": "selenium-form-v2.xlsx",
+      "command": "validate_test_cases.py selenium-form-v2.xlsx --expected-cases 14",
+      "exit_code": 0,
+      "ok": true,
+      "caseCount": 14,
+      "functionItemCount": 4,
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "file": "selenium-text-input-v2.xlsx",
+      "command": "validate_test_cases.py selenium-text-input-v2.xlsx --expected-cases 5",
+      "exit_code": 0,
+      "ok": true,
+      "caseCount": 5,
+      "functionItemCount": 1,
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "session_id": "session-7bbda287-da51-41a6-96b7-fcac4895b2d5",
+  "sole_autoskill_command": "autoskill-use",
+  "command_args": "",
+  "command_success": true,
+  "turn_starts": 1,
+  "source": {
+    "kind": "skill-invocation",
+    "name": "autoskill",
+    "form": "instructions"
+  },
+  "skill_characters": 28719,
+  "skill_sha256": "cbc80593d8e166da346f055f70241662dad72564dbd92c0f676bcffa72018b53",
+  "runtime_prefix_present": true,
+  "full_skill_section_present": true,
+  "dock_registered": false
+}

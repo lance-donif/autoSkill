@@ -1,0 +1,1558 @@
+{
+  "schema": 1,
+  "created_at": "2026-11-13T10:32:00.459872+00:00",
+  "source_commit": "bab27360c335f1db8adf38aba44d5ad2770a3c81",
+  "working_tree_dirty": true,
+  "working_tree_status_sha256": "da58212547731de3a76077535baa90dc3b941521ec35a6a6f65dd9c29ffc4327",
+  "uncommitted_source_paths": [
+    "CLAUDE.md",
+    "README.md",
+    "plugin/INSTALL.md",
+    "skills/autoskill/references/commands.md"
+  ],
+  "source_note": "Copies include the listed committed or uncommitted working-tree bytes; the source commit alone does not identify this snapshot.",
+  "source_tree_sha256": "23e7130c5e543fa60fafa2ee7097d18ff99661e08e81c2e793431534b8cbe052",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "size": 330,
+      "sha256": "3548255dbcbf17592bfebbb6a962835eb935bf0b864ec4e9d9491cdec6ac6941",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "CLAUDE.md",
+      "size": 20433,
+      "sha256": "2723abbc99ae5409cb884d1fc2bd3dea6095c1cd1e91236e722e623106f5a19a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "README.md",
+      "size": 16500,
+      "sha256": "25735c2a66ebb7528bc91c9fbe7d12a8de21bd846239ee519455cbd8ece39e01",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "SELFTEST.md",
+      "size": 877,
+      "sha256": "1f660842d809d60ddd3f45a297d08c1cad59e54a966450a0f3278676b2309513",
+      "source": "self-test-packaging"
+    },
+    {
+      "path": "asset-entry.json",
+      "size": 136,
+      "sha256": "70e2293f4c3f879b50d6d0d6d242640cdb37c5fc3135bf1ddf368594f0d2fce4",
+      "source": "self-test-packaging"
+    },
+    {
+      "path": "coverage-map.json",
+      "size": 36580,
+      "sha256": "d9185f78f6e9d8663f6c5a87a522aebbb9d8283de6028e1b096bc7dd61226b39",
+      "source": "self-test-packaging"
+    },
+    {
+      "path": "package.json",
+      "size": 1060,
+      "sha256": "9e982f25eaed555da5ea22d931e48819018f0a83f5f6b5e93ddb53d09e624671",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/COMPATIBILITY.md",
+      "size": 11394,
+      "sha256": "0517f5c4fdfe6a8efb293ce588d1404a979d5be8a5b9769ef9a65296866818d4",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/HOST-DELIVERY.md",
+      "size": 1524,
+      "sha256": "4eac119cb8466b2f039f0b1b4a094db3799aad7738d84c375761fbf41eafd581",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/INSTALL.md",
+      "size": 6524,
+      "sha256": "04b24af722af05cc5a46679d71b0c6cd8f0b8dbc13d26db34d28b8281b7db778",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/client.js",
+      "size": 21203,
+      "sha256": "6d82bc88436941ca4f514e99d51aff1928d00bfa3def307b799f968e15c238e2",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/data-root.mjs",
+      "size": 525,
+      "sha256": "22ab7014785748c0089fa66b7d0ba2f83a4638b458d0119c635b261124d82210",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-adapter.mjs",
+      "size": 10595,
+      "sha256": "40cdb826002d41f10692890bc1f219f3d39177416203291e94098152195c3e16",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-backend.mjs",
+      "size": 1263,
+      "sha256": "b40777d1492f238816e632c7f311ef0ff773e6490f9d84b6dd73d5d92de9b21a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-commands.mjs",
+      "size": 1632,
+      "sha256": "11636b37ce9f59ed0c69aa4dc9f4a0b0f103c0bc63f71bc21f371baad6dd0249",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-context.mjs",
+      "size": 4178,
+      "sha256": "f791b0286b7415e1af841361f39a196cd51b9b814de2d75115b6700303c4e3ec",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-files.mjs",
+      "size": 3403,
+      "sha256": "6e01b019fe5cc83a706cd0b9bdb8fdacbf3d9ef0b1c4e482ae33401e4e13e6be",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-guidance.mjs",
+      "size": 3632,
+      "sha256": "4ccf3b680125eb8c21e07f1f30833c80ac6d62dd4b51b8b5d6764e40740d4bd1",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-journal.mjs",
+      "size": 1886,
+      "sha256": "3aed1ed99208e73596ca4d0e009bd83de305a38aa407817b17f6c0d8ed170cd1",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-operations.mjs",
+      "size": 6308,
+      "sha256": "222781f8bf99d4d31fd4e506285878b939e97d70fe29556c2ad70ac99f21a64f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-routes.mjs",
+      "size": 2698,
+      "sha256": "872ec7531db6b1a4225acabb9d750b44a5e0561b2da6276decc3d0a17e02069b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-service.mjs",
+      "size": 11858,
+      "sha256": "db824c8f424b83c53205abfa939ce50a01b9e7dedf345725612d4280c928353c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/host-tools.mjs",
+      "size": 5057,
+      "sha256": "acc5c174d5ab5ea6947f6973731f80ce460edd0321e7c5a20aca1aaa69045cb1",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "plugin/index.mjs",
+      "size": 7520,
+      "sha256": "b5b7e656128005bd6fb03a08849b6456c6c41a4a0b4ba402e89754fdcc59289a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "requirements-linux.txt",
+      "size": 41,
+      "sha256": "f2ad40164abd17f6cf3aaaa34363bd82970b3018d730a7f54d3eb605dc62ae2d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "requirements.txt",
+      "size": 255,
+      "sha256": "4c2700c168dd0e2cbe5dd0e6e9e2c77e2a04a3986324818083be46f222254985",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "selected-tests.json",
+      "size": 14483,
+      "sha256": "c9ab5c68c92b0ffa279b83c6bd9a12f3524b628ae2e0f37c694c1e9887d6546b",
+      "source": "self-test-packaging"
+    },
+    {
+      "path": "skills/autoskill/SKILL.md",
+      "size": 32277,
+      "sha256": "d23b453e911a6be096e02abd64c85559ce33fd5727b773d841d43771b584987e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/__init__.py",
+      "size": 94,
+      "sha256": "b521c15b99ac44204f8fb0f2ad84901ecf80efd6c6ca5f4ce8becd4b89d22e8a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/__main__.py",
+      "size": 102,
+      "sha256": "73fb4e33de650828d6d43578b4a5385d946e7fc4f27109a8dc96f58b2130026c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/bridge.py",
+      "size": 12435,
+      "sha256": "32fdd632b34dd9a9cbc2ba61a024b234af59d4a3e4c4e929ae2da4e46262c93b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/builder.py",
+      "size": 3249,
+      "sha256": "a8e13de65711eb30371e98334c7759b2a9183400884f13a586134a34d8a7e5ea",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/captcha.py",
+      "size": 3280,
+      "sha256": "ae7c69e1b5adc163771e360e6e92c08369518dd34e9e741073388e7736029ae0",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/captcha_image.py",
+      "size": 4773,
+      "sha256": "202432c2ada74a8eb30d06b8b62b126f574e98f246252ccc750680e15d5dca57",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/case_document.py",
+      "size": 6089,
+      "sha256": "7a35414866d79f3c60b9d9099c740be9428318fb7ce3e465e63fcaea4c6fdc0e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/case_folders.py",
+      "size": 9940,
+      "sha256": "f8122371a3a42016a8758baed661bc3f11ad2ec4d9df2fa9615b909f9faf7c38",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/case_plans.py",
+      "size": 30377,
+      "sha256": "daa5fdb2d6c26188da76e4401c357c0899d6a4d58ba4059f6b55d250a1325272",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/cli.py",
+      "size": 54501,
+      "sha256": "059ccbaf3e85883ba0406867f0c270dbbf315648078535637016dc858567ad1b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/command_input.py",
+      "size": 7715,
+      "sha256": "6a9e7b72608b6095e9495049eedf73285c3bfcaf5e5061158c2cc9dea5f9af72",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/context_service.py",
+      "size": 7963,
+      "sha256": "2d827b01b44db35cd1f5689470a703803f86838bafbfe78cffa5bfc365e21804",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/conversation_capture.py",
+      "size": 28255,
+      "sha256": "24ce3b307fff5887d1b3b4dd7d2e5abcd83c595d81eb2bb3aea797e2648c897f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/core/__init__.py",
+      "size": 60,
+      "sha256": "d4e28e72716779cf57a0bcd196a8aa504dbb8fb3c8567a03fcb3bafbec582f91",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/core/store.py",
+      "size": 43411,
+      "sha256": "589cb1b78128a097a7aa8c4c46b7e7f52ec6b9ab734f3e85ba938cfc0d9796aa",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/data_preferences.py",
+      "size": 2801,
+      "sha256": "d902204c2f9b3f7ba38777333e26a5645c0074ec02357bdd54ab0ac577f1fed4",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/data_refs.py",
+      "size": 5053,
+      "sha256": "032b6ef55c40c9392c2bf203d2be99015ae2bea87440ac071234b0207420f6d5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/data_runtime.py",
+      "size": 13338,
+      "sha256": "ae5ee14c5b205c025d6db4de011bf0f2c5bb9ccc09ed26a263f48cfe2c356751",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/data_store.py",
+      "size": 16339,
+      "sha256": "2f76d10aa66e7b31ff074d5eca76a7d0ce8da8252f6cdee8f09830e213c89db5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/data_transfer.py",
+      "size": 15330,
+      "sha256": "9e20bc73c106a029f16598d7effbfdb3cba8d1bbcbc5b39326b4cb6cc4d73a27",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/db.py",
+      "size": 12066,
+      "sha256": "62c50d59ee70b48f68301b8d72935ec70341b8680787ecda37b828cb3fe7c811",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/deletion.py",
+      "size": 19940,
+      "sha256": "9242a5a0df978f9328d880e1ac1350e8ca495a4007d1bde01e9b2f735ee775fa",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/demo.py",
+      "size": 6007,
+      "sha256": "d7171e5cb8a5cfd6c17bf070896df7e64639c925f415ab87a8817d0f5b2548b2",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/dialogue_judge.py",
+      "size": 19281,
+      "sha256": "21b6e3f32dc746af97e018c01f632ff01e8c746ca9f206dc1299ae135c56fc28",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/domain.py",
+      "size": 14082,
+      "sha256": "63ff96dc7106c71b7429b6a63b3501eb2190ac2b9cf68f1c19dbcb03e25bf10e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/__init__.py",
+      "size": 1076,
+      "sha256": "29a6e75f2fb9bb87c3210167e5705a6c32198a16a13e801c8e3169c8cb6d174a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/ai_audio.py",
+      "size": 3900,
+      "sha256": "fd3c82a013ac7c23bcc9a6a01d1743546efd8a0a43895789cf93313d179b4216",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/ai_eval.py",
+      "size": 17162,
+      "sha256": "4c9c6dd6edbbdaa3b9769bb265eae392dae8f9af716d31db12cd2e225340864a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/ai_journal.py",
+      "size": 3570,
+      "sha256": "ccf70846f4f5949f29aff2e87f1296e53240a539114e8f6cd29df4b68a3c610e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/ai_judging.py",
+      "size": 3380,
+      "sha256": "5459396deda4e8004eaa26800086620c4b50ef46091b466c530a2162dcae01cd",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/ai_oracles.py",
+      "size": 4295,
+      "sha256": "a94bfec65b70622fad38192f613cf25bb1ded44b8cc44305954863a1bd763d5d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/ai_protocols.py",
+      "size": 11241,
+      "sha256": "5d4c24f62cc0ac0d186766e8b15282b8544ccbc57308cca30a40797093c98aa4",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/native.py",
+      "size": 13250,
+      "sha256": "6ad08d59f06f11ad483afb7a0238967866421750cb4fc83d5aacf3492eebef3c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/process.py",
+      "size": 8403,
+      "sha256": "1df4d3de34e88dc9e3c57e6946fca3c802955f1fa3de4952ca89788794557510",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/process_job.py",
+      "size": 3052,
+      "sha256": "28587b9c74df279b9f0d766a6524ce72098a9f25e1377dad4605eee304c29040",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/reports.py",
+      "size": 9055,
+      "sha256": "8990f0d8320899fbbdc29bb91f2fadcb568794c5d61973722e2d5c7b6d9d0527",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/engines/unittest_runner.py",
+      "size": 2923,
+      "sha256": "ea28cd178cc14fd2cb0fac5b49c6fe359f5c20cd02749891195c559ad796b6e2",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/execution_inputs.py",
+      "size": 15786,
+      "sha256": "3341debf8be6d3e48e3eadfec307912a3cb85a7beee2d3bd56a00114cae4d7c4",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/execution_requests.py",
+      "size": 9616,
+      "sha256": "3aaeada01e8fb573cbb03dd02a8938275d49f1cd0c3a653f38ae4842a2769b35",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/host_bindings.py",
+      "size": 12938,
+      "sha256": "0a71248746712e5ba68429a674927d6a068f37fa109890b8b8e50fcf4452c882",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/host_context.py",
+      "size": 11420,
+      "sha256": "7435020988ca4481cb67a04cb0897b12e1ce4212c0b747cea1df65bce7f2375f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/load_testing.py",
+      "size": 11349,
+      "sha256": "e958d869d87750e3414f6c821ba7e5fb0a0c7d6eba2b1350e64a1a02cccd0564",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/locking.py",
+      "size": 2637,
+      "sha256": "424a2ca479484a4e9b1d2fa04a5826eafb7b4e6edb27805802430849cec8e6ea",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/maintenance.py",
+      "size": 3877,
+      "sha256": "d71373fa3c8049bc6c32626d826a8e055cc272b62e37f374c760c53c7999e0b8",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/native_assets.py",
+      "size": 6062,
+      "sha256": "012a7682e6419274273f0ba33a6cdcde6a5e5f3f5e49d7f881274c50b949623d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/native_reader.py",
+      "size": 5218,
+      "sha256": "c48e3ef9b47c7dbe4567ecc7ed8c596f0b6b433562092e8dd35a4b3b475015c7",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/native_run.py",
+      "size": 16295,
+      "sha256": "0f3957a4644683dc1fd8cb36860dde6d98e54da33c753f4622d3f2c7f332685f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/paging.py",
+      "size": 2411,
+      "sha256": "44d6b4b9fdfd244b1406655e30ceae4e0ba275621880ebc7fe8db6004f7f5334",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/paths.py",
+      "size": 11594,
+      "sha256": "a9c069c718145964823bd6bccb9bf2d2dfa8b2c4418289a3fc9a11ff1ea3117b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/plan.py",
+      "size": 20414,
+      "sha256": "05f1f7ea8de48fa29484f15e3728f4e22266a0968d3b69fd2e4500eedff712db",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/platforms.py",
+      "size": 6107,
+      "sha256": "c5af7255af37a709d6fe27f037f805fe0f5537190af47a2efc78fa959e22a162",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/project_materials.py",
+      "size": 10217,
+      "sha256": "8d271600010262391544c427c6e1e51c05d9c1e977ffa2ec674b7bc45c9132d9",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/projects.py",
+      "size": 18019,
+      "sha256": "bcce13d9452a4ef7f9d6499a7820cc40cdb77c37fb522d19298a6c258b8d18af",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/recorder/__init__.py",
+      "size": 87,
+      "sha256": "6a814af801d0fb2b094ededdd018eb7d4b9fbdab9d81ba8df9181ee047b700e8",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/recorder/agent.py",
+      "size": 9919,
+      "sha256": "b2122c406995ee232cc8103cc351cdeeafaa15e383243a58f593110a035c7ae3",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/recorder/capture.py",
+      "size": 20246,
+      "sha256": "b42ef4abf725122e3df04157c131c91ee9846011e26570e2a482572c2878a144",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/recorder/compile.py",
+      "size": 24120,
+      "sha256": "1742bc79395a6d1c79a17ae24118e923c969febb63e46ee3af469d6c6d2bcbcb",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/recorder/har.py",
+      "size": 10798,
+      "sha256": "d4e0329a1639a864464e079e4dd90411194e2b192bb1d658f23c6e5451a3ee72",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/recorder/session.py",
+      "size": 38893,
+      "sha256": "d6e186c27d92862c7e5f582c743f3e3294eb13456a2e72dd5c6e9854d927a28f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/recorder/traffic.py",
+      "size": 8912,
+      "sha256": "60f3a90f343a8080e688cecd5cf170e1e10c1df1f5130871eecbe8b52de7b892",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/__init__.py",
+      "size": 84,
+      "sha256": "536c90e3ff1d20748596900195da4e951e16ab3e7c44f80795109df815786fee",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/api.py",
+      "size": 9555,
+      "sha256": "35a91333e3bf620d28611f67fc04f0e9de3e3f5f417965bc4970a23f4fb4e783",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/codegen.py",
+      "size": 18321,
+      "sha256": "cbb91620be76f9195dc979cb5e0cb3c43851869fb8233058b85a30b5cfa841cd",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/dom.js",
+      "size": 8315,
+      "sha256": "af705bba1aa77585533c37671a662a4b48ebd3ff404c7075b1ff9c96caf8087c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/ir.py",
+      "size": 11891,
+      "sha256": "c85034f58598e2215b5dbad18a80e40db67bc763ff0db6c76605b45eb054992a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/playwright_driver.py",
+      "size": 6957,
+      "sha256": "3e762dff83a2a7d45ca524cd4adec22b66887a955d64132a251c5670833bf7ed",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/postman.py",
+      "size": 8403,
+      "sha256": "5b2d392b4a77093e1b722c7dda8d16413fd130bb02e601fd7140a29bd422f80c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/selenium_driver.py",
+      "size": 10669,
+      "sha256": "e7818c4a81bc1a587bb90b06c1f9cbe641bd8ce223a7824d621e530e8f738d40",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/tabs.py",
+      "size": 6370,
+      "sha256": "a6a2ed1f17106b02a4f1166cc710c111e7994df0e191ef298c8a3215c8748bc5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/replay/ui.py",
+      "size": 16272,
+      "sha256": "894beb5708183ae4982ae19fae3c14eb6bcf07e04a9d50bd43385556d0c32c3b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/report_locations.py",
+      "size": 2703,
+      "sha256": "5d6d4d086a7c80cc5708b41701826467c049feab8c57c993117c82a3a00a9956",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/reporting.py",
+      "size": 23131,
+      "sha256": "34e84d6e433965239aacf7e28d6e49d866b47e51f82ad8345b00ab82edc5e87c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/runner.py",
+      "size": 34301,
+      "sha256": "4c00fc26c270ee96ea3761c5f7a0c036d3781ed47623dd7d286cc6a86f521da0",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/runtime_identity.py",
+      "size": 4669,
+      "sha256": "bf605e4c724928d91e5925265ba08342bf7df7c46e6f9024dd709e4043dd696b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/secrets.py",
+      "size": 5600,
+      "sha256": "e18e22c44c075f085531cb6982dc6d3e4abeae2ea784b9979ea10fec3d003cb0",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/__init__.py",
+      "size": 68,
+      "sha256": "171a1f810d888df6dd7534ca2340e06441242b3d9dbc912b4157aaffe5edb46c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/app.py",
+      "size": 37592,
+      "sha256": "195ad029812cbb19387927f9918b0b27df3eca03de05a7cd3c02146f407ed36e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/case_folders.py",
+      "size": 3041,
+      "sha256": "f1fd23f4b26d10fc5af79c51d92f9677d6262fe99ed1b57e17d71293ac513f72",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/case_plans.py",
+      "size": 3593,
+      "sha256": "ba47e9657d822e095cd99d364b74200f8296817f42c6ba8b6fa929ff99740e8b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/conversations.py",
+      "size": 960,
+      "sha256": "cebbff120eb4100fb8c6d61dbcf1a3e844b37ef69badb16ff25cd34b82f1e951",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/data.py",
+      "size": 1985,
+      "sha256": "599253398c3485c6c14a252e5d819db2fc2ee5af57a1eb030e124b91bbedda68",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/deliveries.py",
+      "size": 5773,
+      "sha256": "6c4b0ffc019485ef438c212528fea4c4c79fe7dd399f0dfa55b756405cee7795",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/execution_requests.py",
+      "size": 1198,
+      "sha256": "a6acd380aba7e439943ce01b945884f769e15bc2c95a7cd375d9af1e5003261f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/host_context.py",
+      "size": 1319,
+      "sha256": "fa7756e3b281b39203ed1956d437075ba9bfb1bf005fc735edc237cf617dcc7e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/jobs.py",
+      "size": 8304,
+      "sha256": "a54b38acd61b06c03be0f907a2587590f4b051b01db105955922ffad62410598",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/load_testing.py",
+      "size": 3072,
+      "sha256": "7b200d802b25e1db7465dfb08d7110106bd62a60c5c7e0fad02e951b9d9765a9",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/metrics.py",
+      "size": 12338,
+      "sha256": "71eabb4799f05dd3921ffe24f39fc4dff36dde9049026f9135285cab8fd6fa69",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/native_tools.py",
+      "size": 4780,
+      "sha256": "45a8b126051e39b752f9007fdfbaebe7a0c7bfa558d57e5d628fef9ba79f3ab7",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/project_materials.py",
+      "size": 4473,
+      "sha256": "ac2d1bdc0e39523334bb4c778a7ed31a5439598ed2d5c9a8fd0864c303dd3eb0",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/project_settings.py",
+      "size": 1820,
+      "sha256": "1f603f78191370c129aef31e02d95c29c094085ad99a34932a9737e0a480ec8e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/scheduler.py",
+      "size": 19618,
+      "sha256": "09b7af8c2c83eb120ba2a5b58fdf3bc536ae2d0a06bbdd13caca7377e9d83a0f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/ui_assets.py",
+      "size": 2083,
+      "sha256": "b0c0bbd461df3a5770f3c76eaa715eaceaa312ff56dceac976f34e88b8ebc539",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/server/workflows.py",
+      "size": 1648,
+      "sha256": "3e66e5bfa009c15f36eea8a0995efddaaf976a37968724067f7c6372e364601d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/sessions.py",
+      "size": 1955,
+      "sha256": "81be685e93b483803ed3dc53381abfa7581a88bb5ea5dd7fdfbd003dfab4d329",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/share.py",
+      "size": 19773,
+      "sha256": "eaeca8e6645b5d6819cc8c5328f1134b34425a7f396314d5b43f581b179deb85",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/task_bugs.py",
+      "size": 9435,
+      "sha256": "9396343a53b154589b6ce42f6b895e702edf1de4133f94bb99d9e96ce3cb7e42",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/task_context.py",
+      "size": 1192,
+      "sha256": "7af9fad06b84671ee013b7654eabbe40549774e1cefa0ce8e1a74cd6fa8c499d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/task_markdown.py",
+      "size": 4628,
+      "sha256": "958f3c2873312214cf569671b3af47ff4562abae8207d87d2a82484746278760",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/task_report_data.py",
+      "size": 19412,
+      "sha256": "f5f3f3f859626380f3af5b0c72838a76510e622c00c9c136be92df245253e19d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/task_reports.py",
+      "size": 18749,
+      "sha256": "d2eb143e0ba81533b5d241812cfcc60b30a40760f9835e5182073c196af48202",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/task_workbook.py",
+      "size": 9898,
+      "sha256": "9e6151f15911d24db96ab77658642b494e3c403d41b12077b254567657ab017f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/task_workbook_data.py",
+      "size": 14656,
+      "sha256": "791245347446a45e836c8e235310defb18952b8e6ac0189d99ee6b2616afba27",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/workflow.py",
+      "size": 33411,
+      "sha256": "5b1d5cd9b48f6c453dc2b090771311081559e7c4d07bd5c5aaaae04e8a6d414b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/workflow_changes.py",
+      "size": 11239,
+      "sha256": "640ccd6229aea8fab7589977afeca3de0f4b7eca5c4d3092ef2f683bfaf66d7c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/workflow_definition.py",
+      "size": 19695,
+      "sha256": "bb9d3f2663a87e6841fade12e4b27eb931755833bdd1f292b5656e6a2a20537f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/workflow_execution.py",
+      "size": 14922,
+      "sha256": "d04ec7822b68ec61581e541afbf6cdf313a429ef754c331bf2f85ae65dde789c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/workflow_recovery.py",
+      "size": 4907,
+      "sha256": "b4baeb7e7f154a5177db2aa34a6332e3475c5387243164154ef31b766d71cc69",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/autoskill/workflow_state.py",
+      "size": 7863,
+      "sha256": "a21cabd8e6d7e58f836587038629f3e5cdda5ccca96322dbc7e9103fae72872f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/css/base.css",
+      "size": 4676,
+      "sha256": "aa607dba35d03ee629c0c730c66729d0e9a1eb2082b570c9f8c2d3e9c1aeb54a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/css/components.css",
+      "size": 11398,
+      "sha256": "a949dec6b2fa3c31acc4da2080dcb2f1d36daa9a599bc4c0b59a2b661576139c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/css/tokens.css",
+      "size": 3067,
+      "sha256": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/css/views.css",
+      "size": 14375,
+      "sha256": "b1e1e2a37e566f8017c6fadb72fff72662107f09929f3917f5523cfb406b9c17",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/index.html",
+      "size": 821,
+      "sha256": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/charts.js",
+      "size": 8803,
+      "sha256": "9d9ca4b7e1734b978c22b7bd78eee24fca46655aece106e7dac232f04adf3567",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/core.js",
+      "size": 12651,
+      "sha256": "8f10554c8552de703a8ebbe3a2fce56fbf8cf1b14d4e7ec437633b711e978f56",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/folders.js",
+      "size": 5527,
+      "sha256": "5876f329c2a1a8740c9eff0c50f86fe32505a09bbbfbda7f6482831c5a445de2",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/main.js",
+      "size": 3455,
+      "sha256": "02b203caa448d8770e5802ebe1f22bbe8d671c0202f2ad729e2701b8b031b89e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/case-plans.js",
+      "size": 15821,
+      "sha256": "f96e8403921d791f91cd4ec1641b3f6ed9351dcdaab3c086850cc6508f3de433",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/cases.js",
+      "size": 25580,
+      "sha256": "95fa77327f76c899b0387205239d3ab7b41c33bc846e6f160b72a5f31ab2a740",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/conversations.js",
+      "size": 16745,
+      "sha256": "ad334af2366fdffedcedeefb7a7f67fe8452c79996bc9520945e72b4e40bf5d5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/dashboard.js",
+      "size": 14213,
+      "sha256": "d94570083408c26c283fb92ce30afed5080d7b78f932530fdda4c9e889edab39",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/data.js",
+      "size": 7108,
+      "sha256": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/diagnostics.js",
+      "size": 7318,
+      "sha256": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/load-tests.js",
+      "size": 16741,
+      "sha256": "9625699a41c3c945cef582fbcd4c3fb82ead8c59aa185356f9eedac9f467eae5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/native-assets.js",
+      "size": 9404,
+      "sha256": "c425189794a56c626b5d378120dfbd7bcdc7badd1500c7966a68990ded2386ef",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/native-runs.js",
+      "size": 10522,
+      "sha256": "b7b4c98abc93c151fc9ad355384ea5bde92b882e6a92f02604fdd06aa765a347",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/project-materials.js",
+      "size": 11959,
+      "sha256": "de016979a5d37f1fd12b1c915b541cb5c4d4d68e9254748796d0338d19224783",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/run-export.js",
+      "size": 6359,
+      "sha256": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/runs.js",
+      "size": 29574,
+      "sha256": "8561e8edef40a17d6041a17726002e454b201b7406f5f7d638a6a42b8f645c80",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/schedules.js",
+      "size": 13521,
+      "sha256": "e640ea0b40439c92f844fbcfa51fe7a52010e67efb5cf07e6c88b48feff23b1e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/pages/workflows.js",
+      "size": 18121,
+      "sha256": "617264e7abdf0ab0aa8cd36bc5f39fca9a65c24e0a264ed134df9393be803ad3",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/preferences.js",
+      "size": 3940,
+      "sha256": "22b3b4e6fc221573bdce0e3aeb69cb79f8df3c1604a2bec31c74cdc31f6509f5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/project-settings.js",
+      "size": 4770,
+      "sha256": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/schedule-target.js",
+      "size": 5091,
+      "sha256": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/shell.js",
+      "size": 9179,
+      "sha256": "27c79b1f4c404788dff5e463f7ef26cdd06b84577bbc0699552f7dd77eca1c87",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/app/ui/js/ui.js",
+      "size": 6449,
+      "sha256": "034aa29b8ed8997b5da8bcc54f7fdc7d43c58e581408a188e453ac27c62955c9",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/autoskill",
+      "size": 1634,
+      "sha256": "3fea1f1f87c27cc77716b1661094a20df8750aeb2f4e29e3c2f2616a15faa423",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/autoskill.cmd",
+      "size": 795,
+      "sha256": "74042617522d3b804cfbfdbdd990c886ce88f21f8009e73b6cfddfb60ecd25ed",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/ACCEPTANCE.md",
+      "size": 4037,
+      "sha256": "aec36770d34513e58488b22f3d1daf15534e69c8f0032ff86be82652ba9b6162",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/README.md",
+      "size": 2745,
+      "sha256": "eb59ea65be2759c737ca1ff72b2f0c04c1ba7a49a3a493185c7b93ac0897f14c",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/conversation.py",
+      "size": 6570,
+      "sha256": "2c58f90f33bcdf14ad69d51403f362964cf1bd9d1206a37931dbdb0f4278c462",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/oracles/v1.json",
+      "size": 667,
+      "sha256": "696a6d7339ef4e86173ad6df20b587bf1f2685ca0c1f25392425f840d9265b41",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/oracles/v2.json",
+      "size": 667,
+      "sha256": "08968558963fd7f6d955cb3abed831473dd95bb96956f75fb945da87e7e74e4e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/server.py",
+      "size": 14958,
+      "sha256": "35864a2a79eea60026bf75ddd3f2f319234e766080095ebfafede4c570c438e2",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/web/app.js",
+      "size": 6421,
+      "sha256": "e1820d5bf45c77770014ca19bf1c7fbbb7db5d0d15a1eb652964e40006fb747f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/web/chat.html",
+      "size": 1934,
+      "sha256": "596cacf92d70172ea1f8d365a315357ece2d693282e9483f09962bafbbc73c9d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/web/chat.js",
+      "size": 3430,
+      "sha256": "346ea3d99bef3bdd0858624213fcdf2866924f73d3beb46878a565f989cc2dc3",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/web/index.html",
+      "size": 3774,
+      "sha256": "c44c3b53b45cd3bac5f12fd0597ace6b3c99a26348efcdc19a5b0627b01be2fe",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/web/style.css",
+      "size": 2408,
+      "sha256": "6ee32efecdfba0c05ed075743c850012f9e41358b7be35eb865174a209f748e3",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/web/voice.html",
+      "size": 2071,
+      "sha256": "6fdf939938a6d5e6a4db88855e9c43ab42e17a2998e54538a54571f34750346b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/ticket-desk/web/voice.js",
+      "size": 10021,
+      "sha256": "4e6537a8c05eb410eb50e637c694b582273aaf1be794b616ebab9ffaeca99692",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/LICENSE",
+      "size": 1166,
+      "sha256": "32238c5c6759b589ea768661b6eb0fcb42449b74d57cdf09928743f2e1eb748d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/app.js",
+      "size": 679,
+      "sha256": "9290627e7bdfee646075b232f400a297676ebbcdb7de5dfe315e42d5668fec26",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/base.css",
+      "size": 1818,
+      "sha256": "5c67ddc771b558bc07b58695c9c4b7f663d2ba813edb4810341799c47ba0822d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/base.js",
+      "size": 7253,
+      "sha256": "84090789021f5f8206800503e18adbc38b5fddbfb0a84bfe36e86e683da60c20",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/controller.js",
+      "size": 7965,
+      "sha256": "96ee4d40995a3fb3d1928eb1d25ab3f66dca64036609bc9f44d9c4f973c205f6",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/helpers.js",
+      "size": 1786,
+      "sha256": "34db108cf9cc1399c83add4c09bd5e51f9978626e7a486d76b98097c59fcc1c8",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/index.css",
+      "size": 7273,
+      "sha256": "9744ab180420e503eaa7e0c69c2a9a283ef68d99f9678cbb8167a7476aa2f04a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/index.html",
+      "size": 2354,
+      "sha256": "fa135782c7bd9bca4eac3a665759c0698d3829b2f97b99fdc26761ee7084ecd5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/model.js",
+      "size": 3662,
+      "sha256": "7f3dd8368e8b1aded3c004a8fe86b7594d43495aec2fa4f0a5b3933f98654ff1",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/source-manifest.json",
+      "size": 2030,
+      "sha256": "3f2c27b3439635a47c2061c0e3ad91e3eedaffd08971c3ab525328e74627a127",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/store.js",
+      "size": 4445,
+      "sha256": "0bc9d37949d094d104a5a0050f68a0b20d2a2b536d5c31fac70c95185ff08303",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/template.js",
+      "size": 3258,
+      "sha256": "bbb8b7acefebb215f23e9d3e1d9e5c3b3197382b5ddf4218e86a83842b3ed447",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/examples/todomvc-site/view.js",
+      "size": 7259,
+      "sha256": "0d731d4ef1f4af7a570f82418fd698f26aba516d52c40dc0ca2a6a47dd81a977",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/SKILL.md",
+      "size": 15916,
+      "sha256": "83035378a2ace5104f702e4d421d863daf9f13337c1b62daa4bb7ea8e0adf5da",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/authentication.md",
+      "size": 14876,
+      "sha256": "590d5b4b53e3088243cceca79ada5c4bebb36633d1e7b2f8baa3076269641a9f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/commands.md",
+      "size": 53243,
+      "sha256": "2a5ddb3c3a9c78e42166e78cc43799d7f28ba0daf0bb5e9e3d06dcd34edd8fc9",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/profiling.md",
+      "size": 3391,
+      "sha256": "bfdbe03f0f1da1a20f79d6fcb1ce889bdb43836756934cbf59af4b94e7a80dee",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/proxy-support.md",
+      "size": 8213,
+      "sha256": "df8bf62b429debd5c05c37862af941226ecc37070946896b33549414fe4b5ca2",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/session-management.md",
+      "size": 12217,
+      "sha256": "578cb84eb3ca10566b1c82d12c5b8d3cadf3b15bf63d1ccbabd47466283553ae",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/snapshot-refs.md",
+      "size": 6382,
+      "sha256": "643b7c3fe7fecbe2f66d299d22c46dbeab3f7c7d03ae4ad0c8db003b73e729ec",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/streaming.md",
+      "size": 7246,
+      "sha256": "92d10ccffb1d15f2d00179b3f8ae28797e483d7efb9e980633d50cca54793efc",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/trust-boundaries.md",
+      "size": 6881,
+      "sha256": "99046d95b7286c7eb27e7626272945eb7f1b04ee7d0f2f9d471e1ed22f235679",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/video-recording.md",
+      "size": 7132,
+      "sha256": "8a669ed6dc77e0c53d8f8b2e9386751c677e1bbdc0d1d8d54b7df4c0313a7743",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/references/webgpu.md",
+      "size": 7036,
+      "sha256": "a712891500530fc852b902cb453177c34ead1a225715f6ed8261251d52706f3d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/source.json",
+      "size": 1544,
+      "sha256": "53a50daf3cc53b7646070472e69fb9b44cc20872cb25c158685858bc14af0d9e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/templates/authenticated-session.sh",
+      "size": 4912,
+      "sha256": "3a44ce1ca1d6b8ff7b049e8456fb9cd383afa3e76f48532cc6dc836dc0f449e7",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/templates/capture-workflow.sh",
+      "size": 1825,
+      "sha256": "caa5fa01b654cab0849d77c7fcb2e07a64b2ba3b7bff4718e9a19d3c8d793177",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/agent-browser-core.offline/templates/form-automation.sh",
+      "size": 2173,
+      "sha256": "f1b2ef8220d214287d68336512938adfe9bf6e9c2b85e2d66f3239bafc666a6a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/case.schema.json",
+      "size": 6602,
+      "sha256": "19b38fd6992dc09c7b0885933f7ce51440eb40842c7479667423fbc0427b20ec",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/commands.md",
+      "size": 30437,
+      "sha256": "b0689fb0defca3c4b2f516cb05053ab3e864b1255b734f69d58e39b4eb520de7",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/result.schema.json",
+      "size": 1696,
+      "sha256": "6e3626f71bf9b0923f52775af21a629c5915656189bdd2f1ebbdc4b7e5784f81",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/ADAPTATION.md",
+      "size": 5705,
+      "sha256": "edac477b774bad4cd3d9990c331f38744aab09ca6a63acebab33e298cc89d505",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/SKILL.md",
+      "size": 13973,
+      "sha256": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/agents/openai.yaml",
+      "size": 500,
+      "sha256": "d7d3e662733646999dbb68bfcfb359b896c0831a040d386047fd64cf37b22490",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/assets/icon.svg",
+      "size": 420,
+      "sha256": "e9301497fa98ef56aaca7ede0857b9a18dc06c34040f0679c609a6bf49b1d38b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/references/workbook-rules.md",
+      "size": 7048,
+      "sha256": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/scripts/validate_test_cases.py",
+      "size": 13589,
+      "sha256": "979154df60eaec2b3d141e45220b941aed64c5b34a2634d5583a528fe15f8dd9",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/source.json",
+      "size": 2026,
+      "sha256": "9ed01f32f6ef590d4810a189b455754c290b52430b381fe5947d5f1e9ea22515",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/test-cases/upstream/test-cases.rar",
+      "size": 14096,
+      "sha256": "08f913f3c8d4de28fac9c19acd9481355c78f6ccbb2e427788dc3ec7df72307f",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/troubleshooting.md",
+      "size": 5804,
+      "sha256": "0db7b5c8cec2fed731842763e8a6488d9e859598104674720eea9a6bfff3d5b6",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/workflow/conversation.md",
+      "size": 5526,
+      "sha256": "d904a06bca1d472fbcfb6c185bbe00d566ebf6c9d21496e1b1fbf9035e0b0fcd",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/workflow/data.md",
+      "size": 1835,
+      "sha256": "662e46df4b1ff4d70ef5aac7340bee2ff4daecb9dc8d99d1bfc8cdab9d16e08d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/workflow/design.md",
+      "size": 1472,
+      "sha256": "b8e8df9a9c28dd538f176578ee100b411c2973f11c0f0cd38ee9b26e0f9593c9",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/references/workflow/execution.md",
+      "size": 1581,
+      "sha256": "bd783f4feb9a00ded9ee65f17596e43cc097f3d3a8bb4eb852772cf2fbcb04ff",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "skills/autoskill/scripts/qa.py",
+      "size": 786,
+      "sha256": "8d054ea3e85e31db81cee7e92c3b1cd777c0451ea5357e2b7e6a83d346e66726",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/fixtures/native_load.jmx",
+      "size": 2469,
+      "sha256": "824c221bcf58033b8c5c426f748ae0d1d1bbdc7e3abad8140897171d7a921874",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/fixtures/native_pom/conftest.py",
+      "size": 805,
+      "sha256": "bb8811afc1fc4bf6f4659f2bb7c3d14b8328c02465e295162b60e009e394b5ea",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/fixtures/native_pom/data/expected.json",
+      "size": 22,
+      "sha256": "ab364ab20e390d57256085cddb4b95218b63147668b207fd74822fbded688f54",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/fixtures/native_pom/pages/__init__.py",
+      "size": 77,
+      "sha256": "15321bbcdeb8941c4cdd331ad0ef7b5715cc6e8fb6eccad19028e4e4dbd0d218",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/fixtures/native_pom/pages/home.py",
+      "size": 303,
+      "sha256": "40da4a9dada1e0f82e4da75861706e0efcb6e9f6f6770e40ebdfcae16b6c4207",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/fixtures/native_pom/test_page.py",
+      "size": 299,
+      "sha256": "c32c42a015a9dc17d581198b7ff63c4fd1545e3120e3edc8201bbc0187f0e161",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/fixtures/todomvc-ui-cases.json",
+      "size": 43416,
+      "sha256": "0f6e7f9aeeb0593de7c828855ac2b0b78523ffb1a5ea2589e17bacd01e3e7658",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_browser_visibility.py",
+      "size": 7140,
+      "sha256": "eb19998829ecaf589346db17e8ca3d3fd134c4acf275c543385d2ba2d606b1bf",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_case_folders.py",
+      "size": 16913,
+      "sha256": "ac4039c0cb4c05403e8af92e91023c4de1d66a1e9058b4b32abc4b73b32b7abf",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_case_plans.py",
+      "size": 15661,
+      "sha256": "08e6316bf107f53acf1bf118f88b3435bfe5da3541a2188ed29e4a3b493b44d4",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_case_plans_dashboard.py",
+      "size": 6345,
+      "sha256": "26b26a0b28198978fa3eb003c698ad022d896387665c0930ecbf0f84406ae9a9",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_conversation_dashboard.py",
+      "size": 11160,
+      "sha256": "241d89f541ca89f00f504a2d9d5166453b4b51eb9249900e25338f4d8044ba20",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dashboard_deletions.py",
+      "size": 18435,
+      "sha256": "f534d5bb4a583c56a5026326c88d60a0fa359c54e27da8bbd25be82f413c7f2a",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dashboard_features.py",
+      "size": 16678,
+      "sha256": "07370f7a49463c518102925efa451529135db7f2a09f524fc7ff3f00bf684975",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dashboard_native_tools.py",
+      "size": 7109,
+      "sha256": "bca295689a1076e0c4ce78ea4ba26df9bfd0d8cb13c09f3d72336952c9034b90",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dashboard_remaining_actions.py",
+      "size": 24351,
+      "sha256": "d50e642027f9a41658eb1ddd078df87ca7667b31bcfff671cdb8402bb56a7ea8",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dashboard_review_fixes.py",
+      "size": 8392,
+      "sha256": "3579604161708add6b3848f36ef6842a4d234fdbe5b6d71c0102ddf300bba468",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dashboard_schedules.py",
+      "size": 12553,
+      "sha256": "b62ef526a8c1d12e52c183ebf840988fd725ee6737e662b4de4e19436a030bb3",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dashboard_stability.py",
+      "size": 7353,
+      "sha256": "267dc07acb32a051ac3415b23af344e5fa75b4902fe40772c26c69e85908978b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_data_dashboard.py",
+      "size": 17381,
+      "sha256": "7733329be4a9fb3d910edb8e8f8ded539b0da9133987902798b6b39df9e40b9b",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_dsh_ui_acceptance.py",
+      "size": 15293,
+      "sha256": "8fd67b60b5348425fd0ea0d54db1b07941d34338429c84d7e2dc95ee3f75afa4",
+      "source": "self-test-packaging"
+    },
+    {
+      "path": "tests/test_functional_case_documents.py",
+      "size": 12494,
+      "sha256": "15f769d2c965f7d28e6fa883986037748a829363a62c25ff2fbebeb4016a15f4",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_functional_design_dashboard.py",
+      "size": 11299,
+      "sha256": "924a5f7cd32dd2705f49e74e401867270b17a73acf39670260f5154064f17680",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_load_dashboard.py",
+      "size": 17145,
+      "sha256": "83862ae5474657117649d88c14c4f411c1df3edf136df5a1098ba44ed836623d",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_native_dashboard.py",
+      "size": 6404,
+      "sha256": "9c249860c2c2295afb05b016587281d2b316962f6e06a9f0048e82cb42577be8",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_native_engines.py",
+      "size": 18011,
+      "sha256": "222a7303f51158baa0fd9c37eeab6cf9875974ac4bfc26dfea2710c023f7c3e1",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_project_settings_dashboard.py",
+      "size": 6114,
+      "sha256": "c740441ce2043d81b99bcd7b7b78e3a179ae4aba8c0be3a1d2c07e867a422e7e",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_recorder_browser_compatibility.py",
+      "size": 8979,
+      "sha256": "44b44d6359e6e5c8f1055312df5437e240e3d54a6780e735caf8371aeed9b1f6",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_scheduled_browser_mode.py",
+      "size": 9158,
+      "sha256": "60c28d4911eef784c0b09df9c0143bc4548ca8faca66aa355edd77cff82048c5",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_telemetry_traffic.py",
+      "size": 10980,
+      "sha256": "4068ac61050f4a0711420920ab528ad66d123bfb563a0233b18d106a9fc093aa",
+      "source": "repository-working-tree"
+    },
+    {
+      "path": "tests/test_workflow_changes.py",
+      "size": 16010,
+      "sha256": "93a4e85fdbe0723fd0965232eff20d8e12199ac5f220446d9b897da9c4cd81ae",
+      "source": "repository-working-tree"
+    }
+  ],
+  "selected_test_count": 103,
+  "expected_unittest_cases": 104,
+  "excluded": [
+    ".git",
+    "virtual environments",
+    "runtime vendors",
+    "DSH connection configuration",
+    "user data",
+    "historical reports"
+  ],
+  "validation": "Only compile/import/collection smoke is permitted during preparation; actual acceptance must be initiated through DSH asset import and native run."
+}

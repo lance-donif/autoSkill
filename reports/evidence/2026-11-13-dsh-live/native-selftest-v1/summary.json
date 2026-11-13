@@ -1,0 +1,93 @@
+{
+  "run_id": "run-a572f263974a",
+  "host_session_id": "session-autoskill-selftest-native",
+  "started_by_real_dsh_skill": true,
+  "asset_id": "dsh-dashboard-selftest-v1",
+  "asset_version": "09af30929256776dd68f7aeb99cab97c75827689c539beb81e0f75bba865fe13",
+  "input_hash": "30e28f98392490fa8c32daf32bffaa0707b63bff3cdf198fb36f53b459dea153",
+  "status": "Fail",
+  "business_status": "Fail",
+  "unittest_summary": [
+    "Ran 104 tests in 308.810s"
+  ],
+  "parent_tests": 104,
+  "parent_pass": 101,
+  "parent_fail": 3,
+  "parent_skip": 0,
+  "native_result_records": 124,
+  "record_status_counts": {
+    "Pass": 121,
+    "Fail": 3
+  },
+  "subtest_note": "20 additional successful subtest records are preserved; they are not 20 additional parent tests.",
+  "failures": [
+    {
+      "id": "test_conversation_dashboard.ConversationDashboardTests.test_uploaded_har_recovers_invalid_mapping_and_executes_two_turn_conversations",
+      "status": "Fail",
+      "trace_head": [
+        "Traceback (most recent call last):",
+        "  File \"/workspace/scratch/dsh-acceptance-private/data/.local/runs/run-a572f263974a/native/input/tests/test_conversation_dashboard.py\", line 138, in test_uploaded_har_recovers_invalid_mapping_and_executes_two_turn_conversations",
+        "    self.assertEqual((result[\"status\"], result[\"outcome\"][\"business_status\"]), (\"Pass\", \"Pass\"), result)",
+        "AssertionError: Tuples differ: ('Blocked', 'Unverified') != ('Pass', 'Pass')",
+        "",
+        "First differing element 0:"
+      ],
+      "invalid_port_present": true
+    },
+    {
+      "id": "test_conversation_dashboard.ConversationDashboardTests.test_pasted_curl_builds_repeated_turn_template_with_explicit_expectations",
+      "status": "Fail",
+      "trace_head": [
+        "Traceback (most recent call last):",
+        "  File \"/workspace/scratch/dsh-acceptance-private/data/.local/runs/run-a572f263974a/native/input/tests/test_conversation_dashboard.py\", line 170, in test_pasted_curl_builds_repeated_turn_template_with_explicit_expectations",
+        "    self.assertEqual((run[\"status\"], run[\"outcome\"][\"business_status\"]), (\"Pass\", \"Pass\"), run)",
+        "AssertionError: Tuples differ: ('Blocked', 'Unverified') != ('Pass', 'Pass')",
+        "",
+        "First differing element 0:"
+      ],
+      "invalid_port_present": true
+    },
+    {
+      "id": "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_native_cancel_button_preserves_completed_case_and_unfinished_denominator",
+      "status": "Fail",
+      "trace_head": [
+        "Traceback (most recent call last):",
+        "  File \"/workspace/scratch/dsh-acceptance-private/data/.local/runs/run-a572f263974a/native/input/tests/test_dashboard_remaining_actions.py\", line 280, in test_native_cancel_button_preserves_completed_case_and_unfinished_denominator",
+        "    self.assertTrue(target.completed.wait(timeout=10), \"The first native conversation never reached the real service\")",
+        "AssertionError: False is not true : The first native conversation never reached the real service"
+      ],
+      "invalid_port_present": false
+    }
+  ],
+  "test_report_status": "ready",
+  "files": [
+    {
+      "kind": "excel",
+      "path": "/workspace/scratch/dsh-acceptance-private/data/projects/ticket-desk/reports/run_run-a572f263974a/测试用例-68528cd3d3c1965d.xlsx",
+      "file": "测试用例-68528cd3d3c1965d.xlsx",
+      "sha256": "3b3b1bb8afb9296a9f5137a5fbcebf7b0fe3f9fccffc7cbff2d22c469798bbed",
+      "bytes": 180042,
+      "copied_to_public_evidence": false
+    },
+    {
+      "kind": "markdown",
+      "path": "/workspace/scratch/dsh-acceptance-private/data/projects/ticket-desk/reports/run_run-a572f263974a/测试简报-68528cd3d3c1965d.md",
+      "file": "测试简报-68528cd3d3c1965d.md",
+      "sha256": "3a7c59eec7af58ab7eb44af3138faede66ebb1ad9b39787537cf824c0af085d8",
+      "bytes": 1221,
+      "copied_to_public_evidence": false
+    },
+    {
+      "kind": "bugs",
+      "path": "/workspace/scratch/dsh-acceptance-private/data/projects/ticket-desk/reports/run_run-a572f263974a/Bug清单-68528cd3d3c1965d.md",
+      "file": "Bug清单-68528cd3d3c1965d.md",
+      "sha256": "ea754d367d281cab4e55c904ae8c5bf8ab63133238e637e4e6e58a0ddef857c2",
+      "bytes": 7328,
+      "copied_to_public_evidence": false
+    }
+  ],
+  "source_commit": "bab27360c335f1db8adf38aba44d5ad2770a3c81",
+  "snapshot_manifest_sha256": "7aad553161682eeaada4b075cb6e907d5c6f02acb3b1c09ea773428c868e7d83",
+  "raw_evidence_private_path": "/workspace/scratch/dsh-acceptance-private/data/.local/runs/run-a572f263974a/native",
+  "original_report_note": "The three ready reports retain original failure traces outside public repository evidence; the real DSH must present these exact originals. Public summary preserves the failing trace heads without worker metadata."
+}

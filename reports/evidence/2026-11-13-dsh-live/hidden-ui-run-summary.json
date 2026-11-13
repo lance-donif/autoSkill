@@ -1,0 +1,62 @@
+{
+  "session_id": "session-autoskill-hidden-browser",
+  "run_id": "run-fc3822e16f22",
+  "status": "Pass",
+  "headed": 0,
+  "total": 1,
+  "passed": 1,
+  "business": [
+    [
+      "TC-UI-001",
+      "Pass"
+    ]
+  ],
+  "task_report_status": "ready",
+  "explicit_window_flags": false,
+  "dsh_host_headed_env_present": false,
+  "display": ":99",
+  "fixture_origin": "scripts/seed-dashboard-acceptance.py prepared saved case; real remote DSH issued the run",
+  "browser_launches": [
+    {
+      "time": 1794562967.6363404,
+      "pid": 26702,
+      "ppid": 26690,
+      "headless": true,
+      "headless_flag": [
+        "--headless"
+      ],
+      "headed_env_present": true,
+      "headed_env": "0",
+      "display": ":99",
+      "workspace": "/workspace/scratch/dsh-acceptance-private/data",
+      "agent_control": "",
+      "remote_debugging": [
+        "--remote-debugging-pipe"
+      ],
+      "profile": "/tmp/playwright_chromiumdev_profile-o5Ohu3"
+    }
+  ],
+  "present_events": 1,
+  "turn_end": [
+    {
+      "kind": "completed"
+    }
+  ],
+  "files": [
+    {
+      "path": "hidden-ui-run/测试用例-20dffed5d336c937.xlsx",
+      "size": 17640,
+      "sha256": "97487bfae487e79a3cda7ce312596abc129d1304b7b148c495d1a79bef3c0cfc"
+    },
+    {
+      "path": "hidden-ui-run/测试简报-20dffed5d336c937.md",
+      "size": 793,
+      "sha256": "6ae02e381d609931ba2dce6fbe6da002c9691540b7bb81e24845f83e8d288849"
+    },
+    {
+      "path": "hidden-ui-run/Bug清单-20dffed5d336c937.md",
+      "size": 1007,
+      "sha256": "7243d1671ab7372457e4d8b44e00955ac29d6c1ea94993359bc151593204263c"
+    }
+  ]
+}

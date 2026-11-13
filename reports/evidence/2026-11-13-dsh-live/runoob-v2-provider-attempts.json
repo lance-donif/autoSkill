@@ -1,0 +1,41 @@
+{
+  "scope": "Actual DSH turn termination, not case execution results",
+  "attempts": [
+    {
+      "seq": 133,
+      "turn": 1,
+      "reason": {
+        "kind": "completed"
+      }
+    },
+    {
+      "seq": 241,
+      "turn": 2,
+      "reason": {
+        "kind": "completed"
+      }
+    },
+    {
+      "seq": 255,
+      "turn": 3,
+      "reason": {
+        "kind": "error",
+        "error": {
+          "message": "503 upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "code": "SERVER"
+        }
+      }
+    },
+    {
+      "seq": 266,
+      "turn": 4,
+      "reason": {
+        "kind": "error",
+        "error": {
+          "message": "503 upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "code": "SERVER"
+        }
+      }
+    }
+  ]
+}

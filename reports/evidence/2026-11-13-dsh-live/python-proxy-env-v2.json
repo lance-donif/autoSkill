@@ -1,0 +1,13 @@
+{
+  "scope": "Only selected startup environment fields read from the real cold-started Python dashboard; no proxy URL or credential dumped. Parameters and generated test driver do not remove NO_PROXY.",
+  "processes": [
+    {
+      "pid": 79193,
+      "role": "actual_cold_started_python_dashboard",
+      "NO_PROXY": "localhost,127.0.0.1,::1",
+      "no_proxy": "localhost,127.0.0.1,::1",
+      "headed_env_present": false,
+      "DISPLAY": ":99"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "session-autoskill-runoob-functional-v2",
+  "source": "Actual remote-model DSH session after an independent HTTP200 recovery probe",
+  "tool_calls": [
+    {
+      "seq": 23,
+      "name": "skill",
+      "skill_name": "autoskill"
+    },
+    {
+      "seq": 25,
+      "name": "skill",
+      "skill_name": "test-cases"
+    },
+    {
+      "seq": 27,
+      "name": "bash",
+      "description": "List workspace and check design file size"
+    },
+    {
+      "seq": 34,
+      "name": "read",
+      "path": "/workspace/scratch/dsh-acceptance-private/workspace/runoob-functional-design.json"
+    },
+    {
+      "seq": 39,
+      "name": "bash",
+      "description": "Fetch existing case plan metadata"
+    },
+    {
+      "seq": 43,
+      "name": "bash",
+      "description": "List autoSkill projects"
+    },
+    {
+      "seq": 50,
+      "name": "bash",
+      "description": "Bind design row to case plan via API"
+    },
+    {
+      "seq": 54,
+      "name": "bash",
+      "description": "Read workbook rules header"
+    }
+  ],
+  "turn_ends": [
+    {
+      "seq": 65,
+      "turn": 1,
+      "reason": {
+        "kind": "error",
+        "error": {
+          "message": "503 upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "code": "SERVER"
+        }
+      }
+    }
+  ],
+  "todo_write_count": 0,
+  "persisted_design": {
+    "id": "FT-JCYF-001",
+    "session": "runoob-functional-v2",
+    "status": "NotRun",
+    "created_by_real_dsh_tool": true,
+    "recording_started": false
+  }
+}

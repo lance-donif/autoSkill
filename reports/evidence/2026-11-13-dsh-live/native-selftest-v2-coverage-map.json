@@ -1,0 +1,479 @@
+{
+  "schema": 1,
+  "state": "prepared_mapping_not_execution",
+  "feature_count": 24,
+  "original_feature_count": 21,
+  "ui_category_count": 6,
+  "expected_original_tests": 103,
+  "expected_asset_tests": 104,
+  "rows": [
+    {
+      "id": "DSH-01",
+      "title": "插件启用、iframe与导航",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_diagnostics_run_real_checks_and_show_missing_runtime_honestly",
+        "test_native_dashboard.NativeDashboardTests.test_import_run_report_and_bound_evidence_download"
+      ],
+      "coverage": "partial",
+      "boundary": "这些函数打开冻结源树的独立仪表盘；DSH插件实际加载、同数据集iframe、全部导航及外层截图由DSH执行者另验，不能据此判通过。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-02",
+      "title": "宿主模型读取技能并执行工具",
+      "test_ids": [],
+      "coverage": "external-only",
+      "boundary": "资产内没有远程模型或DSH协议替身；真实模型、SKILL读取、注册工具与宿主收据必须由DSH任务提供。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-03",
+      "title": "建项目、录制与普通回放",
+      "test_ids": [
+        "test_load_dashboard.LoadDashboardTests.test_ui_cases_use_independent_real_browsers",
+        "test_project_settings_dashboard.ProjectSettingsTests.test_explicit_login_is_queued_uses_window_preference_and_preserves_force",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_new_project_becomes_visible_only_after_a_valid_saved_case",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_project_folder_downloads_and_self_contained_html_open_offline_with_embedded_screenshot",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_selected_and_all_replay_buttons_keep_scope_and_retry_preserves_the_original_failure",
+        "test_telemetry_traffic.TelemetryTrafficTests.test_exact_telemetry_and_beacons_do_not_suppress_tracking_business_or_wordpress",
+        "test_telemetry_traffic.TelemetryTrafficTests.test_telemetry_only_recording_still_archives_original_har_and_cdp_bytes",
+        "test_telemetry_traffic.TelemetryBrowserTests.test_real_page_beacons_and_resources_remain_sources_but_never_become_business_cases",
+        "test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_explicitly_visible_recording_creates_a_mapped_owned_window",
+        "test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_fresh_recorders_keep_the_same_browser_and_save_replayable_business_evidence"
+      ],
+      "coverage": "partial",
+      "boundary": "真实页面项目与回放、实际agent-browser录制/业务断言/保存/回放、同browser连接及X11可见窗口，另核遥测不编业务API且原HAR/CDP字节保留；这些是本机合成站点测试，不证明模型自行设计或外站网络可达。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-04",
+      "title": "嵌套文件夹、移动及刷新",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_nested_folders_move_and_recursive_excel_export_survive_reload",
+        "test_case_folders.CaseFolderTests.test_empty_nested_folders_persist_and_batch_move_preserves_case_bytes",
+        "test_case_folders.CaseFolderTests.test_verified_result_remains_current_after_folder_creation_and_move",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_bulk_move_across_nested_folders_preserves_unselected_cases_after_reload"
+      ],
+      "coverage": "partial",
+      "boundary": "真实页面单条与跨嵌套目录批量移动、刷新后归属、未选用例不动和用例定义字节保持；后端补充当前验证不因目录整理失效。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-05",
+      "title": "文件夹及项目14列Excel",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_nested_folders_move_and_recursive_excel_export_survive_reload",
+        "test_case_folders.CaseFolderTests.test_export_folder_contains_descendants_without_external_prerequisites",
+        "test_case_folders.CaseFolderTests.test_empty_folder_export_is_readable_and_root_http_exports_entire_project",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_project_folder_downloads_and_self_contained_html_open_offline_with_embedded_screenshot"
+      ],
+      "coverage": "partial",
+      "boundary": "独立仪表盘真实下载及精确集合/空表已具备测试；DSH iframe下载是否被宿主限制需另验。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-06",
+      "title": "接口2并发4迭代压测",
+      "test_ids": [
+        "test_load_dashboard.LoadDashboardTests.test_case_selection_loads_real_concurrent_requests_and_preserves_history"
+      ],
+      "coverage": "partial",
+      "boundary": "真实本机服务校验并发、4套会话、8次请求、业务断言与进度；是合成负载，不证明生产容量。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-07",
+      "title": "页面2并发2迭代压测",
+      "test_ids": [
+        "test_load_dashboard.LoadDashboardTests.test_ui_cases_use_independent_real_browsers"
+      ],
+      "coverage": "partial",
+      "boundary": "真实Chromium与本机服务校验独立Cookie、两个会话、并发及共享登录态不回写；DSH外层触发由宿主链另验。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-08",
+      "title": "早期失败保留及四类报告",
+      "test_ids": [
+        "test_load_dashboard.LoadDashboardTests.test_first_failure_survives_later_pass_and_export",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_project_folder_downloads_and_self_contained_html_open_offline_with_embedded_screenshot",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_selected_and_all_replay_buttons_keep_scope_and_retry_preserves_the_original_failure"
+      ],
+      "coverage": "partial",
+      "boundary": "HTML真实下载后在断网Chromium打开，核对内嵌截图完整、无HTTP依赖和展开/收起；Excel/Markdown/Bug检查同次真实HTTP文件。DSH iframe下载由外层单列。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-09",
+      "title": "停止压测与归档错误",
+      "test_ids": [
+        "test_load_dashboard.LoadDashboardTests.test_cancel_retains_completed_results_and_start_errors_remain_actionable"
+      ],
+      "coverage": "partial",
+      "boundary": "真实运行取消、分母、未执行数与表单归档错误；不是预制成功响应。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-10",
+      "title": "知识新建读取编辑删除与冲突",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_knowledge_materials_download_and_uploaded_share_use_real_files",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_knowledge_delete_cancel_preserves_bytes_and_confirm_removes_only_selected_file",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_knowledge_conflict_keeps_remote_bytes_and_local_draft_then_recovers_after_reopen"
+      ],
+      "coverage": "partial",
+      "boundary": "真实页面新建/读改/删除取消与确认；另一会话真实API修改后旧编辑保存被拒，原文与本地草稿保留，重新读取后可保存。不是用假409响应代替并发修改。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-11",
+      "title": "项目资料三类文件与ZIP",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_knowledge_materials_download_and_uploaded_share_use_real_files"
+      ],
+      "coverage": "partial",
+      "boundary": "ZIP真实下载并核对knowledge/testcases/reports；历史报告原件字节保留不在该UI用例内，不能据此宣称旧历史全部验收。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-12",
+      "title": "分享包上传和隔离导入",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_knowledge_materials_download_and_uploaded_share_use_real_files",
+        "test_case_folders.CaseFolderTests.test_project_pack_retains_empty_folders_and_assignments",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_browser_uploaded_share_imports_into_empty_data_root_and_default_repeat_preserves_existing_bytes"
+      ],
+      "coverage": "partial",
+      "boundary": "真实页面导出分享ZIP后上传到第二个空数据根的独立服务，精确核对用例/知识原字节及空目录；默认重复导入跳过且保留导入后的本机修改。没有宣称覆盖选项全部组合已验证。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-13",
+      "title": "原生资产与执行器诊断",
+      "test_ids": [
+        "test_native_dashboard.NativeDashboardTests.test_import_run_report_and_bound_evidence_download",
+        "test_dashboard_native_tools.NativeDashboardTests.test_real_engine_probe_returns_actual_availability"
+      ],
+      "coverage": "partial",
+      "boundary": "Python unittest真实运行，ai-eval真实probe；Newman/Apifox/JMeter本机不可用分支及原生工具装配需看实际诊断，不能以Python通过代替。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-14",
+      "title": "原生详情、证据与原版本重跑",
+      "test_ids": [
+        "test_native_dashboard.NativeDashboardTests.test_import_run_report_and_bound_evidence_download",
+        "test_dashboard_native_tools.NativeDashboardTests.test_downloads_only_bound_evidence_and_detects_changed_files",
+        "test_dashboard_native_tools.NativeDashboardTests.test_native_rerun_keeps_original_asset_version_and_parameters",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_native_cancel_button_preserves_completed_case_and_unfinished_denominator"
+      ],
+      "coverage": "partial",
+      "boundary": "真实UI附件/重跑/取消，取消后已完成对话断言与3个计划目标分母保留，未开始的目标不冒充通过；后端补充原版本/参数和证据篡改409。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-15",
+      "title": "多轮来源映射和独立预期",
+      "test_ids": [
+        "test_conversation_dashboard.ConversationDashboardTests.test_uploaded_har_recovers_invalid_mapping_and_executes_two_turn_conversations",
+        "test_conversation_dashboard.ConversationDashboardTests.test_pasted_curl_builds_repeated_turn_template_with_explicit_expectations",
+        "test_dashboard_native_tools.NativeDashboardTests.test_uploaded_sources_are_data_and_preserve_exact_original_bytes"
+      ],
+      "coverage": "partial",
+      "boundary": "真实HAR/cURL构建与本机两轮、独立会话；现有fixture预期700→200，与清单42→21为不同合成数据，不能冒称执行了清单数值。SSE/WebSocket不由这两条页面用例证明。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-16",
+      "title": "工作流来源覆盖及控制",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_workflow_page_explains_twenty_of_hundred_and_creates_scoped_maintenance"
+      ],
+      "coverage": "partial",
+      "boundary": "真实页面查看、影响分析、暂停恢复、提交阶段及本机执行；generic宿主pending不等于DSH已接受或完成AI维护。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-17",
+      "title": "100条用例20/80影响与维护",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_workflow_page_explains_twenty_of_hundred_and_creates_scoped_maintenance"
+      ],
+      "coverage": "partial",
+      "boundary": "精确20/80集合、20条候选真实执行发布、80条字节不变；阶段内容由测试预置JSON提供，不证明远程模型自行生成正确候选。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-18",
+      "title": "三种定时任务",
+      "test_ids": [
+        "test_native_dashboard.NativeDashboardTests.test_native_and_maintenance_targets_are_saved_and_delivery_is_not_a_fake_run",
+        "test_dashboard_schedules.DashboardScheduleTests.test_stale_edit_keeps_other_session_changes_and_can_reload_to_save",
+        "test_scheduled_browser_mode.ScheduledBrowserModeTests.test_due_task_keeps_hidden_choice_after_database_restart"
+      ],
+      "coverage": "partial",
+      "boundary": "页面创建native/maintenance并检查awaiting_host，replay编辑/到期有测试；三类型到期与真实DSH宿主接续组合仍需宿主验收。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-19",
+      "title": "定时隐藏浏览器",
+      "test_ids": [
+        "test_dashboard_schedules.DashboardScheduleTests.test_task_browser_choice_defaults_to_preference_and_survives_edit_and_reload",
+        "test_scheduled_browser_mode.ScheduledBrowserModeTests.test_actual_worker_child_launches_headless_chromium_for_hidden_task",
+        "test_browser_visibility.BrowserVisibilityTests.test_real_implicit_cli_replay_and_login_launch_headless_without_flags"
+      ],
+      "coverage": "partial",
+      "boundary": "页面持久字段、真实worker Chromium --headless、隐式CLI登录/录制检查；此测试需Linux与已安装Chromium/agent-browser，缺失应记跳过/Blocked而非通过。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-20",
+      "title": "完整数据导入导出与重启",
+      "test_ids": [
+        "test_data_dashboard.DataDashboardTests.test_complete_export_and_import_preserve_data_without_activating_the_copy",
+        "test_data_dashboard.DataDashboardTests.test_legacy_preferences_fill_only_missing_fields_and_never_follow_another_data_root"
+      ],
+      "coverage": "partial",
+      "boundary": "真实UI完整ZIP/导入不激活、历史与设置校验；重启DSH插件切换到新数据根仍由外层验收。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-21",
+      "title": "诊断doctor/probe/verify",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_diagnostics_run_real_checks_and_show_missing_runtime_honestly",
+        "test_dashboard_native_tools.NativeDashboardTests.test_real_engine_probe_returns_actual_availability",
+        "test_dashboard_native_tools.NativeDashboardTests.test_diagnostics_does_not_block_request_and_retains_error"
+      ],
+      "coverage": "partial",
+      "boundary": "doctor/ai-eval/缺离线清单有真实UI；异步错误用受控fixture验证。全引擎及doctor --launch的完整真实UI检查尚缺。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-22",
+      "title": "设置、凭据与显式登录",
+      "test_ids": [
+        "test_project_settings_dashboard.ProjectSettingsTests.test_runtime_values_credentials_create_edit_delete_and_refresh",
+        "test_project_settings_dashboard.ProjectSettingsTests.test_explicit_login_is_queued_uses_window_preference_and_preserves_force"
+      ],
+      "coverage": "partial",
+      "boundary": "真实页面配置/凭据增删及异步登录；凭据为本机合成值，报告不携带真实密钥。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-23",
+      "title": "设计用例表及历史证据",
+      "test_ids": [
+        "test_case_plans_dashboard.CasePlanDashboardTests.test_design_edit_requires_new_binding_and_real_run_preserves_prior_version",
+        "test_functional_design_dashboard.FunctionalDesignDashboardTests.test_actual_record_plan_carries_the_authored_functional_design_into_frozen_replay",
+        "test_functional_design_dashboard.FunctionalDesignDashboardTests.test_legacy_design_edit_preserves_structured_source_and_invalidates_old_pass"
+      ],
+      "coverage": "partial",
+      "boundary": "页面设计编辑、实际记录/回放与当前/历史证据；新业务判据未映射独立断言时保持Unverified，旧Pass不迁入新设计，原失败和旧文件不改。最终仍以冻结资产的实际逐条结果判定。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "DSH-24",
+      "title": "原RAR功能设计、来源与新业务判据",
+      "test_ids": [
+        "test_functional_design_dashboard.FunctionalDesignDashboardTests.test_actual_record_plan_carries_the_authored_functional_design_into_frozen_replay",
+        "test_functional_design_dashboard.FunctionalDesignDashboardTests.test_legacy_design_edit_preserves_structured_source_and_invalidates_old_pass",
+        "test_functional_case_documents.FunctionalCaseDocumentsTests.test_ui_api_save_and_project_folder_task_exports_share_source_backed_content",
+        "test_functional_case_documents.FunctionalCaseDocumentsTests.test_legacy_requests_need_functional_design_without_erasing_a_failure",
+        "test_functional_case_documents.FunctionalCaseDocumentsTests.test_document_overrides_legacy_display_fields_without_mutating_frozen_definition",
+        "test_functional_case_documents.FunctionalCaseDocumentsTests.test_recording_with_plan_freezes_actual_functional_design_before_its_report",
+        "test_functional_case_documents.FunctionalCaseDocumentsTests.test_conversation_questions_and_independent_expected_values_are_known_functional_facts",
+        "test_functional_case_documents.FunctionalCaseDocumentsTests.test_builder_rejects_a_raw_request_masquerading_as_functional_steps",
+        "test_case_plans.CasePlanTests.test_draft_cannot_be_marked_green_and_edit_invalidates_old_binding_but_keeps_history",
+        "test_case_plans.CasePlanTests.test_project_and_named_sessions_do_not_share_designs_or_execution",
+        "test_case_plans.CasePlanTests.test_existing_cli_sheet_can_be_adopted_without_modifying_its_original_bytes",
+        "test_case_plans.CasePlanTests.test_imported_existing_case_uses_real_current_evidence_and_http_result_fields_are_read_only",
+        "test_case_plans.CasePlanTests.test_functional_design_is_saved_on_actual_case_revision_and_old_pass_is_not_reused",
+        "test_case_plans.CasePlanTests.test_legacy_raw_request_import_remains_missing_design_and_cannot_publish_it",
+        "test_case_plans.CasePlanTests.test_legacy_binding_without_mapping_proof_keeps_history_without_current_business_pass",
+        "test_case_plans.CasePlanTests.test_project_export_waits_for_a_complete_workbook_and_metadata_revision",
+        "test_workflow_changes.ChangeTests.test_twenty_out_of_hundred_are_scoped_and_eighty_unchanged_after_real_regression",
+        "test_workflow_changes.ChangeTests.test_human_expected_without_changed_source_mapped_checks_stays_unverified",
+        "test_workflow_changes.ChangeTests.test_source_backed_locator_maintenance_keeps_the_existing_human_title",
+        "test_workflow_changes.ChangeTests.test_dependency_and_unmapped_are_explicit_and_stale_analysis_cannot_start",
+        "test_workflow_changes.ChangeTests.test_change_scope_cannot_modify_unselected_and_failed_regression_cannot_publish"
+      ],
+      "coverage": "partial",
+      "boundary": "精确核对业务D/E/F/G和原始结构化来源、缺口同步M、GET/IR待补、真实record --plan进入冻结定义、旧Pass失效及新判据无覆盖时Unverified；来源驱动的新oracle必须实际回归后发布，不能以14列或新正文存在当业务通过。包括文件/受控内核支持测试，远程模型设计质量和真实网站仍由DSH外层V2另验。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "UI-01",
+      "title": "主题和1440/768布局",
+      "test_ids": [
+        "test_data_dashboard.DataDashboardTests.test_preferences_are_saved_in_data_and_work_without_browser_storage"
+      ],
+      "coverage": "partial",
+      "boundary": "主题持久化有真实UI，测试视口由各fixture指定；全部页面1440/768两尺寸逐项视觉审阅与DSH外层尚缺。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "UI-02",
+      "title": "失败/阻塞切换稳定性",
+      "test_ids": [
+        "test_dashboard_stability.DashboardStabilityTests.test_dashboard_failure_scope_changes_only_its_list_and_trend_switch_is_local",
+        "test_dashboard_stability.DashboardStabilityTests.test_failed_and_blocked_history_filters_keep_controls_and_back_navigation",
+        "test_dashboard_stability.DashboardStabilityTests.test_slow_status_response_does_not_dim_and_latest_filter_wins"
+      ],
+      "coverage": "partial",
+      "boundary": "真实Chromium检查DOM身份/透明度/滚动/慢响应竞争，但HTTP响应来自受控API合同fixture；DSH外层需另验。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "UI-03",
+      "title": "自动刷新、路由与输入",
+      "test_ids": [
+        "test_dashboard_stability.DashboardStabilityTests.test_slow_status_response_does_not_dim_and_latest_filter_wins",
+        "test_dashboard_schedules.DashboardScheduleTests.test_stale_edit_keeps_other_session_changes_and_can_reload_to_save",
+        "test_load_dashboard.LoadDashboardTests.test_case_selection_loads_real_concurrent_requests_and_preserves_history"
+      ],
+      "coverage": "partial",
+      "boundary": "覆盖慢响应竞争、表单错误及进度；切换任意路由后旧请求回写和所有抽屉保持不是这些函数的完整断言。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "UI-04",
+      "title": "空范围、100条、冲突与错误",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_workflow_page_explains_twenty_of_hundred_and_creates_scoped_maintenance",
+        "test_case_folders.CaseFolderTests.test_empty_folder_export_is_readable_and_root_http_exports_entire_project",
+        "test_dashboard_schedules.DashboardScheduleTests.test_stale_edit_keeps_other_session_changes_and_can_reload_to_save"
+      ],
+      "coverage": "partial",
+      "boundary": "100用例、空表与版本冲突有测试；全部页面空状态/长路径/无项目/大列表滚动矩阵尚缺。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "UI-05",
+      "title": "iframe下载与离线读取",
+      "test_ids": [
+        "test_dashboard_features.FeatureDashboardTests.test_nested_folders_move_and_recursive_excel_export_survive_reload",
+        "test_dashboard_features.FeatureDashboardTests.test_knowledge_materials_download_and_uploaded_share_use_real_files",
+        "test_load_dashboard.LoadDashboardTests.test_first_failure_survives_later_pass_and_export",
+        "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_project_folder_downloads_and_self_contained_html_open_offline_with_embedded_screenshot"
+      ],
+      "coverage": "partial",
+      "boundary": "独立页面真实下载并精确读取项目/递归目录Excel，自含HTML在离线新浏览器上下文可看截图和交互；DSH iframe下载须以真实外层证据单列。",
+      "dsh_execution": "not_executed"
+    },
+    {
+      "id": "UI-06",
+      "title": "面板重开、插件重启与投递恢复",
+      "test_ids": [],
+      "coverage": "external-only",
+      "boundary": "资产内无DSH进程或宿主连接配置；真实面板生命周期、UI修订和投递恢复由DSH执行者负责，不能用普通重载替代。",
+      "dsh_execution": "not_executed"
+    }
+  ],
+  "selected_test_ids": [
+    "test_load_dashboard.LoadDashboardTests.test_case_selection_loads_real_concurrent_requests_and_preserves_history",
+    "test_load_dashboard.LoadDashboardTests.test_ui_cases_use_independent_real_browsers",
+    "test_load_dashboard.LoadDashboardTests.test_first_failure_survives_later_pass_and_export",
+    "test_load_dashboard.LoadDashboardTests.test_cancel_retains_completed_results_and_start_errors_remain_actionable",
+    "test_dashboard_features.FeatureDashboardTests.test_nested_folders_move_and_recursive_excel_export_survive_reload",
+    "test_dashboard_features.FeatureDashboardTests.test_diagnostics_run_real_checks_and_show_missing_runtime_honestly",
+    "test_dashboard_features.FeatureDashboardTests.test_knowledge_materials_download_and_uploaded_share_use_real_files",
+    "test_dashboard_features.FeatureDashboardTests.test_workflow_page_explains_twenty_of_hundred_and_creates_scoped_maintenance",
+    "test_dashboard_stability.DashboardStabilityTests.test_dashboard_failure_scope_changes_only_its_list_and_trend_switch_is_local",
+    "test_dashboard_stability.DashboardStabilityTests.test_failed_and_blocked_history_filters_keep_controls_and_back_navigation",
+    "test_dashboard_stability.DashboardStabilityTests.test_slow_status_response_does_not_dim_and_latest_filter_wins",
+    "test_dashboard_schedules.DashboardScheduleTests.test_stale_edit_keeps_other_session_changes_and_can_reload_to_save",
+    "test_dashboard_schedules.DashboardScheduleTests.test_stale_enable_switch_reports_conflict_without_changing_latest_task",
+    "test_dashboard_schedules.DashboardScheduleTests.test_task_browser_choice_defaults_to_preference_and_survives_edit_and_reload",
+    "test_dashboard_schedules.DashboardScheduleTests.test_empty_one_time_date_has_visible_error_and_can_be_corrected",
+    "test_native_dashboard.NativeDashboardTests.test_import_run_report_and_bound_evidence_download",
+    "test_native_dashboard.NativeDashboardTests.test_native_and_maintenance_targets_are_saved_and_delivery_is_not_a_fake_run",
+    "test_conversation_dashboard.ConversationDashboardTests.test_uploaded_har_recovers_invalid_mapping_and_executes_two_turn_conversations",
+    "test_conversation_dashboard.ConversationDashboardTests.test_pasted_curl_builds_repeated_turn_template_with_explicit_expectations",
+    "test_project_settings_dashboard.ProjectSettingsTests.test_runtime_values_credentials_create_edit_delete_and_refresh",
+    "test_project_settings_dashboard.ProjectSettingsTests.test_explicit_login_is_queued_uses_window_preference_and_preserves_force",
+    "test_case_plans_dashboard.CasePlanDashboardTests.test_design_edit_requires_new_binding_and_real_run_preserves_prior_version",
+    "test_data_dashboard.DataDashboardTests.test_preferences_are_saved_in_data_and_work_without_browser_storage",
+    "test_data_dashboard.DataDashboardTests.test_legacy_preferences_fill_only_missing_fields_and_never_follow_another_data_root",
+    "test_data_dashboard.DataDashboardTests.test_a_new_data_root_does_not_import_unclaimed_old_browser_preferences",
+    "test_data_dashboard.DataDashboardTests.test_a_page_from_another_data_root_cannot_save_preferences_into_the_new_root",
+    "test_data_dashboard.DataDashboardTests.test_save_and_import_errors_are_visible_and_keep_the_previous_state",
+    "test_data_dashboard.DataDashboardTests.test_complete_export_and_import_preserve_data_without_activating_the_copy",
+    "test_dashboard_deletions.DashboardDeletionTests.test_case_row_cancel_and_detail_delete_preserve_scope_and_other_cases",
+    "test_dashboard_deletions.DashboardDeletionTests.test_case_batch_partial_failure_clears_selection_and_retains_error",
+    "test_dashboard_deletions.DashboardDeletionTests.test_case_row_delete_keeps_search_and_other_project",
+    "test_dashboard_deletions.DashboardDeletionTests.test_run_batch_delete_returns_to_previous_page_and_keeps_filters",
+    "test_dashboard_deletions.DashboardDeletionTests.test_completed_run_detail_delete_returns_to_filtered_history",
+    "test_dashboard_deletions.DashboardDeletionTests.test_running_delete_remains_pending_through_disconnect_until_confirmed_missing",
+    "test_dashboard_deletions.DashboardDeletionTests.test_run_batch_mixed_outcomes_and_cleanup_error_allow_retry",
+    "test_dashboard_deletions.DashboardDeletionTests.test_running_report_waits_for_removal_before_returning_to_history",
+    "test_dashboard_deletions.DashboardDeletionTests.test_reloaded_pending_run_resumes_observation_without_new_delete_request",
+    "test_dashboard_review_fixes.DashboardReviewTests.test_project_and_time_filters_reset_pagination_for_runs_and_results",
+    "test_dashboard_review_fixes.DashboardReviewTests.test_saved_links_with_an_out_of_range_offset_recover_without_losing_filters",
+    "test_dashboard_review_fixes.DashboardReviewTests.test_empty_history_also_recovers_from_a_saved_page_offset",
+    "test_dashboard_review_fixes.DashboardReviewTests.test_saved_project_name_and_category_appear_immediately",
+    "test_dashboard_review_fixes.DashboardReviewTests.test_saving_a_credential_refreshes_the_missing_credential_banner",
+    "test_dashboard_native_tools.NativeDashboardTests.test_downloads_only_bound_evidence_and_detects_changed_files",
+    "test_dashboard_native_tools.NativeDashboardTests.test_native_rerun_keeps_original_asset_version_and_parameters",
+    "test_dashboard_native_tools.NativeDashboardTests.test_diagnostics_does_not_block_request_and_retains_error",
+    "test_dashboard_native_tools.NativeDashboardTests.test_real_engine_probe_returns_actual_availability",
+    "test_dashboard_native_tools.NativeDashboardTests.test_uploaded_sources_are_data_and_preserve_exact_original_bytes",
+    "test_scheduled_browser_mode.ScheduledBrowserModeTests.test_immediate_run_keeps_explicit_hidden_choice_after_edit_and_fresh_process",
+    "test_scheduled_browser_mode.ScheduledBrowserModeTests.test_due_task_keeps_hidden_choice_after_database_restart",
+    "test_scheduled_browser_mode.ScheduledBrowserModeTests.test_legacy_tasks_follow_saved_preference_and_unrelated_edits_do_not_pin_it",
+    "test_scheduled_browser_mode.ScheduledBrowserModeTests.test_schema_adoption_preserves_old_task_and_rejects_non_boolean_choices",
+    "test_scheduled_browser_mode.ScheduledBrowserModeTests.test_actual_worker_child_launches_headless_chromium_for_hidden_task",
+    "test_case_folders.CaseFolderTests.test_legacy_modules_are_literal_labels_not_path_segments",
+    "test_case_folders.CaseFolderTests.test_empty_nested_folders_persist_and_batch_move_preserves_case_bytes",
+    "test_case_folders.CaseFolderTests.test_missing_case_batch_is_atomic_and_deleted_assignments_are_filtered",
+    "test_case_folders.CaseFolderTests.test_duplicate_names_missing_parent_and_folder_cycles_do_not_publish",
+    "test_case_folders.CaseFolderTests.test_competing_updates_allow_one_winner_without_lost_folders",
+    "test_case_folders.CaseFolderTests.test_current_case_edit_conflicts_instead_of_overwriting_its_definition",
+    "test_case_folders.CaseFolderTests.test_project_pack_retains_empty_folders_and_assignments",
+    "test_case_folders.CaseFolderTests.test_folder_changes_do_not_invalidate_existing_execution_scope",
+    "test_case_folders.CaseFolderTests.test_verified_result_remains_current_after_folder_creation_and_move",
+    "test_case_folders.CaseFolderTests.test_export_folder_contains_descendants_without_external_prerequisites",
+    "test_case_folders.CaseFolderTests.test_project_export_keeps_full_folder_paths_and_original_definition_hashes",
+    "test_case_folders.CaseFolderTests.test_empty_folder_export_is_readable_and_root_http_exports_entire_project",
+    "test_case_folders.CaseFolderTests.test_http_mutations_require_revision_and_expose_conflicts",
+    "test_browser_visibility.BrowserVisibilityTests.test_implicit_runner_record_and_cli_use_saved_preference_and_explicit_flags_win",
+    "test_browser_visibility.BrowserVisibilityTests.test_runtime_context_reads_its_own_data_root_preference",
+    "test_browser_visibility.BrowserVisibilityTests.test_bridge_boolean_false_overrides_service_environment_and_none_does_not_force_true",
+    "test_browser_visibility.BrowserVisibilityTests.test_real_implicit_cli_replay_and_login_launch_headless_without_flags",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_new_project_becomes_visible_only_after_a_valid_saved_case",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_bulk_move_across_nested_folders_preserves_unselected_cases_after_reload",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_selected_and_all_replay_buttons_keep_scope_and_retry_preserves_the_original_failure",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_knowledge_delete_cancel_preserves_bytes_and_confirm_removes_only_selected_file",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_knowledge_conflict_keeps_remote_bytes_and_local_draft_then_recovers_after_reopen",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_browser_uploaded_share_imports_into_empty_data_root_and_default_repeat_preserves_existing_bytes",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_native_cancel_button_preserves_completed_case_and_unfinished_denominator",
+    "test_dashboard_remaining_actions.RemainingDashboardActionsTests.test_project_folder_downloads_and_self_contained_html_open_offline_with_embedded_screenshot",
+    "test_functional_design_dashboard.FunctionalDesignDashboardTests.test_actual_record_plan_carries_the_authored_functional_design_into_frozen_replay",
+    "test_functional_design_dashboard.FunctionalDesignDashboardTests.test_legacy_design_edit_preserves_structured_source_and_invalidates_old_pass",
+    "test_functional_case_documents.FunctionalCaseDocumentsTests.test_ui_api_save_and_project_folder_task_exports_share_source_backed_content",
+    "test_functional_case_documents.FunctionalCaseDocumentsTests.test_legacy_requests_need_functional_design_without_erasing_a_failure",
+    "test_functional_case_documents.FunctionalCaseDocumentsTests.test_document_overrides_legacy_display_fields_without_mutating_frozen_definition",
+    "test_functional_case_documents.FunctionalCaseDocumentsTests.test_recording_with_plan_freezes_actual_functional_design_before_its_report",
+    "test_functional_case_documents.FunctionalCaseDocumentsTests.test_conversation_questions_and_independent_expected_values_are_known_functional_facts",
+    "test_functional_case_documents.FunctionalCaseDocumentsTests.test_builder_rejects_a_raw_request_masquerading_as_functional_steps",
+    "test_case_plans.CasePlanTests.test_draft_cannot_be_marked_green_and_edit_invalidates_old_binding_but_keeps_history",
+    "test_case_plans.CasePlanTests.test_project_and_named_sessions_do_not_share_designs_or_execution",
+    "test_case_plans.CasePlanTests.test_existing_cli_sheet_can_be_adopted_without_modifying_its_original_bytes",
+    "test_case_plans.CasePlanTests.test_imported_existing_case_uses_real_current_evidence_and_http_result_fields_are_read_only",
+    "test_case_plans.CasePlanTests.test_functional_design_is_saved_on_actual_case_revision_and_old_pass_is_not_reused",
+    "test_case_plans.CasePlanTests.test_legacy_raw_request_import_remains_missing_design_and_cannot_publish_it",
+    "test_case_plans.CasePlanTests.test_legacy_binding_without_mapping_proof_keeps_history_without_current_business_pass",
+    "test_case_plans.CasePlanTests.test_project_export_waits_for_a_complete_workbook_and_metadata_revision",
+    "test_workflow_changes.ChangeTests.test_twenty_out_of_hundred_are_scoped_and_eighty_unchanged_after_real_regression",
+    "test_workflow_changes.ChangeTests.test_human_expected_without_changed_source_mapped_checks_stays_unverified",
+    "test_workflow_changes.ChangeTests.test_source_backed_locator_maintenance_keeps_the_existing_human_title",
+    "test_workflow_changes.ChangeTests.test_dependency_and_unmapped_are_explicit_and_stale_analysis_cannot_start",
+    "test_workflow_changes.ChangeTests.test_change_scope_cannot_modify_unselected_and_failed_regression_cannot_publish",
+    "test_telemetry_traffic.TelemetryTrafficTests.test_exact_telemetry_and_beacons_do_not_suppress_tracking_business_or_wordpress",
+    "test_telemetry_traffic.TelemetryTrafficTests.test_telemetry_only_recording_still_archives_original_har_and_cdp_bytes",
+    "test_telemetry_traffic.TelemetryBrowserTests.test_real_page_beacons_and_resources_remain_sources_but_never_become_business_cases",
+    "test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_explicitly_visible_recording_creates_a_mapped_owned_window",
+    "test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_fresh_recorders_keep_the_same_browser_and_save_replayable_business_evidence"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "run_id": "run-82a5ccc545e0",
+  "status": "Queued",
+  "queue_dispatcher": {
+    "status": "started",
+    "pid": 79640,
+    "reason": ""
+  },
+  "asset_id": "dsh-dashboard-selftest-v2",
+  "asset_version": "deac2102fb3a21fbeabc12ab1957bd69a35f0f0e42f3aa2278a63cb2783c5e14",
+  "head": "71d65853732aaeaec806b525168f476f0bef96c9ffceee03d860e16697ead00a",
+  "file_count": 256,
+  "input_hash": "385bc3ddf49119a219edbbea4e291201f3985c8e108c26d84c250a4695357cde",
+  "origin": {
+    "kind": "frozen-repository-dashboard-selftest",
+    "authorship": "prewritten_repository_tests_not_model_authored",
+    "source_commit": "a2b0ddc3ef5f746306e4149011b45e69e8565772",
+    "manifest_sha256": "58022a9f54807840e2cbb1a75dc77dea83734edb5d3270ababb06044257a363d",
+    "source_tree_sha256": "9df52ac3ca1176f3fea32df9f73fa691f7bfbb20ce1c5c1508a5c73976df4851",
+    "expected_unittest_parent_tests": 104,
+    "additional_subtest_records_expected": true
+  },
+  "receipt_directory": "/workspace/scratch/dsh-acceptance-private/workspace/native-selftest-v2-receipts"
+}

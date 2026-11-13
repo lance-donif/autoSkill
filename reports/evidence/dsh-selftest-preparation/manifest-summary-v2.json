@@ -1,0 +1,21 @@
+{
+  "state": "frozen_compile_and_collection_only",
+  "source_commit": "a2b0ddc3ef5f746306e4149011b45e69e8565772",
+  "manifest_sha256": "58022a9f54807840e2cbb1a75dc77dea83734edb5d3270ababb06044257a363d",
+  "source_tree_sha256": "9df52ac3ca1176f3fea32df9f73fa691f7bfbb20ce1c5c1508a5c73976df4851",
+  "verified_files": 255,
+  "file_hash_mismatches": [],
+  "original_test_ids_unchanged": 103,
+  "collected_unittest_cases_with_integrity": 104,
+  "driver_bytes_identical_to_v1": true,
+  "changed_frozen_files": [
+    "CLAUDE.md",
+    "README.md",
+    "plugin/index.mjs",
+    "skills/autoskill/app/autoskill/engines/ai_eval.py",
+    "skills/autoskill/app/autoskill/paths.py",
+    "skills/autoskill/references/commands.md"
+  ],
+  "acceptance_tests_executed_during_preparation": 0,
+  "first_manifest_sha256_retained": "7aad553161682eeaada4b075cb6e907d5c6f02acb3b1c09ea773428c868e7d83"
+}

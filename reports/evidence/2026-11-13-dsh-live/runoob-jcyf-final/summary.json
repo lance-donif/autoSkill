@@ -1,0 +1,213 @@
+{
+  "run_id": "run-83be44ec7c93",
+  "case_id": "TC-UI-004",
+  "case_revision": 1,
+  "host_session_id": "session-autoskill-runoob-jcyf-final",
+  "status": "Pass",
+  "business_status": "Pass",
+  "business_verified": true,
+  "headed": 0,
+  "input_hash": "32f523a4b52538926c964bf7f5e9c1179afae16eb2eee61e8acd03924b4178d5",
+  "case_content_hash": "fe46bed4a2f51f0bd44a0773d7510c46928da89b2825d9516f50ae66e987de5c",
+  "source": "Real remote DSH no-argument autoSkill activation invoked a prewritten batch controller that calls actual autoSkill CLI record/browser/check/stop --plan/run. The original functional design was authored through the uploaded test-cases Skill.",
+  "git_source_commit": "a2b0ddc3ef5f746306e4149011b45e69e8565772",
+  "plan_id": "FT-JCYF-001",
+  "plan_session": "runoob-functional-v2",
+  "design_input_completion": {
+    "plan_id": "FT-JCYF-001",
+    "prefix_before": "",
+    "prefix_after": "JCYF",
+    "previous_revision": "3d47ef705600cd5ad2fa452c6bbc11c108bf4f54bfdddea17343ded68b222d59",
+    "new_revision": "c521b4c4f2cdb891bf13f6d2f87b1e47e461e63960310504de511589832a295f",
+    "functional_fields_unchanged": true,
+    "original_source_unchanged": true
+  },
+  "test_case_document": {
+    "preconditions": "读者可访问公开教程网站 https://www.runoob.com；无需登录，无特殊角色或数据准备。",
+    "steps": "1. 打开菜鸟教程首页（https://www.runoob.com），查看首页的教程分类入口。\n2. 在首页的「Python / 数据科学」分类中选择 Python3 教程入口（首页卡片标题为【学习 Python】，标注 python3），进入 Python3 教程页面。\n3. 在 Python3 教程页面左侧的教程章节导航中选择「Python3 基础语法」，打开该章节页面。\n4. 查看章节页面的标题和正文内容。",
+    "expected": "2. 进入 Python3 教程页面，页面展示 Python3 教程的章节导航与教程内容。\n3. 打开「Python3 基础语法」章节页面，页面标题包含「Python3 基础语法」。\n4. 正文呈现 Python3 基础语法的内容，包括「编码」「标识符」「Python 保留关键字」等小节。",
+    "module": "Python3 教程",
+    "priority": "P1",
+    "remarks": "本稿仅用于下一版设计绑定，未修改 V1 已保存用例 TC-UI-001 及其回放 run-def65ea1b7b9、报告与 Excel。【待确认：用例编制人】用户未提供，author 留空，不以虚构人名填充。业务层级由用户确认为三级「菜鸟教程 / Python3 教程 / 基础语法」；实际层级不足四级，按已确认结构从简，不补造模块层级。编号前缀未指定，prefix 留空；绑定时如需生成用例标识，末级功能项「基础语法」的拼音首字母前缀与连续序号需在绑定阶段确认，本稿不预生成编号。steps 为逐项自然语言操作，绑定渲染到工作簿 F 列时按「1. 」顺序编号；expected 使用对应步骤编号 2–4。正文小节「编码」「标识符」「Python 保留关键字」来自 V1 已验证章节的实际内容，未补造页面未呈现的文案。",
+    "prefix": "JCYF",
+    "description": "验证读者从菜鸟教程首页进入 Python3 教程，并在教程章节导航中选择「Python3 基础语法」，确认章节标题与基础语法正文正常呈现。",
+    "business_path": [
+      "菜鸟教程",
+      "Python3 教程",
+      "基础语法"
+    ],
+    "source": {
+      "kind": "case_plan",
+      "file": "/workspace/scratch/dsh-acceptance-private/data/projects/www-runoob-com/testcases/design-plans/23e3340e6591c1bc9581266fc83eb8202a2bf8f6a9dab50a6cd88b6344dc117a/cases.xlsx",
+      "case_id": "FT-JCYF-001",
+      "hash_scope": "功能字段、业务层级和来源引用；不含 design_sha256 自身",
+      "upstream": {
+        "profile_id": "autoskill-test-cases-v1",
+        "skill": "test-cases",
+        "skill_path": "/workspace/autoSkill/skills/autoskill/references/test-cases",
+        "spec_files": [
+          {
+            "path": "SKILL.md",
+            "role": "用例粒度、中文用例表达与事实约束、设计工作流",
+            "sha256": "3a8ccf698a9c2e0a3316568b5a0672d1935444686f8d425b49c68f696bdd47d7"
+          },
+          {
+            "path": "references/workbook-rules.md",
+            "role": "业务分组、14 列字段、命名编号、测试说明/前置条件/步骤/预期写法",
+            "sha256": "6d41523a51e9860918029e674067fb4a912f20a5787a92ae48266717aa6639ae"
+          },
+          {
+            "path": "ADAPTATION.md",
+            "role": "离线适配、至少三位编号与层级扩展说明",
+            "sha256": "edac477b774bad4cd3d9990c331f38744aab09ca6a63acebab33e298cc89d505"
+          },
+          {
+            "path": "source.json",
+            "role": "原始包与适配文件的实际 SHA-256 清单",
+            "sha256": "9ed01f32f6ef590d4810a189b455754c290b52430b381fe5947d5f1e9ea22515"
+          },
+          {
+            "path": "upstream/test-cases.rar",
+            "role": "用户上传的原始规范包，仅作来源对照，运行时不解压",
+            "sha256": "08f913f3c8d4de28fac9c19acd9481355c78f6ccbb2e427788dc3ec7df72307f"
+          }
+        ],
+        "user_requirement": "本轮用户要求：真实调用 test-cases 技能并读取其 references/workbook-rules.md、source.json 等规范来源，为已验证的「从菜鸟首页进入 Python3 教程，再阅读基础语法章节」编写完整功能设计草稿，保存到当前工作区 runoob-functional-design.json；文案按真人执行测试表达，步骤写完整自然语言，保留用户确认的业务层级「菜鸟教程 / Python3 教程 / 基础语法」；不修改 V1 录制、回放与报告，不重新执行。",
+        "verified_baseline": {
+          "internal_case_id": "TC-UI-001",
+          "note": "V1 真实录制与回放结果，仅作为本稿事实来源与后续关联基线，本轮未修改该用例及其报告。",
+          "run_id": "run-def65ea1b7b9",
+          "status": "Pass"
+        }
+      },
+      "design_sha256": "ee1de47d1b2444d497b58e347f9f4c8c1a5bbab348d66b78e27e310200360c61"
+    }
+  },
+  "canonical_steps_match_document": true,
+  "expected_matches_document": true,
+  "checks": [
+    {
+      "label": "07-tutorial-url",
+      "passed": true,
+      "expected": "/python3/python3-tutorial.html",
+      "actual_preview": "https://www.runoob.com/python3/python3-tutorial.html",
+      "actual_sha256": "2718c30b1493f7f24fd4de3d5671b41f2ecd5013029427883df792061a34e952"
+    },
+    {
+      "label": "08-chapter-navigation",
+      "passed": true,
+      "expected": "Python3 基础语法",
+      "actual_preview": " Python3 教程\nPython3 简介\nPython3 环境搭建\nPython3 Pycharm\nPython3 VScode\nPython3 基础语法\nPython3 基本数据类型\nPython3 数据类型转换\nPython3 解释器\nPython3 注释\nPython3 运算符\nPython3 数字(Number)\nPython3 字符串\nPyth",
+      "actual_sha256": "7167b78b99dd4fe1e3d0cd9014f7d0453047437ca592871575685753f70faac6"
+    },
+    {
+      "label": "12-chapter-heading",
+      "passed": true,
+      "expected": "Python3 基础语法",
+      "actual_preview": "Python3.x\nPython3 基础语法",
+      "actual_sha256": "65258547ace150500f3ff2af2145d78d6402ef2133b8d82d3eb797ed9ca4e0f0"
+    },
+    {
+      "label": "13-encoding-section",
+      "passed": true,
+      "expected": "编码",
+      "actual_preview": "Python3.x\nPython3 基础语法\n编码\n\n默认情况下，Python3 源码文件以 UTF-8 编码，所有字符串都是 unicode 字符串。\n\n当然你也可以为源码文件指定不同的编码：\n\n# -*- coding: cp-1252 -*-\n\n上述定义允许在源文件中使用 Windows-1252 字符集中的字符编码，对应适合语言为保加利亚语、白俄罗斯",
+      "actual_sha256": "e84f1765863211974dfff71c4be33b494be83062c16e7776471ba6b152cf51b8"
+    },
+    {
+      "label": "14-identifier-section",
+      "passed": true,
+      "expected": "标识符",
+      "actual_preview": "Python3.x\nPython3 基础语法\n编码\n\n默认情况下，Python3 源码文件以 UTF-8 编码，所有字符串都是 unicode 字符串。\n\n当然你也可以为源码文件指定不同的编码：\n\n# -*- coding: cp-1252 -*-\n\n上述定义允许在源文件中使用 Windows-1252 字符集中的字符编码，对应适合语言为保加利亚语、白俄罗斯",
+      "actual_sha256": "e84f1765863211974dfff71c4be33b494be83062c16e7776471ba6b152cf51b8"
+    },
+    {
+      "label": "15-keyword-section",
+      "passed": true,
+      "expected": "Python 保留关键字",
+      "actual_preview": "Python3.x\nPython3 基础语法\n编码\n\n默认情况下，Python3 源码文件以 UTF-8 编码，所有字符串都是 unicode 字符串。\n\n当然你也可以为源码文件指定不同的编码：\n\n# -*- coding: cp-1252 -*-\n\n上述定义允许在源文件中使用 Windows-1252 字符集中的字符编码，对应适合语言为保加利亚语、白俄罗斯",
+      "actual_sha256": "e84f1765863211974dfff71c4be33b494be83062c16e7776471ba6b152cf51b8"
+    }
+  ],
+  "recording": {
+    "id": "TC-UI-004",
+    "title": "读者从首页进入Python3基础语法章节",
+    "steps": 3,
+    "assertions": 6,
+    "verification": "verified",
+    "recording_status": "Pass",
+    "depends_on": []
+  },
+  "workbook_readback": {
+    "display_id": "FT-JCYF-001",
+    "name": "菜鸟教程-Python3 教程-基础语法",
+    "trace": "基础语法",
+    "description": "验证读者从菜鸟教程首页进入 Python3 教程，并在教程章节导航中选择「Python3 基础语法」，确认章节标题与基础语法正文正常呈现。",
+    "preconditions": "读者可访问公开教程网站 https://www.runoob.com；无需登录，无特殊角色或数据准备。",
+    "steps": "1. 打开菜鸟教程首页（https://www.runoob.com），查看首页的教程分类入口。\n2. 在首页的「Python / 数据科学」分类中选择 Python3 教程入口（首页卡片标题为【学习 Python】，标注 python3），进入 Python3 教程页面。\n3. 在 Python3 教程页面左侧的教程章节导航中选择「Python3 基础语法」，打开该章节页面。\n4. 查看章节页面的标题和正文内容。",
+    "expected": "2. 进入 Python3 教程页面，页面展示 Python3 教程的章节导航与教程内容。\n3. 打开「Python3 基础语法」章节页面，页面标题包含「Python3 基础语法」。\n4. 正文呈现 Python3 基础语法的内容，包括「编码」「标识符」「Python 保留关键字」等小节。",
+    "author": "【待确认：用例编制人】",
+    "conclusion": "通过",
+    "checks": {
+      "identifier_exact": true,
+      "business_path_exact": true,
+      "trace_exact": true,
+      "description_exact": true,
+      "preconditions_exact": true,
+      "full_steps_exact": true,
+      "expected_exact": true,
+      "no_raw_tool_steps": true,
+      "conclusion_is_real_pass": true
+    },
+    "columns": 14
+  },
+  "test_report_status": "ready",
+  "files": [
+    {
+      "kind": "excel",
+      "file": "测试用例-de47f08dc944e1dd.xlsx",
+      "sha256": "de412ddef31efbb94f72c900f6aa5bff3c6990859912e6e33d33f4e1513a6911",
+      "bytes": 49047
+    },
+    {
+      "kind": "markdown",
+      "file": "测试简报-de47f08dc944e1dd.md",
+      "sha256": "ecd38b3e3146399e49e5089367aedf437d5f941c5a8b4d2f36013240503a41bd",
+      "bytes": 787
+    },
+    {
+      "kind": "bugs",
+      "file": "Bug清单-de47f08dc944e1dd.md",
+      "sha256": "a0d1e1f94e06ad8031509aacf25af0f8fcecdbe03662514975895f2e4d8a861e",
+      "bytes": 1001
+    }
+  ],
+  "preserved_failure": {
+    "id": "TC-UI-002",
+    "title": "Python3教程导航首轮字面检查失败",
+    "steps": 2,
+    "assertions": 1,
+    "verification": "verified",
+    "recording_status": "Fail",
+    "depends_on": []
+  },
+  "previous_pass": {
+    "case_id": "TC-UI-003",
+    "run_id": "run-d6ae0ac423e0",
+    "note": "The previous report retains its original unresolved numbering; it is not reused as this revised design verdict."
+  },
+  "controller_script_sha256": "ff2ab2f36e649d7cce69697cd501b1af5954d0f747e0188186d9570329701fd7",
+  "replay_screenshot_sha256": "7b5077ec9bdc3926e768806ebbf1605920cc2cc0a9580f5af4b481a8d9ac90ed",
+  "dsh_present": {
+    "call_id": "call_00_r30da4DgHesZi8x60vcP8319",
+    "file_count": 3,
+    "successful_tool_receipt": true,
+    "turn_end": {
+      "turn": 1,
+      "reason": {
+        "kind": "completed"
+      }
+    }
+  },
+  "todo_write_count": 0
+}

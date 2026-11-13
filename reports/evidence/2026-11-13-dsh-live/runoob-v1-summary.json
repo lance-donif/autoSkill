@@ -1,0 +1,48 @@
+{
+  "session_id": "session-autoskill-runoob-final",
+  "run_id": "run-def65ea1b7b9",
+  "case_id": "TC-UI-001",
+  "status": "Pass",
+  "headed": 0,
+  "assertions": [
+    {
+      "name": "地址包含「/python3/python3-basic-syntax.html」",
+      "passed": true,
+      "expected": "/python3/python3-basic-syntax.html"
+    },
+    {
+      "name": "heading「Python3.xPython3 基础语法」 文本包含「Python3 基础语法」",
+      "passed": true,
+      "expected": "Python3 基础语法"
+    },
+    {
+      "name": "选择器 #content 文本包含「Python 保留关键字」",
+      "passed": true,
+      "expected": "Python 保留关键字"
+    }
+  ],
+  "report_status": "ready",
+  "source": "Real remote DSH model recorded this UI case, then issued its replay; pre-functional-design version retained as technical execution evidence",
+  "report_semantics": "Old report still exposes technical step names; not accepted as final human-oriented functional case document",
+  "files": [
+    {
+      "path": "runoob-v1/测试用例-e48f1376d02ec612.xlsx",
+      "sha256": "86fd02fd00cbc7a0725c5a3982add8d2286b2d50abb723495c31e88c256c9888"
+    },
+    {
+      "path": "runoob-v1/测试简报-e48f1376d02ec612.md",
+      "sha256": "d92266349c9707aea51a6cc8236e98e163ae54e7fe01bf3885e79152c3c1bcb2"
+    },
+    {
+      "path": "runoob-v1/Bug清单-e48f1376d02ec612.md",
+      "sha256": "3046ddd1394c82c30fd64ec018d37a54056aed55f8d48b0124214d87c68e1a45"
+    }
+  ],
+  "turn_end": [
+    {
+      "kind": "completed"
+    }
+  ],
+  "todo_write_events": 0,
+  "present_events": 1
+}

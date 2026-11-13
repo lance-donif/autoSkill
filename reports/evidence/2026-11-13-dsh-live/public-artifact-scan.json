@@ -1,0 +1,19 @@
+{
+  "scope": [
+    "Git tracked and nonignored public files",
+    "/workspace/shared/autoSkill-交付"
+  ],
+  "files_checked": 1022,
+  "nested_archive_payloads_checked": 997,
+  "archive_depth": 3,
+  "private_connection_credentials_checked": 1,
+  "exact_matches": [],
+  "generic_artifact_matches": [],
+  "read_errors": [],
+  "symlinks_excluded": [],
+  "ocr_available": true,
+  "ocr_images_checked": 26,
+  "ocr_exact_matches": [],
+  "ocr_errors": [],
+  "private_logs_and_diagnostic_session_excluded": true
+}

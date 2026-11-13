@@ -1,0 +1,99 @@
+{
+  "scope": "Downloads actually triggered inside the real DSH plugin iframe, parsed after download",
+  "files": [
+    {
+      "file": "entire-project.xlsx",
+      "bytes": 27019,
+      "sha256": "4abcd36c4f5a579f27c24f4aec8ac622cfcf633d1405152bbae183f78fc7ed0c",
+      "download_error": null,
+      "sheets": [
+        "功能测试用例",
+        "编号映射",
+        "任务概览",
+        "用例与结果",
+        "执行明细",
+        "来源与冻结定义",
+        "长文本"
+      ],
+      "columns": 14,
+      "case_ids": [
+        "TC-UI-001",
+        "TC-UI-002",
+        "TC-UI-003",
+        "TC-UI-004",
+        "TC-UI-005",
+        "TC-API-001",
+        "TC-API-002",
+        "TC-API-003",
+        "TC-API-004",
+        "TC-API-005",
+        "TC-API-006",
+        "TC-SEED-FAIL",
+        "TC-SEED-BLOCKED"
+      ]
+    },
+    {
+      "file": "ticket-folder.xlsx",
+      "bytes": 19923,
+      "sha256": "c34f9053f459509e3cb1dd6b2c704f1bbdef2b89ddd7090d96a9502fcdbfd405",
+      "download_error": null,
+      "sheets": [
+        "功能测试用例",
+        "编号映射",
+        "任务概览",
+        "用例与结果",
+        "执行明细",
+        "来源与冻结定义",
+        "长文本"
+      ],
+      "columns": 14,
+      "case_ids": [
+        "TC-UI-002",
+        "TC-UI-003",
+        "TC-UI-004",
+        "TC-API-003",
+        "TC-API-004",
+        "TC-API-005"
+      ]
+    },
+    {
+      "file": "task-report.xlsx",
+      "bytes": 17640,
+      "sha256": "97487bfae487e79a3cda7ce312596abc129d1304b7b148c495d1a79bef3c0cfc",
+      "download_error": null,
+      "sheets": [
+        "功能测试用例",
+        "编号映射",
+        "任务概览",
+        "用例与结果",
+        "执行明细",
+        "来源与冻结定义",
+        "长文本"
+      ],
+      "columns": 14,
+      "case_ids": [
+        "TC-UI-001"
+      ]
+    },
+    {
+      "file": "task-summary.md",
+      "bytes": 793,
+      "sha256": "6ae02e381d609931ba2dce6fbe6da002c9691540b7bb81e24845f83e8d288849",
+      "download_error": null
+    },
+    {
+      "file": "task-bugs.md",
+      "bytes": 1007,
+      "sha256": "7243d1671ab7372457e4d8b44e00955ac29d6c1ea94993359bc151593204263c",
+      "download_error": null
+    },
+    {
+      "file": "task-report.html",
+      "bytes": 179194,
+      "sha256": "2285deb14812dbfc6ef9c1fe68b54eda5822ca9e3fb49ec0fb88c64bec1fed10",
+      "download_error": null,
+      "self_contained_screenshot": true,
+      "case_id_present": true
+    }
+  ]
+}

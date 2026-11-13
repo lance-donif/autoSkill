@@ -1,0 +1,582 @@
+{
+  "scope": "Actual DSH Web embeds the plugin iframe; visual navigation, separate from model-driven business assertions",
+  "results": [
+    {
+      "page": "dashboard",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/dashboard"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-dashboard.png"
+    },
+    {
+      "page": "cases",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/cases"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-cases.png"
+    },
+    {
+      "page": "load-tests",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/load-tests"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-load-tests.png"
+    },
+    {
+      "page": "project-materials",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/project-materials"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-project-materials.png"
+    },
+    {
+      "page": "native-assets",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/native-assets"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-native-assets.png"
+    },
+    {
+      "page": "conversations",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/conversations"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-conversations.png"
+    },
+    {
+      "page": "workflows",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/workflows"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-workflows.png"
+    },
+    {
+      "page": "case-plans",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/case-plans"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-case-plans.png"
+    },
+    {
+      "page": "runs",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/runs"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-runs.png"
+    },
+    {
+      "page": "schedules",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/schedules"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-schedules.png"
+    },
+    {
+      "page": "data",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/data"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-data.png"
+    },
+    {
+      "page": "diagnostics",
+      "width": 1440,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/diagnostics"
+      },
+      "page_errors": [],
+      "screenshot": "1440-light-diagnostics.png"
+    },
+    {
+      "page": "dashboard",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/dashboard"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-dashboard.png"
+    },
+    {
+      "page": "cases",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/cases"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-cases.png"
+    },
+    {
+      "page": "load-tests",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/load-tests"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-load-tests.png"
+    },
+    {
+      "page": "project-materials",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/project-materials"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-project-materials.png"
+    },
+    {
+      "page": "native-assets",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/native-assets"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-native-assets.png"
+    },
+    {
+      "page": "conversations",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/conversations"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-conversations.png"
+    },
+    {
+      "page": "workflows",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/workflows"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-workflows.png"
+    },
+    {
+      "page": "case-plans",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/case-plans"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-case-plans.png"
+    },
+    {
+      "page": "runs",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/runs"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-runs.png"
+    },
+    {
+      "page": "schedules",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/schedules"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-schedules.png"
+    },
+    {
+      "page": "data",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/data"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-data.png"
+    },
+    {
+      "page": "diagnostics",
+      "width": 1440,
+      "theme": "dark",
+      "loaded": true,
+      "geometry": {
+        "width": 1160,
+        "scrollWidth": 1160,
+        "height": 1000,
+        "theme": "dark",
+        "rootOverflow": false,
+        "hash": "#/diagnostics"
+      },
+      "page_errors": [],
+      "screenshot": "1440-dark-diagnostics.png"
+    },
+    {
+      "page": "dashboard",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/dashboard"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-dashboard.png"
+    },
+    {
+      "page": "cases",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/cases"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-cases.png"
+    },
+    {
+      "page": "load-tests",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/load-tests"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-load-tests.png"
+    },
+    {
+      "page": "project-materials",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/project-materials"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-project-materials.png"
+    },
+    {
+      "page": "native-assets",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/native-assets"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-native-assets.png"
+    },
+    {
+      "page": "conversations",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/conversations"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-conversations.png"
+    },
+    {
+      "page": "workflows",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/workflows"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-workflows.png"
+    },
+    {
+      "page": "case-plans",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/case-plans"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-case-plans.png"
+    },
+    {
+      "page": "runs",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/runs"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-runs.png"
+    },
+    {
+      "page": "schedules",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/schedules"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-schedules.png"
+    },
+    {
+      "page": "data",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/data"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-data.png"
+    },
+    {
+      "page": "diagnostics",
+      "width": 768,
+      "theme": "light",
+      "loaded": true,
+      "geometry": {
+        "width": 712,
+        "scrollWidth": 712,
+        "height": 1000,
+        "theme": "light",
+        "rootOverflow": false,
+        "hash": "#/diagnostics"
+      },
+      "page_errors": [],
+      "screenshot": "768-light-diagnostics.png"
+    }
+  ],
+  "page_errors": []
+}

@@ -1,0 +1,8 @@
+{
+  "status": "compile-and-collection-only",
+  "compiled_python_files": 139,
+  "collected_tests": 104,
+  "acceptance_tests_executed": 0,
+  "prepared_path": "/workspace/dsh-ui-selftest-assets",
+  "source_commit": "bab27360c335f1db8adf38aba44d5ad2770a3c81"
+}

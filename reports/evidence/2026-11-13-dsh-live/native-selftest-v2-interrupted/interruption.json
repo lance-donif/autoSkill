@@ -1,0 +1,40 @@
+{
+  "run_id": "run-82a5ccc545e0",
+  "scope": "Read-only preservation before normal service recovery. The execution environment disappeared after one integrity test; no completed suite/outcome was present. No old run is replayed automatically.",
+  "completed_parent_tests_before_environment_loss": 1,
+  "expected_parent_tests": 104,
+  "old_processes_present": false,
+  "ports_listening": false,
+  "evidence": [
+    {
+      "file": "stderr.log",
+      "bytes": 646,
+      "sha256": "45a56e7d362a2febe8b1d1166fb6faf46fff1ff0f27c031c089195a663335221"
+    },
+    {
+      "file": "stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "events.jsonl",
+      "bytes": 73,
+      "sha256": "ec9ecf3374109b6c9bd1044820d12c42bf7206f2c1e16d34d86a768abc140823"
+    },
+    {
+      "file": "supervisor.json",
+      "bytes": 288,
+      "sha256": "ca33ae65f7e421cd83e95a2f8d9974bae6e5e0c947c24aff99fa403090948361"
+    },
+    {
+      "file": "heartbeat.json",
+      "bytes": 366,
+      "sha256": "4997ff5c4d70f03d882985b30a939edbf1c1bf771aab35f067bdf281cfb74a6f"
+    },
+    {
+      "file": "start-receipt.json",
+      "sha256": "7d4bde374450ab6c3324dd52cccea7ba441048b9776dca28593ed9250cbbe08d",
+      "bytes": 1044
+    }
+  ]
+}
