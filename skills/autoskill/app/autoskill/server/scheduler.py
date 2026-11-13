@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .. import db, projects, runner
+from .. import db, projects, runner, task_context
+from .deliveries import ack_delivery, claim_delivery, pending_deliveries, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
 
 UTC = datetime.UTC
 CLOCK = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
@@ -26,8 +28,8 @@ def next_due(rule: dict, now: datetime.datetime, previous: datetime.datetime | N
     kind = rule.get("kind")
     if kind == "interval":
         minutes = rule.get("minutes")
-        if not isinstance(minutes, int) or isinstance(minutes, bool) or not 1 <= minutes <= 7 * 24 * 60:
-            raise ValueError("间隔需要是 1 分钟到 7 天之间的整数分钟")
+        if not isinstance(minutes, int) or isinstance(minutes, bool) or minutes < 1:
+            raise ValueError("间隔需要是正整数分钟")
         step = datetime.timedelta(minutes=minutes)
         if previous:
             periods = max(1, int((now - previous) // step) + 1)
@@ -87,35 +89,94 @@ def _stamp(value: datetime.datetime) -> str:
 
 def _clean(spec: dict) -> dict:
     title = str(spec.get("title", "")).strip()
-    if not title or len(title) > 60:
-        raise ValueError("任务名称需要 1–60 个字")
-    if spec.get("engine") not in runner.ENGINES:
+    if not title:
+        raise ValueError("任务名称不能为空")
+    kind = spec.get("kind", "replay")
+    if kind not in ("replay", "native", "maintenance"):
+        raise ValueError("任务类型需要是 replay、native 或 maintenance")
+    engine = spec.get("engine") or ("playwright" if kind == "replay" else "native")
+    if kind == "replay" and engine not in runner.ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
     projects.path(spec["project_id"])
     case_ids = list(spec.get("case_ids") or [])
-    known = {c["id"] for c in projects.cases(spec["project_id"])}
-    missing = [c for c in case_ids if c not in known]
-    if missing:
-        raise ValueError("这些用例不存在或已归档：" + "、".join(missing))
+    if kind == "replay":
+        known = {c["id"] for c in projects.cases(spec["project_id"])}
+        missing = [c for c in case_ids if c not in known]
+        if missing:
+            raise ValueError("这些用例不存在或已归档：" + "、".join(missing))
+    if kind == "native" and not spec.get("asset_id"):
+        raise ValueError("原生任务需要 asset_id")
+    if kind == "maintenance" and not spec.get("workflow_id"):
+        raise ValueError("AI 维护任务需要 workflow_id")
     rule = spec.get("rule")
     if not isinstance(rule, dict):
         raise ValueError("缺少执行规则")
-    return {"title": title, "engine": spec["engine"], "project_id": spec["project_id"], "case_ids": case_ids, "rule": rule}
+    parameters = spec.get("parameters", {})
+    if not isinstance(parameters, dict):
+        raise ValueError("任务参数需要是对象")
+    overlap = spec.get("overlap", "skip")
+    if overlap not in ("skip", "queue"):
+        raise ValueError("重叠执行策略需要是 skip 或 queue")
+    return {"title": title, "engine": engine, "project_id": spec["project_id"], "case_ids": case_ids, "rule": rule,
+            "kind": kind, "asset_id": spec.get("asset_id", ""), "parameters": parameters,
+            "workflow_id": spec.get("workflow_id", ""), "host": spec.get("host") or "dsh", "overlap": overlap,
+            "session_id": spec.get("session_id", task_context.session_id()) or ""}
 
 
 def view(row: dict) -> dict:
     rule = json.loads(row["rule"])
     return {**row, "rule": rule, "case_ids": json.loads(row["case_ids"]), "enabled": bool(row["enabled"]),
-            "rule_text": describe(rule)}
+            "parameters": json.loads(row.get("parameters", "{}")), "rule_text": describe(rule)}
+
+
+def _packed(value):
+    return json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value
+
+
+def _insert(conn, table: str, values: dict) -> None:
+    conn.execute(f"INSERT INTO {table} ({', '.join(values)}) VALUES ({','.join('?' for _ in values)})", [_packed(v) for v in values.values()])
+
+
+def _payload_hash(payload: dict) -> str:
+    value = {k: v for k, v in payload.items() if k != "idempotency_key"}
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+
+
+def _receipt(conn, scope: str, key: str, digest: str) -> dict | None:
+    if not key:
+        return None
+    row = conn.execute("SELECT * FROM schedule_requests WHERE scope = ? AND request_key = ?", (scope, key)).fetchone()
+    if row and row["payload_hash"] != digest:
+        raise ValueError("相同幂等键已用于不同的任务请求")
+    return json.loads(row["response"]) if row else None
+
+
+def _remember(conn, scope: str, key: str, digest: str, response: dict) -> None:
+    if key:
+        _insert(conn, "schedule_requests", {"scope": scope, "request_key": key, "payload_hash": digest,
+                                          "response": response, "created_at": db.now()})
 
 
 def create(spec: dict) -> dict:
+    db.init()
+    key, digest = str(spec.get("idempotency_key") or ""), _payload_hash(spec)
+    with db.connect() as conn:
+        receipt = _receipt(conn, "create", key, digest)
+    if receipt:
+        return receipt
     task = _clean(spec)
     stamp = db.now()
-    task.update(id=db.new_id("task"), enabled=1, created_at=stamp, updated_at=stamp,
+    task.update(id=db.new_id("task"), enabled=1, revision=1, created_at=stamp, updated_at=stamp,
                 next_due=_stamp(next_due(task["rule"], datetime.datetime.now(UTC))))
-    db.insert("tasks", task)
-    return get(task["id"])
+    with db.connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        receipt = _receipt(conn, "create", key, digest)
+        if receipt:
+            return receipt
+        _insert(conn, "tasks", task)
+        result = view(dict(conn.execute("SELECT * FROM tasks WHERE id = ?", (task["id"],)).fetchone()))
+        _remember(conn, "create", key, digest, result)
+    return result
 
 
 def get(task_id: str) -> dict:
@@ -128,35 +189,63 @@ def get(task_id: str) -> dict:
 
 
 def list_all(project_ids: list[str] | None = None) -> list[dict]:
+    return page(project_ids, all_items=True)["items"]
+
+
+def page(project_ids: list[str] | None = None, offset: int = 0, limit: int = 50, all_items: bool = False) -> dict:
+    if offset < 0 or limit < 1:
+        raise ValueError("分页起点不能为负数，每页数量需要大于零")
     where, args = "1 = 1", []
     if project_ids:
         where, args = f"t.project_id IN ({','.join('?' * len(project_ids))})", list(project_ids)
-    rows = db.rows(
-        "SELECT t.*, COALESCE(p.name, t.project_id) project_name, u.status last_status, u.finished_at last_finished "
-        "FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN runs u ON u.id = t.last_run_id "
-        f"WHERE {where} ORDER BY t.enabled DESC, t.next_due IS NULL, t.next_due, t.created_at DESC", args)
-    return [view(row) for row in rows]
+    query = "FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN runs u ON u.id = t.last_run_id "
+    query += f"WHERE {where}"
+    with db.connect() as conn:
+        total = conn.execute("SELECT COUNT(*) " + query, args).fetchone()[0]
+        paging = " LIMIT ? OFFSET ?" if not all_items else " LIMIT -1 OFFSET ?"
+        bindings = [*args, limit, offset] if not all_items else [*args, offset]
+        rows = conn.execute("SELECT t.*, COALESCE(p.name, t.project_id) project_name, u.status last_status, u.finished_at last_finished "
+                            + query + " ORDER BY t.enabled DESC, t.next_due IS NULL, t.next_due, t.created_at DESC" + paging, bindings)
+        items = [view(dict(row)) for row in rows]
+    more = offset + len(items) < total
+    return {"items": items, "total": total, "has_more": more, "next_offset": offset + len(items) if more else None}
+
+
+def _update_definition(task_id: str, spec: dict, values: dict, expected: int) -> dict:
+    key, digest = str(spec.get("idempotency_key") or ""), _payload_hash(spec)
+    scope = "update:" + task_id
+    with db.connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        receipt = _receipt(conn, scope, key, digest)
+        if receipt:
+            return receipt
+        changed = conn.execute("UPDATE tasks SET " + ", ".join(f"{key} = ?" for key in values)
+                               + ", revision = revision + 1 WHERE id = ? AND revision = ?",
+                               [*[_packed(value) for value in values.values()], task_id, expected]).rowcount
+        if not changed:
+            raise ValueError("定时任务已被其他会话修改，请读取最新版本后重试")
+        result = view(dict(conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()))
+        _remember(conn, scope, key, digest, result)
+    return result
 
 
 def update(task_id: str, spec: dict) -> dict:
     current = get(task_id)
-    merged = _clean({**{k: current[k] for k in ("title", "engine", "project_id", "case_ids", "rule")}, **spec})
+    merged = _clean({**current, **spec})
     values = {**merged, "updated_at": db.now()}
-    if current["enabled"]:
-        values["next_due"] = _stamp(next_due(merged["rule"], datetime.datetime.now(UTC)))
-    db.update("tasks", task_id, values)
-    return get(task_id)
+    enabled = bool(spec.get("enabled", current["enabled"]))
+    values["enabled"] = int(enabled)
+    timing_changed = merged["rule"] != current["rule"] or enabled != current["enabled"]
+    if timing_changed:
+        values["next_due"] = _stamp(next_due(merged["rule"], datetime.datetime.now(UTC))) if enabled else None
+    return _update_definition(task_id, spec, values, spec.get("expected_revision", current["revision"]))
 
 
-def set_enabled(task_id: str, enabled: bool) -> dict:
-    current = get(task_id)
-    values = {"enabled": int(enabled), "updated_at": db.now()}
-    if enabled:  # resuming never fires missed occurrences; it schedules the next one
-        values["next_due"] = _stamp(next_due(current["rule"], datetime.datetime.now(UTC)))
-    else:
-        values["next_due"] = None
-    db.update("tasks", task_id, values)
-    return get(task_id)
+def set_enabled(task_id: str, enabled: bool, expected_revision: int | None = None) -> dict:
+    spec = {"enabled": bool(enabled)}
+    if expected_revision is not None:
+        spec["expected_revision"] = expected_revision
+    return update(task_id, spec)
 
 
 def delete(task_id: str) -> None:
@@ -164,43 +253,107 @@ def delete(task_id: str) -> None:
     db.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
 
 
-def fire(task: dict, trigger: str = "schedule") -> dict:
-    """Queue a run for a task. A task whose project can no longer run leaves a Blocked run saying why."""
+def _prepare(task: dict, trigger: str) -> dict:
     try:
-        run = runner.create(task["project_id"], task["case_ids"] or None, task["engine"], trigger=trigger, task_id=task["id"])
+        if task["kind"] == "native":
+            from .. import native_run
+
+            return native_run.prepare(task["project_id"], task["asset_id"], parameters=task["parameters"],
+                                      trigger=trigger, task_id=task["id"], session_id=task.get("session_id"))
+        return runner.prepare(task["project_id"], task["case_ids"] or None, task["engine"], trigger=trigger,
+                              task_id=task["id"], session_id=task.get("session_id"))
     except ValueError as error:
         stamp = db.now()
-        run = {"id": db.new_id("run"), "project_id": task["project_id"], "engine": task["engine"], "trigger": trigger,
-               "task_id": task["id"], "status": "Blocked", "reason": str(error), "case_ids": task["case_ids"],
-               "created_at": stamp, "finished_at": stamp}
-        db.insert("runs", run)
-    db.update("tasks", task["id"], {"last_run_id": run["id"]})
-    return run
+        return {"id": db.new_id("run"), "project_id": task["project_id"], "engine": task["engine"], "trigger": trigger,
+                "task_id": task["id"], "status": "Blocked", "reason": str(error), "case_ids": task["case_ids"],
+                "created_at": stamp, "finished_at": stamp}
 
 
-def run_now(task_id: str) -> dict:
-    return fire(get(task_id), trigger="manual")
+def _maintenance(conn, task: dict, occurrence_id: str) -> dict:
+    stamp, delivery_id = db.now(), db.new_id("delivery")
+    payload = {"project_id": task["project_id"], "workflow_id": task["workflow_id"], "task_id": task["id"],
+               "occurrence_id": occurrence_id, "schedule_revision": task["revision"],
+               "session_id": task["session_id"] or occurrence_id, "parameters": task["parameters"]}
+    delivery = {"id": delivery_id, "task_id": task["id"], "occurrence_id": occurrence_id,
+                "host": task["host"], "payload": payload, "state": "pending", "created_at": stamp, "updated_at": stamp}
+    _insert(conn, "host_outbox", delivery)
+    return {**delivery, "status": "awaiting_host"}
+
+
+def fire(task: dict, trigger: str = "schedule", idempotency_key: str | None = None) -> dict:
+    """Queue an immediate occurrence; retrying the same request returns its durable receipt."""
+    key = idempotency_key or ""
+    scope, digest = "fire:" + task["id"], _payload_hash({"trigger": trigger})
+    with db.connect() as conn:
+        receipt = _receipt(conn, scope, key, digest)
+    if receipt:
+        return receipt
+    prepared = None if task["kind"] == "maintenance" else _prepare(task, trigger)
+    with db.connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        receipt = _receipt(conn, scope, key, digest)
+        if receipt:
+            return receipt
+        current = conn.execute("SELECT revision FROM tasks WHERE id = ?", (task["id"],)).fetchone()
+        if not current or current["revision"] != task["revision"]:
+            raise ValueError("定时任务已被其他会话修改，请读取最新版本后重试")
+        occurrence_id = db.new_id("occurrence")
+        result = _maintenance(conn, task, occurrence_id) if prepared is None else runner.enqueue(prepared, connection=conn)
+        maintenance = prepared is None
+        _insert(conn, "schedule_occurrences", {"id": occurrence_id, "task_id": task["id"], "revision": task["revision"],
+                "due_at": "manual:" + occurrence_id, "status": "awaiting_host" if maintenance else result["status"],
+                "run_id": None if maintenance else result["id"], "delivery_id": result["id"] if maintenance else None, "created_at": db.now()})
+        if not maintenance:
+            conn.execute("UPDATE tasks SET last_run_id = ? WHERE id = ?", (result["id"], task["id"]))
+        _remember(conn, scope, key, digest, result)
+    return result
+
+
+def run_now(task_id: str, idempotency_key: str | None = None) -> dict:
+    return fire(get(task_id), trigger="manual", idempotency_key=idempotency_key)
+
+
+def _busy(conn, task: dict) -> bool:
+    if task["overlap"] != "skip":
+        return False
+    if task["kind"] == "maintenance":
+        return bool(conn.execute("SELECT 1 FROM host_outbox WHERE task_id = ? AND state != 'delivered'", (task["id"],)).fetchone())
+    return bool(conn.execute("SELECT 1 FROM runs WHERE task_id = ? AND status IN ('Queued', 'Running')", (task["id"],)).fetchone())
+
+
+def _claim_occurrence(task: dict, prepared: dict | None, now: datetime.datetime) -> dict | None:
+    due = datetime.datetime.fromisoformat(task["next_due"])
+    once = task["rule"].get("kind") == "at"
+    following = None if once else _stamp(next_due(task["rule"], now, due))
+    with db.connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        claimed = conn.execute("UPDATE tasks SET next_due = ?, enabled = ? WHERE id = ? AND next_due = ? AND revision = ? AND enabled = 1",
+                               (following, int(not once), task["id"], task["next_due"], task["revision"])).rowcount
+        if not claimed:
+            return None
+        occurrence = {"id": db.new_id("occurrence"), "task_id": task["id"], "revision": task["revision"],
+                      "due_at": task["next_due"], "created_at": db.now()}
+        if _busy(conn, task):
+            _insert(conn, "schedule_occurrences", {**occurrence, "status": "skipped", "reason": "前次执行仍未结束，按重叠策略跳过"})
+            return None
+        if prepared is None:
+            result = _maintenance(conn, task, occurrence["id"])
+            _insert(conn, "schedule_occurrences", {**occurrence, "status": "awaiting_host", "delivery_id": result["id"]})
+            return None
+        result = runner.enqueue(prepared, connection=conn)
+        _insert(conn, "schedule_occurrences", {**occurrence, "status": result["status"], "run_id": result["id"]})
+        conn.execute("UPDATE tasks SET last_run_id = ? WHERE id = ?", (result["id"], task["id"]))
+    return result
 
 
 def tick(now: datetime.datetime | None = None) -> list[dict]:
-    """Claim every due task once and queue its run. Returns the runs that should start."""
+    """Freeze inputs outside SQLite, then enqueue and advance the clock in one transaction."""
     now = now or datetime.datetime.now(UTC)
     started = []
     for row in db.rows("SELECT * FROM tasks WHERE enabled = 1 AND next_due IS NOT NULL AND next_due <= ?", (_stamp(now),)):
         task = view(row)
-        due = datetime.datetime.fromisoformat(task["next_due"])
-        once = task["rule"].get("kind") == "at"
-        following = None if once else _stamp(next_due(task["rule"], now, due))
-        with db.connect() as conn:  # the claim: only one caller moves next_due forward
-            claimed = conn.execute(
-                "UPDATE tasks SET next_due = ?, enabled = ? WHERE id = ? AND next_due = ?",
-                (following, int(not once), task["id"], task["next_due"])).rowcount
-        if not claimed:
-            continue
-        busy = db.one("SELECT id FROM runs WHERE task_id = ? AND status IN ('Queued', 'Running')", (task["id"],))
-        if busy:
-            continue  # the previous run of this task is still going; skip this occurrence
-        run = fire(task)
-        if run["status"] == "Queued":
-            started.append(run)
+        prepared = None if task["kind"] == "maintenance" else _prepare(task, "schedule")
+        result = _claim_occurrence(task, prepared, now)
+        if result and result["status"] == "Queued":
+            started.append(result)
     return started
