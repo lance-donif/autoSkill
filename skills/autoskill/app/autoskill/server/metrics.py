@@ -84,6 +84,32 @@ def result_counts(scope: Scope) -> dict:
     row["pass_rate"] = round(row["passed"] / judged, 4) if judged else None
     still = db.one(f"SELECT COUNT(*) n {RESULTS} WHERE {COUNTED} AND {where} AND r.status = 'Fail' AND {LATEST}", args)
     row["still_failing"] = still["n"]
+    row["reliability"] = reliability(scope)
+    return row
+
+
+def reliability(scope: Scope) -> dict:
+    """First and final business checks share a denominator including unfinished target executions."""
+    where, args = scope.where("u.created_at", "u.project_id")
+    planned = db.one("SELECT COALESCE(SUM(MAX(u.total, u.done)), 0) n, "
+                     "COALESCE(SUM(CASE WHEN u.status = 'Cancelled' THEN MAX(u.total - u.done, 0) ELSE 0 END), 0) cancelled "
+                     ", COALESCE(SUM(u.family = 'native' AND u.total = 0), 0) unknown_runs "
+                     f"FROM runs u WHERE u.trigger != 'login' AND {where}", args)
+    first = "COALESCE(json_extract(r.detail, '$.attempts[0].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
+    final = "COALESCE(json_extract(r.detail, '$.attempts[#-1].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
+    row = db.one("SELECT COUNT(*) observed, "
+                 f"COALESCE(SUM({first} = 'Pass'), 0) first_passed, COALESCE(SUM({final} = 'Pass'), 0) final_passed, "
+                 f"COALESCE(SUM({first} = 'Fail' AND {final} = 'Pass'), 0) recovered_after_failure, "
+                 f"COALESCE(SUM({final} = 'Unverified'), 0) unverified, "
+                 "COALESCE(SUM(r.status = 'Blocked'), 0) blocked, COALESCE(SUM(r.status = 'Cancelled'), 0) cancelled "
+                 f"{RESULTS} WHERE {COUNTED} AND {where}", args)
+    denominator = max(planned["n"], row["observed"])
+    row.update(denominator=denominator, unexecuted=max(denominator - row["observed"], 0),
+               cancelled=row["cancelled"] + planned["cancelled"],
+               unknown_target_runs=planned["unknown_runs"],
+               first_pass_rate=round(row["first_passed"] / denominator, 4) if denominator and not planned["unknown_runs"] else None,
+               final_pass_rate=round(row["final_passed"] / denominator, 4) if denominator and not planned["unknown_runs"] else None,
+               window="run_created_at", denominator_definition="本范围创建的运行内全部目标用例，含阻塞、取消、未完成和无业务断言")
     return row
 
 

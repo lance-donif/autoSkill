@@ -2,11 +2,11 @@
 import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope, statusPill, copyText, attempt,
   fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope, refresh } from '../core.js';
 import { definition, empty, errorState, skeletonRows, runButton } from '../ui.js';
-import { trendChart, trendTable, legend, fillBuckets, sparkline, splitBar } from '../charts.js';
+import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts.js';
 import { state, refreshShell } from '../shell.js';
 
 const DEFINITIONS = {
-  rate: '通过率 = 通过条次 ÷（通过 + 失败）条次。阻塞和未执行不进分母，单独展示。为某条用例自动执行的前置（如登录）不计入。',
+  rate: '首轮业务通过率 = 首次尝试业务断言通过数 ÷ 本范围创建的运行内全部目标用例。阻塞、取消、未完成、无业务断言均在分母；最终通过率使用相同分母。原生目标数仍未知时不显示百分比。',
   cases: '截至所选时间范围结束时仍然有效（未归档）的用例数。',
   runs: '所选时间范围内开始的运行次数（手动 + 定时）。自动登录不计入。',
   failed: '所选时间范围内结果为「失败」的用例执行条次：页面或接口的实际结果与预期不一致。',
@@ -90,14 +90,17 @@ export async function render(view) {
     h('div', { class: 'dash-grid even' }, failuresCard(failures, r, view), recentCard(recent)));
 }
 
-function summaryKpis(r, c, u, s, points, none) {
+function summaryKpis(r, c, u, s, _points, none) {
+  const reliability = r.reliability || {};
   const heroNote = h('div', { class: 'stack', style: 'gap:8px' }, splitBar(r),
     h('span', { class: 'kpi-note' }, none ? '这个范围内还没有执行'
-      : [h('b', {}, `${fmtNumber(r.passed)} 通过`), ` · ${fmtNumber(r.failed)} 失败 · ${fmtNumber(r.blocked)} 阻塞（不计入通过率）`]));
+      : [h('b', {}, `${fmtNumber(reliability.first_passed || 0)} 首轮业务通过 / ${fmtNumber(reliability.denominator || 0)} 已知目标`),
+        ` · 最终 ${fmtPercent(reliability.final_pass_rate)} · ${fmtNumber(reliability.unverified || 0)} 业务未验证`,
+        reliability.unknown_target_runs ? ` · ${reliability.unknown_target_runs} 次运行的目标数仍未知` : '']));
 
   return h('section', { class: 'kpis', 'aria-label': '汇总指标' },
-    kpi({ hero: true, label: '通过率', value: fmtPercent(r.pass_rate), def: DEFINITIONS.rate, note: heroNote,
-      extra: sparkline(points), to: href('runs', { view: 'results' }) }),
+    kpi({ hero: true, label: '首轮业务通过率', value: fmtPercent(reliability.first_pass_rate), def: DEFINITIONS.rate, note: heroNote,
+      to: href('runs', { view: 'results' }) }),
     kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
       note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
     kpi({ label: '执行次数', value: fmtNumber(u.total), def: DEFINITIONS.runs,
@@ -150,7 +153,7 @@ function failuresCard(failures, r, _view) {
         h('div', { class: 'secondary-text ellipsis' }, `${item.project_name} · ${CATEGORY[item.category] || '未分类'} · ${item.reason || item.actual}`)),
       h('span', { class: 'secondary-text num' }, fmtTime(item.started_at)))))
     : empty({ glyph: 'check', title: currentOnly ? '没有仍在失败的用例' : '没有失败或阻塞',
-      text: r.executions ? '这个范围内执行过的用例都通过了。' : '这个范围内还没有执行。' });
+      text: r.executions ? '这个范围内没有失败或阻塞记录；业务验证度见上方汇总。' : '这个范围内还没有执行。' });
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', { class: 'grow' }, h('h2', {}, '失败与阻塞'),

@@ -95,7 +95,7 @@ export function trendChart(points, unit, onPick) {
         h('div', { class: 'tip-title' }, unit === 'hour' ? point.bucket.slice(5) : point.bucket),
         ...SERIES.map((s) => h('div', { class: 'tip-row' }, h('i', { class: 'key', style: `background:${s.color}` }),
           h('b', {}, String(point[s.key])), h('span', {}, s.label))),
-        h('div', { class: 'tip-foot' }, total ? `通过率 ${fmtPercent(point.pass_rate)}` : '没有执行'));
+        h('div', { class: 'tip-foot' }, total ? `执行通过率 ${fmtPercent(point.pass_rate)}` : '没有执行'));
       tip.hidden = false;
       const share = (cx / width) * 100;
       tip.style.left = `clamp(70px, ${share}%, calc(100% - 70px))`;
@@ -122,7 +122,7 @@ export function trendChart(points, unit, onPick) {
 /** The same data as a table: the accessible twin of the chart. */
 export function trendTable(points, unit) {
   return h('div', { class: 'chart-table' }, h('table', { class: 'table' },
-    h('thead', {}, h('tr', {}, ['时间', '通过', '阻塞', '失败', '通过率'].map((t) => h('th', {}, t)))),
+    h('thead', {}, h('tr', {}, ['时间', '通过', '阻塞', '失败', '执行通过率'].map((t) => h('th', {}, t)))),
     h('tbody', {}, points.filter((p) => p.passed + p.failed + p.blocked).reverse().map((p) => h('tr', {},
       h('td', { class: 'num' }, unit === 'hour' ? p.bucket.slice(5) : p.bucket),
       h('td', { class: 'num' }, String(p.passed)), h('td', { class: 'num' }, String(p.blocked)),
