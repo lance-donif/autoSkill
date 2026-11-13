@@ -1,0 +1,35 @@
+FFF
+======================================================================
+FAIL: test_maintenance_before_idle_lock_rechecks_new_schedule_instead_of_exiting (test_queue_dispatcher.DispatcherTests.test_maintenance_before_idle_lock_rechecks_new_schedule_instead_of_exiting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 335, in test_maintenance_before_idle_lock_rechecks_new_schedule_instead_of_exiting
+    self._maintenance_window("idle_lock")
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 313, in _maintenance_window
+    self.assertTrue(probe.retried.wait(3), probe.failures)
+AssertionError: False is not true : ['ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试']
+
+======================================================================
+FAIL: test_maintenance_during_initialization_retries_before_processing_work (test_queue_dispatcher.DispatcherTests.test_maintenance_during_initialization_retries_before_processing_work)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 338, in test_maintenance_during_initialization_retries_before_processing_work
+    self._maintenance_window("initialize")
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 313, in _maintenance_window
+    self.assertTrue(probe.retried.wait(3), probe.failures)
+AssertionError: False is not true : ['ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试']
+
+======================================================================
+FAIL: test_maintenance_during_pending_check_retries_and_keeps_future_schedule (test_queue_dispatcher.DispatcherTests.test_maintenance_during_pending_check_retries_and_keeps_future_schedule)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 332, in test_maintenance_during_pending_check_retries_and_keeps_future_schedule
+    self._maintenance_window("pending")
+  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 313, in _maintenance_window
+    self.assertTrue(probe.retried.wait(3), probe.failures)
+AssertionError: False is not true : ['ValueError: 数据目录正在使用或迁移，当前操作尚未写入；请待活动任务或数据传输完成后重试']
+
+----------------------------------------------------------------------
+Ran 3 tests in 9.913s
+
+FAILED (failures=3)

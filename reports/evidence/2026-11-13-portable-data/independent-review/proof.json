@@ -1,0 +1,149 @@
+{
+  "source_stable": true,
+  "source_hashes_before": {
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_store.py": "2f76d10aa66e7b31ff074d5eca76a7d0ce8da8252f6cdee8f09830e213c89db5",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_transfer.py": "9e20bc73c106a029f16598d7effbfdb3cba8d1bbcbc5b39326b4cb6cc4d73a27",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py": "ae5ee14c5b205c025d6db4de011bf0f2c5bb9ccc09ed26a263f48cfe2c356751",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/runtime_identity.py": "bf605e4c724928d91e5925265ba08342bf7df7c46e6f9024dd709e4043dd696b",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_refs.py": "032b6ef55c40c9392c2bf203d2be99015ae2bea87440ac071234b0207420f6d5",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py": "d71373fa3c8049bc6c32626d826a8e055cc272b62e37f374c760c53c7999e0b8",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/paths.py": "2d114512c6ede1b5796616462e004c39051db6122757c3a51dc2c59b07c3d2bb",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/db.py": "30f2358aef740811eb035033fbb529b4003a80a6f61fbeb8be51148fdbf93bbf",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/command_input.py": "6a9e7b72608b6095e9495049eedf73285c3bfcaf5e5061158c2cc9dea5f9af72"
+  },
+  "source_hashes_after": {
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_store.py": "2f76d10aa66e7b31ff074d5eca76a7d0ce8da8252f6cdee8f09830e213c89db5",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_transfer.py": "9e20bc73c106a029f16598d7effbfdb3cba8d1bbcbc5b39326b4cb6cc4d73a27",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_runtime.py": "ae5ee14c5b205c025d6db4de011bf0f2c5bb9ccc09ed26a263f48cfe2c356751",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/runtime_identity.py": "bf605e4c724928d91e5925265ba08342bf7df7c46e6f9024dd709e4043dd696b",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/data_refs.py": "032b6ef55c40c9392c2bf203d2be99015ae2bea87440ac071234b0207420f6d5",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/maintenance.py": "d71373fa3c8049bc6c32626d826a8e055cc272b62e37f374c760c53c7999e0b8",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/paths.py": "2d114512c6ede1b5796616462e004c39051db6122757c3a51dc2c59b07c3d2bb",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/db.py": "30f2358aef740811eb035033fbb529b4003a80a6f61fbeb8be51148fdbf93bbf",
+    "/workspace/autoSkill/skills/autoskill/app/autoskill/command_input.py": "6a9e7b72608b6095e9495049eedf73285c3bfcaf5e5061158c2cc9dea5f9af72"
+  },
+  "exit": 0,
+  "observations": {
+    "target_collision": {
+      "code": "target_not_empty",
+      "new_user_file_preserved": true,
+      "checks": 2,
+      "passed": true
+    },
+    "publication_collision": {
+      "scenarios": [
+        {
+          "nonempty": false,
+          "code": "target_not_empty",
+          "target_preserved": true,
+          "passed": true
+        },
+        {
+          "nonempty": true,
+          "code": "target_not_empty",
+          "target_preserved": true,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    "bridge_original_plan": {
+      "status": "imported",
+      "original_plan": "/tmp/autoskill-data-review-nxpu7dlq/bridge_original_plan/original-install/autoskill-cases",
+      "mappings": [
+        {
+          "destination": ".local/case-plans/default/autoskill-cases",
+          "source": "/tmp/autoskill-data-review-nxpu7dlq/bridge_original_plan/original-install/autoskill-cases"
+        }
+      ],
+      "resolve_original": "/tmp/autoskill-data-review-nxpu7dlq/bridge_original_plan/data/.local/case-plans/default/autoskill-cases/用例.xlsx",
+      "copied_plan": true,
+      "passed": true
+    },
+    "wal": {
+      "copied": true,
+      "wal_size": 12392,
+      "rows": [
+        [
+          "committed-in-WAL"
+        ]
+      ],
+      "sqlite": [
+        ".local/autoskill.db"
+      ],
+      "passed": true
+    },
+    "wal_public": {
+      "status": "imported",
+      "rows": [
+        [
+          "committed-in-WAL"
+        ]
+      ],
+      "passed": true
+    },
+    "source_plan_race": {
+      "status": "imported",
+      "frozen_plan_path": "/tmp/autoskill-data-review-nxpu7dlq/source_plan_race/plans-A",
+      "mappings": [
+        {
+          "destination": ".local/case-plans/imported/8fb9705cbcba540fa2033febce6cf31f/autoskill-cases",
+          "source": "/tmp/autoskill-data-review-nxpu7dlq/source_plan_race/plans-A"
+        }
+      ],
+      "resolved": "/tmp/autoskill-data-review-nxpu7dlq/source_plan_race/data/.local/case-plans/imported/8fb9705cbcba540fa2033febce6cf31f/autoskill-cases",
+      "passed": true
+    },
+    "structures": {
+      "source_mode": "0o700",
+      "restored_mode": "0o700",
+      "empty_copied": true,
+      "empty_restored": true,
+      "immutable_sqlite_same_hash": true,
+      "passed": true
+    },
+    "legal_posix_name": {
+      "exported": "exported",
+      "verified": true,
+      "imported": "imported",
+      "passed": true
+    },
+    "active_source": {
+      "code": "data_busy",
+      "activity_count": 1,
+      "target_exists": false,
+      "source_status": "Running",
+      "passed": true
+    },
+    "hand_zip": {
+      "scenarios": [
+        {
+          "layout": "flat",
+          "status": "imported",
+          "content_unchanged": true,
+          "old_root_resolved_to_new": true,
+          "rows": [
+            [
+              "failed-before-migration"
+            ]
+          ],
+          "passed": true
+        },
+        {
+          "layout": "one-root",
+          "status": "imported",
+          "content_unchanged": true,
+          "old_root_resolved_to_new": true,
+          "rows": [
+            [
+              "failed-before-migration"
+            ]
+          ],
+          "passed": true
+        }
+      ],
+      "passed": true
+    }
+  },
+  "stderr": ""
+}

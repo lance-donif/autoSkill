@@ -1,0 +1,9 @@
+{
+  "reason": "Stopped only this verification tree to fix the independently reproduced export/dispatcher race before the final run.",
+  "test_pid": 504515,
+  "descendant_pids": [
+    506815,
+    508681
+  ],
+  "signal": "SIGTERM"
+}

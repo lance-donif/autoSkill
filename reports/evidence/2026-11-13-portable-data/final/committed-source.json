@@ -1,0 +1,11 @@
+{
+  "feature_commit": "c7004c0d6cfa7ef3a578524e53a4ad8b58c4538c",
+  "checked_files": 244,
+  "source_matches_tested_files": true,
+  "retired_paths_absent": [
+    "skills/autoskill/app/autoskill/upgrade.py",
+    "skills/autoskill/references/workflow/upgrade.md",
+    "tests/test_upgrade.py",
+    "tests/test_upgrade_cli.py"
+  ]
+}

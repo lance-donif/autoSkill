@@ -1,0 +1,10 @@
+test_exclusive_transfer_blocks_database_and_settings_without_creating_user_data (test_maintenance.MaintenanceTests.test_exclusive_transfer_blocks_database_and_settings_without_creating_user_data) ... ok
+test_original_io_errors_escape_and_release_the_gate (test_maintenance.MaintenanceTests.test_original_io_errors_escape_and_release_the_gate) ... ok
+test_reentrant_access_and_exclusive_owner_can_write_but_cannot_promote_shared_access (test_maintenance.MaintenanceTests.test_reentrant_access_and_exclusive_owner_can_write_but_cannot_promote_shared_access) ... ok
+test_shared_external_sheet_uses_the_same_transfer_gate (test_maintenance.MaintenanceTests.test_shared_external_sheet_uses_the_same_transfer_gate) ... ok
+test_shared_readers_overlap_and_exclusive_transfer_rejects_an_active_reader (test_maintenance.MaintenanceTests.test_shared_readers_overlap_and_exclusive_transfer_rejects_an_active_reader) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.988s
+
+OK

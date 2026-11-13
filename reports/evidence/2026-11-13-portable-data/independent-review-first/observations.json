@@ -1,0 +1,64 @@
+{
+  "target_collision": {
+    "status": "imported",
+    "new_user_file_exists": false,
+    "checks": 2
+  },
+  "bridge_original_plan": {
+    "status": "imported",
+    "original_plan": "/tmp/autoskill-data-review-4c066czr/bridge_original_plan/original-install/autoskill-cases",
+    "mappings": [
+      {
+        "destination": ".local/case-plans/default/autoskill-cases",
+        "source": "/tmp/autoskill-data-review-4c066czr/bridge_original_plan/transport/0/original-install/autoskill-cases"
+      }
+    ],
+    "resolve_original": "数据引用属于外部路径，且没有明确的旧数据根映射",
+    "copied_plan": true
+  },
+  "wal": {
+    "copied": false,
+    "wal_size": 12392,
+    "error": "复制期间源数据发生变化，未发布副本；请结束活动任务后重试",
+    "changed": [
+      ".local/autoskill.db-shm"
+    ]
+  },
+  "wal_public": {
+    "status": "imported",
+    "rows": [
+      [
+        "committed-in-WAL"
+      ]
+    ]
+  },
+  "source_plan_race": {
+    "status": "imported",
+    "frozen_plan_path": "/tmp/autoskill-data-review-4c066czr/source_plan_race/plans-A",
+    "mappings": [
+      {
+        "destination": ".local/case-plans/imported/774145b2103b5e3385e1fc2da0287ac6/autoskill-cases",
+        "source": "/tmp/autoskill-data-review-4c066czr/source_plan_race/plans-B"
+      }
+    ],
+    "resolved": "数据引用属于外部路径，且没有明确的旧数据根映射"
+  },
+  "structures": {
+    "source_mode": "0o700",
+    "restored_mode": "0o600",
+    "empty_copied": true,
+    "empty_restored": true,
+    "immutable_sqlite_same_hash": true
+  },
+  "legal_posix_name": {
+    "exported": "exported",
+    "verified": true,
+    "import_error": "数据包文件路径无效：projects/p/knowledge/10:30-notes.md"
+  },
+  "active_source": {
+    "code": "data_busy",
+    "activity_count": 1,
+    "target_exists": false,
+    "source_status": "Running"
+  }
+}
