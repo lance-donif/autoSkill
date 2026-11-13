@@ -103,7 +103,8 @@ def ensure_worker() -> dict:
 
 
 def _pending() -> bool:
-    return bool(db.one("SELECT id FROM runs WHERE status IN ('Queued', 'Running') LIMIT 1"))
+    return bool(db.one("SELECT id FROM runs WHERE status IN ('Queued', 'Running') LIMIT 1")
+                or db.one("SELECT id FROM tasks WHERE enabled = 1 LIMIT 1"))
 
 
 def _idle_seconds() -> float:
@@ -123,6 +124,7 @@ def _dispatch(token: str) -> None:
             idle_since = time.monotonic()
             while True:
                 try:
+                    scheduler.tick()
                     sweep()
                     start_queued()
                 except Exception:  # noqa: BLE001  # Transient queue or filesystem errors must not abandon already committed work.

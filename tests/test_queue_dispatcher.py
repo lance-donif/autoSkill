@@ -1,4 +1,5 @@
 """An independent dispatcher drains durable asynchronous work after the submitting CLI exits."""
+import datetime
 import json
 import os
 import signal
@@ -17,7 +18,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 from test_execution_review_fixes import Handler, Site
 
 from autoskill import builder, db, paths, projects, runner
-from autoskill.server import jobs
+from autoskill.server import jobs, scheduler
 
 ENSURE = "import json; from autoskill.server import jobs; print(json.dumps(jobs.ensure_worker()))"
 
@@ -159,6 +160,49 @@ class DispatcherTests(unittest.TestCase):
         self.sites[1].release.set()
         self.wait(lambda: all(db.one("SELECT status FROM runs WHERE id = ?", (run["id"],))["status"] == "Pass" for run in (first, second)))
         self.assertEqual([site.requests for site in self.sites[:2]], [1, 1])
+
+    def test_future_schedule_fires_after_submitter_exits_and_idle_timeout_passes(self):
+        setup = self.queued(0)
+        jobs.cancel(setup["id"])
+        due = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=1.4)
+        task = scheduler.create({"project_id": setup["project_id"], "title": "Future execution", "case_ids": ["TC-API-001"],
+                                 "rule": {"kind": "at", "at": due.isoformat()}})
+        child = subprocess.Popen([sys.executable, "-c", ENSURE], cwd=paths.APP, env=paths.child_env(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.children.append(child)
+        output, error = child.communicate(timeout=10)
+        self.assertEqual(child.returncode, 0, error.decode(errors="replace"))
+        dispatcher = json.loads(output)
+        self.assertIn(dispatcher["status"], ("started", "running"))
+        self.dispatcher_pids.add(dispatcher["pid"])
+        self.sites[0].release.set()
+        self.wait(lambda: scheduler.get(task["id"])["last_status"] == "Pass")
+        self.assertEqual(self.sites[0].requests, 1)
+        self.assertEqual(len(db.rows("SELECT * FROM schedule_occurrences WHERE task_id = ?", (task["id"],))), 1)
+        self.wait(lambda: not runner.process_alive(dispatcher["pid"]))
+
+    def test_enabled_future_schedule_keeps_worker_until_paused(self):
+        setup = self.queued(0)
+        jobs.cancel(setup["id"])
+        task = scheduler.create({"project_id": setup["project_id"], "title": "Recurring execution", "case_ids": ["TC-API-001"],
+                                 "rule": {"kind": "interval", "minutes": 1}})
+        dispatcher = self.ensure()
+        threading.Event().wait(0.7)
+        self.assertTrue(runner.process_alive(dispatcher["pid"]))
+        self.assertEqual(self.sites[0].requests, 0)
+        scheduler.set_enabled(task["id"], False)
+        self.wait(lambda: not runner.process_alive(dispatcher["pid"]))
+
+    def test_future_maintenance_creates_one_durable_host_delivery(self):
+        setup = self.queued(0)
+        jobs.cancel(setup["id"])
+        due = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=1.2)
+        task = scheduler.create({"project_id": setup["project_id"], "title": "Future maintenance", "kind": "maintenance",
+                                 "workflow_id": "synthetic-workflow", "rule": {"kind": "at", "at": due.isoformat()}})
+        self.ensure()
+        self.wait(lambda: bool(db.one("SELECT id FROM host_outbox WHERE task_id = ?", (task["id"],))))
+        self.assertEqual(len(db.rows("SELECT * FROM host_outbox WHERE task_id = ?", (task["id"],))), 1)
+        self.assertEqual(db.one("SELECT state FROM host_outbox WHERE task_id = ?", (task["id"],))["state"], "pending")
+        self.assertEqual(self.sites[0].requests, 0)
 
 
 if __name__ == "__main__":
