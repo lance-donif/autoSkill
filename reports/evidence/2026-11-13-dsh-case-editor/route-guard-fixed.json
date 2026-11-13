@@ -1,0 +1,23 @@
+[
+  {
+    "stage": "blocked_route_continue",
+    "hash": "#/cases?range=all&projects=dsh-editor-acceptance",
+    "headings": [
+      "项目与用例"
+    ]
+  },
+  {
+    "stage": "discard_closed",
+    "hash": "#/cases?range=all&projects=dsh-editor-acceptance",
+    "headings": [
+      "项目与用例"
+    ]
+  },
+  {
+    "stage": "explicit_discard_navigation",
+    "hash": "#/runs",
+    "headings": [
+      "执行记录"
+    ]
+  }
+]

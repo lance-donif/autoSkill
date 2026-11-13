@@ -1,0 +1,6 @@
+{
+  "selected_old_case_and_report_files": 129,
+  "changed_or_missing": 0,
+  "baseline_sha256": "806be555427a6ae39c54e7e71f11e2611492b0b38f6b52e516cdd7909bfd7d67",
+  "scope": "原项目testcases/*.json与reports/文件逐字节核对；不是整个SQLite或新合成项目未变化的声明"
+}

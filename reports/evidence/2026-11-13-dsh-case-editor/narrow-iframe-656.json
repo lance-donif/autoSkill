@@ -1,0 +1,28 @@
+{
+  "layouts": [
+    {
+      "host_viewport_width": 768,
+      "iframe_width": 712,
+      "root_scroll_width": 712,
+      "drawer_client_width": 688,
+      "drawer_scroll_width": 688,
+      "footer_width": 688,
+      "footer_scroll_width": 688
+    },
+    {
+      "host_viewport_width": 656,
+      "iframe_width": 656,
+      "root_scroll_width": 656,
+      "drawer_client_width": 632,
+      "drawer_scroll_width": 632,
+      "footer_width": 632,
+      "footer_scroll_width": 632
+    }
+  ],
+  "screenshot": {
+    "file": "07-真实DSH656像素iframe编辑抽屉.png",
+    "sha256": "215f22bc6920400b9fc803858daf3c0965e06526f08568e046a158df48bbe41f",
+    "size": 81056
+  },
+  "page_errors": 0
+}

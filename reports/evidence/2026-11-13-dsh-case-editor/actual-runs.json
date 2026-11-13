@@ -1,0 +1,179 @@
+[
+  {
+    "id": "run-8c72c1840b87",
+    "status": "Pass",
+    "engine": "playwright",
+    "headed": 0,
+    "started_at": "2026-11-13T13:17:13.033+00:00",
+    "finished_at": "2026-11-13T13:17:17.543+00:00",
+    "done": 1,
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "pid": 29318,
+    "results": [
+      {
+        "case_id": "TC-UI-MIXED",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 0,
+        "business_status": "Pass",
+        "fallbacks": 0,
+        "checks": []
+      }
+    ]
+  },
+  {
+    "id": "run-599a8d5c2f2f",
+    "status": "Pass",
+    "engine": "playwright",
+    "headed": 0,
+    "started_at": "2026-11-13T13:19:06.722+00:00",
+    "finished_at": "2026-11-13T13:19:07.100+00:00",
+    "done": 1,
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "pid": 30640,
+    "results": [
+      {
+        "case_id": "TC-API-PREPARE",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 1,
+        "business_status": "Pass",
+        "fallbacks": null,
+        "checks": []
+      },
+      {
+        "case_id": "TC-API-PROFILE",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 0,
+        "business_status": "Pass",
+        "fallbacks": null,
+        "checks": []
+      }
+    ]
+  },
+  {
+    "id": "run-ae5a6c311f5f",
+    "status": "Pass",
+    "engine": "playwright",
+    "headed": 0,
+    "started_at": "2026-11-13T13:21:38.552+00:00",
+    "finished_at": "2026-11-13T13:21:38.889+00:00",
+    "done": 1,
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "pid": 30887,
+    "results": [
+      {
+        "case_id": "TC-API-PREPARE",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 1,
+        "business_status": "Pass",
+        "fallbacks": null,
+        "checks": []
+      },
+      {
+        "case_id": "TC-API-PROFILE",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 0,
+        "business_status": "Pass",
+        "fallbacks": null,
+        "checks": []
+      }
+    ]
+  },
+  {
+    "id": "run-8edb7c5e69bb",
+    "status": "Pass",
+    "engine": "playwright",
+    "headed": 0,
+    "started_at": "2026-11-13T13:21:42.582+00:00",
+    "finished_at": "2026-11-13T13:21:48.572+00:00",
+    "done": 1,
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "pid": 30897,
+    "results": [
+      {
+        "case_id": "TC-UI-MIXED",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 0,
+        "business_status": "Pass",
+        "fallbacks": 3,
+        "checks": []
+      }
+    ]
+  },
+  {
+    "id": "run-1524b1d12b6b",
+    "status": "Fail",
+    "engine": "playwright",
+    "headed": 0,
+    "started_at": "2026-11-13T13:27:13.193+00:00",
+    "finished_at": "2026-11-13T13:27:15.872+00:00",
+    "done": 1,
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "blocked": 0,
+    "pid": 31802,
+    "results": [
+      {
+        "case_id": "TC-UI-CLOSED",
+        "status": "Fail",
+        "reason": "选择器 #absent 不可见（实际：读取失败：第 1 层没有开放的 Shadow DOM；不支持 closed 模式）",
+        "prerequisite": 0,
+        "business_status": "Fail",
+        "fallbacks": 0,
+        "checks": []
+      }
+    ]
+  },
+  {
+    "id": "run-060def1f8ed0",
+    "status": "Pass",
+    "engine": "playwright",
+    "headed": 0,
+    "started_at": "2026-11-13T13:27:18.267+00:00",
+    "finished_at": "2026-11-13T13:27:18.559+00:00",
+    "done": 1,
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0,
+    "pid": 31937,
+    "results": [
+      {
+        "case_id": "TC-API-PREPARE",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 1,
+        "business_status": "Pass",
+        "fallbacks": null,
+        "checks": []
+      },
+      {
+        "case_id": "TC-API-PROFILE",
+        "status": "Pass",
+        "reason": "",
+        "prerequisite": 0,
+        "business_status": "Unverified",
+        "fallbacks": null,
+        "checks": []
+      }
+    ]
+  }
+]

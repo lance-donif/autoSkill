@@ -1,0 +1,21 @@
+{
+  "exact_key_and_xlsx_scan": "pass",
+  "ocr_language": "eng",
+  "ocr_images": [
+    "01-真实DSH接口用例表单.png",
+    "02-真实DSH多层上下文与XPath编辑.png",
+    "03-真实DSH并发冲突保留本地草稿.png",
+    "04-真实DSH人工业务预期待验证.png",
+    "05-真实DSH窄屏编辑抽屉.png",
+    "06-真实DSH业务未验证状态.png",
+    "07-真实DSH656像素iframe编辑抽屉.png"
+  ],
+  "match_counts": {
+    "exact_key": 0,
+    "ocr_exact_or_compacted_key": 0,
+    "ocr_key_like": 0,
+    "ocr_auth_url_token": 0
+  },
+  "visual_inspection": "7 images individually viewed; stable 06 replaces the entering-animation view 04 for display",
+  "unsafe_session_or_raw_included": false
+}
