@@ -1,0 +1,28 @@
+HEAD: 41b59f3681d9e2229f3bbeef0ef96daebf2507bc
+Command: ["node", "--test", "tests/plugin.test.mjs", "tests/host-adapter.test.mjs"]
+
+✔ delivers through the actual SDK-shaped prompt API and acknowledges only after persistence (16.139908ms)
+✔ a lost local acknowledgement retries the receipt without sending another prompt (6.430428ms)
+✔ an uncertain send is recovered from the matching SDK request identity and flush (6.11751ms)
+✔ missing evidence never causes an unknown delivery to be sent again (3.834215ms)
+✔ activation failure releases only the current token before prompt admission (6.456036ms)
+✔ an already completed judgement satisfies its delivery without waking another host turn (1.561617ms)
+✔ an empty optional host identity creates a stable independent session (4.544366ms)
+✔ registers autoSkill and case-writing rules with independent resource bases (5.37381ms)
+✔ dashboard is started by argv with offline switches, never through a shell (1.041496ms)
+✔ registered commands bind the same custom workspace and port as the service (2.269503ms)
+✔ host guidance accompanies the entry skill without rewriting a user case skill (5.087812ms)
+✔ without a provisioned runtime the plugin reports it instead of looking for one online (0.685344ms)
+✔ Linux source deployment uses its local venv and keeps paths with spaces as argv (0.980426ms)
+✔ client registers dashboard and schedules panels pointing at the loopback dashboard (6.591143ms)
+✔ the skill is found in both the offline package layout and a source checkout (1.167049ms)
+✔ Linux offline bundle takes its native Python before the source venv (1.007706ms)
+✔ package manifest points at files that exist (1.203542ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 212.530674
