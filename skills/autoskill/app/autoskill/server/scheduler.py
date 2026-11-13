@@ -5,9 +5,10 @@ import datetime
 import hashlib
 import json
 import re
+from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .. import db, projects, runner, task_context
+from .. import db, paths, projects, runner, task_context
 from .deliveries import ack_delivery, claim_delivery, pending_deliveries, release_delivery, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
 
 UTC = datetime.UTC
@@ -87,6 +88,13 @@ def _stamp(value: datetime.datetime) -> str:
     return value.astimezone(UTC).isoformat(timespec="milliseconds")
 
 
+def _plan_path(spec: dict) -> str:
+    if spec.get("plan_path"):
+        return str(Path(spec["plan_path"]).expanduser().resolve())
+    with task_context.use_session(spec.get("session_id", task_context.session_id()) or None):
+        return str(paths.case_skill())
+
+
 def _clean(spec: dict) -> dict:
     title = str(spec.get("title", "")).strip()
     if not title:
@@ -120,7 +128,7 @@ def _clean(spec: dict) -> dict:
     return {"title": title, "engine": engine, "project_id": spec["project_id"], "case_ids": case_ids, "rule": rule,
             "kind": kind, "asset_id": spec.get("asset_id", ""), "parameters": parameters,
             "workflow_id": spec.get("workflow_id", ""), "host": spec.get("host") or "dsh", "overlap": overlap,
-            "session_id": spec.get("session_id", task_context.session_id()) or ""}
+            "session_id": spec.get("session_id", task_context.session_id()) or "", "plan_path": _plan_path(spec)}
 
 
 def view(row: dict) -> dict:
@@ -261,7 +269,7 @@ def _prepare(task: dict, trigger: str) -> dict:
             return native_run.prepare(task["project_id"], task["asset_id"], parameters=task["parameters"],
                                       trigger=trigger, task_id=task["id"], session_id=task.get("session_id"))
         return runner.prepare(task["project_id"], task["case_ids"] or None, task["engine"], trigger=trigger,
-                              task_id=task["id"], session_id=task.get("session_id"))
+                              task_id=task["id"], session_id=task.get("session_id"), plan_path=task.get("plan_path") or None)
     except ValueError as error:
         stamp = db.now()
         return {"id": db.new_id("run"), "project_id": task["project_id"], "engine": task["engine"], "trigger": trigger,

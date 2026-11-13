@@ -30,7 +30,7 @@ _children_lock = threading.Lock()
 def prepare(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
             trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
             headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
-            *, candidate_cases: list[dict] | None = None) -> dict:
+            *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None) -> dict:
     """Validate and freeze execution inputs without writing any database row."""
     if engine not in ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
@@ -38,11 +38,11 @@ def prepare(project_id: str, case_ids: list[str] | None = None, engine: str = "p
     chosen = manifest["selected"]
     identity = (task_context.session_id() if session_id is None else session_id) or ""
     with task_context.use_session(identity or None):
-        plan_path = str(paths.case_skill())
+        selected_plan = str(Path(plan_path).resolve() if plan_path else paths.case_skill())
     return {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
            "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
            "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed)),
-           "force_login": int(force_login), "session_id": identity, "family": "replay", "plan_path": plan_path, **frozen}
+           "force_login": int(force_login), "session_id": identity, "family": "replay", "plan_path": selected_plan, **frozen}
 
 
 def enqueue(prepared: dict, connection=None) -> dict:
@@ -60,11 +60,11 @@ def enqueue(prepared: dict, connection=None) -> dict:
 def create(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
            trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
            headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
-           *, candidate_cases: list[dict] | None = None) -> dict:
+           *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None) -> dict:
     """Validate, freeze and queue a run through the same API used by transactional schedules."""
     projects.reindex(project_id)
     return enqueue(prepare(project_id, case_ids, engine, trigger, task_id, batch_id, headed, force_login, session_id,
-                           candidate_cases=candidate_cases))
+                           candidate_cases=candidate_cases, plan_path=plan_path))
 
 
 def evidence_dir(run_id: str) -> Path:
