@@ -103,6 +103,28 @@ class DomainTests(unittest.TestCase):
         domain.commit(PID, {"later": True}, published["head"])
         self.assertEqual(domain.publish(PID, staged["stage_id"]), published)
 
+    def test_disjoint_stage_rebase_preserves_concurrent_workflow(self):
+        base = domain.commit(PID, {"workflow-a": 1, "obsolete-a": 2}, None)["head"]
+        staged = domain.stage(PID, {"workflow-a": 3}, base, remove=["obsolete-a"])
+        concurrent = domain.commit(PID, {"workflow-b": 4}, base)
+        with self.assertRaises(domain.ConflictError):
+            domain.publish(PID, staged["stage_id"])
+        published = domain.publish(PID, staged["stage_id"], allow_disjoint=True)
+        self.assertEqual(published["previous_head"], concurrent["head"])
+        self.assertEqual(domain.read(PID)["documents"], {"workflow-a": 3, "workflow-b": 4})
+        self.assertEqual(domain.publish(PID, staged["stage_id"], allow_disjoint=True), published)
+
+    def test_disjoint_stage_rebase_rejects_changed_modified_or_removed_paths(self):
+        base = domain.commit(PID, {"a": 1, "b": 2}, None)["head"]
+        staged = domain.stage(PID, {"a": 3}, base, remove=["b"])
+        concurrent = domain.commit(PID, {"b": 4}, base)
+        with self.assertRaises(domain.ConflictError):
+            domain.publish(PID, staged["stage_id"], allow_disjoint=True)
+        self.assertEqual(domain.read(PID)["head"], concurrent["head"])
+        empty_base = domain.stage(PID, {"a": 5}, None)
+        with self.assertRaises(domain.ConflictError):
+            domain.publish(PID, empty_base["stage_id"], allow_disjoint=True)
+
     def test_integrity_and_paths_are_validated(self):
         for path in ("../a", "/a", "a//b", "C:/a", "a\\b", "a/./b"):
             with self.subTest(path=path), self.assertRaises(ValueError):

@@ -260,7 +260,17 @@ def _published(root: Path, operation_id: str) -> dict | None:
     return None
 
 
-def publish(project_id: str, stage_id: str) -> dict:
+def _patch_base(root: Path, expected_head: str | None, changed: set[str], allow_disjoint: bool) -> str | None:
+    current = _manifest(root)
+    if current["head"] == expected_head or not allow_disjoint:
+        return expected_head
+    base = _manifest(root, expected_head)["files"] if expected_head is not None else {}
+    if any(base.get(path) != current["files"].get(path) for path in changed):
+        raise ConflictError(expected_head, current["head"])
+    return current["head"]
+
+
+def publish(project_id: str, stage_id: str, *, allow_disjoint: bool = False) -> dict:
     """Publish a durable patch with CAS; retrying a published patch is idempotent."""
     with project_lock(project_id):
         folder = _stage_folder(project_id, stage_id)
@@ -280,7 +290,8 @@ def publish(project_id: str, stage_id: str) -> dict:
         metadata = _metadata(patch["reason"], patch["metadata"])
         if set(deleted) & set(prepared):
             raise ValueError("同一资产不能同时修改和删除")
-        return _commit(root, prepared, deleted, _head(patch["expected_head"]), patch["reason"], metadata, operation_id)
+        expected = _patch_base(root, _head(patch["expected_head"]), set(prepared) | set(deleted), allow_disjoint)
+        return _commit(root, prepared, deleted, expected, patch["reason"], metadata, operation_id)
 
 
 def validate_project(folder: Path) -> None:
