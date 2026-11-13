@@ -52,7 +52,8 @@ class DispatcherTests(unittest.TestCase):
     def tearDown(self):
         for site in self.sites:
             site.release.set()
-        for pid in self.dispatcher_pids:
+        dispatcher_pids = (self.dispatcher_pids | set(jobs._dispatchers)) - {os.getpid()}
+        for pid in dispatcher_pids:
             if runner.process_alive(pid):
                 os.kill(pid, signal.SIGTERM)
         for child in [*self.children, *jobs._dispatchers.values()]:
@@ -60,9 +61,16 @@ class DispatcherTests(unittest.TestCase):
                 child.terminate()
             child.communicate(timeout=5)
         jobs._dispatchers.clear()
-        for row in db.rows("SELECT pid FROM runs WHERE status = 'Running'"):
-            if runner.process_alive(row["pid"]):
-                os.kill(row["pid"], signal.SIGTERM)
+        self.wait(lambda: not any(runner.process_alive(pid) for pid in dispatcher_pids))
+        # Terminal runs can still be writing reports; stop every workspace writer before removal.
+        executor_pids = {row["pid"] for row in db.rows("SELECT DISTINCT pid FROM runs WHERE pid IS NOT NULL")} - {os.getpid()}
+        deadline = time.monotonic() + 10
+        while any(runner.process_alive(pid) for pid in executor_pids) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        for pid in executor_pids:
+            if runner.process_alive(pid):
+                os.kill(pid, signal.SIGTERM)
+        self.wait(lambda: not any(runner.process_alive(pid) for pid in executor_pids))
         self.environment.stop()
         self.tmp.cleanup()
 
