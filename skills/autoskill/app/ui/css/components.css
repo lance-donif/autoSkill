@@ -98,6 +98,7 @@
 .table th:last-child, .table td:last-child { padding-right: var(--s-5); }
 .table .actions { text-align: right; white-space: nowrap; }
 .table .actions .btn { opacity: 0; transition: opacity var(--fast); }
+.table .actions .btn + .btn { margin-left: var(--s-2); }
 .table tr:hover .actions .btn, .table .actions .btn:focus-visible, .table tr.selected .actions .btn { opacity: 1; }
 .table tr.selected { background: var(--accent-wash); }
 .table .title { font-weight: 600; }

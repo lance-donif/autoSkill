@@ -1,12 +1,13 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
 import { h, icon, replace, api, scope, scopeQuery, go, statusPill, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
-import { empty, errorState, runButton, startRun, drawer, closeOverlay } from '../ui.js';
+import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm } from '../ui.js';
 import { state, refreshShell } from '../shell.js';
 
 
 const selected = new Map();  // "project/case" -> {project_id, case_id}
 let kind = '';
 let query = '';
+let deletionErrors = [];
 
 const keyOf = (item) => item.project_id + '/' + item.case_id;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'ui' ? '页面' : '接口');
@@ -54,6 +55,7 @@ export async function render(view) {
       h('span', { class: 'grow' }, h('b', {}, `已选 ${items.length} 条用例`), byProject.size > 1 ? ` · ${byProject.size} 个项目` : '',
         h('span', { class: 'muted' }, '　前置用例（如登录）会自动先执行')),
       h('button', { class: 'btn ghost', onClick: () => { selected.clear(); paint(); } }, '清除'),
+      caseDeleteButton(items, { bulk: true }),
       runButton('运行所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))));
   }
 
@@ -71,7 +73,7 @@ export async function render(view) {
         h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。用例由 AI 录制得到，在这里可以单条或批量回放。`)),
       h('button', { class: 'btn', onClick: () => newProject() }, icon('plus'), '新建项目')),
     state.projects.length ? h('div', { class: 'toolbar' }, kinds, search) : null,
-    list, bar);
+    caseDeletionNotice(), list, bar);
   if (!state.projects.length) {
     replace(list, h('div', { class: 'card' }, empty({
       glyph: 'spark', title: '还没有带用例的项目', text: '项目在录到第一条用例后出现在这里。新建一个项目，或先加载示例项目看看效果。',
@@ -132,10 +134,49 @@ function projectCard(project, items, repaint) {
           h('td', { class: 'sub' }, item.module),
           h('td', {}, item.last_status ? statusPill(item.last_status) : h('span', { class: 'status idle' }, icon('blocked'), '未执行')),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
-          h('td', { class: 'actions' }, run));
+          h('td', { class: 'actions' }, run, caseDeleteButton([item], { small: true })));
       })])));
   }
   return h('section', { class: 'card' }, head, banner, h('div', { style: 'margin-top:12px' }, body));
+}
+
+function caseDeleteButton(items, { bulk = false, small = false, detail = false } = {}) {
+  const label = bulk ? '删除所选' : '删除用例';
+  const button = h('button', { class: 'btn danger' + (small ? ' sm icon' : ''),
+    title: label, 'aria-label': small ? `删除用例 ${items[0].case_id}` : label,
+    onClick: (event) => { event.stopPropagation(); deleteCases(items, button, { bulk, detail }); },
+  }, icon('trash'), !small && label);
+  return button;
+}
+
+async function deleteCases(items, button, { bulk, detail }) {
+  const first = items[0];
+  const agreed = await confirm({ title: bulk ? `删除所选的 ${items.length} 条用例？` : '删除这条用例？',
+    text: bulk ? `将删除所选的 ${items.length} 条用例定义。已有执行记录会保留。`
+      : `将删除「${first.title || first.case_id}」（${first.case_id}）的用例定义。已有执行记录会保留。`,
+    action: bulk ? '删除所选' : '删除用例', danger: true });
+  if (!agreed) {
+    if (detail && route().page === 'cases') await caseDrawer(first.project_id, first.case_id);
+    return;
+  }
+  const result = await attempt(() => bulk
+    ? api('/cases/delete', { method: 'POST', body: { items: items.map(({ project_id, case_id }) => ({ project_id, case_id })) } })
+    : api(`/projects/${encodeURIComponent(first.project_id)}/cases/${encodeURIComponent(first.case_id)}`, { method: 'DELETE' }), button);
+  if (!result) return;
+  selected.clear();
+  deletionErrors = result.errors || [];
+  const count = (result.deleted || []).length;
+  toast(`已删除 ${count} 条用例` + (deletionErrors.length ? `，${deletionErrors.length} 条未删除` : ''), { bad: deletionErrors.length > 0 });
+  await refreshShell();
+  refresh();
+}
+
+function caseDeletionNotice() {
+  if (!deletionErrors.length) return null;
+  return h('div', { class: 'banner bad', role: 'alert' }, icon('warn'),
+    h('div', { class: 'grow' }, h('b', {}, '部分用例未删除'),
+      deletionErrors.map((error) => h('p', {}, `${error.project_id || ''} / ${error.case_id || ''}：${error.message}`))),
+    h('button', { class: 'btn sm icon', 'aria-label': '关闭删除提示', onClick: () => { deletionErrors = []; refresh(); } }, icon('x')));
 }
 
 function newProject() {
@@ -269,7 +310,8 @@ async function caseDrawer(projectId, caseId) {
   const run = h('button', { class: 'btn primary' }, icon('play'), '运行这条用例');
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId] }], run); if (started) closeOverlay(); });
   drawer({ title: item.title, subtitle: `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · ${item.module} · 第 ${item.revision} 版`, body, wide: true,
-    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), item.replayable && run] });
+    foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
+      h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), item.replayable && run] });
 }
 
 function apiAssertionRows(rules) {
