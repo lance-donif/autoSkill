@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-autoskill",
-  "version": "2.2.4",
+  "version": "2.3.0",
   "private": true,
   "type": "module",
   "description": "autoSkill: record browser sessions once, replay them without AI. Dashboard and schedules for DeepSeek Harness.",
