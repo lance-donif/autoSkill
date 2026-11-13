@@ -265,6 +265,24 @@ def _schedule_commands(sub) -> None:
             operation.add_argument("--expected-revision", type=int)
 
 
+def _upgrade_commands(sub) -> None:
+    upgrade = sub.add_parser("upgrade", help="保留完整数据的离线升级、恢复与回滚").add_subparsers(dest="action", required=True)
+    for name in ("plan", "prepare"):
+        operation = upgrade.add_parser(name)
+        operation.add_argument("package", help="完整离线包目录或 ZIP")
+        operation.add_argument("--target", required=True, help="现有安装根目录")
+        operation.add_argument("--workspace", action="append", dest="workspaces", default=[], help="额外外置工作区；可重复")
+        operation.add_argument("--config", action="append", dest="configs", default=[], help="额外宿主配置文件；可重复")
+        if name == "prepare":
+            operation.add_argument("--job-dir", help="持久升级记录目录，位于安装目录与工作区之外")
+            operation.add_argument("--stop-services", action="store_true", help="停止已核实属于该安装的 autoSkill 服务；不取消业务运行")
+    for name in ("status", "apply", "rollback", "recover"):
+        operation = upgrade.add_parser(name)
+        operation.add_argument("journal", help="prepare 返回的持久 journal 路径")
+        if name != "status":
+            operation.add_argument("--stop-services", action="store_true", help="独立升级器切换或恢复前停止此安装的 autoSkill 服务")
+
+
 def parser() -> argparse.ArgumentParser:
     top = CommandParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
     top.add_argument("--session", help="AI 测试会话标识；同一任务每条命令使用同一个值，也可设 AUTOSKILL_SESSION")
@@ -298,6 +316,7 @@ def parser() -> argparse.ArgumentParser:
     _conversation_commands(sub)
     _judge_commands(sub)
     _schedule_commands(sub)
+    _upgrade_commands(sub)
 
     secret = sub.add_parser("secret", help="本机凭据：set / list / delete").add_subparsers(dest="action", required=True)
     setter = secret.add_parser("set")
@@ -686,6 +705,28 @@ def _dispatch_schedule(args) -> tuple[dict, int]:
     return scheduler.get(args.task), 0
 
 
+def _dispatch_upgrade(args) -> tuple[dict, int]:
+    from . import upgrade
+
+    base = command_input.base_directory(args)
+    if args.action in ("plan", "prepare"):
+        package = command_input.resolve_path(args.package, base)
+        target = str((base / Path(args.target).expanduser()).resolve())
+        options = {"workspaces": [str((base / Path(value).expanduser()).resolve()) for value in args.workspaces],
+                   "config_paths": [str((base / Path(value).expanduser()).resolve()) for value in args.configs]}
+        if args.action == "prepare":
+            if args.job_dir:
+                options["job_dir"] = str((base / Path(args.job_dir).expanduser()).resolve())
+            if args.stop_services:
+                options["stop_services"] = True
+        return getattr(upgrade, args.action)(package, target, **options), 0
+    journal = str((base / Path(args.journal).expanduser()).resolve())
+    if args.action == "status":
+        return upgrade.status(journal), 0
+    options = {"stop_services": True} if getattr(args, "stop_services", False) else {}
+    return upgrade.handoff(journal, action=args.action, **options), 0
+
+
 def _dispatch_secret(args) -> tuple[dict, int]:
     """Handle the secret command without changing its result contract."""
     action = getattr(args, "action", None)
@@ -849,6 +890,7 @@ def dispatch(args) -> tuple[dict, int]:
         "conversation": _dispatch_conversation,
         "judge": _dispatch_judge,
         "schedule": _dispatch_schedule,
+        "upgrade": _dispatch_upgrade,
         "secret": _dispatch_secret,
         "report": _dispatch_report,
         "pack": _dispatch_pack,
@@ -937,11 +979,13 @@ def _main(args, argv: list[str]) -> int:
     real_stdout = sys.stdout
     try:
         mode = os.environ.get("AUTOSKILL_BRIDGE", "auto")
-        if args.command != "dashboard" and mode != "off":
+        local_status = args.command == "upgrade" and args.action == "status" and mode != "on"
+        if args.command != "dashboard" and mode != "off" and not local_status:
             reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
             if reason:
                 return delegate(args, argv, reason)
-        db.init()
+        if args.command != "upgrade":
+            db.init()
         if args.command != "dashboard":  # the dashboard is long-running and talks to a person
             sys.stdout = sys.stderr  # anything a library prints goes to stderr; stdout carries the JSON only
         try:

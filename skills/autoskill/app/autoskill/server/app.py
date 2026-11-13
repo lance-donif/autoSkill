@@ -1,6 +1,7 @@
 """Loopback-only HTTP API for the dashboard. It shows and runs; it never generates cases."""
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import os
@@ -110,6 +111,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     _register_conversation_routes(app)
     _register_judge_routes(app)
     _register_host_routes(app)
+    _register_upgrade_routes(app)
     _register_unknown_route(app)
 
     ui = paths.APP / "ui"
@@ -651,6 +653,46 @@ def _register_host_routes(app: FastAPI) -> None:
     async def release(delivery_id: str, request: Request):
         body = await request.json()
         return scheduler.release_delivery(delivery_id, body.get("token", ""), body.get("reason", ""))
+
+
+def _upgrade_arguments(action: str, body: dict) -> list[str]:
+    if action not in ("plan", "prepare", "status", "apply", "rollback", "recover"):
+        raise ValueError("没有这个升级操作")
+    if not isinstance(body, dict):
+        raise ValueError("升级输入需要是 JSON 对象")
+    required = ("package", "target") if action in ("plan", "prepare") else ("journal",)
+    if any(not isinstance(body.get(field), str) or not body[field] for field in required):
+        raise ValueError("升级操作需要有效的路径文字：" + "、".join(required))
+    if "stop_services" in body and type(body["stop_services"]) is not bool:
+        raise ValueError("stop_services 需要是布尔值")
+    argv = ["upgrade", action]
+    if action in ("plan", "prepare"):
+        argv += [str(body.get("package", "")), "--target", str(body.get("target", ""))]
+        for field, flag in (("workspaces", "--workspace"), ("config_paths", "--config")):
+            values = body.get(field, [])
+            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                raise ValueError(f"{field} 需要是路径文字数组")
+            for value in values:
+                argv += [flag, value]
+        if action == "prepare" and body.get("job_dir"):
+            argv += ["--job-dir", str(body["job_dir"])]
+    else:
+        argv.append(str(body.get("journal", "")))
+    if body.get("stop_services"):
+        argv.append("--stop-services")
+    return argv
+
+
+def _register_upgrade_routes(app: FastAPI) -> None:
+    @app.post("/api/upgrades/{action}")
+    async def upgrade_action(action: str, request: Request):
+        body = await request.json()
+        argv = _upgrade_arguments(action, body)
+        # Handoff waits for its caller to exit, so a short-lived CLI owns it rather than this HTTP server.
+        response = await asyncio.to_thread(bridge.execute, argv, caller_cwd=body.get("base_dir") or str(paths.workspace()),
+                                            attachments=body.get("attachments"), session_id=task_context.session_id())
+        result = json.loads(response["stdout"])
+        return JSONResponse(result, status_code=200 if response["exit"] == 0 else 400)
 
 
 def _register_unknown_route(app: FastAPI) -> None:

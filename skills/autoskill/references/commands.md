@@ -1,6 +1,6 @@
 # autoSkill 命令参考
 
-所有命令输出一个 JSON 对象；`"error"` 表示没有成功，文字说明原因和下一步。任何失败（包括没有预料到的内部错误）都以这种形式输出，详细信息另写到标准错误。退出码：0 成功，1 有用例失败，2 阻塞、命令没有成功或用法错误，3 找不到随包运行时。
+所有命令输出一个 JSON 对象；命令错误用 `"error"` 说明原因，内部错误的详细信息另写到标准错误。业务失败保留正常结果结构：例如 check 返回 `passed:false`、expected/actual，回放返回 Fail/Blocked；不能只检查 error。退出码：0 命令成功（入队或查询不代表业务通过），1 同步用例或 check 失败，2 阻塞、命令错误或用法错误，3 找不到随包运行时。
 
 ## 会话
 
@@ -138,7 +138,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 目标：`@e编号`（来自最近一次 snapshot）或 CSS 选择器。按键名如 `Enter` `Escape` `Tab` `Control+a`。
 
-不可用：安装、升级、连接外部浏览器、代理、网络与登录态相关命令——这些由 autoskill 统一管理。
+`browser` 子命令不提供浏览器安装、升级、连接外部浏览器、代理或登录态管理；这些由 autoSkill 统一管理。升级 autoSkill 本身使用独立的 `upgrade` 命令。
 
 ### 录下来的定位方式
 
@@ -146,14 +146,16 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 ### check 类型
 
-`visible` `hidden` `text` `contains` `value` `checked` `count` `attribute`（需 `--attribute`）需要目标；`url` `url_contains` `title` 不需要。目标可写 `@e5`、`testid=…`、`text=…`、`label=…`、`placeholder=…`、`role=角色:名称` 或 CSS 选择器；`count` 的目标用 CSS 选择器。
+`visible` `hidden` `text` `contains` `value` `checked` `count` `min_count` `attribute`（需 `--attribute`）需要目标；`url` `url_contains` `title` 不需要。目标可写 `@e5`、`testid=…`、`text=…`、`label=…`、`placeholder=…`、`role=角色:名称` 或 CSS 选择器；`count/min_count` 的目标用 CSS 选择器。
+
+时间断言为采样观察：默认 eventually 在 timeout 内等待目标成立，`--stable-for 2` 要求最终连续成立 2 秒；`--mode always --stable-for 2` 要求整个观察窗口持续成立，任一次观察不符即失败。`--from-json '{"assertion":"text","expected":"处理中"}'` 先在本次检查窗口观察来源，再观察目标，可沿用目标 locator；不表示系统已经在业务 action 之前检查过该状态，也不保证捕捉采样间的瞬时变化。
 
 ## 回放
 
 `run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api]`
 
 - 浏览器默认显示最大化的窗口（没有窗口时页面为 1920×1080）；加 `--headless` 在后台运行（`record start`、`run`、`login`、`dashboard` 都支持，也可设置环境变量 `AUTOSKILL_HEADED=0`）。
-- 全局默认同时回放 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的回放共享登录态，会自动排队。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
+- 全局默认同时执行 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的浏览器/HTTP replay 共享登录态，会自动排队，native 原生任务使用独立输入与证据目录、同项目可并行。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
 - 前置用例自动先执行且每次运行只执行一次；前置没通过时，依赖它的用例记为阻塞。
 - 登录用例：有保存的登录态且仍有效就直接复用，否则重新登录；回放中途发现登录过期会重新登录一次，只读用例自动重试，写操作不自动重发。
 - 没有前置的接口用例不带任何登录信息发送（用来验证「未登录被拒绝」）。
@@ -168,7 +170,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 | `export postman <项目> [--out 目录]` | Postman Collection v2.1 + Environment。按依赖顺序排列，含断言脚本和变量传递；凭据是环境里的空变量 |
 | `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本（含前置步骤），运行时不需要 autoSkill；凭据从同名环境变量读取 |
 | `report <项目> [--out 目录]` | Excel（用例、步骤、断言、最近结果）和 Markdown 摘要 |
-| `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包：用例、知识库、登录方式定义。不含登录态、运行记录、截图；凭据仅在 `--include-secrets` 时用口令加密带上 |
+| `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、原生资产及原始捕获，不额外加入本机登录态、运行记录、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |
 | `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含运行历史、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
 | `import <分享包> [--passphrase 口令] [--overwrite]` | 导入轻量分享包。已有同名项目默认跳过 |
 
@@ -180,6 +182,20 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 | `demo` | 安装示例项目「示例工单系统」；启动仪表盘时会同时启动示例站点 |
 | `doctor [--launch]` | 检查运行时；`--launch` 真实启动一次浏览器 |
 | `verify` | 按清单校验随包运行时文件（完整离线包） |
+
+## 离线升级与恢复
+
+| 命令 | 说明 |
+| --- | --- |
+| `upgrade plan <完整包目录或ZIP> --target <旧安装> [--workspace <外置数据目录>] [--config <配置文件>]` | 读取版本、完整性清单、工作区与当前运行状态；workspace/config 可重复 |
+| `upgrade prepare <完整包目录或ZIP> --target <旧安装> [--workspace] [--config] [--job-dir <持久目录>] [--stop-services]` | 深复制新包、保存完整数据快照，返回持久 journal；附件临时目录清理后仍可继续 |
+| `upgrade apply <journal> [--stop-services]` | 交给新包的独立运行时执行切换；launched 只表示交接成功 |
+| `upgrade status <journal>` | 读取 state、last_action、校验、备份与错误；最近动作失败不能按前次 completed 宣布成功 |
+| `upgrade rollback <journal> [--stop-services]` / `upgrade recover <journal> [--stop-services]` | 用独立进程恢复旧程序或中断状态，保留升级后新增数据与恢复依据 |
+
+升级保留整个工作区：用例、知识、原生资产、明文凭据、登录态、调度、运行记录与证据；外置工作区不改位置。`--stop-services` 只处理经身份核对属于目标安装的 autoSkill 服务，不关闭 DSH 或其他应用；活动业务运行不会被偷偷取消。新包独立升级器负责程序替换，不能用正在被替换的 Python 直接覆盖自己。保留 journal、旧目录和备份，不能把 `launched` 当成完成。
+
+HTTP 使用 `POST /api/upgrades/{plan|prepare|apply|status|rollback|recover}`，JSON 字段对应 package、target、workspaces 数组、config_paths 数组、job_dir、journal、stop_services；相对路径以 base_dir（默认服务工作区）解析。HTTP 也经过短命令进程交接，不让升级器等待长驻 HTTP 服务正常退出。完整说明见 [升级流程](workflow/upgrade.md)。
 
 ## 文件放在哪
 
