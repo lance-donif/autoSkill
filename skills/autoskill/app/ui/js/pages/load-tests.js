@@ -214,7 +214,7 @@ function resultTable(run) {
     h('thead', {}, h('tr', {}, ['结果', '用例', '用户 / 迭代', '耗时', '详情'].map((text) => h('th', {}, text)))),
     h('tbody', {}, rows.map((row) => h('tr', {},
       h('td', {}, statusPill(row.status)),
-      h('td', {}, h('div', { class: 'title' }, row.case_title, row.prerequisite && h('span', { class: 'tag' }, '前置')),
+      h('td', {}, h('div', { class: 'title' }, row.case_title, row.prerequisite ? h('span', { class: 'tag' }, '前置') : null),
         h('div', { class: 'sub mono' }, row.case_id)),
       h('td', { class: 'num' }, `${row.detail.load_user} / ${row.detail.load_iteration}`),
       h('td', { class: 'num' }, fmtDuration(row.duration_ms)),
