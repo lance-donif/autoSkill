@@ -70,6 +70,8 @@ class DashboardReviewTests(unittest.TestCase):
             return {"saved": "REVIEW_SECRET"}
         if path == "/api/cases":
             return {"items": [self.case], "total": 1}
+        if path == "/api/projects/review/folders":
+            return {"project_id": "review", "revision": "fixture-folders", "folders": [], "assignments": {self.case["case_id"]: None}}
         if path in ("/api/runs", "/api/results"):
             return self.history_response(path, query)
         raise AssertionError("Unexpected API request: " + path)

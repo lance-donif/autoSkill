@@ -135,6 +135,10 @@ class DashboardDeletionTests(unittest.TestCase):
             return 200, {"data_id": "fixture-data", "dashboard": {}, "legacy_dashboard_import_eligible": False}
         if path == "/api/status":
             return 200, {"browser": {}, "runtime": {}, "skill_path": "/synthetic/skill"}
+        if path.endswith("/folders"):
+            project_id = path.split("/")[3]
+            return 200, {"project_id": project_id, "revision": "fixture-folders", "folders": [],
+                         "assignments": {item["case_id"]: None for item in self.cases if item["project_id"] == project_id}}
         if path.startswith("/api/runs"):
             return self.run_response(request, path, query)
         if path.startswith("/api/cases") or "/cases/" in path:
