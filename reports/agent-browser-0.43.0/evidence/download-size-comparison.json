@@ -1,0 +1,13 @@
+{
+  "old_version": "0.42.0",
+  "old_tarball_bytes": 59645044,
+  "new_version": "0.43.0",
+  "new_core_bytes": 107190,
+  "new_native_bytes": {
+    "linux-x64": 8815814,
+    "linux-arm64": 8300261,
+    "windows-x64": 8716963
+  },
+  "scope": "Maintainer agent-browser dependency downloads only; Python/Chrome and user offline archive size excluded.",
+  "old_binary_sha256": "b69e0f5ea76dcb51f8f75da6bcb87c7f4d81f79b5738f1f08bd121b51cb3dc57"
+}

@@ -48,8 +48,47 @@ class RecordingTarget(BaseHTTPRequestHandler):
         pass
 
 
+class AmbiguousTarget(RecordingTarget):
+    def do_GET(self):
+        body = '''<!doctype html><title>同名操作</title><table>
+<tr><td>第一行</td><td><button id="first" onclick="document.querySelector('#result').textContent='第一行已处理'">处理</button></td></tr>
+<tr><td>第二行</td><td><button id="second" onclick="document.querySelector('#result').textContent='第二行已处理'">处理</button></td></tr>
+</table><output id="result">等待操作</output>'''.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
 @unittest.skipUnless(paths.agent_browser() and paths.chrome(), "requires the actual recording browser")
 class RecorderBrowserCompatibilityTests(unittest.TestCase):
+    def test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
+                "AUTOSKILL_WORKSPACE": folder, "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"}):
+            site = ThreadingHTTPServer(("127.0.0.1", 0), AmbiguousTarget)
+            thread = threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+            thread.start()
+            with task_context.use_session("snapshot-hints"):
+                try:
+                    project = projects.create("同名控件提示", f"http://127.0.0.1:{site.server_port}")["id"]
+                    started = session.start(project, login=False)
+                    hinted = [line for line in started["snapshot"].splitlines() if 'hint="' in line and "id:second" in line]
+                    self.assertEqual(len(hinted), 1, started["snapshot"])
+                    reference = re.search(r"\[ref=(e\d+)\]", hinted[0]).group(1)
+                    self.assertEqual(session.current()["refs"][reference]["name"], "处理")
+                    session.browser(["click", "@" + reference])
+                    self.assertTrue(session.check("text", "#result", "第二行已处理")["passed"])
+                    saved = session.stop("用快照提示选择第二行操作")
+                    self.assertEqual(saved["test_report"]["status"], "ready")
+                    run = runner.create(project, [saved["ui_case"]["id"]])
+                    self.assertEqual(runner.execute(run["id"])["status"], "Pass")
+                finally:
+                    session.cancel()
+                    site.shutdown()
+                    site.server_close()
+                    thread.join(timeout=3)
+
     @unittest.skipUnless(sys.platform == "linux" and os.environ.get("DISPLAY") and shutil.which("xwininfo") and shutil.which("xprop"),
                          "requires a real X11 display and window inspection tools")
     def test_explicitly_visible_recording_creates_a_mapped_owned_window(self):

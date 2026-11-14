@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON, PYTHON_BUILD = "3.12.10", "20250529"
-AGENT_BROWSER = "0.42.0"
+AGENT_BROWSER = "0.43.0"
 
 
 def sha256(path: Path) -> str:
@@ -63,6 +63,9 @@ def main():
         "chromedriver": fetch(base + f"/chromedriver-{cft}.zip", assets / "chromedriver" / "chromedriver.zip"),
         "agent_browser": fetch(f"https://registry.npmjs.org/agent-browser/-/agent-browser-{AGENT_BROWSER}.tgz",
                                assets / "agent-browser" / "agent-browser.tgz"),
+        "agent_browser_native": fetch(
+            f"https://registry.npmjs.org/@agent-browser/cli-linux-{args.arch}-gnu/-/cli-linux-{args.arch}-gnu-{AGENT_BROWSER}.tgz",
+            assets / "agent-browser" / "agent-browser-native.tgz"),
     }
     with urllib.request.urlopen(python_url + ".sha256", timeout=60) as response:
         expected = response.read().decode().split()[0]

@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = "3.12.10"
-AGENT_BROWSER = "0.42.0"
+AGENT_BROWSER = "0.43.0"
 CFT_INDEX = "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json"
 
 
@@ -73,6 +73,10 @@ def main() -> None:
         "agent_browser": fetch(
             f"https://registry.npmjs.org/agent-browser/-/agent-browser-{AGENT_BROWSER}.tgz",
             assets / "agent-browser" / "agent-browser.tgz",
+        ),
+        "agent_browser_native": fetch(
+            f"https://registry.npmjs.org/@agent-browser/cli-win32-x64-msvc/-/cli-win32-x64-msvc-{AGENT_BROWSER}.tgz",
+            assets / "agent-browser" / "agent-browser-native.tgz",
         ),
     }
     wheels = assets / "wheels"

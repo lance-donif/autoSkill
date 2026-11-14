@@ -1,0 +1,13 @@
+{
+  "scope": "Feasibility only, two buttons; no performance measurements.",
+  "results": {
+    "old": {
+      "correct": true,
+      "refs": 2
+    },
+    "new": {
+      "correct": true,
+      "refs": 2
+    }
+  }
+}

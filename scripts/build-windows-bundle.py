@@ -68,6 +68,8 @@ def check_sources(assets: Path) -> dict:
     """Every downloaded archive must still match the hash recorded when it was fetched."""
     recorded = json.loads((assets / "download-sources.json").read_text(encoding="utf-8"))
     folders = {"python": "python", "chrome": "chrome", "chromedriver": "chromedriver", "agent_browser": "agent-browser"}
+    if "agent_browser_native" in recorded["sources"]:
+        folders["agent_browser_native"] = "agent-browser"
     for key, folder in folders.items():
         item = recorded["sources"][key]
         if sha256(assets / folder / item["file"]) != item["sha256"]:
@@ -76,6 +78,65 @@ def check_sources(assets: Path) -> dict:
         if sha256(assets / "wheels" / wheel["file"]) != wheel["sha256"]:
             raise ValueError("Wheel changed since it was fetched: " + wheel["file"])
     return recorded
+
+
+def _agent_guide(archive: tarfile.TarFile) -> dict[str, bytes]:
+    prefix = "package/skill-data/core/"
+    files = {}
+    for member in archive.getmembers():
+        if not member.isfile() or not member.name.startswith(prefix):
+            continue
+        relative = member.name[len(prefix):]
+        if Path(relative).is_absolute() or ".." in Path(relative).parts or "\\" in relative:
+            raise ValueError("Unsafe agent-browser guide member: " + member.name)
+        files[relative] = archive.extractfile(member).read()
+    if "SKILL.md" not in files:
+        raise ValueError("agent-browser core guide is missing SKILL.md")
+    return files
+
+
+def install_agent_browser(assets: Path, recorded: dict, package: Path, target: str) -> None:
+    """Install the pinned core guide and native platform package without running npm."""
+    version = recorded["agent_browser_version"]
+    core_file = assets / "agent-browser" / recorded["sources"]["agent_browser"]["file"]
+    native_source = recorded["sources"].get("agent_browser_native")
+    native_names = {"linux-x64": "cli-linux-x64-gnu", "linux-arm64": "cli-linux-arm64-gnu", "windows-x64": "cli-win32-x64-msvc"}
+    native_name = "agent-browser.exe" if target == "windows-x64" else "agent-browser"
+    with tarfile.open(core_file) as archive:
+        metadata = json.loads(archive.extractfile("package/package.json").read())
+        if metadata.get("name") != "agent-browser" or metadata.get("version") != version:
+            raise ValueError("agent-browser core archive does not match its recorded version")
+        guide_files = _agent_guide(archive)
+        licenses = {"LICENSE": archive.extractfile("package/LICENSE").read()}
+        for member in archive.getmembers():
+            if member.isfile() and member.name.startswith("package/cli/src/native/a11y/LICENSE-"):
+                licenses[Path(member.name).name] = archive.extractfile(member).read()
+        if not native_source:
+            legacy_name = "agent-browser-win32-x64.exe" if target == "windows-x64" else "agent-browser-" + target
+            binary = archive.extractfile("package/bin/" + legacy_name).read()
+    if native_source:
+        with tarfile.open(assets / "agent-browser" / native_source["file"]) as archive:
+            metadata = json.loads(archive.extractfile("package/package.json").read())
+            if metadata.get("name") != "@agent-browser/" + native_names[target] or metadata.get("version") != version:
+                raise ValueError("agent-browser native archive does not match its platform or version")
+            binary = archive.extractfile("package/bin/" + native_name).read()
+    agent = package / "vendor" / target / "agent-browser"
+    agent.mkdir(parents=True, exist_ok=True)
+    executable = agent / native_name
+    executable.write_bytes(binary)
+    executable.chmod(0o755)
+    for name, payload in licenses.items():
+        (agent / name).write_bytes(payload)
+    guide = package / "references/agent-browser-core.offline"
+    if guide.exists():
+        shutil.rmtree(guide)
+    for name, payload in guide_files.items():
+        destination = guide / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(payload)
+    source = {"package": "agent-browser@" + version, "source_path": "skill-data/core", "license": "Apache-2.0",
+              "files": {name: hashlib.sha256(payload).hexdigest() for name, payload in sorted(guide_files.items())}}
+    (guide / "source.json").write_text(json.dumps(source, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def smoke_test(package: Path) -> None:
@@ -172,22 +233,7 @@ def build(assets: Path, output: Path) -> dict:
             target.unlink()
     unzip(assets / "chromedriver" / recorded["sources"]["chromedriver"]["file"], vendor / "chromedriver")
 
-    # agent-browser: only the Windows binary and its licence; no installer scripts, no other platforms.
-    agent = vendor / "agent-browser"
-    agent.mkdir()
-    with tarfile.open(assets / "agent-browser" / recorded["sources"]["agent_browser"]["file"]) as tar:
-        wanted = {"package/bin/agent-browser-win32-x64.exe": "agent-browser.exe", "package/LICENSE": "LICENSE"}
-        for member in tar.getmembers():
-            if member.name in wanted and member.isfile():
-                (agent / wanted[member.name]).write_bytes(tar.extractfile(member).read())
-        guide = package / "references" / "agent-browser-core.offline"
-        for member in tar.getmembers():  # keep the offline guide in step with the binary's version
-            prefix = "package/skill-data/core/"
-            if member.name.startswith(prefix) and member.isfile():
-                target = (guide / member.name[len(prefix):]).resolve()
-                if target.is_relative_to(guide.resolve()):
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(tar.extractfile(member).read())
+    install_agent_browser(assets, recorded, package, "windows-x64")
 
     for binary in ("python/python.exe", "chrome/chrome-win64/chrome.exe", "chromedriver/chromedriver-win64/chromedriver.exe",
                    "agent-browser/agent-browser.exe"):

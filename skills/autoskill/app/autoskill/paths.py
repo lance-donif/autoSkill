@@ -219,18 +219,46 @@ def chromedriver() -> str | None:
     return _first(VENDOR / "chromedriver" / relative, shutil.which("chromedriver") if sys.platform == "linux" else None)
 
 
+def _native_agent_browser(file: Path) -> str | None:
+    if not _first(file):
+        return None
+    try:
+        with file.open("rb") as stream:
+            header = stream.read(4)
+    except OSError:
+        return None
+    if header[:2] == b"MZ" or header in (b"\x7fELF", b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xca\xfe\xba\xbe"):
+        return str(file)
+    return None
+
+
+def _npm_agent_browser(shim: str) -> str | None:
+    resolved = Path(shim).resolve()
+    native = _native_agent_browser(resolved)
+    if native:
+        return native
+    folder, target = resolved.parent, runtime_target()
+    legacy_name = "agent-browser-win32-x64.exe" if target == "windows-x64" else "agent-browser-" + target
+    native_target = {"linux-x64": "linux-x64-gnu", "linux-arm64": "linux-arm64-gnu", "windows-x64": "win32-x64-msvc"}.get(target, target)
+    native_name = "agent-browser.exe" if target == "windows-x64" else "agent-browser"
+    for bin_folder in (folder, folder / "node_modules/agent-browser/bin", folder.parent / "agent-browser/bin"):
+        legacy = _first(bin_folder / legacy_name)
+        if legacy:
+            return legacy
+        for modules in (bin_folder.parent / "node_modules", bin_folder.parent.parent):
+            native = _native_agent_browser(modules / "@agent-browser" / ("cli-" + native_target) / "bin" / native_name)
+            if native:
+                return native
+    return None
+
+
 def agent_browser() -> str | None:
     """The native binary, never the npm shim: the shim can install or upgrade."""
     bundled = _first(os.environ.get("AUTOSKILL_AGENT_BROWSER"), VENDOR / "agent-browser" / ("agent-browser" if sys.platform == "linux" else "agent-browser.exe"))
     if bundled:
         return bundled
     shim = shutil.which("agent-browser")
-    if shim:
-        folder = Path(shim).resolve().parent
-        name = "agent-browser-win32-x64.exe" if os.name == "nt" else "agent-browser-" + runtime_target()
-        return _first(folder / name, folder / "node_modules" / "agent-browser" / "bin" / name,
-                      folder.parent / "agent-browser" / "bin" / name)
-    return None
+    return _npm_agent_browser(shim) if shim else None
 
 
 def headed() -> bool:

@@ -1,0 +1,13 @@
+test_fresh_recorders_keep_the_same_browser_and_save_replayable_business_evidence (test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_fresh_recorders_keep_the_same_browser_and_save_replayable_business_evidence) ... ok
+test_script_closes_child_and_returns_result_to_parent (test_tabs.TabsTests.test_script_closes_child_and_returns_result_to_parent) ... ok
+test_target_blank_record_replay_and_standalone_exports (test_tabs.TabsTests.test_target_blank_record_replay_and_standalone_exports) ... ok
+test_window_open_record_replay_and_standalone_exports (test_tabs.TabsTests.test_window_open_record_replay_and_standalone_exports) ... ok
+test_record_save_and_replay_cross_origin_mixed_context_without_a_second_browser (test_recorder_contexts.RecorderContextTests.test_record_save_and_replay_cross_origin_mixed_context_without_a_second_browser) ... ok
+test_context_missing_is_not_a_hidden_pass_and_closed_shadow_is_explicit (test_recorder_contexts.RecorderContextTests.test_context_missing_is_not_a_hidden_pass_and_closed_shadow_is_explicit) ... ok
+test_nested_open_shadow_references_and_frame_reload_re_resolve (test_recorder_contexts.RecorderContextTests.test_nested_open_shadow_references_and_frame_reload_re_resolve) ... ok
+test_two_real_cli_tasks_record_cancel_save_and_replay_through_the_bridge (test_multisession.ConcurrentRecordingTests.test_two_real_cli_tasks_record_cancel_save_and_replay_through_the_bridge) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 135.317s
+
+OK

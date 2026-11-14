@@ -1,0 +1,145 @@
+"""Three predeclared paired batches for large-page native snapshots, not whole-task claims."""
+import argparse
+import datetime as dt
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import random
+import socket
+import statistics
+import sys
+import tempfile
+import time
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/workspace/autoSkill')
+sys.path.insert(0, str(REPO/'skills/autoskill/app'))
+from autoskill import paths
+from autoskill.recorder import agent
+from playwright.sync_api import sync_playwright
+
+BINARIES = {'old':ROOT/'agent-browser-0.42.0',
+            'new':ROOT/'agent-browser-0.43.0'}
+SEED = 20261118
+CONTROLS = 6000
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def save(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
+
+
+def freeze():
+    assert not (ROOT/'snapshot-protocol.json').exists()
+    inputs={'snapshot_benchmark.py':digest(Path(__file__)),
+            'paths.py':digest(REPO/'skills/autoskill/app/autoskill/paths.py'),
+            'agent.py':digest(REPO/'skills/autoskill/app/autoskill/recorder/agent.py')}
+    save(ROOT/'snapshot-protocol.json',{'created_utc':dt.datetime.now(dt.UTC).isoformat(),
+        'controls':CONTROLS,'batches':3,'pairs_per_batch':10,'warmup_snapshots_per_variant':2,
+        'binary_sha256':{k:digest(v) for k,v in BINARIES.items()},'source_hashes':inputs,
+        'primary':'Per-batch median[100*(new_seconds/old_seconds-1)];20k paired percentile bootstrap95%,seed20261118.',
+        'acceptance':'All3 batches median<=-10% and CIupper<0; pooled faster_fraction>=80% and Wilson95lower>=70%; no incorrect snapshots.',
+        'scope':'6000 uniquely named controls on one static local page per batch, same Chromium CDP target shared read-only. '
+                'Native snapshot call including CLI/file I/O; browser setup/warmup and saving this benchmark evidence excluded. '
+                'Not autonomous task, model-token, normal/small-page or production-site efficiency.',
+        'order':'Old/new first alternates within each10-pair batch; fresh browser/daemon data roots per batch; no concurrent workload.'})
+    print(json.dumps({'frozen':True,'protocol_sha256':digest(ROOT/'snapshot-protocol.json')}),flush=True)
+
+
+def percentile(data,q):
+    values=sorted(data);pos=(len(values)-1)*q;lo=math.floor(pos);hi=math.ceil(pos)
+    return values[lo]+(values[hi]-values[lo])*(pos-lo)
+
+
+def interval(values):
+    rng=random.Random(SEED)
+    medians=[statistics.median(rng.choices(values,k=len(values))) for _ in range(20000)]
+    return [percentile(medians,.025),percentile(medians,.975)]
+
+
+def analyze():
+    records=[json.loads(s) for s in (ROOT/'snapshot/results.jsonl').read_text().splitlines()]
+    measured=[r for r in records if not r['warmup']]
+    assert len(measured)==60 and all(r['correct'] for r in records)
+    batches=[];relative=[]
+    for batch in range(1,4):
+        group=[r for r in measured if r['batch']==batch]
+        indexed={(r['pair'],r['variant']):r for r in group}
+        changes=[100*(indexed[(i,'new')]['seconds']/indexed[(i,'old')]['seconds']-1) for i in range(10)]
+        ci=interval(changes);median=statistics.median(changes)
+        batches.append({'batch':batch,'pairs':10,'median_relative_change_percent':median,'bootstrap95':ci,
+                        'faster_pairs':sum(x<0 for x in changes),'passed':median<=-10 and ci[1]<0,
+                        'old_median_seconds':statistics.median(r['seconds'] for r in group if r['variant']=='old'),
+                        'new_median_seconds':statistics.median(r['seconds'] for r in group if r['variant']=='new')})
+        relative.extend(changes)
+    n=len(relative);faster=sum(x<0 for x in relative);p=faster/n;z=1.959963984540054
+    lower=(p+z*z/(2*n)-z*math.sqrt(p*(1-p)/n+z*z/(4*n*n)))/(1+z*z/n)
+    summary={'scope':json.loads((ROOT/'snapshot-protocol.json').read_bytes())['scope'],
+             'batches':batches,'pairs':n,'faster_pairs':faster,'faster_fraction':p,'wilson95_lower':lower,
+             'median_relative_change_percent':statistics.median(relative),'correct_snapshots':len(records),
+             'stable_component_speedup':all(b['passed'] for b in batches) and p>=.8 and lower>=.7}
+    save(ROOT/'snapshot-summary.json',summary)
+    print(json.dumps(summary,ensure_ascii=False),flush=True)
+
+
+def run():
+    protocol=json.loads((ROOT/'snapshot-protocol.json').read_bytes())
+    assert protocol['binary_sha256']=={k:digest(v) for k,v in BINARIES.items()}
+    assert protocol['source_hashes']=={'snapshot_benchmark.py':digest(Path(__file__)),
+                                     'paths.py':digest(REPO/'skills/autoskill/app/autoskill/paths.py'),
+                                     'agent.py':digest(REPO/'skills/autoskill/app/autoskill/recorder/agent.py')}
+    assert not (ROOT/'snapshot/results.jsonl').exists(), 'Never replace performance samples'
+    clean={k:v for k,v in os.environ.items() if not k.startswith(('AUTOSKILL_','AGENT_BROWSER_')) and k not in ('GH_TOKEN','GITHUB_TOKEN','OPENAI_API_KEY')}
+    clean.update(AUTOSKILL_HEADED='0',AUTOSKILL_BRIDGE='off',PYTHONDONTWRITEBYTECODE='1',
+                 NO_PROXY='localhost,127.0.0.1,::1',no_proxy='localhost,127.0.0.1,::1')
+    with patch.dict(os.environ,clean,clear=True),sync_playwright() as pw:
+        for batch in range(1,4):
+            with socket.socket() as available:
+                available.bind(('127.0.0.1',0));port=available.getsockname()[1]
+            with tempfile.TemporaryDirectory(prefix='as43-snapshot-') as profile:
+                browser=pw.chromium.launch_persistent_context(profile,executable_path='/usr/bin/chromium',headless=True,
+                    args=[*paths.QUIET_CHROME_ARGS,'--no-sandbox',f'--remote-debugging-port={port}'])
+                page=browser.pages[0]
+                names={f'操作-{batch}-{i}' for i in range(CONTROLS)}
+                page.set_content('<!doctype html><title>snapshot fixture</title>'+''.join(f'<button>{name}</button>' for name in sorted(names)))
+                assert page.get_by_role('button').count()==CONTROLS
+                def call(variant,pair,warmup=False,launch=False):
+                    workspace=ROOT/'snapshot/data'/f'{batch}-{variant}'
+                    session=f'snapshot43-{batch}-{variant}'
+                    with patch.dict(os.environ,{'AUTOSKILL_WORKSPACE':str(workspace),'AUTOSKILL_AGENT_BROWSER':str(BINARIES[variant])}):
+                        started=time.perf_counter()
+                        data=agent.call(session,['snapshot','-i'],launch=['--cdp',str(port)] if launch else None,timeout=90)
+                        elapsed=time.perf_counter()-started
+                    refs=data.get('refs',{})
+                    actual={r.get('name') for r in refs.values() if r.get('role')=='button'}
+                    correct=actual==names and len(refs)==CONTROLS
+                    row={'batch':batch,'pair':pair,'variant':variant,'warmup':warmup,'seconds':elapsed,
+                         'correct':correct,'ref_count':len(refs),'names_count':len(actual)}
+                    save(ROOT/'snapshot'/f'b{batch}-p{pair}-{variant}-w{int(warmup)}.json',{'measurement':row,'data':data})
+                    with (ROOT/'snapshot/results.jsonl').open('a') as out:out.write(json.dumps(row)+'\n')
+                    assert correct,row
+                try:
+                    for variant in ('old','new'):
+                        for warmup in range(2):call(variant,-warmup-1,True,warmup==0)
+                    for pair in range(10):
+                        for variant in (('old','new') if pair%2==0 else ('new','old')):call(variant,pair)
+                    print(json.dumps({'completed_batch':batch,'measured_pairs':10}),flush=True)
+                finally:
+                    for variant in ('old','new'):
+                        with patch.dict(os.environ,{'AUTOSKILL_WORKSPACE':str(ROOT/'snapshot/data'/f'{batch}-{variant}'),
+                                                   'AUTOSKILL_AGENT_BROWSER':str(BINARIES[variant])}):
+                            agent.call(f'snapshot43-{batch}-{variant}',['close'],check=False,timeout=15)
+                    browser.close()
+    analyze()
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('mode',choices=['freeze','run','analyze']);args=parser.parse_args()
+    {'freeze':freeze,'run':run,'analyze':analyze}[args.mode]()

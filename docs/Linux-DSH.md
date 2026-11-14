@@ -12,7 +12,7 @@
 
 共 3 个包，UOS ARM64 与其他 glibc Linux ARM64 共用原生包。龙芯、申威、32 位 ARM、musl Linux 不属于这三个包的运行架构。第三方支持依据见 [平台与第三方支持.md](平台与第三方支持.md)。
 
-Linux 包包含 Python 3.12.10（python-build-standalone）、agent-browser 0.42.0、Chrome for Testing 157.0.8103.78、同版本 chromedriver，以及 Playwright 1.62.0、Selenium 4.38.0 等 Python 库。运行时不联网安装或更新，不需要系统 Python。DSH 宿主单独安装，需 Node >= 24.9。
+当前源码构建的 Linux 包包含 Python 3.12.10（python-build-standalone）、agent-browser 0.43.0、Chrome for Testing 157.0.8103.78、同版本 chromedriver，以及 Playwright 1.62.0、Selenium 4.38.0 等 Python 库。运行时不联网安装或更新，不需要系统 Python。DSH 宿主单独安装，需 Node >= 24.9。已下载的旧离线包不会随源码更新，需要使用包含本次变更的新包。
 
 **系统前提：glibc >= 2.28，以及浏览器需要的系统共享库。** Python 库按 manylinux2014 / manylinux_2_28 获取，未把 Ubuntu 系统库塞进 UOS。包内新版 Chrome 可能需要高于 2.28 的 glibc 或其他库；旧版 UOS 可配置本机 Chromium 和匹配的 chromedriver，不能用新版驱动控制旧版浏览器。UOS 不在 Playwright 官方支持发行版名单内，当前没有 UOS ARM64 真机验收结果。
 
@@ -89,10 +89,12 @@ autoskill/autoskill --session "库存任务-乙" browser snapshot
 ```sh
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements-linux.txt
-npm install --prefix ../autoskill-linux-tools --offline=false @deepseek-ai/dsh@0.2.2-rc.1 pnpm@12.18.0 agent-browser@0.42.0
+npm install --prefix ../autoskill-linux-tools --offline=false @deepseek-ai/dsh@0.2.2-rc.1 pnpm@12.18.0 agent-browser@0.43.0
 ```
 
-从 `node_modules/agent-browser/bin/` 复制匹配 CPU 的 `agent-browser-linux-x64` 或 `agent-browser-linux-arm64` 到 `skills/autoskill/vendor/linux-<架构>/agent-browser/agent-browser`，赋执行权限；也可用 `AUTOSKILL_AGENT_BROWSER` 指向原生程序。设置浏览器和驱动环境变量后执行 `skills/autoskill/autoskill doctor --launch`。源码部署无完整包清单，`verify` 不适用。通过 `sh scripts/run-dsh-linux.sh` 启动预装的 DSH Web。
+0.43.0 的原生程序来自 `@agent-browser/cli-linux-x64-gnu` 或 `@agent-browser/cli-linux-arm64-gnu`，文件为该包的 `bin/agent-browser`。从 `node_modules/@agent-browser/cli-linux-<架构>-gnu/bin/agent-browser` 复制到 `skills/autoskill/vendor/linux-<架构>/agent-browser/agent-browser`，赋执行权限；也可用 `AUTOSKILL_AGENT_BROWSER` 指向原生程序。npm 全局安装可能把平台包放在 `agent-browser/node_modules/@agent-browser/`，程序也能识别这一布局。设置浏览器和驱动环境变量后执行 `skills/autoskill/autoskill doctor --launch`。源码部署无完整包清单，`verify` 不适用。通过 `sh scripts/run-dsh-linux.sh` 启动预装的 DSH Web。
+
+维护者的资源下载脚本分别获取核心资料包和目标 CPU 的原生包；组装时校验两者版本与平台，并用核心包重新生成离线技能文件和哈希。不会把 npm 安装器放进运行流程。
 
 ## 验证边界
 

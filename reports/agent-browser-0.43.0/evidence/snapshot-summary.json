@@ -1,0 +1,51 @@
+{
+  "scope": "6000 uniquely named controls on one static local page per batch, same Chromium CDP target shared read-only. Native snapshot call including CLI/file I/O; browser setup/warmup and saving this benchmark evidence excluded. Not autonomous task, model-token, normal/small-page or production-site efficiency.",
+  "batches": [
+    {
+      "batch": 1,
+      "pairs": 10,
+      "median_relative_change_percent": -18.587325936388915,
+      "bootstrap95": [
+        -32.20810748128724,
+        -12.783964123743068
+      ],
+      "faster_pairs": 10,
+      "passed": true,
+      "old_median_seconds": 0.8827218590004122,
+      "new_median_seconds": 0.6572631634999198
+    },
+    {
+      "batch": 2,
+      "pairs": 10,
+      "median_relative_change_percent": -17.617663236951742,
+      "bootstrap95": [
+        -19.802819119421823,
+        -12.484271606186791
+      ],
+      "faster_pairs": 10,
+      "passed": true,
+      "old_median_seconds": 0.8321560554995813,
+      "new_median_seconds": 0.6843458295006712
+    },
+    {
+      "batch": 3,
+      "pairs": 10,
+      "median_relative_change_percent": -16.1613115866995,
+      "bootstrap95": [
+        -21.996014111948917,
+        -10.763193903617852
+      ],
+      "faster_pairs": 9,
+      "passed": true,
+      "old_median_seconds": 0.8396665400005077,
+      "new_median_seconds": 0.701855813000293
+    }
+  ],
+  "pairs": 30,
+  "faster_pairs": 29,
+  "faster_fraction": 0.9666666666666667,
+  "wilson95_lower": 0.8332960900859081,
+  "median_relative_change_percent": -17.492753695657438,
+  "correct_snapshots": 72,
+  "stable_component_speedup": true
+}

@@ -120,6 +120,8 @@ autoskill run <项目>                                                      # 5 
 
 `record start` 和每次操作之后都会返回 `snapshot`：页面上可操作的元素，每个带 `@e编号`。**编号只对最近一次 snapshot 有效，每次操作后都可能变**（新增一条数据后会多出新元素）——始终用最近一条命令返回的 snapshot 里的编号；页面变了就看新返回的 snapshot，或运行 `autoskill browser snapshot`。要对标题、提示文字、表格内容做断言时，用 `autoskill browser snapshot --all` 找到它们的编号。
 
+主文档的原生快照可能给无名或重名控件附上 `hint="..."`，包含图标、DOM 属性或邻近行文字。用提示区分当前 `@e编号`；提示不是控件的可访问名称，不能把它拼成 `role=button:提示内容`，也不能用来代替业务断言。需要稳定定位器时，继续用 `browser describe` 读取真实定位定义。
+
 | 目的 | 命令 |
 | --- | --- |
 | 点击 / 双击 / 悬停 | `browser click @e3`、`browser dblclick @e3`、`browser hover @e3` |
@@ -160,7 +162,7 @@ autoskill check attribute <目标> "期望值" --attribute class
 autoskill check url_contains "/orders/"   # url、title 不需要目标
 ```
 
-`<目标>` 可以写 `@e编号`（来自 `browser snapshot --all`）、CSS 选择器（如 `.todo-count`）、`xpath=//button[@id='save']`、`testid=名称`、`label=标签`、`role=button:名称`、`text=文字`。其中 `text=` 要求与元素的**完整文字完全一致**，`testid=` 只在元素确实有这个 `data-testid` 时可用。snapshot 不显示 testid；想知道某个元素有哪些可用写法，运行 `autoskill browser describe @e5`，它会列出可直接使用的目标及结构化 `locator_definitions`。明确输入的 XPath 保留为主定位；录制自动生成的 XPath 经真实 DOM 唯一命中检查后放在末位备选，不会替换稳定的 testid、标签等定位。
+`<目标>` 可以写 `@e编号`（来自 `browser snapshot --all`）、CSS 选择器（如 `.todo-count`）、`xpath=//button[@id='save']`、`testid=名称`、`label=标签`、`role=button:名称`、`text=文字`。其中 `text=` 要求与元素的**完整文字完全一致**，`testid=` 只在元素确实有这个 `data-testid` 时可用。快照可能提供属性提示，但不列出全部定位器；想知道某个元素有哪些可用写法，运行 `autoskill browser describe @e5`，它会列出可直接使用的目标及结构化 `locator_definitions`。明确输入的 XPath 保留为主定位；录制自动生成的 XPath 经真实 DOM 唯一命中检查后放在末位备选，不会替换稳定的 testid、标签等定位。
 
 iframe 和 Shadow DOM 按当前区域逐层进入，`snapshot`、`describe`、操作和元素断言都使用同一范围，保存的步骤带完整上下文路径。跨域 iframe 由浏览器驱动进入；XPath 不能跨 iframe 或 Shadow 边界。开放 Shadow DOM 内优先使用编号、CSS 或语义定位，自动 XPath 另存当前根内唯一的 `xpath_anchor` 元素锚点并使用相对表达式，不要把带锚点的定位截成单独 XPath。封闭 Shadow DOM 明确不支持；区域不存在不能当作元素隐藏或数量为零。打开地址或切换标签页回到主文档，刷新会重新解析原路径。`get url/title` 和地址断言始终指当前标签页顶层地址。断言不成立时保留 Fail、原 expected 与实际 actual；依据独立需求诊断差异，只有需求明确变化才维护 oracle，不能按错误现状改绿或删除断言。
 

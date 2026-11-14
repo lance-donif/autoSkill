@@ -86,23 +86,9 @@ def build(assets: Path, output: Path, arch: str) -> dict:
     cft = "linux-arm64" if arch == "arm64" else "linux64"
     for key in ("chrome", "chromedriver"):
         unzip(assets / key / recorded["sources"][key]["file"], vendor / key)
-    agent = vendor / "agent-browser"
-    agent.mkdir()
-    with tarfile.open(assets / "agent-browser" / recorded["sources"]["agent_browser"]["file"]) as archive:
-        wanted = {f"package/bin/agent-browser-{target}": "agent-browser", "package/LICENSE": "LICENSE"}
-        for member in archive.getmembers():
-            if member.isfile() and member.name in wanted:
-                (agent / wanted[member.name]).write_bytes(archive.extractfile(member).read())
-        guide = package / "references/agent-browser-core.offline"
-        prefix = "package/skill-data/core/"
-        for member in archive.getmembers():
-            if member.isfile() and member.name.startswith(prefix):
-                path = (guide / member.name[len(prefix):]).resolve()
-                if path.is_relative_to(guide.resolve()):
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(archive.extractfile(member).read())
+    common.install_agent_browser(assets, recorded, package, target)
     for file in (vendor / "python/bin/python3", vendor / f"chrome/chrome-{cft}/chrome",
-                 vendor / f"chromedriver/chromedriver-{cft}/chromedriver", agent / "agent-browser", site / "playwright/driver/node"):
+                 vendor / f"chromedriver/chromedriver-{cft}/chromedriver", vendor / "agent-browser/agent-browser", site / "playwright/driver/node"):
         elf_check(file, arch)
     for cache in list(vendor.rglob("__pycache__")):
         shutil.rmtree(cache)
