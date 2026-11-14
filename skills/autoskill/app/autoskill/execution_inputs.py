@@ -277,10 +277,12 @@ def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
         if result.get("case_content_hash") != content_hash(case or frozen) or content_hash(frozen) != result["case_content_hash"]:
             return False
         detail = json.loads(result["detail"]) if isinstance(result["detail"], str) else result["detail"]
+        if not isinstance(detail, dict):
+            return False
         if detail.get("case_scope_hash") != manifest["scope_hashes"][result["case_id"]]:
             return False
         attempts = detail.get("attempts", [])
-        if not attempts:
+        if not isinstance(attempts, list) or not attempts or any(not isinstance(ref, dict) for ref in attempts):
             return False
         folder = (paths.local() / "runs" / run["id"]).resolve()
         outcomes = []
@@ -289,11 +291,15 @@ def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
             if not file.resolve().is_relative_to(folder / "attempts"):
                 return False
             receipt = json.loads(file.read_bytes())
+            if not isinstance(receipt, dict):
+                return False
             if (content_hash(receipt) != ref["sha256"] or receipt["run_id"] != run["id"] or receipt["id"] != ref["id"]
                     or receipt["input_hash"] != run["input_hash"] or receipt["case_content_hash"] != result["case_content_hash"]
                     or receipt["case_id"] != result["case_id"] or receipt["state"] != "completed"):
                 return False
             outcome = receipt["outcome"]
+            if not isinstance(outcome, dict):
+                return False
             if (ref.get("status") != outcome.get("status") or ref.get("business_status") != outcome.get("business_status")
                     or ref.get("kind") != receipt.get("kind")):
                 return False

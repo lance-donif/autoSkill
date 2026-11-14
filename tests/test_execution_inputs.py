@@ -209,6 +209,42 @@ class ExecutionInputTests(unittest.TestCase):
         self.assertFalse(execution_inputs.result_evidence(run, result))
         self.assertFalse(execution_inputs.result_current(self.pid, self.case, result))
 
+    def test_malformed_detail_and_attempt_shapes_are_invalid_evidence(self):
+        final, results = self.execute()
+        result = results[0]
+        self.assertTrue(execution_inputs.result_evidence(final, result))
+        detail = json.loads(result["detail"])
+        variants = [[], None, 1, *[{**detail, "attempts": value} for value in (None, 1, {}, [None], [{}])]]
+        for malformed in variants:
+            with self.subTest(detail=malformed):
+                altered = {**result, "detail": json.dumps(malformed)}
+                self.assertFalse(execution_inputs.result_evidence(final, altered))
+                self.assertFalse(execution_inputs.result_current(self.pid, self.case, altered))
+        self.assertEqual(db.one("SELECT * FROM results WHERE id = ?", (result["id"],)), result)
+        self.assertTrue(execution_inputs.result_evidence(final, result))
+
+    def test_malformed_receipt_and_outcome_shapes_are_invalid_evidence(self):
+        final, results = self.execute()
+        result = results[0]
+        detail = json.loads(result["detail"])
+        file = data_refs.resolve(detail["attempts"][0]["path"])
+        original = file.read_bytes()
+        receipt = json.loads(original)
+        self.assertTrue(execution_inputs.result_evidence(final, result))
+        try:
+            for malformed in ([], None, {**receipt, "outcome": []}, {**receipt, "outcome": None}):
+                with self.subTest(receipt=malformed):
+                    file.write_text(json.dumps(malformed), encoding="utf-8")
+                    altered_detail = copy.deepcopy(detail)
+                    altered_detail["attempts"][0]["sha256"] = execution_inputs.content_hash(malformed)
+                    altered = {**result, "detail": json.dumps(altered_detail)}
+                    self.assertFalse(execution_inputs.result_evidence(final, altered))
+                    self.assertFalse(execution_inputs.result_current(self.pid, self.case, altered))
+        finally:
+            file.write_bytes(original)
+        self.assertEqual(db.one("SELECT * FROM results WHERE id = ?", (result["id"],)), result)
+        self.assertTrue(execution_inputs.result_evidence(final, result))
+
     def test_tampered_frozen_input_is_blocked_before_any_request(self):
         prepared = runner.prepare(self.pid)
         file = Path(prepared["input_manifest"])

@@ -91,15 +91,15 @@ def _attachment(source: str) -> dict:
     return {"source": str(path), "directory": path.is_dir(), "files": entries}
 
 
-def _file_stdin(argv: list[str]) -> list[str]:
+def _file_stdin(argv: list[str], option: str = "--file") -> list[str]:
     result = list(argv)
     for index, arg in enumerate(result):
-        if arg == "--file" and index + 1 < len(result):
-            result[index + 1] = "-"
-            break
-        if arg.startswith("--file="):
-            result[index] = "--file=-"
-            break
+        flag, separator, _value = arg.partition("=")
+        if flag.startswith("--") and len(flag) > 2 and option.startswith(flag):
+            if separator:
+                result[index] = option + "=-"
+            elif index + 1 < len(result):
+                result[index], result[index + 1] = option, "-"
     return result
 
 

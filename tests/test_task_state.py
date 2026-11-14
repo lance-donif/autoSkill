@@ -88,6 +88,36 @@ class TaskStateTests(unittest.TestCase):
         self.assertEqual(task_state.result(declared)["checks"]["performance"], "unverified")
         self.assertEqual(task_state.result(absent)["checks"]["performance"], "not_applicable")
 
+    def test_malformed_projection_fields_do_not_hide_a_retained_failure(self):
+        _final, row = self.execute({"json_equals": {"/ok": False}})
+        detail = json.loads(row["detail"])
+        variants = ({"business_status": []}, {"performance_status": {}}, {"quality_status": []},
+                    {"last_attempt_status": {}}, {"performance_assertions": None}, {"assertions": [None]},
+                    {"turns": [None, {"performance_assertions": None}]},
+                    {"verdict_scope": "performance", "assertions": [None]})
+        for fields in variants:
+            with self.subTest(fields=fields):
+                state = task_state.result({**row, "detail": json.dumps({**detail, **fields})})
+                self.assertEqual(state["outcome"], "fail")
+                self.assertEqual(state["checks"]["business"], "fail")
+        self.assertEqual(db.one("SELECT * FROM results WHERE id = ?", (row["id"],)), row)
+
+    def test_malformed_business_axis_does_not_establish_a_pass(self):
+        _final, row = self.execute()
+        detail = {**json.loads(row["detail"]), "business_status": []}
+        state = task_state.result({**row, "detail": json.dumps(detail)})
+        self.assertEqual((state["checks"]["business"], state["outcome"]), ("unverified", "unverified"))
+
+    def test_mixed_malformed_items_retain_a_real_performance_failure(self):
+        _final, row = self.execute({"max_ms": 1})
+        detail = json.loads(row["detail"])
+        self.assertTrue(any(item["passed"] is False for item in detail["performance_assertions"]))
+        detail["performance_assertions"].insert(0, None)
+        detail["assertions"].insert(0, None)
+        detail["turns"] = [None, {"performance_assertions": [None]}]
+        state = task_state.result({**row, "detail": json.dumps(detail)})
+        self.assertEqual((state["checks"]["performance"], state["outcome"]), ("fail", "fail"))
+
     def test_edited_result_cannot_turn_real_failure_into_verified_pass(self):
         final, row = self.execute({"json_equals": {"/ok": False}})
         detail = json.loads(row["detail"])

@@ -164,7 +164,11 @@ def current_result(project_id: str, case: dict | None, row: dict, *, connection=
 
 
 def _axis(value, *, default: str = "unverified") -> str:
-    return {"Pass": "pass", "Fail": "fail", "Unverified": "unverified", "pass": "pass", "fail": "fail"}.get(value, default)
+    return {"Pass": "pass", "Fail": "fail", "Unverified": "unverified", "pass": "pass", "fail": "fail"}.get(value, default) if isinstance(value, str) else default
+
+
+def _object_rows(value) -> list[dict]:
+    return [row for row in value if isinstance(row, dict)] if isinstance(value, list) else []
 
 
 def _aggregate(values: list[str], default: str = "unverified") -> str:
@@ -274,12 +278,12 @@ def result(row: dict, detail=None, *, connection=None) -> dict:
     business = _axis(details.get("business_status"))
     if any(_axis(attempt.get("business_status")) == "fail" for attempt in attempts if isinstance(attempt, dict)):
         business = "fail"
-    performance_rows = list(details.get("performance_assertions", []))
-    performance_rows += [item for item in details.get("assertions", []) if item.get("scope") == "performance" or item.get("source") == "performance_target"]
-    for turn in details.get("turns", []):
-        performance_rows.extend(turn.get("performance_assertions", []))
+    performance_rows = _object_rows(details.get("performance_assertions"))
+    performance_rows += [item for item in _object_rows(details.get("assertions")) if item.get("scope") == "performance" or item.get("source") == "performance_target"]
+    for turn in _object_rows(details.get("turns")):
+        performance_rows.extend(_object_rows(turn.get("performance_assertions")))
     if details.get("verdict_scope") == "performance":
-        performance_rows.extend(details.get("assertions", []))
+        performance_rows.extend(_object_rows(details.get("assertions")))
     performance = _axis(details.get("performance_status"), default="not_applicable") if details.get("performance_status") != "Unverified" else "not_applicable"
     if not performance_rows and details.get("performance_status") == "Unverified" and run_rows and run_rows[0].get("family") != "native":
         try:
