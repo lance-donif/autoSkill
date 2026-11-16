@@ -106,11 +106,13 @@ def _file_stdin(argv: list[str], option: str = "--file") -> list[str]:
 def for_bridge(args, argv: list[str]) -> tuple[list[str], str | None, list[dict]]:
     root, action = base_directory(args), getattr(args, "action", None)
     forwarded, stdin_text, files = list(argv), None, set()
-    json_commands = {"plan", "workflow", "asset", "native", "schedule", "conversation", "judge"}
-    if getattr(args, "file", None) and args.command in json_commands:
+    json_commands = {"plan", "workflow", "asset", "native", "schedule", "conversation", "judge", "run"}
+    knowledge_input = args.command == "knowledge" and action in ("settings", "import")
+    if getattr(args, "file", None) and (args.command in json_commands or knowledge_input):
         payload = read_json(args.file, command=args.command, action=action, base=root)
         stdin_text = json.dumps(payload, ensure_ascii=False)
-        forwarded = _file_stdin(forwarded)
+        option = "--inputs" if args.command == "run" else "--from-file" if knowledge_input and action == "settings" else "--file"
+        forwarded = _file_stdin(forwarded, option)
         if args.command == "workflow" and action in ("start", "revise") and isinstance(payload, dict):
             for collection in ("sources", "artifacts"):
                 files.update(item["file"] for item in payload.get(collection, []) if isinstance(item, dict) and isinstance(item.get("file"), str))

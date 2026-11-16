@@ -146,7 +146,9 @@ def _definition_fields(case: dict) -> dict:
         checks = [json.dumps(case.get("assertions", {}), ensure_ascii=False)]
     elif kind == "scenario":
         steps = case.get("steps", [])
-        checks = [case.get("expected", "")]
+        steps = steps.splitlines() if isinstance(steps, str) else steps
+        expected = case.get("expected", "")
+        checks = expected if isinstance(expected, list) else [expected]
     else:
         steps = [str(turn.get("question", "")) for turn in case.get("turns", [])]
         checks = [json.dumps(case.get("assertions", []), ensure_ascii=False)]
@@ -159,7 +161,7 @@ def _definition_fields(case: dict) -> dict:
 def _task_row(item: dict) -> dict:
     result = item.get("result") or {}
     detail = result.get("detail", {})
-    status = task_report_data.case_verdict(item)
+    status = task_report_data.observation_verdict(item)
     note = item.get("note", "")
     if result.get("status") == "Pass" and status == "Unverified":
         note += " 动作结果不等于完整业务验证；缺少有效证据或独立业务断言。"
@@ -267,6 +269,52 @@ def _task_sheets(book, snapshot: dict, rows: list[dict], long_text: list) -> Non
     _table(book, "来源与冻结定义", [("key", "来源", 32), ("value", "内容或证据引用", 110)], facts, long_text)
 
 
+def _workbook_member(name: str, content: bytes) -> bytes:
+    from xml.etree import ElementTree
+
+    if name != "docProps/core.xml":
+        return content
+    root = ElementTree.fromstring(content)
+    for field in ("created", "modified"):
+        for element in root.findall("{http://purl.org/dc/terms/}" + field):
+            root.remove(element)
+    return ElementTree.tostring(root, encoding="utf-8")
+
+
+def _same_workbook(first: Path, second: Path) -> bool:
+    """Reuse existing bytes only after comparing every rendered workbook member."""
+    from hashlib import sha256
+    from xml.etree.ElementTree import ParseError
+    from zipfile import BadZipFile, ZipFile
+
+    def contents(file):
+        with ZipFile(file) as archive:
+            return [(member.filename, sha256(_workbook_member(member.filename, archive.read(member))).hexdigest())
+                    for member in archive.infolist()]
+
+    try:
+        return second.is_file() and contents(first) == contents(second)
+    except (OSError, BadZipFile, ParseError):
+        return False
+
+
+def _stable_workbook(file: Path) -> None:
+    """Exclude rendering clocks from OOXML so frozen task contents have stable bytes."""
+    from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+
+    temporary = file.with_name(file.name + ".stable")
+    try:
+        with ZipFile(file) as source, ZipFile(temporary, "w", compression=ZIP_DEFLATED) as target:
+            for member in source.infolist():
+                content = _workbook_member(member.filename, source.read(member))
+                entry = ZipInfo(member.filename, date_time=(1980, 1, 1, 0, 0, 0))
+                entry.compress_type = ZIP_DEFLATED
+                target.writestr(entry, content)
+        temporary.replace(file)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def write_task(snapshot: dict, destination: Path) -> dict:
     """Render the supplied case-document template and retain complete frozen execution evidence."""
     from openpyxl import Workbook
@@ -296,10 +344,12 @@ def write_task(snapshot: dict, destination: Path) -> dict:
     temporary = destination.with_name("." + destination.name + "." + uuid.uuid4().hex + ".tmp")
     try:
         book.save(temporary)
+        _stable_workbook(temporary)
         with temporary.open("rb") as stream:
             os.fsync(stream.fileno())
         validation = _verify_task_workbook(temporary, rows, functional)
-        temporary.replace(destination)
+        if not _same_workbook(temporary, destination):
+            temporary.replace(destination)
     finally:
         book.close()
         temporary.unlink(missing_ok=True)

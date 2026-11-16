@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "exporter_project_id": "knowledge-demo-source",
+  "entries": [
+    {
+      "entry_id": "6e66fd70-a3bc-542e-959e-b886158d7b23",
+      "selected_revision": 2,
+      "source_chain": [
+        {
+          "revision": 1,
+          "parent_content_hash": null,
+          "content": {
+            "creation_mode": "workflow_v2",
+            "evidence_refs": [],
+            "id": "6e66fd70-a3bc-542e-959e-b886158d7b23",
+            "kind": "observation",
+            "lifecycle": "active",
+            "parent_content_hash": null,
+            "revision": 1,
+            "schema_version": 1,
+            "scope": {
+              "business_scope": null,
+              "project_id": "knowledge-demo-source",
+              "source_version_hashes": {},
+              "team_id": null
+            },
+            "text": "退款成功后订单应进入关闭状态。",
+            "title": "退款后订单关闭",
+            "validation_refs": [],
+            "workflow_ref": {
+              "client_key": "refund-rule",
+              "cycle_id": "example-cycle-1",
+              "workflow_id": "example-workflow"
+            }
+          },
+          "content_hash": "0c80a0cce6467ba8ff3047ee3ec4c4c1155714024e7a611792cd09df8cf2d02b"
+        },
+        {
+          "revision": 2,
+          "parent_content_hash": "0c80a0cce6467ba8ff3047ee3ec4c4c1155714024e7a611792cd09df8cf2d02b",
+          "content": {
+            "creation_mode": "workflow_v2",
+            "evidence_refs": [],
+            "id": "6e66fd70-a3bc-542e-959e-b886158d7b23",
+            "kind": "observation",
+            "lifecycle": "active",
+            "parent_content_hash": "0c80a0cce6467ba8ff3047ee3ec4c4c1155714024e7a611792cd09df8cf2d02b",
+            "revision": 2,
+            "schema_version": 1,
+            "scope": {
+              "business_scope": null,
+              "project_id": "knowledge-demo-source",
+              "source_version_hashes": {},
+              "team_id": null
+            },
+            "text": "退款到账后订单应关闭；到账前保持处理中。",
+            "title": "退款后订单关闭",
+            "validation_refs": [],
+            "workflow_ref": {
+              "client_key": "refund-rule-revised",
+              "cycle_id": "example-cycle-2",
+              "workflow_id": "example-workflow"
+            }
+          },
+          "content_hash": "096e1ff54c582810bde8181d73492042d80e31d13af3334d6034758345aebbcb"
+        }
+      ],
+      "source_verification": {
+        "verification": "hypothesis",
+        "evidence_status": "missing",
+        "applicability": "unknown"
+      }
+    }
+  ],
+  "package_hash": "9511a1b49f2e47cbb88de7b247518092a9ca28035fc6bc6d535f4adfcd88dda3"
+}

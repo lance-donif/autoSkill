@@ -27,14 +27,15 @@ def _classification(item: dict) -> str | None:
     historical = item.get("historical_result") or {}
     if historical.get("status") == "Fail" or historical.get("business_status") == "Fail":
         return "historical"
-    if (item.get("recording_result") or {}).get("status") == "Fail":
-        return "recording"
     business = result.get("detail", {}).get("business_status")
-    if business == "Fail" or result.get("status") == "Fail":
+    performance = result.get("detail", {}).get("performance_status")
+    if business == "Fail" or performance == "Fail" or result.get("status") == "Fail":
         if not item.get("evidence_valid"):
             return "unverified"
         return "business" if business == "Fail" else "execution"
-    return "execution" if result.get("status") == "Blocked" else None
+    if result.get("status") == "Blocked":
+        return "execution"
+    return "recording" if (item.get("recording_result") or {}).get("status") == "Fail" else None
 
 
 def _entries(detail: dict, key: str) -> list:
@@ -80,7 +81,7 @@ def issues(snapshot: dict) -> list[dict]:
                       "title": group["definition"].get("title"), "definition_hash": group["definition_hash"],
                       "definition": group["definition"], "kinds": kinds, "final_status": group["final_status"],
                       "observations": [_observation(item, kind) for item, kind in failing],
-                      "run_ids": group["run_ids"], "verdicts": [task_report_data.case_verdict(item) for item in group["items"]]})
+                      "run_ids": group["run_ids"], "verdicts": [task_report_data.observation_verdict(item) for item in group["items"]]})
     return found
 
 

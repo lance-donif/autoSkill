@@ -8,11 +8,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from openpyxl import load_workbook
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import case_plans, execution_inputs, plan, projects, task_reports
+from autoskill import builder, case_plans, execution_inputs, plan, projects, task_reports
 from autoskill.recorder import session
+from autoskill.server import jobs
 
 
 class PlanFunctionalSourceTests(unittest.TestCase):
@@ -52,7 +55,7 @@ class PlanFunctionalSourceTests(unittest.TestCase):
         book.close()
         self.assertNotIn("source", plan.show()["cases"][0])
         initial = case_plans.get(self.pid)
-        online = case_plans.save(self.pid, {**self.row, "steps": "\n".join(self.row["steps"])}, expected_revision=initial["revision"])
+        online = case_plans.save(self.pid, {**self.row, "steps": "\n".join(self.row["steps"])}, case_id="DESIGN-001", expected_revision=initial["revision"])
         replacement = {**self.row, "source": {**self.row["source"], "version": 2}, "author": "新版来源编写人员"}
         with plan.use_folder(online["folder"]):
             self.write(replacement)
@@ -62,6 +65,31 @@ class PlanFunctionalSourceTests(unittest.TestCase):
         saved = case_plans.save(self.pid, {"author": "在线编辑人员"}, case_id="DESIGN-001", expected_revision=updated["revision"])
         self.assertEqual(saved["rows"][0]["source"], replacement["source"])
 
+    def test_array_steps_and_expectations_deliver_a_real_workbook_and_copyable_execution_source(self):
+        row = {**self.row, "expected": ["1. 草稿列表显示指定订单。", self.row["expected"]]}
+        written = self.write(row)
+        self.assertEqual(written["test_report"]["status"], "ready", written)
+        book = load_workbook(written["delivery_excel"])
+        try:
+            sheet = book["功能测试用例"]
+            self.assertEqual(sheet.max_column, 14)
+            cells = next(values for values in sheet.values if values[9] == "未执行")
+            self.assertEqual(cells[5:7], ("\n".join(row["steps"]), "\n".join(row["expected"])))
+        finally:
+            book.close()
+        shown = plan.show()["cases"][0]
+        source = shown["execution_source"]
+        self.assertEqual(source["task_id"], written["task_id"])
+        self.assertEqual(source["case_id"], row["id"])
+        self.assertEqual(source["file"], written["excel"])
+        self.assertEqual(source["upstream"], row["source"])
+        candidate = builder.api_case("TC-API-SOURCE", "Source-backed API", "GET", "/order", {"status": 200, "json_equals": {"/ok": True}})
+        candidate["extensions"]["test_case_document"] = {"source": source}
+        self.assertNotIn("error", plan.bind_execution(row["id"], self.pid, candidate, None))
+        replacement = self.write(row)
+        self.assertNotEqual(replacement["task_id"], source["task_id"])
+        self.assertIn("error", plan.bind_execution(row["id"], self.pid, candidate, None))
+
     def test_cli_record_plan_freezes_full_source_design_before_later_sheet_edits(self):
         self.write()
         recording = {"project_id": self.pid, "start_url": "/__technical/draft", "steps": [
@@ -69,9 +97,12 @@ class PlanFunctionalSourceTests(unittest.TestCase):
             {"assertion": "text", "selector": "#__technical_state", "expected": "待审核", "oracle": {"source": "explicit"}}],
             "secrets": [], "used_login": False, "as_login": False}
         session._save(recording)
-        with patch.object(session.agent, "call", return_value=None), patch.object(session.capture, "stop", return_value=None):
+        with patch.object(session.agent, "call", return_value=None), \
+                patch.object(session.capture, "stop", return_value={"source": "cdp_network", "entries": [], "available": False}), \
+                patch.object(jobs, "ensure_worker", return_value={}):
             result = session.stop("提交指定草稿订单审核", plan_case="DESIGN-001")
-        saved = projects.case(self.pid, result["ui_case"]["id"])
+        saved = next(case for case in result["candidates"] if case["id"] == result["ui_case"]["id"])
+        self.assertEqual(projects.cases(self.pid), [])
         document = saved["extensions"]["test_case_document"]
         for key in ("description", "business_path", "prefix", "author", "remarks"):
             self.assertEqual(document[key], self.row[key])

@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .. import db, paths, projects, secrets, task_context
+from .. import data_refs, db, paths, projects, secrets, task_context
 from ..locking import project_lock
 from ..replay import ir
 from ..replay.tabs import Tabs
@@ -65,6 +65,13 @@ def current(required: bool = True) -> dict | None:
 
 def _save(rec: dict) -> None:
     _file().write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def _retain_recording(rec: dict) -> str:
+    """Keep interrupted steps and source references outside the active recording slot."""
+    file = recording_dir() / ("recording-retained-" + uuid.uuid4().hex + ".json")
+    file.write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
+    return data_refs.store(file)
 
 
 def _intent(rec: dict, kind: str, payload: dict, *, side_effect: bool = True) -> dict | None:
@@ -333,7 +340,7 @@ def _target(rec: dict, token: str, rich: bool = False) -> dict:
         elif token.startswith("testid="):
             hint = "页面上没有 data-testid 为这个值的元素；" + hint
         raise RecordError(f"页面上找不到 {token}；{hint}")
-    explicit = spec.get("locator")
+    explicit = spec.get("locator") if not token.startswith("@") else None
     if explicit and explicit["by"] == "xpath":
         found["locators"] = [explicit, *[loc for loc in found["locators"] if loc != explicit]]
     return found
@@ -434,17 +441,23 @@ def _launch_browser(config: dict, state_file: Path | None) -> None:
 
 def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
     """Open this task's browser on the project's address and record actions and traffic."""
-    from .. import workflow
+    from .. import plan, workflow
 
     binding = workflow.current_binding()
+    try:
+        sheet = plan.show()
+        plan_at_start = {key: sheet[key] for key in ("task_id", "excel", "project", "cases") if key in sheet}
+    except (ValueError, OSError):
+        plan_at_start = None
     notes = []
     previous = current(required=False)
     if previous:
         if _page_state()["url"].startswith(WEB):
             raise RecordError("已有进行中的录制；先运行 autoskill record stop 或 autoskill record cancel")
-        capture.stop(previous.get("network_capture"))
-        _file().unlink(missing_ok=True)  # its browser is gone, so it can never be finished
-        notes.append(f"上一次没有结束的录制（{len(previous['steps'])} 步）的浏览器已经关闭，无法继续，已丢弃")
+        previous["conversation_evidence"] = capture.stop(previous.get("network_capture"))
+        retained = _retain_recording(previous)
+        _file().unlink(missing_ok=True)
+        notes.append(f"上次录制的浏览器已关闭；原 {len(previous['steps'])} 步和网络来源已保留：{retained}")
     info, config, auth = projects.get(project_id), projects.config(project_id), projects.auth(project_id)
     start_url = ir.absolute_url(url or info["start_url"], config["base_url"])
     ir.check_origin(start_url, config["allowed_origins"])
@@ -480,7 +493,8 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
             state_file.unlink(missing_ok=True)
     rec = {"project_id": project_id, "session_id": task_context.session_id(), "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
            "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
-           "rand": uuid.uuid4().hex[:6], "workflow_binding": binding, "network_capture": network_capture}
+           "rand": uuid.uuid4().hex[:6], "workflow_binding": binding, "network_capture": network_capture,
+           "plan_at_start": plan_at_start}
     ir.set_rand(rec["rand"])
     _observe_tabs(rec)
     tree = _settled_snapshot(rec)
@@ -544,13 +558,15 @@ def cancel() -> dict:
     rec = current(required=False)
     handle = rec.get("network_capture") if rec else None
     try:
-        capture.stop(handle)
+        evidence = capture.stop(handle)
     finally:
         agent.call(session_name(), ["close"], check=False, timeout=30)
     existed = _file().is_file()
+    retained = _retain_recording({**rec, "conversation_evidence": evidence}) if rec and evidence.get("error") else None
     _file().unlink(missing_ok=True)
-    capture.discard(handle, recording_dir())
-    return {"cancelled": existed}
+    if not retained:
+        capture.discard(handle, recording_dir())
+    return {"cancelled": existed, **({"retained_recording": retained, "notes": [evidence["error"]]} if retained else {})}
 
 
 def _plain(text: str) -> str:
@@ -788,9 +804,10 @@ def browser(argv: list[str]) -> dict:
 
 
 def _assertion_locators(rec: dict, kind: str, target: str) -> list[dict]:
-    explicit = _spec(rec, target, rich=True).get("locator")
-    if kind in ("count", "min_count") or (kind == "hidden" and explicit):
-        return [explicit or {"by": "css", "value": target}]
+    specified = _spec(rec, target, rich=True).get("locator")
+    explicit = specified if not target.startswith("@") else None
+    if kind in ("count", "min_count") or (kind == "hidden" and specified):
+        return [specified or {"by": "css", "value": target}]
     try:
         found = _target(rec, target, rich=True)["locators"]
     except RecordError:
@@ -868,7 +885,9 @@ def _plan_design(rec: dict, plan_case: str | None) -> str | None:
     from .. import execution_inputs, plan
 
     try:
-        sheet = plan.show()
+        sheet = rec["plan_at_start"] if "plan_at_start" in rec else plan.show()
+        if not sheet:
+            raise ValueError("开始录制时还没有设计表，未将后来创建的表绑定到这次录制")
         if sheet.get("project") and sheet["project"] != rec["project_id"]:
             raise ValueError("用例设计表属于其他项目，未将其功能描述套用到本次录制")
         row = next((item for item in sheet["cases"] if item["id"] == plan_case), None)
@@ -881,6 +900,7 @@ def _plan_design(rec: dict, plan_case: str | None) -> str | None:
         elif row.get("module"):
             document["business_path"] = [projects.meta(rec["project_id"])["name"], row["module"]]
         document["source"] = {"kind": "case_plan", "file": sheet["excel"], "case_id": plan_case,
+                              "task_id": sheet.get("task_id"), "business_row_hash": plan._source_hash(row),
                               "hash_scope": "功能字段、业务层级和来源引用；不含 design_sha256 自身",
                               **({"upstream": row["source"]} if row.get("source") else {})}
         document["source"]["design_sha256"] = execution_inputs.content_hash(document)
@@ -891,8 +911,8 @@ def _plan_design(rec: dict, plan_case: str | None) -> str | None:
 
 
 def stop(title: str, module: str = "", category: str = "", plan_case: str | None = None) -> dict:
-    """Finish the recording: export traffic, close the browser, compile and save the cases."""
-    from .. import conversation_capture, task_reports
+    """Retain recording candidates, then validate them through the existing execution queue."""
+    from .. import candidate_publication, conversation_capture, plan, task_reports
     from . import compile as compiler
 
     rec = current()
@@ -920,17 +940,26 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
     with project_lock(rec["project_id"]):
         replay_source = conversation_capture.compiler_source(har, rec.get("conversation_evidence"))
         summary = compiler.build(rec["project_id"], rec, replay_source, state, title.strip(), module, category)
-        identities = {summary["ui_case"]["id"], *(case["id"] for case in summary["api_cases"])}
-        saved_cases = [case for case in projects.cases(rec["project_id"]) if case["id"] in identities]
-        summary["test_report"] = task_reports.for_recording(rec["project_id"], rec, saved_cases)
-    capture.discard(rec.get("network_capture"), recording_dir())
+        candidate_publication.stage(rec["project_id"], summary["candidates"], summary["candidate_auth"],
+                                    summary["candidate_source"], candidate_id=summary["candidate_id"])
+        summary["test_report"] = task_reports.for_recording(rec["project_id"], rec, summary["candidates"])
+        if plan_case:
+            summary["plan"] = plan.bind_execution(plan_case, rec["project_id"], summary["candidates"][0], None,
+                                                  candidate_id=summary["candidate_id"])
+    if rec.get("conversation_evidence", {}).get("error"):
+        retained = _retain_recording(rec)
+        summary["network_capture"] = {"available": rec["conversation_evidence"].get("available", False),
+                                      "error": rec["conversation_evidence"]["error"], "retained_recording": retained}
+        summary.setdefault("notes", []).append(rec["conversation_evidence"]["error"] + "；原录制保留在 " + retained)
+    else:
+        capture.discard(rec.get("network_capture"), recording_dir())
     _file().unlink(missing_ok=True)
     summary["project"] = rec["project_id"]
     summary["conversation_captures"] = captures
     if design_note:
         summary.setdefault("notes", []).append(design_note)
-    if plan_case:  # this recording carried out a row of the case sheet: its replay result becomes that row's verdict
-        from .. import plan
-
-        summary["plan"] = plan.link(plan_case, rec["project_id"], summary["ui_case"]["id"], summary["ui_case"]["assertions"])
+    if rec.get("workflow_binding"):
+        summary["next"] = "候选已保留，请将 candidates 提交到当前工作流的 materialize；本次未额外启动执行"
+    else:
+        summary.update(candidate_publication.queue(summary["candidate_id"], plan_case=plan_case))
     return summary

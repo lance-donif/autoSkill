@@ -99,7 +99,7 @@ class CasePlanTests(unittest.TestCase):
         self.assertEqual(len(projects.cases(self.pid)), 1)
         self.assertEqual(projects.cases(other), [])
 
-    def test_existing_cli_sheet_can_be_adopted_without_modifying_its_original_bytes(self):
+    def test_cli_sheet_is_visible_without_manual_adoption_or_rewriting_bytes(self):
         source = Path(self.tmp.name) / "old-design.json"
         source.write_text('[{"id":"OLD-001","title":"既有设计","steps":"1. 检查","expected":"1. 符合需求"}]', encoding="utf-8")
         made = plan.write(self.pid, str(source))
@@ -111,10 +111,11 @@ class CasePlanTests(unittest.TestCase):
         plan.mark("OLD-001", "通过", "legacy manual result")
         original = Path(made["excel"]).read_bytes()
         view = case_plans.get(self.pid)
-        self.assertEqual(view["legacy"]["cases"], 1)
-        adopted = case_plans.adopt(self.pid, expected_revision=view["revision"], source_hash=view["legacy"]["sha256"])
-        self.assertEqual(adopted["rows"][0]["id"], "OLD-001")
-        self.assertEqual(adopted["rows"][0]["status"], "NotRun")
+        self.assertTrue(view["exists"])
+        self.assertIsNone(view["legacy"])
+        self.assertEqual(view["rows"][0]["id"], "OLD-001")
+        self.assertEqual(view["rows"][0]["status"], "NotRun")
+        self.assertEqual(view["delivery_excel"], made["delivery_excel"])
         self.assertEqual(Path(made["excel"]).read_bytes(), original)
 
     def test_imported_existing_case_uses_real_current_evidence_and_http_result_fields_are_read_only(self):

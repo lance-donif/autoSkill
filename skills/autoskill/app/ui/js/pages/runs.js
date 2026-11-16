@@ -1,12 +1,14 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
 import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
-import { empty, errorState, startRun, confirm, preferredHeaded } from '../ui.js';
+import { empty, errorState, startRun, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
 import { refreshShell } from '../shell.js';
 import { downloadRunHtml } from './run-export.js';
 import { primaryState, stateResults, stateDetails, statePill, stateLabel } from '../status-view.js';
 import { updateLiveView } from '../live-refresh.js';
+import { cancelButton, rerunButton, runActionFeedback, resultConclusion, recoveryActions, returnToRuns } from './run-actions.js';
+import { reportControls, setReportFeedback } from './report-controls.js';
 
 const PAGE = 50;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'native' ? '原生' : value === 'ui' ? '页面' : '接口');
@@ -19,6 +21,25 @@ let deletionTimer = null;
 let checkingDeletions = false;
 const deleting = (run) => !!run.delete_requested && !run.deletion_error;
 const changeHistory = (patch) => go('runs', { ...Object.fromEntries(route().params), ...patch, offset: null });
+const historyPositions = new Map();
+let focusedResult = '';
+
+function historyLink(label, destination, identity) {
+  return h('a', { class: 'title card-link', href: destination, dataset: { historyId: identity }, onClick: (event) => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    historyPositions.set(location.hash, { y: window.scrollY, identity });
+  } }, label);
+}
+
+function restoreHistoryPosition() {
+  const saved = historyPositions.get(location.hash);
+  if (!saved) return;
+  historyPositions.delete(location.hash);
+  requestAnimationFrame(() => {
+    document.querySelector(`[data-history-id="${CSS.escape(saved.identity)}"]`)?.focus({ preventScroll: true });
+    window.scrollTo(0, saved.y);
+  });
+}
 
 // biome-ignore lint/suspicious/useAwait: Preserve the asynchronous render contract and its existing promise adoption.
 export async function render(view, { id }) {
@@ -30,7 +51,7 @@ export async function render(view, { id }) {
 export function commit(view, next, { id }) {
   const current = view.querySelector('[data-history-region="content"]');
   const incoming = next.querySelector('[data-history-region="content"]');
-  if (id || !current || !incoming) { view.replaceChildren(...next.childNodes); return; }
+  if (id || !current || !incoming) { updateLiveView(view, next); return; }
   const oldToolbar = view.querySelector('[data-history-region="toolbar"]');
   const newToolbar = next.querySelector('[data-history-region="toolbar"]');
   if (oldToolbar.dataset.historyMode === newToolbar.dataset.historyMode) {
@@ -78,8 +99,8 @@ async function history(view) {
   let selectionBar;
   if (!data.items.length) {
     body = empty({ glyph: 'runs', title: status ? '没有符合条件的记录' : '这个范围内还没有执行',
-      text: status ? '换一个结果筛选，或调整上方的项目与时间范围。' : '到「项目与用例」运行一次，结果会出现在这里。',
-      actions: h('a', { class: 'btn primary', href: href('cases') }, icon('play'), '去运行用例') });
+      text: status ? '换一个结果筛选，或调整上方的项目与时间范围。' : '首次测试请在 DSH 对话中让 autoSkill 生成用例 Excel 并执行；已有用例可在「可复用用例」重新运行，也可调整上方范围查找历史记录。',
+      actions: h('a', { class: 'btn', href: href('cases') }, '查看可复用用例') });
   } else if (mode === 'runs') {
     const list = runList(data.items, params);
     body = list.table;
@@ -87,9 +108,9 @@ async function history(view) {
   } else {
     body = h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, ['结果', '用例', '类型', '项目', '原因', '时间', '耗时'].map((t) => h('th', {}, t)))),
-      h('tbody', {}, data.items.map((item) => h('tr', { class: 'click', onClick: () => go('runs/' + item.run_id, { ...Object.fromEntries(params), case: item.case_id }) },
+      h('tbody', {}, data.items.map((item) => h('tr', {},
         h('td', {}, primaryState(item), stateResults(item)),
-        h('td', {}, h('div', { class: 'title' }, item.case_title), h('div', { class: 'sub mono' }, item.case_id)),
+        h('td', {}, historyLink(item.case_title, href('runs/' + item.run_id, { ...Object.fromEntries(params), case: 'result:' + item.id, return: location.hash }), 'result:' + item.id), h('div', { class: 'sub mono' }, item.case_id)),
         h('td', {}, kindTag(item.kind)),
         h('td', { class: 'sub' }, item.project_name),
         h('td', { class: 'sub', style: 'max-width:340px' }, item.state?.outcome === 'pass' ? '—'
@@ -111,6 +132,7 @@ async function history(view) {
     h('section', { class: 'card', dataset: { historyRegion: 'content' } },
       h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': '执行记录表格' }, body), pager),
     h('div', { dataset: { historyRegion: 'selection' } }, selectionBar));
+  restoreHistoryPosition();
 }
 
 function stateFilterControls(params, filters) {
@@ -176,9 +198,9 @@ function historyRow(run, params, repaint) {
     } });
   const note = run.deletion_error || (deleting(run) ? '正在取消并删除，等待执行器退出及清理完成' :
     active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
-  return h('tr', { class: 'click' + (selected.has(run.id) ? ' selected' : ''), onClick: () => go((run.family === 'load' ? 'load-tests/' : 'runs/') + run.id, Object.fromEntries(params)) },
+  return h('tr', { class: selected.has(run.id) ? 'selected' : '' },
     h('td', {}, box), h('td', {}, primaryState(run), stateResults(run)),
-    h('td', {}, h('div', { class: 'title' }, run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
+    h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href((run.family === 'load' ? 'load-tests/' : 'runs/') + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
     h('td', { style: 'min-width:170px' }, active(run)
       ? h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })), h('span', { class: 'sub num' }, `${run.done}/${run.total}`))
       : h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run), h('span', { class: 'sub num' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞 · ${run.unverified || 0} 未验证`))),
@@ -323,37 +345,26 @@ async function report(view, runId) {
   const spent = run.results.reduce((sum, row) => sum + row.duration_ms, 0);
   const notPassed = counted.filter((row) => row.state?.outcome !== 'pass').length;
 
-  const native = run.family === 'native';
-  const again = h('button', { class: 'btn' }, icon('reset'), native ? '重跑原生资产' : '重新运行');
-  again.addEventListener('click', async () => {
-    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: native ? {} : { headed: preferredHeaded() } }), again);
-    if (made) go('runs/' + made.id, { case: null });
-  });
-  const retry = !native && h('button', { class: 'btn primary' }, icon('play'), `只重跑未通过的 ${notPassed} 条`);
-  if (retry) retry.addEventListener('click', async () => {
-    const made = await attempt(() => api(`/runs/${runId}/rerun`, { method: 'POST', body: { failed_only: true, headed: preferredHeaded() } }), retry);
-    if (made) go('runs/' + made.id, { case: null });
-  });
-  const stop = h('button', { class: 'btn danger' }, icon('stop'), '取消运行');
-  stop.addEventListener('click', async () => {
-    if (!(await confirm({ title: '取消这次运行？', text: '正在执行的那条用例会跑完，之后的不再执行。已完成的结果会保留。', action: '取消运行', danger: true }))) return;
-    await attempt(() => api(`/runs/${runId}/cancel`, { method: 'POST', body: {} }), stop);
-    toast('已请求取消');
-    refresh();
-  });
+  const again = rerunButton(run);
+  const retry = rerunButton(run, { failedOnly: true, count: notPassed });
+  const stop = cancelButton(run);
 
   const summary = runSummary(run, running, stop, again, notPassed, retry, spent, runDeleteButton([run]));
 
   const rows = reportRows(run);
 
   replace(view,
-    h('a', { class: 'back', href: href('runs', { ...Object.fromEntries(route().params), case: null }) }, icon('right'), '执行记录'),
+    h('a', { class: 'back', href: returnToRuns() }, icon('right'), '返回执行记录'),
     deletionNotice(),
     run.deletion_error && h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `删除未完成：${run.deletion_error}。可以重试删除。`),
-    summary, rows);
-  if (focus) {
-    const target = view.querySelector(`[data-case="${CSS.escape(focus)}"]`);
-    if (target && !view.dataset.scrolled) { target.scrollIntoView({ block: 'center' }); view.dataset.scrolled = runId; }
+    summary, runActionFeedback(run), focusNotice(run, focus), rows);
+  if (focus && focusedResult !== runId + '/' + focus && (focus.startsWith('result:') || run.results.filter((row) => row.case_id === focus).length === 1)) {
+    focusedResult = runId + '/' + focus;
+    requestAnimationFrame(() => {
+      const target = document.querySelector(`#view [data-${focus.startsWith('result:') ? 'result' : 'case'}="${CSS.escape(focus.replace(/^result:/, ''))}"]`);
+      target?.querySelector('.result-head')?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: 'center' });
+    });
   }
 }
 
@@ -370,37 +381,40 @@ function reportRows(run, offline = false) {
 const resultKey = (row) => String(row.id ?? row.case_id);
 
 function prepareReportRows(run, runId, focus) {
-  if (reportFor !== runId) {
-    reportFor = runId;
+  if (reportFor !== runId + '/' + focus) {
+    reportFor = runId + '/' + focus;
     openRows.clear();
     for (const row of run.results) {
-      if (focus ? row.case_id === focus : !row.prerequisite && row.state?.outcome !== 'pass') openRows.add(resultKey(row));
+      if (focus ? focus.startsWith('result:') ? String(row.id) === focus.slice(7) : row.case_id === focus : !row.prerequisite && row.state?.outcome !== 'pass') openRows.add(resultKey(row));
     }
   }
 }
 
-function testReportControl(run) {
-  const receipt = run.test_report;
-  if (run.state?.report === 'ready' && receipt) {
-    return [h('a', { class: 'btn', href: receipt.download_url, download: '', title: '本次任务的用例、步骤、断言与实际结果' }, icon('table'), '下载本次用例 Excel'),
-      receipt.markdown_download_url && h('a', { class: 'btn', href: receipt.markdown_download_url, download: '', title: '本次任务的简单字段、结果汇总和主要问题' }, icon('table'), '下载 Markdown 汇总'),
-      receipt.bugs_download_url && h('a', { class: 'btn', href: receipt.bugs_download_url, download: '', title: '同轮业务失败、执行问题及证据线索' }, icon('table'), '下载 Bug 清单')];
-  }
-  if (run.state?.report !== 'failed' || !receipt) return null;
-  const retry = h('button', { class: 'btn', onClick: async () => {
-    const result = await attempt(() => api('/task-reports/' + encodeURIComponent(receipt.report_id) + '/retry', { method: 'POST' }), retry);
-    if (result) {
-      toast(result.status === 'ready' ? '测试报告已生成' : result.error || result.reason || '报告尚未生成', { bad: result.status === 'failed' });
-      refresh();
-    }
-  } }, icon('reset'), '重试导出报告');
-  return [h('span', { class: 'sub', title: receipt.error }, '报告导出未完成'), retry];
+function focusNotice(run, focus) {
+  if (!focus) return null;
+  if (focus.startsWith('result:')) return run.results.some((row) => String(row.id) === focus.slice(7)) ? null
+    : h('div', { class: 'banner', role: 'status' }, '本次运行没有该结果记录，请在下方选择实际结果。');
+  const matches = run.results.filter((row) => row.case_id === focus);
+  if (matches.length < 2) return null;
+  return h('div', { class: 'banner', role: 'status' }, '此用例编号有多条执行结果，请选择要查看的记录：',
+    matches.map((row) => h('a', { class: 'btn sm', href: href('runs/' + run.id, { ...Object.fromEntries(route().params), case: 'result:' + row.id }) },
+      `结果 ${row.id} · ${stateLabel(row.state?.outcome)}`)));
+}
+
+function firstIssueLink(run) {
+  const row = run.results.find((entry) => !entry.prerequisite && entry.state?.outcome !== 'pass');
+  return row && h('a', { class: 'btn', href: href('runs/' + run.id, { ...Object.fromEntries(route().params), case: 'result:' + row.id }) }, '查看首条未通过结果');
 }
 
 function htmlReportControl(run) {
   const button = h('button', { class: 'btn', onClick: async () => {
-    const result = await attempt(() => downloadRunHtml(run, offlineReport(run)), button);
+    const result = await attempt(async () => {
+      try { return await downloadRunHtml(run, offlineReport(run)); }
+      catch (error) { setReportFeedback(run, 'html', 'HTML 报告下载失败：' + error.message, true); throw error; }
+    }, button);
     if (result) toast(result.warnings.length ? `HTML 已生成，${result.warnings.length} 张截图未能嵌入，原因已写入报告` : 'HTML 报告已生成，可离线查看全部明细', { bad: result.warnings.length > 0 });
+    if (result) setReportFeedback(run, 'html', result.warnings.length ? `HTML 已生成，${result.warnings.length} 张截图未能嵌入，原因已写入报告。`
+      : 'HTML 报告已生成，浏览器下载已开始。', result.warnings.length > 0);
   } }, icon('globe'), '下载 HTML 报告');
   return button;
 }
@@ -413,23 +427,40 @@ function offlineReport(run) {
 
 function runSummary(run, running, stop, again, notPassed, retry, spent, remove, offline = false) {
   return h('section', { class: 'card run-summary' },
-    h('div', { class: 'card-body' },
+    h('div', { class: 'card-body stack report-summary' },
       h('div', { class: 'row wrap', style: 'gap:16px' },
-        primaryState(run),
         h('div', { class: 'grow report-heading' }, h('h1', {}, run.project_name),
-          h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 执行引擎 ${ENGINE[run.engine] || run.engine || '未记录'} · ${fmtTime(run.created_at)}`)),
-        !offline && htmlReportControl(run),
-        !offline && !deleting(run) && (running ? stop : [testReportControl(run), again, notPassed > 0 && retry]), remove),
-      stateDetails(run),
-      running
-        ? h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
+          h('p', { class: 'sub' }, `${fmtTime(run.created_at)} · ${run.total} 条用例`)), primaryState(run)),
+      resultConclusion(run),
+      publicationSummary(run, offline),
+      running && h('div', { class: 'stack', style: 'gap:8px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
           h('div', { class: 'row sub' }, h('i', { class: 'spin' }), run.status === 'Queued' ? '排队中，等待前一个运行结束' : `正在执行：${run.current || '准备中'}`,
-            h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`)))
-        : h('div', { class: 'stats' },
+            h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`))),
+      run.reason && h('div', { class: 'banner bad' }, icon('warn'), run.reason),
+      !offline && reportControls(run, htmlReportControl(run)),
+      !offline && h('div', { class: 'row wrap' }, !deleting(run) && (running ? stop : [firstIssueLink(run), again, notPassed > 0 && retry]), remove),
+      !offline && recoveryActions(run),
+      h('details', { class: 'more report-technical', open: offline }, h('summary', {}, '执行与技术详情'),
+        h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 执行引擎 ${ENGINE[run.engine] || run.engine || '未记录'}`),
+        stateDetails(run), h('div', { class: 'stats' },
           stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'), stat('未验证', run.unverified || 0),
           stat('用例', run.total), stat('总耗时', fmtDuration(spent))),
-      run.reason && h('div', { class: 'banner bad', style: 'margin-top:16px' }, icon('warn'), run.reason)));
+        !offline && h('p', { class: 'sub' }, '重新运行会保留本次记录；使用的版本和范围以上方操作说明为准。'))));
+}
+
+function publicationSummary(run, offline) {
+  const receipt = run.publication;
+  if (!receipt) return null;
+  const published = receipt.published_ids || [];
+  const unpublished = Object.entries(receipt.unpublished || {});
+  return h('div', { class: 'stack', 'aria-label': '本批候选入库结果' },
+    h('p', { class: 'sub' }, receipt.complete ? `本批候选已入库 ${published.length} 条` : '候选入库结果待确认',
+      published.length > 0 && '：' + published.join('、'),
+      unpublished.length > 0 && `；${unpublished.length} 条未入库`,
+      !offline && published.length > 0 && [' · ', h('a', { href: href('cases', { projects: run.project_id }) }, '查看本项目可复用用例')]),
+    unpublished.length > 0 && h('details', { class: 'more' }, h('summary', {}, '查看未入库原因'),
+      unpublished.map(([id, reason]) => h('p', { class: 'sub' }, `${id}：${reason}`))));
 }
 
 function stat(label, value, tone) {
@@ -458,6 +489,7 @@ function resultRow(run, row, offline = false) {
 function resultBody(run, row, offline = false) {
   const d = row.detail;
   const parts = [stateDetails(row), attemptHistory(d)];
+  if (!offline) parts.push(recoveryActions(run, row));
   if (row.status !== 'Pass') {
     parts.push(h('div', { class: 'banner ' + (row.status === 'Fail' ? 'bad' : '') }, icon(row.status === 'Fail' ? 'x' : 'warn'),
       h('span', {}, h('b', {}, CATEGORY[row.category] || (row.status === 'Fail' ? '失败' : '阻塞')), row.reason ? '：' + row.reason : '')));
@@ -479,12 +511,17 @@ function resultBody(run, row, offline = false) {
   }
   appendRequestDetails(parts, d, row);
   appendScreenshots(parts, d, run, row);
-  if (!offline && run.family !== 'native' && row.state?.outcome !== 'pass' && !row.prerequisite) {
-    const again = h('button', { class: 'btn sm' }, icon('play'), '只重跑这一条');
-    again.addEventListener('click', () => startRun([{ project_id: run.project_id, case_ids: [row.case_id] }], again));
-    parts.push(h('div', { class: 'row' }, again));
-  }
+  if (!offline) parts.push(caseRetryControl(run, row));
   return h('div', { class: 'result-body' }, parts);
+}
+
+function caseRetryControl(run, row) {
+  if (run.family === 'native' || row.state?.outcome === 'pass' || row.prerequisite) return null;
+  if (run.workflow_id) return h('p', { class: 'sub' }, '此结果属于原测试任务，请用上方“返回原测试任务”继续处理。');
+  if (run.publication?.candidate_id) return h('p', { class: 'sub' }, '请使用上方候选验证操作再次验证本次版本；通过后才会入库。');
+  const again = h('button', { class: 'btn sm' }, icon('play'), '只重跑这一条');
+  again.addEventListener('click', () => startRun([{ project_id: run.project_id, case_ids: [row.case_id] }], again));
+  return h('div', { class: 'row' }, again);
 }
 
 function attemptHistory(detail) {

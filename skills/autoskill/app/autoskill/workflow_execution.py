@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from . import db, projects, runner
+from . import candidate_publication, db, failure_context, projects, runner
 from . import workflow_definition as definitions
 from . import workflow_state as state
 
@@ -51,8 +51,12 @@ def _enqueue(flow: dict, task: dict) -> None:
     if not previous.get("validation_scope"):
         _requirement_catalog(flow, materialization["cases"])
         projects.sync_requirement_records(flow["project_id"], requirement_records, candidate_cases=materialization["cases"])
+    catalog = {case["id"]: case for case in [*projects.cases(flow["project_id"]), *materialization["cases"]]}
+    api_only = all(catalog[identity]["kind"] == "api" for identity in materialization["case_ids"])
     prepared = runner.prepare(flow["project_id"], materialization["case_ids"], engine=validation["engine"], trigger="workflow",
-                              session_id=flow["id"], candidate_cases=materialization["cases"])
+                              session_id=flow["id"], candidate_cases=materialization["cases"],
+                              candidate_auth=materialization.get("candidate_auth"), api_only=api_only,
+                              inputs=validation.get("inputs", {}), force_login=True)
     manifest = execution_inputs.load(prepared)
     for identity, wanted in materialization["case_hashes"].items():
         if manifest["case_hashes"].get(identity) != wanted:
@@ -67,6 +71,10 @@ def _enqueue(flow: dict, task: dict) -> None:
                "materialization": materialization, "publication_expected_hashes": expected, "requirement_records": requirement_records,
                "validation_id": previous.get("validation_id") or state.identifier("validation"), "validation_scope": manifest["scope_hashes"],
                "round": previous.get("round", 1), "repetitions": validation["repetitions"]}
+    if materialization["cases"]:
+        staged = candidate_publication.stage(flow["project_id"], materialization["cases"], manifest["auth"],
+                                              {"kind": "workflow", "workflow_id": flow["id"], "definition_hash": current["hash"]})
+        context["candidate_id"] = staged["id"]
     with db.connect() as connection:
         connection.execute("BEGIN IMMEDIATE")
         fresh = state.row(connection, "workflow_items", task["id"])
@@ -85,13 +93,29 @@ def _enqueue(flow: dict, task: dict) -> None:
         state.touch(connection, flow["id"])
     from .server.jobs import ensure_worker
 
+    plan_bindings = candidate_publication.bind_run(prepared, candidate_id=context.get("candidate_id"))
+    if plan_bindings:
+        with db.connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            stored = json.loads(state.row(connection, "workflow_items", task["id"])["context"])
+            stored["plan_bindings"] = plan_bindings
+            connection.execute("UPDATE workflow_items SET context = ? WHERE id = ?", (state.packed(stored), task["id"]))
+            state.touch(connection, flow["id"])
     ensure_worker()
     runner.spawn(prepared["id"])
 
 
-def _result_summary(run: dict, materialization: dict) -> dict:
+def _retained_evidence(run: dict, result: dict) -> bool:
+    """Malformed local evidence must block qualification, never block diagnosis itself."""
     from . import execution_inputs
 
+    try:
+        return execution_inputs.result_evidence(run, result)
+    except (ValueError, KeyError, OSError, TypeError, AttributeError):
+        return False
+
+
+def _result_summary(run: dict, materialization: dict) -> dict:
     records = db.rows("SELECT * FROM results WHERE run_id = ? AND prerequisite = 0 ORDER BY id", (run["id"],))
     by_case = {result["case_id"]: result for result in records}
     observed = []
@@ -101,17 +125,28 @@ def _result_summary(run: dict, materialization: dict) -> dict:
             observed.append({"case_id": identity, "business_status": "Unverified", "performance_status": "Unverified",
                              "evidence_valid": False, "reason": "缺少实际执行结果"})
             continue
-        detail = json.loads(result["detail"])
+        try:
+            detail = json.loads(result["detail"])
+            if not isinstance(detail, dict):
+                raise ValueError("执行详情格式无效")
+        except (ValueError, TypeError):
+            detail = {}
+        attempts = detail.get("attempts", [])
+        valid_attempts = isinstance(attempts, list) and all(isinstance(attempt, dict) for attempt in attempts)
         valid = (result.get("case_content_hash") == materialization["case_hashes"][identity]
-                 and execution_inputs.result_evidence(run, result))
-        observed.append({"case_id": identity, "result_id": result["id"], "business_status": detail.get("business_status", "Unverified") if valid else "Unverified",
-                         "performance_status": detail.get("performance_status", "Unverified") if valid else "Unverified",
+                 and valid_attempts and _retained_evidence(run, result))
+        business = detail.get("business_status", "Unverified")
+        performance = detail.get("performance_status", "Unverified")
+        business = business if business in ("Pass", "Fail", "Unverified") else "Unverified"
+        performance = performance if performance in ("Pass", "Fail", "Unverified") else "Unverified"
+        observed.append({"case_id": identity, "result_id": result["id"], "business_status": business if valid or business == "Fail" else "Unverified",
+                         "performance_status": performance if valid or performance == "Fail" else "Unverified", "execution_attempts": attempts if valid_attempts else [],
                          "evidence_valid": valid, "verification": detail.get("verification"), "status": result["status"], "reason": result.get("reason", "")})
     verdicts = {record["business_status"] for record in observed}
     performance = {record["performance_status"] for record in observed}
     performance_status = "Fail" if "Fail" in performance else "Pass" if "Pass" in performance else "Unverified"
     conclusion = "violated" if "Fail" in verdicts or performance_status == "Fail" else "satisfied" if verdicts == {"Pass"} and run["status"] == "Pass" else "incomplete"
-    return {"run_id": run["id"], "run_status": run["status"], "conclusion": conclusion, "results": observed,
+    return {"run_id": run["id"], "input_hash": run.get("input_hash"), "run_status": run["status"], "conclusion": conclusion, "results": observed,
             "evidence_valid": all(record["evidence_valid"] for record in observed),
             "business_verified": verdicts == {"Pass"}, "performance_status": performance_status}
 
@@ -146,10 +181,6 @@ def _publish_cases(flow: dict, context: dict, summaries: list[dict]) -> str:
     current = definitions.snapshot(flow)
     if current["hash"] != context["workflow_input_hash"]:
         return "conflict"
-    if any(not summary["evidence_valid"] or any(row["business_status"] == "Unverified" for row in summary["results"]) for summary in summaries):
-        return "unverified"
-    if context["materialization"].get("origin") in ("maintain", "requirement_change") and any(summary["conclusion"] != "satisfied" for summary in summaries):
-        return "rejected"
     try:
         run = db.one("SELECT * FROM runs WHERE id = ?", (summaries[-1]["run_id"],))
         frozen = execution_inputs.load(run)["sources"]["files"]["analysis/requirements.json"]
@@ -161,15 +192,20 @@ def _publish_cases(flow: dict, context: dict, summaries: list[dict]) -> str:
     requirement_records = context["requirement_records"] if "requirement_records" in context else _requirement_records(flow, current, candidates)
     if not projects.requirement_records_current(flow["project_id"], requirement_records, candidate_cases=candidates):
         return "conflict"
-    existing = {case["id"]: case for case in projects.cases(flow["project_id"], active_only=False)}
-    if all(state.digest(existing.get(case["id"])) == state.digest(case) for case in candidates):
+    receipt = candidate_publication.publish(flow["project_id"], candidates, [summary["run_id"] for summary in summaries],
+                                            repetitions=context.get("repetitions", len(summaries)), expected_hashes=context["publication_expected_hashes"])
+    context["publication_receipt"] = receipt
+    if context.get("candidate_id"):
+        candidate_publication.publish_auth(context["candidate_id"], receipt["published_ids"])
+    if len(receipt["published_ids"]) == len(candidates):
         return "published"
-    try:
-        projects.save_cases(flow["project_id"], candidates, expected_hashes=context["publication_expected_hashes"],
-                            requirement_records=requirement_records)
-    except projects.CaseConflictError:
+    if receipt["published_ids"]:
+        return "partially_published"
+    if receipt.get("conflict"):
         return "conflict"
-    return "published"
+    if any(not summary["evidence_valid"] or any(row["business_status"] == "Unverified" for row in summary["results"]) for summary in summaries):
+        return "unverified"
+    return "rejected"
 
 
 def _aggregate(connection, workflow_id: str) -> str:
@@ -181,6 +217,40 @@ def _aggregate(connection, workflow_id: str) -> str:
     return "incomplete" if "incomplete" in conclusions or not conclusions else "satisfied"
 
 
+def _refresh_summary(record: dict) -> dict:
+    """Recheck publication evidence while retaining previously witnessed failures and references."""
+    previous = record["summary"]
+    run = db.one("SELECT * FROM runs WHERE id = ?", (previous["run_id"],))
+    if not run:
+        rows = [{**row, "evidence_valid": False,
+                 "business_status": "Fail" if row.get("business_status") == "Fail" else "Unverified",
+                 "performance_status": "Fail" if row.get("performance_status") == "Fail" else "Unverified"} for row in previous["results"]]
+        return {**previous, "evidence_valid": False, "business_verified": False, "results": rows,
+                "conclusion": "violated" if previous["conclusion"] == "violated" else "incomplete"}
+    current = _result_summary(run, record["materialization"])
+    original = {row["case_id"]: row for row in previous["results"]}
+    for row in current["results"]:
+        old = original.get(row["case_id"], {})
+        for key in ("business_status", "performance_status"):
+            if old.get(key) == "Fail":
+                row[key] = "Fail"
+        if any(ref not in row.get("execution_attempts", []) for ref in old.get("execution_attempts", [])):
+            row["evidence_valid"] = False
+        references = [*old.get("execution_attempts", []), *row.get("execution_attempts", [])]
+        row["execution_attempts"] = list({state.digest(ref): ref for ref in references}.values())
+    current["evidence_valid"] = all(row["evidence_valid"] for row in current["results"])
+    current["business_verified"] = bool(current["results"]) and all(row["business_status"] == "Pass" for row in current["results"])
+    if previous.get("input_hash") and previous["input_hash"] != current.get("input_hash"):
+        current.update(input_hash=previous["input_hash"], evidence_valid=False)
+    if previous["conclusion"] == "violated":
+        current["conclusion"] = "violated"
+    elif not current["evidence_valid"]:
+        current["conclusion"] = "incomplete"
+    if previous.get("performance_status") == "Fail":
+        current["performance_status"] = "Fail"
+    return current
+
+
 def _collect(flow: dict, task: dict, run: dict) -> None:
     context = json.loads(task["context"])
     summary = _result_summary(run, context["materialization"])
@@ -188,11 +258,13 @@ def _collect(flow: dict, task: dict, run: dict) -> None:
     interrupted = run["status"] == "Cancelled" or (run["status"] == "Blocked" and run["done"] < run["total"])
     earlier = [json.loads(record["context"]) for record in db.rows(
         "SELECT context FROM workflow_items WHERE workflow_id = ? AND phase = 'execute' AND state = 'completed'", (flow["id"],))]
-    summaries = [_result_summary(db.one("SELECT * FROM runs WHERE id = ?", (record["summary"]["run_id"],)), record["materialization"])
-                 for record in earlier if record.get("validation_id") == context["validation_id"]] + [summary]
-    more = context["round"] < context["repetitions"]
-    publication = "historical" if historical else "interrupted" if interrupted else "pending_validation" if more else _publish_cases(flow, context, summaries)
-    context.update(summary=summary, publication=publication)
+    summaries = [_refresh_summary(record) for record in earlier if record.get("validation_id") == context["validation_id"]] + [summary]
+    diagnostic = failure_context.build_manifest(flow["project_id"], summaries, workflow_id=flow["id"], operations=[])
+    uncertain = any(target.get("effects_unknown") or target["type"] in ("incomplete_attempt", "evidence_gap", "interruption")
+                    for target in diagnostic["diagnostic_targets"])
+    more = context["round"] < context["repetitions"] and not uncertain
+    publication = "historical" if historical else "pending_validation" if more else _publish_cases(flow, context, summaries)
+    context.update(summary=summary, publication=publication, validation_results=summaries)
     with db.connect() as connection:
         connection.execute("BEGIN IMMEDIATE")
         connection.execute("UPDATE workflow_items SET context = ? WHERE id = ?", (state.packed(context), task["id"]))
@@ -213,7 +285,9 @@ def _collect(flow: dict, task: dict, run: dict) -> None:
                                                                   "requirement_records": context.get("requirement_records", [])})
         else:
             following = "knowledge" if all(result["conclusion"] == "satisfied" for result in summaries) and publication not in ("conflict", "unverified", "rejected") else "diagnose"
-            state.item(connection, flow["id"], following, context={"execution": summary, "validation_results": summaries, "publication": publication})
+            state.item(connection, flow["id"], following, context={"execution": summary, "validation_results": summaries,
+                       "validation_id": context["validation_id"], "repetitions": context["repetitions"], "publication": publication,
+                       **(diagnostic if following == "diagnose" else {})})
 
 
 def _investigations(flow: dict) -> None:
@@ -232,8 +306,14 @@ def _investigations(flow: dict) -> None:
             existing = [json.loads(row["context"]).get("recover_item_id") for row in connection.execute(
                 "SELECT context FROM workflow_items WHERE workflow_id = ? AND phase = 'investigate' AND state IN ('ready','leased')", (flow["id"],))]
             if task["id"] not in existing:
+                context = json.loads(task["context"])
+                summaries = context.get("validation_results", [context["summary"]] if context.get("summary") else [])
+                if task["run_id"] and not summaries:
+                    summaries = [{"run_id": task["run_id"], "input_hash": context.get("input_hash"), "results": [
+                        {"case_id": identity} for identity in context.get("materialization", {}).get("case_ids", [])]}]
+                diagnostic = failure_context.build_manifest(flow["project_id"], summaries, workflow_id=flow["id"], operations=pending)
                 state.item(connection, flow["id"], "investigate", context={"recover_item_id": task["id"], "operations": pending,
-                                                                         "instruction": "先观察目标真实状态。旧动作可能已经执行，不得直接重播。"})
+                                                                         "instruction": "先观察目标真实状态。旧动作可能已经执行，不得直接重播。", **diagnostic})
 
 
 def advance(flow: dict) -> None:

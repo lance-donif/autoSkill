@@ -6,6 +6,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import re
 import sys
 import uuid
 from functools import lru_cache
@@ -142,6 +143,8 @@ def _validate_candidates(items: list[dict]) -> None:
 def _source_scope(name: str, ref: dict, data: bytes | None) -> dict | None:
     """Derived knowledge must not invalidate the execution that produced it."""
     parts = Path(name).parts
+    if parts and parts[0] == "knowledge":
+        return None
     if len(parts) >= 3 and parts[0] == "workflows":
         if parts[2] in ("knowledge.json", "diagnosis.json"):
             return None
@@ -186,26 +189,93 @@ def _sources(project_id: str, persist: bool) -> dict:
     return {"head": head, "files": files, "scope": scope}
 
 
-def _scope(cases: dict, case_id: str, config: dict, auth: dict, sources: dict, engines: dict, credentials: dict) -> str:
+def _auth_cases(auth: dict, cases: dict, api_only: bool) -> list[str]:
+    keys = ("api_case", "api_check_case") if api_only else ("ui_case", "api_case", "api_check_case")
+    return [auth[key] for key in keys if auth.get(key) in cases]
+
+
+def _json_mapping(value, label: str) -> dict:
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        raise ValueError(label + "必须是 JSON 对象")
+    try:
+        return json.loads(canonical(value))
+    except (TypeError, ValueError) as error:
+        raise ValueError(label + "必须包含有效的 JSON 值") from error
+
+
+def _inputs(value: dict | None) -> dict:
+    values = _json_mapping(value, "运行输入") if value is not None else {}
+    if "RAND" in values:
+        raise ValueError("RAND 是每次运行自动生成的变量，运行输入不能覆盖它")
+    return values
+
+
+def _default_api_only(selected: list[str], cases: dict) -> bool:
+    def declared(case):
+        execution = case.get("extensions", {}).get("execution", {})
+        return case["kind"] == "api" and isinstance(execution, dict) and execution.get("api_only") is True
+
+    return bool(selected) and all(declared(cases[key]) for key in selected)
+
+
+def _capture_ids(value) -> set[str]:
+    """Read explicit capture identities or paths from declared source metadata only."""
+    if isinstance(value, dict):
+        return set().union(*(_capture_ids(item) for item in value.values()))
+    if isinstance(value, list):
+        return set().union(*(_capture_ids(item) for item in value))
+    if not isinstance(value, str):
+        return set()
+    if re.fullmatch(r"capture-[A-Za-z0-9_-]+", value):
+        return {value}
+    parts = value.replace("\\", "/").split("/")
+    for index, part in enumerate(parts[:-1]):
+        if part == "conversations" and (index == 0 or parts[index - 1] == "domain"):
+            return _capture_ids(parts[index + 1])
+    return set()
+
+
+def _case_sources(cases: dict, scope: dict) -> dict:
+    referenced = set()
+    for case in cases.values():
+        extensions = case.get("extensions", {})
+        document = extensions.get("test_case_document", {})
+        declared = [case.get("source_capture"), case.get("source"), case.get("source_ref"), extensions.get("source_capture"),
+                    document.get("source") if isinstance(document, dict) else None]
+        referenced.update(_capture_ids(declared))
+    return {name: ref for name, ref in scope.items()
+            if not name.startswith("domain/conversations/") or name.split("/")[2] in referenced}
+
+
+def _scope(cases: dict, case_id: str, config: dict, auth: dict, sources: dict, engines: dict, credentials: dict,
+           *, api_only: bool = False, inputs: dict | None = None) -> str:
     selected = _closure([case_id], cases)
-    extras = [auth.get(key) for key in ("ui_case", "api_case", "api_check_case") if auth.get(key) in cases]
+    extras = _auth_cases(auth, cases, api_only)
     selected = _closure(list(dict.fromkeys([*selected, *extras])), cases)
     subset = {key: cases[key] for key in selected}
-    names = secrets.references([subset, config, auth])
+    names = secrets.references([subset, config, auth, inputs])
     engine = engines["ui" if any(case["kind"] == "ui" for case in subset.values()) else "api"]
-    return content_hash({"cases": subset, "config": config, "auth": auth, "sources": sources["scope"], "engine": engine,
-                         "credentials": {key: credentials.get(key) for key in sorted(names)}})
+    scope = {"cases": subset, "config": config, "auth": auth, "sources": _case_sources(subset, sources["scope"]), "engine": engine,
+             "credentials": {key: credentials.get(key) for key in sorted(names)}}
+    if api_only or inputs:
+        scope["execution"] = {"api_only": api_only, "inputs": inputs or {}}
+    return content_hash(scope)
 
 
 def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None,
+            candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
             persist: bool = True) -> dict:
     """Read one project generation under its lock; no runtime database mutation occurs here."""
+    if not isinstance(api_only, bool):
+        raise ValueError("api_only 必须是布尔值")
+    values = _inputs(inputs)
     with project_lock(project_id):
         active = {case["id"]: case for case in projects.cases(project_id)}
         if candidate_cases is not None:
             _validate_candidates(candidate_cases)
             active.update({case["id"]: copy.deepcopy(case) for case in candidate_cases})
-        selected = list(dict.fromkeys(chosen or [key for key, case in active.items() if ir.is_replayable(case)]))
+        selected = list(dict.fromkeys(chosen or [key for key, case in active.items()
+                                                if ir.is_replayable(case) and (not api_only or case["kind"] == "api")]))
         missing = [key for key in selected if key not in active or active[key]["lifecycle"] != "active"]
         if missing:
             raise ValueError("这些用例不存在或已归档：" + "、".join(missing))
@@ -214,28 +284,44 @@ def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate
             raise ValueError("这些用例还没有可回放的步骤：" + "、".join(not_ready))
         if not selected:
             raise ValueError("项目里还没有可回放的用例；先录制一条")
-        config, auth = projects.config(project_id), projects.auth(project_id)
-        extras = [auth.get(key) for key in ("ui_case", "api_case", "api_check_case") if auth.get(key) in active]
+        config = projects.config(project_id)
+        auth = projects.auth(project_id) if candidate_auth is None else _json_mapping(candidate_auth, "候选登录配置")
+        api_only = api_only or _default_api_only(selected, active)
+        if api_only:
+            auth = {key: value for key, value in auth.items() if key not in ("ui_case", "state_variables")}
+        extras = _auth_cases(auth, active, api_only)
         included = _closure(list(dict.fromkeys([*selected, *extras])), active)
         cases = {key: active[key] for key in included}
         has_ui = any(case["kind"] == "ui" for case in cases.values())
-        identity = engine_identity(engine, has_ui)
+        if api_only and has_ui:
+            ui_cases = [key for key, case in cases.items() if case["kind"] == "ui"]
+            raise ValueError("独立接口运行包含页面用例或页面依赖：" + "、".join(ui_cases) + "；请先补齐对应的 HTTP 登录或前置请求")
+        if api_only:
+            unresolved = [key for key in _closure(selected, active)
+                          if isinstance(execution := active[key].get("extensions", {}).get("execution"), dict)
+                          and execution.get("unresolved_recorded_credentials")]
+            if unresolved:
+                raise ValueError("独立接口运行仍依赖录制捕获的临时凭据：" + "、".join(unresolved) + "；请补齐 API 登录或明确输入来源后重新生成候选")
+        identity = engine_identity("http" if api_only else engine, has_ui)
         identities = {"ui": identity, "api": engine_identity(engine, False) if has_ui else identity}
         sources = _sources(project_id, persist)
-        names = secrets.references([cases, config, auth])
+        names = secrets.references([cases, config, auth, values])
         credentials = {name: secrets.get_secret(name) for name in sorted(names)}
-        scopes = {key: _scope(cases, key, config, auth, sources, identities, credentials) for key in cases}
+        scopes = {key: _scope(cases, key, config, auth, sources, identities, credentials, api_only=api_only, inputs=values) for key in cases}
         return {"schema_version": 1, "project_id": project_id, "selected": selected, "cases": cases,
                 "case_hashes": {key: content_hash(case) for key, case in cases.items()}, "scope_hashes": scopes,
                 "config": config, "auth": auth, "sources": sources, "engine": identity,
-                "credentials": credentials, "saved_session": sessions.load(project_id) if persist else {},
-                "variables": {"RAND": uuid.uuid4().hex[:6]} if persist else {}}
+                "credentials": credentials, "saved_session": sessions.load(project_id) if persist and not api_only else {},
+                "api_only": api_only, "inputs": values,
+                "variables": {**copy.deepcopy(values), **({"RAND": uuid.uuid4().hex[:6]} if persist else {})}}
 
 
 def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None,
+           candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
            load: dict | None = None) -> tuple[dict, dict]:
     with project_lock(project_id), named_lock("input-store", "replay"):
-        manifest = capture(project_id, chosen, engine, candidate_cases=candidate_cases)
+        manifest = capture(project_id, chosen, engine, candidate_cases=candidate_cases, candidate_auth=candidate_auth,
+                           api_only=api_only, inputs=inputs)
         if load is not None:
             manifest["load"] = copy.deepcopy(load)
         digest = content_hash(manifest)
@@ -267,13 +353,97 @@ def load(run: dict, *, check_engine: bool = False) -> dict:
         raise ValueError("执行输入或来源证据缺失，不能将旧历史作为当前验证") from error
 
 
-def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
+def _execution_interval(references: list[dict]):
+    from datetime import datetime
+
+    actual = [json.loads(data_refs.resolve(reference["path"]).read_bytes()) for reference in references
+              if reference.get("kind") in {"case", "relogin_retry"}]
+    if not actual:
+        return None
+    intervals = [(datetime.fromisoformat(receipt["started_at"]), datetime.fromisoformat(receipt["finished_at"])) for receipt in actual]
+    if any(start > finish for start, finish in intervals):
+        raise ValueError("执行回执的结束时间早于开始时间")
+    return min(start for start, _ in intervals), max(finish for _, finish in intervals)
+
+
+def _postcondition_order(source: list[dict], targets: list[dict], outcome: dict) -> bool:
+    original = _execution_interval(source)
+    following = []
+    for target in targets:
+        detail = json.loads(target["detail"]) if isinstance(target["detail"], str) else target["detail"]
+        following.append(_execution_interval(detail["attempts"]))
+    if outcome.get("business_status") == "Pass" and (original is None or any(interval is None for interval in following)):
+        return False
+    return original is None or all(interval is None or interval[0] >= original[1] for interval in following)
+
+
+def _postcondition_evidence(run: dict, case: dict, manifest: dict, outcome: dict, references: list[dict],
+                            outcomes: list[dict], seen: frozenset[str]) -> bool:
+    from . import runner
+
+    declared = case.get("extensions", {}).get("postconditions")
+    targets = outcome.get("postcondition_results")
+    source = outcome.get("postcondition_source")
+    if not declared or not outcomes or not isinstance(source, dict) or not isinstance(targets, list):
+        return False
+    if any(not isinstance(target, dict) for target in targets) or [target.get("case_id") for target in targets] != declared:
+        return False
+    runner.validate_postconditions(manifest["cases"], selected=[case["id"]])
+    attempts = [{"ref": reference, "outcome": previous} for reference, previous in zip(references, outcomes)]
+    expected_source = runner.summarize_outcomes(case, attempts, outcomes[-1])
+    if content_hash(source) != content_hash(expected_source):
+        return False
+    if any(not result_evidence(run, target, manifest["cases"][target["case_id"]], _seen=seen) for target in targets):
+        return False
+    return (_postcondition_order(references, targets, outcome)
+            and content_hash(outcome) == content_hash(runner.postcondition_outcome(case, source, targets)))
+
+
+def _attempt_outcomes(run: dict, result: dict, manifest: dict, attempts: list[dict], seen: frozenset[str]) -> list[dict]:
+    frozen = manifest["cases"][result["case_id"]]
+    folder = (paths.local() / "runs" / run["id"]).resolve()
+    outcomes = []
+    for position, ref in enumerate(attempts):
+        file = data_refs.resolve(ref["path"])
+        if not file.resolve().is_relative_to(folder / "attempts"):
+            return []
+        receipt = json.loads(file.read_bytes())
+        if not isinstance(receipt, dict):
+            return []
+        if (content_hash(receipt) != ref["sha256"] or receipt["run_id"] != run["id"] or receipt["id"] != ref["id"]
+                or receipt["input_hash"] != run["input_hash"] or receipt["case_content_hash"] != result["case_content_hash"]
+                or receipt["case_id"] != result["case_id"] or receipt["state"] != "completed"
+                or receipt.get("case_scope_hash") != manifest["scope_hashes"][result["case_id"]]):
+            return []
+        outcome = receipt["outcome"]
+        if not isinstance(outcome, dict):
+            return []
+        if (ref.get("status") != outcome.get("status") or ref.get("business_status") != outcome.get("business_status")
+                or ref.get("kind") != receipt.get("kind")):
+            return []
+        if receipt.get("kind") == "postcondition":
+            if not _postcondition_evidence(run, frozen, manifest, outcome, attempts[:position], outcomes, seen):
+                return []
+        elif "postcondition_source" in outcome or "postcondition_results" in outcome:
+            return []
+        outcomes.append(outcome)
+        for artifact in receipt.get("artifacts", []):
+            file = (folder / artifact["path"]).resolve()
+            if not file.is_relative_to(folder) or hashlib.sha256(file.read_bytes()).hexdigest() != artifact["sha256"]:
+                return []
+    return outcomes
+
+
+def result_evidence(run: dict, result: dict, case: dict | None = None, *, _seen: frozenset[str] = frozenset()) -> bool:
     """Verify actual local attempt receipts, including candidate runs before their cases are published."""
     try:
         if result.get("run_id") != run["id"] or not result.get("input_hash") or result["input_hash"] != run["input_hash"]:
             return False
         manifest = load(run)
         frozen = manifest["cases"][result["case_id"]]
+        if result["case_id"] in _seen:
+            return False
+        seen = _seen | {result["case_id"]}
         if result.get("case_content_hash") != content_hash(case or frozen) or content_hash(frozen) != result["case_content_hash"]:
             return False
         detail = json.loads(result["detail"]) if isinstance(result["detail"], str) else result["detail"]
@@ -284,30 +454,9 @@ def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
         attempts = detail.get("attempts", [])
         if not isinstance(attempts, list) or not attempts or any(not isinstance(ref, dict) for ref in attempts):
             return False
-        folder = (paths.local() / "runs" / run["id"]).resolve()
-        outcomes = []
-        for ref in attempts:
-            file = data_refs.resolve(ref["path"])
-            if not file.resolve().is_relative_to(folder / "attempts"):
-                return False
-            receipt = json.loads(file.read_bytes())
-            if not isinstance(receipt, dict):
-                return False
-            if (content_hash(receipt) != ref["sha256"] or receipt["run_id"] != run["id"] or receipt["id"] != ref["id"]
-                    or receipt["input_hash"] != run["input_hash"] or receipt["case_content_hash"] != result["case_content_hash"]
-                    or receipt["case_id"] != result["case_id"] or receipt["state"] != "completed"):
-                return False
-            outcome = receipt["outcome"]
-            if not isinstance(outcome, dict):
-                return False
-            if (ref.get("status") != outcome.get("status") or ref.get("business_status") != outcome.get("business_status")
-                    or ref.get("kind") != receipt.get("kind")):
-                return False
-            outcomes.append(outcome)
-            for artifact in receipt.get("artifacts", []):
-                file = (folder / artifact["path"]).resolve()
-                if not file.is_relative_to(folder) or hashlib.sha256(file.read_bytes()).hexdigest() != artifact["sha256"]:
-                    return False
+        outcomes = _attempt_outcomes(run, result, manifest, attempts, seen)
+        if not outcomes:
+            return False
         failed = next((outcome for outcome in outcomes if outcome.get("business_status") == "Fail"), None)
         last = outcomes[-1]
         selected = failed or last
@@ -318,7 +467,9 @@ def result_evidence(run: dict, result: dict, case: dict | None = None) -> bool:
                 and detail.get("execution_status") == last.get("execution_status")
                 and detail.get("performance_status") == last.get("performance_status")
                 and detail.get("assertions", []) == selected.get("assertions", [])
-                and detail.get("performance_assertions", []) == last.get("performance_assertions", []))
+                and detail.get("performance_assertions", []) == last.get("performance_assertions", [])
+                and all(content_hash(detail.get(key)) == content_hash(last.get(key))
+                        for key in ("postcondition_source", "postcondition_results")))
     except (ValueError, KeyError, OSError, TypeError):
         return False
 

@@ -61,8 +61,9 @@ class FlowTests(unittest.TestCase):
             entry("POST", "/api/tickets/7/close", 200, {"ok": True}, form="reason=dup&ticket_id=7"),
             entry("DELETE", "/api/tickets/7", 204, None),
         ]}}
-        compiler.build(self.pid, self.rec(rand="ab12cd"), traffic, None, "工单增删改查")
-        made = {c["method"] + " " + c["path"]: c for c in projects.cases(self.pid) if c["kind"] == "api"}
+        compiled = compiler.build(self.pid, self.rec(rand="ab12cd"), traffic, None, "工单增删改查")
+        self.assertEqual(projects.cases(self.pid), [])
+        made = {c["method"] + " " + c["path"]: c for c in compiled["candidates"] if c["kind"] == "api"}
         create, update = made["POST /api/tickets"], made["PUT /api/tickets/{{ticket_id}}"]
         self.assertEqual(create["json"], {"title": "工单-{{RAND}}"})  # a new name on every replay
         self.assertEqual(create["assertions"]["json_equals"]["/title"], "工单-{{RAND}}")
@@ -98,9 +99,10 @@ class FlowTests(unittest.TestCase):
         self.assertEqual([(c["id"], c["module"], c["status"]) for c in shown["cases"]], [("TC-001", "工单", "未执行"), ("TC-X", "未分组", "未执行")])
         self.assertEqual(shown["cases"][0]["steps"], "1. 打开\n2. 提交")
         plan.link("TC-001", self.pid, "TC-UI-001", 1)
-        self.assertEqual(plan.mark("TC-X", "阻塞", "需要短信验证码")["summary"], {"通过": 0, "失败": 0, "阻塞": 1, "未执行": 1})
+        self.assertEqual(plan.mark("TC-X", "阻塞", "需要短信验证码")["summary"],
+                         {"通过": 0, "失败": 0, "阻塞": 1, "未验证": 0, "已取消": 0, "未执行": 1, "未知": 0})
         self.assertEqual(plan.show()["cases"][0]["replay"], "t/TC-UI-001")
-        self.assertIsNone(plan.sync(quiet=True))  # nothing replayed yet
+        self.assertEqual(plan.sync(quiet=True)["updated"], 0)  # No execution result may be invented.
         # a hand-made sheet dropped into the same folder is executed the same way
         from openpyxl import Workbook
 

@@ -58,7 +58,7 @@ class TaskMarkdownSummaryTests(unittest.TestCase):
         value.update(kind="recording", status="NotRun", run_ids=[])
         value["cases"] = [observation("recorded", None, recorded={"status": "Fail", "actual": "DO_NOT_DUMP_OBSERVATION"})]
         text, summary = task_markdown.render(value, excel_link="cases.xlsx")
-        self.assertEqual((summary["counts"]["Pass"], summary["counts"]["NotRun"]), (0, 1))
+        self.assertEqual((summary["counts"]["Pass"], summary["counts"]["Fail"]), (0, 1))
         self.assertIn("录制时已观察到断言失败", text)
         self.assertIn("尚未回放", text)
         self.assertNotIn("DO_NOT_DUMP", text)

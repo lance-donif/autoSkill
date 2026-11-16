@@ -1,4 +1,5 @@
 // Schedules: run chosen cases at fixed times. Create, edit, pause, delete, run now.
+import { ensurePreferences } from '../preferences.js';
 import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
 import { empty, errorState, drawer, closeOverlay, confirm, preferredHeaded } from '../ui.js';
 import { targetEditor } from '../schedule-target.js';
@@ -75,8 +76,8 @@ function taskDescription(task) {
   return `${task.project_name} · ${task.case_ids.length ? task.case_ids.length + ' 条用例' : '全部用例'} · ${ENGINE[task.engine]} · ${headed ? '显示浏览器窗口' : '隐藏浏览器窗口'}`;
 }
 
-// biome-ignore lint/suspicious/useAwait: Preserve the async editor contract without waiting for its background case load.
 async function editor(task, done, projects) {
+  if (!await attempt(ensurePreferences)) return;
   if (!projects.length) { toast('先创建项目，再安排定时任务', { bad: true }); return; }
   const rule = task ? task.rule : { kind: 'daily', time: '09:00' };
   const picked = new Set(task ? task.case_ids : []);

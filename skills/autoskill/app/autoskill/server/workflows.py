@@ -3,10 +3,22 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Request
 
-from .. import db, workflow, workflow_changes, workflow_state
+from .. import db, failure_context, workflow, workflow_changes, workflow_state
 
 
 def register(app: FastAPI) -> None:
+    @app.get("/api/failure-context/{project_id}")
+    def failure(project_id: str, request: Request):
+        query = request.query_params
+        identifiers = {key: query.get(key) for key in ("run_id", "execution_attempt_id", "case_id")}
+        if not all(identifiers.values()):
+            raise ValueError("读取失败上下文需要 run_id、execution_attempt_id 和 case_id")
+        return failure_context.read(project_id, **identifiers)
+
+    @app.get("/api/workflows/{workflow_id}/diagnostic-context")
+    def diagnostic(workflow_id: str):
+        return workflow.diagnostic_context(workflow_id)
+
     @app.get("/api/workflows")
     def workflows(request: Request):
         workflow_state.init()

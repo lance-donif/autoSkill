@@ -70,6 +70,9 @@
     const out = [];
     for (let index = 0; index < result.snapshotLength; index++) {
       const node = result.snapshotItem(index);
+      if (node.nodeType === 9 && locator.value.includes(' | (/)[count(')) {
+        throw new Error('业务目标不唯一：存在多条匹配记录或操作按钮，无法确定目标。');
+      }
       if (node.nodeType !== 1 || node.getRootNode() !== root) throw new Error('XPath 结果必须是当前上下文内的元素');
       out.push(node);
     }
@@ -165,6 +168,78 @@
     }
     return null;
   }
+  function businessLocator(el, controlRole, name) {
+    // Scope repeated controls to a real row/card identity, using only existing locator types.
+    // Shadow roots retain their current local-anchor rules; a frame document is already its own root.
+    if (root.nodeType !== 9 || !['button', 'link'].includes(controlRole) || !name) return null;
+    const peers = find({ by: 'role', role: controlRole, name });
+    if (peers.length < 2) return null;
+    const exact = (locator) => {
+      const matches = find(locator);
+      return matches.length === 1 && matches[0] === el;
+    };
+    const unique = (path, containerPath) => {
+      // A later duplicate identity is ambiguous too: never select its first occurrence.
+      if (!exact({ by: 'xpath', value: path })) return null;
+      const guard = (containerPath ? 'count(' + containerPath + ')=1 and ' : '') + 'count(' + path + ')=1';
+      const ambiguous = (containerPath ? 'count(' + containerPath + ')>1 or ' : '') + 'count(' + path + ')>1';
+      // Non-element validation rejects this document sentinel, so ambiguity cannot pass hidden/count=0.
+      const locator = { by: 'xpath', value: '(' + path + ')[' + guard + '] | (/)[' + ambiguous + ']' };
+      return exact(locator) ? locator : null;
+    };
+    const literal = (value) => {
+      // DOM text is literal, even when it contains the recording template syntax.
+      const parts = value.split(/(\{\{RAND\}\}|\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\})/).filter(Boolean)
+        .flatMap((part) => part === '{{RAND}}' || part.startsWith('${ENV:') ? [part.slice(0, 1), part.slice(1)] : [part]);
+      return parts.length > 1 ? 'concat(' + parts.map(xpathLiteral).join(',') + ')' : xpathLiteral(value);
+    };
+    const testid = el.getAttribute('data-testid');
+    if (testid && exact({ by: 'testid', value: testid })) return unique('//*[@data-testid=' + literal(testid) + ']');
+    if (stableId(el.id) && exact({ by: 'css', value: '#' + cssEscape(el.id) })) return unique('//*[@id=' + literal(el.id) + ']');
+    const tag = (node) => '*[local-name()=' + xpathLiteral(node.localName) + ']';
+    const normalized = "normalize-space(translate(., '\u00a0\u3000', '  '))";
+    let control = tag(el);
+    if (el.hasAttribute('aria-label')) control += '[@aria-label=' + literal(el.getAttribute('aria-label')) + ']';
+    else if (el.tagName === 'INPUT' && norm(el.value) === name) control += '[@value=' + literal(el.value) + ']';
+    else if (norm(el.textContent) === name) control += '[' + normalized + '=' + literal(name) + ']';
+    else if (el.getAttribute('title') === name) control += '[@title=' + literal(name) + ']';
+    else return null;
+    const scoped = (containerPath, container) => {
+      const matches = find({ by: 'xpath', value: containerPath });
+      return matches.length === 1 && matches[0] === container ? unique(containerPath + '//' + control, containerPath) : null;
+    };
+    for (let container = el.parentElement; container && container !== root.body; container = container.parentElement) {
+      if (peers.filter((peer) => container.contains(peer)).length > 1) break;
+      const repeated = Array.from(container.parentElement?.children || []).some((sibling) =>
+        sibling !== container && peers.some((peer) => sibling.contains(peer)));
+      if (!repeated && !container.matches('tr,li,article,[role="row"],[role="listitem"]')) continue;
+      for (const attribute of ['data-testid', 'data-row-key', 'data-product-id', 'data-sku', 'id']) {
+        const value = container.getAttribute(attribute);
+        if (!value || (attribute === 'id' && !stableId(value))) continue;
+        const locator = scoped('//' + tag(container) + '[@' + attribute + '=' + literal(value) + ']', container);
+        if (locator) return locator;
+      }
+      const titles = [...container.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"],[itemprop="name"],th[scope="row"],[role="rowheader"],img[alt]')];
+      // Plain product cards use a first paragraph; table rows use their first non-control cell.
+      const plain = container.querySelector(container.matches('tr,[role="row"]') ? 'th,td,[role="cell"]' : 'p');
+      if (plain) titles.push(plain);
+      for (const title of titles) {
+        if (title.contains(el) || title.closest('button,input,select,textarea') || !exposed(title)
+            || title.querySelector('button,input,select,textarea') || getComputedStyle(title).visibility === 'hidden') continue;
+        if (Array.from(title.querySelectorAll('*')).some((node) => !exposed(node) || getComputedStyle(node).visibility === 'hidden')) continue;
+        const value = norm(title.tagName === 'IMG' ? title.getAttribute('alt') : title.textContent);
+        const identityText = value.replace(/\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}/g, '');
+        if (!value || value.length > 160 || !/\p{L}/u.test(value) || /[$€£¥￥%]|\b(?:USD|EUR|GBP|CNY)\b/.test(identityText)) continue;
+        const path = [];
+        for (let node = title; node !== container; node = node.parentElement) path.unshift(tag(node));
+        const identity = title.tagName === 'IMG' ? '@alt=' + literal(title.getAttribute('alt'))
+          : normalized + '=' + literal(value);
+        const locator = scoped('//' + tag(container) + '[' + path.join('/') + '[' + identity + ']]', container);
+        if (locator) return locator;
+      }
+    }
+    return null;
+  }
   function describe(el) {
     const out = [];
     const push = (locator) => { const ok = locator && withIndex(locator, el); if (ok) out.push(ok); };
@@ -189,8 +264,10 @@
     if (fallback) out.push(fallback);
     const type = (el.getAttribute('type') || '').toLowerCase();
     const auto = (el.getAttribute('autocomplete') || '').toLowerCase();
+    const business = businessLocator(el, r, name);
     return {
-      locators: out, tag: el.tagName.toLowerCase(), role: r, name: name.slice(0, 80), type,
+      // Once identity is known, a global ordinal fallback could silently act on a different row.
+      locators: business ? [business] : out, tag: el.tagName.toLowerCase(), role: r, name: name.slice(0, 80), type,
       editable: (el.tagName === 'INPUT' && !/^(button|submit|reset|checkbox|radio|file|image|hidden)$/.test(type)) || el.tagName === 'TEXTAREA' || el.isContentEditable,
       checkable: el.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio') || /^(checkbox|radio|switch)$/.test(r || ''),
       secret: type === 'password' || /password|one-time-code|^cc-/.test(auto),

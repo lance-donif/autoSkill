@@ -19,14 +19,23 @@
 | `project show <项目>` | 单个项目的设置 |
 | `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
-| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、把回放结果写回；用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
+| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|阻塞\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、按设计版本、候选和指定运行回填完整表，保留未执行及失败；`initial_excel` 是最初副本。用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
+| `plan link <设计行编号> <可复用用例编号>` | 将当前会话设计行关联到同项目已有用例，不执行、不复用旧通过。先确认操作与独立断言符合本行预期，再保持相同 `--session` 执行 `run <项目> --case <可复用用例编号>`；API 流程可带 `--api-only --inputs <参数文件>`。本次真实结果回填原表，自动前置只回填表内已有明确关联的行，不增加运行报告的显式目标数 |
 | `context <项目> [--limit 50] [--cursor 游标] [--knowledge-limit 5] [--knowledge-cursor 游标] [--all]` | 登录、缺少的凭据、用例与知识预览；`page.cases`、`page.knowledge` 分别标明总数、剩余页及内容版本 |
 | `cases <项目> [--limit 数量] [--cursor 游标] [--all] [--kind] [--module] [--requirement] [--query]` | 分页用例摘要；`page` 返回 `total/returned/has_more/next_cursor/content_revision`，内容或查询改变会报 `cursor_expired` |
 | `cases <项目> --case <编号>` | 完整用例定义及内容版本，包含断言和需求关联；不是仪表盘展示投影 |
 | `knowledge list <项目> [--limit 数量] [--cursor 游标] [--query] [--all]` | 知识文件索引、字节数、内容版本；不默认读取每份正文 |
 | `knowledge read <项目> <knowledge/文件> [--offset 字符偏移] [--length 12000] [--revision 内容版本] [--all]` | 按 Unicode 字符读取正文，返回 `next_offset/total_length/has_more`；传 revision 可防止混读新旧版本 |
+| `knowledge search <项目> --query <文字> [--team] [--limit 50] [--cursor 游标]` | 按标题/正文检索知识条目及旧文件；返回 `entries/page/pagination/scope_note`，四类状态分别判断，正文按需读取 |
+| `knowledge get <项目> <条目ID> --revision <版本>` | 读取指定不可变版本和当前证据、适用性投影；跨项目命中使用结果中的 `owner_project_id` |
+| `knowledge settings <项目> [--from-file <JSON>]` | 读取或条件更新团队/业务范围；写入 `{expected_hash,team_id,business_scope}`，二者同时非空或同时为 null |
+| `knowledge export <项目> --entry <ID>@<版本> [--entry <ID>@<版本> ...] --output <新JSON文件>` | 导出当前项目选定条目的完整版本链；不覆盖已有输出文件 |
+| `knowledge export <项目> --all --output <新JSON文件>` | 导出当前项目所有有效 canonical 条目的当前版本；`--all` 与 `--entry` 互斥，不包含旧文件或团队项目 |
+| `knowledge import <项目> --file <知识包JSON> --idempotency-key <标识> [--as-new]` | 原子校验并导入；同一请求重试沿用标识，`--as-new` 创建独立谱系，导入后仍需本地验证 |
 
 分页没有项目或用例总数量上限。`--all` 读取全部条目，不能与 cursor 同用；知识正文的 `--all` 从指定 offset 读到末尾。原 Python `cli.context(project)` 仍返回全量，`cli.knowledge(project, limit=2400)` 仍表示每个文件的字符数。
+
+`context` 保留旧 `knowledge`，另提供 `knowledge_entries`。搜索页绑定参与项目的版本、知识设置与旧文件内容；变化后 `cursor_expired`，从首页重读。`--team` 只查询配置了完全相同非空 `team_id/business_scope` 的项目；未配置时返回当前项目及 `scope_note: project_only_unconfigured`，条目标签不能代替项目设置。搜索命中不表示适用或事实已证实。新知识接口错误返回 `code/error/details`，退出 2；完整提交、状态和导入语义见 [诊断与知识闭环](diagnosis-knowledge.md)。
 
 功能设计字段为 `description/preconditions/steps/expected/source`，以及已确认的 `business_path/prefix/author/remarks`。`plan write` 保留这些来源字段供 `plan show` 和同一会话的 `record stop --plan <编号>` 使用；可执行用例将其保存在 `extensions.test_case_document`。主表使用真实业务操作及对应预期，HTTP 请求、选择器和浏览器 IR 留在技术附表。只改功能文字或重新关联旧检查不能证明新预期已验证；需要按来源录制独立检查，或通过工作流提交明确对应新预期的候选断言并真实回归。
 
@@ -56,8 +65,13 @@ DSH 注册命令中的 `--runtime-context <绑定值>` 同时固定 workspace �
 | `workflow release <工作流> <item> --lease-token <token> --attempt-id <attempt> --idempotency-key <标识> [--file <检查点.json>]` | 释放工作；未知副作用进入恢复，不自动重播 |
 | `workflow recover <工作流> --idempotency-key <标识>` | 调和已提交定义、实际执行与恢复日志 |
 | `workflow cancel <工作流> --idempotency-key <标识>` / `workflow resume <工作流> --idempotency-key <标识>` | 持久暂停/恢复流程；不会改写已有业务失败 |
+| `failure-context <项目> --run <运行ID> --execution-attempt <执行回执ID> --case <用例ID>` | 只读失败上下文与已核验的证据引用，不执行、不领取、不导出、不提交诊断；显式身份不能用最新结果代替 |
 
 同一逻辑请求重试使用同一幂等标识、相同输入；新的意图才生成新标识。已成功但响应丢失的提交返回原收据。`next` 是领取，会改变状态，不能当只读轮询。
+
+诊断提交使用 `{manifest_hash,diagnoses:[{target_id,disposition,reason,evidence_refs}]}`，逐项覆盖当前 `diagnostic_targets`；`disposition` 为 `business_defect/repair/retry/incomplete`。证据缺失、损坏或外部操作结果未知只能 `incomplete`；任一目标 incomplete 就停止该周期自动维护/重试，既有 Fail 保留。工作流租约 `attempt_id` 与真实执行 `execution_attempt_id` 分开。旧版无清单诊断仅保留 `incomplete` 兼容，其他结论需升级到逐目标提交。
+
+知识阶段使用 `{schema_version:2,mutations:[...]}`；支持带 `client_key` 的 create、带 `expected_revision/expected_content_hash` 的 revise/withdraw，完整合同见 [诊断与知识闭环](diagnosis-knowledge.md)。所有阶段都可在提交信封中用 `knowledge_used:[{owner_project_id,id,revision,content_hash,purpose}]` 声明实际引用；它不嵌入阶段 payload，也不证明知识带来提升。
 
 ## 原生资产、会话捕获与宿主判定
 
@@ -118,7 +132,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 | `check <类型> [目标] [期望] [--attribute 属性] [--timeout 秒] [--stable-for 秒] [--mode eventually\|always] [--from-json <来源断言JSON>]` | 保存期望并实际检查；失败也保留 actual，passed:false 时退出 1。转换断言可先验证 from-json 再验证目标 |
 | `record status` | 已记录的步骤 |
 | `record undo` | 撤销最后一步的记录 |
-| `record stop --title 标题 [--module 模块] [--category 分类]` | 结束并生成用例 |
+| `record stop --title 标题 [--module 模块] [--category 分类]` | 结束并保存候选及录制观察；普通任务自动安排UI/API分别验证，只有实际通过后才发布；`--plan` 绑定设计行 |
 | `record cancel` | 放弃，不生成用例 |
 
 每个会话维护自己的录制；不同会话可以同时录制。
@@ -172,11 +186,16 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 ## 回放
 
-`run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api]`
+`run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api] [--candidate 候选ID] [--api-only] [--inputs 参数.json]`
+
+`run-status <运行ID>` 只读普通/原生运行的状态、结果和已生成报告、候选发布回执；不认领、不运行、不生成报告。`record stop` 已入队后，用它等待每个返回的 `run_ids`，不能再发一次 `run` 来代替查询。
+
+`--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。
 
 - 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好；省略参数不会覆盖用户已经选择的隐藏。没有偏好时默认显示最大化窗口，无桌面的 Linux 默认隐藏。明确 `--headed` / `--headless` 或 `AUTOSKILL_HEADED=1/0` 优先；没有窗口时页面为 1920×1080。这些命令行选项适用于 `record start`、`run`、`login`、`dashboard`。
 - 全局默认同时执行 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的浏览器/HTTP replay 共享登录态，会自动排队，native 原生任务使用独立输入与证据目录、同项目可并行。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
 - 前置用例自动先执行且每次运行只执行一次；前置没通过时，依赖它的用例记为阻塞。
+- API 动作声明 `extensions.postconditions` 时，单选该动作也会执行其后置及依赖；必须在同一运行完成全部独立业务检查，才可形成动作业务 Pass 与完整发布集合。仅 HTTP 201 等受理状态不证明业务完成；后置失败、阻塞或未验证时保留原结果，见[执行契约](workflow/execution.md#显式后置检查删除已受理不等于业务已完成)。
 - 登录用例：有保存的登录态且仍有效就直接复用，否则重新登录；回放中途发现登录过期会重新登录一次，只读用例自动重试，写操作不自动重发。
 - 没有前置的接口用例不带任何登录信息发送（用来验证「未登录被拒绝」）。
 - 接口用例之间的变量：`{{名称}}` 由前面用例从响应里提取。

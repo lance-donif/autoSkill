@@ -19,6 +19,7 @@ import uuid
 from pathlib import Path
 
 from . import data_refs, db, execution_inputs, paths, projects, runtime_identity, secrets, sessions, task_context
+from .core import store
 from .replay import api, ir, ui
 
 ENGINES = ("playwright", "selenium")
@@ -30,19 +31,26 @@ _children_lock = threading.Lock()
 def prepare(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
             trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
             headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
-            *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None) -> dict:
+            *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None,
+            candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None) -> dict:
     """Validate and freeze execution inputs without writing any database row."""
     if engine not in ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
-    frozen, manifest = execution_inputs.freeze(project_id, case_ids, engine, candidate_cases=candidate_cases)
+    frozen, manifest = execution_inputs.freeze(project_id, case_ids, engine, candidate_cases=candidate_cases,
+                                               candidate_auth=candidate_auth, api_only=api_only, inputs=inputs)
     chosen = manifest["selected"]
     identity = (task_context.session_id() if session_id is None else session_id) or ""
     with task_context.use_session(identity or None):
         selected_plan = str(plan_folder(plan_path) if plan_path else paths.case_skill())
-    return {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
-           "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
-           "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed)),
-           "force_login": int(force_login), "session_id": identity, "family": "replay", "plan_path": selected_plan, **frozen}
+    prepared = {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
+                "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
+                "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed)),
+                "force_login": int(force_login), "session_id": identity, "family": "replay", "plan_path": selected_plan, **frozen}
+    if candidate_cases is None:
+        from . import plan
+
+        plan.capture_linked_execution(prepared, manifest)
+    return prepared
 
 
 def enqueue(prepared: dict, connection=None) -> dict:
@@ -86,6 +94,11 @@ def plan_reference(value: str | Path) -> str:
 def public_run(run: dict, *, state: dict | None = None) -> dict:
     """Project stored locations for callers without changing durable rows or frozen evidence."""
     result = dict(run)
+    from . import candidate_publication
+
+    publication = candidate_publication.receipt(run["id"])
+    if publication is not None:
+        result["publication"] = publication
     if result.get("input_manifest"):
         # Unmapped historical locations remain visible instead of being guessed.
         with contextlib.suppress(ValueError):
@@ -104,11 +117,12 @@ def public_run(run: dict, *, state: dict | None = None) -> dict:
 def create(project_id: str, case_ids: list[str] | None = None, engine: str = "playwright",
            trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
            headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
-           *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None) -> dict:
+           *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None,
+           candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None) -> dict:
     """Validate, freeze and queue a run through the same API used by transactional schedules."""
     projects.reindex(project_id)
     return enqueue(prepare(project_id, case_ids, engine, trigger, task_id, batch_id, headed, force_login, session_id,
-                           candidate_cases=candidate_cases, plan_path=plan_path))
+                           candidate_cases=candidate_cases, plan_path=plan_path, candidate_auth=candidate_auth, api_only=api_only, inputs=inputs))
 
 
 def evidence_dir(run_id: str) -> Path:
@@ -130,10 +144,15 @@ def blocked(reason: str, category: str) -> dict:
             "duration_ms": 0}
 
 
+def cancelled() -> dict:
+    return {**blocked("运行已取消，未完成的检查不作为业务失败", "cancelled"), "status": "Cancelled"}
+
+
 def build_plan(chosen: list[str], cases: dict) -> list[tuple[str, bool]]:
-    """Chosen cases with their prerequisites first: [(case_id, is_prerequisite)]. Each case appears once."""
+    """Order prerequisites and declared postconditions once, keeping automatic checks distinct from setup."""
     order: list[str] = []
     visiting: set[str] = set()
+    targets = list(dict.fromkeys(chosen))
 
     def visit(case_id: str, trail: tuple) -> None:
         if case_id in order:
@@ -148,9 +167,14 @@ def build_plan(chosen: list[str], cases: dict) -> list[tuple[str, bool]]:
         visiting.discard(case_id)
         order.append(case_id)
 
-    for case_id in chosen:
+    for case_id in targets:
         visit(case_id, ())
-    return [(case_id, case_id not in chosen) for case_id in order]
+        validate_postconditions(cases, order)
+        for identity in order:
+            for target in cases[identity].get("extensions", {}).get("postconditions", []):
+                if target not in targets:
+                    targets.append(target)
+    return [(case_id, case_id not in targets) for case_id in order]
 
 
 def needs(case_id: str, target: str | None, cases: dict) -> bool:
@@ -168,6 +192,29 @@ def needs(case_id: str, target: str | None, cases: dict) -> bool:
     return False
 
 
+def validate_postconditions(cases: dict, selected=None) -> None:
+    """A postcondition is an explicit downstream API oracle, never an arbitrary later success."""
+    for identity in cases if selected is None else selected:
+        case = cases[identity]
+        extensions = case.get("extensions", {})
+        if "postconditions" not in extensions:
+            continue
+        targets = extensions["postconditions"]
+        if (case["kind"] != "api" or not isinstance(targets, list) or not targets
+                or any(not isinstance(target, str) or not target for target in targets) or len(set(targets)) != len(targets)):
+            raise ValueError(f"{identity}.extensions.postconditions 必须是非空且不重复的 API 用例编号列表")
+        for target in targets:
+            check = cases.get(target)
+            if target == identity or not check or check.get("lifecycle") != "active" or check.get("kind") != "api":
+                raise ValueError(f"{identity} 的后置验证 {target} 必须指向另一个存在且启用的 API 用例")
+            assertions = check.get("assertions", {})
+            independent = store.has_real_assertion(assertions) or assertions.get("status", 0) >= 400
+            if not independent or check.get("extensions", {}).get("oracle", {}).get("source") == "observation":
+                raise ValueError(f"{identity} 的后置验证 {target} 缺少独立业务断言")
+            if not needs(target, identity, cases):
+                raise ValueError(f"{identity} 的后置验证 {target} 必须通过 depends_on 依赖该动作")
+
+
 class Session:
     """Everything one run shares: browser, HTTP client, variables, login handling."""
 
@@ -180,16 +227,24 @@ class Session:
                                              for key, value in self.manifest["engine"]["runtime"].items()}
         self.cases = self.manifest["cases"]
         self.auth = self.manifest["auth"]
-        self.force_login = force_login
-        self.saved = self.manifest["saved_session"]
+        self.api_only = bool(self.manifest.get("api_only"))
+        self.force_login = force_login or self.api_only
+        self.saved = {} if self.api_only else self.manifest["saved_session"]
         self.rand = self.manifest["variables"]["RAND"]
         self.count = 0
-        self.variables: dict = {"RAND": self.rand}
+        self.variables: dict = copy.deepcopy(self.manifest["variables"])
         self.driver = None
         self.driver_error = ""
         self.client = api.new_client(self.config, self.saved.get("ui"))
         self.relogged = False
         self.attempts: dict[str, list[dict]] = {}
+        self._cancelled = bool(run.get("cancel"))
+
+    def cancel_requested(self) -> bool:
+        if not self._cancelled:
+            current = db.one("SELECT cancel FROM runs WHERE id = ?", (self.run["id"],))
+            self._cancelled = bool(current and current["cancel"])
+        return self._cancelled
 
     def close(self) -> None:
         self.client.close()
@@ -204,9 +259,12 @@ class Session:
                 return
 
     def browser(self):
+        if self.api_only:
+            raise ValueError("独立接口运行不能启动浏览器")
         if self.driver is None and not self.driver_error:
             try:
                 self.driver = make_driver(self.run["engine"], self.config)
+                self.driver.cancel_requested = self.cancel_requested
             except ValueError as error:
                 self.driver_error = str(error)
             except Exception as error:  # noqa: BLE001  # Any browser startup failure becomes the run's environment result.
@@ -229,9 +287,9 @@ class Session:
                    "started_at": db.now(), "state": "started", "outcome": None}
         execution_inputs.write_json(file, receipt)
         try:
-            outcome = invoke(attempt_id)
+            outcome = cancelled() if self.cancel_requested() else invoke(attempt_id)
         except Exception as error:  # noqa: BLE001  # Preserve an attempt receipt even when an adapter unexpectedly exits its structured path.
-            outcome = blocked("执行器出错：" + type(error).__name__, "environment")
+            outcome = cancelled() if isinstance(error, ui.StepError) and error.category == "cancelled" else blocked("执行器出错：" + type(error).__name__, "environment")
         outcome = {**outcome, **verification(case, outcome, probe=kind in ("login_probe", "session_reuse"))}
         artifacts = []
         for name in outcome.get("screenshots", []):
@@ -252,26 +310,18 @@ class Session:
         """Keep a witnessed business failure even if a later retry or environment result differs."""
         if not self.attempts.get(case["id"]):
             self.attempt(case, "not_executed", lambda _attempt: outcome)
-        attempts = self.attempts.get(case["id"], [])
-        result = {**outcome, **verification(case, outcome), "attempts": [item["ref"] for item in attempts]}
-        failed = next((item["outcome"] for item in attempts if item["outcome"]["business_status"] == "Fail"), None)
-        if failed:
-            result.update(last_attempt_status=outcome["status"], status="Fail", business_status="Fail", business_verified=False,
-                          verification="verified", reason=failed.get("reason", "业务断言失败"), category="assertion_failed",
-                          assertions=failed.get("assertions", []), actual=failed.get("actual", ""))
-        if attempts:
-            result["duration_ms"] = sum(item["outcome"].get("duration_ms", 0) for item in attempts)
-            result["screenshots"] = [name for item in attempts for name in item["outcome"].get("screenshots", [])]
-        return result
+        return summarize_outcomes(case, self.attempts.get(case["id"], []), outcome)
 
     def replay(self, case: dict, state: dict | None = None) -> dict:
         """Replay one UI case in a clean context. A misread captcha is not a defect: try again with a fresh image."""
         actions = case["extensions"]["automation"].get("actions", [])
         for index in range(3 if any(step.get("action") == "captcha" for step in actions) else 1):
+            if self.cancel_requested():
+                return cancelled()
             self.driver.reset(state)
             outcome = self.attempt(case, "captcha_retry" if index else "case", lambda attempt_id:
                                    ui.run_case(self.driver, case, self.config, evidence_dir(self.run["id"]), self.shot(attempt_id)))
-            if outcome["status"] != "Fail":
+            if outcome["status"] != "Fail" or self.cancel_requested():
                 break
         return outcome
 
@@ -314,7 +364,8 @@ class Session:
         outcome = self.api_replay(self.client, case, self.variables)
         if outcome["status"] == "Pass" and wanted:
             self.saved["variables"] = {name: self.variables[name] for name in wanted}
-            sessions.save(self.pid, variables=self.saved["variables"])
+            if not self.api_only:
+                sessions.save(self.pid, variables=self.saved["variables"])
         return outcome
 
     def state_variables(self) -> None:
@@ -331,7 +382,8 @@ class Session:
         self.count += 1
         ir.set_rand(f"{self.rand}{self.count}")  # page cases each get their own value; API cases share the run's
         if case["kind"] == "api":
-            self.state_variables()
+            if not self.api_only:
+                self.state_variables()
             if case_id == self.auth.get("api_case"):
                 return self.api_login(case, self.force_login)
             if not projects.depends_on(case):
@@ -348,7 +400,7 @@ class Session:
                 return outcome
             outcome = self.api_replay(self.client, case, self.variables)
             login = self.cases.get(self.auth.get("api_case", ""))
-            if outcome["category"] == "session_expired" and login and needs(case_id, login["id"], self.cases) and not self.relogged:
+            if outcome["category"] == "session_expired" and login and needs(case_id, login["id"], self.cases) and not self.relogged and not self.cancel_requested():
                 self.relogged = True
                 if self.api_login(login, force=True)["status"] != "Pass":
                     return blocked("登录已过期，重新登录没有成功", "session_expired")
@@ -363,7 +415,7 @@ class Session:
         login = self.cases.get(self.auth.get("ui_case", ""))
         signed_in = bool(login) and needs(case_id, login["id"], self.cases)
         outcome = self.replay(case, self.saved.get("ui") if signed_in else None)
-        if outcome["status"] == "Fail" and signed_in and not self.relogged and not self.still_signed_in(login):
+        if outcome["status"] == "Fail" and signed_in and not self.relogged and not self.cancel_requested() and not self.still_signed_in(login):
             self.relogged = True
             if self.ui_login(login, force=True)["status"] != "Pass":
                 return blocked("登录已过期，重新登录没有成功", "session_expired")
@@ -383,14 +435,16 @@ class Session:
 
 DETAIL_KEYS = ("steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted",
                "attempts", "verification", "business_status", "business_verified", "performance_status", "performance_assertions",
-               "execution_status", "execution_blocker", "last_attempt_status", "load_user", "load_iteration")
+               "execution_status", "execution_blocker", "last_attempt_status", "load_user", "load_iteration",
+               "postcondition_source", "postcondition_results")
 
 
 def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
     """Business evaluation requires declared checks, never an action-only or saved-session success."""
     extensions = case.get("extensions", {})
     automation = extensions.get("automation", {})
-    declared = (bool(case.get("assertions")) if case["kind"] == "api" else
+    declared = ((store.has_real_assertion(case.get("assertions", {})) or case.get("assertions", {}).get("status", 0) >= 400)
+                if case["kind"] == "api" else
                 bool(automation.get("assertions") or any("assertion" in step for step in automation.get("actions", []))))
     trusted = declared and extensions.get("oracle", {}).get("source") != "observation"
     performance = [row for row in outcome.get("assertions", []) if row.get("scope") == "performance"]
@@ -404,12 +458,78 @@ def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
         elif (outcome["status"] == "Pass" or (case["kind"] == "api" and performance_status == "Fail"
                                              and outcome.get("category") == "assertion_failed")) and all(row.get("passed") is True for row in rows):
             business = "Pass"
-    execution = "blocked" if outcome.get("execution_blocker") or outcome["status"] == "Blocked" else "completed"
+    if extensions.get("postconditions"):
+        source = outcome.get("postcondition_source")
+        results = outcome.get("postcondition_results")
+        if source is not None and isinstance(results, list):
+            business = _postcondition_business(case, source, results)
+        elif business == "Pass":
+            business = "Unverified"
+    interrupted = outcome.get("category") == "cancelled" or outcome.get("execution_blocker", {}).get("category") == "cancelled"
+    execution = "cancelled" if interrupted or outcome["status"] == "Cancelled" else "blocked" if outcome.get("execution_blocker") or outcome["status"] == "Blocked" else "completed"
     if business == "Pass" and extensions.get("functional_design", {}).get("state") == "unmapped":
         business = "Unverified"
     return {"verification": "verified" if business != "Unverified" else "unverified", "business_status": business,
             "business_verified": business == "Pass", "execution_status": execution,
             "performance_status": performance_status, "performance_assertions": performance}
+
+
+def summarize_outcomes(case: dict, attempts: list[dict], outcome: dict) -> dict:
+    """Project immutable attempt outcomes without discarding an earlier witnessed failure."""
+    result = {**outcome, **verification(case, outcome), "attempts": [item["ref"] for item in attempts]}
+    failed = next((item["outcome"] for item in attempts if item["outcome"]["business_status"] == "Fail"), None)
+    if failed:
+        result.update(last_attempt_status=outcome["status"], status="Fail", business_status="Fail", business_verified=False,
+                      verification="verified", reason=failed.get("reason", "业务断言失败"), category="assertion_failed",
+                      assertions=failed.get("assertions", []), actual=failed.get("actual", ""))
+    if attempts:
+        result["duration_ms"] = sum(item["outcome"].get("duration_ms", 0) for item in attempts)
+        result["screenshots"] = [name for item in attempts for name in item["outcome"].get("screenshots", [])]
+    return result
+
+
+def _postcondition_detail(result: dict) -> dict:
+    return json.loads(result["detail"]) if isinstance(result.get("detail"), str) else result.get("detail", {})
+
+
+def _postcondition_business(case: dict, source: dict, results: list[dict]) -> str:
+    own_case = {**case, "extensions": {key: value for key, value in case.get("extensions", {}).items() if key != "postconditions"}}
+    own = verification(own_case, source)
+    if own["business_status"] == "Fail" or any(_postcondition_detail(row).get("business_status") == "Fail" for row in results):
+        return "Fail"
+    expected = case.get("extensions", {}).get("postconditions", [])
+    if ([row.get("case_id") for row in results] != expected or source.get("status") != "Pass" or source.get("reused")
+            or source.get("category") == "session_expired"
+            or case.get("extensions", {}).get("oracle", {}).get("source") == "observation"):
+        return "Unverified"
+    return "Pass" if all(_postcondition_detail(row).get("business_status") == "Pass" for row in results) else "Unverified"
+
+
+def postcondition_outcome(case: dict, source: dict, results: list[dict]) -> dict:
+    """Derive a fresh verdict from complete same-run result snapshots without changing HTTP attempts."""
+    outcome = copy.deepcopy(source)
+    outcome.pop("attempts", None)
+    outcome["duration_ms"] = 0
+    outcome["screenshots"] = []
+    outcome["postcondition_source"] = copy.deepcopy(source)
+    outcome["postcondition_results"] = copy.deepcopy(results)
+    checks = [{"name": "后置验证 " + row["case_id"], "expected": "独立业务验证通过",
+               "actual": _postcondition_detail(row).get("business_status", "Unverified"),
+               "passed": True if _postcondition_detail(row).get("business_status") == "Pass" else
+                         False if _postcondition_detail(row).get("business_status") == "Fail" else None,
+               "scope": "business"} for row in results]
+    outcome["assertions"] = [*outcome.get("assertions", []), *checks]
+    if source["status"] == "Pass":
+        failed = [row for row in results if row.get("status") == "Fail"]
+        incomplete = [row for row in results if row.get("status") != "Pass" or _postcondition_detail(row).get("business_status") != "Pass"]
+        if failed:
+            outcome.update(status="Fail", category="assertion_failed", reason="后置验证失败：" + "、".join(row["case_id"] for row in failed))
+        elif incomplete:
+            outcome.update(status="Blocked", category="postcondition_unverified", reason="后置业务尚未验证：" + "、".join(row["case_id"] for row in incomplete))
+        else:
+            outcome["actual"] = source.get("actual", "") + "；后置业务验证通过：" + "、".join(row["case_id"] for row in results)
+    outcome.update(verification(case, outcome))
+    return outcome
 
 
 def record(run: dict, case: dict, outcome: dict, prerequisite: bool, started_at: str) -> None:
@@ -502,6 +622,11 @@ def recover_runs() -> None:
                 from . import task_reports
 
                 task_reports.for_run(run["id"])
+    from . import candidate_publication, task_reports
+
+    for completed in candidate_publication.pending_completions():
+        sync_plan(completed)
+        task_reports.for_run(completed["id"])
 
 
 def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
@@ -560,33 +685,67 @@ def sync_plan(run: dict) -> None:
     """All executors write back to the sheet selected when the run was prepared."""
     if run.get("family") == "load":
         return
-    from . import plan
+    from . import candidate_publication, plan
 
-    folder = plan_folder(run["plan_path"]) if run.get("plan_path") else paths.case_skill()
-    if folder.is_dir() and any(folder.glob("*.xlsx")):
+    publication = candidate_publication.complete_run(run)
+    if publication is not None:
+        run["publication"] = publication
+
+    folders = {plan_folder(run["plan_path"]) if run.get("plan_path") else paths.case_skill()}
+    if run.get("family") == "replay":
         with contextlib.suppress(OSError, ValueError):
-            plan.sync(quiet=True, folder=folder)
+            folders.update(folder for _identity, _case, folder in candidate_publication.design_bindings(run))
+    for folder in folders:
+        if folder.is_dir() and any(folder.glob("*.xlsx")):
+            with contextlib.suppress(OSError, ValueError):
+                plan.sync(quiet=True, folder=folder, run_id=run["id"])
 
 
 def _run_cases(run: dict, chosen: list[str], session: Session, counts: dict) -> str:
-    outcomes: dict[str, str] = {}
-    for case_id, prerequisite in build_plan(chosen, session.cases):
+    outcomes: dict[str, dict] = {}
+    pending = {}
+    interrupted = False
+    plan = build_plan(chosen, session.cases)
+    for case_id, prerequisite in plan:
         if db.one("SELECT cancel FROM runs WHERE id = ?", (run["id"],))["cancel"]:
-            return "Cancelled"
+            interrupted = True
+            break
         case = session.cases[case_id]
-        label = ("前置：" if prerequisite else "") + case["title"]
+        label = ("前置：" if prerequisite else "后置验证：" if case_id not in chosen else "") + case["title"]
         db.update("runs", run["id"], {"current": label})
         started_at = db.now()
-        broken = next((dep for dep in projects.depends_on(case) if outcomes.get(dep) != "Pass"), None)
+        broken = next((dep for dep in projects.depends_on(case) if outcomes.get(dep, {}).get("status") != "Pass"), None)
         outcome = (blocked(f"前置用例 {broken}「{session.cases[broken]['title']}」未通过，本用例没有执行", "prerequisite_failed")
                    if broken else session.run_one(case))
         outcome = session.summarize(case, outcome)
-        outcomes[case_id] = outcome["status"]
-        record(run, case, outcome, prerequisite, started_at)
-        if not prerequisite:
+        outcomes[case_id] = outcome
+        if case.get("extensions", {}).get("postconditions"):
+            pending[case_id] = (prerequisite, started_at)
+        else:
+            record(run, case, outcome, prerequisite, started_at)
+        if case_id in chosen:
             counts["done"] += 1
             counts[{"Pass": "passed", "Fail": "failed"}.get(outcome["status"], "blocked")] += 1
             db.update("runs", run["id"], counts)
+    for case_id, _ in reversed(plan):
+        if case_id not in pending:
+            continue
+        case = session.cases[case_id]
+        source = outcomes[case_id]
+        rows = [db.one("SELECT * FROM results WHERE run_id = ? AND case_id = ? ORDER BY id DESC LIMIT 1", (run["id"], target))
+                for target in case["extensions"]["postconditions"]]
+        if all(row is not None for row in rows):
+            derived = session.attempt(case, "postcondition", lambda _attempt, c=case, s=source, r=rows: postcondition_outcome(c, s, r))
+            outcomes[case_id] = session.summarize(case, derived)
+        prerequisite, started_at = pending[case_id]
+        record(run, case, outcomes[case_id], prerequisite, started_at)
+    counts.update(done=sum(identity in outcomes for identity in chosen), passed=0, failed=0, blocked=0)
+    for identity in chosen:
+        if identity in outcomes:
+            counts[{"Pass": "passed", "Fail": "failed"}.get(outcomes[identity]["status"], "blocked")] += 1
+    db.update("runs", run["id"], counts)
+    if interrupted:
+        return "Cancelled"
     return "Fail" if counts["failed"] else "Blocked" if counts["blocked"] else "Pass"
 
 

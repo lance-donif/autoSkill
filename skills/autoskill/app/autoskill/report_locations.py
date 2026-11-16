@@ -12,7 +12,7 @@ from . import data_refs, execution_inputs, paths, projects
 def _legacy(report_id: str) -> Path:
     if re.fullmatch(r"run_[A-Za-z0-9][A-Za-z0-9_-]*", report_id):
         return paths.local() / "runs" / report_id.removeprefix("run_") / "test-report"
-    if re.fullmatch(r"(?:workflow|recording)_[a-f0-9]{64}", report_id):
+    if re.fullmatch(r"(?:workflow|recording|design)_[a-f0-9]{64}", report_id):
         return paths.local() / "task-reports" / report_id
     raise ValueError("测试报告标识无效")
 

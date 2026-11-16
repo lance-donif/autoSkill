@@ -57,6 +57,10 @@ def register(app: FastAPI) -> None:
     def history(project_id: str, version: int, request: Request):
         return case_plans.history(project_id, version, session=_session(request))
 
+    @app.get("/api/case-plans/{project_id}/deliveries")
+    def previous_deliveries(project_id: str, request: Request):
+        return case_plans.previous_deliveries(project_id, _session(request))
+
     @app.get("/api/case-plans/{project_id}/history/{version}/excel")
     def historical_excel(project_id: str, version: int, request: Request):
         file = case_plans.export(project_id, session=_session(request), version=version)

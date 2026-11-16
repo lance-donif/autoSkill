@@ -102,7 +102,8 @@ class CompileTests(unittest.TestCase):
         traffic = self.login_traffic()
         traffic["log"]["entries"][-1]["request"]["url"] = "https://elsewhere.test/x"
         summary = compiler.build(self.pid, self.rec(as_login=True), traffic, {"cookies": [], "origins": []}, "登录")
-        cases = {c["id"]: c for c in projects.cases(self.pid)}
+        cases = {c["id"]: c for c in summary["candidates"]}
+        self.assertEqual(projects.cases(self.pid), [])
         by_path = {c["path"]: c for c in cases.values() if c["kind"] == "api"}
         login, listing, detail = by_path["/api/login"], by_path["/api/items"], by_path["/api/items/{{item_id}}"]
         self.assertEqual(login["json"]["username"], "qa")
@@ -115,14 +116,18 @@ class CompileTests(unittest.TestCase):
         self.assertEqual(set(projects.depends_on(detail)), {login["id"], listing["id"]})
         self.assertEqual(listing["assertions"]["schema"]["properties"]["items"]["items"]["required"], ["id", "name"])
         self.assertEqual(sum(c["kind"] == "api" for c in cases.values()), 4)  # the repeat collapsed; the other origin was skipped
-        self.assertEqual(projects.auth(self.pid), {"ui_case": summary["ui_case"]["id"], "api_case": login["id"], "api_check_case": listing["id"]})
+        self.assertEqual(summary["candidate_auth"], {"ui_case": summary["ui_case"]["id"], "api_case": login["id"], "api_check_case": listing["id"]})
+        self.assertFalse(projects.auth(self.pid).get("ui_case"))
         self.assertTrue(any("elsewhere.test" in note for note in summary["notes"]))
         shareable = b"".join(f.read_bytes() for f in projects.path(self.pid).rglob("*") if f.is_file())
         for secret in (PASSWORD, TOKEN, "sid=abc"):
             self.assertNotIn(secret.encode(), shareable)
 
     def test_recording_while_signed_in_depends_on_the_login_cases(self):
-        compiler.build(self.pid, self.rec(as_login=True), self.login_traffic(), {"cookies": [], "origins": []}, "登录")
+        existing = compiler.build(self.pid, self.rec(as_login=True), self.login_traffic(), {"cookies": [], "origins": []}, "登录")
+        # Seed an existing imported library to exercise dependency reuse, not generated publication.
+        projects.save_cases(self.pid, existing["candidates"])
+        projects.set_auth(self.pid, existing["candidate_auth"])
         auth = projects.auth(self.pid)
         later = {"log": {"entries": [
             entry("GET", "/api/items", 200, {"items": [{"id": "I-1001", "name": "a"}], "total": 1}, headers={"Authorization": "Bearer another-session-token-000"}),
@@ -132,7 +137,7 @@ class CompileTests(unittest.TestCase):
         summary = compiler.build(self.pid, self.rec(used_login=True), later, None, "新建")
         self.assertEqual(summary["ui_case"]["depends_on"], [auth["ui_case"]])
         self.assertEqual((summary["api_new"], summary["api_reused"]), (1, 1))  # the listing request already had a case
-        created = next(c for c in projects.cases(self.pid) if c.get("method") == "POST" and c["path"] == "/api/items")
+        created = next(c for c in summary["candidates"] if c.get("method") == "POST" and c["path"] == "/api/items")
         self.assertEqual(created["headers"], {"Authorization": "Bearer {{token}}"})  # a different session's token still maps to the login
         self.assertEqual(projects.depends_on(created), [auth["api_case"]])
         self.assertEqual(created["assertions"]["json_equals"], {"/name": "新的", "/status": "open"})
@@ -153,7 +158,7 @@ class CompileTests(unittest.TestCase):
         catalogue = {f"k{i}": {"name": str(i)} if i % 2 else {} for i in range(30)}
         traffic = {"log": {"entries": [entry("GET", "/learn.json", 200, catalogue, kind="xhr")]}}
         summary = compiler.build(self.pid, self.rec(), traffic, None, "静态数据")
-        case = next(c for c in projects.cases(self.pid) if c["kind"] == "api")
+        case = next(c for c in summary["candidates"] if c["kind"] == "api")
         self.assertEqual((summary["api_traffic"], case["extensions"]["traffic"], case["title"]), ("business", "business", "【待确认：接口功能目标】"))
         self.assertEqual(case["extensions"]["technical_capture_label"], "查询 /learn.json")
         self.assertTrue(any("只校验了状态码和大致结构" in note for note in summary["notes"]))
@@ -183,6 +188,7 @@ class CompileTests(unittest.TestCase):
         catalogue = {f"k{i}": {"name": str(i)} for i in range(30)}
         twice = {"log": {"entries": [entry("GET", "/learn.json", 200, catalogue, kind="xhr")] * 2}}
         first = compiler.build(self.pid, self.rec(), twice, None, "第一次")
+        projects.save_cases(self.pid, first["candidates"])
         again = compiler.build(self.pid, self.rec(), twice, None, "第二次")
         self.assertEqual((first["api_new"], len(first["api_cases"])), (1, 1))
         self.assertEqual((again["api_new"], again["api_reused"], len(again["api_cases"])), (0, 1, 1))

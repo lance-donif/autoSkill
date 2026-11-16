@@ -11,6 +11,7 @@ def read() -> dict:
     settings = paths.settings()
     dashboard = settings.get("dashboard", {})
     return {"data_id": metadata.get("data_id"), "dashboard": dashboard if isinstance(dashboard, dict) else {},
+            "dashboard_defaults": {"headed": paths.headed()},
             "configured_fields": sorted(dashboard) if isinstance(dashboard, dict) else [], "browser": paths.browser_info(),
             "legacy_dashboard_import_eligible": bool(metadata.get("legacy_dashboard_import_eligible") and not settings.get("dashboard_legacy_imported"))}
 

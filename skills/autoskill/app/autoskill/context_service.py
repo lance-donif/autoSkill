@@ -5,7 +5,7 @@ import codecs
 import hashlib
 from pathlib import Path
 
-from . import paging, projects, secrets, sessions
+from . import knowledge_entries, paging, projects, secrets, sessions
 from .locking import project_lock
 from .replay import ir
 
@@ -118,6 +118,7 @@ def context(project_id: str, *, limit: int = 50, cursor: str | None = None, know
     saved = sessions.summary(project_id)
     case_page = _case_page(project_id, pool, limit=limit, cursor=cursor, all_items=all_items)
     knowledge_page = knowledge(project_id, limit=knowledge_limit, cursor=knowledge_cursor, all_items=all_items, preview_chars=400)
+    entries_page = knowledge_entries.search(project_id, limit=knowledge_limit)
     steps = (["先补齐凭据：" + "；".join(f"autoskill secret set {name}" for name in missing)] if missing else [])
     steps.append(f"回放已有用例：autoskill run {project_id}；用 cases 和 knowledge 分页读取详细资料")
     if not login:
@@ -128,5 +129,6 @@ def context(project_id: str, *, limit: int = 50, cursor: str | None = None, know
             "login": {"ui_case": auth.get("ui_case"), "api_case": auth.get("api_case"), "title": login["title"] if login else None,
                       "saved_session": saved["saved"], "saved_at": saved["saved_at"],
                       "note": "登录由 autoskill 自动完成并复用" if login else "尚未定义登录方式"},
-            "missing_secrets": missing, "cases": case_page["cases"], "knowledge": knowledge_page["knowledge"], "next_steps": steps,
-            "page": {"cases": case_page["page"], "knowledge": knowledge_page["page"]}}
+            "missing_secrets": missing, "cases": case_page["cases"], "knowledge": knowledge_page["knowledge"],
+            "knowledge_entries": entries_page["entries"], "next_steps": steps,
+            "page": {"cases": case_page["page"], "knowledge": knowledge_page["page"], "knowledge_entries": entries_page["pagination"]}}

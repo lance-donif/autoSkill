@@ -19,6 +19,7 @@ class WorkflowSyncTests(unittest.TestCase):
     create = fixture.WorkflowTests.create
     claim = fixture.WorkflowTests.claim
     submit = fixture.WorkflowTests.submit
+    diagnosis_payload = fixture.WorkflowTests.diagnosis_payload
     to_materialize = fixture.WorkflowTests.to_materialize
     queue_candidate = fixture.WorkflowTests.queue_candidate
 
@@ -340,7 +341,8 @@ class WorkflowSyncTests(unittest.TestCase):
         actual = runner.execute(execution["run_id"])
         self.assertEqual((actual["status"], actual["passed"], actual["failed"]), ("Fail", 1, 1))
         workflow.reconcile_pending()
-        self.submit(identity, self.claim(identity), {"disposition": "business_defect", "reason": "high 与实际 medium 不同", "evidence_refs": [execution["run_id"]]})
+        diagnosis = self.claim(identity)
+        self.submit(identity, diagnosis, self.diagnosis_payload(identity, diagnosis, "business_defect", "high 与实际 medium 不同"))
         self.submit(identity, self.claim(identity), {"entries": [{"id": "resume-k", "text": "保留失败结果", "evidence_refs": [execution["run_id"]]}]})
         final = workflow.status(identity)
         self.assertTrue(final["complete"])
@@ -355,8 +357,16 @@ class WorkflowSyncTests(unittest.TestCase):
         self.assertEqual(frozen["report_generation"], 1)
         self.assertEqual([row["result"]["status"] for row in frozen["cases"]], ["Pass", "Fail"])
         self.assertTrue(all(row["report_generation"] == 1 and not row["historical_report_generation"] for row in frozen["cases"]))
+        saved_run = db.one("SELECT * FROM runs WHERE id = ?", (execution["run_id"],))
+        tested = execution_inputs.load(saved_run)["cases"]
+        self.assertEqual([case["id"] for case in projects.cases(self.project)], [first_case["id"]])
         for result in db.rows("SELECT * FROM results WHERE run_id = ?", (execution["run_id"],)):
-            self.assertTrue(execution_inputs.result_current(self.project, projects.case(self.project, result["case_id"]), result))
+            self.assertTrue(execution_inputs.result_evidence(saved_run, result, tested[result["case_id"]]))
+            if result["status"] == "Pass":
+                self.assertTrue(execution_inputs.result_current(self.project, projects.case(self.project, result["case_id"]), result))
+            else:
+                self.assertEqual(result["status"], "Fail")
+                self.assertEqual(tested[result["case_id"]]["assertions"]["json_equals"]["/priority"], "high")
         self.assertEqual(task_reports.workflow_report_id(identity, final["cycle_id"], generation=0), first_id)
         self.assertEqual(task_reports.workflow_report_id(identity, final["cycle_id"]), final_id)
         self.assertEqual({file.name: hashlib.sha256(file.read_bytes()).hexdigest() for file in first_folder.iterdir() if file.is_file()}, original)
@@ -451,7 +461,10 @@ class WorkflowSyncTests(unittest.TestCase):
         diagnosis = self.claim(identity)
         self.assertEqual((diagnosis["phase"], diagnosis["context"]["publication"]), ("diagnose", "conflict"))
         result = db.one("SELECT * FROM results WHERE run_id = ?", (execution["run_id"],))
-        self.assertTrue(execution_inputs.result_evidence(db.one("SELECT * FROM runs WHERE id = ?", (execution["run_id"],)), result, case))
+        saved_run = db.one("SELECT * FROM runs WHERE id = ?", (execution["run_id"],))
+        frozen = execution_inputs.load(saved_run)["cases"][case["id"]]
+        self.assertEqual(frozen["assertions"], case["assertions"])
+        self.assertTrue(execution_inputs.result_evidence(saved_run, result, frozen))
 
     def test_repetition_does_not_overwrite_a_source_change_to_match_earlier_validation(self):
         identity, _case, run_id = self.queue_candidate("medium", repetitions=2)

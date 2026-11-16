@@ -1,5 +1,6 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
-import { h, icon, replace, api, scope, scopeQuery, go, copyText, attempt, toast, fmtTime, route, refresh } from '../core.js';
+import { ensurePreferences } from '../preferences.js';
+import { h, icon, replace, api, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
 import { runtimeFields, credentialControls } from '../project-settings.js';
 import { state, refreshShell } from '../shell.js';
@@ -14,14 +15,11 @@ let kind = '';
 let query = '';
 let deletionErrors = [];
 let deletionWarnings = [];
+let handledEntry = '';
+onChange(() => { if (route().page !== 'cases') handledEntry = ''; });
 
 const keyOf = (item) => item.project_id + '/' + item.case_id;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'ui' ? '页面' : '接口');
-
-function agentPrompt(project) {
-  const skill = state.status ? state.status.skill_path : '<Skill 目录>';
-  return `请使用 autoSkill 技能（目录：${skill}）为项目「${project.name}」录制用例：先阅读 SKILL.md，运行 autoskill context ${project.id} 了解登录方式和已有用例，然后录制 <要验证的业务流程>，用 autoskill check 写上断言，结束后回放确认通过。`;
-}
 
 export async function render(view) {
   let data;
@@ -38,7 +36,6 @@ export async function render(view) {
     try { trees.set(project.id, { data: await api(`/projects/${encodeURIComponent(project.id)}/folders`) }); }
     catch (error) { trees.set(project.id, { error }); }
   }));
-  for (const key of [...selected.keys()]) if (!data.items.some((item) => keyOf(item) === key)) selected.delete(key);
 
   const list = h('div', { class: 'stack' });
   const bar = h('div', { class: 'select-bar', hidden: true });
@@ -56,56 +53,72 @@ export async function render(view) {
       && (!text || [item.case_id, item.title, item.module].join(' ').toLowerCase().includes(text)));
   }
 
+  function displayed(project) {
+    const folder = folderSelection.get(project.id) ?? ALL_FOLDERS;
+    const tree = trees.get(project.id)?.data;
+    if (!tree) return [];
+    return visible(project).filter((item) => folder === ALL_FOLDERS || (tree.assignments[item.case_id] || '') === folder);
+  }
+
   function paintBar() {
     const items = [...selected.values()];
     bar.hidden = !items.length;
     if (!items.length) return;
     const byProject = new Map();
     for (const item of items) byProject.set(item.project_id, [...(byProject.get(item.project_id) || []), item.case_id]);
+    const visibleKeys = new Set(projects.flatMap(displayed).map(keyOf));
+    const hidden = items.filter((item) => !visibleKeys.has(keyOf(item)));
+    const scopeReady = items.every((item) => !trees.has(item.project_id) || trees.get(item.project_id).data);
     replace(bar,
       h('span', { class: 'grow' }, h('b', {}, `已选 ${items.length} 条用例`), byProject.size > 1 ? ` · ${byProject.size} 个项目` : '',
-        h('span', { class: 'muted' }, '　前置用例（如登录）会自动先执行')),
+        hidden.length > 0 && h('span', { class: 'muted' }, `　其中 ${hidden.length} 条不在当前显示范围，运行所选仍会包含它们。`)),
+      hidden.length > 0 && h('button', { class: 'btn', onClick: () => { for (const item of hidden) selected.delete(keyOf(item)); paint(); } }, `清除隐藏的 ${hidden.length} 条`),
       h('button', { class: 'btn ghost', onClick: () => { selected.clear(); paint(); } }, '清除'),
       caseDeleteButton(items, { bulk: true }),
       h('button', { class: 'btn', onClick: () => moveCases(items) }, icon('folder'), '移动到文件夹'),
       loadTestButton('压测所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
-      runButton('运行所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))));
+      runButton(`运行所选 ${items.length} 条`, () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids,
+        name: state.projects.find((project) => project.id === project_id)?.name || project_id })),
+      { disabled: !scopeReady, title: scopeReady ? '运行所有勾选的用例，包含当前筛选隐藏的用例' : '文件夹范围尚未加载，请刷新后再运行' }));
   }
 
   function paint() {
-    replace(list, projects.map((project) => projectCard(project, visible(project), paint, trees.get(project.id))));
+    replace(list, projects.map((project) => projectCard(project, displayed(project), data.items.filter((item) => item.project_id === project.id), paint, trees.get(project.id))));
     if (!projects.length) {
-      replace(list, h('div', { class: 'card' }, empty({ glyph: 'folder', title: '没有符合筛选的项目', text: '换一个项目筛选，或新建一个项目。' })));
+      replace(list, h('div', { class: 'card' }, empty({ glyph: 'folder', title: '没有符合筛选的项目', text: '换一个项目筛选查看已有用例。' })));
     }
     paintBar();
   }
 
   replace(view,
     h('div', { class: 'page-head' },
-      h('div', { class: 'grow' }, h('h1', {}, '项目与用例'),
-        h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。按功能组织已有用例，可单条、批量回放或导出。`)),
-      h('button', { class: 'btn', onClick: () => newProject() }, icon('plus'), '新建项目')),
+      h('div', { class: 'grow' }, h('h1', {}, '可复用用例'),
+        h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。查看已有用例，需要时按当前范围重新运行。前置用例（如登录）会自动先执行。`))),
     state.projects.length ? h('div', { class: 'toolbar' }, kinds, search) : null,
     caseDeletionNotice(), list, bar);
   if (!state.projects.length) {
     replace(list, h('div', { class: 'card' }, empty({
-      glyph: 'spark', title: '还没有带用例的项目', text: '项目在录到第一条用例后出现在这里。新建一个项目，或先加载示例项目看看效果。',
-      actions: [h('button', { class: 'btn primary', onClick: () => newProject() }, icon('plus'), '新建项目'),
-        h('a', { class: 'btn', href: '#/dashboard' }, '回到仪表盘加载示例')],
+      glyph: 'spark', title: '还没有可复用用例', text: '在 DSH 对话中告诉 AI 测试地址与目标，验证通过的用例会自动显示在这里。',
     })));
   } else {
     paint();
   }
-  if (route().params.get('new')) newProject();
+  const params = route().params;
+  const entry = params.get('settings') ? 'settings:' + params.get('settings') : '';
+  if (entry !== handledEntry) {
+    handledEntry = entry;
+    if (!document.querySelector('#layer [role="dialog"]')) {
+      if (params.get('settings')) await projectSettings(params.get('settings'));
+    }
+  }
 }
 
-function projectCard(project, allItems, repaint, folderResult) {
-  const tree = folderResult.data;
+function projectCard(project, items, projectItems, repaint, folderResult) {
+  const tree = folderResult?.data;
   const folderId = folderSelection.get(project.id) ?? ALL_FOLDERS;
-  const items = tree && folderId !== ALL_FOLDERS ? allItems.filter((item) => (tree.assignments[item.case_id] || '') === folderId) : allItems;
   const allKeys = items.map(keyOf);
   const allOn = allKeys.length > 0 && allKeys.every((key) => selected.has(key));
-  const master = h('input', { class: 'check', type: 'checkbox', checked: allOn, 'aria-label': `选择「${project.name}」的全部用例` });
+  const master = h('input', { class: 'check', type: 'checkbox', checked: allOn, 'aria-label': `选择「${project.name}」当前显示的 ${items.length} 条用例` });
   master.indeterminate = !allOn && allKeys.some((key) => selected.has(key));
   master.addEventListener('change', () => {
     for (const item of items) { if (master.checked) selected.set(keyOf(item), item); else selected.delete(keyOf(item)); }
@@ -119,7 +132,7 @@ function projectCard(project, allItems, repaint, folderResult) {
         project.login.ui_case || project.login.api_case ? '已定义登录方式，运行时自动登录' : '未定义登录方式')),
     project.cases.total > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
     h('a', { class: 'btn sm', href: `/api/projects/${encodeURIComponent(project.id)}/folders/export`, download: '' }, icon('table'), '导出 Excel'),
-    project.cases.total > 0 && runButton('运行全部', () => [{ project_id: project.id }], { small: true, primary: false }),
+    projectRunButtons(project, items, projectItems, tree),
     h('button', { class: 'btn sm icon', 'aria-label': `「${project.name}」设置`, title: '项目设置', onClick: () => projectSettings(project.id) }, icon('edit')));
 
   const banner = missing.length ? h('div', { class: 'card-body', style: 'padding-bottom:0' }, h('div', { class: 'banner' }, icon('lock'),
@@ -132,7 +145,7 @@ function projectCard(project, allItems, repaint, folderResult) {
     `子项目：${module}`, h('span', { class: 'muted' }, `　${items.filter((item) => item.module === module).length} 条`)));
   let body;
   if (!items.length) {
-    body = empty({ glyph: 'cases', title: '没有符合条件的用例', text: '换一个类型或搜索词试试。' });
+    body = empty({ glyph: 'cases', title: tree ? '没有符合条件的用例' : '用例范围尚未加载', text: tree ? '换一个类型、搜索词或文件夹试试。' : '文件夹加载失败时不会扩大运行范围，请刷新后再试。' });
   } else {
     body = h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '子项目'),
@@ -143,7 +156,7 @@ function projectCard(project, allItems, repaint, folderResult) {
         box.addEventListener('click', (event) => event.stopPropagation());
         box.addEventListener('change', () => { if (box.checked) selected.set(key, item); else selected.delete(key); repaint(); });
         const deps = JSON.parse(item.depends_on || '[]');
-        const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([{ project_id: item.project_id, case_ids: [item.case_id] }], run); } }, icon('play'), '运行');
+        const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([{ project_id: item.project_id, case_ids: [item.case_id], name: project.name }], run); } }, icon('play'), '运行');
         return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: () => caseDrawer(item.project_id, item.case_id) },
           h('td', {}, box),
           h('td', {}, h('div', { class: 'title' }, item.title),
@@ -162,6 +175,13 @@ function projectCard(project, allItems, repaint, folderResult) {
       tree && folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); }),
       h('div', { class: 'folder-content' }, tree && projectFolderTools(project, tree, folderId, items.length),
         h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': `${project.name}用例表格` }, body))));
+}
+
+function projectRunButtons(project, items, all, tree) {
+  const targets = (cases) => [{ project_id: project.id, case_ids: cases.map((item) => item.case_id), name: project.name }];
+  return h('div', { class: 'case-scope-actions' },
+    runButton(`运行当前显示的 ${items.length} 条`, () => targets(items), { small: true, disabled: !tree || !items.length }),
+    runButton(`运行项目全部 ${all.length} 条`, () => targets(all), { small: true, primary: false, disabled: !tree || !all.length }));
 }
 
 function projectFolderTools(project, tree, folderId, count) {
@@ -219,45 +239,6 @@ function caseDeletionNotice() {
     h('button', { class: 'btn sm icon', 'aria-label': '关闭删除提示', onClick: () => { deletionErrors = []; refresh(); } }, icon('x')))];
 }
 
-function newProject() {
-  const name = h('input', { class: 'input', id: 'np-name', placeholder: '例如：订单中心', autofocus: true });
-  const url = h('input', { class: 'input', id: 'np-url', placeholder: 'http://10.0.0.8:8080', inputMode: 'url' });
-  const category = h('input', { class: 'input', id: 'np-cat', placeholder: '可选，例如：交易' });
-  const error = h('p', { class: 'error', role: 'alert', hidden: true });
-  const save = h('button', { class: 'btn primary' }, '创建项目');
-  save.addEventListener('click', async () => {
-    error.hidden = true;
-    try {
-      save.disabled = true;
-      const project = await api('/projects', { method: 'POST', body: { name: name.value, url: url.value, category: category.value } });
-      await refreshShell();
-      closeOverlay();
-      go('cases', { new: null });
-      const prompt = agentPrompt(project);
-      drawer({
-        title: project.reused ? `这个站点已有项目「${project.name}」，直接使用它` : `项目「${project.name}」已创建`,
-        subtitle: '录到第一条用例后，项目会出现在列表里。',
-        body: [h('p', { class: 'sub' }, '把下面这句话交给你的 AI 助手，它会操作页面并录制成可回放的用例。'), h('pre', { class: 'prompt' }, prompt)],
-        foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),
-          h('button', { class: 'btn primary', onClick: () => copyText(prompt) }, icon('copy'), '复制给 AI 的指令')],
-      });
-    } catch (problem) {
-      error.textContent = problem.message;
-      error.hidden = false;
-    } finally { save.disabled = false; }
-  });
-  drawer({
-    title: '新建项目', subtitle: '同一个站点（域名）只建一个项目；站点下的功能区域用子项目区分。',
-    body: [
-      h('div', { class: 'field' }, h('label', { for: 'np-name' }, '项目名称'), name),
-      h('div', { class: 'field' }, h('label', { for: 'np-url' }, '要测试的地址'), url, h('span', { class: 'hint' }, '内网地址即可，例如 http://10.0.0.8:8080。')),
-      h('div', { class: 'field' }, h('label', { for: 'np-cat' }, '分类'), category),
-      error,
-    ],
-    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '取消'), save],
-  });
-}
-
 async function projectSettings(projectId) {
   let project;
   try { project = await api('/projects/' + projectId); } catch (error) { toast(error.message, { bad: true }); return; }
@@ -276,9 +257,12 @@ async function projectSettings(projectId) {
   const credentials = credentialControls(project, async () => { await refreshShell(); refresh(); });
   const loginButton = (force) => {
     const button = h('button', { class: 'btn', disabled: !project.login.ui_case && !project.login.api_case, onClick: async () => {
-      const run = await attempt(() => api(`/projects/${encodeURIComponent(projectId)}/login`, { method: 'POST', body: {
+      const run = await attempt(async () => {
+        await ensurePreferences();
+        return api(`/projects/${encodeURIComponent(projectId)}/login`, { method: 'POST', body: {
         force, engine: preferredEngine(), headed: preferredHeaded(),
-      } }), button);
+        } });
+      }, button);
       if (run) { closeOverlay(); go('runs/' + run.id); }
     } }, icon('play'), force ? '强制重新登录' : '立即登录');
     return button;
@@ -353,7 +337,7 @@ async function caseDrawer(projectId, caseId) {
     if (item.traffic === 'resource' || item.traffic === 'static') body.push(h('div', { class: 'banner info' }, icon('info'), '这是「页面资源或静态数据文件可访问」检查，不是业务接口测试。'));
   }
   const run = h('button', { class: 'btn primary' }, icon('play'), '运行这条用例');
-  run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId] }], run); if (started) closeOverlay(); });
+  run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId], name: state.projects.find((project) => project.id === projectId)?.name }], run); if (started) closeOverlay(); });
   drawer({ title: item.title, subtitle: `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · ${item.module} · 第 ${item.revision} 版`, body, wide: true,
     foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
       h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),

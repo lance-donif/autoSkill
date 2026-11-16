@@ -91,6 +91,8 @@ def category(entry: dict) -> str:
         return "page_navigation"
     if method != "GET":
         return "business"
+    if parts.path == "/favicon.ico":
+        return "page_resource"
     if mime.startswith(("image/", "font/", "audio/", "video/")) or mime in (
             "text/css", "text/javascript", "application/javascript", "application/x-javascript", "application/wasm",
             "application/font-woff", "application/vnd.ms-fontobject", "application/manifest+json"):

@@ -1,15 +1,21 @@
 // Apply changed server snapshots without losing drafts and scroll.
 import { adoptHandlers } from './dom-events.js';
+const FOCUSABLE = 'input,select,textarea,button,a,summary,[tabindex]';
+
 function nodeKey(node) {
   if (node.nodeType !== 1) return node.nodeName;
-  const controlText = ['BUTTON', 'A', 'SUMMARY'].includes(node.tagName) ? node.tagName + ':' + node.textContent : node.tagName;
-  return node.id || node.dataset.result || node.dataset.case || node.getAttribute('aria-label') || node.getAttribute('name') || controlText;
+  const controlText = node.tagName === 'DETAILS' ? 'DETAILS:' + node.querySelector(':scope > summary')?.textContent
+    : ['BUTTON', 'A', 'SUMMARY'].includes(node.tagName) ? node.tagName + ':' + node.textContent : node.tagName;
+  const key = node.id || node.dataset.result || node.dataset.case || node.getAttribute('aria-label') || node.getAttribute('name')
+    || (node.tagName === 'A' && node.getAttribute('href')) || (node.classList.contains('result-head') && 'result-head') || controlText;
+  const result = node.parentElement?.closest('[data-result], [data-case]');
+  return result ? (result.dataset.result || result.dataset.case) + '/' + key : key;
 }
 
 function focusRecord(view) {
   const focused = document.activeElement;
   if (!focused || !view.contains(focused)) return null;
-  const nodes = [...view.querySelectorAll('input,select,textarea,button,a,[tabindex]')];
+  const nodes = [...view.querySelectorAll(FOCUSABLE)];
   const key = nodeKey(focused);
   const index = nodes.filter((node) => nodeKey(node) === key).indexOf(focused);
   return { key, index, node: focused, value: focused.value, start: focused.selectionStart, end: focused.selectionEnd,
@@ -18,7 +24,7 @@ function focusRecord(view) {
 
 function reuseEditor(holder, focused) {
   if (!focused?.editable || ['checkbox', 'radio', 'file', 'submit', 'button'].includes(focused.node.type)) return;
-  const fresh = [...holder.querySelectorAll('input,select,textarea,button,a,[tabindex]')]
+  const fresh = [...holder.querySelectorAll(FOCUSABLE)]
     .filter((node) => nodeKey(node) === focused.key)[focused.index];
   if (!fresh || fresh.tagName !== focused.node.tagName) return;
   const editor = focused.node;
@@ -52,14 +58,16 @@ export function updateLiveView(view, holder) {
   const scroll = [window.scrollX, window.scrollY];
   const positions = [...view.querySelectorAll('*')].filter((node) => node.scrollTop || node.scrollLeft)
     .map((node) => ({ key: nodeKey(node), top: node.scrollTop, left: node.scrollLeft }));
-  const expanded = [...view.querySelectorAll('details')].map((node, index) => ({ index, open: node.open }));
+  const details = [...view.querySelectorAll('details')];
+  const expanded = details.map((node) => ({ key: nodeKey(node),
+    index: details.filter((candidate) => nodeKey(candidate) === nodeKey(node)).indexOf(node), open: node.open }));
   reuseEditor(holder, focused);
   reuseScrollRegions(view, holder);
   // Render-local callbacks close over fresh DOM nodes; move the complete changed view together.
   // The revision gate avoids rebuilding it for unchanged polls, including while typing.
   view.replaceChildren(...holder.childNodes);
   for (const entry of expanded) {
-    const node = view.querySelectorAll('details')[entry.index];
+    const node = [...view.querySelectorAll('details')].filter((candidate) => nodeKey(candidate) === entry.key)[entry.index];
     if (node) node.open = entry.open;
   }
   for (const position of positions) {
@@ -67,7 +75,7 @@ export function updateLiveView(view, holder) {
     if (node) { node.scrollTop = position.top; node.scrollLeft = position.left; }
   }
   if (focused) {
-    const node = [...view.querySelectorAll('input,select,textarea,button,a,[tabindex]')]
+    const node = [...view.querySelectorAll(FOCUSABLE)]
       .filter((candidate) => nodeKey(candidate) === focused.key)[focused.index];
     if (node) {
       if (focused.editable && node.value !== focused.value) node.value = focused.value;

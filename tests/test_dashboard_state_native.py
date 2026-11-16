@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
+from openpyxl import load_workbook
 from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -124,6 +125,46 @@ class NativeStateDashboardTests(unittest.TestCase):
         self.assertEqual(original['status'], 'Fail')
         self.assertEqual(len(original['results']), 2)
         self.assertEqual(native_run._frozen(native_run.get(old['id'])), frozen)
+
+    def test_report_downloads_read_back_and_recovery_does_not_execute(self):
+        service, page, run = self.native_fixture(
+            'import unittest\nclass Original(unittest.TestCase):\n def test_bad(self): self.assertEqual("actual", "expected")\n', 'Fail')
+        before = service.api('/runs/' + run['id'])
+        original_results = [row['id'] for row in before['results']]
+        page.goto(service.origin + '/#/native-runs/' + run['id'])
+        report = page.locator('[aria-label="本次报告"]')
+        expect(report.get_by_role('link', name='下载本次用例 Excel', exact=True)).to_be_visible()
+        corrupt_next = [True]
+
+        def damage_at_download(request):
+            if corrupt_next[0]:
+                Path(before['test_report']['excel']).write_bytes(b'broken workbook')
+                corrupt_next[0] = False
+            request.continue_()
+
+        page.route('**' + before['test_report']['download_url'], damage_at_download)
+        report.get_by_role('link', name='下载本次用例 Excel', exact=True).focus()
+        report.get_by_role('link', name='下载本次用例 Excel', exact=True).press('Enter')
+        expect(report).to_contain_text('下载失败')
+        report.get_by_role('button', name='重试导出报告', exact=True).click()
+        expect(report).to_contain_text('本次报告已生成，可以下载', timeout=30000)
+        for label, suffix in [('下载本次用例 Excel', 'xlsx'), ('下载 Markdown 汇总', 'md'), ('下载 Bug 清单', 'bugs.md')]:
+            with page.expect_download() as waiting:
+                report.get_by_role('link', name=label, exact=True).click()
+            destination = self.native_source.parent / ('download.' + suffix)
+            waiting.value.save_as(destination)
+            if suffix == 'xlsx':
+                book = load_workbook(destination)
+                try:
+                    self.assertEqual(book['功能测试用例'].max_column, 14)
+                    self.assertIn('失败', str(list(book['功能测试用例'].values)))
+                finally:
+                    book.close()
+            else:
+                self.assertIn('失败', destination.read_text(encoding='utf-8'))
+        after = service.api('/runs/' + run['id'])
+        self.assertEqual([row['id'] for row in after['results']], original_results)
+        self.assertEqual(service.api('/runs?cycle=all')['total'], 1)
 
 
 if __name__ == '__main__':

@@ -129,7 +129,10 @@ class PlaywrightDriver:
             finally:
                 result.dispose()
         except Exception as error:
-            raise StepError(LOCATOR, "定位读取失败：" + str(error).splitlines()[0]) from error
+            message = str(error).splitlines()[0]
+            if "业务目标不唯一：" in message:
+                message = message[message.index("业务目标不唯一："):]
+            raise StepError(LOCATOR, "定位读取失败：" + message) from error
 
     def _root(self, path: list):
         """Re-enter every frame/root from the active tab, never reusing a stale element."""

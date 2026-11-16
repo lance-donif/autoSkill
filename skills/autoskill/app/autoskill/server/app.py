@@ -42,6 +42,7 @@ from .conversations import register as register_conversations
 from .data import register as register_data
 from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
+from .knowledge_entries import register as register_knowledge_entries
 from .load_testing import register as register_load_testing
 from .native_tools import register as register_native_tools
 from .project_materials import register as register_project_materials
@@ -196,6 +197,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     _register_judge_routes(app)
     _register_host_routes(app)
     register_host_context(app)
+    register_knowledge_entries(app)
     register_project_settings(app)
     register_execution_requests(app)
     register_data(app)
@@ -240,9 +242,19 @@ def _register_http_handlers(app: FastAPI, port: int) -> None:
         return response
 
     @app.exception_handler(ValueError)
-    async def bad_request(request: Request, error: ValueError):  # noqa: ARG001  # FastAPI exception handlers require the request parameter.
-        return JSONResponse({"detail": str(error), "error": str(error), "code": getattr(error, "code", "validation_error"),
-                             "details": getattr(error, "details", {})}, status_code=400)
+    async def bad_request(request: Request, error: ValueError):
+        code = getattr(error, "code", "validation_error")
+        status = 400
+        path = request.url.path
+        knowledge_route = path.startswith("/api/knowledge/") and (
+            path.rsplit("/", 1)[-1] in ("settings", "search", "export", "import") or "/entries/" in path)
+        structured_route = knowledge_route or path.startswith("/api/failure-context/") or path.endswith("/diagnostic-context")
+        if structured_route and code in ("revision_conflict", "idempotency_conflict", "source_revision_conflict", "cursor_expired"):
+            status = 409
+        elif structured_route and code in ("not_found", "knowledge_not_found"):
+            status = 404
+        return JSONResponse({"detail": str(error), "error": str(error), "code": code,
+                             "details": getattr(error, "details", {})}, status_code=status)
 
 
 def _identity_header(request: Request, name: str) -> str | None:
@@ -455,7 +467,8 @@ def _register_run_detail_routes(app: FastAPI) -> None:
         if not run:
             raise HTTPException(404, "运行不存在")
         rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
-        return {**run_view(run), "results": [result_view(row) for row in rows], "test_report": report_view(run)}
+        return {**run_view(run), "results": [result_view(row) for row in rows], "test_report": report_view(run),
+                **({"workflow_id": run["session_id"]} if run.get("trigger") == "workflow" and run.get("session_id") else {})}
 
     @app.post("/api/runs/{run_id}/cancel")
     def cancel_run(run_id: str):
@@ -472,12 +485,27 @@ def _register_run_detail_routes(app: FastAPI) -> None:
             raise HTTPException(404, "运行不存在")
         if run.get("family") == "native":
             return await asyncio.to_thread(rerun_native, run, body)
+        if run.get("trigger") == "workflow":
+            raise ValueError("这次运行属于原测试任务，请回到该任务或在 DSH 对话中继续诊断与验证；本次记录会保留")
         case_ids = json.loads(run["case_ids"])
         if body.get("failed_only"):
             rows = db.rows("SELECT * FROM results WHERE run_id = ? AND prerequisite = 0", (run_id,))
             case_ids = [row["case_id"] for row in rows if task_state.result(row)["outcome"] != "pass"]
             if not case_ids:
                 raise ValueError("这次运行没有未通过的用例")
+        from .. import candidate_publication, execution_inputs
+
+        publication = candidate_publication.receipt(run_id)
+        if publication:
+            candidate = candidate_publication.read(publication["candidate_id"])
+            batch = next(item for item in candidate["batches"] if item["id"] == publication["batch_id"])
+            manifest = execution_inputs.load(run)
+            queued = await asyncio.to_thread(candidate_publication.queue, publication["candidate_id"], case_ids=case_ids,
+                                              engine=body.get("engine") or run["engine"], inputs=manifest.get("inputs"),
+                                              api_only=manifest.get("api_only", False), repetitions=batch["repetitions"],
+                                              headed=body.get("headed"), session_id=run.get("session_id"), plan_path=run.get("plan_path"))
+            first = db.one("SELECT total FROM runs WHERE id = ?", (queued["run_id"],)) if queued["run_id"] else None
+            return {**queued, "id": queued["run_id"], "total": first["total"] if first else 0, "dropped": 0}
         active = {c["id"] for c in projects.cases(run["project_id"])}
         kept = [c for c in case_ids if c in active]
         if not kept:
@@ -636,6 +664,7 @@ def _workflow_action(workflow_id: str, action: str, body: dict) -> dict:
     options.update(lease_token=body.get("lease_token", ""), attempt_id=body.get("attempt_id", ""))
     if action == "submit":
         options["payload"] = body.get("payload", {})
+        options["knowledge_used"] = body.get("knowledge_used")
     else:
         options["checkpoint"] = body.get("checkpoint")
         if action == "heartbeat":

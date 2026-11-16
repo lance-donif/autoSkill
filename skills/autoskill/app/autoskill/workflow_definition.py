@@ -10,6 +10,8 @@ from .core import store
 from .workflow_state import WorkflowError, digest, identifier
 
 HOST_PHASES = {"sources", "requirements", "design", "completion", "materialize", "diagnose", "maintain", "knowledge", "investigate"}
+FUNCTIONAL_FIELDS = ("description", "preconditions", "steps", "expected", "source")
+DOCUMENT_METADATA = ("author", "executor", "environment", "remarks", "note", "business_path", "prefix", "module", "priority")
 
 
 def prefix(workflow_id: str) -> str:
@@ -98,6 +100,12 @@ def initial(workflow_id: str, spec: dict, change_id: str) -> tuple[dict, str]:
     repetitions = validation["repetitions"]
     if isinstance(repetitions, bool) or not isinstance(repetitions, int) or repetitions < 1:
         raise WorkflowError("validation_error", "repetitions 必须是正整数")
+    from . import execution_inputs
+
+    try:
+        validation["inputs"] = execution_inputs._inputs(validation.get("inputs"))
+    except ValueError as error:
+        raise WorkflowError("validation_error", str(error)) from error
     definition = {"id": workflow_id, "title": title, "goal": spec.get("goal", title), "version": 1,
                   "change_id": change_id, "validation": validation, "artifacts": artifacts,
                   "maintenance": spec.get("maintenance", {}), "extensions": spec.get("extensions", {})}
@@ -169,6 +177,15 @@ def _binding_only(before: dict, after: dict) -> bool:
         copied = copy.deepcopy(case)
         for key in ("revision", "updated_at"):
             copied.pop(key, None)
+        document = case_document.comparable_document(copied)
+        if document:
+            copied["extensions"]["test_case_document"] = document
+        for key in ("steps", "expected"):
+            normalized = case_document.prose_text(copied.get(key))
+            if normalized is not None:
+                copied[key] = normalized
+        for key in DOCUMENT_METADATA:
+            document.pop(key, None)
         automation = copied.get("extensions", {}).get("automation", {})
         for step in [*automation.get("actions", []), *automation.get("assertions", [])]:
             for key in ("locators", "selector", "placeholder", "role"):
@@ -204,14 +221,18 @@ def _functional_mapping(case: dict, original: dict | None, expected: list[dict],
     if not document:
         return
     mapping = case["extensions"].get("functional_design", {})
-    changed_design = original is not None and case_document.document(original) != document
+    business_fields = (*FUNCTIONAL_FIELDS, "test_data", "requirement_ids")
+    previous = case_document.comparable_document(original) if original is not None else {}
+    current = case_document.comparable_document(case)
+    changed_design = original is not None and any(previous.get(field) != current.get(field) for field in business_fields)
     originally_unmapped = original is not None and original.get("extensions", {}).get("functional_design", {}).get("state") == "unmapped"
     if not (changed_design or mapping.get("state") == "unmapped" or originally_unmapped or original is None):
         return
     matching = [oracle for oracle in expected if oracle["kind"] == case["kind"] and oracle["checks"] == oracle_of(case)
-                and oracle.get("functional_expected") == document.get("expected") and document.get("expected")]
+                and case_document.prose_text(oracle.get("functional_expected")) == current.get("expected") and current.get("expected")]
     changed_checks = original is None or oracle_of(original) != oracle_of(case)
-    complete = all(document.get(field) for field in ("description", "preconditions", "steps", "expected", "source")) and "【待确认" not in json.dumps(document, ensure_ascii=False)
+    required = {field: document.get(field) for field in FUNCTIONAL_FIELDS}
+    complete = all(required.values()) and "【待确认" not in json.dumps(required, ensure_ascii=False)
     if not matching or not changed_checks or not complete:
         case["extensions"]["functional_design"] = {"state": "unmapped", "reason": "新功能预期尚未映射到来源驱动且实际更新的检查条件"}
         return
@@ -243,10 +264,16 @@ def _validate_materialized_candidates(candidates: list[dict], requirement_ids: s
             raise WorkflowError("validation_error", "候选用例关联未知需求", case_id=case["id"])
         if case["kind"] == "ui":
             ir.validate(case.get("extensions", {}).get("automation"))
+        else:
+            try:
+                store._validate_saved_api_contract(case, jsonschema)
+            except ValueError as error:
+                raise WorkflowError("validation_error", str(error) + "；修正后重新提交当前 materialize/maintain 候选",
+                                    case_id=case["id"], field="assertions") from error
         if maintain:
             original = originals.get(case["id"])
             if not original or not _binding_only(original, case):
-                raise WorkflowError("oracle_change", "维护候选只能修复定位；业务动作和原始检查条件必须保留，需求变化应建立新版本", case_id=case["id"])
+                raise WorkflowError("oracle_change", "维护候选可修复定位或补充非业务元数据；业务动作和原始检查条件必须保留，需求变化应建立新版本", case_id=case["id"])
 
 
 def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool) -> dict:
@@ -254,12 +281,21 @@ def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool
     change_scope = documents["definition.json"].get("extensions", {}).get("change_scope")
     previous = documents.get("materialization.json", {})
     candidates = _functional_candidates(_records(payload["cases"], "cases"), maintain=maintain) if payload.get("cases") else []
+    for case in candidates:
+        if case["kind"] == "api" and not maintain:
+            case.setdefault("extensions", {}).setdefault("execution", {})["api_only"] = True
     old_candidates = {case["id"]: case for case in previous.get("cases", [])}
     requirement_ids = {record["id"] for record in documents["requirements.json"]}
     requirement_ids.update(record["id"] for record in store.read(projects.path(project_id) / "analysis/requirements.json"))
     requirement_ids.add("REQ-RECORDED")
     _validate_materialized_candidates(candidates, requirement_ids, {**current, **old_candidates}, maintain)
     available = {**current, **{case["id"]: case for case in candidates}}
+    from . import runner
+
+    try:
+        runner.validate_postconditions(available)
+    except ValueError as error:
+        raise WorkflowError("validation_error", str(error)) from error
     bindings = payload.get("bindings", previous.get("bindings") if maintain else None)
     if not isinstance(bindings, dict):
         raise WorkflowError("validation_error", "materialize 需要 bindings：场景 id 到用例 id 列表")
@@ -286,15 +322,20 @@ def _materialize(payload: dict, documents: dict, project_id: str, maintain: bool
     materialized = {"origin": "maintain" if maintain else "materialize", "cases": candidates, "bindings": bindings, "case_ids": sorted(selected),
                     "case_hashes": {identity: digest(available[identity]) for identity in selected},
                     "base_case_hashes": {case["id"]: digest(current[case["id"]]) if case["id"] in current else None for case in candidates}}
+    if "candidate_auth" in payload:
+        if not isinstance(payload["candidate_auth"], dict):
+            raise WorkflowError("validation_error", "candidate_auth 必须是登录配置对象")
+        materialized["candidate_auth"] = copy.deepcopy(payload["candidate_auth"])
     if change_scope:
         materialized["origin"] = "requirement_change"
     return {"materialization.json": materialized}
 
 
-def proposal(flow: dict, phase: str, payload: dict, change_id: str, current: dict) -> dict:
+def proposal(flow: dict, phase: str, payload: dict, change_id: str, current: dict, *, context: dict | None = None) -> dict:
     if not isinstance(payload, dict):
         raise WorkflowError("validation_error", "提交内容必须是 JSON 对象")
     documents = current["documents"]
+    domain_changes = {}
     if phase == "sources":
         changed = _sources(payload, documents)
     elif phase == "requirements":
@@ -304,19 +345,24 @@ def proposal(flow: dict, phase: str, payload: dict, change_id: str, current: dic
     elif phase in ("materialize", "maintain"):
         changed = _materialize(payload, documents, flow["project_id"], phase == "maintain")
     elif phase == "diagnose":
-        if payload.get("disposition") not in ("business_defect", "repair", "retry", "incomplete"):
-            raise WorkflowError("validation_error", "diagnose disposition 为 business_defect/repair/retry/incomplete")
-        if not isinstance(payload.get("reason"), str) or not payload["reason"].strip():
-            raise WorkflowError("validation_error", "诊断需要 reason 和证据引用")
-        changed = {"diagnosis.json": {**payload, "origin": "host_analysis"}}
+        from . import failure_context
+
+        changed = {"diagnosis.json": failure_context.validate_diagnoses(flow["project_id"], context or {}, payload)}
     elif phase == "knowledge":
-        entries = _records(payload.get("entries"), "entries")
-        changed = {"knowledge.json": [{**entry, "origin": "host_analysis", "verification": "hypothesis"} for entry in entries]}
+        from . import knowledge_entries
+
+        try:
+            prepared = knowledge_entries.prepare_mutations(flow["project_id"], flow["id"], flow["cycle_id"], payload,
+                                                           current=domain.read(flow["project_id"], current["head"]))
+        except knowledge_entries.KnowledgeError as error:
+            raise WorkflowError(error.code, str(error), **error.details) from error
+        changed = {"knowledge.json": prepared["entries"]}
+        domain_changes = prepared["changes"]
     else:
         raise WorkflowError("validation_error", "该阶段不接受宿主结果", phase=phase)
     definition = {**documents["definition.json"], "version": documents["definition.json"]["version"] + 1, "change_id": change_id}
     root = prefix(flow["id"])
-    return {root + key: value for key, value in {**changed, "definition.json": definition}.items()}
+    return {**domain_changes, **{root + key: value for key, value in {**changed, "definition.json": definition}.items()}}
 
 
 def instructions(phase: str) -> dict:
@@ -326,13 +372,26 @@ def instructions(phase: str) -> dict:
         "design": {"scenarios": [{"id": "scenario-1", "title": "验证业务预期", "requirement_ids": ["req-1"], "oracle_ids": ["oracle-1"]}],
                    "oracles": [{"id": "oracle-1", "kind": "api", "requirement_ids": ["req-1"], "checks": {"status": 200, "json_equals": {"/priority": "high"}}}]},
         "materialize": {"cases": [], "bindings": {"scenario-1": ["TC-API-001"]}},
-        "diagnose": {"disposition": "business_defect", "reason": "原预期与实际不一致，保留失败", "evidence_refs": []},
-        "knowledge": {"entries": [{"id": "knowledge-1", "text": "可复用的定位、环境或业务知识", "evidence_refs": []}]},
+        "diagnose": {"manifest_hash": "当前任务的 manifest_hash", "diagnoses": [
+            {"target_id": "逐项覆盖 diagnostic_targets", "disposition": "incomplete", "reason": "先读取目标证据，无法确认时保留未完成", "evidence_refs": []}]},
+        "knowledge": {"schema_version": 2, "mutations": [{"op": "create", "client_key": "knowledge-1", "entry": {
+            "title": "可复用知识", "text": "说明观察到的事实及适用条件", "kind": "observation", "scope": {}, "evidence_refs": [], "validation_refs": []}}]},
         "investigate": {"resolution": "incomplete", "observation_operation_ids": [], "note": "先取得真实 check 收据；observed 需匹配原 postcondition，否则保留 incomplete"},
     }
     key = {"completion": "design", "maintain": "materialize"}.get(phase, phase)
-    return {"example": examples.get(key, {}),
+    result = {"example": examples.get(key, {}),
+            "oracle_checks": {
+                "api": "checks 原样对应候选的 assertions 对象。",
+                "ui": "checks 是有序列表：先取 extensions.automation.actions，再取 assertions 中含 assertion 的项；"
+                      "每项只保留已存在的 assertion、expected、attribute 字段，保留值类型和顺序，不添加缺失字段。"
+                      "locators、oracle、recording_result 等仍保留在候选执行定义中，不放入 checks。预期必须来自独立需求，不能改成实际观察值。"},
             "functional_design_fields": ["description", "preconditions", "steps", "expected", "source", "business_path", "author", "remarks"],
             "functional_oracle_mapping": "新功能预期用 oracle.functional_expected 原文声明覆盖范围，并实际更新检查；旧检查沿用不等于新预期已验证。宿主应依据来源逐项审阅，再运行真实回归。",
             "rule": "预期来自需求，保留真实失败；候选先暂存和验证。UI/API 用例自身保存真人功能步骤和真实【按钮】、必要前置条件、可观察预期及来源，"
                     "放入 extensions.test_case_document 并同步描述字段；自动化 IR、请求和断言保留为独立执行定义，缺少设计依据时标记待确认，不用 GET 地址冒充功能操作。"}
+    if key == "design":
+        result["ui_example"] = {
+            "scenarios": [{"id": "scenario-ui-1", "title": "预约成功后显示独立预期金额", "requirement_ids": ["req-1"], "oracle_ids": ["oracle-ui-1"]}],
+            "oracles": [{"id": "oracle-ui-1", "kind": "ui", "requirement_ids": ["req-1"],
+                         "checks": [{"assertion": "text", "expected": "已预约"}, {"assertion": "text", "expected": "合计：160 元"}]}]}
+    return result

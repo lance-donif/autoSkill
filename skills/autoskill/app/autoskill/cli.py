@@ -84,6 +84,7 @@ def run_summary(run: dict) -> dict:
                      "prerequisite": bool(r["prerequisite"]), "ms": r["duration_ms"],
                      "detail": r["actual"] or r["reason"], "state": task_state.result(r)} for r in rows],
         **({"test_report": run["test_report"]} if "test_report" in run else {}),
+        **({"publication": run["publication"]} if "publication" in run else {}),
     }
 
 
@@ -126,6 +127,39 @@ def _reader_commands(sub) -> None:
     reader.add_argument("--length", type=int, default=12000)
     reader.add_argument("--revision", help="上一段返回的 content_revision；变化时明确报错")
     reader.add_argument("--all", action="store_true", dest="all_items")
+    _knowledge_commands(knowledge_sub)
+    failure = sub.add_parser("failure-context", help="只读冻结的执行失败与证据，不重新运行或生成诊断")
+    failure.add_argument("project")
+    failure.add_argument("--run", required=True)
+    failure.add_argument("--execution-attempt", required=True)
+    failure.add_argument("--case", required=True, dest="case_id")
+
+
+def _knowledge_commands(sub) -> None:
+    settings = sub.add_parser("settings", help="读取或条件更新团队与业务范围")
+    settings.add_argument("project")
+    settings.add_argument("--from-file", dest="file", help="包含 expected_hash、team_id 和 business_scope 的 JSON；- 表示标准输入")
+    search = sub.add_parser("search", help="搜索规范知识及旧知识文件")
+    search.add_argument("project")
+    search.add_argument("--query", required=True)
+    search.add_argument("--team", action="store_true", help="按项目配置的相同团队及业务范围查询")
+    search.add_argument("--limit", type=int, default=50)
+    search.add_argument("--cursor")
+    reader = sub.add_parser("get", help="读取指定知识修订与当前状态")
+    reader.add_argument("project")
+    reader.add_argument("entry_id")
+    reader.add_argument("--revision", type=int, required=True)
+    exporter = sub.add_parser("export", help="导出所选知识及完整修订链到新 JSON 文件")
+    exporter.add_argument("project")
+    selection = exporter.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--entry", action="append", help="知识 id@修订号；可重复指定")
+    selection.add_argument("--all", action="store_true", dest="all_items", help="导出本项目当前有效的全部规范知识")
+    exporter.add_argument("--output", required=True, help="新的 JSON 文件；已有文件不会被覆盖")
+    importer = sub.add_parser("import", help="原子导入知识包；来源执行结论不作为本机验证")
+    importer.add_argument("project")
+    importer.add_argument("--file", required=True, help="知识包 JSON；- 表示标准输入")
+    importer.add_argument("--idempotency-key", required=True)
+    importer.add_argument("--as-new", action="store_true", help="在来源修订分叉时明确创建独立知识条目")
 
 
 def _workflow_commands(sub) -> None:
@@ -368,7 +402,12 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--case", action="append", dest="cases", help="用例编号，可重复；省略则回放全部")
     run.add_argument("--engine", choices=runner.ENGINES, default="playwright")
     run.add_argument("--kind", choices=("ui", "api"), help="只回放某一类")
+    run.add_argument("--candidate", help="验证 record stop 或工作流返回的候选任务标识，通过后发布可复用用例")
+    run.add_argument("--api-only", action="store_true", help="独立 HTTP 冷启动；不借用浏览器或已保存登录")
+    run.add_argument("--inputs", dest="file", help="运行参数 JSON 文件（- 读标准输入）；RAND 由每次运行生成，不能覆盖")
     run.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
+    run_status = sub.add_parser("run-status", help="只读执行状态、发布结果和已有报告；不执行用例或重新导出")
+    run_status.add_argument("run_id")
 
     export = sub.add_parser("export", help="导出：postman / scripts").add_subparsers(dest="action", required=True)
     for name in ("postman", "scripts"):
@@ -403,11 +442,14 @@ def parser() -> argparse.ArgumentParser:
     prefs = sub.add_parser("settings", help="本机设置：用哪个浏览器；不带参数时显示当前设置")
     prefs.add_argument("--browser", choices=("system", "bundled"),
                        help="system：优先用本机 Chrome，随包浏览器备用（默认）；bundled：只用随包浏览器")
-    plan = sub.add_parser("plan", help="用例表（用例 Skill）：write / show / mark / sync").add_subparsers(dest="action", required=True)
+    plan = sub.add_parser("plan", help="用例表（用例 Skill）：write / show / link / mark / sync").add_subparsers(dest="action", required=True)
     writer = plan.add_parser("write", help="把根据需求文档设计的用例写成 Excel 用例表")
     writer.add_argument("project")
     writer.add_argument("--file", required=True, help="用例 JSON 文件（数组）")
     plan.add_parser("show", help="读出用例表：要执行哪些用例、各自的结果")
+    linker = plan.add_parser("link", help="把当前用例表的一行关联到同项目已有用例；随后回放才写入真实结果")
+    linker.add_argument("case", help="本次设计表中的用例编号")
+    linker.add_argument("replay_case", help="同项目可复用用例编号")
     marker = plan.add_parser("mark", help="给一条用例记录执行结果")
     marker.add_argument("case")
     marker.add_argument("status", choices=("通过", "失败", "阻塞", "未执行"))
@@ -571,10 +613,54 @@ def _dispatch_delete(args) -> tuple[dict, int]:
 
 
 def _dispatch_knowledge(args) -> tuple[dict, int]:
+    from . import knowledge_entries, knowledge_transfer
+
     if args.action == "read":
         return context_service.read_knowledge(args.project, args.file, offset=args.offset, length=args.length,
                                               content_revision=args.revision, all_items=args.all_items), 0
-    return context_service.knowledge(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items, query=args.query), 0
+    if args.action == "list":
+        return context_service.knowledge(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items, query=args.query), 0
+    if args.action == "settings":
+        if args.file is None:
+            return knowledge_entries.settings(args.project), 0
+        payload = _input_json(args)
+        if not isinstance(payload, dict):
+            raise ValueError("知识设置需要是 JSON 对象")
+        return knowledge_entries.settings(args.project, payload), 0
+    if args.action == "search":
+        return knowledge_entries.search(args.project, query=args.query, team=args.team, limit=args.limit, cursor=args.cursor), 0
+    if args.action == "get":
+        return knowledge_entries.get(args.project, args.entry_id, revision=args.revision), 0
+    if args.action == "import":
+        return knowledge_transfer.import_package(args.project, _input_json(args), idempotency_key=args.idempotency_key, as_new=args.as_new), 0
+    return _export_knowledge(args), 0
+
+
+def _export_knowledge(args) -> dict:
+    from . import knowledge_transfer
+
+    entries = []
+    for selector in args.entry or []:
+        entry_id, separator, revision = selector.rpartition("@")
+        if not separator or not entry_id or not revision.isdecimal() or int(revision) < 1:
+            raise ValueError("--entry 需要采用知识 id@正整数修订号格式")
+        entries.append({"id": entry_id, "revision": int(revision)})
+    package = knowledge_transfer.export_package(args.project, entries=entries or None, all_items=args.all_items)
+    output = Path(args.output).expanduser()
+    output = (output if output.is_absolute() else command_input.base_directory(args) / output).absolute()
+    try:
+        with output.open("x", encoding="utf-8") as stream:
+            json.dump(package, stream, ensure_ascii=False, indent=2, allow_nan=False)
+            stream.write("\n")
+    except FileExistsError as error:
+        raise ValueError("输出文件已存在，不能覆盖：" + str(output)) from error
+    return {"path": str(output), "package_hash": package["package_hash"], "entry_count": len(package["entries"])}
+
+
+def _dispatch_failure_context(args) -> tuple[dict, int]:
+    from . import failure_context
+
+    return failure_context.read(args.project, run_id=args.run, execution_attempt_id=args.execution_attempt, case_id=args.case_id), 0
 
 
 def _input_json(args):
@@ -608,7 +694,13 @@ def _dispatch_workflow(args) -> tuple[dict, int]:
     if args.action in ("submit", "heartbeat", "release"):
         options.update(lease_token=args.lease_token, attempt_id=args.attempt_id)
         if args.action == "submit":
-            options["payload"] = _input_json(args)
+            payload = _input_json(args)
+            if isinstance(payload, dict) and "payload" in payload:
+                if set(payload) - {"payload", "knowledge_used"}:
+                    raise ValueError("提交信封只接受 payload 和 knowledge_used")
+                options.update(payload=payload["payload"], knowledge_used=payload.get("knowledge_used"))
+            else:
+                options["payload"] = payload
         else:
             options["checkpoint"] = _input_json(args) if args.file else None
             if args.action == "heartbeat":
@@ -797,6 +889,17 @@ def _dispatch_plan(args) -> tuple[dict, int]:
             return plan.write(args.project, str(source)), 0
     if action == "mark":
         return plan.mark(args.case, args.status, args.note), 0
+    if action == "link":
+        from . import case_plans
+
+        shown = plan.show()
+        view = case_plans.get(shown["project"], task_context.session_id() or "")
+        if view.get("task_id") != shown.get("task_id") or Path(view["folder"]).resolve() != Path(shown["skill"]).resolve():
+            raise ValueError("当前会话设计表已变化，请重新读取 plan show 后关联")
+        linked = case_plans.link(shown["project"], args.case, args.replay_case, session=view["session"], expected_revision=view["revision"])
+        return {"case": args.case, "replay": shown["project"] + "/" + args.replay_case, "task_id": shown.get("task_id"),
+                "delivery_excel": shown.get("delivery_excel"), "revision": linked["revision"],
+                "next": f"autoskill run {shown['project']} --case {args.replay_case} 回放后，真实结果会写回本次用例表；继续使用同一 --session"}, 0
     return (plan.sync() if action == "sync" else plan.show()), 0
 
 
@@ -847,6 +950,8 @@ def _dispatch_dashboard(args) -> tuple[dict, int]:
 def _dispatch_execution(args) -> tuple[dict, int]:
     """Handle the execution command without changing its result contract."""
     command = args.command
+    if command == "run" and args.candidate:
+        return _dispatch_candidate_run(args)
     if command == "login":
         auth = projects.auth(args.project)
         chosen = [auth[k] for k in ("ui_case", "api_case") if auth.get(k)]
@@ -861,16 +966,53 @@ def _dispatch_execution(args) -> tuple[dict, int]:
             chosen = [c["id"] for c in pool if not args.cases or c["id"] in args.cases]
             if not chosen:
                 raise ValueError("没有符合条件的可回放用例")
-        run = runner.create(args.project, chosen, args.engine)
+        run = runner.create(args.project, chosen, args.engine, api_only=args.api_only, inputs=_input_json(args) if args.file else None)
         final = runner.execute(run["id"])
     summary = run_summary(final)
     if command == "run":  # the verdicts go back into the case sheet these cases came from
         from . import plan
 
-        written = plan.sync(quiet=True)
+        written = plan.sync(quiet=True, run_id=run["id"])
         if written:
             summary["plan"] = written
     return summary, {"Pass": 0, "Fail": 1}.get(final["status"], 2)
+
+
+def _dispatch_candidate_run(args) -> tuple[dict, int]:
+    from . import candidate_publication
+
+    task = candidate_publication.read(args.candidate)
+    if task["project_id"] != args.project:
+        raise ValueError("候选任务属于其他项目")
+    if args.cases and set(args.cases) - {case["id"] for case in task["cases"]}:
+        raise ValueError("选择包含不在当前候选任务中的用例")
+    selected = [case["id"] for case in task["cases"] if (not args.kind or case["kind"] == args.kind)
+                and (not args.cases or case["id"] in args.cases)]
+    if not selected:
+        raise ValueError("没有符合条件的候选用例")
+    queued = candidate_publication.queue(args.candidate, case_ids=selected, engine=args.engine,
+                                        api_only=args.api_only, inputs=_input_json(args) if args.file else None, start=False)
+    completed = [runner.execute(run_id) for run_id in queued["run_ids"]]
+    result = {**queued, "runs": [run_summary(run) for run in completed]}
+    if completed:
+        receipt = candidate_publication.receipt(completed[-1]["id"]) or {}
+        result.update(receipt, publication=receipt)
+    failed = any(run["status"] == "Fail" for run in completed)
+    return result, 1 if failed else 2 if result.get("unpublished") else 0
+
+
+def _dispatch_run_status(args) -> tuple[dict, int]:
+    from . import task_reports
+
+    run = db.one("SELECT * FROM runs WHERE id = ?", (args.run_id,))
+    if not run:
+        raise ValueError("运行不存在")
+    result = runner.public_run(run)
+    try:
+        result["test_report"] = task_reports.get("run_" + run["id"])
+    except ValueError as error:
+        result["test_report"] = {"status": "unavailable", "reason": str(error)}
+    return run_summary(result), 0
 
 
 def _dispatch_recording(args) -> tuple[dict, int]:
@@ -901,6 +1043,7 @@ def dispatch(args) -> tuple[dict, int]:
         "cases": _dispatch_cases,
         "delete": _dispatch_delete,
         "knowledge": _dispatch_knowledge,
+        "failure-context": _dispatch_failure_context,
         "workflow": _dispatch_workflow,
         "asset": _dispatch_asset,
         "engine": _dispatch_engine,
@@ -923,6 +1066,7 @@ def dispatch(args) -> tuple[dict, int]:
         "dashboard": _dispatch_dashboard,
         "login": _dispatch_execution,
         "run": _dispatch_execution,
+        "run-status": _dispatch_run_status,
     }
     handler = handlers.get(args.command, _dispatch_recording)
     if args.command in ("record", "browser", "check"):

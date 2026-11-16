@@ -1,9 +1,9 @@
 // Dashboard: every figure, chart and list below is computed from the same scope (projects x time range).
-import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope, copyText, attempt,
+import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope,
   fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope, refresh } from '../core.js';
-import { definition, empty, errorState, skeletonRows, runButton } from '../ui.js';
+import { definition, empty, errorState, skeletonRows } from '../ui.js';
 import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts.js';
-import { state, refreshShell } from '../shell.js';
+import { state } from '../shell.js';
 import { primaryState, stateResults } from '../status-view.js';
 
 const DEFINITIONS = {
@@ -26,18 +26,10 @@ function kpi({ label, value, note, def, to, hero, extra }) {
 }
 
 function firstUse() {
-  const skill = state.status ? state.status.skill_path : '<Skill 目录>';
-  const prompt = `请使用 autoSkill 技能（目录：${skill}）测试 <要测试的网址>：先阅读其中的 SKILL.md，按说明创建项目、录制页面操作并生成可回放的页面用例和接口用例，最后回放一遍确认通过。`;
-  const demoButton = h('button', { class: 'btn primary' }, icon('spark'), '加载示例项目');
-  demoButton.addEventListener('click', async () => {
-    const done = await attempt(() => api('/demo', { method: 'POST' }), demoButton);
-    if (done) { await refreshShell(); go('cases', { projects: done.id }, false); }
-  });
   return h('div', { class: 'card' }, empty({
-    glyph: 'spark', title: '还没有项目',
-    text: '项目里的用例由 AI 在操作页面时录制得到，之后不需要 AI 就能反复回放。先用示例项目看看完整效果，或把下面这句话交给你的 AI 助手开始录制。',
-    actions: [demoButton, h('button', { class: 'btn', onClick: () => copyText(prompt) }, icon('copy'), '复制给 AI 的指令')],
-  }), h('div', { class: 'card-body', style: 'padding-top:0' }, h('pre', { class: 'prompt' }, prompt)));
+    glyph: 'spark', title: '还没有测试记录',
+    text: '在 DSH 对话中告诉 AI 测试地址与目标，执行后这里会自动显示进度和结果。',
+  }));
 }
 
 export async function render(view) {
@@ -111,15 +103,12 @@ function summaryKpis(r, c, u, s, _points, none) {
 }
 
 function runAll(options = {}) {
-  const s = scope();
-  const targets = (s.projects.length ? state.projects.filter((p) => s.projects.includes(p.id)) : state.projects).filter((p) => p.cases?.total);
-  const label = targets.length > 1 ? `运行 ${targets.length} 个项目` : '运行全部用例';
-  return runButton(label, () => targets.map((p) => ({ project_id: p.id })), options);
+  return h('a', { class: 'btn' + (options.primary === false ? '' : ' primary'), href: href('cases') }, icon('play'), '选择用例重新运行');
 }
 
 function pageHead() {
   return h('div', { class: 'page-head' },
-    h('div', { class: 'grow' }, h('h1', {}, '仪表盘'), h('p', { class: 'sub' }, '下面所有数字、图表和列表都按上方的项目与时间范围统计。')),
+    h('div', { class: 'grow' }, h('h1', {}, '总览'), h('p', { class: 'sub' }, '查看测试进度与结果，需要时重新运行已有用例。下方统计按上方项目与时间范围显示。')),
     state.projects.some((p) => p.cases?.total) && runAll());
 }
 

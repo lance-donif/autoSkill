@@ -347,7 +347,7 @@ def requirement_records_current(project_id: str, requirement_records: list[dict]
 
 @_project_locked
 def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[str, str | None] | None = None,
-               requirement_records: list[dict] | None = None) -> list[dict]:
+               requirement_records: list[dict] | None = None, case_order: list[str] | None = None) -> list[dict]:
     """Add or replace cases by id (others are kept), then refresh the index."""
     folder = path(project_id)
     merged = {c["id"]: c for c in cases(project_id, active_only=False)}
@@ -369,7 +369,16 @@ def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[s
             raise ValueError(f'{item["id"]} 依赖的前置用例不存在：{"、".join(unknown)}')
         if item["kind"] == "ui" and "automation" in item.get("extensions", {}):
             ir.validate(item["extensions"]["automation"])
-    saved = store.save_cases(folder, list(merged.values()), preserve_revisions=expected_hashes is not None, requirements=requirements)
+    if any("postconditions" in item.get("extensions", {}) for item in merged.values()):
+        from . import runner
+
+        runner.build_plan([identity for identity, item in merged.items() if item["lifecycle"] == "active"], merged)
+    ordered = list(merged.values())
+    if case_order:
+        selected = set(case_order) & ids
+        replacements = iter(merged[identity] for identity in dict.fromkeys(case_order) if identity in selected)
+        ordered = [next(replacements) if item["id"] in selected else item for item in ordered]
+    saved = store.save_cases(folder, ordered, preserve_revisions=expected_hashes is not None, requirements=requirements)
     reindex(project_id)
     return saved
 

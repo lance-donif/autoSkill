@@ -1,4 +1,5 @@
 // Configure concurrent runs of existing cases, then inspect each retained execution and its metrics.
+import { ensurePreferences } from '../preferences.js';
 import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toast,
   fmtTime, fmtDuration, fmtNumber, fmtPercent, refresh, live } from '../core.js';
 import { drawer, closeOverlay, empty, errorState, definition, preferredEngine, preferredHeaded } from '../ui.js';
@@ -61,6 +62,7 @@ function loadEditor(options, picked, missing) {
     for (const item of chosen) groups.set(item.project_id, [...(groups.get(item.project_id) || []), item.case_id]);
     start.disabled = true;
     try {
+      await ensurePreferences();
       const result = await api('/load-tests', { method: 'POST', body: {
         items: [...groups].map(([project_id, case_ids]) => ({ project_id, case_ids })),
         concurrency: Number(concurrency.input.value), iterations: Number(iterations.input.value), ramp_up_seconds: Number(ramp.input.value),

@@ -1,6 +1,6 @@
 // Shared interface pieces: overlays, menus, empty states, the run launcher.
-import { h, icon, api, attempt, toast, go } from './core.js';
-import { preferredEngine, preferredHeaded } from './preferences.js';
+import { h, icon } from './core.js';
+import { launchRuns } from './run-launcher.js';
 export { preferredEngine, setEngine, preferredHeaded, setHeaded } from './preferences.js';
 
 const layer = () => document.getElementById('layer');
@@ -125,19 +125,15 @@ export function definition(text) {
 // ---- running ----
 
 /** Queue runs and take the user to the live result. `items` = [{project_id, case_ids?}]. */
-export async function startRun(items, button, engine = preferredEngine()) {
-  const result = await attempt(() => api('/runs', { method: 'POST', body: { items, engine, headed: preferredHeaded() } }), button);
-  if (!result) return null;
-  if (result.skipped.length) toast(`${result.skipped.length} 个项目没有启动：${result.skipped[0].reason}`, { bad: true });
-  if (result.runs.length === 1) go('runs/' + result.runs[0].id);
-  else { toast(`已开始 ${result.runs.length} 个运行`); go('runs'); }
-  return result;
+export async function startRun(items, button, engine) {
+  return await launchRuns(items, button, engine);
 }
 
 /** A "run" button. How it replays (engine, window, browser) is set once, in the toolbar's replay settings. */
-export function runButton(label, getItems, { small = false, primary = true } = {}) {
+export function runButton(label, getItems, { small = false, primary = true, disabled = false, title } = {}) {
   const main = h('button', {
     class: `btn${primary ? ' primary' : ''}${small ? ' sm' : ''}`,
+    disabled, title,
     onClick: () => { const items = getItems(); if (items.length) startRun(items, main); },
   }, icon('play'), label);
   return main;

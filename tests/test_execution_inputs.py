@@ -167,6 +167,8 @@ class ExecutionInputTests(unittest.TestCase):
         final, results = self.execute()
         self.assertTrue(execution_inputs.result_current(self.pid, self.case, results[0]))
         changed = {prefix + "knowledge.json": [{"finding": "preserved"}], prefix + "diagnosis.json": {"status": "done"},
+                   "knowledge/settings.json": {"schema_version": 1, "team_id": "alpha", "business_scope": "orders"},
+                   "knowledge/entries/entry-1/revisions/1.json": {"text": "derived observation"},
                    prefix + "definition.json": {"goal": "priority", "validation": {"repetitions": 1}, "version": 2, "change_id": "new"}}
         head = domain.commit(self.pid, changed, expected_head=head)["head"]
         self.assertTrue(execution_inputs.result_current(self.pid, self.case, results[0]))

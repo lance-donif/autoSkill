@@ -126,7 +126,7 @@ class FeatureDashboardTests(DashboardWorkspace):
         self.assertEqual(self.client.get('/api/projects/' + self.pid).json()['category'], category)
         self.evidence("project-materials.png")
 
-    def test_workflow_page_explains_twenty_of_hundred_and_creates_scoped_maintenance(self):
+    def test_workflow_page_observes_host_maintenance_and_preserves_history(self):
         project = projects.create("需求变更页面验收", f"http://localhost:{self.target.server_port}", project_id="workflow-dashboard")["id"]
         store.write(projects.path(project) / "analysis/requirements.json", [
             {"id": identity, "module": "业务", "title": "固定需求", "source": "独立需求"} for identity in ("REQ-CHANGED", "REQ-STABLE")])
@@ -149,40 +149,33 @@ class FeatureDashboardTests(DashboardWorkspace):
             "oracles": [{"id": "O-" + suffix, "kind": "api", "requirement_ids": ["REQ-" + suffix],
                          "checks": {"status": 200, "json_equals": {"/ok": True}}} for suffix in ("CHANGED", "STABLE")]})
         self.open("workflows/" + identity)
-        self.page.get_by_role("button", name="需求迭代", exact=True).click()
-        dialog = self.page.get_by_role("dialog", name="需求迭代与影响分析", exact=True)
-        dialog.get_by_label("修改的需求来源", exact=True).select_option("changed")
-        dialog.get_by_label("新需求正文", exact=True).fill("前20项规则调整为新版本，其余规则保持不变。")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/impact")) as analyzed:
-            dialog.get_by_role("button", name="分析影响", exact=True).click()
-        analysis = analyzed.value.json()
-        self.assertEqual(analyzed.value.status, 200, analysis)
+        for label in ("新建工作流", "需求迭代", "审阅并处理下一阶段", "交给 AI 处理"):
+            expect(self.page.get_by_role("button", name=label, exact=True)).to_have_count(0)
+        expect(self.page.locator("#view")).to_contain_text("DSH 对话")
+        expect(self.page.get_by_text("前20项规则原版本", exact=True)).to_be_visible()
+        self.assertEqual(self.page.locator("#view textarea").count(), 0)
+        payload = {"sources": [{"id": "changed", "text": "前20项规则调整为新版本，其余规则保持不变。"}]}
+        analyzed = self.client.post(f"/api/workflow-dashboard/{identity}/impact", json=payload)
+        self.assertEqual(analyzed.status_code, 200, analyzed.text)
+        analysis = analyzed.json()
         self.assertEqual(analysis["direct_case_ids"], [f"CASE-{number:03}" for number in range(20)])
         self.assertEqual(len(analysis["unaffected_case_ids"]), 80)
-        expect(dialog.get_by_role("heading", name="直接影响 20 条 · 依赖波及 0 条", exact=True)).to_be_visible()
-        self.assertEqual(sum(dialog.get_by_role("checkbox").evaluate_all("nodes => nodes.map(node => node.checked)")), 20)
-        expect(dialog).to_contain_text("需求关联：REQ-CHANGED")
-        self.evidence("workflow-impact.png")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/maintenance")) as maintained:
-            dialog.get_by_role("button", name="维护所选用例", exact=True).click()
-        made = maintained.value.json()
-        self.assertEqual(maintained.value.status, 200, made)
+        maintained = self.client.post(f"/api/workflow-dashboard/{identity}/maintenance", json={
+            **payload, "analysis_hash": analysis["analysis_hash"], "case_ids": analysis["direct_case_ids"], "idempotency_key": uuid.uuid4().hex})
+        self.assertEqual(maintained.status_code, 200, maintained.text)
+        made = maintained.json()
         self.assertEqual(made["selected_case_ids"], analysis["direct_case_ids"])
+        self.open("workflows/" + made["workflow_id"])
         expect(self.page.get_by_text("需求维护：已固定 20 条用例", exact=True)).to_be_visible()
         self.assertEqual({case["id"]: execution_inputs.canonical(case) for case in projects.cases(project)}, baseline)
         self.page.get_by_role("button", name="暂停", exact=True).click()
         expect(self.page.get_by_role("button", name="恢复", exact=True)).to_be_visible()
         self.page.get_by_role("button", name="恢复", exact=True).click()
         expect(self.page.get_by_role("button", name="暂停", exact=True)).to_be_visible()
-        self.page.get_by_role("button", name="交给 AI 处理", exact=True).click()
-        dispatch = self.page.get_by_role("dialog", name="交给 AI 处理", exact=True)
-        dispatch.get_by_role("button", name="投递给 AI", exact=True).click()
-        expect(dispatch).not_to_be_visible()
-        expect(self.page.get_by_text("pending", exact=False).first).to_be_visible()
         maintenance_id = made["workflow_id"]
-        self.review_stage("需求拆分", {"requirements": [
+        self.submit_stage(maintenance_id, {"requirements": [
             {"id": "REQ-NEW", "text": "前20项按新版业务规则核验ok为true", "source_ids": ["changed"]}]})
-        self.review_stage("用例设计", {"scenarios": [
+        self.submit_stage(maintenance_id, {"scenarios": [
             {"id": "SC-NEW", "title": "新版业务规则验证", "requirement_ids": ["REQ-NEW"], "oracle_ids": ["O-NEW"]}],
             "oracles": [{"id": "O-NEW", "kind": "api", "requirement_ids": ["REQ-NEW"],
                          "checks": {"status": 200, "json_equals": {"/ok": True}}}]})
@@ -191,9 +184,10 @@ class FeatureDashboardTests(DashboardWorkspace):
             candidate = projects.case(project, f"CASE-{number:03}")
             candidate.update(revision=2, title=candidate["title"] + " V2", requirement_ids=["REQ-NEW"])
             candidates.append(candidate)
-        self.review_stage("候选用例", {"cases": candidates, "bindings": {"SC-NEW": analysis["direct_case_ids"]}})
+        self.submit_stage(maintenance_id, {"cases": candidates, "bindings": {"SC-NEW": analysis["direct_case_ids"]}})
         self.assertEqual({case["id"]: execution_inputs.canonical(case) for case in projects.cases(project)}, baseline)
-        self.page.get_by_role("button", name="刷新执行与恢复状态", exact=True).click()
+        self.client.post(f"/api/workflows/{maintenance_id}/recover", json={"idempotency_key": uuid.uuid4().hex}).raise_for_status()
+        self.page.get_by_role("button", name="刷新状态", exact=True).click()
         deadline = time.monotonic() + 30
         run_id = None
         while time.monotonic() < deadline:
@@ -205,8 +199,9 @@ class FeatureDashboardTests(DashboardWorkspace):
         self.assertIsNotNone(run_id)
         result = self.client.get("/api/runs/" + run_id).json()
         self.assertEqual((result["status"], result["total"], result["passed"]), ("Pass", 20, 20), result)
-        self.page.get_by_role("button", name="刷新执行与恢复状态", exact=True).click()
-        expect(self.page.get_by_text("候选已发布", exact=True).first).to_be_visible()
+        self.client.post(f"/api/workflows/{maintenance_id}/recover", json={"idempotency_key": uuid.uuid4().hex}).raise_for_status()
+        self.page.get_by_role("button", name="刷新状态", exact=True).click()
+        expect(self.page.get_by_text("已入库 20 条", exact=True).first).to_be_visible()
         for number in range(100):
             current = projects.case(project, f"CASE-{number:03}")
             if number < 20:
@@ -214,20 +209,108 @@ class FeatureDashboardTests(DashboardWorkspace):
             else:
                 self.assertEqual(execution_inputs.canonical(current), baseline[current["id"]])
         self.evidence("workflow-published.png")
-        self.review_stage("知识整理", {"entries": [{"id": "validated", "text": "本次20项新版规则真实回归通过", "evidence_refs": [run_id]}]})
-        self.assertTrue(self.client.get("/api/workflow-dashboard/" + maintenance_id).json()["workflow"]["complete"])
+        expect(self.page.get_by_role("link", name="查看项目用例 Excel", exact=True)).to_be_visible()
+        self.assertEqual(self.page.locator("#view textarea").count(), 0)
+
+    def test_workflow_partial_publication_shows_real_counts_reasons_and_source_identity(self):
+        source = self.folder / "订单需求.md"
+        source.write_text("查询服务返回 ok=true；错误的独立预期必须失败并保留证据。", encoding="utf-8")
+        identity = workflow.create(self.pid, {"title": "入库结果查阅", "sources": [{"id": "SOURCE", "file": str(source)}]},
+                                   idempotency_key=uuid.uuid4().hex)["workflow_id"]
+        self.submit_stage(identity, {"requirements": [{"id": "REQ", "text": "按独立预期核验返回值", "source_ids": ["SOURCE"]}]})
+        self.submit_stage(identity, {
+            "scenarios": [{"id": "SC-" + suffix, "title": suffix, "requirement_ids": ["REQ"], "oracle_ids": ["O-" + suffix]}
+                          for suffix in ("PASS", "FAIL")],
+            "oracles": [{"id": "O-" + suffix, "kind": "api", "requirement_ids": ["REQ"],
+                         "checks": {"status": 200, "json_equals": {"/ok": value}}} for suffix, value in (("PASS", True), ("FAIL", False))]})
+        candidates = []
+        for suffix, expected in (("PASS", True), ("FAIL", False)):
+            case = builder.api_case("PARTIAL-" + suffix, suffix, "GET", "/slow", {"status": 200, "json_equals": {"/ok": expected}})
+            case["requirement_ids"] = ["REQ"]
+            candidates.append(case)
+        self.submit_stage(identity, {"cases": candidates, "bindings": {"SC-PASS": ["PARTIAL-PASS"], "SC-FAIL": ["PARTIAL-FAIL"]}})
+        deadline = time.monotonic() + 30
+        receipt = None
+        while time.monotonic() < deadline:
+            self.client.post(f"/api/workflows/{identity}/recover", json={"idempotency_key": uuid.uuid4().hex}).raise_for_status()
+            current = self.client.get("/api/workflow-dashboard/" + identity).json()
+            receipt = next((item["context"].get("publication_receipt") for item in current["items"]
+                            if item["context"].get("publication") == "partially_published"), None)
+            if receipt:
+                break
+            time.sleep(0.1)
+        self.assertIsNotNone(receipt, current)
+        self.assertEqual(receipt["published_ids"], ["PARTIAL-PASS"])
+        self.assertEqual(set(receipt["unpublished"]), {"PARTIAL-FAIL"})
+        self.assertIn("PARTIAL-PASS", {case["id"] for case in projects.cases(self.pid)})
+        self.assertNotIn("PARTIAL-FAIL", {case["id"] for case in projects.cases(self.pid)})
+        self.open("workflows/" + identity)
+        expect(self.page.get_by_text("已入库 1 条，未入库 1 条", exact=True)).to_be_visible()
+        expect(self.page.get_by_text("PARTIAL-FAIL 未入库：" + receipt["unpublished"]["PARTIAL-FAIL"], exact=True)).to_be_visible()
+        expect(self.page.get_by_text("原始文件：订单需求.md", exact=True)).to_be_visible()
+        expect(self.page.get_by_text("来源标识：", exact=False)).to_contain_text("workflows/" + identity + "/artifacts/")
+        expect(self.page.get_by_text("候选已发布", exact=True)).to_have_count(0)
+        run_id = next(item["run_id"] for item in current["items"] if item["phase"] == "execute" and item["run_id"])
+        self.open("runs/" + run_id)
+        expect(self.page.get_by_role("button", name="只重跑这一条", exact=True)).to_have_count(0)
+        expect(self.page.get_by_role("link", name="返回原测试任务", exact=True)).to_have_attribute("href", "#/workflows/" + identity)
+        destination = self.origin + '/?embed=1#/workflows/' + identity
+        self.page.goto(self.origin + '/api/status')
+        self.page.set_viewport_size({'width': 700, 'height': 700})
+        self.page.set_content('<iframe name="host" style="width:390px;height:500px;border:0" src="' + destination + '"></iframe>')
+        reader = self.page.frame(name='host')
+        expect(reader.get_by_role('heading', name='入库结果查阅', exact=True)).to_be_visible()
+        expect(reader.get_by_role('link', name='查看项目用例 Excel', exact=True)).to_be_in_viewport(ratio=1)
+        self.evidence('f7-workflow-first-screen.png')
+        oracle = reader.locator('[data-reading-id="source:oracles"] summary')
+        oracle.focus()
+        oracle.press('Enter')
+        evidence = reader.get_by_role('link', name='查看真实执行', exact=True).first
+        for _attempt in range(3):
+            evidence.focus()
+            reader.evaluate('scrollTo(0, 888)')
+            before = reader.evaluate('scrollY')
+            evidence.press('Enter')
+            expect(reader.locator('#view')).to_contain_text('本次综合失败')
+            reader.evaluate('history.back()')
+            expect(reader.get_by_role('heading', name='入库结果查阅', exact=True)).to_be_visible()
+            expect(evidence).to_be_focused()
+            self.assertTrue(oracle.locator('..').evaluate('node => node.open'))
+            reader.wait_for_function('expected => Math.abs(scrollY - expected) < 2', arg=before)
+        evidence.press('Enter')
+        expect(reader.locator('#view')).to_contain_text('本次综合失败')
+        old_cycle = workflow.status(identity)['cycle_id']
+        revised = workflow.revise(identity, {'title': '第二周期服务查询', 'sources': [{'id': 'SOURCE', 'text': '新周期独立需求：查询服务仍应为 true。'}]},
+                                  idempotency_key=uuid.uuid4().hex)
+        self.assertNotEqual(revised['cycle_id'], old_cycle)
+        reader.evaluate('history.back()')
+        expect(reader.get_by_role('heading', name='第二周期服务查询', exact=True)).to_be_visible()
+        self.assertFalse(reader.locator('[data-reading-id="source:oracles"]').evaluate('node => node.open'))
+        reader.wait_for_function('scrollY === 0')
+        current_progress = reader.get_by_role('region', name='当前周期进度', exact=True)
+        expect(current_progress).to_have_attribute('data-cycle', revised['cycle_id'])
+        expect(current_progress.get_by_role('link', name='查看真实执行', exact=True)).to_have_count(0)
+        old_progress = reader.locator('.workflow-cycle[data-cycle="' + old_cycle + '"]')
+        self.assertFalse(old_progress.evaluate('node => node.open'))
+        expect(old_progress.locator(':scope > summary')).to_contain_text('历史周期 1 · 1 条失败结果')
+        old_progress.locator(':scope > summary').focus()
+        old_progress.locator(':scope > summary').press('Enter')
+        expect(old_progress).to_contain_text('PARTIAL-FAIL 未入库：' + receipt['unpublished']['PARTIAL-FAIL'])
+        history_link = old_progress.get_by_role('link', name='查看真实执行', exact=True).first
+        history_link.focus()
+        before = reader.evaluate('scrollY')
+        history_link.press('Enter')
+        expect(reader.locator('#view')).to_contain_text('本次综合失败')
+        reader.evaluate('history.back()')
+        expect(reader.get_by_role('heading', name='第二周期服务查询', exact=True)).to_be_visible()
+        expect(history_link).to_be_focused()
+        self.assertTrue(old_progress.evaluate('node => node.open'))
+        reader.wait_for_function('expected => Math.abs(scrollY - expected) < 2', arg=before)
+        self.assertEqual(reader.evaluate('document.documentElement.scrollWidth'), 390)
+        self.evidence('f6-workflow-previous-cycle.png')
 
     @staticmethod
     def submit_stage(identity, payload):
         task = workflow.next_task(identity, idempotency_key=uuid.uuid4().hex)["task"]
         return workflow.submit(identity, task["item_id"], lease_token=task["lease_token"], attempt_id=task["attempt_id"],
                                idempotency_key=uuid.uuid4().hex, payload=payload)
-
-    def review_stage(self, label, payload):
-        self.page.get_by_role("button", name="审阅并处理下一阶段", exact=True).click()
-        dialog = self.page.get_by_role("dialog", name="审阅：" + label, exact=True)
-        dialog.get_by_label("阶段结果（JSON）", exact=True).fill(json.dumps(payload, ensure_ascii=False))
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/submit")) as submitted:
-            dialog.get_by_role("button", name="提交审阅结果", exact=True).click()
-        self.assertEqual(submitted.value.status, 200, submitted.value.text())
-        expect(dialog).not_to_be_visible()

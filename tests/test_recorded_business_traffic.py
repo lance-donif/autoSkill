@@ -68,6 +68,16 @@ class BusinessTrafficTests(unittest.TestCase):
         self.assertEqual(traffic.category(exchange("/login", method="POST", kind="document", mime="text/html")), "authentication")
         self.assertEqual(traffic.category(exchange("/events", kind="eventsource", mime="text/event-stream")), "business")
 
+    def test_json_error_for_default_favicon_does_not_turn_it_into_an_api(self):
+        favicon = exchange("/favicon.ico?cache=1", kind="Other", status=404)
+        favicon["response"]["content"]["text"] = '{"error":"not found"}'
+        self.assertEqual(traffic.category(favicon), "page_resource")
+        for kind in ("fetch", "xhr"):
+            self.assertEqual(traffic.category({**favicon, "_resourceType": kind}), "business")
+        for path in ("/api/icons", "/reports/icon-summary.json", "/favicon.json"):
+            self.assertEqual(traffic.category(exchange(path, kind="Other", status=404)), "business")
+        self.assertEqual(traffic.category(exchange("/favicon.ico", kind="Other", method="POST")), "business")
+
     def test_redirect_hops_keep_exact_fields_and_scopes_are_explicit_on_import(self):
         first = exchange("/login", method="POST", kind="document", mime="text/html", status=302,
                          body={"mimeType": "application/x-www-form-urlencoded", "text": "username=synthetic&password=fixture"},
@@ -125,7 +135,7 @@ class BusinessTrafficTests(unittest.TestCase):
         requests.extend([upload, websocket])
         rec = {"start_url": "/", "steps": [{"action": "click", "selector": "#run"}], "secrets": []}
         result = compiler.build(self.pid, rec, {"log": {"entries": requests}}, None, "All requests")
-        cases = [case for case in projects.cases(self.pid) if case["kind"] == "api"]
+        cases = [case for case in result["candidates"] if case["kind"] == "api"]
         self.assertEqual(len(cases), 35)
         self.assertEqual({case["extensions"]["traffic"] for case in cases}, {"business"})
         self.assertEqual({row["protocol"] for row in result["api_uncompiled"]}, {"http", "websocket"})
@@ -231,6 +241,53 @@ class TrafficHandler(BaseHTTPRequestHandler):
 
 @unittest.skipUnless(paths.agent_browser() and paths.chrome(), "requires the local recording browser")
 class BusinessTrafficBrowserTests(unittest.TestCase):
+    def test_real_favicon_json_404_remains_archived_without_becoming_a_candidate(self):
+        class FaviconSite(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_GET(self):
+                path = urlsplit(self.path).path
+                status, mime = (404 if path == "/favicon.ico" else 200), "application/json"
+                body = b'{"error":"not found"}' if status == 404 else b'{"ok":true}'
+                if path == "/":
+                    mime = "text/html"
+                    body = b'''<!doctype html><link rel="icon" href="/favicon.ico"><button id="check">Check</button><p id="result">ready</p>
+                    <script>document.querySelector('#check').onclick=async()=>{await fetch('/api/icons');await fetch('/reports/icon-summary.json');
+                    document.querySelector('#result').textContent='done';};</script>'''
+                self.send_response(status)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
+                "AUTOSKILL_WORKSPACE": folder, "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0", "AUTOSKILL_SESSION": "favicon-fixture"}):
+            site = ThreadingHTTPServer(("127.0.0.1", 0), FaviconSite)
+            thread = threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+            thread.start()
+            try:
+                pid = projects.create("Favicon capture", f"http://127.0.0.1:{site.server_port}")["id"]
+                session.start(pid, login=False)
+                session.browser(["click", "#check"])
+                self.assertTrue(session.check("text", "#result", "done", timeout_seconds=5)["passed"])
+                with patch("autoskill.server.jobs.ensure_worker"):
+                    result = session.stop("读取真实图标业务接口")
+                prefix = f"conversations/{result['conversation_captures']['id']}/"
+                har_source = json.loads(domain.read_file(pid, prefix + "source.original.har"))
+                cdp_source = json.loads(domain.read_file(pid, prefix + "source.original.cdp.json"))
+                for rows in (har_source["log"]["entries"], cdp_source["entries"]):
+                    icons = [entry for entry in rows if urlsplit(entry["request"]["url"]).path == "/favicon.ico"]
+                    self.assertTrue(icons)
+                    self.assertTrue(all(entry["response"]["status"] == 404 and traffic.category(entry) == "page_resource" for entry in icons))
+                self.assertEqual({case["path"] for case in result["candidates"] if case["kind"] == "api"},
+                                 {"/api/icons", "/reports/icon-summary.json"})
+            finally:
+                session.cancel()
+                site.shutdown()
+                site.server_close()
+                thread.join(timeout=3)
+
     def test_real_browser_filters_archives_and_compiles_crud_without_reissuing_business_requests(self):
         from websockets.sync.server import serve
 
@@ -255,7 +312,8 @@ class BusinessTrafficBrowserTests(unittest.TestCase):
                 session.start(pid, login=False)
                 session.browser(["click", "#run"])
                 self.assertTrue(session.check("text", "#done", "complete", timeout_seconds=15)["passed"])
-                result = session.stop("CRUD and protocol capture")
+                with patch("autoskill.server.jobs.ensure_worker"):
+                    result = session.stop("CRUD and protocol capture")
                 saved = conversation_capture.get(pid, result["conversation_captures"]["id"])
                 calls = saved["requests"]
                 urls = [urlsplit(call["request"]["url"]).path for call in calls]
@@ -291,7 +349,7 @@ class BusinessTrafficBrowserTests(unittest.TestCase):
                     self.assertNotIn(b"/pixel?rev=3", data)
                 self.assertFalse(saved["capture_scope"]["complete_network_log"])
                 self.assertGreater(saved["capture_scope"]["sources"]["cdp"]["excluded_entries"], 0)
-                cases = [case for case in projects.cases(pid) if case["kind"] == "api"]
+                cases = [case for case in result["candidates"] if case["kind"] == "api"]
                 self.assertTrue({"/download.pdf", "/snippet", "/capabilities", "/form-action"} <= {case["path"] for case in cases})
                 self.assertFalse({"/", "/theme", "/bundle", "/pixel", "/font", "/upload", "/echo"} & {case["path"] for case in cases})
                 self.assertEqual({row["protocol"] for row in result["api_uncompiled"]}, {"http", "websocket"})

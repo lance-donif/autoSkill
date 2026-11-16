@@ -3,7 +3,9 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import count
 from pathlib import Path
 from unittest.mock import patch
@@ -14,9 +16,9 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 import httpx
 
-from autoskill import projects, runner
+from autoskill import projects, runner, secrets
 from autoskill.recorder import compile as compiler
-from autoskill.recorder import session
+from autoskill.recorder import har, session
 from autoskill.replay import api, ui
 
 BASE = "https://example.test"
@@ -45,8 +47,10 @@ class RecorderReviewTests(unittest.TestCase):
     def compile(self, entries, *, state=None, **extra):
         rec = {"project_id": self.pid, "start_url": "/", "steps": [{"action": "click", "selector": "#submit"}],
                "secrets": [], "used_login": False, "as_login": False, **extra}
+        existing = projects.cases(self.pid)
         self.summary = compiler.build(self.pid, rec, {"log": {"entries": entries}}, state, "录制回归")
-        return [case for case in projects.cases(self.pid) if case["kind"] == "api"]
+        self.assertEqual(projects.cases(self.pid), existing)
+        return [case for case in self.summary["candidates"] if case["kind"] == "api"]
 
     def test_repeated_query_and_form_values_reach_the_replayed_request(self):
         fields = "tag=red&tag=blue&tag=&single=one&empty="
@@ -72,7 +76,7 @@ class RecorderReviewTests(unittest.TestCase):
             with self.subTest(target=target):
                 rec = {"project_id": self.pid, "steps": [], "refs": {}}
                 with patch.object(session, "current", return_value=rec), patch.object(session, "_sync_tabs"), \
-                        patch.object(session, "PageProbe") as probe, patch.object(session, "_describe") as describe:
+                        patch.object(session, "PageProbe", autospec=True) as probe, patch.object(session, "_describe") as describe:
                     probe.return_value.count.return_value = 0
                     result = session.check("hidden", target, None)
                     self.assertEqual((result["recorded"], result["actual"]), (1, "不可见"))
@@ -84,7 +88,7 @@ class RecorderReviewTests(unittest.TestCase):
     def test_hidden_records_the_failed_expectation_for_a_visible_element(self):
         rec = {"project_id": self.pid, "steps": [], "refs": {}}
         with patch.object(session, "current", return_value=rec), patch.object(session, "_sync_tabs"), \
-                patch.object(session, "PageProbe") as probe, patch.object(ui.time, "monotonic", side_effect=count(step=10)):
+                patch.object(session, "PageProbe", autospec=True) as probe, patch.object(ui.time, "monotonic", side_effect=count(step=10)):
             probe.return_value.count.return_value = 1
             probe.return_value.read.return_value = True
             result = session.check("hidden", "#visible", None)
@@ -108,7 +112,11 @@ class RecorderReviewTests(unittest.TestCase):
             for case in cases:
                 self.assertEqual(api.run_case(client, case, projects.config(self.pid), {})["status"], "Pass")
         self.assertEqual(sent, list(media_types))
-        self.assertEqual(len(self.compile([entry("PATCH", "/thing", {"ok": True}, body={"name": "new"})])), 3)
+        projects.save_cases(self.pid, cases)  # Existing imported definitions exercise request reuse.
+        reused = self.compile([entry("PATCH", "/thing", {"ok": True}, body={"name": "new"})])
+        self.assertEqual(len(reused), 1)
+        self.assertEqual(reused[0]["id"], cases[-1]["id"])
+        self.assertEqual(len(projects.cases(self.pid)), 3)
 
     def cookie_traffic(self):
         login = entry("POST", "/api/login", {"success": True}, body={"username": "qa", "password": "example"})
@@ -117,11 +125,13 @@ class RecorderReviewTests(unittest.TestCase):
                 login, entry("GET", "/api/me", {"role": "admin"}, headers={"Cookie": "sid=recorded"})]
 
     def test_cookie_login_dependencies_keep_authenticated_and_anonymous_requests_separate(self):
+        secrets.set_secret("DECLARED_PASSWORD", "example")
         cases = self.compile(self.cookie_traffic(), as_login=True)
         before, login, protected = cases
         self.assertEqual(projects.depends_on(before), [])
         self.assertEqual(projects.depends_on(protected), [login["id"]])
-        self.assertEqual(projects.auth(self.pid)["api_case"], login["id"])
+        self.assertEqual(self.summary["candidate_auth"]["api_case"], login["id"])
+        self.assertEqual(projects.auth(self.pid), {})
         self.assertNotIn("sid=recorded", json.dumps(cases))
 
         def handle(request):
@@ -132,12 +142,18 @@ class RecorderReviewTests(unittest.TestCase):
             self.assertEqual(request.headers.get("cookie"), "sid=replayed")
             return httpx.Response(200, json={"role": "admin"})
 
+        # A cookie with no captured producer cannot silently turn into an anonymous request.
+        self.assertTrue(before["extensions"]["execution"]["unresolved_recorded_credentials"])
+        self.assertTrue(any("Cookie visitor" in note for note in self.summary["notes"]))
+        with self.assertRaisesRegex(ValueError, "临时凭据"):
+            runner.prepare(self.pid, [before["id"]], candidate_cases=self.summary["candidates"],
+                           candidate_auth=self.summary["candidate_auth"])
         with patch.object(api, "new_client", side_effect=lambda *args: httpx.Client(transport=httpx.MockTransport(handle))):
-            running = runner.Session(runner.prepare(self.pid))
+            running = runner.Session(runner.prepare(self.pid, [login["id"], protected["id"]],
+                                                    candidate_cases=self.summary["candidates"], candidate_auth=self.summary["candidate_auth"]))
             try:
-                for case in cases:
+                for case in (login, protected):
                     self.assertEqual(running.run_one(case)["status"], "Pass")
-                self.assertEqual(running.run_one(before)["status"], "Pass")
             finally:
                 running.close()
 
@@ -148,7 +164,7 @@ class RecorderReviewTests(unittest.TestCase):
         cases = self.compile([login, entry("GET", "/api/me", {"role": "admin"}, headers={"Cookie": "sid=recorded"})],
                              as_login=True)
         self.assertEqual(len(cases), 1)
-        self.assertEqual(projects.depends_on(cases[0]), [projects.auth(self.pid)["ui_case"]])
+        self.assertEqual(projects.depends_on(cases[0]), [self.summary["candidate_auth"]["ui_case"]])
 
     def test_reusing_an_older_cookie_case_restores_its_login_dependency(self):
         cases = self.compile(self.cookie_traffic(), as_login=True)
@@ -158,9 +174,9 @@ class RecorderReviewTests(unittest.TestCase):
         self.assertEqual(len(updated), 3)
         self.assertEqual(projects.depends_on(updated[-1]), [updated[1]["id"]])
 
-    def assert_collision_replay(self, reverse=False):
-        producers = [entry("POST", "/api/orders", {"id": 1}, body={"title": "order"}),
-                     entry("POST", "/api/customers", {"id": 1}, body={"name": "customer"})]
+    def assert_collision_replay(self, reverse=False, identity=1):
+        producers = [entry("POST", "/api/orders", {"id": identity}, body={"title": "order"}),
+                     entry("POST", "/api/customers", {"id": identity}, body={"name": "customer"})]
         cases = self.compile([*(reversed(producers) if reverse else producers),
                               entry("DELETE", "/api/customers/1", {"ok": True})])
         customer_case = next(case for case in cases if case["path"] == "/api/customers")
@@ -173,10 +189,10 @@ class RecorderReviewTests(unittest.TestCase):
 
         def handle(request):
             if request.url.path == "/api/orders":
-                return httpx.Response(200, json={"id": 101})
+                return httpx.Response(200, json={"id": "101" if isinstance(identity, str) else 101})
             if request.url.path == "/api/customers":
                 customers[202] = "created customer"
-                return httpx.Response(200, json={"id": 202})
+                return httpx.Response(200, json={"id": "202" if isinstance(identity, str) else 202})
             target = int(request.url.path.rsplit("/", 1)[-1])
             deleted.append(target)
             del customers[target]
@@ -194,6 +210,56 @@ class RecorderReviewTests(unittest.TestCase):
 
     def test_colliding_ids_do_not_depend_on_producer_order(self):
         self.assert_collision_replay(reverse=True)
+
+    def test_short_string_ids_keep_resource_disambiguation_and_do_not_capture_page_numbers(self):
+        self.assert_collision_replay(identity="1")
+        for value in ("", "0", "x"):
+            self.assertEqual(har.correlatable({"id": value}), [])
+        self.assertEqual(har.correlatable({"page": "1", "code": "4", "key": "2", "title": "4"}), [])
+
+    def test_short_string_id_completion_uses_fresh_http_created_record_and_leaves_old_record_untouched(self):
+        created = entry("POST", "/api/todos", {"id": "4", "title": "fixture", "status": "ready"}, body={"title": "fixture"})
+        created["response"]["status"] = 201
+        completed = entry("POST", "/api/todos/4/complete", {"id": "4", "title": "fixture", "status": "done"})
+        cases = self.compile([created, completed])
+        self.assertEqual(cases[0]["extensions"]["extract"], {"todo_id": "/id"})
+        self.assertEqual(cases[1]["path"], "/api/todos/{{todo_id}}/complete")
+        self.assertEqual(projects.depends_on(cases[1]), [cases[0]["id"]])
+        records, sent = {"4": "old"}, []
+
+        class TodoSite(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                sent.append(self.path)
+                identity = "91" if self.path == "/api/todos" else self.path.split("/")[-2]
+                records[identity] = "ready" if self.path == "/api/todos" else "done"
+                body = json.dumps({"id": identity, "title": "fixture", "status": records[identity]}).encode()
+                self.send_response(201 if self.path == "/api/todos" else 200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        site = ThreadingHTTPServer(("127.0.0.1", 0), TodoSite)
+        thread = threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{site.server_port}"
+        config = {**projects.config(self.pid), "base_url": base, "allowed_origins": [base]}
+        try:
+            variables = {}
+            with api.new_client(config) as client:
+                for case in cases:
+                    result = api.run_case(client, case, config, variables)
+                    self.assertEqual(result["status"], "Pass", result)
+            self.assertEqual(sent, ["/api/todos", "/api/todos/91/complete"])
+            self.assertEqual(records, {"4": "old", "91": "done"})
+        finally:
+            site.shutdown()
+            site.server_close()
+            thread.join(timeout=3)
 
     def test_colliding_ids_in_request_fields_use_named_resources(self):
         cases = self.compile([entry("POST", "/api/orders", {"id": 1}, body={"title": "order"}),

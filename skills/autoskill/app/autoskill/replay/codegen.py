@@ -218,7 +218,7 @@ POLL, PRIMARY_GRACE, LOCATOR, STEP_TIMEOUT = 0.1, 1.5, "locator_not_found", "tim
 '''
     for function in (ir.locators, ir.absolute_url, ir.check_origin):
         support += "\n\n" + _standalone_source(function) + f"\nir.{function.__name__} = {function.__name__}"
-    for function in (ui.StepError, ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion,
+    for function in (ui.StepError, ui.check_cancel, ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion,
                      ui._poll_assertion, ui.check, ui.navigate, ui.perform):
         support += "\n\n" + _standalone_source(function)
     for name, value in vars(module).items():

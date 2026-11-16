@@ -80,7 +80,8 @@ class AssertionEvidenceTests(unittest.TestCase):
         self.assertEqual(persisted['steps'][0]['expected'], 'high')
         self.assertFalse(persisted['steps'][0]['recording_result']['passed'])
         summary = compiler.build(pid, rec, {'log': {'entries': []}}, None, '高优先级必须保留')
-        saved = projects.cases(pid)[0]
+        saved = summary['candidates'][0]
+        self.assertEqual(projects.cases(pid), [])
         self.assertEqual(saved['extensions']['automation']['assertions'][0]['expected'], 'high')
         self.assertEqual(summary['ui_case']['recording_status'], 'Fail')
 

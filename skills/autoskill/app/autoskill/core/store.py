@@ -158,6 +158,19 @@ SAFE_CREDENTIAL = re.compile(
 )
 
 
+def _credential_reference(value, normalized, path):
+    """Cookie names are syntax; every cookie value must remain an unresolved reference."""
+    if not isinstance(value, str):
+        return False
+    if SAFE_CREDENTIAL.fullmatch(value):
+        return True
+    if normalized != "cookie" or path != ("headers",):
+        return False
+    reference = r"(?:\$\{ENV:[A-Za-z_][A-Za-z0-9_]*\}|\{\{[A-Za-z_][A-Za-z0-9_]*\}\})"
+    pair = r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+=" + reference
+    return all(re.fullmatch(pair, item.strip()) for item in value.split(";"))
+
+
 def has_real_assertion(a):
     """A success expectation needs more than the status code, unless the response has no body by definition."""
     if a.get("status") in (204, 205) or 300 <= a.get("status", 0) < 400:
@@ -167,7 +180,7 @@ def has_real_assertion(a):
     )
 
 
-def credential_errors(value, location="data"):
+def credential_errors(value, location="data", *, _path=()):
     sensitive = {
         "authorization",
         "proxyauthorization",
@@ -186,6 +199,8 @@ def credential_errors(value, location="data"):
     errors = []
     if isinstance(value, dict):
         for key, item in value.items():
+            if _path == ("assertions",) and key == "schema":
+                continue  # Response schema property names describe fields; they are not credential values.
             if key == "extract" and isinstance(item, dict) and all(valid_pointer(v) for v in item.values()):
                 continue  # variable name -> JSON pointer, not a credential
             normalized = re.sub(r"[^a-z0-9]", "", key.lower())
@@ -193,12 +208,12 @@ def credential_errors(value, location="data"):
             if (
                 normalized in sensitive
                 or normalized.endswith(("token", "secret", "apikey", "password", "cookie"))
-            ) and item not in ("", None) and (not isinstance(item, str) or not SAFE_CREDENTIAL.fullmatch(item)):
+            ) and item not in ("", None) and not _credential_reference(item, normalized, _path):
                 errors.append(target + ": 敏感字段只能写成 ${ENV:名称} 或 {{变量}} 引用，不能写入真实值")
-            errors.extend(credential_errors(item, target))
+            errors.extend(credential_errors(item, target, _path=(*_path, key)))
     elif isinstance(value, list):
         for i, item in enumerate(value):
-            errors.extend(credential_errors(item, f"{location}[{i}]"))
+            errors.extend(credential_errors(item, f"{location}[{i}]", _path=(*_path, i)))
     return errors
 
 
@@ -232,8 +247,6 @@ def _validation_requirement_ids(reqs, errors):
 
 def _validate_api_contract(c, cid, errors, jsonschema):
     a = c["assertions"]
-    if not has_real_assertion(a) and a["status"] < 400:
-        errors.append(f"{cid}: 成功响应缺少有效业务或结构断言")
     if "schema" in a:
         try:
             jsonschema.Draft202012Validator.check_schema(a["schema"])
@@ -979,19 +992,18 @@ def sync_skills(p):
 
 def _validate_saved_api_contract(c, jsonschema):
     a = c["assertions"]
+    location = c["id"] + ".assertions"
     if "schema" in a:
         try:
             jsonschema.Draft202012Validator.check_schema(a["schema"])
         except jsonschema.SchemaError:
-            raise ValueError("响应Schema格式错误") from None
+            raise ValueError(location + ".schema: 响应Schema格式错误") from None
         if external_schema_refs(a["schema"]):
-            raise ValueError("响应Schema禁止未解析的外部引用")
-    if ("schema" in a and not meaningful_schema(a["schema"])) or (
-        a["status"] < 400 and not has_real_assertion(a)
-    ):
-        raise ValueError("接口用例缺少有效断言")
+            raise ValueError(location + ".schema: 响应Schema禁止未解析的外部引用")
+    if "schema" in a and not meaningful_schema(a["schema"]):
+        raise ValueError(location + ": 接口用例缺少有效断言；请按原业务预期补充字段、响应内容、响应头或有约束的响应Schema")
     if any(not valid_pointer(ptr) for ptr in a.get("json_equals", {})):
-        raise ValueError("非法 JSON Pointer")
+        raise ValueError(location + ".json_equals: 非法 JSON Pointer")
 
 
 def _saved_case_revision(case, previous, preserve_revisions):

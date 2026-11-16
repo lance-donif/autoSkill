@@ -242,6 +242,7 @@ def _record(run: dict, outcome: dict) -> dict:
         business_failed = assertions and status == "Fail" and case.get("verdict_scope") not in ("performance", "execution")
         business = case.get("business_status", "Pass" if verified else "Fail" if business_failed else "Unverified")
         detail = {**case, "input_hash": run["input_hash"], "engine": run["engine"],
+                  "native_case_index": index - 1, "native_case_hash": native_assets.digest(case),
                   "business_status": business, "business_verified": business == "Pass",
                   "verification": case.get("verification", "verified" if business == "Pass" else "failed" if business == "Fail" else "unverified"),
                   "evidence": outcome.get("evidence", []),

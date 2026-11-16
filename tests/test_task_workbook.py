@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import reporting, task_report_data, task_workbook, task_workbook_data
+from autoskill import reporting, task_bugs, task_report_data, task_workbook, task_workbook_data
 
 
 def definition(identity="TC-UI-001"):
@@ -88,6 +88,62 @@ class TaskWorkbookTests(unittest.TestCase):
                         self.assertEqual(cell.font.name, "宋体")
         self.assertEqual(task_report_data.task_summary(snapshot([first, final]))["counts"]["Fail"], 1)
 
+    def test_frozen_design_arrays_and_multiline_steps_render_without_changing_the_snapshot(self):
+        case = {**definition(), "kind": "scenario", "expected": ["1. 个人工作台可访问。", "2. 展示已保存的两条历史记录。"]}
+        item = {"definition": case, "result": None, "run_id": None, "evidence_valid": False}
+        for steps in (case["steps"], "\n".join(case["steps"])):
+            with self.subTest(steps=type(steps).__name__):
+                case["steps"] = steps
+                data = snapshot([item])
+                original = copy.deepcopy(data)
+                book, rows, _ = self.render(data)
+                self.assertEqual(rows[0][6], "\n".join(case["expected"]))
+                self.assertIn("点击搜索历史", rows[0][5])
+                self.assertIn("点击搜索历史", reporting._definition_fields(case)["steps"])
+                self.assertEqual(data, original)
+                book.close()
+
+    def test_cancel_receipts_do_not_invent_failures_or_erase_an_earlier_failure(self):
+        case = definition()
+        cancelled = observation(case, "Cancelled", "run-cancelled")
+        cancelled['result']['detail'].update(business_status='Unverified', execution_status='cancelled')
+        cancelled['result'].update(category='cancelled', reason='运行已取消；未完成检查不判定失败')
+        cancelled['recording_result'] = {'status': 'Pass'}
+        unrun = {'definition': definition('TC-UI-NOT-STARTED'), 'result': None, 'run_id': 'run-cancelled', 'evidence_valid': False}
+        data = snapshot([cancelled, unrun])
+        _, rows, _ = self.render(data)
+        self.assertEqual([row[9] for row in rows], ['已取消', '未执行'])
+        self.assertEqual(task_bugs.render(data, excel_link='report.xlsx')[1]['counts']['business'], 0)
+        prior = observation(case, 'Fail', 'run-earlier-failure')
+        cancelled['recording_result'] = {'status': 'Fail', 'actual': '原录制观察仍保留'}
+        data = snapshot([prior, cancelled, unrun])
+        _, rows, _ = self.render(data)
+        self.assertEqual(rows[0][9], '失败')
+        self.assertIn('run-cancelled：已取消', rows[0][8])
+        self.assertNotIn('run-cancelled：失败', rows[0][8])
+        self.assertIn('原录制观察仍保留', rows[0][8])
+        self.assertEqual(task_bugs.render(data, excel_link='report.xlsx')[1]['counts']['business'], 1)
+
+    def test_recording_failure_does_not_replace_each_replay_verdict_in_the_workbook(self):
+        case = definition()
+        recorded = {'status': 'Fail', 'actual': '最初录制只显示 0 条', 'expected': '应显示 2 条'}
+        initial = {'definition': case, 'result': None, 'run_id': None, 'evidence_valid': False, 'recording_result': recorded}
+        failed = {**observation(case, 'Fail', 'run-first'), 'recording_result': recorded}
+        passed = {**observation(case, 'Pass', 'run-retest'), 'recording_result': recorded}
+        data = snapshot([initial, failed, passed])
+        book, rows, _ = self.render(data)
+        self.assertEqual(rows[0][9], '失败（曾失败，后续通过）')
+        self.assertIn('各轮结论：失败 → 失败 → 通过', rows[0][12])
+        self.assertIn('run-retest：通过', rows[0][8])
+        cells = list(book['用例与结果'].values)
+        columns = {name: index for index, name in enumerate(cells[0])}
+        replay = next(row for row in cells[1:] if row[columns['运行标识']] == 'run-retest')
+        self.assertEqual((replay[columns['本次结果']], replay[columns['业务判断']]), ('通过', 'Pass'))
+        self.assertIn('返回 2 条', replay[columns['实际结果']])
+        self.assertEqual(task_report_data.task_summary(data)['counts']['Fail'], 1)
+        bug_text, _ = task_bugs.render(data, excel_link='report.xlsx')
+        self.assertIn('失败 → 失败 → 通过', bug_text)
+
     def test_missing_facts_do_not_turn_observations_into_oracles(self):
         case = {"id": "native:case-a", "title": "未提供设计事实", "kind": "native", "assertions": [{"actual": "observed-answer"}]}
         item = observation(case, valid=False)
@@ -100,11 +156,11 @@ class TaskWorkbookTests(unittest.TestCase):
         self.assertNotIn("observed-answer", rows[0][6])
         self.assertIn("待确认", rows[0][7])
         self.assertEqual(rows[0][9], "业务未验证")
-        self.assertEqual(rows[1][9], "未执行")
+        self.assertEqual(rows[1][9], "失败")
         self.assertIn("recorded-failure", rows[1][8])
         summary = task_report_data.task_summary(data)
         self.assertEqual(summary["counts"]["Unverified"], 1)
-        self.assertEqual(summary["counts"]["NotRun"], 1)
+        self.assertEqual(summary["counts"]["Fail"], 1)
         self.assertIn("录制时已观察到断言失败", summary["issues"][1]["reason"])
 
     def test_multiline_input_and_wait_keep_step_expectation_mapping(self):

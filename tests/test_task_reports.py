@@ -164,7 +164,7 @@ class TaskReportTests(unittest.TestCase):
         case["extensions"]["recording_result"] = {"status": "Fail", "expected": "high", "actual": "medium"}
         ready = task_reports.for_recording(self.pid, recording, [case])
         row = self.rows(self.workbook(ready))[0]
-        self.assertEqual(row["本次结果"], "未执行")
+        self.assertEqual(row["本次结果"], "失败")
         self.assertIn('"status": "Fail"', row["失败或阻塞原因"])
         changed = copy.deepcopy(case)
         changed["title"] = "Changed after recording"
@@ -336,7 +336,12 @@ with deletion.execution_guard(sys.argv[1]):
             identity = self.workflow_candidate()
             first = next(item["run_id"] for item in workflow.status(identity)["items"] if item["phase"] == "execute")
             runner.execute(first)
-            self.submit(identity, self.claim(identity), {"disposition": "retry", "reason": "Target fix is now available", "evidence_refs": [first]})
+            task = self.claim(identity)
+            context = workflow.diagnostic_context(identity)
+            self.assertEqual(context["manifest_hash"], task["manifest_hash"])
+            self.submit(identity, task, {"manifest_hash": context["manifest_hash"], "diagnoses": [
+                {"target_id": target["target_id"], "disposition": "retry", "reason": "Target fix is now available",
+                 "evidence_refs": target["evidence_refs"]} for target in context["target_contexts"]]})
             self.assertIsNone(self.claim(identity))
             second = [item["run_id"] for item in workflow.status(identity)["items"] if item["phase"] == "execute"][-1]
             ReportHandler.priority = "high"
@@ -382,18 +387,22 @@ with deletion.execution_guard(sys.argv[1]):
             self.assertGreaterEqual(client.get(receipt["download_url"]).status_code, 400)
             self.assertFalse(Path(receipt["excel"]).parent.exists())
 
-    def test_record_stop_delivers_the_saved_case_without_replaying(self):
+    def test_record_stop_delivers_unpublished_candidates_and_queues_validation(self):
         from autoskill.recorder import session
 
         rec = {"project_id": self.pid, "started_at": db.now(), "session_id": "recording", "rand": "captured", "start_url": "/priority",
                "steps": [{"action": "click", "selector": "#save"}]}
         session._save(rec)
-        with patch.object(session.agent, "call", return_value=None), patch.object(session.capture, "stop", return_value=None):
+        capture = {"source": "cdp_network", "entries": [], "available": False}
+        with patch.object(session.agent, "call", return_value=None), patch.object(session.capture, "stop", return_value=capture), patch.object(jobs, "ensure_worker", return_value={}):
             result = session.stop("Saved recording")
         rows = self.rows(self.workbook(result["test_report"]))
         self.assertEqual([row["用例编号"] for row in rows], [result["ui_case"]["id"]])
-        self.assertEqual(rows[0]["本次结果"], "未执行")
-        self.assertEqual(db.one("SELECT COUNT(*) n FROM runs")["n"], 0)
+        self.assertEqual(rows[0]["本次结果"], "业务未验证")
+        self.assertTrue(result["candidate_id"])
+        self.assertEqual(db.one("SELECT COUNT(*) n FROM runs")["n"], len(result["run_ids"]))
+        self.assertFalse(any(case["id"] == result["ui_case"]["id"] for case in projects.cases(self.pid)))
+        self.assertEqual(db.one("SELECT COUNT(*) n FROM results")["n"], 0)
 
     def test_long_source_text_is_readable_in_chunks_without_becoming_a_formula(self):
         case = copy.deepcopy(self.case)

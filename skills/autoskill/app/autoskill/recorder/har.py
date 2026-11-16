@@ -206,7 +206,8 @@ def correlatable(response) -> list[tuple[str, str, object]]:
     for pointer, key, value in leaves(response):
         if isinstance(value, bool):
             continue
-        if isinstance(value, str) and (len(value) >= 16 or (ID_KEY.search(key) and len(value) >= 4)):
+        if isinstance(value, str) and (len(value) >= 16 or (ID_KEY.search(key) and len(value) >= 4)
+                                       or (STRICT_ID.search(key) and re.fullmatch(r"[0-9]+", value) and int(value) >= 1)):
             found.append((pointer, key, value))
         elif isinstance(value, int) and ((ID_KEY.search(key) and value >= 1000) or (STRICT_ID.search(key) and value >= 1)):
             found.append((pointer, key, value))  # small numbers only where the field is plainly an id

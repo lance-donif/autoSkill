@@ -25,12 +25,12 @@ COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "�
 FUNCTIONAL_FIELDS = ("description", "author", "remarks", "source", "requirement_ids", "business_path", "prefix")
 ALIASES = {"编号": "id", "用例ID": "id", "模块": "module", "标题": "title", "用例名称": "title", "类型": "type", "步骤": "steps",
            "测试步骤": "steps", "期望结果": "expected", "结果": "status", "是否通过": "status"}
-STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞"}
+STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Unverified": "未验证", "Cancelled": "已取消", "NotRun": "未执行", "Unknown": "未知"}
 FILL = {"通过": "E2F0D9", "失败": "FCE4D6", "阻塞": "FFF2CC"}
 _selected_folder: ContextVar[Path | None] = ContextVar("autoskill_plan_folder", default=None)
 SKILL_TEXT = """---
 name: autoskill-cases
-description: 要执行的测试用例表（Excel）。执行、回放或汇报这些用例时使用；需要 autoSkill 技能。整个文件夹可以替换成同名的另一份用例。
+description: autoSkill 内部读取的测试用例表（Excel），由同一技能执行和汇报；用户无需另行调用。整个文件夹可以替换成同名的另一份用例。
 ---
 # 测试用例表
 
@@ -43,7 +43,7 @@ description: 要执行的测试用例表（Excel）。执行、回放或汇报�
 1. `autoskill plan show` 读出全部用例。
 2. 按用例逐条执行：`autoskill record start <项目>` → 按「操作步骤」操作页面 → 用 `autoskill check` 写上「预期结果」→
    `autoskill record stop --title <用例标题> --subproject <子项目> --plan <用例编号>`。
-3. `autoskill run <项目>` 回放；每条用例的通过、失败、阻塞会自动写回 Excel 的「执行结果」列。
+3. 普通 `record stop --plan` 会安排候选验证；用 `autoskill run-status <运行ID>` 等待实际结果。正式14列 Excel 与内部结果同步回填，失败不因未入库而消失。
 4. 无法自动执行的用例：`autoskill plan mark <用例编号> 阻塞 --note <原因>`。
 """
 
@@ -58,14 +58,36 @@ def use_folder(folder: str | Path):
         _selected_folder.reset(token)
 
 
+def _sheet_projects(project_id: str | None) -> list[str]:
+    identities = {project_id, _managed_project(_folder())}
+    binding = _folder() / "execution-bindings.json"
+    if binding.is_file():
+        identities.add(json.loads(binding.read_bytes()).get("project_id"))
+    if _file().is_file():
+        book, sheet, columns = _open()
+        try:
+            if "信息" in book:
+                identities.add(str(book["信息"].cell(1, 2).value or ""))
+            identities.update(row.get("replay", "").partition("/")[0] for _, row in _rows(sheet, columns))
+        finally:
+            book.close()
+    return sorted(identity for identity in identities if isinstance(identity, str) and projects.ID.fullmatch(identity))
+
+
 @contextlib.contextmanager
-def _sheet_lock():
-    """Explicitly shared folders use the same stable lock even across different workspaces."""
-    project_id = _managed_project(_folder())
-    guard = project_lock(project_id) if project_id is not None else contextlib.nullcontext()
+def _sheet_lock(project_id: str | None = None):
+    """Acquire project locks before the shared sheet lock on every reader and writer path."""
     try:
-        with file_lock(_folder() / ".autoskill-plan.lock"), guard:
-            yield
+        while True:
+            identities = _sheet_projects(project_id)
+            with contextlib.ExitStack() as locks:
+                for identity in identities:
+                    locks.enter_context(project_lock(identity))
+                locks.enter_context(file_lock(_folder() / ".autoskill-plan.lock"))
+                if set(_sheet_projects(project_id)) - set(identities):
+                    continue
+                yield
+                return
     except PermissionError:
         raise ValueError(f"用例表正被其他程序打开（例如 Excel），关闭后重试：{_file()}") from None
 
@@ -81,7 +103,7 @@ def _managed_project(folder: Path) -> str | None:
 
 
 def _sheet_locked(operation):
-    """Acquire the sheet before any project locks used by the operation."""
+    """Keep the shared project-then-sheet order for operations on an existing sheet."""
     @wraps(operation)
     def locked(*args, **kwargs):
         with _sheet_lock():
@@ -150,7 +172,7 @@ def _rows(sheet, columns):
 
 
 def _summary(sheet, columns) -> dict:
-    counts = {"通过": 0, "失败": 0, "阻塞": 0, "未执行": 0}
+    counts = dict.fromkeys(STATUS.values(), 0)
     for _, row in _rows(sheet, columns):
         counts[row["status"] if row["status"] in counts else "未执行"] += 1
     return counts
@@ -167,26 +189,12 @@ def _set_status(sheet, columns, number: int, status: str, note: str | None = Non
 
 
 def _delivery(project_id: str, info: dict, items: list[dict], folder: Path) -> str:
-    """Render the public design document separately from the compatible operational sheet."""
-    from . import reporting
+    """Freeze the initial complete design before any candidate execution is bound."""
+    from . import plan_execution
 
-    cases = []
-    for number, item in enumerate(items, 1):
-        identity = item.get("id") or f"TC-{number:03d}"
-        document = {key: item[key] for key in ("description", "preconditions", "steps", "expected", "source", "business_path", "prefix", "author", "remarks") if item.get(key)}
-        document.setdefault("description", item["title"])
-        definition = {**item, "id": identity, "kind": "scenario", "module": item.get("module") or "未分组",
-                      "extensions": {"test_case_document": document}}
-        cases.append({"definition": definition, "result": None, "run_id": None, "evidence_valid": False})
     identity = execution_inputs.content_hash(items)
-    destination = folder / "exports" / ("functional-design-" + identity[:16] + ".xlsx")
-    snapshot = {"schema": 1, "kind": "design", "task_id": "design-" + identity, "project_id": project_id,
-                "project": {"id": project_id, "name": info["name"], "base_url": info["base_url"]},
-                "title": "设计用例表", "status": "Design", "cases": cases, "results": [], "run_ids": [],
-                "sources": {"design_source_hash": identity}, "notes": ["设计文档不等于执行结果；真实录制及回归后另交付任务报告。"], "metadata": {}}
-    with project_lock(project_id):
-        reporting.write_task(snapshot, destination)
-    return str(destination)
+    destination = folder / "exports" / ("functional-design-" + identity[:16] + "-" + uuid.uuid4().hex[:8] + ".xlsx")
+    return plan_execution.initialize(project_id, info, items, destination)["delivery_excel"]
 
 
 def _source_hash(row: dict) -> str:
@@ -217,8 +225,25 @@ def source_metadata() -> dict:
         book.close()
 
 
-@_sheet_locked
 def write(project_id: str, file: str, *, delivery: bool = True) -> dict:
+    with _sheet_lock(project_id):
+        return _write(project_id, file, delivery=delivery)
+
+
+def _design_text(item: dict) -> dict:
+    value = dict(item)
+    for field in ("steps", "expected"):
+        lines = value.get(field)
+        if isinstance(lines, list):
+            if not all(isinstance(line, str) for line in lines):
+                raise ValueError(f"设计字段 {field} 需要文字或文字数组")
+            if field == "steps":
+                lines = [line if re.match(r"^\d+\.\s", line) else f"{number}. {line}" for number, line in enumerate(lines, 1)]
+            value[field] = "\n".join(lines)
+    return value
+
+
+def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
     """Turn designed cases (a JSON array) into the Excel case sheet and its skill."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font
@@ -233,6 +258,7 @@ def write(project_id: str, file: str, *, delivery: bool = True) -> dict:
         raise ValueError(f"读不了用例文件 {file}：{error}") from None
     if not isinstance(items, list) or not items or not all(isinstance(i, dict) and i.get("title") for i in items):
         raise ValueError("用例文件需要是数组，每条至少有 title；可用字段：id module title type priority preconditions steps expected")
+    items = [_design_text(item) for item in items]
     folder = _folder()
     folder.mkdir(parents=True, exist_ok=True)
     book = Workbook()
@@ -242,8 +268,6 @@ def write(project_id: str, file: str, *, delivery: bool = True) -> dict:
     source_rows = {}
     for number, item in enumerate(items, 1):
         steps = item.get("steps", "")
-        if isinstance(steps, list):
-            steps = "\n".join(step if re.match(r"^\d+\.\s", step) else f"{i}. {step}" for i, step in enumerate(steps, 1))
         row = {**item, "id": item.get("id") or f"TC-{number:03d}", "module": item.get("module") or "未分组", "steps": steps,
                "priority": item.get("priority") or "P1", "status": "未执行", "note": "", "replay": ""}
         sheet.append([str(row.get(key, "") or "") for key, _, _ in COLUMNS])
@@ -270,10 +294,14 @@ def write(project_id: str, file: str, *, delivery: bool = True) -> dict:
                                                      delivery=public_file or "在线设计用例表的「下载 14 列 Excel」"), encoding="utf-8")
     return {"skill": str(folder), "excel": saved, "cases": len(items), "project": project_id,
             "excel_role": "内部编辑表（11 列），非用户交付 Excel", "delivery_excel": public_file,
+            **_delivery_status(),
             "next": "向用户提供 delivery_excel 正式 14 列设计文档；excel 仅供内部编辑。按 autoskill plan show 逐条执行，录制结束时加 --plan <用例编号>"}
 
 
+@_sheet_locked
 def show() -> dict:
+    from . import plan_execution
+
     book, sheet, columns = _open()
     meta = book["信息"] if "信息" in book.sheetnames else None
     project = str(meta.cell(1, 2).value or "") if meta else ""
@@ -286,9 +314,19 @@ def show() -> dict:
     sources = _source_rows(rows)
     for row in rows:
         row.update(sources.get(row["id"], {}))
-        if metadata_file.is_file() and project:
+        if metadata_file.is_file() and project and not plan_execution._file().is_file():
             row.setdefault("business_path", [projects.meta(project)["name"], row.get("module") or "未分组"])
-    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None, "cases": rows, "summary": _summary(sheet, columns)}
+    sources = plan_execution.execution_sources(rows)
+    for row in rows:
+        if row["id"] in sources:
+            row["execution_source"] = sources[row["id"]]
+    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None, "cases": rows, "summary": _summary(sheet, columns), **_delivery_status()}
+
+
+def _delivery_status() -> dict:
+    from . import plan_execution
+
+    return plan_execution.describe()
 
 
 def _find(sheet, columns, case_id: str) -> int | None:
@@ -302,7 +340,13 @@ def mark(case_id: str, status: str, note: str = "") -> dict:
     if number is None:
         raise ValueError(f"用例表里没有 {case_id}")
     _set_status(sheet, columns, number, status, note)
-    return {"case": case_id, "status": status, "excel": _save(book), "summary": _summary(sheet, columns)}
+    saved = {"case": case_id, "status": status, "excel": _save(book), "summary": _summary(sheet, columns)}
+    from . import plan_execution
+
+    value = plan_execution._read()
+    if value:
+        saved.update(plan_execution.publish(value))
+    return saved
 
 
 def link(case_id: str, project_id: str, replay_case: str, assertions: int) -> dict:
@@ -311,7 +355,7 @@ def link(case_id: str, project_id: str, replay_case: str, assertions: int) -> di
         managed = _managed_project(_folder())
         if managed is not None and managed != project_id:
             raise ValueError("项目内设计表不能关联其他项目的用例")
-        with _sheet_lock():
+        with _sheet_lock(project_id):
             book, sheet, columns = _open()
             number = _find(sheet, columns, case_id)
             if number is None:
@@ -329,6 +373,30 @@ def link(case_id: str, project_id: str, replay_case: str, assertions: int) -> di
     return {"case": case_id, "replay": f"{project_id}/{replay_case}", "next": "autoskill run 回放后，结果会写回用例表"}
 
 
+def bind_execution(plan_case: str, project_id: str, candidate_case: dict, run_id: str | None, *,
+                   folder: str | Path | None = None, candidate_id: str | None = None) -> dict:
+    """Bind before dispatch; failed unpublished candidates remain first-class sheet observations."""
+    from . import plan_execution
+
+    try:
+        with use_folder(folder or _folder()), _sheet_lock(project_id):
+            binding = plan_execution.bind(plan_case, project_id, candidate_case, run_id, candidate_id=candidate_id)
+            return {**binding, "sync": _sync(False, run_id=run_id)}
+    except (ValueError, OSError) as error:
+        return {"error": str(error), "case": plan_case, "run_id": run_id}
+
+
+def capture_linked_execution(prepared: dict, manifest: dict) -> None:
+    """Bind explicit saved-case links to prepared frozen inputs without querying SQLite."""
+    from . import plan_execution
+
+    with use_folder(prepared["plan_path"]):
+        if not _file().is_file() or not plan_execution._file().is_file():
+            return
+        with _sheet_lock(prepared["project_id"]):
+            plan_execution.capture_linked(prepared, manifest)
+
+
 def _current_cases(project_id: str) -> dict[str, dict]:
     """A removed project invalidates its old verdicts without interrupting other rows."""
     try:
@@ -338,18 +406,18 @@ def _current_cases(project_id: str) -> dict[str, dict]:
     return {case["id"]: case for case in projects.cases(project_id)}
 
 
-def sync(quiet: bool = False, *, folder: str | Path | None = None) -> dict | None:
+def sync(quiet: bool = False, *, folder: str | Path | None = None, run_id: str | None = None) -> dict | None:
     """Use the queued task's sheet without mutating process-wide environment variables."""
     token = _selected_folder.set(Path(folder) if folder is not None else _selected_folder.get())
     try:
-        return _sync(quiet)
+        return _sync(quiet, run_id=run_id)
     finally:
         _selected_folder.reset(token)
 
 
-def _sync(quiet: bool) -> dict | None:
-    """Write the latest replay verdict of every linked row back into the sheet."""
-    from . import reporting
+def _sync(quiet: bool, *, run_id: str | None = None) -> dict | None:
+    """Synchronize exact task bindings; retain explicit legacy sheet compatibility."""
+    from . import plan_execution, reporting
 
     try:
         with _sheet_lock():
@@ -360,7 +428,18 @@ def _sync(quiet: bool) -> dict | None:
             latest: dict[str, dict] = {}
             cases: dict[str, dict] = {}
             updated = 0
+            execution = plan_execution._read()
+            designed_rows = {row["id"]: row for row in show()["cases"]} if execution else {}
+            if run_id and execution and not any(binding["run_id"] == run_id and binding.get("task_id") == execution["task_id"]
+                                               for binding in execution["bindings"]):
+                book.close()
+                return plan_execution.sync_original(run_id)
             for number, row in _rows(sheet, columns):
+                bound = plan_execution.evidence(execution["project_id"], designed_rows.get(row["id"], row)) if execution else None
+                if bound:
+                    _set_status(sheet, columns, number, STATUS[bound["status"]], bound["reason"])
+                    updated += 1
+                    continue
                 project_id, _, replay_case = row["replay"].partition("/")
                 if not replay_case:
                     continue
@@ -389,9 +468,13 @@ def _sync(quiet: bool) -> dict | None:
                     else:
                         _set_status(sheet, columns, number, STATUS[result["status"]], "" if result["status"] == "Pass" else result["reason"])
                     updated += 1
-            if not updated:
+            if not updated and not execution:
                 return None if quiet else {"updated": 0, "note": "没有已关联并回放过的用例；录制时加 --plan <用例编号> 关联"}
-            return {"excel": _save(book), "updated": updated, "summary": _summary(sheet, columns)}
+            result = {"excel": _save(book), "updated": updated, "summary": _summary(sheet, columns)}
+            book.close()
+            if execution:
+                result.update(plan_execution.publish(execution))
+            return result
     except ValueError as error:
         if quiet:
             return None if "还没有用例表" in str(error) else {"error": str(error)}

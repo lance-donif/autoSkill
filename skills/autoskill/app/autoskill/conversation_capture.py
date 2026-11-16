@@ -309,7 +309,8 @@ def capture(project_id: str, rec: dict, har: dict, *, source_har: bytes | None =
              "sources": {"har": har["log"]["_autoskill_capture_scope"], "cdp": evidence["capture_scope"]},
              "original_sources_preserved": True, "original_sources_scope": "录制器实际提供的 HAR/CDP，不承诺覆盖浏览器全部网络"}
     entries = _combined_entries(har, evidence, business_only=False)
-    if not entries and not original_entries and not har["log"]["_autoskill_capture_scope"]["observed_entries"]:
+    if (not entries and not original_entries and not har["log"]["_autoskill_capture_scope"]["observed_entries"]
+            and not observed.get("original_events_path")):
         return {"requests": 0, "conversation_candidates": [], "capture_scope": scope}
     requests = [_normal_request(entry, number) for number, entry in enumerate(entries, 1)]
     details = {"kind": "recording", "session_id": rec.get("session_id"), "started_at": rec.get("started_at"), "start_url": rec.get("start_url"),

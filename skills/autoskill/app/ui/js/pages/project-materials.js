@@ -1,10 +1,17 @@
 // Authoritative project knowledge, case files, reports and portable share packages.
 import { h, icon, replace, api, scope, go, route, refresh, attempt, toast, fmtNumber } from '../core.js';
-import { drawer, closeOverlay, confirm, empty, errorState } from '../ui.js';
+import { drawer, closeOverlay, confirm, empty, errorState, skeletonRows } from '../ui.js';
 import { refreshShell } from '../shell.js';
 
 const TABS = [['knowledge', '知识库'], ['testcases', '用例文件'], ['reports', '报告'], ['share', '分享与导入']];
 const size = (bytes) => bytes < 1024 ? bytes + ' B' : bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB';
+const KNOWLEDGE_STATES = {
+  lifecycle: { active: '使用中', withdrawn: '已撤回' },
+  verification: { hypothesis: '待验证', observed: '已有事实记录', execution_reproduced: '执行已复现（3次）' },
+  applicability: { match: '当前范围一致', changed: '适用条件已变化', unknown: '适用性待确认' },
+  evidence_status: { valid: '证据可核验', missing: '证据缺失', tampered: '证据校验不符', imported_unverified: '导入证据未本地验证' },
+};
+const KNOWLEDGE_KINDS = { observation: '事实观察', procedure: '执行方法', root_cause_hypothesis: '原因假设' };
 
 export async function render(view) {
   let index;
@@ -27,7 +34,7 @@ export async function render(view) {
     const result = await attempt(() => api(`/project-materials/${encodeURIComponent(projectId)}/export`, { method: 'POST', body: {} }), exportButton);
     if (result) replace(exporting, exportReceipt(result, '下载项目资料 ZIP'));
   } }, icon('folder'), '导出全部项目资料');
-  const content = tab === 'share' ? sharePanel(projectId) : data ? fileList(data, tab)
+  const content = tab === 'share' ? sharePanel(projectId) : data ? materialsPanel(data, tab)
     : h('section', { class: 'card' }, empty({ glyph: 'folder', title: '还没有项目资料', text: '新建项目后，知识库、用例和报告会集中显示在这里。' }));
   replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '项目资料'),
     h('p', { class: 'sub' }, '每个项目使用同一资料目录，分别保存知识库、用例和报告。')), exportButton),
@@ -35,6 +42,74 @@ export async function render(view) {
   data && h('div', { class: 'card card-body' }, h('div', { class: 'sub' }, '本机项目目录'), h('code', {}, data.root),
     h('p', { class: 'hint' }, 'knowledge / 知识库　·　testcases / 用例　·　reports / 报告。旧报告保留原文件，导出时一起收集。')),
   exporting, content);
+}
+
+function materialsPanel(data, tab) {
+  if (tab !== 'knowledge') return fileList(data, tab);
+  return h('div', {}, knowledgeEntries(data.project.id), fileList(data, tab));
+}
+
+function knowledgeStates(entry) {
+  return h('div', { class: 'row wrap' }, Object.entries(KNOWLEDGE_STATES).map(([field, labels]) =>
+    h('span', { class: 'tag' }, labels[entry[field]] || '状态待确认')));
+}
+
+function knowledgeEntries(projectId) {
+  const body = h('div', { 'aria-live': 'polite' });
+  const query = h('input', { class: 'input', type: 'search', 'aria-label': '搜索知识条目', placeholder: '搜索标题或正文' });
+  const search = h('button', { class: 'btn sm', type: 'submit' }, '搜索');
+  let request = 0;
+  let activeQuery = '';
+  async function load(cursor = '') {
+    const current = ++request;
+    search.disabled = true;
+    replace(body, skeletonRows(3));
+    try {
+      const params = new URLSearchParams({ q: activeQuery, limit: '50' });
+      if (cursor) params.set('cursor', cursor);
+      const result = await api(`/knowledge/${encodeURIComponent(projectId)}/search?${params}`);
+      if (current !== request) return;
+      const entries = result.entries.filter((entry) => !entry.legacy);
+      const page = result.pagination;
+      replace(body, knowledgeTable(projectId, entries),
+        h('div', { class: 'card-body row wrap' }, h('span', { class: 'hint grow' }, `本页 ${fmtNumber(entries.length)} 条知识；原始文件在下方维护。`),
+          cursor && h('button', { class: 'btn sm', onClick: () => load() }, '返回首页'),
+          page.has_more && h('button', { class: 'btn sm', onClick: () => load(page.next_cursor) }, '下一页')));
+    } catch (error) {
+      if (current === request) replace(body, errorState(error, () => load()));
+    } finally { if (current === request) search.disabled = false; }
+  }
+  const form = h('form', { class: 'row', onSubmit: (event) => { event.preventDefault(); activeQuery = query.value.trim(); load(); } }, query, search);
+  const panel = h('section', { class: 'card', style: 'margin-top:16px;overflow-x:auto' },
+    h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '知识条目'),
+      h('p', { class: 'sub' }, '查看已沉淀的经验、适用条件与证据。验证过的历史经验仍需结合当前任务判断。')), form), body);
+  load();
+  return panel;
+}
+
+function knowledgeTable(projectId, entries) {
+  if (!entries.length) return empty({ glyph: 'folder', title: '本页没有知识条目', text: '完成工作流的知识沉淀或导入知识包后，可以在这里查看；原始知识文件保留在下方。' });
+  return h('table', { class: 'table' },
+    h('thead', {}, h('tr', {}, ['知识', '验证与适用状态', '操作'].map((label) => h('th', {}, label)))),
+    h('tbody', {}, entries.map((entry) => h('tr', {},
+      h('td', {}, h('div', { class: 'title' }, entry.title), h('div', { class: 'sub' }, `${KNOWLEDGE_KINDS[entry.kind] || '知识'} · 版本 ${entry.revision}`)),
+      h('td', {}, knowledgeStates(entry)),
+      h('td', {}, h('button', { class: 'btn sm', onClick: () => viewKnowledgeEntry(projectId, entry) }, '查看详情'))))));
+}
+
+async function viewKnowledgeEntry(projectId, summary) {
+  let entry;
+  try {
+    entry = await api(`/knowledge/${encodeURIComponent(projectId)}/entries/${encodeURIComponent(summary.id)}?revision=${summary.revision}`);
+  } catch (error) { toast(error.message, { bad: true }); return; }
+  drawer({ title: entry.title, subtitle: `${KNOWLEDGE_KINDS[entry.kind] || '知识'} · 版本 ${entry.revision}`, wide: true,
+    body: [knowledgeStates(entry),
+      h('p', { class: 'hint' }, '“已有事实记录”只确认所引用的检查；“执行已复现（3次）”表示关联用例已重复验证，不代表原因已证实或在其他场景一定有效。'),
+      h('div', { style: 'white-space:pre-wrap;overflow-wrap:anywhere' }, entry.text),
+      entry.creation_mode === 'import' && entry.source_verification && h('p', { class: 'sub' }, '来源项目验证：' + (KNOWLEDGE_STATES.verification[entry.source_verification] || '待确认') + '。来源结果不替代当前项目验证。'),
+      entry.kind === 'root_cause_hypothesis' && h('p', { class: 'hint' }, '原因假设需要进一步验证，不能仅凭这段描述认定根因。'),
+      entry.lifecycle === 'withdrawn' && h('p', { class: 'hint' }, '此条目已撤回，保留供历史追溯。')],
+    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭')] });
 }
 
 function fileList(data, category) {

@@ -39,7 +39,7 @@ class NarrowDashboardTests(DashboardWorkspace):
                     frame = self.embedded("cases?range=all", width, theme)
                     self.contained(frame)
                     header = frame.locator(".project-head").first
-                    for action in ("压测", "导出 Excel", "运行全部"):
+                    for action in ("压测", "导出 Excel", "运行项目全部 5 条"):
                         self.reachable(header.get_by_role("button" if action != "导出 Excel" else "link", name=action, exact=True),
                                        frame, ".project-head .btn", action)
                     region = frame.get_by_role("region", name="页面压测验收用例表格", exact=True)

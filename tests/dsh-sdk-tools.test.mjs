@@ -73,6 +73,7 @@ export async function sdkHost(t, cwd) {
 const KERNEL_FIXTURE = `
 import json, os, socket, subprocess, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import patch
 import uvicorn
 from autoskill import builder, db, host_bindings, projects, runner, workflow
 from autoskill.server import jobs
@@ -98,7 +99,8 @@ assert run["test_report"]["status"] == "ready", run["test_report"]
 flows = {}
 for label in ("A", "B"):
     flows[label] = workflow.create(project, {"title":"Session " + label, "sources":[{"id":"source-" + label,"text":"Priority must be high for " + label}]}, idempotency_key="fixture-" + label)
-lease = workflow.next_task(flows["A"]["workflow_id"], idempotency_key="fixture-expired-lease")["task"]
+with patch.object(jobs, "ensure_worker", return_value={"status":"fixture-quiescent"}):
+    lease = workflow.next_task(flows["A"]["workflow_id"], idempotency_key="fixture-expired-lease")["task"]
 db.execute("UPDATE workflow_attempts SET lease_until = '2000-01-01T00:00:00+00:00' WHERE id = ?", (lease["attempt_id"],))
 bindings = {}
 for label in ("A", "B"):
@@ -133,7 +135,7 @@ finally:
 export async function kernelFixture(t) {
   const workspace = await mkdtemp(join(tmpdir(), 'autoskill-dsh-sdk-'));
   const localPython = join(ROOT, '.venv', 'bin', 'python');
-  const python = process.env.AUTOSKILL_DEV_PYTHON ?? (existsSync(localPython) ? localPython : 'python3');
+  const python = process.env.AUTOSKILL_VALIDATION_PYTHON ?? process.env.AUTOSKILL_DEV_PYTHON ?? (existsSync(localPython) ? localPython : 'python3');
   const env = { ...process.env, PYTHONPATH: join(ROOT, 'skills', 'autoskill', 'app'),
     PYTHONDONTWRITEBYTECODE: '1', PYTHONUTF8: '1', AUTOSKILL_WORKSPACE: workspace,
     AUTOSKILL_CASE_SKILL: join(workspace, 'plans'), AUTOSKILL_BRIDGE: 'off', AUTOSKILL_HEADED: '0',

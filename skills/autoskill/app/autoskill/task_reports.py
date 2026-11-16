@@ -4,6 +4,8 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import shutil
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
@@ -51,6 +53,11 @@ def _public(receipt: dict) -> dict:
     for artifact in ("excel", "markdown", "bugs"):
         if value.get(artifact):
             value[artifact] = str(data_refs.resolve(value[artifact]))
+    from .runner import plan_folder
+
+    for artifact in ("delivery_excel", "initial_excel"):
+        if value.get(artifact):
+            value[artifact] = str(plan_folder(value[artifact]))
     return value
 
 
@@ -83,6 +90,8 @@ def _validate(receipt: dict) -> dict:
         return _public(receipt)
     if not all(_available(receipt, artifact) for artifact in ("excel", "markdown", "bugs")):
         return _unavailable(receipt, "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。")
+    if receipt["kind"] == "design" and not _design_copy_available(receipt):
+        return _unavailable(receipt, "正式用例 Excel 或初始副本缺失或内容已变化，请从冻结快照重试导出。")
     if receipt["kind"] == "workflow":
         for run_id in receipt.get("run_ids", []):
             run = db.one("SELECT delete_requested FROM runs WHERE id = ?", (run_id,))
@@ -222,8 +231,88 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
                "sha256": _hash(file), "size": file.stat().st_size, "source_hash": digest,
                "generation": generation, "generated_at": db.now(), "retryable": False,
                "run_ids": snapshot.get("run_ids", []), "cases": len(snapshot["cases"]), **built, **brief, **issues, "validation": validation}
+    if base["kind"] == "design":
+        receipt.update(_publish_design_copy(base, file))
     execution_inputs.write_json(folder / "receipt.json", receipt)
     return receipt
+
+
+def _copy_workbook(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.is_file() and _hash(destination) == _hash(source):
+        return
+    temporary = destination.with_name(".plan-delivery-" + uuid.uuid4().hex + ".xlsx")
+    try:
+        shutil.copyfile(source, temporary)
+        _read_workbook(temporary)
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _design_copy_available(receipt: dict) -> bool:
+    from .runner import plan_folder
+
+    try:
+        if receipt.get("initial_excel") and _hash(plan_folder(receipt["initial_excel"])) != receipt["sha256"]:
+            return False
+        if not receipt.get("delivery_excel"):
+            return True
+        head = json.loads(plan_folder(receipt["delivery_head"]).read_bytes())
+        return head.get("report_id") != receipt["report_id"] or _hash(plan_folder(receipt["delivery_excel"])) == receipt["sha256"]
+    except (OSError, ValueError):
+        return False
+
+
+def _restore_design_artifact(receipt: dict) -> None:
+    """A retained exact copy can restore missing report bytes without rewriting the initial design."""
+    from .runner import plan_folder
+
+    if not receipt.get("excel") or not receipt.get("sha256") or _available(receipt, "excel"):
+        return
+    for key in ("initial_excel", "delivery_excel"):
+        if not receipt.get(key):
+            continue
+        file = plan_folder(receipt[key])
+        if file.is_file() and _hash(file) == receipt["sha256"]:
+            _copy_workbook(file, data_refs.resolve(receipt["excel"]))
+            return
+
+
+def _publish_design_copy(base: dict, file: Path) -> dict:
+    """Update the selected sheet only; retrying an older snapshot cannot overwrite its successor."""
+    from .runner import plan_folder
+
+    if base.get("initial_excel"):
+        initial = plan_folder(base["initial_excel"])
+        _copy_workbook(file, initial)
+    if not base.get("delivery_excel"):
+        return {}
+    head = plan_folder(base["delivery_head"])
+    selected = json.loads(head.read_bytes()) if head.is_file() else {}
+    if selected.get("report_id") != base["report_id"]:
+        return {"delivery_updated": False}
+    _copy_workbook(file, plan_folder(base["delivery_excel"]))
+    return {"delivery_updated": True}
+
+
+def for_design(snapshot: dict, destination: Path, head: Path, *, initial: Path | None = None) -> dict:
+    """Freeze each complete sheet revision and publish its public workbook with retry receipts."""
+    from .runner import plan_reference
+
+    digest = execution_inputs.content_hash(snapshot)
+    base = {**_base("design", snapshot["task_id"], "design_" + digest, snapshot["project_id"]),
+            "delivery_excel": plan_reference(destination), "delivery_head": plan_reference(head)}
+    if initial is not None:
+        base["initial_excel"] = plan_reference(initial)
+    execution_inputs.write_json(head, {"report_id": base["report_id"]})
+    result = _ensure(base, digest, lambda: snapshot, False)
+    if result["status"] == "ready":
+        try:
+            result.update(_publish_design_copy(base, Path(result["excel"])))
+        except OSError as error:
+            return _persist_failure({**base, "source_hash": digest, "_retained_artifacts": _retained_artifacts(result, digest)}, error, digest)
+    return result
 
 
 def _ensure(base: dict, generation, capture, retry: bool) -> dict:
@@ -403,6 +492,11 @@ def retry(report_id: str) -> dict:
         raise ValueError("找不到报告重试快照，无法用其他任务的数据补写")
     if saved["kind"] == "run":
         return for_run(saved["task_id"], retry=True)
+    if saved["kind"] == "design":
+        _restore_design_artifact(saved)
+        base = {**_base("design", saved["task_id"], report_id, saved.get("project_id")),
+                **{key: saved[key] for key in ("delivery_excel", "delivery_head", "initial_excel") if key in saved}}
+        return _ensure(base, saved["generation"], lambda: _snapshot(base, saved), True)
     if saved["kind"] == "workflow":
         from . import workflow_state
 

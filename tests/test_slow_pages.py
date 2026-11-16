@@ -9,6 +9,7 @@ import types
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -226,9 +227,10 @@ class RecordingStartTests(unittest.TestCase):
             reloaded = session.browser(["reload"])
             self.assertIn('button "Go"', reloaded["snapshot"])
             session.check("url_contains", None, origin)
-            result = session.stop("跨站导航与刷新")
+            with patch("autoskill.server.jobs.ensure_worker"):
+                result = session.stop("跨站导航与刷新")
             self.assertEqual(result["ui_case"]["assertions"], 1)
-            case = next(c for c in projects.cases("slow") if c["kind"] == "ui")
+            case = next(c for c in result["candidates"] if c["kind"] == "ui")
             for engine in ("playwright", "selenium"):
                 driver = (PlaywrightLoadBudgetTests if engine == "playwright" else SeleniumLoadBudgetTests).make_driver(projects.config("slow"))
                 try:

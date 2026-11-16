@@ -202,17 +202,19 @@ def _procedure(case: dict, identity: str, gaps: list[str], data: list[dict]) -> 
 
 def _actual(group: dict) -> str:
     actual = []
+    replayed = any(item.get("result") and item.get("run_id") for item in group["items"])
     for item in group["items"]:
         result = item.get("result") or {}
         observed = item.get("recording_result")
         if observed:
-            actual.append("录制观察（尚未回放）：" + text(observed))
+            actual.append(("录制观察（与回放结果分开保留）：" if replayed else "录制观察（尚未回放）：") + text(observed))
         if result:
             detail = result.get("detail", {})
             value = result.get("actual")
             if value is None or value == "":
                 value = detail.get("assertions") or result.get("reason") or "详见执行明细"
-            actual.append(f"{item.get('run_id', '')}：{STATUS[task_report_data.case_verdict(item)]}；{text(value)}")
+            verdict = task_report_data.observation_verdict(item)
+            actual.append(f"{item.get('run_id', '')}：{STATUS[verdict]}；{text(value)}")
     return "\n".join(actual)
 
 
@@ -266,7 +268,7 @@ def _row(group: dict, identity: str, data: list[dict]) -> dict:
     remarks += [str(item["note"]) for item in group["items"] if item.get("note")]
     remarks += ["本表每个冻结定义一行；全部轮次、重试和证据引用见「执行明细」。"]
     if len(group["items"]) > 1:
-        remarks.append("各轮结论：" + " → ".join(STATUS[task_report_data.case_verdict(item)] for item in group["items"]))
+        remarks.append("各轮结论：" + " → ".join(STATUS[task_report_data.observation_verdict(item)] for item in group["items"]))
     path = group["business_path"]
     environment = list(dict.fromkeys(value for item in group["items"] for value in item.get("environment", [])))
     return {"id": identity, "name": "-".join(CHAPTER.sub("", part).strip() for part in path), "trace": path[-1],

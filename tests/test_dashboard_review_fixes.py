@@ -101,7 +101,7 @@ class DashboardReviewTests(unittest.TestCase):
 
     def test_project_and_time_filters_reset_pagination_for_runs_and_results(self):
         for mode in ("", "view=results&"):
-            for picker, choice in (("全部项目", "Original project"), ("全部时间", "今天")):
+            for picker, choice in (("筛选项目", "Original project"), ("筛选时间范围", "今天")):
                 with self.subTest(mode=mode, filter=picker):
                     self.open_history(mode + "range=all&offset=50")
                     expect(self.page.get_by_role("button", name="上一页", exact=True)).to_be_visible()
@@ -243,9 +243,9 @@ class DashboardReviewTests(unittest.TestCase):
             **self.result, 'id': 1, 'state': state, 'detail': {}, 'prerequisite': False,
             'category': '', 'reason': '缺少独立业务断言', 'actual': ''}])
         self.page.goto('http://127.0.0.1:8787/#/runs/run-1?range=all')
-        expect(self.page.get_by_role('button', name='只重跑未通过的 1 条', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('button', name='重跑已记录未通过的 1 条', exact=True)).to_be_visible()
         expect(self.page.get_by_role('button', name='只重跑这一条', exact=True)).to_be_visible()
-        expect(self.page.get_by_role('button', name='重新运行', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('button', name='按当前用例重新运行', exact=True)).to_be_visible()
 
     def test_primary_results_do_not_wait_for_slow_runtime_metadata(self):
         self.empty_history = True

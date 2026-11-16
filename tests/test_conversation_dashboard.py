@@ -1,7 +1,6 @@
-"""Exercise browser upload and mapping against real stateful multi-turn HTTP conversations."""
+"""Inspect host-created dialogue sources and real stateful multi-turn execution evidence."""
 import contextlib
 import json
-import re
 import threading
 import time
 import uuid
@@ -67,24 +66,32 @@ class ConversationDashboardTests(DashboardWorkspace):
         expect(self.page.get_by_role("heading", name="多轮对话", exact=True)).to_be_visible()
 
     def import_source(self, *, upload):
-        self.open_conversations()
-        self.page.get_by_role("button", name="导入对话来源", exact=True).first.click()
-        dialog = self.page.get_by_role("dialog", name="导入对话来源", exact=True)
         if upload:
-            source = self.folder / "conversation.har"
-            source.write_text(json.dumps(self.capture_har(), ensure_ascii=False), encoding="utf-8")
-            dialog.get_by_label("选择 cURL 或 HAR 文件", exact=True).set_input_files(str(source))
-            expect(dialog.get_by_label("来源内容", exact=True)).to_have_value(re.compile('"entries"'))
+            content = json.dumps(self.capture_har(), ensure_ascii=False)
+            format_name = "har"
         else:
-            dialog.get_by_label("来源格式", exact=True).select_option("curl")
-            dialog.get_by_label("来源内容", exact=True).fill("curl '" + self.endpoint + "' --json '{\"question\":\"全年销售额？\",\"conversation_id\":\"captured\"}'")
-        dialog.get_by_label("来源名称", exact=True).fill("固定销售数据")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/import-content")) as response:
-            dialog.get_by_role("button", name="保存来源", exact=True).click()
-        self.assertEqual(response.value.status, 200, response.value.text())
-        capture = response.value.json()
-        expect(self.page.get_by_role("heading", name="建立多轮验证", exact=True)).to_be_visible()
+            content = "curl '" + self.endpoint + "' --json '{\"question\":\"全年销售额？\",\"conversation_id\":\"captured\"}'"
+            format_name = "curl"
+        response = self.client.post("/api/conversations/" + self.project["id"] + "/import-content", json={
+            "name": "固定销售数据", "format": format_name, "content": content})
+        self.assertEqual(response.status_code, 200, response.text)
+        capture = response.json()
+        self.open_conversations()
+        expect(self.page.get_by_role("button", name="导入对话来源", exact=True)).to_have_count(0)
+        self.page.get_by_role("link", name="查看原始来源", exact=True).click()
+        expect(self.page.get_by_role("heading", name="真实请求与响应", exact=True)).to_be_visible()
+        expect(self.page.get_by_role("button", name="构建多轮资产", exact=True)).to_have_count(0)
+        self.assertEqual(self.page.locator("#view input, #view textarea").count(), 0)
         return capture
+
+    def build(self, captured, mapping):
+        return self.client.post("/api/conversations/" + self.project["id"] + "/" + captured["id"] + "/build",
+                                json={"name": "固定销售数据", "mapping": mapping})
+
+    def run_asset(self, asset, load):
+        started = self.client.post("/api/native-runs", json={"project_id": self.project["id"], "asset_id": asset["id"], "parameters": {"load": load}})
+        self.assertEqual(started.status_code, 200, started.text)
+        return self.wait_native(started.json()["id"])
 
     def wait_native(self, run_id):
         deadline = time.monotonic() + 30
@@ -103,85 +110,55 @@ class ConversationDashboardTests(DashboardWorkspace):
                     self.client.post("/api/native-runs/" + run["id"] + "/cancel", json={})
         super().tearDown()
 
-    def test_uploaded_har_recovers_invalid_mapping_and_executes_two_turn_conversations(self):
+    def test_host_har_mapping_validation_and_browser_show_real_two_turn_results(self):
         captured = self.import_source(upload=True)
         self.page.get_by_text("请求 1 · POST " + self.endpoint, exact=True).click()
         expect(self.page.locator("pre.code").first).to_contain_text('"question"')
-        self.page.get_by_label("问题字段", exact=True).fill("/question")
-        self.page.get_by_label("请求中的会话字段", exact=True).fill("/conversation_id")
-        self.page.get_by_label("响应中的会话字段", exact=True).fill("/conversation_id")
-        for index, expected in ((1, "700"), (2, "200")):
-            self.page.get_by_label(f"第 {index} 轮预期类型", exact=True).select_option("json")
-            self.page.get_by_label(f"第 {index} 轮独立预期", exact=True).fill(expected)
-        self.page.get_by_text("参考数据、流事件与高级映射", exact=True).click()
-        self.page.get_by_label("高级映射 JSON", exact=True).fill("{invalid")
-        self.page.get_by_role("button", name="构建多轮资产", exact=True).click()
-        expect(self.page.locator("#view [role=alert]")).to_be_visible()
+        mapping = {"turns": [1, 2], "question_pointer": "/question", "conversation_pointer": "/conversation_id",
+                   "conversation_response_pointer": "/conversation_id", "turn_overrides": [{"expected": 700}, {"expected": 200}]}
+        rejected = self.build(captured, mapping)
+        self.assertEqual(rejected.status_code, 400, rejected.text)
+        self.assertIn("answer_pointer", rejected.text)
         self.assertEqual(self.client.get("/api/assets/" + self.project["id"] + "?all=1").json()["assets"], [])
-        self.page.get_by_label("高级映射 JSON", exact=True).fill("{}")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/build")) as rejected:
-            self.page.get_by_role("button", name="构建多轮资产", exact=True).click()
-        self.assertEqual(rejected.value.status, 400)
-        expect(self.page.locator("#view [role=alert]")).to_contain_text("answer_pointer")
-        self.page.get_by_label("回答字段", exact=True).fill("/result")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/build")) as built:
-            self.page.get_by_role("button", name="构建多轮资产", exact=True).click()
-        self.assertEqual(built.value.status, 200, built.value.text())
-        self.assertEqual(built.value.json()["origin"]["capture_id"], captured["id"])
-        dialog = self.page.get_by_role("dialog", name="运行多轮对话", exact=True)
-        dialog.get_by_label("并发会话数", exact=True).fill("2")
-        dialog.get_by_label("每条对话迭代次数", exact=True).fill("3")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/native-runs")) as started:
-            dialog.get_by_role("button", name="开始运行", exact=True).click()
-        self.assertEqual(started.value.status, 200, started.value.text())
-        run_id = started.value.json()["id"]
-        result = self.wait_native(run_id)
+        mapping["answer_pointer"] = "/result"
+        built = self.build(captured, mapping)
+        self.assertEqual(built.status_code, 200, built.text)
+        asset = built.json()
+        self.assertEqual(asset["origin"]["capture_id"], captured["id"])
+        result = self.run_asset(asset, {"concurrency": 2, "iterations": 3, "ramp_up_seconds": 0})
         self.assertEqual((result["status"], result["outcome"]["business_status"]), ("Pass", "Pass"), result)
         self.assertEqual((result["outcome"]["metrics"]["sent_turns"], result["outcome"]["metrics"]["planned_cases"]), (6, 3))
         self.assertEqual(len(self.dialogue.fixture["sessions"]), 3)
         self.assertEqual([row["answer"] for row in self.dialogue.fixture["requests"]].count(200), 3)
-        expect(self.page).to_have_url(re.compile("/#/native-runs/" + run_id))
+        self.open("native-runs/" + result["id"])
         self.page.locator(".result-head").first.click()
         expect(self.page.get_by_text("700", exact=True).first).to_be_visible(timeout=15000)
         self.evidence("conversation-report.png")
         self.open_conversations()
-        expect(self.page.get_by_role("link", name="查看与构建", exact=True)).to_have_count(1)
+        expect(self.page.get_by_role("link", name="查看原始来源", exact=True)).to_have_count(1)
+        self.page.get_by_role("link", name="查看资产", exact=True).click()
+        expect(self.page.locator("#view")).to_contain_text(asset["asset_version"])
+        self.open_conversations()
         self.page.reload()
-        expect(self.page.get_by_role("link", name="查看与构建", exact=True)).to_have_count(1)
+        expect(self.page.get_by_role("link", name="查看原始来源", exact=True)).to_have_count(1)
 
-    def test_pasted_curl_builds_repeated_turn_template_with_explicit_expectations(self):
-        self.import_source(upload=False)
-        self.page.get_by_label("轮次请求序号", exact=True).fill("1, 1")
-        self.page.get_by_label("轮次请求序号", exact=True).press("Tab")
-        self.page.get_by_label("回答字段", exact=True).fill("/result")
-        self.page.get_by_label("请求中的会话字段", exact=True).fill("/conversation_id")
-        self.page.get_by_label("响应中的会话字段", exact=True).fill("/conversation_id")
-        self.page.get_by_label("第 2 轮问题", exact=True).fill("北京呢？")
-        for index, expected in ((1, "700"), (2, "200")):
-            self.page.get_by_label(f"第 {index} 轮预期类型", exact=True).select_option("json")
-            self.page.get_by_label(f"第 {index} 轮独立预期", exact=True).fill(expected)
-        original = self.page.locator('#view form').element_handle()
-        change_project_and_wait_for_ui(self, self.project['id'])
-        self.assertTrue(original.evaluate("node => node === document.querySelector('#view form') && node.isConnected"))
-        expect(self.page.get_by_label('轮次请求序号', exact=True)).to_have_value('1, 1')
-        expect(self.page.get_by_label('回答字段', exact=True)).to_have_value('/result')
-        expect(self.page.get_by_label('请求中的会话字段', exact=True)).to_have_value('/conversation_id')
-        expect(self.page.get_by_label('响应中的会话字段', exact=True)).to_have_value('/conversation_id')
-        expect(self.page.get_by_label('第 2 轮问题', exact=True)).to_have_value('北京呢？')
-        for index, expected in ((1, '700'), (2, '200')):
-            expect(self.page.get_by_label(f'第 {index} 轮预期类型', exact=True)).to_have_value('json')
-            expect(self.page.get_by_label(f'第 {index} 轮独立预期', exact=True)).to_have_value(expected)
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/build")) as built:
-            self.page.get_by_role("button", name="构建多轮资产", exact=True).click()
-        self.assertEqual(built.value.status, 200, built.value.text())
-        self.assertEqual(built.value.json()["turns"], 2)
-        mapping = built.value.request.post_data_json['mapping']
-        self.assertEqual(mapping['turns'], [1, 1])
-        self.assertEqual([item['expected'] for item in mapping['turn_overrides']], [700, 200])
-        self.assertEqual(mapping['turn_overrides'][1]['question'], '北京呢？')
-        dialog = self.page.get_by_role("dialog", name="运行多轮对话", exact=True)
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/native-runs")) as started:
-            dialog.get_by_role("button", name="开始运行", exact=True).click()
-        run = self.wait_native(started.value.json()["id"])
+    def test_curl_source_stays_expanded_after_refresh_and_host_reuses_turn_template(self):
+        captured = self.import_source(upload=False)
+        source = self.page.locator("#view details").first
+        source.locator("summary").click()
+        original = source.element_handle()
+        change_project_and_wait_for_ui(self, self.project["id"])
+        self.assertTrue(original.evaluate("node => node.isConnected && node.open"))
+        expect(source).to_contain_text("全年销售额？")
+        mapping = {"turns": [1, 1], "answer_pointer": "/result", "conversation_pointer": "/conversation_id",
+                   "conversation_response_pointer": "/conversation_id", "turn_overrides": [{"expected": 700}, {"question": "北京呢？", "expected": 200}]}
+        built = self.build(captured, mapping)
+        self.assertEqual(built.status_code, 200, built.text)
+        self.assertEqual(built.json()["turns"], 2)
+        run = self.run_asset(built.json(), {"concurrency": 1, "iterations": 1, "ramp_up_seconds": 0})
         self.assertEqual((run["status"], run["outcome"]["business_status"]), ("Pass", "Pass"), run)
         self.assertEqual([turn["question"] for turn in run["results"][0]["detail"]["turns"]], ["全年销售额？", "北京呢？"])
+        self.open_conversations()
+        self.page.get_by_role("link", name="项目执行记录", exact=True).click()
+        expect(self.page.locator("#view h1")).to_have_text("执行记录")
+        expect(self.page.locator('#view a[href*="' + run["id"] + '"]')).to_be_visible()

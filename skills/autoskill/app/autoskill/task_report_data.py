@@ -18,14 +18,24 @@ def case_verdict(item: dict) -> str:
     historical = item.get("historical_result") or {}
     if historical.get("business_status") == "Fail" or historical.get("status") == "Fail":
         return "Fail"
+    observed = item.get("recording_result") or {}
+    if observed.get("status") == "Fail":
+        return "Fail"
     status = result.get("status")
     if not result:
-        return "NotRun"
+        return "Unverified" if observed else "NotRun"
     if result.get("detail", {}).get("business_status") == "Fail":
+        return "Fail"
+    if result.get("detail", {}).get("performance_status") == "Fail":
         return "Fail"
     if status == "Pass" and (not item.get("evidence_valid") or result.get("detail", {}).get("business_status") != "Pass"):
         return "Unverified"
     return status if status in VERDICTS else "Unknown"
+
+
+def observation_verdict(item: dict) -> str:
+    """An actual replay has its own verdict; its earlier recording remains a separate fact."""
+    return case_verdict({**item, "recording_result": None}) if item.get("result") else case_verdict(item)
 
 
 def logical_cases(snapshot: dict) -> list[dict]:
@@ -39,7 +49,9 @@ def logical_cases(snapshot: dict) -> list[dict]:
         group["items"].append(item)
     for group in groups.values():
         verdicts = [case_verdict(item) for item in group["items"]]
-        group.update(status="Fail" if "Fail" in verdicts else verdicts[-1], first_status=verdicts[0], final_status=verdicts[-1],
+        last = group["items"][-1]
+        final = observation_verdict(last)
+        group.update(status="Fail" if "Fail" in verdicts else verdicts[-1], first_status=verdicts[0], final_status=final,
                      run_ids=list(dict.fromkeys(item["run_id"] for item in group["items"] if item.get("run_id"))))
     return list(groups.values())
 
@@ -51,11 +63,12 @@ def task_summary(snapshot: dict) -> dict:
     issues, environments = [], []
     for group in groups:
         reasons = []
+        replayed = any(item.get("result") and item.get("run_id") for item in group["items"])
         for item in group["items"]:
             if reason := (item.get("result") or {}).get("reason") or item.get("note"):
                 reasons.append(reason)
             if (item.get("recording_result") or {}).get("status") == "Fail":
-                reasons.append("录制时已观察到断言失败，尚未回放，原预期和实际观察保留。")
+                reasons.append("录制时已观察到断言失败，" + ("原观察与后续实际回放分别保留。" if replayed else "尚未回放，原预期和实际观察保留。"))
             environments.extend(item.get("environment", []))
         if group["status"] != "Pass" or reasons:
             issues.append({"case_id": group["definition"]["id"], "status": group["status"],
@@ -151,13 +164,14 @@ def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
         notes.append("原生冻结输入不可用；保留实际结果，不能据此宣称输入证据完整。")
     outcome_file = paths.local() / "runs" / run["id"] / "native" / "outcome.json"
     outcome = json.loads(outcome_file.read_bytes()) if outcome_file.is_file() else {}
-    evidence_valid = _native_evidence(run, manifest, outcome, results)
-    if not evidence_valid:
+    files_valid = _native_files_evidence(run, manifest, outcome)
+    validity = {row["id"]: files_valid and _native_row_evidence(run, outcome, row) for row in results}
+    if not files_valid or not all(validity.values()):
         notes.append("原生输入或引用证据未通过完整性检查；执行器保留结果仍展示，不能据此宣称业务已验证。")
     designed = _ai_definitions(manifest) if run["engine"] == "ai-eval" and manifest else {}
     cases = [{"definition": designed.get(row["case_id"], {"id": row["case_id"], "title": row["case_title"], "kind": "native",
                               "engine": run["engine"], "native_asset": {key: sources.get(key) for key in ("asset_id", "asset_version", "head")}}),
-              "result": row, "run_id": run["id"], "evidence_valid": evidence_valid} for row in results]
+              "result": row, "run_id": run["id"], "evidence_valid": validity[row["id"]]} for row in results]
     observed = {row["case_id"] for row in results}
     cases.extend({"definition": definition, "result": None, "run_id": run["id"], "evidence_valid": False}
                  for identity, definition in designed.items() if identity not in observed)
@@ -182,6 +196,31 @@ def _file_matches(file: Path, reference: dict) -> bool:
 
 
 def _native_evidence(run: dict, manifest: dict, outcome: dict, results: list[dict]) -> bool:
+    return _native_files_evidence(run, manifest, outcome) and all(_native_row_evidence(run, outcome, row) for row in results)
+
+
+def _native_row_evidence(run: dict, outcome: dict, row: dict) -> bool:
+    """Match exact native occurrences, never overwrite duplicate IDs in a dictionary."""
+    detail = row.get("detail")
+    originals = outcome.get("cases", [])
+    if not isinstance(detail, dict) or not isinstance(originals, list) or any(not isinstance(case, dict) for case in originals):
+        return False
+    if detail.get("input_hash") != run["input_hash"] or detail.get("evidence") != outcome.get("evidence"):
+        return False
+    index = detail.get("native_case_index")
+    if index is not None:
+        if type(index) is not int or not 0 <= index < len(originals):
+            return False
+        original = originals[index]
+        if detail.get("native_case_hash") != execution_inputs.content_hash(original):
+            return False
+        return str(original.get("id", index + 1)) == row["case_id"] and all(detail.get(key) == value for key, value in original.items())
+    matches = [case for number, case in enumerate(originals, 1) if str(case.get("id", number)) == row["case_id"]
+               and all(detail.get(key) == value for key, value in case.items())]
+    return len(matches) == 1
+
+
+def _native_files_evidence(run: dict, manifest: dict, outcome: dict) -> bool:
     if not manifest or not outcome.get("evidence"):
         return False
     folder = (paths.local() / "runs" / run["id"] / "native").resolve()
@@ -195,14 +234,6 @@ def _native_evidence(run: dict, manifest: dict, outcome: dict, results: list[dic
             value = reference["path"]
             file = (data_refs.resolve(value) if data_refs.is_absolute(value) else folder / value).resolve()
             if not file.is_relative_to(folder) or not _file_matches(file, reference):
-                return False
-        originals = {str(case["id"]): case for case in outcome.get("cases", [])}
-        for row in results:
-            original = originals.get(row["case_id"])
-            if (not original or row["detail"].get("input_hash") != run["input_hash"]
-                    or row["detail"].get("evidence") != outcome["evidence"]):
-                return False
-            if any(row["detail"].get(key) != value for key, value in original.items()):
                 return False
     except (OSError, ValueError, KeyError, TypeError):
         return False
@@ -260,11 +291,12 @@ def recording_identity(project_id: str, recording: dict, cases: list[dict]) -> s
 def recording_snapshot(project_id: str, recording: dict, cases: list[dict]) -> dict:
     identity = recording_identity(project_id, recording, cases)
     return {"schema": 1, "kind": "recording", "task_id": identity, "project_id": project_id, "project": _project(project_id),
-            "title": "本次录制生成的测试用例", "status": "NotRun", "session_id": recording.get("session_id") or "",
+            "title": "本次录制候选与观察结果", "status": "Unverified", "session_id": recording.get("session_id") or "",
             "run_ids": [], "cases": [{"definition": copy.deepcopy(case), "result": None, "evidence_valid": False,
-                                       "recording_result": case.get("extensions", {}).get("recording_result")} for case in cases],
+                                       "recording_result": case.get("extensions", {}).get("recording_result") or
+                                       {"status": "Unverified", "reason": "录制候选尚未回放，未证明可复用"}} for case in cases],
             "results": [], "sources": {key: recording.get(key) for key in ("started_at", "start_url", "workflow_binding", "operations")},
-            "notes": ["这是本次录制保存的定义快照，尚未回放。录制中的断言观察单独保留，不借用其他任务的最近结果。"],
+            "notes": ["这是本次录制候选的定义快照，尚未回放，不等于已入库的可复用案例。录制中的断言观察单独保留，不借用其他任务的最近结果。"],
             "metadata": {"started_at": recording.get("started_at"), "case_ids": [case["id"] for case in cases]}}
 
 

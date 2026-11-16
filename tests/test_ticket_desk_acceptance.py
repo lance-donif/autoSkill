@@ -180,13 +180,15 @@ class TicketDeskAcceptanceTests(unittest.TestCase):
                     expected = str(step['expected']) if 'expected' in step else None
                     checks.append(session.check(step['assertion'], selector, expected, step.get('attribute'),
                                                 timeout_seconds=2, stable_for_seconds=step.get('stable_for_seconds', 0)))
-            saved = session.stop('录制时已发现优先级业务失败')
+            with patch('autoskill.server.jobs.ensure_worker'):
+                saved = session.stop('录制时已发现优先级业务失败')
         finally:
             session.cancel()
         self.assertTrue(any(row['status'] == 'Fail' and row['expected'] == 'high' and row['actual'] == 'medium' for row in checks))
         self.assertEqual(saved['ui_case']['recording_status'], 'Fail')
         self.assertGreater(saved['conversation_captures']['requests'], 0)
-        cases = projects.cases(pid)
+        cases = saved['candidates']
+        self.assertEqual(projects.cases(pid), [])
         recorded = next(item for item in cases if item['kind'] == 'ui')
         self.assertTrue(all(item['extensions']['oracle']['source'] == 'observation' for item in cases if item['kind'] == 'api'))
         self.client.post('/api/test/bug', json={'on': False})
@@ -220,7 +222,8 @@ class TicketDeskAcceptanceTests(unittest.TestCase):
                         session.browser(['click', '#chat-send'])
                         result = session.check('text', '#chat-messages p:last-child span', expected, timeout_seconds=2)
                         self.assertTrue(result['passed'], result['actual'])
-                    summary = session.stop('真实页面两轮问数 ' + protocol)
+                    with patch('autoskill.server.jobs.ensure_worker'):
+                        summary = session.stop('真实页面两轮问数 ' + protocol)
                 finally:
                     session.cancel()
                 capture = conversation_capture.get(pid, summary['conversation_captures']['id'])
@@ -242,7 +245,7 @@ class TicketDeskAcceptanceTests(unittest.TestCase):
                 headers = {item['name'].lower() for item in second['request']['headers']}
                 self.assertTrue('cookie' in headers or second['request'].get('cookies'))
                 self.assertGreaterEqual(len(summary['conversation_captures']['conversation_candidates']), 2)
-                api_cases = [case for case in projects.cases(pid) if case['kind'] == 'api']
+                api_cases = [case for case in summary['candidates'] if case['kind'] == 'api']
                 login_ids = {case['id'] for case in api_cases if case['path'] == '/api/login'}
                 chat_cases = [case for case in api_cases if case['path'].startswith('/api/chat')]
                 self.assertTrue(chat_cases)

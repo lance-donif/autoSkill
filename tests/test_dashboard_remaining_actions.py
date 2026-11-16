@@ -14,7 +14,7 @@ from playwright.sync_api import expect
 from test_data_dashboard import DataServer
 from test_load_dashboard import DashboardWorkspace
 
-from autoskill import builder, execution_inputs, native_assets, project_materials, projects
+from autoskill import builder, db, execution_inputs, native_assets, project_materials, projects, runtime_identity
 
 
 class CancelTarget(BaseHTTPRequestHandler):
@@ -77,25 +77,18 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
 
     def test_new_project_becomes_visible_only_after_a_valid_saved_case(self):
         self.open("cases?range=all")
-        self.page.get_by_role("button", name="新建项目", exact=True).click()
-        dialog = self.page.get_by_role("dialog", name="新建项目", exact=True)
-        dialog.get_by_label("项目名称", exact=True).fill("通过页面建立的项目")
-        dialog.get_by_label("要测试的地址", exact=True).fill(f"http://localhost:{self.target.server_port}")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/projects")) as event:
-            dialog.get_by_role("button", name="创建项目", exact=True).click()
-        self.assertEqual(event.value.status, 200, event.value.text())
-        project_id = event.value.json()["id"]
-        self.assertFalse(event.value.json().get("reused", False))
-        created = self.page.get_by_role("dialog", name="项目「通过页面建立的项目」已创建", exact=True)
-        expect(created).to_be_visible()
-        created.get_by_role("button", name="关闭", exact=True).last.click()
+        expect(self.page.get_by_role("button", name="新建项目", exact=True)).to_have_count(0)
+        created = self.client.post("/api/projects", json={"name": "通过 DSH 建立的项目", "url": f"http://localhost:{self.target.server_port}"})
+        self.assertEqual(created.status_code, 200, created.text)
+        project_id = created.json()["id"]
+        self.assertFalse(created.json().get("reused", False))
         self.assertEqual(self.client.get("/api/projects/" + project_id).json()["cases"]["total"], 0)
-        expect(self.page.locator(".project-head h2").filter(has_text="通过页面建立的项目")).to_have_count(0)
+        expect(self.page.locator(".project-head h2").filter(has_text="通过 DSH 建立的项目")).to_have_count(0)
         saved = builder.api_case("TC-NEW-PROJECT", "新项目有效用例", "GET", "/slow", {"status": 200, "json_equals": {"/ok": True}})
         projects.save_cases(project_id, [saved])
         self.page.reload()
         expect(self.page.get_by_text("新项目有效用例", exact=True)).to_be_visible()
-        expect(self.page.locator(".project-head h2").filter(has_text="通过页面建立的项目")).to_have_count(1)
+        expect(self.page.locator(".project-head h2").filter(has_text="通过 DSH 建立的项目")).to_have_count(1)
         self.assertEqual(self.client.get("/api/projects/" + project_id).json()["cases"]["total"], 1)
         self.evidence("remaining-created-project.png")
 
@@ -138,7 +131,7 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         for identity in ("TC-CHECK", "TC-SLOW"):
             self.page.get_by_role("checkbox", name="选择 " + identity, exact=True).check()
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/runs")) as selected:
-            self.page.get_by_role("button", name="运行所选", exact=True).click()
+            self.page.get_by_role("button", name="运行所选 2 条", exact=True).click()
         self.assertEqual(selected.value.status, 200, selected.value.text())
         selected_id = selected.value.json()["runs"][0]["id"]
         run = self.wait_run(selected_id)
@@ -147,15 +140,15 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.assertEqual({row["case_id"] for row in run["results"] if row["prerequisite"]}, {"TC-BEGIN"})
         self.open("cases?range=all")
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/runs")) as all_started:
-            self.page.get_by_role("button", name="运行全部", exact=True).click()
+            self.page.get_by_role("button", name="运行项目全部 5 条", exact=True).click()
         self.assertEqual(all_started.value.status, 200, all_started.value.text())
         original_id = all_started.value.json()["runs"][0]["id"]
         original = self.wait_run(original_id)
         self.assertEqual((original["status"], original["total"], original["passed"], original["failed"]), ("Fail", 5, 4, 1), original)
         self.assertEqual({row["case_id"] for row in original["results"] if not row["prerequisite"]}, {"TC-BEGIN", "TC-CHECK", "TC-SLOW", "TC-CHANGING", "TC-UI"})
-        expect(self.page.get_by_role("button", name="只重跑未通过的 1 条", exact=True)).to_be_visible(timeout=15000)
+        expect(self.page.get_by_role("button", name="重跑已记录未通过的 1 条", exact=True)).to_be_visible(timeout=15000)
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/rerun")) as retried:
-            self.page.get_by_role("button", name="只重跑未通过的 1 条", exact=True).click()
+            self.page.get_by_role("button", name="重跑已记录未通过的 1 条", exact=True).click()
         self.assertEqual(retried.value.status, 200, retried.value.text())
         repeated = self.wait_run(retried.value.json()["id"])
         self.assertEqual((repeated["status"], repeated["total"], repeated["passed"]), ("Pass", 1, 1), repeated)
@@ -270,18 +263,25 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
                         {"id": "not-started", "title": "尚未执行的对话", "question": "third", "expected": "done"}],
             "load": {"concurrency": 1, "iterations": 1}}), encoding="utf-8")
         asset = native_assets.import_asset(self.pid, str(source), "ai-eval", name="可取消原生对话")
-        self.open(f"native-assets/{asset['id']}?project={self.pid}")
-        self.page.get_by_role("button", name="运行资产", exact=True).click()
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/native-runs")) as started:
-            self.page.get_by_role("dialog", name="运行原生资产", exact=True).get_by_role("button", name="开始运行", exact=True).click()
-        self.assertEqual(started.value.status, 200, started.value.text())
-        run_id = started.value.json()["id"]
+        started = self.client.post("/api/native-runs", json={"project_id": self.pid, "asset_id": asset["id"]})
+        self.assertEqual(started.status_code, 200, started.text)
+        run_id = started.json()["id"]
         self.addCleanup(lambda: self.client.post("/api/native-runs/" + run_id + "/cancel", json={}))
+        self.open("native-runs/" + run_id)
         self.assertTrue(target.completed.wait(timeout=10), "The first native conversation never reached the real service")
         self.assertTrue(target.slow_started.wait(timeout=10), "The second native conversation never reached the blocking service")
-        self.page.get_by_role("button", name="停止运行", exact=True).click()
+        owner = db.one("SELECT pid,owner_identity FROM runs WHERE id = ?", (run_id,))
+        self.assertTrue(runtime_identity.owns(owner["pid"], owner["owner_identity"]))
+        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/native-runs/" + run_id + "/cancel")) as cancelled:
+            self.page.get_by_role("button", name="取消运行", exact=True).click()
+        self.assertEqual(cancelled.value.status, 200, cancelled.value.text())
+        expect(self.page.get_by_role("alertdialog")).to_have_count(0)
         run = self.wait_run(run_id, "native-runs")
         self.assertEqual(run["status"], "Cancelled", run)
+        deadline = time.monotonic() + 10
+        while runtime_identity.owns(owner["pid"], owner["owner_identity"]) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertFalse(runtime_identity.owns(owner["pid"], owner["owner_identity"]))
         self.assertEqual(run["outcome"]["metrics"]["planned_cases"], 3)
         self.assertEqual(run["outcome"]["metrics"]["quality_passed"], 1)
         self.assertLess(run["outcome"]["metrics"]["completed_cases"], 3)
@@ -292,7 +292,7 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.assertFalse(any(item["case_id"] == "not-started:1" for item in run["results"]))
         expect(self.page.locator("#view section .status").first).to_have_text("已取消", timeout=15000)
         self.page.reload()
-        expect(self.page.get_by_role("button", name="停止运行", exact=True)).to_have_count(0)
+        expect(self.page.get_by_role("button", name="取消运行", exact=True)).to_have_count(0)
         expect(self.page.locator(".result-head").filter(has_text="已经完成的对话")).to_be_visible()
         self.evidence("remaining-native-cancel.png")
 

@@ -255,8 +255,11 @@ class DataPathTests(unittest.TestCase):
         folder.mkdir(parents=True)
         (folder / "events.jsonl").write_bytes(b'{"observation":"partial"}\n')
         handle = {"folder": ".local/network-partial", "pid": os.getpid(), "token": "old-token"}
-        with self.assertRaisesRegex(RuntimeError, "未控制任何进程"):
-            capture.stop(handle)
+        result = capture.stop(handle)
+        self.assertFalse(result["available"])
+        self.assertEqual(result["entries"], [])
+        self.assertIn("未控制任何进程", result["error"])
+        self.assertEqual(Path(result["original_events_path"]), folder / "events.jsonl")
         self.assertEqual((folder / "events.jsonl").read_bytes(), b'{"observation":"partial"}\n')
         self.assertFalse((folder / "control.json").exists())
 

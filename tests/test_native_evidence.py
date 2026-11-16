@@ -4,15 +4,82 @@ import hashlib
 import json
 import os
 import unittest
+from collections import Counter
 from pathlib import Path
 from unittest import mock
 
+from openpyxl import load_workbook
 from test_native_engines import Workspace
 
-from autoskill import db, native_assets, native_run
+from autoskill import db, native_assets, native_reader, native_run, task_report_data, task_reports
 
 
 class NativeEvidenceTests(Workspace):
+    def duplicate_run(self):
+        source = self.fixture("import unittest\n"
+                              "class Order(unittest.TestCase):\n"
+                              " def __init__(self,index): super().__init__('runTest'); self.index=index\n"
+                              " def id(self): return 'PAY-REPEAT' if self.index in (3,68) else 'PAY-%02d'%self.index\n"
+                              " def __str__(self): return '付款核验第%02d条'%self.index\n"
+                              " def runTest(self):\n"
+                              "  if self.index==64: self.assertEqual('pending','paid')\n"
+                              "  if self.index==68: self.assertEqual(1,2)\n"
+                              "  if self.index==69: raise RuntimeError('账单服务暂不可用')\n"
+                              "  self.assertTrue(True)\n"
+                              "def load_tests(loader,tests,pattern): return unittest.TestSuite(Order(i) for i in range(70))\n")
+        return self.execute(source)
+
+    def test_duplicate_native_ids_keep_exact_proof_and_same_page_excel_markdown_verdicts(self):
+        run = self.duplicate_run()
+        self.assertEqual((run["passed"], run["failed"], run["blocked"], run["unverified"]), (67, 2, 1, 0))
+        duplicates = [row for row in run["results"] if row["case_id"] == "PAY-REPEAT"]
+        self.assertEqual([row["state"]["outcome"] for row in duplicates], ["pass", "fail"])
+        self.assertEqual([row["state"]["evidence"] for row in duplicates], ["valid", "valid"])
+        for row in duplicates:
+            exact = native_reader.status(run["id"], case_id=f"result:{row['id']}")
+            self.assertEqual(exact["case"]["status"], row["status"])
+            self.assertEqual(exact["results"][0]["id"], row["id"])
+        report = task_reports.get("run_" + run["id"])
+        self.assertEqual(report["summary_counts"], {"Pass": 67, "Fail": 2, "Blocked": 1, "Cancelled": 0,
+                                                  "Unverified": 0, "NotRun": 0, "Unknown": 0})
+        book = load_workbook(report["excel"])
+        try:
+            conclusions = [row[9] for row in book["功能测试用例"].values if row[9] in ("通过", "失败", "阻塞", "业务未验证")]
+        finally:
+            book.close()
+        self.assertEqual(Counter(conclusions), {"通过": 67, "失败": 2, "阻塞": 1})
+        markdown = Path(report["markdown"]).read_text(encoding="utf-8")
+        self.assertIn("| 通过 | 67 |", markdown)
+        self.assertIn("| 失败 | 2 |", markdown)
+        self.assertIn("| 业务未验证 | 0 |", markdown)
+
+    def test_one_damaged_native_occurrence_does_not_invalidate_other_rows(self):
+        run = self.duplicate_run()
+        first = run["results"][3]
+        detail = {**first["detail"], "native_case_index": 68}
+        db.execute("UPDATE results SET detail = ? WHERE id = ?", (json.dumps(detail), first["id"]))
+        changed = native_run.get(run["id"])
+        self.assertEqual((changed["passed"], changed["unverified"]), (66, 1))
+        snapshot = task_report_data.run_snapshot(db.one("SELECT * FROM runs WHERE id = ?", (run["id"],)))
+        self.assertEqual(task_report_data.task_summary(snapshot)["counts"]["Unverified"], 1)
+        self.assertEqual(task_report_data.task_summary(snapshot)["counts"]["Pass"], 66)
+        self.assertEqual(snapshot["cases"][68]["result"]["status"], "Fail")
+        self.assertTrue(snapshot["cases"][68]["evidence_valid"])
+
+    def test_legacy_duplicate_ids_match_only_unique_complete_native_content(self):
+        run = self.duplicate_run()
+        for row in run["results"]:
+            detail = row["detail"]
+            detail.pop("native_case_index")
+            detail.pop("native_case_hash")
+            db.execute("UPDATE results SET detail = ? WHERE id = ?", (json.dumps(detail), row["id"]))
+        legacy = native_run.get(run["id"])
+        self.assertEqual((legacy["passed"], legacy["failed"], legacy["blocked"], legacy["unverified"]), (67, 2, 1, 0))
+        first = legacy["results"][3]
+        ambiguous = copy.deepcopy(legacy["outcome"])
+        ambiguous["cases"].append(copy.deepcopy(ambiguous["cases"][3]))
+        self.assertFalse(task_report_data._native_row_evidence(legacy, ambiguous, first))
+
     def queued(self):
         source = self.fixture("import unittest\nclass Original(unittest.TestCase):\n def test_ok(self): self.assertEqual(2 + 2, 4)\n")
         asset = native_assets.import_asset(self.pid, str(source), "selenium-unittest")

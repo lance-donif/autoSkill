@@ -8,6 +8,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'skills/autoskill/app'))
@@ -91,9 +92,10 @@ class TabsTests(unittest.TestCase):
             self.tmp.cleanup()
 
     def finish(self):
-        result = session.stop('跨标签页')
+        with patch("autoskill.server.jobs.ensure_worker"):
+            result = session.stop('跨标签页')
         self.recording_summary = result
-        return next(c for c in projects.cases('tabs') if c['id'] == result['ui_case']['id'])
+        return next(c for c in result['candidates'] if c['id'] == result['ui_case']['id'])
 
     def replay(self, case, exports=False, repeat=False):
         config = {**projects.config('tabs'), 'page_load_seconds': 5, 'timeout_seconds': 2}

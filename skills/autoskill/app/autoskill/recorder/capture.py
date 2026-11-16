@@ -8,6 +8,7 @@ import copy
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -70,20 +71,61 @@ def stop(handle: dict | None) -> dict:
     while time.monotonic() < deadline:
         file = folder / 'capture.json'
         if file.is_file():
-            result = json.loads(file.read_text(encoding='utf-8'))
+            try:
+                result = json.loads(file.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                return _unavailable(folder, '网络证据收据无法读取，原始事件保留；未将缺失证据作为成功')
             if result.pop('token', None) != handle['token']:
                 raise RuntimeError('网络证据不属于当前录制会话')
             child = _children.get(handle['pid'])
             if child and child[1] == handle['token'] and runtime_identity.is_local(handle.get('owner')):
                 _children.pop(handle['pid'])
-                child[0].wait(timeout=2)
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    child[0].wait(timeout=2)
             if not active:
                 result['runtime_state'] = 'detached'
             return result
+        active = runtime_identity.owns(handle['pid'], handle.get('owner'))
         if not active:
-            raise RuntimeError('原网络观察器不属于当前运行位置或已经退出；未控制任何进程，原始证据保留在 ' + str(folder))
+            return _unavailable(folder, '原网络观察器不属于当前运行位置或已经退出；未控制任何进程，原始证据保留')
         time.sleep(0.05)
-    raise RuntimeError('网络证据尚未写完，原始事件已保留在 ' + str(folder / 'events.jsonl'))
+    _terminate_observer(handle, folder)
+    return _unavailable(folder, '网络证据尚未写完，已停止本次观察器；未使用未完成的网络收据，原始事件已保留')
+
+
+def _terminate_observer(handle: dict, folder: Path) -> None:
+    """Retire only this exact recording process after its graceful flush deadline."""
+    if not runtime_identity.owns(handle['pid'], handle.get('owner')):
+        return
+    child = _children.get(handle['pid'])
+    local_child = child and child[1] == handle['token']
+    try:
+        ready = json.loads((folder / 'ready.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        ready = {}
+    if (ready and ready.get('token') != handle['token']) or (not local_child and not ready):
+        raise RuntimeError('网络观察器身份不匹配；未发送进程信号，原始证据保留')
+    for requested in (signal.SIGTERM, getattr(signal, 'SIGKILL', signal.SIGTERM)):
+        if not runtime_identity.owns(handle['pid'], handle.get('owner')):
+            break
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(handle['pid'], requested)
+        deadline = time.monotonic() + 2
+        while runtime_identity.owns(handle['pid'], handle.get('owner')) and time.monotonic() < deadline:
+            time.sleep(0.05)
+    if runtime_identity.owns(handle['pid'], handle.get('owner')):
+        raise RuntimeError('本次网络观察器尚未退出，原始证据已保留；可重试结束录制')
+    if local_child:
+        _children.pop(handle['pid'], None)
+        child[0].wait(timeout=2)
+
+
+def _unavailable(folder: Path, error: str) -> dict:
+    """Keep incomplete observations readable without inventing requests or trapping the recording."""
+    events = folder / 'events.jsonl'
+    return {'source': 'cdp_network', 'available': False, 'entries': [], 'error': error,
+            'evidence_folder': data_refs.store(folder),
+            **({'original_events_path': str(events)} if events.is_file() else {})}
 
 
 def discard(handle: dict | None, owner: Path) -> None:
@@ -96,8 +138,10 @@ def discard(handle: dict | None, owner: Path) -> None:
     if folder.parent != owner.resolve() or not folder.name.startswith('network-'):
         raise RuntimeError('网络证据目录不属于当前录制')
     file = folder / 'capture.json'
-    if file.is_file() and json.loads(file.read_text(encoding='utf-8')).get('token') == handle['token']:
-        shutil.rmtree(folder)
+    if file.is_file():
+        saved = json.loads(file.read_text(encoding='utf-8'))
+        if saved.get('token') == handle['token'] and saved.get('available') and not saved.get('error'):
+            shutil.rmtree(folder)
 
 
 def _headers(values: dict) -> list[dict]:
@@ -367,7 +411,11 @@ class Observer:
                 self.send('Target.setAutoAttach', {'autoAttach': False, 'waitForDebuggerOnStart': False, 'flatten': True})
             self.ws.close()
             self.journal.close()
-            _write(self.folder / 'capture.json', self.finish(error))
+            try:
+                result = self.finish(error)
+            except Exception as problem:  # noqa: BLE001  # Retain the original journal even if its derived projection cannot finish.
+                result = {'token': self.token, **_unavailable(self.folder, '网络证据整理未完成：' + type(problem).__name__)}
+            _write(self.folder / 'capture.json', result)
 
 
 def main() -> None:

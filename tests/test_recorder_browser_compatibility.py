@@ -79,10 +79,10 @@ class RecorderBrowserCompatibilityTests(unittest.TestCase):
                     self.assertEqual(session.current()["refs"][reference]["name"], "处理")
                     session.browser(["click", "@" + reference])
                     self.assertTrue(session.check("text", "#result", "第二行已处理")["passed"])
-                    saved = session.stop("用快照提示选择第二行操作")
+                    with patch("autoskill.server.jobs.ensure_worker"):
+                        saved = session.stop("用快照提示选择第二行操作")
                     self.assertEqual(saved["test_report"]["status"], "ready")
-                    run = runner.create(project, [saved["ui_case"]["id"]])
-                    self.assertEqual(runner.execute(run["id"])["status"], "Pass")
+                    self.assertEqual(runner.execute(saved["run_id"])["status"], "Pass")
                 finally:
                     session.cancel()
                     site.shutdown()
@@ -167,16 +167,16 @@ class RecorderBrowserCompatibilityTests(unittest.TestCase):
                             self.assertEqual(agent.call(name, ["get", "cdp-url"])["cdpUrl"], endpoint)
                             self.assertEqual(agent._controller_pid(name), controller)
                             self.assertTrue(runtime_identity.owns(controller, owner))
-                            saved = session.stop("Recorded greeting " + str(index))
+                            with patch("autoskill.server.jobs.ensure_worker"):
+                                saved = session.stop("Recorded greeting " + str(index))
                             source = conversation_capture.get(project, saved["conversation_captures"]["id"])
                             requests = [row for row in source["requests"] if "/greet?" in row["request"]["url"]]
                             self.assertEqual(len(requests), 1)
                             self.assertEqual(json.loads(requests[0]["response"]["content"]["text"]), {"message": "Hello recorder"})
                             case = saved["ui_case"]["id"]
-                            run = runner.create(project, [case])
-                            self.assertEqual(runner.execute(run["id"])["status"], "Pass")
+                            self.assertEqual(runner.execute(saved["run_id"])["status"], "Pass")
                             result = db.one("SELECT status, detail FROM results WHERE run_id = ? AND case_id = ?",
-                                            (run["id"], case))
+                                            (saved["run_id"], case))
                             self.assertEqual(result["status"], "Pass")
                             self.assertEqual(json.loads(result["detail"])["business_status"], "Pass")
                         finally:

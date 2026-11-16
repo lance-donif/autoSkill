@@ -144,7 +144,10 @@ class SeleniumDriver:
         try:
             return self.wd.execute_script(FIND, locator, root) or []
         except Exception as error:
-            raise StepError(LOCATOR, "定位读取失败：" + str(error).splitlines()[0]) from error
+            message = str(error).splitlines()[0]
+            if "业务目标不唯一：" in message:
+                message = message[message.index("业务目标不唯一："):]
+            raise StepError(LOCATOR, "定位读取失败：" + message) from error
 
     def _root(self, path: list):
         """Return the last open shadow host after entering the ordered frame/root path."""

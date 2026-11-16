@@ -51,7 +51,7 @@ class TelemetryTrafficTests(unittest.TestCase):
                          ["telemetry", "telemetry", "unclassified_beacon", "business", "business", "page_resource", "page_navigation"])
         rec = {"start_url": "/page", "steps": [{"action": "click", "selector": "#check"}], "secrets": []}
         result = compiler.build(self.pid, rec, {"log": {"entries": entries}}, None, "检查订单功能")
-        cases = [case for case in projects.cases(self.pid) if case["kind"] == "api"]
+        cases = [case for case in result["candidates"] if case["kind"] == "api"]
         self.assertEqual({case["path"] for case in cases}, {"/api/track-orders", "/wp-admin/admin-ajax.php"})
         self.assertEqual(result["api_compile_scope"]["excluded_by_reason"],
                          {"telemetry": 2, "unclassified_beacon": 1, "page_resource": 1, "page_navigation": 1})
@@ -148,7 +148,7 @@ class TelemetryBrowserTests(unittest.TestCase):
                         session.start(pid, login=False)
                         session.browser(["click", "#check"])
                         self.assertTrue(session.check("text", "#result", expected, timeout_seconds=5)["passed"])
-                        with patch.object(conversation_capture, "capture", side_effect=retain_source):
+                        with patch.object(conversation_capture, "capture", side_effect=retain_source), patch("autoskill.server.jobs.ensure_worker"):
                             result = session.stop("核对订单查询结果" if name == "business" else "页面遥测观察")
                         prefix = f"conversations/{result['conversation_captures']['id']}/"
                         self.assertIsInstance(original_bytes[-1], bytes)
@@ -159,7 +159,7 @@ class TelemetryBrowserTests(unittest.TestCase):
                         raw_cdp = json.loads(domain.read_file(pid, prefix + "source.original.cdp.json"))
                         cdp_paths = {urlsplit(row["request"]["url"]).path for row in raw_cdp["entries"]}
                         self.assertTrue({"/cdn-cgi/rum", "/unclassified-beacon", "/style", "/bundle"} <= cdp_paths, cdp_paths)
-                        business_paths = {case["path"] for case in projects.cases(pid) if case["kind"] == "api"}
+                        business_paths = {case["path"] for case in result["candidates"] if case["kind"] == "api"}
                         self.assertEqual(business_paths, {"/api/track-orders", "/wp-admin/admin-ajax.php"} if name == "business" else set())
                         self.assertEqual(len(result["api_cases"]), 2 if name == "business" else 0)
                         self.assertGreater(result["api_compile_scope"]["excluded_by_reason"]["telemetry"], 0)

@@ -16,13 +16,73 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Ruff (Python)
-        run: pipx run ruff==0.17.4 check .
-      - name: Biome (JavaScript and CSS)
-        if: always()
+      - name: Provision pinned linters for CI
         env:
           npm_config_offline: 'false'
-        run: npx --yes @biomejs/biome@2.6.7 lint
-      - name: Project conventions
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "ruff==0.17.4"], check=True)
+          prefix = str(Path(os.environ["RUNNER_TEMP"]) / "review-tools")
+          subprocess.run(["npm", "install", "--prefix", prefix, "--no-audit", "--no-fund", "@biomejs/biome@2.6.7"], check=True)
+          PY
+      - name: Lint, project conventions and review tooling
         if: always()
-        run: python -m unittest discover -s tests -p test_conventions.py
+        run: python scripts/validate_review.py --suite lint --suite conventions --suite review-tools --biome "$RUNNER_TEMP/review-tools/node_modules/.bin/biome" --output-dir "$RUNNER_TEMP/review-lint"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-validation
+          path: ${{ runner.temp }}/review-lint/*.log
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-validation-summary
+          path: ${{ runner.temp }}/review-lint/summary.json
+          if-no-files-found: warn
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      AUTOSKILL_HEADED: '0'
+      AUTOSKILL_BRIDGE: 'off'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install selected contract dependencies from project pins
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          names = {"httpx", "jsonschema", "openpyxl", "fastapi", "starlette", "pydantic", "uvicorn", "cryptography"}
+          lines = "\n".join(Path(name).read_text() for name in ("requirements.txt", "requirements-linux.txt"))
+          requirements = [line for line in lines.splitlines() if re.split(r"[\[=]", line)[0] in names]
+          if len(requirements) != len(names):
+              raise SystemExit("Required contract dependency pin missing or duplicated")
+          subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", *requirements], check=True)
+          PY
+      - name: Workflow, diagnosis, knowledge and host contracts
+        if: always()
+        run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: contract-validation
+          path: |
+            ${{ runner.temp }}/review-contracts/*.log
+            ${{ runner.temp }}/review-contracts/summary.json
+          if-no-files-found: warn

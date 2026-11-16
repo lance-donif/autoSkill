@@ -120,6 +120,16 @@
         "oracle": {
           "$ref": "#/$defs/oracle"
         },
+        "postconditions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "本动作必须由这些后置 API 用例的独立业务检查在同一次冻结运行中验证；后置用例通过 depends_on 依赖本动作。"
+        },
         "automation": {
           "type": "object",
           "properties": {

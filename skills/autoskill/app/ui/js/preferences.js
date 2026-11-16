@@ -31,6 +31,8 @@ function legacyValues() {
 function publish(data) {
   if (typeof data?.data_id !== 'string' || !data.data_id) throw new Error('服务未返回当前数据集标识，偏好尚未保存');
   const values = defaults();
+  // Unset choices follow the active server's environment without becoming saved preferences.
+  for (const key of Object.keys(valid)) if (valid[key](data.dashboard_defaults?.[key])) values[key] = data.dashboard_defaults[key];
   for (const key of Object.keys(valid)) if (valid[key](data.dashboard?.[key])) values[key] = data.dashboard[key];
   const next = { dataId: data.data_id, values };
   if (JSON.stringify(next) === JSON.stringify(current)) return;
@@ -58,6 +60,11 @@ export function loadPreferences() {
   if (loading) return loading;
   loading = readPreferences().finally(() => { loading = null; });
   return loading;
+}
+
+export async function ensurePreferences() {
+  if (!current.dataId) await loadPreferences();
+  return current.values;
 }
 
 export function onPreferences(listener) { listeners.add(listener); return () => listeners.delete(listener); }

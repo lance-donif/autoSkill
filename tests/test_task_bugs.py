@@ -54,6 +54,17 @@ class TaskBugContentTests(unittest.TestCase):
         item["result"]["detail"]["turns"] = []
         self.assertIn("预期：False", task_bugs.render(value, excel_link="cases.xlsx")[0])
 
+    def test_raw_pass_with_a_verified_performance_failure_is_an_execution_issue(self):
+        value = markdown_fixtures.snapshot()
+        item = markdown_fixtures.observation("performance", "Pass")
+        item["result"]["detail"]["performance_status"] = "Fail"
+        item["result"]["detail"]["performance_assertions"] = [{"name": "duration", "passed": False, "expected": 500, "actual": 900}]
+        value["cases"] = [item]
+        text, summary = task_bugs.render(value, excel_link="cases.xlsx")
+        self.assertEqual(summary["counts"]["execution"], 1)
+        self.assertEqual(summary["counts"]["business"], 0)
+        self.assertIn('"实际": 900', text)
+
     def test_no_results_do_not_claim_bug_free_and_blocking_reason_is_visible(self):
         value = markdown_fixtures.snapshot()
         value.update(status="Blocked", cases=[markdown_fixtures.observation("unexecuted", None)])

@@ -9,8 +9,8 @@ import shutil
 import uuid
 from pathlib import Path
 
-from . import case_document, db, domain, execution_inputs, paths, plan, projects, reporting, runner, task_context, task_workbook
-from .locking import project_lock
+from . import case_document, db, domain, execution_inputs, paths, plan, plan_execution, projects, reporting, runner, task_context, task_workbook
+from .locking import named_lock, project_lock
 
 EDITABLE = {"id", "module", "title", "type", "priority", "preconditions", "steps", "expected", "description", "author", "remarks", "requirement_ids", "source", "business_path", "prefix"}
 BUSINESS = ("id", "module", "title", "type", "preconditions", "steps", "expected", "description", "requirement_ids")
@@ -20,6 +20,9 @@ STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": 
 def _folder(project_id: str, session: str) -> Path:
     if not isinstance(session, str):
         raise ValueError("会话标识需要是文字")
+    registered, _ = plan_execution.registered(project_id, session)
+    if registered:
+        return Path(registered["folder"])
     identity = hashlib.sha256(session.encode()).hexdigest() if session else "default"
     return projects.path(project_id) / "testcases" / "design-plans" / identity
 
@@ -27,7 +30,7 @@ def _folder(project_id: str, session: str) -> Path:
 @contextlib.contextmanager
 def _selected(project_id: str, session: str):
     folder = _folder(project_id, session)
-    with task_context.use_session(session or None), plan.use_folder(folder), plan._sheet_lock():
+    with task_context.use_session(session or None), plan.use_folder(folder), project_lock(project_id), plan._sheet_lock(project_id):
         yield folder
 
 
@@ -87,12 +90,17 @@ def _legacy(project_id: str, session: str) -> dict | None:
 
 
 def _evidence(project_id: str, row: dict, extra: dict, latest: dict, current: dict) -> dict:
+    candidate = plan_execution.evidence(project_id, row)
+    if candidate is not None:
+        return candidate
     replay = row.get("replay", "")
     linked_project, _, identity = replay.partition("/")
     binding = extra.get("binding", {})
     value = {"status": "NotRun", "actual": "", "executor": "", "environment": "", "screenshots": [], "reason": "尚未关联可执行用例", "result": None,
              "run_id": None, "materialized_case_id": identity or None, "binding_current": False, "current": False}
     if not identity:
+        if row.get("status") == "阻塞":
+            return {**value, "status": "Blocked", "reason": "；".join(filter(None, [row.get("note"), "记录为阻塞；没有本行执行回执"]))}
         return value
     if linked_project != project_id:
         return {**value, "reason": "关联属于其他项目，不能借用其执行结果"}
@@ -154,8 +162,10 @@ def _view(project_id: str, session: str, folder: Path) -> dict:
 
 
 def get(project_id: str, session: str = "") -> dict:
-    with _selected(project_id, session) as folder:
-        return _view(project_id, session, folder)
+    selected, sessions = plan_execution.registered(project_id, session)
+    actual_session = selected["session"] if selected else session
+    with _selected(project_id, actual_session) as folder:
+        return {**_view(project_id, actual_session, folder), **plan_execution.describe(), "sessions": sessions}
 
 
 def _check(folder: Path, revision: str | None) -> dict:
@@ -458,12 +468,23 @@ def history(project_id: str, version: int, *, session: str = "") -> dict:
         return json.loads(file.read_bytes())
 
 
+def previous_deliveries(project_id: str, session: str = "") -> dict:
+    selected, _ = plan_execution.registered(project_id, session)
+    actual_session = selected["session"] if selected else session
+    with _selected(project_id, actual_session):
+        return {"deliveries": plan_execution.previous_deliveries(project_id, actual_session)}
+
+
 def export(project_id: str, *, session: str = "", version: int | None = None) -> Path:
     view = history(project_id, version, session=session) if version is not None else get(project_id, session)
+    if version is None and (view.get("test_report") or {}).get("report_id"):
+        from . import task_reports
+
+        return task_reports.download(view["test_report"]["report_id"])
     folder = _folder(project_id, session) / "exports"
     destination = folder / ("design-" + str(view["version"]) + "-" + view["revision"][:12] + ".xlsx")
     snapshot = _snapshot(view)
-    with project_lock(project_id):
+    with named_lock("case-plan-export", str(destination)):
         reporting.write_task(snapshot, destination)
     return destination
 
@@ -475,6 +496,12 @@ def _snapshot(view: dict) -> dict:
         definition = {"id": row["id"], "kind": "scenario", "title": row["description"], "module": row.get("module", "未分组"), "priority": row.get("priority", "P1"),
                       "preconditions": row.get("preconditions", ""), "steps": row.get("steps", "").splitlines(), "expected": row.get("expected", ""),
                       "requirement_ids": row["requirement_ids"], "extensions": {"test_case_document": _row_document(row)}}
+        if row["evidence"].get("items"):
+            cases.extend({**item, "definition": definition} for item in row["evidence"]["items"])
+            continue
+        if not row["evidence"].get("result") and not row["evidence"].get("run_id"):
+            cases.append({**plan_execution.unexecuted_item(row, definition), "note": row["evidence"]["reason"]})
+            continue
         cases.append({"definition": definition, "result": result, "run_id": row["evidence"].get("run_id"),
                       "evidence_valid": row["evidence"].get("current", False) and row["status"] != "Unverified", "environment": [row["environment"]] if row["environment"] else [],
                       "note": row["evidence"]["reason"]})

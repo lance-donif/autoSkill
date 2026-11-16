@@ -108,6 +108,34 @@ def _view(workflow_id: str) -> dict:
         return _summary(state.row(connection, "workflow_runtime", workflow_id), connection)
 
 
+def _candidate_fields(workflow_id: str, context: dict, connection) -> dict:
+    """Expose only existing execution/publication receipts, following an explicit run or validation identity."""
+    source = context
+    if not source.get("candidate_id") and source.get("execution", {}).get("run_id"):
+        record = connection.execute("SELECT context FROM workflow_items WHERE workflow_id = ? AND run_id = ?",
+                                    (workflow_id, source["execution"]["run_id"])).fetchone()
+        source = json.loads(record["context"]) if record else source
+    candidate_id = source.get("candidate_id")
+    public = {"plan_bindings": copy.deepcopy(source["plan_bindings"])} if source.get("plan_bindings") else {}
+    if candidate_id and source.get("validation_id"):
+        record = connection.execute(
+            "SELECT context FROM workflow_items WHERE workflow_id = ? AND phase = 'execute' "
+            "AND json_extract(context, '$.validation_id') = ? AND json_extract(context, '$.candidate_id') = ? "
+            "ORDER BY sequence DESC LIMIT 1", (workflow_id, source["validation_id"], candidate_id)).fetchone()
+        source = json.loads(record["context"]) if record else source
+    if not candidate_id:
+        return public
+    publication = source.get("publication")
+    complete = bool(publication and publication != "pending_validation")
+    receipt = copy.deepcopy(source.get("publication_receipt", {"published_ids": [], "unpublished": {}}))
+    if complete and not source.get("publication_receipt"):
+        reason = {"conflict": "候选或来源版本发生变化，未发布", "unverified": "执行证据不足，未发布",
+                  "historical": "原任务已进入新版本，本批未发布"}.get(publication, "本批候选未满足发布条件")
+        receipt["unpublished"] = {case["id"]: reason for case in source.get("materialization", {}).get("cases", [])}
+    receipt.update(status="complete" if complete else "pending", complete=complete)
+    return {**public, "candidate_id": candidate_id, "publication_receipt": receipt}
+
+
 def status(workflow_id: str, *, limit: int = 50, cursor: str | None = None, cycle: str = "current") -> dict:
     """Read a bounded keyset page; polling does not claim or execute work."""
     from . import task_reports
@@ -134,16 +162,36 @@ def status(workflow_id: str, *, limit: int = 50, cursor: str | None = None, cycl
         where = "workflow_id = ?" + (" AND cycle_id = ?" if cycle == "current" else "")
         scope = (workflow_id, flow["cycle_id"]) if cycle == "current" else (workflow_id,)
         records = [dict(r) for r in connection.execute(
-            "SELECT id,sequence,cycle_id,phase,state,attempt_id,run_id,created_at,finished_at FROM workflow_items "
+            "SELECT id,sequence,cycle_id,phase,state,attempt_id,run_id,created_at,finished_at,context FROM workflow_items "
             f"WHERE {where} AND sequence > ? ORDER BY sequence LIMIT ?", (*scope, after, limit + 1))]
         has_more = len(records) > limit
         records = records[:limit]
+        for record in records:
+            context = json.loads(record.pop("context"))
+            record.update(_candidate_fields(workflow_id, context, connection))
+            if record["phase"] in ("diagnose", "investigate"):
+                record.update({key: context.get(key) for key in ("diagnostic_targets", "manifest_hash")})
         position = {"workflow_id": workflow_id, "cycle": cycle, "after": records[-1]["sequence"], "revision": flow["revision"]} if has_more else None
         next_cursor = base64.urlsafe_b64encode(state.packed(position).encode()).decode() if position else None
         total = connection.execute(f"SELECT COUNT(*) FROM workflow_items WHERE {where}", scope).fetchone()[0]
         result = {**_summary(flow, connection), "items": records, "total": total, "cycle_scope": cycle, "cursor": cursor, "next_cursor": next_cursor}
     report_id = task_reports.workflow_report_id(workflow_id, flow["cycle_id"], generation=result["report_generation"])
     return {**result, "test_report": task_reports.peek(report_id)}
+
+
+def diagnostic_context(workflow_id: str) -> dict:
+    """Read the current cycle's frozen diagnosis without claiming or reconciling work."""
+    from . import failure_context
+
+    flow = state.workflow(workflow_id)
+    with db.connect() as connection:
+        task = connection.execute(
+            "SELECT id,context FROM workflow_items WHERE workflow_id = ? AND cycle_id = ? AND phase IN ('diagnose','investigate') "
+            "ORDER BY sequence DESC LIMIT 1", (workflow_id, flow["cycle_id"])).fetchone()
+    if not task:
+        raise WorkflowError("not_found", "当前周期还没有诊断或恢复调查任务", workflow_id=workflow_id)
+    return {"workflow_id": workflow_id, "item_id": task["id"],
+            **failure_context.workflow_context(flow["project_id"], json.loads(task["context"]))}
 
 
 def read(workflow_id: str, *, kind: str = "definition", offset: int = 0, limit: int = 50, head: str | None = None,
@@ -190,8 +238,8 @@ def _finish_publication(scope: str, key: str, journal: dict) -> dict:
         found = connection.execute("SELECT * FROM workflow_requests WHERE scope = ? AND request_key = ?", (scope, key)).fetchone()
         if found["state"] == "completed":
             return json.loads(found["response"])
-        connection.execute("UPDATE workflow_runtime SET domain_head = ?, definition_hash = ?, lifecycle = 'active' WHERE id = ?",
-                           (published["head"], current["hash"], flow["id"]))
+        connection.execute("UPDATE workflow_runtime SET domain_head = ?, definition_hash = ?, title = ?, lifecycle = 'active' WHERE id = ?",
+                           (published["head"], current["hash"], current["documents"]["definition.json"]["title"], flow["id"]))
         if journal.get("new_cycle_id"):
             _replace_cycle(connection, flow, journal["new_cycle_id"])
         if journal.get("item_id"):
@@ -201,12 +249,15 @@ def _finish_publication(scope: str, key: str, journal: dict) -> dict:
         else:
             following = journal["first_phase"]
         if following:
-            state.item(connection, flow["id"], following)
+            context = json.loads(task["context"]) if following == "knowledge" and journal.get("item_id") else None
+            state.item(connection, flow["id"], following, context=context)
         connection.execute("INSERT OR IGNORE INTO workflow_report_heads(workflow_id,cycle_id,generation) "
                            "SELECT id,cycle_id,0 FROM workflow_runtime WHERE id = ?", (flow["id"],))
         state.touch(connection, flow["id"])
         summary = _summary(state.row(connection, "workflow_runtime", flow["id"]), connection)
         result = {**summary, "accepted": True, "change_id": journal["change_id"], "workflow": summary}
+        if "knowledge_used" in journal:
+            result["knowledge_used"] = journal["knowledge_used"]
         return state.receipt(connection, scope, key, result)
 
 
@@ -449,12 +500,15 @@ def reconcile_pending() -> dict:
     return {"advanced": advanced, "errors": errors}
 
 
-def _task_view(flow: dict, task: dict, attempt: dict, current: dict) -> dict:
-    return {"id": task["id"], "item_id": task["id"], "workflow_id": flow["id"], "phase": task["phase"],
+def _task_view(flow: dict, task: dict, attempt: dict, current: dict, connection) -> dict:
+    context = json.loads(task["context"])
+    diagnostics = {key: context.get(key) for key in ("diagnostic_targets", "manifest_hash")} if task["phase"] in ("diagnose", "investigate") else {}
+    return {**diagnostics, **_candidate_fields(flow["id"], context, connection),
+            "id": task["id"], "item_id": task["id"], "workflow_id": flow["id"], "phase": task["phase"],
             "attempt_id": attempt["id"], "lease_token": attempt["lease_token"], "lease_until": attempt["lease_until"],
             "binding_token": _binding_token(flow["id"], task["id"], attempt),
             "input_hash": current["hash"], "input_refs": {key.removesuffix(".json"): definitions.prefix(flow["id"]) + key for key in current["documents"]},
-            "checkpoint": json.loads(attempt["checkpoint"]), "context": json.loads(task["context"]),
+            "checkpoint": json.loads(attempt["checkpoint"]), "context": context,
             "payload_schema": definitions.instructions(task["phase"])}
 
 
@@ -497,16 +551,38 @@ def next_task(workflow_id: str, *, idempotency_key: str, owner: str | None = Non
                 connection.execute("UPDATE workflow_items SET state = 'leased', attempt_id = ?, input_hash = ? WHERE id = ?",
                                    (attempt["id"], current["hash"], task["id"]))
                 state.touch(connection, workflow_id)
-                result = {"task": _task_view(flow, task, attempt, current), "workflow": _summary(state.row(connection, "workflow_runtime", workflow_id), connection)}
+                result = {"task": _task_view(flow, task, attempt, current, connection), "workflow": _summary(state.row(connection, "workflow_runtime", workflow_id), connection)}
             return state.receipt(connection, workflow_id, idempotency_key, result)
 
 
 @_report_delivery
 @_monitor
-def submit(workflow_id: str, item_id: str, *, lease_token: str, attempt_id: str, idempotency_key: str, payload: dict) -> dict:
+def submit(workflow_id: str, item_id: str, *, lease_token: str, attempt_id: str, idempotency_key: str, payload: dict,
+           knowledge_used: list[dict] | None = None) -> dict:
     """Validate a proposal, fence its lease, and publish a staged domain change."""
     flow = state.workflow(workflow_id)
     envelope = {"item_id": item_id, "lease_token": lease_token, "attempt_id": attempt_id, "payload": payload}
+    usage = None
+    if knowledge_used is not None:
+        envelope["knowledge_used"] = knowledge_used
+        with db.connect() as connection:
+            existing = connection.execute("SELECT * FROM workflow_requests WHERE scope = ? AND request_key = ?",
+                                          (workflow_id, idempotency_key)).fetchone()
+            if existing:
+                checked = state.request(connection, workflow_id, idempotency_key, "submit", envelope)
+                if replayed := state.replay(checked):
+                    return replayed
+        saved = json.loads(existing["journal"]) if existing else {}
+        if saved:
+            usage = saved.get("knowledge_used")
+        else:
+            from . import knowledge_entries
+
+            try:
+                # Immutable foreign revisions must be read before the local project lock and SQLite writer.
+                usage = knowledge_entries.validate_knowledge_used(flow["project_id"], knowledge_used)
+            except knowledge_entries.KnowledgeError as error:
+                raise WorkflowError(error.code, str(error), **error.details) from error
     with project_lock(flow["project_id"]):
         with db.connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -521,6 +597,8 @@ def submit(workflow_id: str, item_id: str, *, lease_token: str, attempt_id: str,
 
                     result = workflow_recovery.finish(connection, task, payload)
                     result["workflow"] = _summary(state.row(connection, "workflow_runtime", workflow_id), connection)
+                    if usage is not None:
+                        result["knowledge_used"] = usage
                     return state.receipt(connection, workflow_id, idempotency_key, result)
                 if state.unresolved(connection, item_id):
                     raise WorkflowError("uncertain_operation", "存在未确认的外部动作，请先读取真实状态并恢复操作收据", item_id=item_id)
@@ -528,9 +606,11 @@ def submit(workflow_id: str, item_id: str, *, lease_token: str, attempt_id: str,
                 if current["hash"] != task["input_hash"]:
                     raise WorkflowError("revision_conflict", "领取后的输入定义已经变化，请重新领取；旧提案未发布")
                 change_id = state.identifier("change")
-                changes = definitions.proposal(flow, task["phase"], payload, change_id, current)
+                changes = definitions.proposal(flow, task["phase"], payload, change_id, current, context=json.loads(task["context"]))
                 staged = domain.stage(flow["project_id"], changes, current["head"], reason="workflow." + task["phase"], metadata={"workflow_id": workflow_id})
                 journal = {"workflow_id": workflow_id, "item_id": item_id, "stage_id": staged["stage_id"], "change_id": change_id}
+                if usage is not None:
+                    journal["knowledge_used"] = usage
                 _journal(connection, workflow_id, idempotency_key, journal)
                 connection.execute("UPDATE workflow_items SET state = 'publishing' WHERE id = ?", (item_id,))
         return _finish_publication(workflow_id, idempotency_key, journal)

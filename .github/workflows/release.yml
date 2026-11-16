@@ -64,10 +64,54 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Build native Linux package (no functional regression)
+      - name: Build native Linux package
         run: |
           python scripts/fetch-linux-assets.py --assets "$RUNNER_TEMP/autoskill-linux/assets" --arch '${{ matrix.arch }}'
           python scripts/build-linux-bundle.py --assets "$RUNNER_TEMP/autoskill-linux/assets" --output "$RUNNER_TEMP/autoskill-linux/package" --arch '${{ matrix.arch }}' --zip
+      - name: Require real Linux x64 browser and knowledge validation
+        if: matrix.arch == 'x64'
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          runtime="$RUNNER_TEMP/autoskill-linux/package/autoskill/vendor/linux-x64"
+          export AUTOSKILL_CHROMIUM="$runtime/chrome/chrome-linux64/chrome"
+          export AUTOSKILL_CHROMEDRIVER="$runtime/chromedriver/chromedriver-linux64/chromedriver"
+          export AUTOSKILL_AGENT_BROWSER="$runtime/agent-browser/agent-browser"
+          export AUTOSKILL_BRIDGE=off
+          "$runtime/python/bin/python3" - <<'PY' 2>&1 | tee "$RUNNER_TEMP/autoskill-linux-browser-validation.log"
+          import os
+          import subprocess
+          import sys
+          import unittest
+          from pathlib import Path
+
+          for name in ("AUTOSKILL_CHROMIUM", "AUTOSKILL_CHROMEDRIVER", "AUTOSKILL_AGENT_BROWSER"):
+              executable = Path(os.environ[name])
+              if not executable.is_file() or not os.access(executable, os.X_OK):
+                  raise SystemExit("Required bundled runtime missing: " + name)
+              subprocess.run([str(executable), "--version"], check=True, timeout=15)
+          suite = unittest.TestSuite()
+          for pattern in ("test_knowledge_browser.py", "test_native_evidence.py"):
+              if not (Path("tests") / pattern).is_file():
+                  raise SystemExit("Missing release validation suite: " + pattern)
+              found = unittest.defaultTestLoader.discover("tests", pattern=pattern)
+              if not found.countTestCases():
+                  raise SystemExit("Empty release validation suite: " + pattern)
+              suite.addTests(found)
+          suite.addTests(unittest.defaultTestLoader.loadTestsFromName(
+              "test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests."
+              "test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay"))
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if result.skipped:
+              raise SystemExit("Release browser validation must execute, not skip")
+          sys.exit(0 if result.wasSuccessful() else 1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.arch == 'x64'
+        with:
+          name: linux-x64-browser-validation
+          path: ${{ runner.temp }}/autoskill-linux-browser-validation.log
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: bundle-linux-${{ matrix.arch }}

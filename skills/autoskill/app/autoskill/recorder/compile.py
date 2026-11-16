@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 
-from .. import builder, projects, secrets, sessions
+from .. import builder, candidate_publication, execution_inputs, projects, secrets
 from ..replay import ir
 from . import har as harlib
 from . import traffic
@@ -90,11 +90,12 @@ class Compiler:
         self.notes: list[str] = []
         self.uncompiled: list[dict] = []
         self.state_variables: dict = dict(self.auth.get("state_variables", {}))
-        wanted = set(rec.get("secrets", []))
-        for case in projects.cases(project_id):
-            wanted |= secrets.references(case)
+        wanted = set(secrets.names()) | set(rec.get("secrets", []))
+        self.configured_credentials = wanted - candidate_publication.unresolved_credentials()
         self.secret_names = {secrets.get_secret(n): n for n in sorted(wanted) if secrets.get_secret(n)}
-        self.next_number = int(projects.next_case_id(project_id, "api")[len("TC-API-"):])
+        self.credential_sources: list[dict] = []
+        self.unresolved: set[str] = set()
+        self.next_number = int(candidate_publication.next_case_id(project_id, "api")[len("TC-API-"):])
         self.rand = rec.get("rand") or ""
 
     def template(self, value):
@@ -172,13 +173,19 @@ class Compiler:
         if isinstance(value, bool) or value is None or value == "":
             return value
         if isinstance(value, str) and value in self.secret_names:
-            return "${ENV:" + self.secret_names[value] + "}"
+            name = self.secret_names[value]
+            self.credential_sources.append({"source": "configured_credential" if name in self.configured_credentials else "recorded_credential", "name": name})
+            if name not in self.configured_credentials:
+                self.unresolved.add(name)
+            return "${ENV:" + name + "}"
         found = self.variable(str(value), key, resource)
         if found:
             deps.add(found[1])
+            if harlib.SENSITIVE.search(key):
+                self.credential_sources.append({"source": "api_extract", "case_id": found[1], "variable": found[0]})
             return "{{" + found[0] + "}}"
         if isinstance(value, str) and harlib.SENSITIVE.search(key):
-            return self.secret(value, key)
+            return self.recorded_credential(value, key)
         return self.template(value)
 
     def credential(self, token: str, header: str, deps: set) -> str:
@@ -187,21 +194,36 @@ class Compiler:
         if found:
             deps.add(found[1])
             self.auth_provider = found[1]
+            self.credential_sources.append({"source": "api_extract", "case_id": found[1], "variable": found[0]})
             return "{{" + found[0] + "}}"
+        known = self.secret_names.get(token)
+        if known in self.configured_credentials:
+            self.credential_sources.append({"source": "configured_credential", "name": known})
+            return "${ENV:" + known + "}"
         login = next((c for c in projects.cases(self.pid) if c["id"] == self.auth.get("api_case")), None)
         provided = list(login.get("extensions", {}).get("extract", {})) if login else []
         if provided:
             deps.add(login["id"])
-            return "{{" + next((n for n in provided if "token" in n.lower()), provided[0]) + "}}"
+            variable = next((n for n in provided if "token" in n.lower()), provided[0])
+            self.credential_sources.append({"source": "api_extract", "case_id": login["id"], "variable": variable})
+            return "{{" + variable + "}}"
         for origin in self.state.get("origins", []):
             for item in origin.get("localStorage", []):
                 if item["value"] == token and self.login_ui_case:
                     name = _identifier(item["name"])
                     self.state_variables[name] = {"from": "localStorage", "name": item["name"]}
                     deps.add(self.login_ui_case)
+                    self.credential_sources.append({"source": "browser_state", "case_id": self.login_ui_case, "variable": name})
                     return "{{" + name + "}}"
-        self.notes.append(f"请求头 {header} 的值已保存为本机凭据；如果它会过期，接口回放会失败，需人工确认登录方式")
-        return self.secret(token, header)
+        self.notes.append(f"请求头 {header} 只有录制时的凭据，尚无独立来源；请补充 API 登录或明确的运行输入来源")
+        return self.recorded_credential(token, header)
+
+    def recorded_credential(self, value: str, hint: str) -> str:
+        reference = self.secret(value, hint)
+        name = self.secret_names[value]
+        self.unresolved.add(name)
+        self.credential_sources.append({"source": "recorded_credential", "name": name})
+        return reference
 
     def signature(self, case: dict) -> str:
         content_type = next((value for name, value in case.get("headers", {}).items() if name.lower() == "content-type"), None)
@@ -210,10 +232,45 @@ class Compiler:
         parts = [case["method"], case["path"], case.get("params", {}), case.get("json"), case.get("form"), content_type.lower().strip()]
         return json.dumps(parts, sort_keys=True, ensure_ascii=False)
 
+    def _request_cookies(self, value: str, deps: set) -> str:
+        """Keep jar dependencies and explicit references without guessing a token producer."""
+        explicit = []
+        parsed = harlib.cookies(value)
+        if value.strip() and not parsed:
+            self.notes.append("Cookie 请求头无法按名称解析，需补充独立来源后才能冷启动验证")
+            return self.recorded_credential(value, "cookie")
+        for name, token in parsed.items():
+            if provider := self.cookie_sources.get((name, token)):
+                deps.add(provider)
+                continue
+            hits = self.pool.get(token, [])
+            matching = [hit for hit in hits if _field_name(hit[2]) == _field_name(name)]
+            hits = matching or hits
+            if len(hits) == 1:
+                variable, provider = self._extract(hits[0])
+                deps.add(provider)
+                self.auth_provider = provider
+                self.credential_sources.append({"source": "api_extract", "case_id": provider, "variable": variable})
+                reference = "{{" + variable + "}}"
+            elif self.secret_names.get(token) in self.configured_credentials:
+                credential = self.secret_names[token]
+                self.credential_sources.append({"source": "configured_credential", "name": credential})
+                reference = "${ENV:" + credential + "}"
+            else:
+                reason = "对应多个响应来源，无法唯一关联" if hits else "没有捕获到独立的登录或响应来源"
+                self.notes.append(f"Cookie {name} {reason}；需补充来源后才能独立冷启动验证")
+                reference = self.recorded_credential(token, "cookie_" + name)
+            explicit.append(name + "=" + reference)
+        return "; ".join(explicit)
+
     def _business_headers(self, entry: dict, deps: set) -> dict:
         """Normalize captured headers and record credential dependencies in order."""
         headers = {}
         for name, value in entry["headers"].items():
+            if name.lower() == "cookie":
+                if cookies := self._request_cookies(value, deps):
+                    headers["Cookie"] = cookies
+                continue
             if DROP_HEADERS.match(name):
                 continue
             shown = "-".join(part.capitalize() for part in name.split("-"))
@@ -269,6 +326,8 @@ class Compiler:
             if self.rec.get("as_login") and self.login_ui_case and self.is_login(entry):
                 self.remember_cookies(entry, self.login_ui_case)
             return None
+        self.credential_sources = []
+        self.unresolved = set()
         deps: set = set()
         segments = []
         path = entry["path"].split("/")
@@ -310,6 +369,13 @@ class Compiler:
         else:
             self.next_number += 1
             outcome = "new"
+        execution = case["extensions"].setdefault("execution", {})
+        if "Cookie" in headers:
+            execution["merge_cookies"] = True
+        execution["credential_sources"] = list(self.credential_sources)
+        unresolved = sorted(self.unresolved & secrets.references(case))
+        if unresolved:
+            execution["unresolved_recorded_credentials"] = unresolved
         self.cases.append(case)
         self.remember_cookies(entry, case["id"])
         for pointer, key, value in harlib.correlatable(entry["response"]):
@@ -343,12 +409,23 @@ def _protocol_observations(entries: list[dict]) -> list[dict]:
     return observations
 
 
+def _candidate_versions(project_id: str, candidates: list[dict]) -> None:
+    current = {case["id"]: case for case in projects.cases(project_id, active_only=False)}
+    for case in candidates:
+        if not case.get("requirement_ids"):
+            case["requirement_ids"] = ["REQ-RECORDED"]
+        if case["kind"] == "api":
+            case["extensions"].setdefault("execution", {})["api_only"] = True
+        if case["id"] in current and case != current[case["id"]]:
+            case["revision"] = current[case["id"]]["revision"] + 1
+
+
 def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str, module: str = "",
           category: str = "") -> dict:
-    """Compile and save. Returns a summary for the agent; nothing secret is in it."""
+    """Compile private candidates; publication requires their actual replay evidence."""
     auth = projects.auth(project_id)
     actions, checks = split_steps(rec["steps"])
-    ui_id = projects.next_case_id(project_id, "ui")
+    ui_id = candidate_publication.next_case_id(project_id, "ui")
     login_ui = ui_id if rec.get("as_login") else auth.get("ui_case") if rec.get("used_login") else None
     automation = {"start_url": rec["start_url"], "actions": actions, "assertions": checks}
     ui_case = builder.ui_case(ui_id, title, automation, module=module or ("登录" if rec.get("as_login") else ""),
@@ -393,11 +470,13 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
         compiler.auth["state_variables"] = compiler.state_variables
     if not any("assertion" in step for step in rec["steps"]):
         compiler.notes.append("没有记录断言：这条 UI 用例只验证动作可以完成；建议用 autoskill check 补充期望")
-    projects.save_cases(project_id, [ui_case, *compiler.cases])
-    projects.set_auth(project_id, compiler.auth)
-    if rec.get("as_login") and state:
-        sessions.save(project_id, ui=state)
+    candidates = [ui_case, *compiler.cases]
+    _candidate_versions(project_id, candidates)
+    source = {"kind": "recording", "session_id": rec.get("session_id"), "started_at": rec.get("started_at"),
+              "rand": rec.get("rand"), "steps_hash": execution_inputs.content_hash(rec["steps"])}
     return {
+        "candidate_id": candidate_publication.identity(project_id, source), "candidates": candidates,
+        "candidate_auth": compiler.auth, "candidate_source": source, "published_ids": [],
         "ui_case": {"id": ui_id, "title": title, "steps": sum("action" in s for s in rec["steps"]) + 1,
                     "assertions": sum("assertion" in s for s in rec["steps"]),
                     "verification": ui_case["extensions"]["verification"],

@@ -81,6 +81,13 @@ class WorkflowTests(unittest.TestCase):
         return workflow.submit(identity, task["id"], lease_token=task["lease_token"], attempt_id=task["attempt_id"],
                                idempotency_key=key or self.key(), payload=payload)
 
+    def diagnosis_payload(self, identity, task, disposition, reason):
+        context = workflow.diagnostic_context(identity)
+        self.assertEqual(context["manifest_hash"], task["manifest_hash"])
+        return {"manifest_hash": context["manifest_hash"], "diagnoses": [
+            {"target_id": target["target_id"], "disposition": disposition, "reason": reason,
+             "evidence_refs": target["evidence_refs"]} for target in context["target_contexts"]]}
+
     def to_materialize(self, identity, expected="high", rules=None):
         requirements = self.claim(identity)
         self.assertEqual(requirements["phase"], "requirements")
@@ -97,6 +104,7 @@ class WorkflowTests(unittest.TestCase):
         identity = self.create(validation={"repetitions": repetitions})
         task = self.to_materialize(identity, expected)
         case = builder.api_case("TC-API-001", "优先级", "GET", "/priority", {"status": 200, "json_equals": {"/priority": expected}})
+        case["extensions"]["execution"] = {"api_only": True}
         self.submit(identity, task, {"cases": [case], "bindings": {"sc1": [case["id"]]}})
         self.assertEqual(projects.cases(self.project), [])
         self.assertIsNone(self.claim(identity))
@@ -104,15 +112,16 @@ class WorkflowTests(unittest.TestCase):
         return identity, case, execution["run_id"]
 
     def test_real_http_failure_is_complete_work_without_changing_oracle(self):
-        identity, case, run_id = self.queue_candidate()
+        identity, _case, run_id = self.queue_candidate()
         before = AnswerHandler.calls
         result = runner.execute(run_id)
         self.assertEqual(result["status"], "Fail")
         diagnosis = self.claim(identity)
         self.assertEqual(diagnosis["phase"], "diagnose")
         self.assertEqual(diagnosis["context"]["execution"]["conclusion"], "violated")
-        self.assertEqual(projects.case(self.project, case["id"]), case)
-        self.submit(identity, diagnosis, {"disposition": "business_defect", "reason": "预期 high，真实 HTTP 响应 medium", "evidence_refs": [run_id]})
+        self.assertEqual(projects.cases(self.project), [])
+        self.assertEqual(diagnosis["context"]["publication"], "rejected")
+        self.submit(identity, diagnosis, self.diagnosis_payload(identity, diagnosis, "business_defect", "预期 high，真实 HTTP 响应 medium"))
         knowledge = self.claim(identity)
         self.submit(identity, knowledge, {"entries": [{"id": "k1", "text": "优先级接口存在缺陷", "evidence_refs": [run_id]}]})
         final = workflow.status(identity)
@@ -161,9 +170,11 @@ class WorkflowTests(unittest.TestCase):
 
     def test_failed_maintenance_candidate_never_replaces_live_case(self):
         identity, original, first_run = self.queue_candidate()
+        # Existing manually saved cases remain available even when this generation fails.
+        projects.save_cases(self.project, [original])
         runner.execute(first_run)
         diagnosis = self.claim(identity)
-        self.submit(identity, diagnosis, {"disposition": "repair", "reason": "尝试恢复执行绑定"})
+        self.submit(identity, diagnosis, self.diagnosis_payload(identity, diagnosis, "repair", "尝试恢复执行绑定"))
         maintain = self.claim(identity)
         self.assertEqual(maintain["phase"], "maintain")
         candidate = {**original, "revision": original["revision"] + 1}
@@ -179,7 +190,7 @@ class WorkflowTests(unittest.TestCase):
         identity, original, first_run = self.queue_candidate()
         runner.execute(first_run)
         diagnosis = self.claim(identity)
-        self.submit(identity, diagnosis, {"disposition": "business_defect", "reason": "high 与 medium 不符"})
+        self.submit(identity, diagnosis, self.diagnosis_payload(identity, diagnosis, "business_defect", "high 与 medium 不符"))
         self.submit(identity, self.claim(identity), {"entries": [{"id": "k1", "text": "旧来源失败已保留"}]})
         before = workflow.status(identity)
         change = workflow.revise(identity, {"sources": [{"id": "s1", "text": "新需求明确优先级为 medium"}]},
@@ -307,6 +318,32 @@ class WorkflowTests(unittest.TestCase):
         restored = self.submit(identity, task, payload, key)
         self.assertTrue(restored["accepted"])
         self.assertEqual(sum(item["phase"] == "design" for item in workflow.status(identity)["items"]), 1)
+
+    def test_revision_title_is_recovered_with_its_published_definition(self):
+        identity = self.create()
+        previous = workflow.read(identity)
+        original_cycle = workflow.status(identity)["cycle_id"]
+        payload = {"title": "恢复后的新周期标题", "sources": [{"id": "s1", "text": "新来源要求优先级为 medium"}]}
+        key = self.key()
+        publish = domain.publish
+
+        def interrupted(*args, **kwargs):
+            publish(*args, **kwargs)
+            raise OSError("crash after revised HEAD")
+
+        with patch.object(domain, "publish", side_effect=interrupted), self.assertRaises(OSError):
+            workflow.revise(identity, payload, idempotency_key=key, expected_hash=previous["definition_hash"])
+        self.assertEqual(workflow.read(identity)["document"]["title"], payload["title"])
+        self.assertEqual(workflow.status(identity)["title"], previous["document"]["title"])
+        self.assertEqual(workflow.reconcile_pending()["errors"], [])
+        recovered = workflow.status(identity)
+        self.assertEqual(recovered["title"], payload["title"])
+        self.assertNotEqual(recovered["cycle_id"], original_cycle)
+        repeated = workflow.revise(identity, payload, idempotency_key=key, expected_hash=previous["definition_hash"])
+        self.assertEqual(repeated["title"], payload["title"])
+        self.assertEqual(repeated["cycle_id"], recovered["cycle_id"])
+        self.assertEqual(len(recovered["items"]), 1)
+        self.assertEqual(workflow.read(identity, head=previous["head"]), previous)
 
     def test_definition_change_during_host_work_rejects_stale_proposal(self):
         identity = self.create()

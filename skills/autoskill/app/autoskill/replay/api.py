@@ -110,6 +110,24 @@ def new_client(config: dict, state: dict | None = None):
     return client
 
 
+def _merge_cookies(client, url: str, sent: dict) -> None:
+    """Generated mixed-cookie traffic keeps URL-scoped jar cookies and explicit references."""
+    headers = sent.get("headers", {})
+    name = next((key for key in headers if key.lower() == "cookie"), None)
+    if name is None:
+        return
+    jar = client.build_request("GET", url).headers.get("cookie", "")
+    if not jar:
+        return
+    values = {}
+    for text in (jar, headers[name]):
+        for pair in text.split(";"):
+            key, separator, value = pair.strip().partition("=")
+            if separator:
+                values[key] = value
+    headers[name] = "; ".join(key + "=" + value for key, value in values.items())
+
+
 def run_case(client, case: dict, config: dict, variables: dict) -> dict:
     """Send one API case and judge it. `variables` is updated with anything the case extracts."""
     import httpx
@@ -124,12 +142,14 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
         sent = secrets.resolve({k: filled[k] for k in ("headers", "params", "json", "form") if k in filled})
         if "form" in sent:
             sent["data"] = sent.pop("form")
+        if case.get("extensions", {}).get("execution", {}).get("merge_cookies"):
+            _merge_cookies(client, url, sent)
         # Expected values share the request's variable contract; unresolved values are not literal business expectations.
         expected = fill(case["assertions"].get("json_equals", {}), variables)
         if expected:
             case = {**case, "assertions": {**case["assertions"], "json_equals": expected}}
     except KeyError as missing:
-        outcome.update(reason=f"缺少变量 {{{{{missing.args[0]}}}}}：提供它的前置用例没有成功", category="missing_variable")
+        outcome.update(reason=f"缺少变量 {{{{{missing.args[0]}}}}}：请核对本次运行的 --inputs 参数及前置用例的提取结果", category="missing_variable")
         return outcome
     except PermissionError as error:
         outcome.update(reason=str(error), category="unauthorized_origin" if "授权范围" in str(error) else "not_permitted")

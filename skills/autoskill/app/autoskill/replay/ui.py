@@ -29,6 +29,13 @@ class StepError(Exception):
         self.category = category
 
 
+def check_cancel(driver) -> None:
+    """Managed runs supply a read-only cancellation hook; standalone drivers do not need one."""
+    requested = getattr(driver, "cancel_requested", None)
+    if requested and requested():
+        raise StepError("cancelled", "运行已取消，未完成的检查不作为业务失败")
+
+
 def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     """Return (locator, index) of the first candidate that matches; index > 0 means a fallback was used."""
     candidates = ir.expand(ir.locators(step))
@@ -39,6 +46,7 @@ def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     start = time.monotonic()
     last_error = None
     while True:
+        check_cancel(driver)
         elapsed = time.monotonic() - start
         pool = candidates[:1] if need and elapsed < PRIMARY_GRACE else candidates
         for index, locator in enumerate(pool):
@@ -117,7 +125,9 @@ def _read_assertion(driver, step: dict) -> tuple[bool, object, int]:
         locator, selected = choose_locator(driver, step, 0, need=False)
         passed, actual = evaluate(driver, step, locator)
         return passed, actual, selected
-    except Exception as error:  # noqa: BLE001  # Retry transient engine reads, retaining a diagnostic on timeout.
+    except Exception as error:  # Retry transient engine reads, retaining a diagnostic on timeout.
+        if isinstance(error, StepError) and error.category == "cancelled":
+            raise
         return False, "读取失败：" + (str(error) if isinstance(error, StepError) else type(error).__name__), 0
 
 
@@ -129,7 +139,9 @@ def _poll_assertion(driver, step: dict, timeout: float) -> dict:
     source = step.get("transition_from")
     phase, since, fallback, source_actual = "transition_from" if source else "postcondition", None, 0, None
     while True:
+        check_cancel(driver)
         passed, actual, selected = _read_assertion(driver, source if phase == "transition_from" else step)
+        check_cancel(driver)
         fallback = max(fallback, selected)
         now = time.monotonic()
         if phase == "transition_from":
@@ -178,6 +190,7 @@ def navigate(action, *args) -> None:
 
 def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float) -> bool:
     """Run one action. Returns True when a fallback locator had to be used."""
+    check_cancel(driver)
     op = step["action"]
     timeout = float(step.get("timeout_seconds", timeout))
     if op.startswith("tab_"):
@@ -210,6 +223,7 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
         wanted = op == "wait_visible"
         deadline = time.monotonic() + timeout
         while True:
+            check_cancel(driver)
             locator, selected = choose_locator(driver, step, 0, need=False)
             fallback = max(fallback, selected)
             visible = driver.count(locator) > locator.get("nth", 0) and bool(driver.read(locator, "visible"))
@@ -223,8 +237,12 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
     return bool(fallback)
 
 
-def classify(error: Exception) -> tuple[str, str]:
+def classify(error: Exception, driver=None) -> tuple[str, str]:
     """Map any exception to (category, message a tester can act on)."""
+    try:
+        check_cancel(driver)
+    except StepError as cancelled:
+        return cancelled.category, str(cancelled)
     if isinstance(error, StepError):
         return error.category, str(error)
     if isinstance(error, PermissionError):
@@ -263,6 +281,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
     started = time.monotonic()
     acted = False
     try:
+        check_cancel(driver)
         ir.validate(automation)
         url = ir.absolute_url(automation["start_url"], base_url)
         ir.check_origin(url, allowed)
@@ -270,9 +289,11 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
         steps.append(row)
         clock = time.monotonic()
         navigate(driver.goto, url)
+        check_cancel(driver)
         row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
         acted = True
         for index, step in enumerate(automation.get("actions", []), 1):
+            check_cancel(driver)
             row = {"index": index, "text": ir.describe(step), "status": "running", "ms": 0}
             steps.append(row)
             clock = time.monotonic()
@@ -290,6 +311,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                     if perform(driver, step, base_url, allowed, timeout):
                         row["fallback"] = True
                         outcome["fallbacks"] += 1
+                check_cancel(driver)
                 if step.get("tabs"):
                     change = {**step["tabs"], "opened": [
                         {**item, "url": ir.absolute_url(item["url"], base_url)} if item.get("url") else item
@@ -315,13 +337,15 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             actual = f"{done} 个步骤完成，{len(assertions)} 条断言通过" if assertions else f"{done} 个步骤完成；未声明业务断言"
             outcome.update(status="Pass", actual=actual)
     except Exception as error:  # noqa: BLE001  # Every engine failure must become the existing structured case result.
-        category, message = classify(error)
+        category, message = classify(error, driver)
         if steps and steps[-1]["status"] == "running":
-            steps[-1].update(status="failed", error=message)
+            steps[-1].update(status="cancelled" if category == "cancelled" else "failed", error=message)
         if any(not item["passed"] for item in assertions):
             outcome.update(status="Fail", actual="页面结果与预期不一致，后续执行中断", category=ASSERTION,
                            reason="；".join(f'{a["name"]}（实际：{a["actual"]}）' for a in assertions if not a["passed"])[:500],
                            execution_blocker={"category": category, "reason": message})
+        elif category == "cancelled":
+            outcome.update(status="Cancelled", reason=message, category=category)
         elif acted and category in (LOCATOR, TIMEOUT, ENVIRONMENT):
             assertions.append({"name": "全部动作可以完成", "passed": False, "expected": True, "actual": message})
             outcome.update(status="Fail", actual="动作未能完成", reason=message, category=category)
@@ -339,7 +363,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
     independent = any(a.get("oracle", {}).get("source") != "observation" for a in assertions if "oracle" in a)
     verified = declared and independent
     outcome.update(verification="verified" if verified else "unverified",
-                   business_status=outcome["status"] if verified else "Unverified",
+                   business_status=outcome["status"] if verified and outcome["status"] in ("Pass", "Fail") else "Unverified",
                    steps=steps, assertions=assertions, screenshots=evidence,
                    duration_ms=round((time.monotonic() - started) * 1000))
     return outcome

@@ -25,6 +25,8 @@ let token = 0;
 let lastKey = '';
 let lastScope = '';
 let refreshingFrame = null;
+let initialRevision = null;
+let snapshotStarted = false;
 
 function projectSignature() {
   return JSON.stringify(state.projects);
@@ -33,8 +35,8 @@ function projectSignature() {
 function refreshFrame() {
   if (refreshingFrame) return refreshingFrame;
   const before = projectSignature();
-  refreshingFrame = refreshShell().then(async () => {
-    if (state.online && projectSignature() !== before && ['cases', 'dashboard'].includes(route().page)) await show({ quiet: true });
+  refreshingFrame = refreshShell(async () => {
+    if (projectSignature() !== before && ['cases', 'dashboard'].includes(route().page)) await show({ quiet: true });
   }).finally(() => { refreshingFrame = null; });
   return refreshingFrame;
 }
@@ -45,7 +47,7 @@ async function show({ quiet = false } = {}) {
   const key = page + '/' + (id || '');
   const fresh = key !== lastKey;
   const currentScope = JSON.stringify(scope());
-  if (fresh) renderSide();
+  if (fresh || currentScope !== lastScope) renderSide();
   if (fresh || currentScope !== lastScope) renderScope();
   if (!PAGES[page]) { location.hash = '#/dashboard'; return; }
   if (!view.childElementCount) {
@@ -56,6 +58,7 @@ async function show({ quiet = false } = {}) {
     const module = await PAGES[page]();
     if (mine !== token) return;
     const holder = document.createElement('div');
+    snapshotStarted = true;
     await module.render(holder, { id, quiet });
     if (mine !== token) return;
     if (!fresh && module.commit) module.commit(view, holder, { id, quiet });
@@ -73,18 +76,21 @@ async function show({ quiet = false } = {}) {
 }
 
 applyTheme(preferredTheme());
-onPreferences(() => { applyTheme(preferredTheme()); renderSide(); });
+onPreferences(() => { applyTheme(preferredTheme()); renderSide(); renderScope(); });
 if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embed = 'true';
 if (!location.hash) location.hash = '#/dashboard';
 
-try { await loadPreferences(); } catch (error) { toast('偏好没能加载：' + error.message + '。刷新页面后重试。', { bad: true }); }
-// Read before the initial data so writes during rendering still trigger the next check.
-const initialRevision = await api('/state-revision').then((value) => value.revision).catch(() => null);
-await refreshShell();
+// Metadata never gates the first view or its navigation.
 onChange(() => show());
-await show();
+void api('/state-revision').then((value) => {
+  if (!snapshotStarted) initialRevision = value.revision;
+}).catch(() => undefined);
+const firstView = show();
+void loadPreferences().catch((error) => toast('偏好没能加载：' + error.message + '。刷新页面后重试。', { bad: true }));
+void refreshFrame();
+await firstView;
 
-// Revision checks also observe external tasks that finish entirely between two polls.
+// A late baseline stays unknown, forcing a fresh snapshot for writes during startup.
 const polling = revisionPoll({
   initialRevision,
   read: () => api('/state-revision'),

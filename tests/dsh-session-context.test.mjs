@@ -46,7 +46,7 @@ test('host context is read-only, explicitly selected and isolated between real D
   assert.equal(report.runs.items[0].id, kernel.run.id);
   assert.equal(report.runs.items[0].status, 'Fail');
   assert.equal(report.reports[0].receipt_status, 'ready');
-  assert.equal(report.reports[0].verification, 'not_checked');
+  assert.equal(report.reports[0].verification, 'verified');
   assert.equal((await service.context(ownerA)).status, 'selection_required', 'explicit reads must not change selection');
   assert.deepEqual(await kernel.snapshot(), before, 'reads must add no DB rows, lease changes or report files');
 });

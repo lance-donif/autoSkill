@@ -119,15 +119,16 @@ class RecorderContextTests(unittest.TestCase):
         self.assertEqual(rec["steps"][-2]["locators"][0]["by"], "xpath")
         session.browser(["context", "top"])
         self.assertEqual(session.check("value", "#name", "主文档")["status"], "Pass")
-        summary = session.stop("在嵌套表单填写姓名并保存")
+        with patch("autoskill.server.jobs.ensure_worker"):
+            summary = session.stop("在嵌套表单填写姓名并保存")
         case_id = summary["ui_case"]["id"]
-        case = next(item for item in projects.cases(self.project) if item["id"] == case_id)
+        case = next(item for item in summary["candidates"] if item["id"] == case_id)
         self.assertIn("context", json.dumps(case))
         for engine in ("playwright", "selenium"):
             if engine == "selenium" and not paths.chromedriver():
                 continue
             with self.subTest(engine=engine):
-                run = runner.create(self.project, [case_id], engine)
+                run = {"id": summary["run_id"]} if engine == "playwright" else runner.create(self.project, [case_id], engine)
                 completed = runner.execute(run["id"])
                 self.assertEqual(completed["status"], "Pass", completed)
 

@@ -1,9 +1,11 @@
-"""The native dashboard imports real assets, runs them, and saves native/host schedules."""
+"""The dashboard inspects host-created native assets and retains reports, reruns and schedules."""
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
 
+from dashboard_revision_fixture import change_project_and_wait_for_ui
 from playwright.sync_api import expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -25,25 +27,25 @@ class NativeDashboardTests(unittest.TestCase):
         self.source = self.folder / "test_native_smoke.py"
         self.source.write_text("import unittest\n\nclass Smoke(unittest.TestCase):\n    def test_expected(self):\n        self.assertEqual(2 + 2, 4)\n", encoding="utf-8")
 
-    def test_import_run_report_and_bound_evidence_download(self):
-        self.page.goto(self.origin + "/#/native-assets")
+    def test_inspect_host_asset_report_and_bound_evidence_download(self):
+        asset = native_assets.import_asset(self.project_id, str(self.source), "selenium-unittest", name="Native smoke")
+        started = self.client.post("/api/native-runs", json={"project_id": self.project_id, "asset_id": asset["id"]})
+        self.assertEqual(started.status_code, 200, started.text)
+        prepared = started.json()
+        self.page.goto(self.origin + "/#/native-assets/" + asset["id"] + "?project=" + self.project_id)
         expect(self.page.locator("#view h1")).to_have_text("原生资产")
-        self.page.get_by_role("button", name="导入原生资产", exact=True).first.click()
-        dialog = self.page.get_by_role("dialog", name="导入原生资产", exact=True)
-        dialog.get_by_label("名称", exact=True).fill("Native smoke")
-        dialog.get_by_label("来源目录或文件", exact=True).fill(str(self.source))
-        dialog.get_by_label("执行器", exact=True).select_option("selenium-unittest")
-        dialog.get_by_role("button", name="导入", exact=True).click()
-        expect(self.page.locator("#view h2")).to_have_text("Native smoke")
         expect(self.page.get_by_text("test_native_smoke.py", exact=True)).to_be_visible()
-        self.page.get_by_role("button", name="运行资产", exact=True).click()
-        run_dialog = self.page.get_by_role("dialog", name="运行原生资产", exact=True)
-        run_dialog.get_by_label("运行参数（JSON）", exact=True).fill("[]")
-        run_dialog.get_by_role("button", name="开始运行", exact=True).click()
-        expect(run_dialog.get_by_role("alert")).to_contain_text("JSON 对象")
-        run_dialog.get_by_label("运行参数（JSON）", exact=True).fill("{}")
-        run_dialog.get_by_role("button", name="开始运行", exact=True).click()
-        expect(self.page.locator("#view h1")).to_have_text("原生执行报告")
+        expect(self.page.get_by_text("Native smoke", exact=True)).to_be_visible()
+        expect(self.page.get_by_role("button", name="导入原生资产", exact=True)).to_have_count(0)
+        expect(self.page.get_by_role("button", name="运行资产", exact=True)).to_have_count(0)
+        expect(self.page.locator("#view")).to_contain_text("DSH 对话")
+        expect(self.page.locator("#view")).to_contain_text(asset["asset_version"])
+        self.page.get_by_role("link", name="查看项目执行记录", exact=True).click()
+        expect(self.page.locator("#view h1")).to_have_text("执行记录")
+        self.page.locator('#view a[href^="#/runs/' + prepared["id"] + '"]').click()
+        expect(self.page.locator("nav a[aria-current='page']")).to_have_attribute("data-page", "runs")
+        expect(self.page.get_by_role("button", name="筛选项目", exact=True)).to_have_count(0)
+        expect(self.page.locator("#view h1")).to_have_text("执行报告")
         summary = self.page.locator("#view section").first
         expect(summary.locator(".status").first).to_have_text("已结束", timeout=30000)
         expect(summary.locator(".state-details")).to_contain_text("综合：通过", timeout=30000)
@@ -57,11 +59,16 @@ class NativeDashboardTests(unittest.TestCase):
         self.assertEqual(data["status"], "Pass")
         self.assertEqual(len(data["cases"]), 1)
         self.page.get_by_role("button", name="列出报告与证据附件", exact=True).click()
-        expect(self.page.get_by_role("link", name="unittest.json", exact=True)).to_be_visible()
+        attachment = self.page.get_by_role("link", name="unittest.json", exact=True)
+        expect(attachment).to_be_visible()
+        attachment.focus()
+        change_project_and_wait_for_ui(self, self.project_id)
+        expect(attachment).to_be_visible()
+        expect(attachment).to_be_focused()
         first = self.page.url
         self.page.get_by_role("button", name="按原版本再次运行", exact=True).click()
         expect(self.page).not_to_have_url(first)
-        expect(self.page.locator("#view h1")).to_have_text("原生执行报告")
+        expect(self.page.locator("#view h1")).to_have_text("执行报告")
 
     def test_native_and_maintenance_targets_are_saved_and_delivery_is_not_a_fake_run(self):
         asset = native_assets.import_asset(self.project_id, str(self.source), "selenium-unittest", name="Scheduled native")
@@ -77,7 +84,7 @@ class NativeDashboardTests(unittest.TestCase):
         native_row = self.page.locator("tr").filter(has_text="Native periodic")
         expect(native_row).to_contain_text("原生资产")
         native_row.get_by_role("button", name="立即运行", exact=True).click()
-        expect(self.page.locator("#view h1")).to_have_text("原生执行报告")
+        expect(self.page.locator("#view h1")).to_have_text("执行报告")
         self.page.goto(self.origin + "/#/schedules")
         self.page.get_by_role("button", name="新建定时任务", exact=True).click()
         dialog = self.page.get_by_role("dialog", name="新建定时任务", exact=True)
@@ -94,6 +101,48 @@ class NativeDashboardTests(unittest.TestCase):
         self.assertEqual(delivery.value.json()["status"], "awaiting_host")
         expect(self.page.locator(".toast").last).to_contain_text("等待宿主接续")
         expect(self.page.locator("#view h1")).to_have_text("定时任务")
+
+    def test_native_long_results_fit_real_iframe_and_keep_reading_state_on_refresh(self):
+        long_name = "test_000_" + "unbroken_order_identifier_" * 8
+        methods = [f"    def {long_name}(self):\n        self.assertEqual('actual', 'expected')\n"]
+        methods.extend(f"    def test_{number:03}(self):\n        self.assertEqual(2 + 2, 4)\n" for number in range(1, 70))
+        self.source.write_text("import unittest\n\nclass LongResults(unittest.TestCase):\n" + "\n".join(methods), encoding="utf-8")
+        asset = native_assets.import_asset(self.project_id, str(self.source), "selenium-unittest", name="订单结果与完整证据")
+        response = self.client.post("/api/native-runs", json={"project_id": self.project_id, "asset_id": asset["id"]})
+        self.assertEqual(response.status_code, 200, response.text)
+        run_id = response.json()["id"]
+        self.page.goto(self.origin + "/api/status")
+        self.page.set_viewport_size({"width": 700, "height": 700})
+        destination = self.origin + "/?embed=1#/native-runs/" + run_id
+        self.page.set_content('<iframe name="host" style="width:390px;height:500px;border:0" src="' + destination + '"></iframe>')
+        reader = self.page.frame(name="host")
+        expect(reader.locator("#view h1")).to_have_text("执行报告")
+        expect(reader.locator("#view section").first.locator(".status").first).to_have_text("已结束", timeout=30000)
+        failing = reader.locator(".result").filter(has_text=long_name)
+        failing.locator(".result-head").click()
+        complete = failing.locator("summary").filter(has_text="完整用例结果")
+        expect(complete).to_be_visible()
+        complete.click()
+        complete.press("Tab")
+        self.page.keyboard.press("Shift+Tab")
+        expect(complete).to_be_focused()
+        position = reader.evaluate("scrollY")
+        with self.page.expect_response(lambda reply: reply.url.split('?')[0] == self.origin + '/api/native-runs/' + run_id):
+            updated = self.client.patch('/api/projects/' + self.project_id, json={'category': '来自宿主的真实更新'})
+            self.assertEqual(updated.status_code, 200, updated.text)
+        expect(reader.locator('#view')).not_to_have_attribute('aria-busy', 'true')
+        expect(complete).to_be_focused()
+        self.assertTrue(complete.locator('..').evaluate('node => node.open'))
+        self.assertEqual(reader.evaluate("scrollY"), position)
+        with self.page.expect_download() as event:
+            reader.get_by_role("link", name="下载原生汇总 JSON", exact=True).click()
+        self.assertEqual(len(json.loads(Path(event.value.path()).read_text(encoding="utf-8"))["cases"]), 70)
+        expect(reader.get_by_text("文件已取回，浏览器下载已开始；请在下载列表查看。", exact=True)).to_be_visible()
+        self.assertEqual(reader.evaluate("scrollX"), 0)
+        geometry = reader.evaluate("({width:innerWidth, document:document.documentElement.scrollWidth})")
+        self.assertLessEqual(geometry['document'], geometry['width'], geometry)
+        if output := os.environ.get("AUTOSKILL_VALIDATION_OUTPUT"):
+            self.page.screenshot(path=str(Path(output) / "native-long-iframe390.png"), full_page=True)
 
 
 if __name__ == "__main__":

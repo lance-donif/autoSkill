@@ -133,6 +133,10 @@ class DataDashboardTests(unittest.TestCase):
 
     def test_preferences_are_saved_in_data_and_work_without_browser_storage(self):
         server = self.server()
+        initial = server.api('/settings')
+        self.assertFalse(initial['dashboard_defaults']['headed'])
+        self.assertNotIn('headed', initial['dashboard'])
+        server.api('/settings', method='PUT', body={'dashboard': {'headed': True}, 'expected_data_id': initial['data_id']})
         self.open(server)
         self.page.locator("#side").get_by_role("button", name="深色", exact=True).click()
         expect(self.page.locator("html")).to_have_attribute("data-theme", "dark")
@@ -181,7 +185,7 @@ class DataDashboardTests(unittest.TestCase):
         expect(self.page.locator("html")).to_have_attribute("data-theme", "light")
         self.page.get_by_role("button", name="回放设置", exact=True).click()
         expect(self.page.get_by_role("button", name="Playwright", exact=True)).to_have_attribute("aria-pressed", "true")
-        expect(self.page.get_by_role("switch", name="显示浏览器窗口", exact=True)).to_have_attribute("aria-checked", "true")
+        expect(self.page.get_by_role("switch", name="显示浏览器窗口", exact=True)).to_have_attribute("aria-checked", "false")
         second.close()
         self.servers.remove(second)
         other = self.folder / "another-legacy"
@@ -239,8 +243,10 @@ class DataDashboardTests(unittest.TestCase):
         expect(self.page.locator("#toasts")).to_contain_text("模拟偏好保存失败")
         expect(self.page.locator("html")).to_have_attribute("data-theme", "light")
         self.page.get_by_role("button", name="回放设置", exact=True).click()
-        self.page.get_by_role("switch", name="显示浏览器窗口", exact=True).click()
-        expect(self.page.get_by_role("switch", name="显示浏览器窗口", exact=True)).to_have_attribute("aria-checked", "true")
+        window_choice = self.page.get_by_role("switch", name="显示浏览器窗口", exact=True)
+        previous = window_choice.get_attribute('aria-checked')
+        window_choice.click()
+        expect(window_choice).to_have_attribute("aria-checked", previous)
         self.assertEqual(server.api("/settings")["dashboard"], {})
         self.page.keyboard.press("Escape")
         self.page.get_by_label("旧数据位置", exact=True).fill(str(self.folder / "missing-source"))

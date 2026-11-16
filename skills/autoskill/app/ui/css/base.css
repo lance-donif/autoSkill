@@ -24,14 +24,15 @@ button:disabled { cursor: not-allowed; }
 .grow { flex: 1; min-width: 0; }
 .row { display: flex; align-items: center; gap: var(--s-2); }
 .row.wrap { flex-wrap: wrap; }
-.stack { display: grid; gap: var(--s-4); }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
+.stack > * { min-width: 0; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- shell ---- */
 .shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 100vh; }
 .side {
   position: sticky; top: 0; height: 100vh; background: var(--side); color: var(--side-ink); border-right: 1px solid var(--line);
-  display: flex; flex-direction: column; padding: var(--s-5) var(--s-3) var(--s-4);
+  display: flex; flex-direction: column; padding: var(--s-5) var(--s-3) var(--s-4); overflow-y: auto;
 }
 .brand { display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-2) var(--s-6); }
 .brand-mark {
@@ -40,7 +41,23 @@ button:disabled { cursor: not-allowed; }
 }
 .brand-name { font-weight: 700; font-size: var(--t-lg); letter-spacing: -.01em; }
 .brand-tag { font-size: 11px; color: var(--side-ink-2); }
-.nav { display: grid; gap: 2px; }
+.side-heading { flex: none; }
+.side-panel { display: flex; flex-direction: column; flex: 1; gap: var(--s-6); }
+.side .nav-toggle, .nav-location { display: none; }
+.nav, .nav-primary, .nav-children { display: grid; gap: 2px; }
+.nav-overview { margin-top: var(--s-3); }
+.nav-group { margin-top: var(--s-3); }
+.nav a svg { flex-shrink: 0; }
+.nav-group > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); cursor: pointer; list-style: none;
+  padding: 9px var(--s-3); border-radius: var(--r-md); font-size: var(--t-sm); color: var(--side-ink-2); font-weight: 600;
+}
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary:hover { background: var(--side-wash); color: var(--side-ink); }
+.nav-group > summary svg { width: 14px; height: 14px; transition: transform var(--fast); }
+.nav-group[open] > summary svg { transform: rotate(180deg); }
+.nav-group.current-group > summary { color: var(--side-ink); }
+.nav-children { padding-left: var(--s-2); }
 .nav a {
   display: flex; align-items: center; gap: var(--s-3); padding: 9px var(--s-3); border-radius: var(--r-md);
   color: var(--side-ink-2); font-weight: 550; transition: background var(--fast), color var(--fast);
@@ -60,7 +77,7 @@ button:disabled { cursor: not-allowed; }
 .side-foot button { color: var(--side-ink-2); display: flex; align-items: center; gap: var(--s-2); }
 .side-foot button:hover { color: var(--side-ink); }
 .main { min-width: 0; display: flex; flex-direction: column; }
-.view { padding: var(--s-6) var(--s-8) var(--s-10); max-width: 1480px; width: 100%; outline: none; }
+.view { padding: var(--s-6) var(--s-8) var(--s-10); max-width: 1480px; width: 100%; outline: none; overflow-wrap: anywhere; }
 .page-head { display: flex; align-items: flex-end; gap: var(--s-4); margin-bottom: var(--s-5); }
 .page-head .grow p { margin-top: 2px; }
 
@@ -74,10 +91,38 @@ button:disabled { cursor: not-allowed; }
 .scope-text { font-size: var(--t-sm); color: var(--ink-2); }
 .scope-text b { color: var(--ink); font-weight: 600; }
 
+/* The same text navigation is used in narrow windows and host panels. */
+:root[data-embed="true"] .shell { grid-template-columns: minmax(0, 1fr); }
+:root[data-embed="true"] .side { height: auto; overflow: visible; z-index: 30; padding: var(--s-2) var(--s-3); border-right: 0; border-bottom: 1px solid var(--line); }
+:root[data-embed="true"] .side-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+:root[data-embed="true"] .brand { padding: 0; }
+:root[data-embed="true"] .brand > span:last-child { display: none; }
+:root[data-embed="true"] .nav-toggle { display: inline-flex; }
+:root[data-embed="true"] .nav-location { display: block; color: var(--side-ink-2); font-size: var(--t-xs); overflow-wrap: anywhere; }
+:root[data-embed="true"] .side-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: calc(100dvh - 64px); overflow-y: auto; padding: var(--s-3); background: var(--side); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-2); }
+:root[data-embed="true"] .side[data-nav-open="true"] .side-panel { display: flex; }
+:root[data-embed="true"] .scope { position: static; }
+:root[data-embed="true"] .view, :root[data-embed="true"] .scope { padding-left: var(--s-4); padding-right: var(--s-4); }
+
 @media (max-width: 1100px) {
-  .shell { grid-template-columns: 64px minmax(0, 1fr); }
-  .brand-name, .brand-tag, .nav a span.label, .side-foot .text { display: none; }
-  .nav a { justify-content: center; padding: 10px; }
-  .nav .count { position: absolute; margin: -18px 0 0 22px; }
-  .view, .scope { padding-left: var(--s-5); padding-right: var(--s-5); }
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .side { height: auto; overflow: visible; z-index: 30; padding: var(--s-2) var(--s-3); border-right: 0; border-bottom: 1px solid var(--line); }
+  .side-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+  .brand { padding: 0; }
+  .brand > span:last-child { display: none; }
+  .side .nav-toggle { display: inline-flex; }
+  .nav-location { display: block; color: var(--side-ink-2); font-size: var(--t-xs); overflow-wrap: anywhere; }
+  .side-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: calc(100dvh - 64px); overflow-y: auto; padding: var(--s-3); background: var(--side); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-2); }
+  .side[data-nav-open="true"] .side-panel { display: flex; }
+  .scope { position: static; }
+  .view, .scope { padding-left: var(--s-4); padding-right: var(--s-4); }
+}
+@media (max-width: 700px) {
+  .page-head { flex-wrap: wrap; align-items: flex-start; }
+  .page-head > .grow { flex-basis: 100%; }
+  .scope .scope-text { flex-basis: 100%; overflow-wrap: anywhere; }
+  .scope .pop { max-width: 100%; }
+  .scope .btn { max-width: 100%; white-space: normal; }
+  .view .btn { max-width: 100%; min-height: 32px; height: auto; white-space: normal; }
+  .view .btn.sm { min-height: 28px; }
 }

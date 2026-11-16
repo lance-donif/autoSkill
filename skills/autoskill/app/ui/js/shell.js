@@ -2,35 +2,46 @@
 import { h, icon, replace, api, attempt, route, scope, setScope, isDefaultScope, rangeText, href, RANGES, DEFAULT_RANGE, ENGINE } from './core.js';
 import { menuButton, menuItem, preferredEngine, setEngine, preferredHeaded, setHeaded } from './ui.js';
 import { preferenceDataId, setTheme } from './preferences.js';
+import { updateLiveView } from './live-refresh.js';
 
-const NAV = [
-  ['dashboard', '仪表盘', 'dashboard'],
-  ['cases', '项目与用例', 'cases'],
-  ['load-tests', '压测', 'sliders'],
-  ['project-materials', '项目资料', 'folder'],
-  ['native-assets', '原生资产', 'api'],
-  ['conversations', '多轮对话', 'api'],
-  ['workflows', '需求与工作流', 'link'],
-  ['case-plans', '设计用例表', 'table'],
+const PRIMARY = [
+  ['case-plans', '测试用例表', 'table'],
   ['runs', '执行记录', 'runs'],
-  ['schedules', '定时任务', 'clock'],
-  ['data', '数据管理', 'folder'],
-  ['diagnostics', '运行诊断', 'sliders'],
+  ['cases', '可复用用例', 'cases'],
 ];
-export const state = { projects: [], status: null, active: 0, online: true };
+const OVERVIEW = ['dashboard', '总览', 'dashboard'];
+const GROUPS = [
+  ['prepare', '测试资料', [
+    ['workflows', '需求与工作流', 'link'],
+    ['project-materials', '项目资料', 'folder'],
+    ['native-assets', '原生资产', 'api'],
+    ['conversations', '多轮对话', 'api'],
+  ]],
+  ['execute', '执行工具', [
+    ['load-tests', '压测', 'sliders'],
+    ['schedules', '定时任务', 'clock'],
+  ]],
+  ['settings', '设置与维护', [
+    ['data', '数据管理', 'folder'],
+    ['diagnostics', '运行诊断', 'sliders'],
+  ]],
+];
+const NAV = [...PRIMARY, OVERVIEW, ...GROUPS.flatMap(([, , entries]) => entries)];
+let lastSidePage = null;
+export const state = { projects: [], allProjects: [], status: null, active: 0, online: true };
 
-export async function refreshShell() {
-  try {
-    const [projects, status, active] = await Promise.all([
-      api('/projects'), api('/status'), api('/runs?limit=1&status=active'),
-    ]);
-    state.projects = projects.filter((p) => !p.broken && p.cases && p.cases.total);  // a project without cases is not shown
-    state.status = status;
-    state.active = active.total;
-    state.online = true;
-  } catch {
-    state.online = false;
-  }
+export async function refreshShell(onProjects) {
+  const reads = await Promise.allSettled([
+    api('/projects').then(async (projects) => {
+      state.allProjects = projects.filter((p) => !p.broken);
+      state.projects = state.allProjects.filter((p) => p.cases?.total);
+      renderScope();
+      await onProjects?.();
+    }),
+    api('/status').then((status) => { state.status = status; renderSide(); }),
+    api('/runs?limit=1&status=active').then((active) => { state.active = active.total; renderSide(); }),
+  ]);
+  state.online = reads.every((read) => read.status === 'fulfilled');
   renderSide();
   renderScope();
 }
@@ -40,37 +51,102 @@ export function applyTheme(name) {
   document.documentElement.dataset.theme = name;
 }
 
+function closeNavigation(restoreFocus = false) {
+  const side = document.getElementById('side');
+  side.dataset.navOpen = 'false';
+  const toggle = side.querySelector('.nav-toggle');
+  toggle?.setAttribute('aria-expanded', 'false');
+  if (restoreFocus && toggle?.getClientRects().length) toggle.focus({ preventScroll: true });
+}
+
+function navigationLink([page, label, glyph]) {
+  return h('a', { href: href(page), title: label, 'aria-label': label, dataset: { page },
+    onClick: () => closeNavigation(true) }, icon(glyph), h('span', { class: 'label' }, label),
+  page === 'runs' && h('span', { class: 'count', title: '正在执行', hidden: true }));
+}
+
+function buildSide(side) {
+  const toggle = h('button', { class: 'nav-toggle btn', 'aria-expanded': 'false', 'aria-controls': 'side-panel',
+    onClick: () => {
+      const open = side.dataset.navOpen !== 'true';
+      side.dataset.navOpen = String(open);
+      toggle.setAttribute('aria-expanded', String(open));
+    } }, '功能导航', icon('chevron'));
+  replace(side,
+    h('div', { class: 'side-heading' },
+      h('a', { class: 'brand', href: href('dashboard'), 'aria-label': 'autoSkill 总览', onClick: () => closeNavigation(true) },
+        h('span', { class: 'brand-mark' }, icon('spark')),
+        h('span', {}, h('div', { class: 'brand-name' }, 'autoSkill'), h('div', { class: 'brand-tag' }, '用例表 · 执行 · 复用'))),
+      toggle, h('span', { class: 'nav-location', 'aria-live': 'polite' })),
+    h('div', { class: 'side-panel', id: 'side-panel' },
+      h('nav', { class: 'nav', 'aria-label': '主导航' },
+        h('div', { class: 'nav-primary' }, PRIMARY.map(navigationLink)),
+        h('div', { class: 'nav-overview' }, navigationLink(OVERVIEW)),
+        GROUPS.map(([key, label, entries]) => h('details', { class: 'nav-group', dataset: { group: key } },
+          h('summary', {}, label, icon('chevron')), h('div', { class: 'nav-children' }, entries.map(navigationLink))))),
+      h('div', { class: 'side-foot' },
+        h('div', { class: 'line service-status' }, h('i', { class: 'dot' }), h('span', { class: 'text' })),
+        h('div', { class: 'line runtime-status', title: '离线运行：不联网、不更新、不上报' }, icon('lock'), h('span', { class: 'text' })),
+        h('button', { class: 'theme-toggle', title: '切换深浅色', onClick: async (event) => {
+          await attempt(() => setTheme(theme() === 'dark' ? 'light' : 'dark'), event.currentTarget);
+        } }))));
+  side.dataset.navOpen = 'false';
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && side.dataset.navOpen === 'true') {
+      event.preventDefault();
+      closeNavigation(true);
+    }
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (side.dataset.navOpen === 'true' && !side.contains(event.target)) closeNavigation();
+  }, true);
+}
+
 export function renderSide() {
-  const current = route().page;
+  const side = document.getElementById('side');
+  if (!side.childElementCount) buildSide(side);
+  const current = route().page === 'native-runs' ? 'runs' : route().page;
+  for (const link of side.querySelectorAll('nav a')) {
+    link.href = href(link.dataset.page);
+    if (link.dataset.page === current) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  // Update the existing frame so live counts never replace focused links or disclosures.
+  if (current !== lastSidePage) {
+    const group = side.querySelector('a[aria-current="page"]')?.closest('details');
+    if (group) group.open = true;
+    lastSidePage = current;
+  }
+  for (const group of side.querySelectorAll('.nav-group')) group.classList.toggle('current-group', !!group.querySelector('[aria-current="page"]'));
+  side.querySelector('.brand').href = href('dashboard');
+  side.querySelector('.nav-location').textContent = '当前位置：' + (NAV.find(([page]) => page === current)?.[1] || '总览');
+  const count = side.querySelector('.count');
+  count.hidden = !state.active;
+  count.textContent = String(state.active);
+  const service = side.querySelector('.service-status');
+  service.title = state.online ? '服务只监听本机 127.0.0.1' : '连不上本机服务';
+  service.querySelector('.dot').className = 'dot ' + (state.online ? 'ok' : 'off');
+  service.querySelector('.text').textContent = state.online ? '本机服务运行中' : '服务已断开';
   const runtime = state.status?.runtime;
-  replace(document.getElementById('side'),
-    h('a', { class: 'brand', href: href('dashboard') },
-      h('span', { class: 'brand-mark' }, icon('spark')),
-      h('span', {}, h('div', { class: 'brand-name' }, 'autoSkill'), h('div', { class: 'brand-tag' }, '录一次，到处回放'))),
-    h('nav', { class: 'nav', 'aria-label': '主导航' }, NAV.map(([page, label, glyph]) => h('a', {
-      href: href(page), 'aria-current': current === page ? 'page' : null, title: label, 'aria-label': label,
-    }, icon(glyph), h('span', { class: 'label' }, label),
-    page === 'runs' && state.active > 0 && h('span', { class: 'count', title: '正在执行' }, String(state.active))))),
-    h('div', { class: 'side-foot' },
-      h('div', { class: 'line', title: state.online ? '服务只监听本机 127.0.0.1' : '连不上本机服务' },
-        h('i', { class: 'dot ' + (state.online ? 'ok' : 'off') }),
-        h('span', { class: 'text' }, state.online ? '本机服务运行中' : '服务已断开')),
-      runtime && h('div', { class: 'line', title: '离线运行：不联网、不更新、不上报' },
-        icon('lock'), h('span', { class: 'text' }, runtime.bundled ? '随包运行时 · 离线' : '开发环境运行时')),
-      h('button', { 'aria-label': theme() === 'dark' ? '浅色' : '深色', title: '切换深浅色', onClick: async (event) => {
-        await attempt(() => setTheme(theme() === 'dark' ? 'light' : 'dark'), event.currentTarget);
-      } },
-        icon(theme() === 'dark' ? 'sun' : 'moon'), h('span', { class: 'text' }, theme() === 'dark' ? '浅色' : '深色'))));
+  const runtimeLine = side.querySelector('.runtime-status');
+  runtimeLine.hidden = !runtime;
+  runtimeLine.querySelector('.text').textContent = runtime?.bundled ? '随包运行时 · 离线' : '开发环境运行时';
+  const themeButton = side.querySelector('.theme-toggle');
+  const label = theme() === 'dark' ? '浅色' : '深色';
+  if (themeButton.getAttribute('aria-label') !== label) {
+    themeButton.setAttribute('aria-label', label);
+    replace(themeButton, icon(theme() === 'dark' ? 'sun' : 'moon'), h('span', { class: 'text' }, label));
+  }
 }
 
 function projectText(s) {
   if (!s.projects.length) return '全部项目';
-  const names = s.projects.map((id) => (state.projects.find((p) => p.id === id) || { name: id }).name);
+  const names = s.projects.map((id) => (state.allProjects.find((p) => p.id === id) || { name: id }).name);
   return names.length === 1 ? names[0] : `${names[0]} 等 ${names.length} 个项目`;
 }
 
 /** One place for how cases are replayed: engine, visible window, which browser. */
-function runSettings() {
+export function runSettings() {
   const trigger = h('button', { class: 'btn', title: '回放设置：引擎、浏览器窗口、使用哪个浏览器' }, icon('sliders'), '回放设置');
   return menuButton(trigger, (menu) => {
     const browser = state.status?.browser ?? {};
@@ -109,34 +185,57 @@ function runSettings() {
   }, true);
 }
 
+function replaceScope(bar, ...nodes) {
+  updateLiveView(bar, h('div', {}, nodes));
+}
+
+function pageScopeNote(page, id) {
+  if (id) return ['runs', 'native-runs', 'load-tests'].includes(page)
+    ? '仅显示本次执行；返回列表可继续筛选。' : '使用当前页面选择的项目与内容。';
+  const notes = {
+    data: '设置保存在当前数据目录中',
+    diagnostics: '检查当前机器的运行环境',
+    'project-materials': '在页面中选择资料所属项目',
+    'native-assets': '在页面中选择资产所属项目',
+    conversations: '在页面中选择对话所属项目',
+    'native-runs': '查看原生执行记录',
+  };
+  return notes[page];
+}
+
 export function renderScope() {
   const s = scope();
   const bar = document.getElementById('scope');
+  const { page, id } = route();
+  // The case sheet owns its single project/session selector and its secondary settings.
+  bar.hidden = page === 'case-plans';
+  if (bar.hidden) { replaceScope(bar); return; }
   // Background state changes must not dismiss an open scope picker or its date draft.
   if (bar.querySelector('.menu')) return;
-  const { page } = route();
-  if (page === 'data') {
-    replace(bar, h('span', { class: 'scope-label' }, '数据管理'), h('span', { class: 'scope-text' }, '设置保存在当前数据目录中'),
-      h('span', { class: 'grow' }), runSettings());
+  const note = pageScopeNote(page, id);
+  if (note) {
+    replaceScope(bar, h('span', { class: 'scope-label' }, NAV.find(([key]) => key === page)?.[1] || '执行记录'),
+      h('span', { class: 'scope-text' }, note), h('span', { class: 'grow' }), runSettings());
     return;
   }
-  const timeless = page === 'schedules';
+  const timeless = ['schedules', 'workflows', 'case-plans'].includes(page);
+  const projects = ['workflows', 'case-plans'].includes(page) ? state.allProjects : state.projects;
 
-  const projectButton = h('button', { class: 'btn' }, icon('folder'), projectText(s), icon('chevron'));
+  const projectButton = h('button', { class: 'btn', 'aria-label': '筛选项目' }, icon('folder'), projectText(s), icon('chevron'));
   const projectPicker = menuButton(projectButton, (menu, close) => {
-    menu.append(menuItem('全部项目', { checked: !s.projects.length, meta: state.projects.length, onPick: () => { close(); setScope({ projects: [] }); } }));
-    if (state.projects.length) menu.append(h('div', { class: 'menu-sep' }));
-    for (const project of state.projects) {
+    menu.append(menuItem('全部项目', { checked: !s.projects.length, meta: projects.length, onPick: () => { close(); setScope({ projects: [] }); } }));
+    if (projects.length) menu.append(h('div', { class: 'menu-sep' }));
+    for (const project of projects) {
       const on = s.projects.includes(project.id);
       menu.append(menuItem(project.name, {
         checked: on, meta: project.category || null,
         onPick: () => { close(); setScope({ projects: on ? s.projects.filter((id) => id !== project.id) : [...s.projects, project.id] }); },
       }));
     }
-    if (!state.projects.length) menu.append(h('div', { class: 'menu-title' }, '还没有项目'));
+    if (!projects.length) menu.append(h('div', { class: 'menu-title' }, '还没有项目'));
   });
 
-  const rangeButton = h('button', { class: 'btn', disabled: timeless, title: timeless ? '定时任务不按时间范围筛选' : null },
+  const rangeButton = h('button', { class: 'btn', 'aria-label': '筛选时间范围' },
     icon('clock'), timeless ? '不限时间' : rangeText(s), icon('chevron'));
   const rangePicker = menuButton(rangeButton, (menu, close) => {
     for (const range of RANGES) {
@@ -154,14 +253,14 @@ export function renderScope() {
       }, '应用')));
   });
 
-  replace(bar,
+  replaceScope(bar,
     h('span', { class: 'scope-label' }, '当前范围'),
-    projectPicker, rangePicker,
+    projectPicker, !timeless && rangePicker,
     h('span', { class: 'scope-text', 'aria-live': 'polite' },
       h('b', {}, projectText(s)), ' · ', h('b', {}, timeless ? '不限时间' : rangeText(s))),
-    !isDefaultScope(s) && h('button', {
-      class: 'btn ghost sm', title: '回到「全部项目 · 近 7 天」',
-      onClick: () => setScope({ projects: [], range: DEFAULT_RANGE, from: '', to: '' }),
+    (timeless ? s.projects.length > 0 : !isDefaultScope(s)) && h('button', {
+      class: 'btn ghost sm', title: timeless ? '回到全部项目' : '回到「全部项目 · 近 7 天」',
+      onClick: () => setScope(timeless ? { projects: [] } : { projects: [], range: DEFAULT_RANGE, from: '', to: '' }),
     }, icon('reset'), '重置'),
     h('span', { class: 'grow' }),
     runSettings());

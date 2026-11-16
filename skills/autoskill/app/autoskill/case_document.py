@@ -34,6 +34,24 @@ def _steps(value) -> list[str]:
     return list(value) if isinstance(value, list) and value and all(isinstance(item, str) and item.strip() for item in value) else []
 
 
+def prose_text(value) -> str | None:
+    """Compare prose representations without changing spaces, numbering or business values."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list) and value and all(isinstance(item, str) and item.strip() for item in value):
+        return "\n".join(value)
+    return None
+
+
+def comparable_document(case: dict) -> dict:
+    value = copy.deepcopy(document(case))
+    for field in ("steps", "expected"):
+        normalized = prose_text(value.get(field))
+        if normalized is not None:
+            value[field] = normalized
+    return value
+
+
 def technical_steps(case: dict, steps: list[str]) -> bool:
     """Recognize actual legacy compiler output; do not infer business meaning from a URL."""
     lines = [NUMBERED.sub("", step).strip() for step in steps]
@@ -87,9 +105,13 @@ def _conversation_expected(case: dict) -> str | None:
 
 def functional_expected(case: dict) -> str | None:
     declared = document(case).get("expected")
+    if isinstance(declared, list):
+        declared = "\n".join(_steps(declared))
     if isinstance(declared, str) and declared.strip():
         return declared
     legacy = case.get("expected")
+    if isinstance(legacy, list):
+        legacy = "\n".join(_steps(legacy))
     if not isinstance(legacy, str) or not legacy.strip():
         return _conversation_expected(case)
     if case.get("kind") == "api" and re.fullmatch(r"HTTP\s+\d{3}(?:，并满足录制到的字段与结构)?", legacy):
@@ -123,9 +145,11 @@ def apply(case: dict, value: dict | None) -> dict:
     if not isinstance(value, dict):
         raise ValueError("功能用例设计必须是对象")
     document_copy = copy.deepcopy(value)
-    for field in ("description", "preconditions", "expected"):
+    for field in ("description", "preconditions"):
         if field in value and (not isinstance(value[field], str) or not value[field].strip()):
             raise ValueError(f"功能用例设计的 {field} 必须是非空文字")
+    if "expected" in value and not (prose_text(value["expected"]) or "").strip():
+        raise ValueError("功能用例设计的 expected 必须是非空文字或文字数组")
     if "steps" in value and not _steps(value["steps"]):
         raise ValueError("功能用例设计的 steps 必须是非空文字或文字数组")
     if "steps" in value and technical_steps(case, _steps(value["steps"])):
@@ -133,7 +157,7 @@ def apply(case: dict, value: dict | None) -> dict:
     case["extensions"]["test_case_document"] = document_copy
     for field in ("preconditions", "expected", "module", "priority", "requirement_ids"):
         if field in value:
-            case[field] = copy.deepcopy(value[field])
+            case[field] = prose_text(value[field]) if field == "expected" else copy.deepcopy(value[field])
     if "steps" in value:
         case["steps"] = _steps(value["steps"])
     return case

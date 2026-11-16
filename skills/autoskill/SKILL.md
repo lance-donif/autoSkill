@@ -1,6 +1,6 @@
 ---
 name: autoskill
-description: 自动化测试与持续需求维护。宿主 AI 拆解需求、补齐遗漏、关联用例并维护变更；页面实操录制后用 Playwright/Selenium/HTTP 回放，保留原生 Selenium、Postman、Apifox、JMeter 资产；AI 问数按一条多轮用例验证答案、反问与流式负载。持久工作流保存版本、证据和调度，结果在仪表盘查看。用户提到系统测试、需求用例、遗漏审查、变更维护、回归、接口测试、原生测试导入、AI 对话评估、问数压测、定时巡检或 autoSkill 时使用。
+description: 在 DSH/AI 对话中一次完成测试：先交付完整14列用例Excel，按表实际执行并回填，只有真实通过的UI/API候选才发布为可复用案例；失败留在Excel、报告与证据。自动化测试与持续需求维护。宿主 AI 拆解需求、补齐遗漏、关联用例并维护变更；页面实操录制后用 Playwright/Selenium/HTTP 回放，保留原生 Selenium、Postman、Apifox、JMeter 资产；AI 问数按一条多轮用例验证答案、反问与流式负载。持久工作流保存版本、证据和调度，结果在仪表盘查看。用户提到系统测试、需求用例、遗漏审查、变更维护、回归、接口测试、原生测试导入、AI 对话评估、问数压测、定时巡检或 autoSkill 时使用。
 ---
 
 # autoSkill
@@ -21,17 +21,22 @@ description: 自动化测试与持续需求维护。宿主 AI 拆解需求、补
 
 **PowerShell 里 `@e5` 必须加引号写成 `"@e5"`**，否则 `@` 会被当成 PowerShell 语法吞掉，报出「页面上找不到 <你要输入的文字>」这样参数错位的错误。出现 `"error"` 时，按里面的提示处理，不要猜。退出码：0 命令成功，1 同步用例或 check 失败，2 命令错误或回放被阻塞。check 不成立时返回 `passed:false`、expected/actual 并保存证据，退出 1；它不是命令崩溃。异步入队和状态查询成功也不代表业务通过。
 
-## 任务计划与交付
+## 唯一主线：先给用例 Excel，再执行、回填和保存通过案例
 
-测试阶段与进度使用 autoSkill 的持久工作流保存，通常包括读取需求与指定用例 Skill、设计与补齐、真实执行、分析结果、生成并交付 Excel、Markdown 汇总和 Bug 清单。每完成一个真实阶段再更新持久状态；恢复任务先读取工作流及运行记录。默认在后台推进，不自动创建宿主待办、任务弹窗或进度浮层，不主动弹出结果或切换页面；用户主动查看时提供准确的状态、报告与入口。阶段完成不等于业务通过。
+用户在 DSH/AI 对话中说明站点、需求和要验证的目标即可；由你完成设计、实际操作、检查、结果回填和文件交付。网页用于查看结果、下载报告和重跑已有案例，不要求用户到网页新增任务、填写 JSON、再调用另一个技能或逐步确认。只在完成业务判断确实缺少必要信息时询问，不把正常测试步骤变成人工审批。
 
-用例设计与交付使用随包提供的 [test-cases Skill](references/test-cases/SKILL.md)，先读它和所引用的工作簿规则。用户另有指定时以其最新规则为准；不能访问时明确说明缺少哪个来源，不把默认模板冒充指定 Skill。每轮完整测试任务结束都交付 **Excel、简短 Markdown 汇总和 Bug 清单 MD**：只使用该任务的用例、输入和实际结果，未执行、失败、阻塞如实保留；多轮对话仍是一条用例，轮次保留在明细中。Excel 使用 14 列和宋体，按真实业务层级分组，不补造层级、人员和预期。Markdown 只放项目、任务/轮次、时间、执行环境、结果数量、主要问题和 Excel 链接，不重复详细步骤、断言或对话。Bug 清单单独列用例版本、问题、原预期与实际、复现和证据引用；业务失败与环境/执行问题分开，保留此前失败及后续复测，未执行或证据不足不写成没有 Bug。没有问题时也生成清单并注明验证范围。
+1. 读取项目 `context` 和用户提供的需求，内部阅读随包的 [test-cases 设计规范](references/test-cases/SKILL.md) 及其工作簿规则。用户另有指定时优先使用。按真实业务目标、前置条件、操作步骤和独立预期设计完整用例；不能从当前错误响应反推正确预期。
+2. 由你准备设计数据并执行 `plan write <项目> --file <设计文件>`。先检查返回的 `test_report.status`，将 **`delivery_excel` 正式14列文件**交给用户，然后继续执行，不等待额外批准。`excel` 是内部11列表，不交付给用户；`initial_excel` 保留首次未执行版本。
+3. 用 `plan show` 逐行读取同一任务设计，实际操作页面并保存独立检查，结束时 `record stop --title <业务标题> --subproject <功能区域> --plan <设计编号>`。普通录制会冻结候选并安排真实验证，返回 `candidate_id`、`run_id`、`run_ids`；录制完成和入队都不等于已入库。已观察到的失败、没有断言的候选也保留，不能改预期、删失败或跳过困难行来变绿。
+4. 对每个返回的运行执行 `run-status <run_id>` 读取真实状态，直到各运行结束或明确受阻，并核对各份 `publication.complete`；发布回执仍为 pending 时继续查询，不能把空 `published_ids` 当作已完成。它不重复运行。执行会按设计版本、候选内容及指定运行回填原 `delivery_excel`，未执行行仍在完整表中。`plan show` / `plan sync` 用于核对当前任务，不能拿其他任务的最新成功覆盖本次失败。缺少条件的行记录阻塞原因；不要声称它已通过。
+5. 只有独立业务、已声明性能目标及实际证据满足条件，并且所需依赖也通过时，才发布可复用 UI/API 案例。以返回的 **`published_ids`** 为入库事实；`unpublished` 保留未发布原因。部分通过时仅发布合格子集，失败、阻塞、取消和未验证仍留在完整 Excel、Bug 清单和执行证据中。
+6. 交付当前 `plan show` 返回的完整14列 Excel、该表的简短 Markdown 汇总及 Bug 清单；各次运行报告作为明细补充，不能用最后一次单行报告冒充整张设计表。文件必须实际存在且回执为 `ready`；`task-report <报告标识> --retry` 只从冻结快照重试导出，不再执行业务或发布候选。
 
-**保存和导出的主体是给人看的功能用例。** 先依据来源编写业务目标、必要前置、实际操作和核心预期，再用工作流或设计表保存。UI 步骤写真实界面原文、具体输入及【按钮名称】；接口用例写调用者条件、业务数据、业务操作与关键返回或状态变化。不能把 `GET /地址`、选择器、浏览器命令或 JSON 断言直接当作功能步骤，也不能只换成“请求某接口”掩盖设计缺失。录制完成可用 `record stop --plan <设计编号>` 将已有设计与真实自动化绑定；工作流候选和导入用例使用 `extensions.test_case_document` 的 `description/preconditions/steps/expected/source` 保留原设计及来源。原始 HTTP、浏览器 IR 和执行证据单独保留。旧资产没有功能设计时明确标为待补，不从路径猜业务、从错误响应反推预期，亦不清除历史失败。修改设计产生新版本后，以对应版本真实回归，不能借用旧版本通过结果。
+同一任务始终保留相同 `--session`，已有设计的步骤与预期不因执行失败而改变。每张表自动登记到对应项目和会话，用户可在只读设计表页找到和下载，无需再次导入。正式文件使用14列、宋体和真实业务分组，不补造人员、业务层级和预期。Markdown 只含任务基本信息、结果数量、主要问题和 Excel 链接；Bug 清单区分业务失败、执行问题、未验证及录制观察，保留先前失败与后续复测。运行结束、报告生成、文件交付和业务通过分别判断。
 
-完整录制、运行和工作流周期结束返回 `test_report`，以 `status: ready` 和三个文件的实际检查结果确认生成；`task-report <报告标识> --retry` 只重试导出，不重跑测试。文件生成并读回检查后，再用宿主的文件交付工具给出三个文件，同时回复实际路径或下载链接。导出或交付失败要说明，不能只给一个尚不存在的文件名。执行报告页还可下载包含全部明细和截图的独立 HTML，用于离线查看。
+某行可以复用同项目已有用例时，先读取 `cases <项目> --case <用例编号>`，确认其实际操作和独立断言对应本行原预期，再在同一会话执行 `plan link <设计行编号> <可复用用例编号>`，随后 `run <项目> --case <可复用用例编号>`。接口流程带 `--api-only` 及需要的 `--inputs <参数文件>`。关联本身不执行，也不把旧通过搬到新表；本次实际执行后回填原行，表内已明确关联的前置行也保留本次真实参与结果。不能复用的行继续录制或构造来源明确的候选；确实受阻则 `plan mark <设计行编号> 阻塞 --note <具体原因>`，手填通过不是执行证据。
 
-DSH 插件提供可展开的内联工具结果与文件交付指引，不自动展示任务待办或进度浮层；其他宿主使用其实际可用的工具，不假设存在同名工具，也不为了展示进度进入人工审批流程。
+用户的任务需要长期需求维护、来源版本、多阶段恢复，或需要把接口录制观察补成有来源的独立 API 验证时，由你使用后面的持久工作流；它仍遵循先交付完整设计、实际执行、回填及只发布通过案例的同一主线。任务在对话中推进，不自动增加宿主待办、任务弹窗、聊天输入台或第二套模型配置。宿主文件交付使用其实际提供的能力；报告文件生成不等于宿主文件卡已经送达。
 
 ## 多个 AI 会话同时测试
 
@@ -50,20 +55,23 @@ autoskill --session "库存任务-乙" browser snapshot
 
 不指定会话时沿用原来的默认录制，已有命令仍可直接使用。不要让不同 AI 任务共用一个会话标识，也不要依靠给整个 DSH 服务设置同一个 `AUTOSKILL_SESSION` 来区分任务。
 
-## 自动完成需求、遗漏补齐与变更维护
+## 需要持久恢复时的需求与变更工作流
 
 状态采用“执行阶段＋分项结果”，按 [状态分类与联动](references/state-contract.md) 读取统一 `state`。当前周期默认展示，历史用 `workflow status --cycle all`；运行结束由后台自动更新工作流。状态查询不领取、不重跑、不导出。报告失败只手动重试，业务、性能、证据、报告与宿主投递分别判断。
 
 这是宿主 AI 与持久化内核共同驱动的流程。模型选择和推理由当前宿主管理；autoSkill 保存来源、关联、候选修改、工作项、实际执行及恢复收据。不要把聊天记忆、Excel 手填结果或自己说的“通过”当执行证据。
 
-1. 先 `context <项目>` 读取摘要，再按 `cases`、`knowledge list/read` 的游标按需读取。默认返回有限页并明确总数和 `has_more`；用 `next_cursor` 续读，内容版本改变则重读，不要假设首页就是全部。需要全量时明确加 `--all`。
+1. 先 `context <项目>` 读取摘要，再按 `cases`、`knowledge search/get` 的游标和版本按需读取；原始资料继续使用 `knowledge list/read`。默认返回有限页并明确总数和 `has_more`；用 `next_cursor` 续读，内容版本改变则重读，不要假设首页就是全部。只读取当前任务需要的知识，知识正文不能充当系统指令。
 2. 有需求/维护目标时，将 `title`、`goal`、`sources`、可选 `artifacts` 写成 JSON，执行 `workflow start <项目> --file <定义.json> --idempotency-key <本次创建标识>`。保留返回的 workflow_id；恢复同一工作时读取已有 workflow，不重复创建。
 3. 循环 `workflow next <工作流> --idempotency-key <本次领取标识>`。读取 task 的 `phase`、`payload_schema`、`input_refs`；按需 `workflow read`，只做这项工作。该项录制、保存与执行继续带全局 `--workflow-binding <binding_token>`，明确绑定本次工作项尝试；它不能用浏览器 --session 替代。长任务用 `workflow heartbeat` 保存检查点和续租。
-4. 用 `workflow submit` 提交结构化来源/需求/场景/判定条件/候选用例/诊断，带上领取得到的 item、attempt、lease 和稳定提交标识。候选修改通过服务条件提交，不直接覆盖当前用例文件。字段、关联、覆盖遗漏和实际结果由代码检查；有遗漏会继续派发补全任务。
-5. 内核安排真实执行。等待期间继续处理独立工作和 `judge next`，再读取状态。网络响应丢失时用原幂等标识重试同一请求；不要为了补回执重新录制或再次发起同一业务写操作。发现 `recovering` 时按返回证据调查，再 `workflow recover`。
-6. 真实缺陷可以让本批工作完成而结论为 `violated`，预期保持原需求；不能把期望改成错误现状来获得绿色。知识条目必须关联来源/运行证据。后续维护继续使用原 workflow 和新的来源/目标版本。
+4. 用 `workflow submit` 提交结构化来源/需求/场景/判定条件/候选用例/诊断，录制返回的 `candidates` 作为 materialize 的 `cases`，同时保留 `candidate_auth`，带上领取得到的 item、attempt、lease 和稳定提交标识。候选修改通过服务条件提交，不直接覆盖当前用例文件。字段、关联、覆盖遗漏和实际结果由代码检查；有遗漏会继续派发补全任务。
+5. 内核安排真实执行。等待期间继续处理独立工作和 `judge next`，再读取状态。网络响应丢失时用原幂等标识重试同一请求；不要为了补回执重新录制或再次发起同一业务写操作。发现 `recovering` 时按返回证据调查，再 `workflow recover`；外部操作结果未知时保留 `incomplete`，不能凭一般成功文案自动续跑或重放。
+6. 进入诊断时，先读当前任务的 `diagnostic_targets` 和 `manifest_hash`，再按明确的 project/run/execution-attempt/case 读取 `failure-context`。提交 `diagnoses[]` 必须逐项覆盖清单全部目标；多个用例、轮次、失败断言及证据缺口不能只挑最后一次。证据不足仅提交 `incomplete`；租约 `attempt_id` 不等于执行回执 `execution_attempt_id`。
+7. 真实缺陷可以让本批工作完成而结论为 `violated`，失败候选仍不入库；部分发布以 `publication_receipt.published_ids` 与 `unpublished` 为准。预期保持原需求；不能把期望改成错误现状来获得绿色。知识保存使用带版本条件的工作流 `schema_version:2` 提交；`knowledge_used` 独立记录实际引用版本。知识的“待验证 / 已有事实记录 / 执行已复现（3次）”、当前适用性、证据可用性与撤回状态分开判断；原因假设、旧格式转换与刚导入条目不自动成为已验证知识。跨项目仅在 `knowledge settings` 已明确配置团队及业务范围时使用 `--team`，来源验证不能替代当前项目验证。后续维护继续使用原 workflow 和新的来源/目标版本。
 
-阶段说明按需阅读：[需求与设计](references/workflow/design.md)、[执行与恢复](references/workflow/execution.md)、[对话评估](references/workflow/conversation.md)。完整命令见 [命令参考](references/commands.md)。`session_id` 是浏览器任务环境，workflow/item/attempt 是持久流程身份；两者不能混用。
+阶段说明按需阅读：[需求与设计](references/workflow/design.md)、[执行与恢复](references/workflow/execution.md)、[诊断与知识闭环](references/diagnosis-knowledge.md)、[对话评估](references/workflow/conversation.md)。只在进入对应阶段时加载相应参考，不为每个任务强制增加子智能体。完整命令见 [命令参考](references/commands.md)。`session_id` 是浏览器任务环境，workflow/item/attempt 是持久流程身份；两者不能混用。
+
+UI 工作流按 [UI 预期与录制候选的对应](references/workflow/execution.md#ui-预期与录制候选的对应) 组织 checks：仅保留 assertion/expected/attribute，定位器留在完整候选中；不改独立预期。
 
 ## 复用已有测试与 AI 问数
 
@@ -91,22 +99,30 @@ AI 问数默认顺序是：**页面真实体验一遍对话 → 保存录制捕�
 
 **不要自己绕**：不要设置 `AUTOSKILL_WORKSPACE` 换数据目录，不要改 `USERPROFILE`，不要直接调用 `vendor` 里的程序，不要去读或改 autoSkill 的源码。这样做数据会和仪表盘分家，浏览器也仍然起不来。通过后台服务执行时，`--out` 只能指向 autoSkill 数据目录以内（省略即可）；`pack --full` 和 `pack --include-secrets` 需要用户在自己的终端里运行。
 
-## 测试一个网址：五步
+## 同一对话中的命令示例
+
+下面是你内部执行的命令顺序，设计文件由你依据需求生成；用户不需要手填参数或切到网页。`<项目>` 使用创建或查询返回的真实 ID。
 
 ```
-autoskill project create --name "订单中心" --url http://10.0.0.8:8080     # 1 建项目；同一个站点（域名）只有一个项目，已有时直接返回它（reused）
-autoskill context <项目>                                                  # 2 看登录方式、已有用例、知识库、下一步
-autoskill record start <项目>                                             # 3 开始录制；输出当前页面的元素清单
-autoskill browser click @e5                                               #   用清单里的 @编号 操作，每步都会被记录
-autoskill browser fill @e7 "新工单"
-autoskill check contains testid=toast "已创建"                            #   保存预期并实际检查；失败也保留断言与实际观察
-autoskill record stop --title "新建工单" --subproject "工单"              # 4 结束：生成 1 条页面用例 + 背后的接口用例；--subproject 是站点下的功能区域
-autoskill run <项目>                                                      # 5 回放全部用例，确认通过
+autoskill project create --name "订单中心" --url http://10.0.0.8:8080
+autoskill context <项目>
+autoskill plan write <项目> --file <完整设计文件>
 ```
 
-`<项目>` 是 `project create` 返回的 `id`。已有项目用 `autoskill project list` 查。
+先交付上一步的 `delivery_excel`，然后逐条按表执行；元素编号必须来自当次真实快照：
 
-**一次录制 = 一个业务场景 = 一条页面用例。** 要测多个场景，就多次 `record start … record stop`，每次起一个说明业务含义的标题。
+```
+autoskill plan show
+autoskill record start <项目>
+autoskill browser click @e5
+autoskill browser fill @e7 "工单-{{RAND}}"
+autoskill check contains testid=toast "已创建"
+autoskill record stop --title "新建工单" --subproject "工单" --plan TC-001
+autoskill run-status <返回的运行ID>
+autoskill plan show
+```
+
+一个业务场景录制一次，绑定对应设计行。普通 `record stop` 已经安排验证，不要为了等待结果再次运行同一批。只有修复条件后确实需要新的验证时，才执行 `run <项目> --candidate <候选ID>`；它产生新的运行并保留之前结果。已有用例的常规回归继续使用 `run <项目> --case <用例ID>`。
 
 **看 `record start` 的返回再动手：**
 
@@ -164,6 +180,8 @@ autoskill check url_contains "/orders/"   # url、title 不需要目标
 
 `<目标>` 可以写 `@e编号`（来自 `browser snapshot --all`）、CSS 选择器（如 `.todo-count`）、`xpath=//button[@id='save']`、`testid=名称`、`label=标签`、`role=button:名称`、`text=文字`。其中 `text=` 要求与元素的**完整文字完全一致**，`testid=` 只在元素确实有这个 `data-testid` 时可用。快照可能提供属性提示，但不列出全部定位器；想知道某个元素有哪些可用写法，运行 `autoskill browser describe @e5`，它会列出可直接使用的目标及结构化 `locator_definitions`。明确输入的 XPath 保留为主定位；录制自动生成的 XPath 经真实 DOM 唯一命中检查后放在末位备选，不会替换稳定的 testid、标签等定位。
 
+动态列表中的同名按钮若 `describe` 只给出序号定位，先读取目标卡片或行的实际 HTML、属性，找到真实稳定的业务标识或可见名称，以它锚定容器，再用显式 XPath/CSS 操作并核对目标身份。当前的 `nth` 只表示位置，不能代替业务身份；不要猜选择器，也不要让用户填写。列表筛选或重排后重新确认目标，保留原业务预期。
+
 iframe 和 Shadow DOM 按当前区域逐层进入，`snapshot`、`describe`、操作和元素断言都使用同一范围，保存的步骤带完整上下文路径。跨域 iframe 由浏览器驱动进入；XPath 不能跨 iframe 或 Shadow 边界。开放 Shadow DOM 内优先使用编号、CSS 或语义定位，自动 XPath 另存当前根内唯一的 `xpath_anchor` 元素锚点并使用相对表达式，不要把带锚点的定位截成单独 XPath。封闭 Shadow DOM 明确不支持；区域不存在不能当作元素隐藏或数量为零。打开地址或切换标签页回到主文档，刷新会重新解析原路径。`get url/title` 和地址断言始终指当前标签页顶层地址。断言不成立时保留 Fail、原 expected 与实际 actual；依据独立需求诊断差异，只有需求明确变化才维护 oracle，不能按错误现状改绿或删除断言。
 
 期望值应来自需求或业务规则，而不是「页面现在显示什么就写什么」：后者只能当回归基线，发现不了页面本来就有的错误。
@@ -199,20 +217,28 @@ iframe 和 Shadow DOM 按当前区域逐层进入，`snapshot`、`describe`、�
   autoskill check text testid=current-user "张三"        # 断言"已登录"的标志，之后用它判断登录态是否有效
   autoskill record stop --title "登录"
   ```
-  账号密码向用户要，或在 `context` 返回的知识库里找；不要猜。
+  先用 `run-status` 等待登录候选验证和发布，再继续业务录制。账号密码使用用户提供或已配置的信息；缺少时才询问，不要猜。
 - 登录页有文字验证码（字母数字图片）：`autoskill browser captcha <图片> <输入框>`，图片的编号用 `browser snapshot --all` 找。识别偶尔会错，回放时会自动换一张重试，最多 3 次。
 - 滑块、点选、算式验证码，短信、扫码：无法自动完成，如实告诉用户。
 
-## 接口用例是录出来的
+## 接口候选必须独立冷启动验证
 
 接口录制只保存业务通信：HTTP 增删改查请求、WebSocket 握手与消息、SSE 事件流，以及实际捕获到的上传和下载接口。纯页面导航、脚本、样式、图片、字体、source map 和浏览器自动 CORS 预检不作为接口资产保存或生成用例；关联的认证及业务重定向链保留。判断以请求用途和响应内容为依据，不会只因业务接口地址以 `.json`、`.txt` 或 `.pdf` 结尾就丢弃；页面操作仍单独保存为页面用例。
 
-`record stop` 会把可编译的业务 HTTP 请求生成接口用例：从状态码、字段和响应结构生成观测基线；这些观察不是独立业务预期，不能据此证明系统原本正确。令牌自动变成变量并依赖登录用例，前一个接口返回的 ID 自动传给后一个。`record stop` 输出里的 `steps` 包含「打开页面」这一步，`assertions` 是断言条数。同一个请求在多次录制中只生成一条接口用例（`api_new` 是新增数，`api_reused` 是复用已有用例的数量）。输出里的 `notes` 会指出断言较弱、需要宿主依据独立需求补齐的接口。输出里的 `api_traffic`：
+`record stop` 将可编译的业务 HTTP 请求保存为接口候选：从状态码、字段和响应结构生成观测基线；这些观察不是独立业务预期，不能据此证明系统原本正确。令牌自动变成变量并依赖登录用例，前一个接口返回的 ID 自动传给后一个。`record stop` 输出里的 `steps` 包含「打开页面」这一步，`assertions` 是断言条数。`api_new` 是本次新候选数，`api_reused` 是引用已有案例的数量；两者都不能代替 `published_ids` 的入库事实。输出里的 `notes` 会指出断言较弱、需要宿主依据独立需求补齐的接口。输出里的 `api_traffic`：
 
-- `business`：页面调用了业务接口，已生成对应用例。
+- `business`：页面调用了业务接口，已保存对应候选，是否可复用须看独立验证和发布回执。
 - `none`：本次没有生成普通 HTTP 接口用例。纯页面跳转不生成接口用例；也要检查 `api_uncompiled` 和会话捕获，不能据此断言没有 WebSocket 或上传等业务通信。页面能否打开由页面用例验证。
 
 `conversation_captures.capture_scope` 说明筛选策略及各来源保留、排除的数量；`complete_network_log: false` 表示这是筛选后的业务捕获，不是浏览器全量网络日志。旧 HAR 缺少请求类型时，会保守保留无法确认是页面资源的请求。`api_uncompiled` 列出捕获但尚未生成普通 HTTP 回放用例的请求，例如 multipart 上传和 WebSocket；保留可获得的请求体、认证与消息，缺失的文件字节明确标记，不能宣称已能直接回放或导出为完整 Postman 用例。对话接口可按 `conversation build` 的显式字段映射生成多轮会话资产。
+
+普通录制会把 UI 与 API 候选分别安排验证。API 使用冷的 HTTP 会话，不借用浏览器 Cookie 或已保存登录；认证、提取变量、创建/查询/修改/删除的数据依赖须通过接口依赖图自理。使用 `run <项目> --candidate <候选ID> --api-only --inputs <运行参数文件>` 可主动验证指定候选和不同输入；运行参数由你准备，`{{RAND}}` 每次生成，不能以旧响应中的固定资源 ID 冒充可复用数据链。
+
+HAR 候选只有 observation 预期时，首次 API 未验证不是任务终点。由你读取原需求、已交付用例表和接口资料，保留录制请求作为技术依据，使用已有 `workflow start` → `workflow next` / `workflow submit` 继续一份纯 API 验证：提交来源、需求、场景和 `kind: api` 的独立 oracle，再在 materialize 提交登录、造数、业务校验、清理的 API 候选、依赖提取与场景 bindings。沿用原设计任务的 `--session`，从 `plan show` 选中设计行，将该行的 **`execution_source` 原样复制到 `extensions.test_case_document.source`**，功能描述、前置、步骤和预期也取自同一行；不能只写 Excel 路径和行编号。按[执行文档的接口补全示例](references/workflow/execution.md)核对公开的绑定、执行及发布回执，再确认原 `task_id`、原 `delivery_excel` 的对应行已经回填；失败未入库也要保留在原表中。这些数据由你准备，不让用户填 JSON 或重新调用技能；原 candidate 包及失败报告不改写。只有需求或认证确实无法确定时说明具体缺口，不能仅改 observation 标签、照抄错误响应或省略数据依赖来声称已生成可复用接口。
+
+接口只返回受理状态时，可由有来源的 API 后置用例检查真实业务结果；用 `extensions.postconditions` 显式关联，后置通过 `depends_on` 追溯原动作，单选动作也会实际执行后置。全部后置在同一运行通过后才形成动作的业务 Pass 与完整发布集合；后置失败不能用受理状态掩盖。字段与示例见[执行文档](references/workflow/execution.md#显式后置检查删除已受理不等于业务已完成)。
+
+纯 API 工作流可冷验证；混合工作流里的 API 若没有冷会话回执，会保留未发布原因。由你在同一技能内续做对应纯 API 范围验证，不能声称混合工作流已自动完成所有接口的独立验证。也不能把只依赖浏览器状态才能运行的录制描述为独立可复用 API 流程。
 
 边输入边搜索（每敲一个字发一次请求）只保留最后一次请求。接口回放是普通 HTTP 请求：有反爬网关的公网站点可能只认真实浏览器，这类站点以页面用例为准。
 
@@ -241,16 +267,11 @@ autoskill dashboard                           # 仪表盘（给人看；会一�
 
 返回的 `deleted`、`pending`、`errors` 要分别报告；有部分错误时不要声称全部成功。活动运行会先取消再清理，`pending` 只表示已经请求，继续用同一删除命令查询/重试到完成，不创建新的运行。没有删除错误时退出码为 0，有删除错误为 2；不能单凭退出码把 pending 当已删除。不能通过删除失败记录来宣称测试已经修复或通过。
 
-## 兼容 Excel 用例表与历史设计
+## 已有 Excel 与设计版本
 
-需求与变更维护优先使用前文 workflow，保持来源、覆盖检查、审查和版本证据。Excel 是兼容的设计/结果投影，不是执行器，也不替代持久工作项。用户需要表格或提供旧表时，可按以下流程关联真实录制：
+用户提供已有用例时，先核对真实来源、步骤、预期和范围，再由你读取为本任务设计，不要求用户重新填表或再次调用技能。`plan write` 返回的 `delivery_excel` 才是正式交付文件；默认表在数据根的 `.local/case-plans/default/autoskill-cases`，命名会话各有独立目录，以返回路径为准。`AUTOSKILL_CASE_SKILL` 仍可指定兼容表目录。
 
-1. **设计用例**：读文档，列出要验证的场景（增删改查的正常流程、必填与边界、权限、错误提示），写成一个 JSON 数组文件，每条：`{"id":"TC-001","module":"子项目","title":"…","type":"新增|查询|修改|删除|其他","priority":"P0|P1|P2","preconditions":"…","steps":["…"],"expected":"…"}`。
-2. **输出用例表**：`autoskill plan write <项目> --file <用例.json>`。它生成 Excel 用例表和用例 Skill（返回里的 `excel` 和 `skill`）。**先把 Excel 的路径告诉用户**，再继续。
-3. **逐条执行**：`autoskill plan show` 读出用例，每条用例一次录制，结束时带上编号：`autoskill record stop --title <标题> --subproject <子项目> --plan TC-001`。
-4. **记录结果**：`autoskill run <项目>` 回放后，每条用例的通过、失败、阻塞自动写回 Excel 的「执行结果」列（`plan sync` 可手动再写一次）。没法自动执行的用例：`autoskill plan mark TC-005 阻塞 --note <原因>`。
-
-默认会话的用例 Skill 是与本技能目录同级的 `autoskill-cases` 文件夹；命名会话各自使用 `workspace/.local/case-plans/<会话哈希>/autoskill-cases`，以 `plan write` / `plan show` 返回的路径为准。设置 `AUTOSKILL_CASE_SKILL` 时始终使用指定目录。**用户可以把用例 Skill 整个换成另一份同名的用例**（或只换里面的 Excel，第一行有「用例编号」「用例标题」即可）；已有表先核对来源、预期和覆盖，复用有效设计，再关联真实录制，不能把表中的文字结果当执行证据。
+保持同一任务设计完整。录制结束使用 `--plan` 绑定行；未入库的失败候选也通过冻结身份和实际运行回填，不用当前案例库是否有该案例推断是否执行。`plan mark <编号> 阻塞 --note <实际原因>` 可记下无法继续的原因；手填“通过”不是执行证据。需求确实改变时保存新设计和新验证，原任务的初始 Excel、历史失败与报告继续保留。
 
 项目知识先从 `context`、`knowledge list/read` 按需读取（业务规则、角色、测试数据、历史缺陷）；工作流中通过 knowledge 阶段提交关联来源与证据的事实，形成可追溯版本。旧项目 `knowledge/*.md` 继续作为兼容资料读取。只记录确认过的事实，不把密码写入说明文档。
 
