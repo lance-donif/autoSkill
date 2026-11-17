@@ -91,7 +91,10 @@ def publish(files: list[tuple[Path, dict]], notes: str, tag: str, commit: str) -
     releases = api("GET", "/releases?per_page=100")
     release = next((r for r in releases if r["tag_name"] == tag), None)
     if release is None:
-        release = api("POST", "/releases", {"tag_name": tag, "target_commitish": commit,
+        tag_ref = urllib.parse.quote("refs/tags/" + tag, safe="")
+        if api("GET", "/commits/" + tag_ref)["sha"] != commit:
+            raise ValueError("Release tag differs from the packaged source commit")
+        release = api("POST", "/releases", {"tag_name": tag,
                       "name": "autoSkill " + tag, "body": notes, "draft": True})
     old = api("GET", f"/releases/{release['id']}/assets")
     uploaded = []
