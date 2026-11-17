@@ -5,7 +5,7 @@ import hashlib
 import unicodedata
 import uuid
 
-from . import domain, projects
+from . import case_document, domain, projects
 from .locking import project_lock
 
 DOCUMENT = "case-folders.json"
@@ -82,14 +82,15 @@ def _document(project_id: str, head: str | None, files: dict) -> dict:
     return value
 
 
-def _legacy_folder(name: str, folders: list[dict], nodes: dict) -> str:
-    identity = "legacy-" + hashlib.sha256(name.encode("utf-8")).hexdigest()
+def _default_folder(name: str, folders: list[dict], nodes: dict, parent: str | None) -> str:
+    identity = ("legacy-" + hashlib.sha256(name.encode("utf-8")).hexdigest() if parent is None
+                else "folder-" + domain.content_hash([parent, name]))
     if identity in nodes:
         return identity
-    existing = next((folder["id"] for folder in folders if folder["parent_id"] is None and folder["name"] == name), None)
+    existing = next((folder["id"] for folder in folders if folder["parent_id"] == parent and folder["name"] == name), None)
     if existing:
         return existing
-    folder = {"id": identity, "name": name, "parent_id": None}
+    folder = {"id": identity, "name": name, "parent_id": parent}
     folders.append(folder)
     nodes[identity] = folder
     return identity
@@ -100,22 +101,30 @@ def _snapshot(project_id: str) -> tuple[dict, str | None]:
     manifest = domain.manifest(project_id)
     document = _document(project_id, manifest["head"], manifest["files"])
     active = projects.cases(project_id)
+    project_name = projects.meta(project_id)["name"]
     folders = [dict(folder) for folder in document["folders"]]
     nodes = {folder["id"]: folder for folder in folders}
     assignments = {}
     for case in active:
         if case["id"] in document["assignments"]:
             assignments[case["id"]] = document["assignments"][case["id"]]
-        else:
-            module = case.get("module") or ""
-            assignments[case["id"]] = _legacy_folder(module, folders, nodes) if module else None
+            continue
+        path = case_document.document(case).get("business_path")
+        if not isinstance(path, list) or not path or not all(isinstance(part, str) and part.strip() for part in path):
+            path = [case["module"]] if case.get("module") else []
+        elif len(path) > 1 and path[0] == project_name:
+            path = path[1:]
+        parent = None
+        for name in path:
+            parent = _default_folder(name, folders, nodes, parent)
+        assignments[case["id"]] = parent
     content = {"folders": folders, "assignments": assignments}
     revision = domain.content_hash({**content, "cases": {case["id"]: domain.content_hash(case) for case in active}})
     return {"project_id": project_id, "revision": revision, **content}, manifest["head"]
 
 
 def list_folders(project_id: str) -> dict:
-    """Read all folders and active case assignments, preserving each legacy module as one label."""
+    """Read explicit folders and infer missing assignments from the saved business path."""
     with project_lock(project_id):
         return _snapshot(project_id)[0]
 

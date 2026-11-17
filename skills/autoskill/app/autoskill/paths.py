@@ -262,16 +262,20 @@ def agent_browser() -> str | None:
 
 
 def headed() -> bool:
-    """Resolve an explicit process choice, then this data root's saved browser preference."""
+    """Resolve the process override or saved choice, then default to a visible window."""
     explicit = os.environ.get("AUTOSKILL_HEADED")
     if explicit in ("0", "1"):
         return explicit == "1"
     dashboard = settings().get("dashboard", {})
     if isinstance(dashboard, dict) and type(dashboard.get("headed")) is bool:
         return dashboard["headed"]
-    if sys.platform == "linux" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return False  # a server without a screen has nowhere to show a window
     return True
+
+
+def browser_display_problem(*, headed: bool) -> str | None:
+    if headed and sys.platform == "linux" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        return "显示浏览器窗口需要图形桌面。请在有桌面会话的环境中启动 autoSkill 或 DSH。"
+    return None
 
 
 def case_skill() -> Path:

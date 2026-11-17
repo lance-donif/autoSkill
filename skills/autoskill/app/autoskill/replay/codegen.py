@@ -119,7 +119,7 @@ PW_MAIN = '''
 
 def main():
     with sync_playwright() as p:
-        options = {"headless": os.environ.get("HEADED") != "1"}
+        options = {"headless": os.environ.get("HEADED") == "0"}
         if os.environ.get("CHROME_BINARY"):
             options["executable_path"] = os.environ["CHROME_BINARY"]
         browser = p.chromium.launch(**options)
@@ -151,7 +151,7 @@ SE_MAIN = '''
 
 def main():
     options = webdriver.ChromeOptions()
-    if os.environ.get("HEADED") != "1":
+    if os.environ.get("HEADED") == "0":
         options.add_argument("--headless=new")
     options.add_argument("--window-size=1920,1080")
     options.set_capability("unhandledPromptBehavior", "accept")
@@ -280,7 +280,7 @@ def script(chain: list[dict], base_url: str, engine: str) -> str:
     wanted = sorted({name for case in chain for name in SECRET.findall(json.dumps(case, ensure_ascii=False))})
     notes = [f"{chain[-1]['id']} {chain[-1]['title']}", "",
              "由 autoSkill 根据录制生成的独立回放脚本；运行它不需要 autoSkill。",
-             "可用环境变量：BASE_URL、HEADED=1、CHROME_BINARY、TIMEOUT" + ("、CHROMEDRIVER" if engine == "selenium" else "") + "。"]
+             "浏览器默认显示，设置 HEADED=0 可隐藏。可用环境变量：BASE_URL、CHROME_BINARY、TIMEOUT" + ("、CHROMEDRIVER" if engine == "selenium" else "") + "。"]
     notes += ["动作与断言使用共享的定位候选、XPath、iframe 与开放 Shadow DOM 上下文规则。",
               "断言使用与内置回放相同的轮询、来源状态和持续后置条件语义。",
               "差异：独立脚本遇到首个失败立即停止；内置回放会继续收集业务断言。",

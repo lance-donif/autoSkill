@@ -201,21 +201,22 @@ def _procedure(case: dict, identity: str, gaps: list[str], data: list[dict]) -> 
 
 
 def _actual(group: dict) -> str:
-    actual = []
+    results = []
+    observations = []
     replayed = any(item.get("result") and item.get("run_id") for item in group["items"])
     for item in group["items"]:
         result = item.get("result") or {}
         observed = item.get("recording_result")
         if observed:
-            actual.append(("录制观察（与回放结果分开保留）：" if replayed else "录制观察（尚未回放）：") + text(observed))
+            observations.append(("录制观察（与回放结果分开保留）：" if replayed else "录制观察（尚未回放）：") + text(observed))
         if result:
             detail = result.get("detail", {})
             value = result.get("actual")
             if value is None or value == "":
                 value = detail.get("assertions") or result.get("reason") or "详见执行明细"
             verdict = task_report_data.observation_verdict(item)
-            actual.append(f"{item.get('run_id', '')}：{STATUS[verdict]}；{text(value)}")
-    return "\n".join(actual)
+            results.append(f"{item.get('run_id', '')}：{STATUS[verdict]}；{text(value)}")
+    return "\n".join([*results, *observations])
 
 
 def _screenshots(group: dict) -> list[str]:

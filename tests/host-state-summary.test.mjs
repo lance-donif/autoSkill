@@ -72,6 +72,7 @@ test('manual login continuation across host turns retains the selected browser t
   assert.match(reminder, /--runtime-context=original-runtime/);
   assert.match(reminder, /cli_context.session_id.*--session.*browser snapshot.*browser tab list/);
   assert.match(reminder, /不取消录制、不重新 record start、不生成新会话/);
-  assert.match(reminder, /--headed\/--headless.*优先于旧进程环境/);
+  assert.match(reminder, /--headed 或 --headless.*优先于旧进程环境/);
+  assert.match(reminder, /浏览器默认显示.*缺少图形桌面时报告受阻/);
   assert.equal(reads, 3);
 });

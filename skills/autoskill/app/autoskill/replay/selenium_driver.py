@@ -35,10 +35,13 @@ def _bypass_proxy_for_loopback() -> None:
 class SeleniumDriver:
     name = "selenium"
 
-    def __init__(self, config: dict, headless: bool = True):
+    def __init__(self, config: dict, headless: bool | None = None):
         from selenium import webdriver
         from selenium.webdriver.chrome.service import Service
 
+        headless = not paths.headed() if headless is None else headless
+        if problem := paths.browser_display_problem(headed=not headless):
+            raise ValueError(problem)
         runtime = config.get("_execution_runtime")
         chrome, chromedriver = ((runtime.get("browser"), runtime.get("chromedriver")) if runtime is not None
                                 else (paths.chrome(bundled=True), paths.chromedriver()))  # the driver must match the browser's version

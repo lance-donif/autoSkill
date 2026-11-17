@@ -56,6 +56,24 @@ class CaseFolderTests(unittest.TestCase):
         self.assertEqual(result, self.snapshot())
         self.assertFalse((projects.path(PID) / "domain/HEAD.json").exists())
 
+    def test_saved_business_paths_organize_manual_replay_without_reassigning_explicit_folders(self):
+        first, second = self.cases
+        first["extensions"]["test_case_document"] = {"business_path": ["Folders", "销售", "订单查询"]}
+        second["extensions"]["test_case_document"] = {"business_path": ["售后", "订单查询"]}
+        projects.save_cases(PID, self.cases)
+        snapshot = self.snapshot()
+        roots = {folder["name"]: folder["id"] for folder in snapshot["folders"] if not folder["parent_id"]}
+        self.assertEqual(set(roots), {"销售", "售后"})
+        for group, case in zip(("销售", "售后"), self.cases, strict=True):
+            child = next(folder for folder in snapshot["folders"] if folder["parent_id"] == roots[group])
+            self.assertEqual(child["name"], "订单查询")
+            self.assertEqual(snapshot["assignments"][case["id"]], child["id"])
+            self.assertEqual(case_folders.selection(PID, roots[group])["case_ids"], [case["id"]])
+        self.assertEqual(self.snapshot(), snapshot)
+        moved = case_folders.move_cases(PID, [first["id"]], None, expected_revision=snapshot["revision"])
+        self.assertIsNone(moved["assignments"][first["id"]])
+        self.assertEqual(self.snapshot()["assignments"][second["id"]], snapshot["assignments"][second["id"]])
+
     def test_empty_nested_folders_persist_and_batch_move_preserves_case_bytes(self):
         before = {file.name: file.read_bytes() for file in (projects.path(PID) / "testcases").iterdir()}
         _, parent = self.create("回归")

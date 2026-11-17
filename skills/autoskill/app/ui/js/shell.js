@@ -174,7 +174,7 @@ export function runSettings() {
     menu.append(
       row('回放引擎', '只影响页面用例；接口用例始终走 HTTP', engines),
       h('div', { class: 'menu-sep' }),
-      row('显示浏览器窗口', '关闭后在后台运行', toggle('显示浏览器窗口', preferredHeaded(), (on) => setHeaded(on))),
+      row('显示浏览器窗口', '关闭后隐藏浏览器窗口', toggle('显示浏览器窗口', preferredHeaded(), (on) => setHeaded(on))),
       row('使用本机 Chrome', browser.system ? '启动不了时改用随包浏览器；Selenium 始终用随包浏览器' : '没有找到本机 Chrome，正在使用随包浏览器',
         toggle('使用本机 Chrome', browser.mode !== 'bundled', async (on) => {
           const mode = on ? 'system' : 'bundled';

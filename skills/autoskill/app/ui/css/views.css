@@ -196,6 +196,12 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .case-plan-options[open] { flex-basis: 100%; }
 .workflow-cycle { margin-top: var(--s-4); }
 .workflow-cycle > summary { cursor: pointer; padding: var(--s-4) var(--s-5); font-weight: 600; }
+.case-plan-folder { cursor: pointer; list-style: none; padding-bottom: var(--s-3); }
+.case-plan-folder::-webkit-details-marker { display: none; }
+.case-plan-folder > svg { width: 14px; height: 14px; flex: none; }
+.case-plan-tree[open] > .case-plan-folder > svg { transform: rotate(90deg); }
+.case-plan-branches { margin: 0 var(--s-3); padding-left: var(--s-2); border-left: 1px solid var(--line); }
+.case-plan-branch .case-plan-folder { padding: var(--s-2); }
 .case-plan-row { padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); }
 .case-plan-row:first-of-type { margin-top: var(--s-3); }
 .case-plan-overview { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; align-items: start; gap: var(--s-4); }

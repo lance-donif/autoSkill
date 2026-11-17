@@ -109,7 +109,7 @@ DSH 注册命令中的 `--runtime-context <绑定值>` 同时固定 workspace �
 
 kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 asset_id/parameters，maintenance 选 workflow_id/host/parameters。规则仍由 autoSkill 的 interval/at/daily/weekly 时钟负责，DSH 只接收已到期的单次投递，不再建立第二个重复时钟。投递回执只证明指令已进入宿主会话，不证明流程完成；宿主退出期间保留 outbox。
 
-回放任务定义可提供 `headed: false` 隐藏浏览器窗口，`true` 显示；这个选择保存在任务中，编辑、立即运行、到期执行和重启后继续使用。旧任务或省略该字段的 CLI 任务沿用当前数据目录保存的回放窗口偏好；没有偏好时使用运行环境默认。仪表盘新建任务会将当前窗口偏好作为该任务的初始值，并允许在编辑器中修改。原生资产自己的浏览器启动方式由其原脚本控制。
+回放任务定义可提供 `headed: false` 隐藏浏览器窗口，`true` 显示。这个选择保存在任务中，编辑、立即运行、到期执行和重启后继续使用。旧任务或省略该字段的 CLI 任务沿用当前数据目录保存的回放窗口偏好，默认显示窗口。仪表盘新建任务会将当前窗口偏好作为初始值。原生资产自己的浏览器启动方式由其原脚本控制。
 
 新任务的 host 默认跟随创建命令的宿主绑定，显式 host 优先；`host_session_id` 是独立字段。更新省略宿主字段会保留原值。创建、更新、恢复任务会启动本机队列驱动，命令退出后未来计划仍可触发；机器重启或驱动被关闭后，用任一 `schedule update`、`schedule resume` 或 `native dispatch` 重新启动。当前没有安装系统开机服务。DSH 插件只能激活运行中宿主的会话，不能启动已退出的 DSH；重开插件后会继续读取持久投递。
 
@@ -194,7 +194,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 `--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。
 
-- 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好；省略参数不会覆盖用户已经选择的隐藏。没有偏好时默认显示最大化窗口，无桌面的 Linux 默认隐藏。用户最新明确要求显示/隐藏时分别传 `--headed` / `--headless`，命令行优先于旧的 `AUTOSKILL_HEADED=1/0`，再优先于保存偏好；临时覆盖不改写保存偏好；没有窗口时页面为 1920×1080。这些命令行选项适用于 `record start`、`run`、`login`、`dashboard`。
+- 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好，默认显示最大化窗口。Linux 缺少图形桌面时会报告启动受阻。用户明确要求显示或隐藏时分别传 `--headed` 或 `--headless`，命令行优先于 `AUTOSKILL_HEADED=1/0`，再优先于保存偏好。显式无头时页面为 1920×1080。这些选项适用于 `record start`、`run`、`login`、`dashboard`。
 - 全局默认同时执行 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的浏览器/HTTP replay 共享登录态，会自动排队，native 原生任务使用独立输入与证据目录、同项目可并行。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
 - 前置用例自动先执行且每次运行只执行一次；前置没通过时，依赖它的用例记为阻塞。
 - API 动作声明 `extensions.postconditions` 时，单选该动作也会执行其后置及依赖；必须在同一运行完成全部独立业务检查，才可形成动作业务 Pass 与完整发布集合。仅 HTTP 201 等受理状态不证明业务完成；后置失败、阻塞或未验证时保留原结果，见[执行契约](workflow/execution.md#显式后置检查删除已受理不等于业务已完成)。
@@ -220,7 +220,7 @@ HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{
 | 命令 | 说明 |
 | --- | --- |
 | `export postman <项目> [--out 目录]` | Postman Collection v2.1 + Environment。按依赖顺序排列，含断言脚本和变量传递；凭据是环境里的空变量 |
-| `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本（含前置步骤），运行时不需要 autoSkill；凭据从同名环境变量读取 |
+| `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本，包含前置步骤。脚本默认显示窗口，设置 `HEADED=0` 可隐藏。凭据从同名环境变量读取。 |
 | `report <项目> [--out 目录]` | Excel 以14列功能测试用例为主表，保留技术定义、执行明细与最近结果附表，并生成 Markdown 摘要 |
 | `task-report <报告标识> [--retry]` | 读取本次任务的 Excel、简报和 Bug 清单交付回执；`--retry` 按同一任务快照重新导出，不重新执行测试，也不借用其他任务的结果 |
 | `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、项目报告附件、原生资产及原始捕获，不额外加入本机登录态、`.local/` 运行数据库、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |

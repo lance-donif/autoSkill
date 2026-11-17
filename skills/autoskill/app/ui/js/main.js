@@ -21,9 +21,14 @@ const PAGES = {
   data: () => import('./pages/data.js'),
 };
 const view = document.getElementById('view');
+const loadingText = '正在加载页面…';
+// Keep the announcement outside the busy view so assistive technology can announce it immediately.
+const loadingStatus = h('span', { class: 'sr', role: 'status' });
+view.before(loadingStatus);
 let token = 0;
-let lastKey = '';
+let viewKey = '';
 let lastScope = '';
+let loadingPage = false;
 let refreshingFrame = null;
 let initialRevision = null;
 let snapshotStarted = false;
@@ -44,15 +49,23 @@ function refreshFrame() {
 async function show({ quiet = false } = {}) {
   const { page, id } = route();
   const mine = ++token;
-  const key = page + '/' + (id || '');
-  const fresh = key !== lastKey;
-  const currentScope = JSON.stringify(scope());
-  if (fresh || currentScope !== lastScope) renderSide();
-  if (fresh || currentScope !== lastScope) renderScope();
   if (!PAGES[page]) { location.hash = '#/dashboard'; return; }
-  if (!view.childElementCount) {
-    replace(view, h('div', { class: 'card' }, skeletonRows(6)));
+  const key = page + '/' + (id || '');
+  const changedPage = key !== viewKey;
+  const currentScope = JSON.stringify(scope());
+  if (changedPage || currentScope !== lastScope) {
+    renderSide();
+    renderScope();
+    lastScope = currentScope;
   }
+  if (changedPage) {
+    viewKey = key;
+    loadingPage = true;
+    loadingStatus.textContent = loadingText;
+    replace(view, h('div', { class: 'card', 'aria-hidden': 'true' },
+      h('div', { class: 'card-head' }, h('p', { class: 'sub' }, loadingText)), skeletonRows(6)));
+  }
+  const fresh = loadingPage;
   view.setAttribute('aria-busy', 'true');
   try {
     const module = await PAGES[page]();
@@ -65,13 +78,15 @@ async function show({ quiet = false } = {}) {
     else if (quiet && !fresh) updateLiveView(view, holder);
     else view.replaceChildren(...holder.childNodes);
     if (fresh) window.scrollTo(0, 0);
-    lastKey = key;
-    lastScope = currentScope;
   } catch (error) {
     if (mine !== token) return;
     replace(view, h('div', { class: 'card' }, errorState(error, () => show())));
   } finally {
-    if (mine === token) view.removeAttribute('aria-busy');
+    if (mine === token) {
+      loadingPage = false;
+      loadingStatus.textContent = '';
+      view.removeAttribute('aria-busy');
+    }
   }
 }
 

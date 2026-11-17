@@ -102,7 +102,7 @@ async function editor(task, done, projects) {
       h('span', { class: 'hint' }, '前置用例（如登录）会自动先执行，不需要单独选。')),
     h('div', { class: 'field' }, h('label', { for: 'tk-engine' }, '回放引擎'), engine),
     h('div', { class: 'field' }, h('label', { class: 'row', for: 'tk-headed' }, headed, '显示浏览器窗口'),
-      h('span', { class: 'hint' }, '关闭后在后台执行。此任务单独保存这个选择，立即运行、定时执行和重启后都沿用。')));
+      h('span', { class: 'hint' }, '关闭后隐藏浏览器窗口。此任务单独保存这个选择，立即运行、定时执行和重启后都沿用。')));
   const target = targetEditor(task, project, (value) => { replayFields.hidden = value !== 'replay'; });
   replayFields.hidden = target.kind() !== 'replay';
 

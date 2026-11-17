@@ -34,6 +34,27 @@ class CasePlanDashboardTests(DashboardWorkspace):
         self.assertEqual([cell.value for cell in book["功能测试用例"][1]], task_workbook.HEADERS)
         return [row[9].value for row in book["功能测试用例"].iter_rows(min_row=2) if row[1].value]
 
+    def test_saved_business_path_keeps_identically_named_modules_in_separate_branches(self):
+        rows = [
+            {"id": "DESIGN-SALES", "title": "查看销售订单", "module": "订单查询", "steps": ["打开销售订单"],
+             "expected": "显示销售列表", "business_path": ["销售", "订单查询", "列表"]},
+            {"id": "DESIGN-SUPPORT", "title": "查看售后订单", "module": "订单查询", "steps": ["打开售后订单"],
+             "expected": "显示退款列表", "business_path": ["售后", "订单查询", "退款"]},
+        ]
+        source = self.folder / "business-tree.json"
+        source.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
+        with patch.dict(os.environ, {"AUTOSKILL_SESSION": "目录用例表"}):
+            plan.write(self.pid, str(source))
+        self.open_plan("目录用例表")
+        sales = self.page.get_by_role("region", name="业务模块：销售", exact=True)
+        support = self.page.get_by_role("region", name="业务模块：售后", exact=True)
+        expect(sales.get_by_role("region", name="业务目录：销售 / 订单查询 / 列表", exact=True)).to_contain_text("DESIGN-SALES")
+        expect(support.get_by_role("region", name="业务目录：售后 / 订单查询 / 退款", exact=True)).to_contain_text("DESIGN-SUPPORT")
+        sales.locator(":scope > details > summary").press("Enter")
+        expect(sales.get_by_text("DESIGN-SALES", exact=True)).to_be_hidden()
+        expect(support.get_by_text("DESIGN-SUPPORT", exact=True)).to_be_visible()
+        expect(self.page.get_by_role("link", name="下载 14 列 Excel", exact=True)).to_be_visible()
+
     def test_host_changes_require_real_evidence_and_browser_keeps_prior_excel(self):
         case = projects.case(self.pid, "TC-SLOW")
         case_document.apply(case, {"description": "验证查询服务就绪状态后返回真实就绪标记", "preconditions": "本地合成就绪检查服务已启动",
@@ -215,9 +236,11 @@ class CasePlanDashboardTests(DashboardWorkspace):
         sheets = reader.get_by_role('combobox', name='已有用例表', exact=True)
         expect(reader.locator('select[aria-label="已有用例表"] option[value="备用订单用例表"]')).to_have_count(1)
         self.open_options(reader)
+        sheets.focus()
         sheets.select_option('完整订单用例表')
-        expect(reader.locator('#view h1')).to_be_visible()
-        self.open_options(reader)
+        expect(reader.locator('.case-plan-options-panel')).to_contain_text('当前用例表：完整订单用例表')
+        expect(reader.locator('#view')).not_to_have_attribute('aria-busy', 'true')
+        expect(sheets).to_be_focused()
         expect(sheets).to_have_value('完整订单用例表')
         reader.get_by_role('button', name='回放设置', exact=True).click()
         preference = reader.get_by_role('switch', name='显示浏览器窗口', exact=True)

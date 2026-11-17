@@ -80,9 +80,38 @@ class BrowserVisibilityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "布尔值"):
             bridge.execute(["project", "list"], headed="false")
 
-    def test_real_implicit_cli_replay_and_login_launch_headless_without_flags(self):
+    @unittest.skipUnless(sys.platform == "linux", "Linux requires a desktop to show Chromium")
+    def test_default_replay_and_recording_report_when_desktop_is_missing(self):
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.folder / "first-use")}):
+            os.environ.pop("DISPLAY", None)
+            os.environ.pop("WAYLAND_DISPLAY", None)
+            self.assertEqual(paths.settings(), {})
+            self.assertTrue(paths.headed())
+            pid = projects.create("No desktop", "http://127.0.0.1:9")["id"]
+            case = builder.ui_case("TC-UI-001", "Desktop requirement", {"start_url": "/", "actions": [],
+                "assertions": [{"assertion": "title", "expected": "Ready"}]})
+            projects.save_cases(pid, [case])
+            projects.set_auth(pid, {"ui_case": case["id"]})
+            for command in (["run", pid], ["run", pid, "--engine", "selenium"], ["login", pid, "--force"]):
+                with self.subTest(command=command):
+                    completed = subprocess.run([sys.executable, "-m", "autoskill", *command], capture_output=True, text=True,
+                                               timeout=30, check=False)
+                    result = json.loads(completed.stdout)
+                    self.assertEqual(completed.returncode, 2, result)
+                    self.assertEqual(result["status"], "Blocked", result)
+                    self.assertIn("需要图形桌面", result["results"][0]["detail"])
+                    self.assertEqual(db.one("SELECT headed FROM runs WHERE id = ?", (result["run_id"],))["headed"], 1)
+            if paths.agent_browser():
+                completed = subprocess.run([sys.executable, "-m", "autoskill", "record", "start", pid, "--no-login"],
+                                           capture_output=True, text=True, timeout=30, check=False)
+                self.assertEqual(completed.returncode, 2, completed.stdout)
+                self.assertIn("需要图形桌面", json.loads(completed.stdout)["error"])
+
+    def test_real_explicitly_saved_hidden_preference_applies_without_desktop(self):
         if not paths.chrome():
             self.skipTest("Actual implicit browser preference acceptance requires Chromium")
+        os.environ.pop("DISPLAY", None)
+        os.environ.pop("WAYLAND_DISPLAY", None)
         user_agents = []
 
         class Site(BaseHTTPRequestHandler):

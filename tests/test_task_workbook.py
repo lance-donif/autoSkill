@@ -126,7 +126,7 @@ class TaskWorkbookTests(unittest.TestCase):
 
     def test_recording_failure_does_not_replace_each_replay_verdict_in_the_workbook(self):
         case = definition()
-        recorded = {'status': 'Fail', 'actual': '最初录制只显示 0 条', 'expected': '应显示 2 条'}
+        recorded = {'status': 'Fail', 'actual': '最初录制只显示 0 条。' * 100, 'expected': '应显示 2 条'}
         initial = {'definition': case, 'result': None, 'run_id': None, 'evidence_valid': False, 'recording_result': recorded}
         failed = {**observation(case, 'Fail', 'run-first'), 'recording_result': recorded}
         passed = {**observation(case, 'Pass', 'run-retest'), 'recording_result': recorded}
@@ -134,7 +134,9 @@ class TaskWorkbookTests(unittest.TestCase):
         book, rows, _ = self.render(data)
         self.assertEqual(rows[0][9], '失败（曾失败，后续通过）')
         self.assertIn('各轮结论：失败 → 失败 → 通过', rows[0][12])
+        self.assertTrue(rows[0][8].startswith('run-first：失败'))
         self.assertIn('run-retest：通过', rows[0][8])
+        self.assertIn('最初录制只显示 0 条', str(list(book['长文本'].values)))
         cells = list(book['用例与结果'].values)
         columns = {name: index for index, name in enumerate(cells[0])}
         replay = next(row for row in cells[1:] if row[columns['运行标识']] == 'run-retest')

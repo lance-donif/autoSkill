@@ -427,6 +427,8 @@ def _element_png(locator: dict, rec: dict | None = None) -> bytes:
 
 
 def _launch_browser(config: dict, state_file: Path | None) -> None:
+    if problem := paths.browser_display_problem(headed=paths.headed()):
+        raise RecordError(problem)
     browsers = list(dict.fromkeys(b for b in (paths.chrome(), paths.chrome(bundled=True)) if b)) or [None]
     for index, browser in enumerate(browsers):  # the user's own Chrome first, ours when it will not start
         launch = agent.launch_args(config["allowed_origins"], state_file, bool(config.get("ignore_https_errors")), browser)

@@ -91,7 +91,7 @@ class PlanFunctionalSourceTests(unittest.TestCase):
         self.assertIn("error", plan.bind_execution(row["id"], self.pid, candidate, None))
 
     def test_cli_record_plan_freezes_full_source_design_before_later_sheet_edits(self):
-        self.write()
+        self.write({**self.row, "priority": "高"})
         recording = {"project_id": self.pid, "start_url": "/__technical/draft", "steps": [
             {"action": "click", "selector": "#__technical_submit"},
             {"assertion": "text", "selector": "#__technical_state", "expected": "待审核", "oracle": {"source": "explicit"}}],
@@ -102,8 +102,11 @@ class PlanFunctionalSourceTests(unittest.TestCase):
                 patch.object(jobs, "ensure_worker", return_value={}):
             result = session.stop("提交指定草稿订单审核", plan_case="DESIGN-001")
         saved = next(case for case in result["candidates"] if case["id"] == result["ui_case"]["id"])
+        self.assertTrue(result["run_id"], result)
+        self.assertEqual(saved["priority"], "P0")
         self.assertEqual(projects.cases(self.pid), [])
         document = saved["extensions"]["test_case_document"]
+        self.assertEqual(document["priority"], "高")
         for key in ("description", "business_path", "prefix", "author", "remarks"):
             self.assertEqual(document[key], self.row[key])
         self.assertEqual(document["source"]["upstream"], self.row["source"])

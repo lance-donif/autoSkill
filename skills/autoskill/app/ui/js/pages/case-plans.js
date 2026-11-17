@@ -12,7 +12,8 @@ let changedTask = null;
 export function commit(view, next) {
   const current = sheetContexts.get(view.querySelector('.case-plan-groups'));
   const incoming = sheetContexts.get(next.querySelector('.case-plan-groups'));
-  if (current && incoming && current.key === incoming.key && view.querySelector('.case-plan-options .menu')) {
+  const options = view.querySelector('.case-plan-options');
+  if (current && incoming && current.key === incoming.key && options?.querySelector('.menu')) {
     updateLiveView(view.querySelector('.page-head'), next.querySelector('.page-head'));
     updateLiveView(view.querySelector('.case-plan-groups'), next.querySelector('.case-plan-groups'));
     return;
@@ -22,10 +23,13 @@ export function commit(view, next) {
     changedTask = incoming.taskId;
     next.querySelector('.page-head .grow').append(taskChangeNotice());
   }
+  const selection = current.address !== incoming.address && options?.querySelector('select:focus');
+  const nextOptions = next.querySelector('.case-plan-options');
+  if (selection && nextOptions) nextOptions.open = true;
   view.replaceChildren(...next.childNodes);
   const title = view.querySelector('h1');
-  title.tabIndex = -1;
-  title.focus({ preventScroll: true });
+  const target = selection && nextOptions?.querySelector(`[id="${CSS.escape(selection.id)}"]`);
+  (target || title).focus({ preventScroll: true });
   window.scrollTo(0, 0);
 }
 
@@ -37,6 +41,7 @@ beforeRouteChange(() => {
   const row = sheet.contains(focused) && focused.closest('[data-case]');
   readingPositions.set(context.address, { key: context.key, y: window.scrollY,
     optionsOpen: document.querySelector('#view .case-plan-options')?.open,
+    closedBranches: [...sheet.querySelectorAll('.case-plan-tree:not([open])')].map((node) => node.dataset.branch),
     expanded: [...sheet.querySelectorAll('.case-plan-details[open]')].map((node) => node.closest('[data-case]').dataset.case),
     focus: row ? { case: row.dataset.case, identity: focused.dataset.readingId, tag: focused.tagName, href: focused.getAttribute('href') } : null });
 });
@@ -57,6 +62,7 @@ function preserveReadingPosition(view, data) {
     if (!saved || saved.key !== key) return;
     const options = sheet.closest('#view').querySelector('.case-plan-options');
     if (options) options.open = !!saved.optionsOpen;
+    for (const branch of sheet.querySelectorAll('.case-plan-tree')) branch.open = !saved.closedBranches.includes(branch.dataset.branch);
     for (const details of sheet.querySelectorAll('.case-plan-details')) {
       details.open = saved.expanded.includes(details.closest('[data-case]').dataset.case);
     }
@@ -92,7 +98,7 @@ export async function render(view) {
   const activeSession = data.session ?? session;
   sheet.textContent = '当前用例表：' + (activeSession || '默认');
   if (data.sessions?.length) {
-    const choice = h('select', { class: 'select', 'aria-label': '已有用例表',
+    const choice = h('select', { class: 'select', id: 'cp-session', 'aria-label': '已有用例表',
       onChange: (event) => go('case-plans', { project: projectId, session: event.currentTarget.value }) },
     data.sessions.map((item) => h('option', { value: item.session, selected: item.session === activeSession },
       item.label || item.title || item.session || '默认用例表')));
@@ -129,14 +135,33 @@ function taskChangeNotice() {
 function caseGroups(data) {
   const groups = new Map();
   for (const row of data.rows) {
-    const module = row.module || row.business_path?.slice(0, -1).join(' / ') || '未分组';
-    if (!groups.has(module)) groups.set(module, []);
-    groups.get(module).push(row);
+    const path = Array.isArray(row.business_path) ? row.business_path.filter(Boolean) : [];
+    if (path.length > 1 && path[0] === data.project.name) path.shift();
+    if (!path.length) path.push(row.module || '未分组');
+    let level = groups;
+    let branch;
+    for (const name of path) {
+      if (!level.has(name)) level.set(name, { name, rows: [], children: new Map(), total: 0 });
+      branch = level.get(name);
+      branch.total += 1;
+      level = branch.children;
+    }
+    branch.rows.push(row);
   }
-  return h('div', { class: 'stack case-plan-groups' }, [...groups].map(([module, rows]) =>
-    h('section', { class: 'card', 'aria-label': '业务模块：' + module },
-      h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, module), h('p', { class: 'sub' }, `${rows.length} 条用例`))),
-      rows.map((row) => caseRow(data, row)))));
+  return h('div', { class: 'stack case-plan-groups' }, [...groups.values()].map((branch) => caseBranch(data, branch, [])));
+}
+
+function caseBranch(data, branch, ancestors) {
+  const root = ancestors.length === 0;
+  const path = [...ancestors, branch.name];
+  const address = path.join(' / ');
+  return h('section', { class: root ? 'card' : 'case-plan-branch', 'aria-label': (root ? '业务模块：' : '业务目录：') + address },
+    h('details', { class: 'case-plan-tree', open: true, 'aria-label': '目录 ' + address, dataset: { branch: JSON.stringify(path) } },
+      h('summary', { class: 'card-head case-plan-folder' }, icon('right'), h(root ? 'h2' : 'h3', { class: 'grow' }, branch.name),
+        h('span', { class: 'sub' }, `${branch.total} 条用例`)),
+      branch.rows.map((row) => caseRow(data, row)),
+      branch.children.size > 0 && h('div', { class: 'case-plan-branches' },
+        [...branch.children.values()].map((child) => caseBranch(data, child, path)))));
 }
 
 function sourceText(source) {

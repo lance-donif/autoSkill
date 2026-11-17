@@ -12,6 +12,7 @@ TECHNICAL_TITLE = re.compile(r"^(?:(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)|�
 NUMBERED = re.compile(r"^\d+\.\s+")
 MISSING_STEPS = "【待确认：功能测试步骤尚未提供】；自动化动作和接口请求保留在执行明细。"
 MISSING_EXPECTED = "【待确认：有来源支持的预期结果】；技术断言不是已编写的功能测试预期。"
+LOCAL_PRIORITIES = {"高": "P0", "中": "P1", "低": "P2"}
 
 
 def document(case: dict) -> dict:
@@ -155,9 +156,12 @@ def apply(case: dict, value: dict | None) -> dict:
     if "steps" in value and technical_steps(case, _steps(value["steps"])):
         raise ValueError("功能测试步骤需要描述具体业务操作，不能只保存 HTTP 路径或浏览器指令")
     case["extensions"]["test_case_document"] = document_copy
-    for field in ("preconditions", "expected", "module", "priority", "requirement_ids"):
+    for field in ("preconditions", "expected", "module", "requirement_ids"):
         if field in value:
             case[field] = prose_text(value[field]) if field == "expected" else copy.deepcopy(value[field])
+    if "priority" in value:
+        priority = value["priority"]
+        case["priority"] = LOCAL_PRIORITIES.get(priority.strip(), priority) if isinstance(priority, str) else copy.deepcopy(priority)
     if "steps" in value:
         case["steps"] = _steps(value["steps"])
     return case

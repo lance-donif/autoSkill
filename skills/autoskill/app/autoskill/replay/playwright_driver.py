@@ -34,10 +34,13 @@ class PlaywrightAction:
 class PlaywrightDriver:
     name = "playwright"
 
-    def __init__(self, config: dict, headless: bool = True):
+    def __init__(self, config: dict, headless: bool | None = None):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
 
+        headless = not paths.headed() if headless is None else headless
+        if problem := paths.browser_display_problem(headed=not headless):
+            raise ValueError(problem)
         self.config = config
         self.allowed = list(config.get("allowed_origins", []))
         self.timeout_ms = int(float(config.get("timeout_seconds", 20)) * 1000)

@@ -91,52 +91,58 @@ class RecorderBrowserCompatibilityTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "linux" and os.environ.get("DISPLAY") and shutil.which("xwininfo") and shutil.which("xprop"),
                          "requires a real X11 display and window inspection tools")
-    def test_explicitly_visible_recording_creates_a_mapped_owned_window(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
-                "AUTOSKILL_WORKSPACE": folder, "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "1"}):
-            site = ThreadingHTTPServer(("127.0.0.1", 0), RecordingTarget)
-            thread = threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
-            thread.start()
-            with task_context.use_session("visible-recording"):
-                try:
-                    paths.save_settings(dashboard={"headed": False})
-                    project = projects.create("Visible recording", f"http://127.0.0.1:{site.server_port}")["id"]
-                    started = session.start(project, login=False)
-                    self.assertTrue(started["recording"])
-                    self.assertTrue(started["headed"])
-                    self.assertTrue(session.current()["headed"])
-                    self.assertFalse(paths.settings()["dashboard"]["headed"])
-                    name = session.session_name()
-                    title = "autoskill-visible-" + uuid.uuid4().hex
-                    agent.call(name, ["eval", "--stdin"], stdin_text="document.title = " + json.dumps(title))
-                    deadline, own_window = time.monotonic() + 4, ""
-                    while not own_window and time.monotonic() < deadline:
-                        tree = subprocess.run(["xwininfo", "-root", "-tree"], capture_output=True, text=True,
-                                              timeout=5, check=True).stdout
-                        own_window = next((line for line in tree.splitlines() if title in line), "")
-                        if not own_window:
-                            time.sleep(0.05)
-                    self.assertTrue(own_window, "The recording page has no mapped X11 browser window")
-                    window = re.search(r"0x[0-9a-fA-F]+", own_window).group()
-                    details = subprocess.run(["xwininfo", "-id", window], capture_output=True, text=True,
-                                             timeout=5, check=True).stdout
-                    self.assertIn("Map State: IsViewable", details)
-                    properties = subprocess.run(["xprop", "-id", window, "_NET_WM_PID"], capture_output=True, text=True,
-                                                timeout=5, check=True).stdout
-                    browser = int(properties.rsplit("=", 1)[1].strip())
-                    process = Path(f"/proc/{browser}")
-                    parent = int(process.joinpath("stat").read_text().rsplit(") ", 1)[1].split()[1])
-                    self.assertEqual(parent, agent._controller_pid(name))
-                    self.assertIsNotNone(runtime_identity.process_birth(browser))
-                    arguments = process.joinpath("cmdline").read_bytes().split(b"\0")
-                    self.assertFalse(any(value.startswith(b"--headless") for value in arguments))
-                    self.assertIn(b"--start-maximized", arguments)
-                    self.assertTrue(session.check("text", "#result", "ready")["passed"])
-                finally:
-                    session.cancel()
-                    site.shutdown()
-                    site.server_close()
-                    thread.join(timeout=3)
+    def test_default_and_explicit_recording_create_mapped_owned_windows(self):
+        site = ThreadingHTTPServer(("127.0.0.1", 0), RecordingTarget)
+        thread = threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+        thread.start()
+        try:
+            for explicit in (False, True):
+                with (self.subTest(explicit=explicit), tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
+                        "AUTOSKILL_WORKSPACE": folder, "AUTOSKILL_BRIDGE": "off"}), task_context.use_session("visible-recording")):
+                    os.environ.pop("AUTOSKILL_HEADED", None)
+                    if explicit:
+                        paths.save_settings(dashboard={"headed": False})
+                        os.environ["AUTOSKILL_HEADED"] = "1"
+                    original_settings = paths.settings()
+                    try:
+                        project = projects.create("Visible recording", f"http://127.0.0.1:{site.server_port}")["id"]
+                        started = session.start(project, login=False)
+                        self.assertTrue(started["recording"])
+                        self.assertTrue(started["headed"])
+                        self.assertTrue(session.current()["headed"])
+                        self.assertEqual(paths.settings(), original_settings)
+                        self.assert_recording_window()
+                        self.assertTrue(session.check("text", "#result", "ready")["passed"])
+                    finally:
+                        session.cancel()
+        finally:
+            site.shutdown()
+            site.server_close()
+            thread.join(timeout=3)
+
+    def assert_recording_window(self):
+        name = session.session_name()
+        title = "autoskill-visible-" + uuid.uuid4().hex
+        agent.call(name, ["eval", "--stdin"], stdin_text="document.title = " + json.dumps(title))
+        deadline, own_window = time.monotonic() + 4, ""
+        while not own_window and time.monotonic() < deadline:
+            tree = subprocess.run(["xwininfo", "-root", "-tree"], capture_output=True, text=True, timeout=5, check=True).stdout
+            own_window = next((line for line in tree.splitlines() if title in line), "")
+            if not own_window:
+                time.sleep(0.05)
+        self.assertTrue(own_window, "The recording page has no mapped X11 browser window")
+        window = re.search(r"0x[0-9a-fA-F]+", own_window).group()
+        details = subprocess.run(["xwininfo", "-id", window], capture_output=True, text=True, timeout=5, check=True).stdout
+        self.assertIn("Map State: IsViewable", details)
+        properties = subprocess.run(["xprop", "-id", window, "_NET_WM_PID"], capture_output=True, text=True, timeout=5, check=True).stdout
+        browser = int(properties.rsplit("=", 1)[1].strip())
+        process = Path(f"/proc/{browser}")
+        parent = int(process.joinpath("stat").read_text().rsplit(") ", 1)[1].split()[1])
+        self.assertEqual(parent, agent._controller_pid(name))
+        self.assertIsNotNone(runtime_identity.process_birth(browser))
+        arguments = process.joinpath("cmdline").read_bytes().split(b"\0")
+        self.assertFalse(any(value.startswith(b"--headless") for value in arguments))
+        self.assertIn(b"--start-maximized", arguments)
 
     def test_fresh_recorders_keep_the_same_browser_and_save_replayable_business_evidence(self):
         import websocket

@@ -149,9 +149,9 @@ class FunctionalCaseDocumentsTests(unittest.TestCase):
             {"assertion": "text", "selector": "#__technical_state", "expected": "待审核"}],
             "secrets": [], "used_login": False, "as_login": False}
         session._save(rec)
-        with patch.object(session.agent, "call", return_value=None), patch.object(session.capture, "stop", return_value=None):
+        with patch.object(session.agent, "call", return_value=None), patch("autoskill.server.jobs.ensure_worker"):
             result = session.stop("提交订单审核", plan_case="DESIGN-001")
-        saved = projects.case(self.pid, result["ui_case"]["id"])
+        saved = next(case for case in result["candidates"] if case["id"] == result["ui_case"]["id"])
         document = saved["extensions"]["test_case_document"]
         self.assertEqual(saved["steps"], [f"{n}. {step}" for n, step in enumerate(row["steps"], 1)])
         self.assertEqual(saved["expected"], row["expected"])
@@ -167,7 +167,7 @@ class FunctionalCaseDocumentsTests(unittest.TestCase):
         self.assertIn("点击【提交审核】", exported[5])
         self.assertNotIn("__technical", exported[5])
         self.assertEqual(exported[6], row["expected"])
-        self.assertEqual(exported[9], "未执行")
+        self.assertEqual(exported[9], "业务未验证")
 
     def test_conversation_questions_and_independent_expected_values_are_known_functional_facts(self):
         case = {"kind": "native", "turns": [{"question": "2025年销售额是多少？", "expected": 700},
