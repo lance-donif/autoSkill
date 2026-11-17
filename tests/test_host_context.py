@@ -43,6 +43,22 @@ class HostContextTests(unittest.TestCase):
                                                    "AUTOSKILL_CASE_SKILL": str(self.folder / "sheet"), "AUTOSKILL_HEADED": "0"})
         self.environment.start()
         self.addCleanup(self.environment.stop)
+        self.dispatchers = set(jobs._dispatchers.values())
+        self.addCleanup(self.stop_dispatchers)
+
+    def stop_dispatchers(self):
+        # Stop this test's lease monitors before restoring paths or removing their workspace.
+        for pid, child in list(jobs._dispatchers.items()):
+            if child in self.dispatchers:
+                continue
+            if child.poll() is None:
+                child.terminate()
+            try:
+                child.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait(timeout=10)
+            jobs._dispatchers.pop(pid, None)
 
     def project(self):
         project_id = projects.create("Host fixture", "http://127.0.0.1:9", project_id="host-project")["id"]

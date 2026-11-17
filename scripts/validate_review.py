@@ -153,7 +153,7 @@ def _command_log(path: Path, name: str, show_logs: bool):
 def _github_error(result: dict) -> None:
     path = Path(result["log"])
     with path.open("rb") as log:
-        log.seek(max(0, path.stat().st_size - 8192))
+        log.seek(max(0, path.stat().st_size - 2000))
         tail = log.read().decode("utf-8", errors="replace")
     message = f"检查失败：{result['name']}（退出码 {result['exit_code']}，跳过 {result.get('skipped', 0)}）\n{tail}"
     escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")

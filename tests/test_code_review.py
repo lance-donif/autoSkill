@@ -229,7 +229,7 @@ class ValidationRunnerTests(unittest.TestCase):
         self.assertTrue(annotations[0].endswith("Traceback: 100%25 failed%0D%0Aexpected %250A literal%0AAssertionError: final failure%0A"))
         self.assertNotIn("omitted-prefix", annotations[0])
         self.assertNotIn("successful-check", annotations[0])
-        self.assertLess(len(annotations[0].encode("utf-8")), 25000)
+        self.assertLess(len(annotations[0].encode("utf-8")), 3000)
         self.assertEqual(result["exit_code"], 7)
         self.assertEqual([item["exit_code"] for item in result["results"]], [7, 0])
         self.assertEqual(json.loads((self.output / "summary.json").read_text(encoding="utf-8")), result)
