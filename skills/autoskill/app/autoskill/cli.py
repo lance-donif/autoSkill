@@ -73,19 +73,28 @@ def context(project_id: str) -> dict:
     }
 
 
-def run_summary(run: dict) -> dict:
-    rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
-    return {
+def run_summary(run: dict, *, brief: bool = False) -> dict:
+    rows = None if brief else db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
+    state = run.get("state") if brief else None
+    summary = {
         "run_id": run["id"], "status": run["status"], "status_text": STATUS_TEXT.get(run["status"], run["status"]),
-        "state": task_state.run(run, results=rows),
+        "state": state if state is not None else task_state.run(run, results=rows),
         "engine": run["engine"], "total": run["total"], "passed": run["passed"], "failed": run["failed"],
         "blocked": run["blocked"], "reason": run["reason"],
-        "results": [{"case_id": r["case_id"], "title": r["case_title"], "kind": r["kind"], "status": r["status"],
-                     "prerequisite": bool(r["prerequisite"]), "ms": r["duration_ms"],
-                     "detail": r["actual"] or r["reason"], "state": task_state.result(r)} for r in rows],
-        **({"test_report": run["test_report"]} if "test_report" in run else {}),
-        **({"publication": run["publication"]} if "publication" in run else {}),
     }
+    if rows is not None:
+        summary["results"] = [{"case_id": r["case_id"], "title": r["case_title"], "kind": r["kind"], "status": r["status"],
+                               "prerequisite": bool(r["prerequisite"]), "ms": r["duration_ms"],
+                               "detail": r["actual"] or r["reason"], "state": task_state.result(r)} for r in rows]
+    if "test_report" in run:
+        report = run["test_report"]
+        if brief:
+            fields = ("report_id", "status", "excel", "markdown", "bugs", "reason", "error", "retryable")
+            report = {key: report[key] for key in fields if key in report}
+        summary["test_report"] = report
+    if "publication" in run:
+        summary["publication"] = run["publication"]
+    return summary
 
 
 def read_secret_value(args) -> str:
@@ -375,6 +384,7 @@ def parser() -> argparse.ArgumentParser:
     start.add_argument("--as-login", action="store_true", help="本次录制的是登录流程本身")
     start.add_argument("--no-login", action="store_true", help="以未登录状态开始")
     start.add_argument("--url", help="起始地址，默认项目地址")
+    start.add_argument("--reuse", help="在同一个录制标签页执行指定的已保存页面用例作为前置")
     start.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
     stop = record.add_parser("stop")
     stop.add_argument("--title", required=True)
@@ -408,6 +418,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
     run_status = sub.add_parser("run-status", help="只读执行状态、发布结果和已有报告；不执行用例或重新导出")
     run_status.add_argument("run_id")
+    run_status.add_argument("--brief", action="store_true", help="只读运行汇总、发布回执和报告入口，省略逐条结果")
 
     export = sub.add_parser("export", help="导出：postman / scripts").add_subparsers(dest="action", required=True)
     for name in ("postman", "scripts"):
@@ -1012,7 +1023,7 @@ def _dispatch_run_status(args) -> tuple[dict, int]:
         result["test_report"] = task_reports.get("run_" + run["id"])
     except ValueError as error:
         result["test_report"] = {"status": "unavailable", "reason": str(error)}
-    return run_summary(result), 0
+    return run_summary(result, brief=args.brief), 0
 
 
 def _dispatch_recording(args) -> tuple[dict, int]:
@@ -1022,7 +1033,7 @@ def _dispatch_recording(args) -> tuple[dict, int]:
 
     if command == "record":
         if action == "start":
-            return session.start(args.project, login=not args.no_login, as_login=args.as_login, url=args.url), 0
+            return session.start(args.project, login=not args.no_login, as_login=args.as_login, url=args.url, reuse=args.reuse), 0
         if action == "stop":
             return session.stop(args.title, args.module, args.category, args.plan), 0
         return getattr(session, action)(), 0

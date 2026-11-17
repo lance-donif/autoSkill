@@ -257,9 +257,10 @@ def _function(case: dict, engine: str) -> tuple[str, str]:
     name = re.sub(r"[^a-z0-9]+", "_", case["id"].lower()).strip("_")
     arg, opener, emit = ("page", "page.goto", pw_step) if engine == "playwright" else ("driver", "driver.get", se_step)
     factory = "playwright_tabs" if engine == "playwright" else "selenium_tabs"
+    flows = [*[stage["automation"] for stage in automation.get("setup_cases", [])], automation]
     body = [f"def {name}({arg}):", *["    # " + line for line in f"{case['id']} {case['title']}".splitlines()],
-            f"    tabs = {factory}({arg})", f"    {opener}({url_expr(automation['start_url'])})"]
-    for step in [*automation.get("actions", []), *automation.get("assertions", [])]:
+            f"    tabs = {factory}({arg})", f"    {opener}({url_expr(flows[0]['start_url'])})"]
+    for step in (step for flow in flows for step in [*flow.get("actions", []), *flow.get("assertions", [])]):
         body.extend("    # " + line for line in ir.describe(step).splitlines())
         if engine == "playwright" and step.get("action") and step.get("tabs", {}).get("closed"):
             body += [f"    with PlaywrightAction(page, tabs, {tab_change_expr(step['tabs'])}):", f"        {emit(step)}"]

@@ -123,6 +123,14 @@ class CandidatePublicationTests(unittest.TestCase):
         self.assertEqual(set(receipt["unpublished"]), {bad["id"], dependent["id"], observed["id"]})
         self.assertEqual(len(db.rows("SELECT * FROM results WHERE run_id = ?", (queued["run_id"],))), 4)
         self.assertTrue(Path(final[0]["test_report"]["excel"]).is_file())
+        args = cli.parser().parse_args(["run-status", queued["run_id"], "--brief"])
+        with patch.object(runner, "execute", side_effect=AssertionError("status cannot execute")), \
+                patch("autoskill.task_reports.for_run", side_effect=AssertionError("status cannot export")):
+            brief, code = cli.dispatch(args)
+        self.assertEqual((code, brief["status"]), (0, "Fail"))
+        self.assertTrue(brief["publication"]["complete"])
+        self.assertEqual(brief["publication"], receipt)
+        self.assertNotIn("results", brief)
 
     def test_earlier_failure_in_required_repetitions_is_never_promoted_by_later_pass(self):
         case = self.api("API-CHANGING", "/changing")
@@ -184,7 +192,10 @@ class CandidatePublicationTests(unittest.TestCase):
         with patch.object(runner, "execute", side_effect=AssertionError("status cannot execute")):
             args = cli.parser().parse_args(["run-status", queued["run_id"]])
             status, code = cli.dispatch(args)
+            brief, brief_code = cli.dispatch(cli.parser().parse_args(["run-status", queued["run_id"], "--brief"]))
         self.assertEqual((code, status["status"]), (0, "Queued"))
+        self.assertEqual((brief_code, brief["state"], brief["publication"]), (0, status["state"], status["publication"]))
+        self.assertFalse(brief["publication"]["complete"])
         for identity in queued["run_ids"]:
             runner.execute(identity)
         self.assertEqual([case["id"] for case in projects.cases(self.project)], [ui["id"]])
@@ -237,9 +248,22 @@ class CandidatePublicationTests(unittest.TestCase):
         self.assertEqual(receipt["published_ids"], [case["id"]])
         self.assertEqual(CandidateTarget.records[-1][2]["amount"], 17)
         before = len(CandidateTarget.records)
-        status = subprocess.run([*command, "run-status", receipt["run_id"]], capture_output=True, text=True, timeout=20, check=False, env=environment)
+        poll = [*command, "run-status", receipt["run_id"]]
+        status = subprocess.run(poll, capture_output=True, text=True, timeout=20, check=False, env=environment)
         self.assertEqual(status.returncode, 0, status.stdout + status.stderr)
-        self.assertEqual(json.loads(status.stdout)["publication"]["published_ids"], [case["id"]])
+        full = json.loads(status.stdout)
+        self.assertEqual(full["publication"]["published_ids"], [case["id"]])
+        self.assertEqual(full["results"][0]["case_id"], case["id"])
+        status = subprocess.run([*poll, "--brief"], capture_output=True, text=True, timeout=20, check=False, env=environment)
+        self.assertEqual(status.returncode, 0, status.stdout + status.stderr)
+        brief = json.loads(status.stdout)
+        self.assertNotIn("results", brief)
+        self.assertEqual({key: value for key, value in brief.items() if key != "test_report"},
+                         {key: value for key, value in full.items() if key not in ("results", "test_report")})
+        self.assertEqual(brief["test_report"]["status"], "ready")
+        self.assertEqual(brief["test_report"]["report_id"], "run_" + receipt["run_id"])
+        self.assertEqual(brief["test_report"]["excel"], full["test_report"]["excel"])
+        self.assertNotIn("validation", brief["test_report"])
         self.assertEqual(len(CandidateTarget.records), before)
 
     def test_failed_candidate_rerun_api_keeps_version_scope_and_old_failed_excel(self):

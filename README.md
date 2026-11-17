@@ -69,10 +69,12 @@ autoskill --session "订单测试" record start <项目>
 autoskill --session "订单测试" browser click @e5
 autoskill --session "订单测试" check contains testid=toast "已创建"
 autoskill --session "订单测试" record stop --title "新建工单" --plan DESIGN-001
-autoskill --session "订单测试" run-status <record stop 返回的运行编号>
+autoskill --session "订单测试" run-status <record stop 返回的运行编号> --brief
 ```
 
 先依据需求来源编写 `功能用例.json`，示例中的 `DESIGN-001` 应与文件中的设计编号一致。正式 Excel 主表保存功能目标、必要前置、实际操作和可观察预期；原始请求、浏览器动作和断言保留在附表。没有来源支持的设计明确标为待补，修改设计后需要对应版本的真实验证。具体字段和页面流程见 [设计与需求维护](docs/设计与需求维护.md)。
+
+如果新需求从一个已有用例的页面状态接着做，将录制开始命令换成 `record start <项目> --reuse <用例编号>`。工具在本次可见窗口执行指定的前置版本，验证通过后从同一标签页录新动作。可复用用例页回放这条新用例时也会先执行记录的前置。[同页前置实测](reports/DSH同页前置复用验收.md)
 
 宿主将智能体命令放在受限沙箱内时，autoSkill 可将命令转交给沙箱外的仪表盘进程执行，用法不变。前提是沙箱允许访问 `127.0.0.1`，且 DSH 插件已启动服务，或用户已运行 `autoskill.cmd dashboard` 并保持进程运行。本轮已在真实 DSH 的 `workspace-write` 策略下验证绑定的数据状态查询及 UI 回放；具体任务、录制和原生自测的实际范围见 [DSH 真实验收](reports/DSH真实验收.md)。
 

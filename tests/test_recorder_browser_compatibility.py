@@ -18,8 +18,9 @@ from urllib.parse import parse_qs, urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import conversation_capture, db, paths, projects, runner, runtime_identity, task_context
+from autoskill import builder, conversation_capture, db, execution_inputs, paths, projects, runner, runtime_identity, task_context
 from autoskill.recorder import agent, session
+from autoskill.replay import codegen
 
 PAGE = b"""<!doctype html><label>Name<input id="name"></label><button id="submit">Greet</button>
 <p id="result">ready</p><script>
@@ -61,8 +62,122 @@ class AmbiguousTarget(RecordingTarget):
         self.wfile.write(body)
 
 
+class ReuseTarget(RecordingTarget):
+    def do_GET(self):
+        if self.path == "/prepare-click":
+            self.server.preparation_clicks += 1
+            self.send_response(204)
+            self.end_headers()
+            return
+        body = b'''<!doctype html><button id="prepare">Prepare</button><button id="next" disabled>Continue</button>
+<p id="result">@@INITIAL@@</p><script>
+  const result = document.getElementById('result'), next = document.getElementById('next');
+  document.getElementById('prepare').onclick = async () => {
+    await fetch('/prepare-click');
+    next.disabled = result.textContent !== 'new document';
+    result.textContent = next.disabled ? 'preparation failed' : 'prepared';
+  };
+  next.onclick = () => { result.textContent = 'finished'; };
+</script>'''.replace(b'@@INITIAL@@', b'new document' if self.server.can_prepare else b'unavailable')
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(body)
+
+
 @unittest.skipUnless(paths.agent_browser() and paths.chrome(), "requires the actual recording browser")
 class RecorderBrowserCompatibilityTests(unittest.TestCase):
+    def test_saved_setup_stays_on_the_page_and_preserves_the_selected_source_revision(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
+                "AUTOSKILL_WORKSPACE": folder, "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"}), task_context.use_session("reuse"):
+            site = ThreadingHTTPServer(("127.0.0.1", 0), ReuseTarget)
+            site.can_prepare = True
+            site.preparation_clicks = 0
+            thread = threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+            thread.start()
+            try:
+                base = f"http://127.0.0.1:{site.server_port}"
+                project = projects.create("Same-tab preparation", base)["id"]
+                original = builder.ui_case("TC-UI-001", "Prepare the page", {
+                    "start_url": "/", "actions": [
+                        {"assertion": "text", "selector": "#result", "expected": "new document", "timeout_seconds": 0.4},
+                        {"action": "click", "selector": "#prepare"},
+                    ],
+                    "assertions": [{"assertion": "text", "selector": "#result", "expected": "prepared", "timeout_seconds": 0.4}],
+                })
+                projects.save_cases(project, [original])
+                started = session.start(project, login=False, reuse=original["id"])
+                self.assertEqual(started["setup"]["status"], "ready")
+                self.assertIn('button "Continue"', started["snapshot"])
+                self.assertEqual(session.status()["steps"], [])
+                session.browser(["click", "#next"])
+                self.assertTrue(session.check("text", "#result", "finished")["passed"])
+                with patch("autoskill.server.jobs.ensure_worker"):
+                    saved = session.stop("Continue on the prepared page")
+                newer = {**original, "revision": 2, "title": "Later revision"}
+                projects.save_cases(project, [newer])
+                run = runner.execute(saved["run_id"])
+                self.assertEqual(run["status"], "Pass", run)
+                stored = projects.case(project, saved["ui_case"]["id"])
+                flow = stored["extensions"]["automation"]
+                self.assertEqual([step["action"] for step in flow["actions"]], ["click"])
+                self.assertEqual(flow["setup_cases"][0]["revision"], 1)
+                self.assertEqual(flow["setup_cases"][0]["content_hash"], execution_inputs.content_hash(original))
+                chain, separate_login = session._reuse_stages(project, stored["id"], original["id"], True)
+                self.assertEqual([stage["case_id"] for stage in chain], [original["id"], stored["id"]])
+                self.assertIsNone(separate_login)
+                row = db.one("SELECT * FROM results WHERE run_id = ?", (run["id"],))
+                detail = json.loads(row["detail"])
+                self.assertEqual([check["expected"] for check in detail["assertions"]], ["finished"])
+                self.assertEqual([check["expected"] for check in detail["setup_cases"][0]["assertions"]], ["new document", "prepared"])
+                self.assertTrue(execution_inputs.result_evidence(run, row))
+                detail["setup_cases"][0]["revision"] = 2
+                self.assertFalse(execution_inputs.result_evidence(run, {**row, "detail": detail}))
+                self.assert_standalone_reuses_page(stored, base, Path(folder))
+                with (patch.object(session.capture, "start", side_effect=RuntimeError("test capture interrupted")),
+                      self.assertRaisesRegex(RuntimeError, "test capture interrupted")):
+                    session.start(project, login=False, reuse=original["id"])
+                interrupted = session.status()
+                self.assertEqual(interrupted["setup"]["status"], "interrupted")
+                self.assertEqual(interrupted["setup"]["cases"][0]["status"], "Pass")
+                clicks = site.preparation_clicks
+                with self.assertRaisesRegex(session.RecordError, "上次录制尚未就绪"):
+                    session.start(project, login=False, reuse=original["id"])
+                self.assertEqual(site.preparation_clicks, clicks)
+                session.cancel()
+                site.can_prepare = False
+                clicks = site.preparation_clicks
+                blocked = runner.execute(runner.create(project, [stored["id"]])["id"])
+                self.assertEqual(blocked["status"], "Blocked", blocked)
+                failure = db.one("SELECT category, detail FROM results WHERE run_id = ?", (blocked["id"],))
+                self.assertEqual(failure["category"], "prerequisite_failed")
+                trace = json.loads(failure["detail"])
+                self.assertEqual(trace["setup_cases"][0]["status"], "Fail")
+                self.assertEqual(len(trace["steps"]), 1)
+                with self.assertRaisesRegex(session.RecordError, "前置用例 TC-UI-001 未通过"):
+                    session.start(project, login=False, reuse=original["id"])
+                self.assertFalse(session.status()["recording"])
+                self.assertEqual(site.preparation_clicks, clicks)
+            finally:
+                session.cancel()
+                site.shutdown()
+                site.server_close()
+                thread.join(timeout=3)
+
+    def assert_standalone_reuses_page(self, case, base_url, folder):
+        engines = ("playwright", "selenium") if paths.chromedriver() else ("playwright",)
+        for engine in engines:
+            with self.subTest(export=engine):
+                script = folder / (engine + ".py")
+                script.write_text(codegen.script([case], base_url, engine), encoding="utf-8")
+                env = {**os.environ, "HEADED": "0", "CHROME_BINARY": paths.chrome(), "TIMEOUT": "5",
+                       "NO_PROXY": "localhost,127.0.0.1,::1", "no_proxy": "localhost,127.0.0.1,::1"}
+                if engine == "selenium":
+                    env["CHROMEDRIVER"] = paths.chromedriver()
+                result = subprocess.run([sys.executable, "-I", str(script)], env=env, capture_output=True,
+                                        text=True, timeout=45, check=False)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
                 "AUTOSKILL_WORKSPACE": folder, "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"}):

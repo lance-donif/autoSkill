@@ -67,6 +67,20 @@ class PlaywrightDriver:
         self.page = None
         self.blocked: list[str] = []
 
+    @classmethod
+    def attached(cls, page, config: dict):
+        """Use the recording's owned page without taking ownership of the browser."""
+        driver = cls.__new__(cls)
+        driver.config = config
+        driver.timeout_ms = int(float(config.get("timeout_seconds", 20)) * 1000)
+        driver.load_ms = int(float(config.get("page_load_seconds", 90)) * 1000)
+        driver.page = page
+        page.set_default_timeout(driver.timeout_ms)
+        page.on("dialog", lambda dialog: dialog.accept())
+        driver.tabs = playwright_tabs(page)
+        driver.blocked = []
+        return driver
+
     # --- lifecycle ---------------------------------------------------
     def reset(self, state: dict | None = None) -> None:
         """Start a clean browser context, optionally with a saved login state."""

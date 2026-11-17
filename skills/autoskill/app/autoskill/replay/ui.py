@@ -257,22 +257,87 @@ def classify(error: Exception, driver=None) -> tuple[str, str]:
     return ENVIRONMENT, "浏览器执行出错：" + name
 
 
+def _screenshot(driver, folder: Path, file: str, evidence: list) -> bool:
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        driver.screenshot(folder / file)
+    except Exception:  # noqa: BLE001  # A screenshot is optional evidence and does not change the verdict.
+        return False
+    evidence.append(file)
+    return True
+
+
 def _failure_evidence(driver, result: dict, folder: Path, name: str, index: int, evidence: list) -> None:
     if result["passed"]:
         return
     file = f"{Path(name).stem}-check-{index}.png"
-    try:
-        folder.mkdir(parents=True, exist_ok=True)
-        driver.screenshot(folder / file)
-        evidence.append(file)
+    if _screenshot(driver, folder, file, evidence):
         result["screenshot"] = file
-    except Exception:  # noqa: BLE001, S110  # Keep the failed observation even when screenshots are unavailable.
-        pass
+
+
+def run_setup(driver, stages: list[dict], config: dict, evidence_dir: Path, screenshot_name: str) -> list[dict]:
+    """Replay the pinned setup stages in order, keeping their checks out of the new case."""
+    receipts = []
+    for index, stage in enumerate(stages):
+        name = f"{Path(screenshot_name).stem}-setup-{index + 1}.png"
+        result = _run_flow(driver, stage["automation"], config, evidence_dir, name, keep_page=index > 0, stop_on_failed_check=True)
+        receipt = {key: stage[key] for key in ("case_id", "revision", "content_hash")}
+        receipt.update({key: result[key] for key in ("status", "reason", "assertions", "screenshots", "duration_ms")})
+        if receipt["status"] == "Pass" and result["business_status"] != "Pass":
+            receipt.update(status="Unverified", reason="前置页面状态缺少独立断言的真实通过证据")
+        receipts.append(receipt)
+        if receipt["status"] != "Pass":
+            break
+    return receipts
 
 
 def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_name: str) -> dict:
-    """Replay one UI case on an already opened page and return its result fields."""
+    """Replay optional setup, then judge only this case's own actions and assertions."""
     automation = case.get("extensions", {}).get("automation")
+    setup = automation.get("setup_cases") if isinstance(automation, dict) else None
+    if not setup:
+        return _run_flow(driver, automation, config, evidence_dir, screenshot_name)
+    try:
+        ir.validate(automation)
+    except ValueError:
+        return _run_flow(driver, automation, config, evidence_dir, screenshot_name)
+    receipts = run_setup(driver, setup, config, evidence_dir, screenshot_name)
+    last = receipts[-1]
+    if last["status"] == "Pass":
+        outcome = _run_flow(driver, automation, config, evidence_dir, screenshot_name, keep_page=True)
+    else:
+        cancelled = last["status"] == "Cancelled"
+        outcome = {"status": "Cancelled" if cancelled else "Blocked", "actual": "",
+                   "category": "cancelled" if cancelled else "prerequisite_failed",
+                   "reason": f"前置用例 {last['case_id']} 未通过：{last['reason'] or last['status']}",
+                   "verification": "unverified", "business_status": "Unverified",
+                   "steps": [], "assertions": [], "screenshots": [], "fallbacks": 0, "duration_ms": 0}
+    steps = [{"index": index, "text": f"前置用例 {item['case_id']} · v{item['revision']}",
+              "status": {"Pass": "done", "Cancelled": "cancelled"}.get(item["status"], "failed"), "ms": item["duration_ms"]}
+             for index, item in enumerate(receipts)]
+    return {**outcome, "setup_cases": receipts,
+            "steps": [*steps, *[{**item, "index": item["index"] + len(steps)} for item in outcome["steps"]]],
+            "screenshots": [*[name for item in receipts for name in item["screenshots"]], *outcome["screenshots"]],
+            "duration_ms": outcome["duration_ms"] + sum(item["duration_ms"] for item in receipts)}
+
+
+def _enter_page(driver, start_url: str, allowed: list[str], steps: list, *, keep_page: bool, verify_redirect: bool) -> None:
+    url = driver.url() if keep_page else start_url
+    ir.check_origin(url, allowed)
+    row = {"index": 0, "text": ("接续 " if keep_page else "打开 ") + url, "status": "running", "ms": 0}
+    steps.append(row)
+    clock = time.monotonic()
+    if not keep_page:
+        navigate(driver.goto, url)
+        if verify_redirect:
+            ir.check_origin(driver.url(), allowed)
+    check_cancel(driver)
+    row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
+
+
+def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_name: str, *,
+              keep_page: bool = False, stop_on_failed_check: bool = False) -> dict:
+    """Run a flow inside the browser already owned by the caller."""
     timeout = float(config.get("timeout_seconds", 20))
     allowed = list(config.get("allowed_origins", []))
     base_url = config.get("base_url", "")
@@ -283,14 +348,8 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
     try:
         check_cancel(driver)
         ir.validate(automation)
-        url = ir.absolute_url(automation["start_url"], base_url)
-        ir.check_origin(url, allowed)
-        row = {"index": 0, "text": "打开 " + url, "status": "running", "ms": 0}
-        steps.append(row)
-        clock = time.monotonic()
-        navigate(driver.goto, url)
-        check_cancel(driver)
-        row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
+        _enter_page(driver, ir.absolute_url(automation["start_url"], base_url), allowed, steps,
+                    keep_page=keep_page, verify_redirect=stop_on_failed_check)
         acted = True
         for index, step in enumerate(automation.get("actions", []), 1):
             check_cancel(driver)
@@ -305,6 +364,8 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                     outcome["fallbacks"] += int(bool(result.get("fallback")))
                     row["status"] = "done" if result["passed"] else "failed"
                     row["check"] = True
+                    if stop_on_failed_check and not result["passed"]:
+                        raise StepError(ASSERTION, "前置用例断言未通过：" + result["name"])
                     continue
                 scope = driver.action_scope(step) if hasattr(driver, "action_scope") else nullcontext()
                 with scope:
@@ -352,12 +413,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
         else:
             outcome.update(status="Blocked", reason=message, category=category)
     if acted:
-        try:
-            evidence_dir.mkdir(parents=True, exist_ok=True)
-            driver.screenshot(evidence_dir / screenshot_name)
-            evidence.append(screenshot_name)
-        except Exception:  # noqa: BLE001, S110  # Screenshot evidence is optional and must not change the case result.
-            pass
+        _screenshot(driver, evidence_dir, screenshot_name, evidence)
     definition = automation if isinstance(automation, dict) else {}
     declared = any(isinstance(s, dict) and "assertion" in s for s in (definition.get("actions") or [])) or bool(definition.get("assertions"))
     independent = any(a.get("oracle", {}).get("source") != "observation" for a in assertions if "oracle" in a)

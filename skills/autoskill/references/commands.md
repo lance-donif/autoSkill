@@ -127,7 +127,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 | 命令 | 说明 |
 | --- | --- |
-| `record start <项目> [--as-login] [--no-login] [--url 地址]` | 打开浏览器并开始录制。有登录用例时先自动登录；`--as-login` 表示录的就是登录；`--no-login` 以未登录状态开始 |
+| `record start <项目> [--as-login] [--no-login] [--url 地址] [--reuse 前置用例编号]` | 打开浏览器并开始录制。有登录用例时先自动登录。使用 `--reuse` 时，先在当前标签页执行该前置用例，通过后返回页面快照 |
 | `browser <命令> …` | 操作页面并记录，见下表 |
 | `check <类型> [目标] [期望] [--attribute 属性] [--timeout 秒] [--stable-for 秒] [--mode eventually\|always] [--from-json <来源断言JSON>]` | 保存期望并实际检查；失败也保留 actual，passed:false 时退出 1。转换断言可先验证 from-json 再验证目标 |
 | `record status` | 已记录的步骤 |
@@ -136,6 +136,8 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 | `record cancel` | 放弃，不生成用例 |
 
 每个会话维护自己的录制；不同会话可以同时录制。`record start`、`browser snapshot`、`browser wait`、`record status` 返回的 `session_id`、`browser_session`、`headed`、`tab` 用于核对当前录制的任务、内部浏览器、启动时窗口选择与标签页；继续命令始终用原任务 `--session`，不能把内部 `browser_session` 当任务标识。
+
+`--reuse` 适用于同项目内有独立断言的单标签页用例，可沿用项目登录。收到 `setup.status=ready` 后从当前标签页继续。新用例保存所用前置版本，前置检查与新增业务检查分别判定。前置有其他依赖时，请按原工作流准备。与 `--url` 或 `--as-login` 不能同时使用。
 
 遇到 `needs_login` 或用户选择人工认证时保持原录制和窗口，只让用户在该窗口完成登录后回复继续。恢复时沿用相同 `--runtime-context` / `--host-session` / `--session`，执行 `browser snapshot`，必要时 `browser tab list` 确认登录产生的标签页，再根据新快照继续业务。等待用户不会关闭录制；不调用 `record cancel`、不重复 `record start`，不要求用户填写端口或 profile。事先知道需要手工操作时 `record start <项目> --headed`。手工认证不自动成为可回放登录用例，候选仍按实际认证依赖验证。
 
@@ -190,7 +192,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 `run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api] [--candidate 候选ID] [--api-only] [--inputs 参数.json]`
 
-`run-status <运行ID>` 只读普通/原生运行的状态、结果和已生成报告、候选发布回执；不认领、不运行、不生成报告。`record stop` 已入队后，用它等待每个返回的 `run_ids`，不能再发一次 `run` 来代替查询。
+`run-status <运行ID> [--brief]` 只读运行状态、结果、已有报告和候选发布回执。轮询用 `--brief` 保留状态、发布和报告入口，诊断时省略它查看用例结果。`record stop` 已入队后，用它等待各个 `run_id`。
 
 `--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。
 

@@ -445,7 +445,7 @@ class Session:
 DETAIL_KEYS = ("steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted",
                "attempts", "verification", "business_status", "business_verified", "performance_status", "performance_assertions",
                "execution_status", "execution_blocker", "last_attempt_status", "load_user", "load_iteration",
-               "postcondition_source", "postcondition_results")
+               "postcondition_source", "postcondition_results", "setup_cases")
 
 
 def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:

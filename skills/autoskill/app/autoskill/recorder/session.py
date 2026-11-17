@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .. import data_refs, db, paths, projects, secrets, task_context
+from .. import data_refs, db, execution_inputs, paths, projects, secrets, task_context
 from ..locking import project_lock
 from ..replay import ir
 from ..replay.tabs import Tabs
@@ -56,6 +56,8 @@ def current(required: bool = True) -> dict | None:
     file = _file()
     if file.is_file():
         rec = json.loads(file.read_text(encoding="utf-8"))
+        if required and rec.get("setup_status", "ready") != "ready":
+            raise RecordError("录制尚未就绪。请用 record status 核对前置回执和现场后再处理")
         ir.set_rand(rec.get("rand", ""))
         return rec
     if required:
@@ -64,7 +66,7 @@ def current(required: bool = True) -> dict | None:
 
 
 def _save(rec: dict) -> None:
-    _file().write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
+    execution_inputs.write_json(_file(), rec)
 
 
 def _retain_recording(rec: dict) -> str:
@@ -441,7 +443,94 @@ def _launch_browser(config: dict, state_file: Path | None) -> None:
                 raise RecordError(agent.launch_problem(error)) from None
 
 
-def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None) -> dict:
+def _reuse_stages(project_id: str, case_id: str, login_case: str | None, login: bool) -> tuple[list[dict], str | None]:
+    """Freeze the selected active case and earlier pinned stages before opening a browser."""
+    case = projects.case(project_id, case_id)
+    extensions = case.get("extensions", {})
+    if case["kind"] != "ui" or case["lifecycle"] != "active":
+        raise RecordError("同页前置需要当前项目中有效的可复用页面用例")
+    if (extensions.get("postconditions") or extensions.get("oracle", {}).get("source") == "observation"
+            or extensions.get("functional_design", {}).get("state") == "unmapped"):
+        raise RecordError("此用例需要独立工作流验证，不能仅执行其页面步骤来准备现场")
+    dependencies = projects.depends_on(case)
+    if any(dep != login_case for dep in dependencies):
+        raise RecordError("此用例还有登录之外的用例依赖。请先使用原工作流执行这些依赖")
+    if dependencies and not login:
+        raise RecordError("此用例依赖项目登录，不能在 --no-login 下执行")
+    automation = extensions.get("automation")
+    ir.validate(automation)
+    flow = {key: value for key, value in automation.items() if key != "setup_cases"}
+    ir.validate_setup(flow)
+    stages = [*automation.get("setup_cases", []), {"case_id": case_id, "revision": case["revision"],
+              "content_hash": execution_inputs.content_hash(case), "automation": flow}]
+    managed_login = login_case if dependencies and all(stage["case_id"] != login_case for stage in stages) else None
+    return stages, managed_login
+
+
+def _prepare_reuse(rec: dict, config: dict) -> dict:
+    """Journal the setup and retain the recording window at the last verified page."""
+    from ..replay import ui
+    from ..replay.playwright_driver import PlaywrightDriver
+
+    stages = rec["setup_cases"]
+    receipts_path = recording_dir() / "setups" / uuid.uuid4().hex
+    rec.update(setup_status="running", setup_evidence=data_refs.store(receipts_path))
+    _save(rec)
+    sources = [{key: item[key] for key in ("case_id", "revision", "content_hash")} for item in stages]
+    intent = _intent(rec, "browser_setup", {"cases": sources})
+    with AttachedPage(session_name(), rec) as attached:
+        driver = PlaywrightDriver.attached(attached.page, config)
+        receipts = ui.run_setup(driver, stages, config, receipts_path, "recording.png")
+        if receipts[-1]["status"] == "Pass" and len(attached.page.context.pages) != 1:
+            receipts[-1].update(status="Blocked", reason="前置改变了标签页数量，无法确认原页面的接续状态")
+    execution_inputs.write_json(receipts_path / "receipt.json", receipts)
+    rec["setup_results"] = [{key: item[key] for key in ("case_id", "revision", "content_hash", "status")} for item in receipts]
+    last = receipts[-1]
+    if last["status"] != "Pass":
+        _receipt(intent, {"status": last["status"], "evidence": rec["setup_evidence"]}, status="failed")
+        _file().unlink(missing_ok=True)
+        raise RecordError(f"前置用例 {last['case_id']} 未通过：{last['reason'] or last['status']}。执行证据：{rec['setup_evidence']}")
+    rec["setup_status"] = "verified"
+    _save(rec)
+    _receipt(intent, {"status": "Pass", "evidence": rec["setup_evidence"]})
+    return {"url": PageProbe().url(), "slow": False, "seconds": 0}
+
+
+def _setup_summary(rec: dict) -> dict:
+    return ({"setup": {"status": rec["setup_status"], "cases": rec.get("setup_results", []), "evidence": rec["setup_evidence"]}}
+            if rec.get("setup_cases") else {})
+
+
+def _open_recording(rec: dict, config: dict, start_url: str, state_file: Path | None) -> dict:
+    """Open the owned browser and begin capture after the reusable setup, when selected."""
+    agent.call(session_name(), ["close"], check=False, timeout=30)
+    network_capture = None
+    try:
+        _launch_browser(config, state_file)
+        _fit_window()
+        reuse = bool(rec.get("setup_cases"))
+        page = _prepare_reuse(rec, config) if reuse else None
+        network_capture = capture.start(session_name(), recording_dir())
+        agent.call(session_name(), ["network", "har", "start"])
+        if not reuse:
+            page = _open(start_url, float(config.get("page_load_seconds", 90)))
+    except Exception:
+        capture.stop(network_capture)
+        agent.call(session_name(), ["close"], check=False, timeout=30)
+        if rec.get("setup_status") == "verified":
+            rec["setup_status"] = "interrupted"
+            _save(rec)
+        raise
+    finally:
+        if state_file:
+            state_file.unlink(missing_ok=True)
+    rec["network_capture"] = network_capture
+    if reuse:
+        _save(rec)
+    return page
+
+
+def start(project_id: str, login: bool = True, as_login: bool = False, url: str | None = None, reuse: str | None = None) -> dict:
     """Open this task's browser on the project's address and record actions and traffic."""
     from .. import plan, workflow
 
@@ -454,6 +543,8 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
     notes = []
     previous = current(required=False)
     if previous:
+        if previous.get("setup_status") in ("running", "verified", "interrupted"):
+            raise RecordError("上次录制尚未就绪。请先用 record status 核对前置回执和现场，避免重复操作")
         if _page_state()["url"].startswith(WEB):
             raise RecordError("已有进行中的录制；运行 autoskill browser snapshot 接续当前浏览器；完成后再运行 record stop")
         previous["conversation_evidence"] = capture.stop(previous.get("network_capture"))
@@ -461,54 +552,44 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
         _file().unlink(missing_ok=True)
         notes.append(f"上次录制的浏览器已关闭；原 {len(previous['steps'])} 步和网络来源已保留：{retained}")
     info, config, auth = projects.get(project_id), projects.config(project_id), projects.auth(project_id)
-    start_url = ir.absolute_url(url or info["start_url"], config["base_url"])
+    if reuse and (url or as_login):
+        raise RecordError("使用 --reuse 时从已有用例开始，不能同时指定 --url 或 --as-login")
+    login_case = auth.get("ui_case")
+    stages, managed_login = _reuse_stages(project_id, reuse, login_case, login) if reuse else ([], login_case if login and not as_login else None)
+    start_url = ir.absolute_url(stages[0]["automation"]["start_url"] if stages else url or info["start_url"], config["base_url"])
     ir.check_origin(start_url, config["allowed_origins"])
     used_login, note, state_file = False, "", None
-    if login and not as_login and auth.get("ui_case"):
+    if managed_login:
         from .. import runner, sessions
 
-        run = runner.create(project_id, [auth["ui_case"]], "playwright", trigger="login")
+        run = runner.create(project_id, [managed_login], "playwright", trigger="login")
         if runner.execute(run["id"])["status"] != "Pass":
             reason = (db.one("SELECT reason FROM results WHERE run_id = ? ORDER BY id DESC", (run["id"],)) or {}).get("reason", "")
             raise RecordError("自动登录没有成功，录制未开始：" + (reason or "请检查登录用例和凭据"))
         state_file = recording_dir() / "recording-state.json"
         state_file.write_text(json.dumps(sessions.load(project_id).get("ui", {})), encoding="utf-8")
-        used_login, note = True, f"已用登录用例 {auth['ui_case']} 自动登录"
-    agent.call(session_name(), ["close"], check=False, timeout=30)
-    network_capture = None
-    try:
-        _launch_browser(config, state_file)
-        network_capture = capture.start(session_name(), recording_dir())
-        _fit_window()
-        agent.call(session_name(), ["network", "har", "start"])
-        try:
-            page = _open(start_url, float(config.get("page_load_seconds", 90)))
-        except RecordError:
-            agent.call(session_name(), ["close"], check=False, timeout=30)
-            raise
-    except Exception:
-        capture.stop(network_capture)
-        agent.call(session_name(), ["close"], check=False, timeout=30)
-        raise
-    finally:
-        if state_file:
-            state_file.unlink(missing_ok=True)
+        used_login, note = True, f"已用登录用例 {managed_login} 自动登录"
     rec = {"project_id": project_id, "session_id": task_context.session_id(), "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
-           "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
-           "rand": uuid.uuid4().hex[:6], "workflow_binding": binding, "network_capture": network_capture,
-           "plan_at_start": plan_at_start, "headed": paths.headed()}
+           "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login, "setup_cases": stages,
+           "rand": uuid.uuid4().hex[:6], "workflow_binding": binding, "plan_at_start": plan_at_start, "headed": paths.headed()}
     ir.set_rand(rec["rand"])
+    page = _open_recording(rec, config, start_url, state_file)
+    if stages:
+        rec["setup_status"] = "ready"
+        if any(stage["case_id"] == login_case for stage in stages):
+            note = f"已在当前窗口执行登录用例 {login_case}"
     _observe_tabs(rec)
     tree = _settled_snapshot(rec)
     _save(rec)
     page = {**page, **_page_state()}  # the app may have moved on (for example to its sign-in page) while drawing
     result = {"recording": True, "project": project_id, "url": page["url"], "title": PageProbe().title(),
-              "login": note or ("本次录制的就是登录流程" if as_login else "未登录状态"), "snapshot": tree, **_identity(rec)}
+              "login": note or ("本次录制的就是登录流程" if as_login else "未登录状态"), "snapshot": tree,
+              **_identity(rec), **_setup_summary(rec)}
     if page.get("slow"):
         notes.append(f"页面加载很慢，等了 {page['seconds']:.0f} 秒仍未完全加载，已继续；元素可能还没出齐，必要时再运行 autoskill browser snapshot")
     elif page["seconds"] >= 20:
         notes.append(f"页面加载用了 {page['seconds']:.0f} 秒")
-    if relative(page["url"], config["base_url"]).rstrip("/") != rec["start_url"].rstrip("/"):
+    if not stages and relative(page["url"], config["base_url"]).rstrip("/") != rec["start_url"].rstrip("/"):
         result["redirected"] = f"打开的是 {start_url}，页面跳转到了 {page['url']}"
     if page["password"] and not as_login and not used_login:
         result["needs_login"] = ("页面上有密码输入框，看起来要先登录才能继续。保留当前浏览器和录制会话，"
@@ -561,7 +642,8 @@ def status() -> dict:
     if not rec:
         return {"recording": False}
     return {"recording": True, "project": rec["project_id"], "started_at": rec["started_at"],
-            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]], "context": rec.get("context", []), **_identity(rec)}
+            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]], "context": rec.get("context", []),
+            **_identity(rec), **_setup_summary(rec)}
 
 
 def cancel() -> dict:
@@ -892,7 +974,7 @@ def _plan_design(rec: dict, plan_case: str | None) -> str | None:
     """Attach the actual design row before compilation and its frozen task report are produced."""
     if not plan_case:
         return None
-    from .. import execution_inputs, plan
+    from .. import plan
 
     try:
         sheet = rec["plan_at_start"] if "plan_at_start" in rec else plan.show()

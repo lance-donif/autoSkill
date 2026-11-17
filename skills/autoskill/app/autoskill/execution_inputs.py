@@ -469,7 +469,7 @@ def result_evidence(run: dict, result: dict, case: dict | None = None, *, _seen:
                 and detail.get("assertions", []) == selected.get("assertions", [])
                 and detail.get("performance_assertions", []) == last.get("performance_assertions", [])
                 and all(content_hash(detail.get(key)) == content_hash(last.get(key))
-                        for key in ("postcondition_source", "postcondition_results")))
+                        for key in ("postcondition_source", "postcondition_results", "setup_cases")))
     except (ValueError, KeyError, OSError, TypeError):
         return False
 

@@ -251,6 +251,28 @@ def validate(automation: object) -> None:
             _check_step(step, ACTIONS, "action", f"第 {index} 步")
     for index, step in enumerate(assertions, 1):
         _check_step(step, ASSERTIONS, "assertion", f"第 {index} 条断言")
+    setup = automation.get("setup_cases", [])
+    if not isinstance(setup, list):
+        raise ValueError("setup_cases 必须是按执行顺序排列的已保存用例版本")
+    for item in setup:
+        if (not isinstance(item, dict) or not isinstance(item.get("case_id"), str) or not item["case_id"]
+                or type(item.get("revision")) is not int or item["revision"] < 1
+                or not isinstance(item.get("content_hash"), str) or not re.fullmatch(r"[a-f0-9]{64}", item["content_hash"])):
+            raise ValueError("前置用例需要编号、版本和内容哈希")
+        validate_setup(item.get("automation"))
+
+
+def validate_setup(automation: object) -> None:
+    """A setup stage has its own oracle and stays in the current tab."""
+    if isinstance(automation, dict) and "setup_cases" in automation:
+        raise ValueError("前置用例的所有阶段需按执行顺序保存")
+    validate(automation)
+    actions, assertions = automation.get("actions", []), automation.get("assertions", [])
+    if any(step.get("action", "").startswith("tab_") or step.get("tabs") for step in actions):
+        raise ValueError("同页前置用例暂只支持单标签页操作")
+    if not any("assertion" in step and step.get("oracle", {}).get("source") != "observation"
+               for step in [*actions, *assertions]):
+        raise ValueError("前置用例需要独立页面断言")
 
 
 def is_replayable(case: dict) -> bool:

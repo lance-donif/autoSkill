@@ -428,8 +428,12 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     ui_id = candidate_publication.next_case_id(project_id, "ui")
     login_ui = ui_id if rec.get("as_login") else auth.get("ui_case") if rec.get("used_login") else None
     automation = {"start_url": rec["start_url"], "actions": actions, "assertions": checks}
+    setup = rec.get("setup_cases", [])
+    if setup:
+        automation["setup_cases"] = setup
+    preparation = [step for stage in setup for step in stage["automation"].get("actions", [])]
     ui_case = builder.ui_case(ui_id, title, automation, module=module or ("登录" if rec.get("as_login") else ""),
-                              category=category or ("登录" if rec.get("as_login") else ""), risk=ui_risk(actions),
+                              category=category or ("登录" if rec.get("as_login") else ""), risk=ui_risk(preparation + actions),
                               depends_on=[login_ui] if login_ui and login_ui != ui_id else None,
                               test_case_document=rec.get("test_case_document"))
     observations = [step["recording_result"] for step in rec["steps"] if "recording_result" in step]
@@ -474,11 +478,14 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
     _candidate_versions(project_id, candidates)
     source = {"kind": "recording", "session_id": rec.get("session_id"), "started_at": rec.get("started_at"),
               "rand": rec.get("rand"), "steps_hash": execution_inputs.content_hash(rec["steps"])}
+    if setup:
+        source["setup_hash"] = execution_inputs.content_hash(setup)
     return {
         "candidate_id": candidate_publication.identity(project_id, source), "candidates": candidates,
         "candidate_auth": compiler.auth, "candidate_source": source, "published_ids": [],
         "ui_case": {"id": ui_id, "title": title, "steps": sum("action" in s for s in rec["steps"]) + 1,
                     "assertions": sum("assertion" in s for s in rec["steps"]),
+                    **({"setup_cases": [stage["case_id"] for stage in setup]} if setup else {}),
                     "verification": ui_case["extensions"]["verification"],
                     "recording_status": ui_case["extensions"].get("recording_result", {}).get("status", "Unverified"),
                     "depends_on": projects.depends_on(ui_case)},
