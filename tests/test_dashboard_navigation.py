@@ -7,6 +7,28 @@ from autoskill import builder, projects, runner
 
 
 class NavigationDashboardTests(DashboardWorkspace):
+    def test_menu_height_stays_fixed_across_destinations_and_disclosures(self):
+        measure = """() => ['#side', '#side-panel'].map(selector =>
+            document.querySelector(selector).getBoundingClientRect().height)"""
+        for width, height, embedded in ((656, 1000, True), (390, 550, False), (225, 700, True)):
+            with self.subTest(width=width, height=height, embedded=embedded):
+                self.page.set_viewport_size({"width": width, "height": height})
+                self.page.goto(self.origin + ("/?embed=1" if embedded else "/") + "#/dashboard")
+                expect(self.page.locator("#view h1")).to_have_text("总览")
+                toggle = self.page.get_by_role("button", name="功能导航", exact=True)
+                toggle.click()
+                original = self.page.evaluate(measure)
+                self.assertGreater(original[1], 0)
+                for group_name, page_name in (("设置与维护", "运行诊断"), ("测试资料", "需求与工作流"), ("执行工具", "定时任务")):
+                    group = self.page.locator(".nav-group").filter(has=self.page.get_by_text(group_name, exact=True))
+                    group.locator("summary").click()
+                    self.assertEqual(self.page.evaluate(measure), original)
+                    group.get_by_role("link", name=page_name, exact=True).click()
+                    expect(self.page.locator("#view h1")).to_have_text(page_name)
+                    self.assertEqual(self.page.evaluate(measure), [original[0], 0])
+                    toggle.click()
+                    self.assertEqual(self.page.evaluate(measure), original)
+
     def test_all_destinations_remain_readable_and_keyboard_reachable_in_host_panels(self):
         names = ["总览", "可复用用例", "执行记录", "需求与工作流", "项目资料", "测试用例表",
                  "原生资产", "多轮对话", "压测", "定时任务", "数据管理", "运行诊断"]

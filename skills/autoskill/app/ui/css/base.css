@@ -44,6 +44,8 @@ button:disabled { cursor: not-allowed; }
 .side-heading { flex: none; }
 .side-panel { display: flex; flex-direction: column; flex: 1; gap: var(--s-6); }
 .side .nav-toggle, .nav-location { display: none; }
+.side-heading > .brand, .side .nav-toggle { flex: none; }
+.nav-location { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav, .nav-primary, .nav-children { display: grid; gap: 2px; }
 .nav-overview { margin-top: var(--s-3); }
 .nav-group { margin-top: var(--s-3); }
@@ -91,28 +93,28 @@ button:disabled { cursor: not-allowed; }
 .scope-text { font-size: var(--t-sm); color: var(--ink-2); }
 .scope-text b { color: var(--ink); font-weight: 600; }
 
-/* The same text navigation is used in narrow windows and host panels. */
-:root[data-embed="true"] .shell { grid-template-columns: minmax(0, 1fr); }
+/* Give spare viewport height to the page and keep the compact navigation independent of its contents. */
+:root[data-embed="true"] .shell { grid-template: auto 1fr / minmax(0, 1fr); }
 :root[data-embed="true"] .side { height: auto; overflow: visible; z-index: 30; padding: var(--s-2) var(--s-3); border-right: 0; border-bottom: 1px solid var(--line); }
-:root[data-embed="true"] .side-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+:root[data-embed="true"] .side-heading { display: flex; align-items: center; gap: var(--s-2); }
 :root[data-embed="true"] .brand { padding: 0; }
 :root[data-embed="true"] .brand > span:last-child { display: none; }
 :root[data-embed="true"] .nav-toggle { display: inline-flex; }
-:root[data-embed="true"] .nav-location { display: block; color: var(--side-ink-2); font-size: var(--t-xs); overflow-wrap: anywhere; }
-:root[data-embed="true"] .side-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: calc(100dvh - 64px); overflow-y: auto; padding: var(--s-3); background: var(--side); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-2); }
+:root[data-embed="true"] .nav-location { display: block; color: var(--side-ink-2); font-size: var(--t-xs); }
+:root[data-embed="true"] .side-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; block-size: min(29rem, calc(100dvh - 64px)); overflow-y: auto; padding: var(--s-3); background: var(--side); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-2); }
 :root[data-embed="true"] .side[data-nav-open="true"] .side-panel { display: flex; }
 :root[data-embed="true"] .scope { position: static; }
 :root[data-embed="true"] .view, :root[data-embed="true"] .scope { padding-left: var(--s-4); padding-right: var(--s-4); }
 
 @media (max-width: 1100px) {
-  .shell { grid-template-columns: minmax(0, 1fr); }
+  .shell { grid-template: auto 1fr / minmax(0, 1fr); }
   .side { height: auto; overflow: visible; z-index: 30; padding: var(--s-2) var(--s-3); border-right: 0; border-bottom: 1px solid var(--line); }
-  .side-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+  .side-heading { display: flex; align-items: center; gap: var(--s-2); }
   .brand { padding: 0; }
   .brand > span:last-child { display: none; }
   .side .nav-toggle { display: inline-flex; }
-  .nav-location { display: block; color: var(--side-ink-2); font-size: var(--t-xs); overflow-wrap: anywhere; }
-  .side-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: calc(100dvh - 64px); overflow-y: auto; padding: var(--s-3); background: var(--side); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-2); }
+  .nav-location { display: block; color: var(--side-ink-2); font-size: var(--t-xs); }
+  .side-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; block-size: min(29rem, calc(100dvh - 64px)); overflow-y: auto; padding: var(--s-3); background: var(--side); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-2); }
   .side[data-nav-open="true"] .side-panel { display: flex; }
   .scope { position: static; }
   .view, .scope { padding-left: var(--s-4); padding-right: var(--s-4); }
