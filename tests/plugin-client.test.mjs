@@ -99,6 +99,42 @@ test('native cards and sidebar panels register without any conversation task doc
   app.dispose();
 });
 
+test('empty conversations show one activation status from their own latest successful command', () => {
+  const app = harness();
+  const entries = app.slots.filter((slot) => slot.options.name === 'conversation.hero.options');
+  assert.equal(entries.length, 1);
+  const { component: Status } = entries[0];
+  const confirmation = '已加载 autoSkill 技能。请直接描述要完成的任务。';
+  const success = { kind: 'success', text: confirmation };
+  const command = (name, outcome) => ({ kind: 'command', data: { name, outcome } });
+  const activation = (outcome) => command('autoskill-use', outcome);
+  const render = (commands, activeTargets = []) => {
+    const nodes = new Map(commands?.map((node, index) => [String(index), node]));
+    const chat = commands && { order: [...nodes.keys()], nodes };
+    return Status({ useConversation: (select) => select({
+      activeTargets: new Set(activeTargets), views: new Map([['chat', chat]]),
+    }) });
+  };
+
+  assert.equal(render(undefined), null);
+  assert.equal(render([]), null);
+  assert.equal(render([command('export', success)]), null);
+  assert.equal(render([activation(null)]), null);
+  assert.equal(render([activation({ kind: 'success' })]), null);
+  assert.equal(render([activation(success), activation({ kind: 'error', text: '未加载' })]), null);
+  assert.equal(render([activation(success)], ['chat']), null);
+
+  const status = render([activation(success), activation(success), command('export', success)]);
+  assert.equal(status.props.role, 'status');
+  assert.deepEqual(Array.from(status.props.children), [confirmation]);
+  assert.equal(render([]), null);
+  assert.equal(render([activation(success)]).props.children[0], confirmation);
+  assert.deepEqual(app.requests, []);
+  assert.deepEqual(app.panels, []);
+  assert.deepEqual(app.notifications, []);
+  app.dispose();
+});
+
 test('panels resolve the actual host runtime port before loading any iframe', async () => {
   const app = harness(undefined, 'http://127.0.0.1:49667');
   const props = app.injected();

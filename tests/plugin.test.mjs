@@ -109,6 +109,9 @@ test('host guidance accompanies the entry skill without rewriting a user case sk
     writeFileSync(join(cases, 'SKILL.md'), '---\nname: autoskill-cases\ndescription: 用户用例格式\n---\n保留用户模板。\n');
     const skills = await bundledSkills(skill);
     assert.equal(skills.length, 3);
+    const entry = skills[0].content;
+    assert.match(entry, /用户明确要求多智能体协作时[^\n]+先调用 DSH 原生 subagent/);
+    assert.ok(entry.indexOf('先调用 DSH 原生 subagent') < entry.indexOf('运行测试。'));
     assert.match(skills[0].content, /不要为 autoSkill 自动创建宿主待办/);
     assert.match(skills[0].content, /不调用 todo_write 展示测试计划/);
     assert.match(skills[0].content, /test_report.status 为 ready/);
@@ -117,6 +120,7 @@ test('host guidance accompanies the entry skill without rewriting a user case sk
     assert.equal(skills[1].resourceBase.path, join(skill, 'references', 'test-cases'));
     assert.match(skills[2].content, /保留用户模板。/);
     assert.ok(!skills[2].content.includes('todo_write'));
+    assert.ok(!skills[2].content.includes('subagent'));
     assert.equal(skills[2].resourceBase.path, cases);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
@@ -165,7 +169,7 @@ test('client registers dashboard and schedules panels pointing at the loopback d
   const ctx = { effect: (fn) => fn(), on: () => () => undefined,
     slots: { inject: (_, fn) => fn(), register: (options, component) => { records.push({ options, component }); return () => undefined; } } };
   plugin.apply(ctx, { port: 8788 });
-  assert.equal(records.length, 6);
+  assert.equal(records.length, 7);
   assert.equal(records.some((entry) => entry.options.name === 'conversation.input.dock'), false);
   await records.find((entry) => entry.options.key === 'autoskill_read').options.inject('session-a').autoskill.navigation.refreshHost();
   const panels = records.filter((r) => r.options.name === 'main');
@@ -183,9 +187,10 @@ test('client registers dashboard and schedules panels pointing at the loopback d
   }
   clock.now = 1700000000000;
   clock.random = 0.5;
+  const previousCount = records.length;
   plugin.apply(ctx, { port: 8788 });
-  await records.slice(6).find((entry) => entry.options.key === 'autoskill_read').options.inject('session-a').autoskill.navigation.refreshHost();
-  const reactivated = records.slice(6).filter((r) => r.options.name === 'main').map((panel) => new URL(panel.component().props.src));
+  await records.slice(previousCount).find((entry) => entry.options.key === 'autoskill_read').options.inject('session-a').autoskill.navigation.refreshHost();
+  const reactivated = records.slice(previousCount).filter((r) => r.options.name === 'main').map((panel) => new URL(panel.component().props.src));
   assert.notEqual(reactivated[0].searchParams.get('activation'), loadId);
   assert.equal(reactivated[0].searchParams.get('activation'), reactivated[1].searchParams.get('activation'));
   assert.deepEqual(reactivated.map((url) => [url.origin, url.searchParams.get('embed'), url.hash]),

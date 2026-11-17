@@ -374,6 +374,25 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       raw ? h('details', {}, h('summary', {}, '查看工具输入与结果'), h('pre', { style: STYLE.pre }, raw)) : null);
   }
 
+  function ActivationStatus({ useConversation }) {
+    const confirmation = useConversation(({ activeTargets, views }) => {
+      // DSH hides command-only transcripts in an empty conversation.
+      if (activeTargets.size > 0) return undefined;
+      const chat = views.get('chat');
+      if (!chat) return undefined;
+      for (let index = chat.order.length - 1; index >= 0; index -= 1) {
+        const node = chat.nodes.get(chat.order[index]);
+        if (node?.kind !== 'command' || node.data.name !== 'autoskill-use') continue;
+        const outcome = node.data.outcome;
+        return outcome?.kind === 'success' ? outcome.text : undefined;
+      }
+      return undefined;
+    });
+    return confirmation ? h('span', {
+      role: 'status', style: { ...STYLE.muted, fontSize: 13, maxInlineSize: '25vw', overflowWrap: 'anywhere' },
+    }, confirmation) : null;
+  }
+
   exports.inject = ['slots', 'layout'];
   exports.apply = (ctx, config = {}) => {
     const port = config.port ?? 8787;
@@ -403,6 +422,8 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     }
     for (const key of ['autoskill_read', 'autoskill_task']) ctx.effect(() => ctx.slots.inject('tool.call.toolview', () =>
       ctx.slots.register({ name: 'tool.call.toolview', key, inject }, ToolCard)), 'autoskill: ' + key);
+    ctx.effect(() => ctx.slots.inject('conversation.hero.options', () =>
+      ctx.slots.register({ name: 'conversation.hero.options', id: 'autoskill.activation-status' }, ActivationStatus)), 'autoskill: activation status');
     ctx.on('connection/reset', () => { nav.reset(); for (const store of stores.values()) store.reset(); });
     ctx.effect(() => () => { for (const store of stores.values()) store.dispose(); stores.clear(); nav.dispose(); }, 'autoskill: client lifetime');
   };
