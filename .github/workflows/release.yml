@@ -3,6 +3,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to build when running from main
+        type: string
+        required: false
 permissions:
   contents: write
 concurrency:
@@ -12,19 +17,29 @@ env:
   PYTHONUTF8: '1'
   AUTOSKILL_HEADED: '0'
   PYTHONDONTWRITEBYTECODE: '1'
-  RELEASE_TAG: ${{ github.ref_name }}
-  RELEASE_COMMIT: ${{ github.sha }}
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}
   RELEASE_REPOSITORY: ${{ github.repository }}
   RELEASE_RUN_ID: ${{ github.run_id }}
   STAGING_TAG: autoskill-build-${{ github.run_id }}
 jobs:
   staging:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.release_tag != '')
     runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_type == 'tag' && github.sha || format('refs/tags/{0}', inputs.release_tag) }}
+      - name: Pin every build to the release source
+        id: source
+        run: |
+          test "$RELEASE_TAG" = "v$(jq -r .version package.json)"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Prepare a private draft for native package transfer
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.source.outputs.commit }}
         run: |
           if gh release view "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --json isDraft > /dev/null 2>&1; then
             test "$(gh release view "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --json isDraft --jq .isDraft)" = true
@@ -33,11 +48,14 @@ jobs:
           fi
   windows:
     needs: staging
+    env:
+      RELEASE_COMMIT: ${{ needs.staging.outputs.commit }}
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.staging.outputs.commit }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -73,6 +91,8 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.staging.outputs.commit }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -93,6 +113,20 @@ jobs:
           export AUTOSKILL_CHROMEDRIVER="$runtime/chromedriver/chromedriver-linux64/chromedriver"
           export AUTOSKILL_AGENT_BROWSER="$runtime/agent-browser/agent-browser"
           export AUTOSKILL_BRIDGE=off
+          if ! command -v xwininfo || ! command -v xprop; then
+            sudo apt-get -o Acquire::Retries=3 update -qq
+            sudo apt-get -y install --no-install-recommends x11-utils
+          fi
+          # Ubuntu 24.04 requires an AppArmor userns permission for a portable Chrome binary.
+          if [[ -r /proc/sys/kernel/apparmor_restrict_unprivileged_userns && "$(< /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" == 1 ]]; then
+            sudo apparmor_parser -r <<PROFILE
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile autoskill-release-chrome "$AUTOSKILL_CHROMIUM" flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          fi
           xvfb-run -a -s '-screen 0 1600x900x24' "$runtime/python/bin/python3" - <<'PY' 2>&1 | tee "$RUNNER_TEMP/autoskill-linux-browser-validation.log"
           import os
           import subprocess
@@ -132,13 +166,16 @@ jobs:
           if [[ "${{ matrix.arch }}" == x64 ]]; then files+=("$RUNNER_TEMP/autoskill-linux-browser-validation.log"); fi
           gh release upload "$STAGING_TAG" "${files[@]}" --clobber
   publish:
-    needs: [windows, linux]
-    if: always() && github.ref_type == 'tag'
+    needs: [staging, windows, linux]
+    if: always() && needs.staging.result == 'success'
+    env:
+      RELEASE_COMMIT: ${{ needs.staging.outputs.commit }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.staging.outputs.commit }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
