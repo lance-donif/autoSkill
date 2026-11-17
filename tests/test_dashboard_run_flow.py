@@ -4,7 +4,7 @@ import re
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
-from autoskill import builder, projects
+from autoskill import builder, projects, runner
 
 
 class RunFlowDashboardTests(DashboardWorkspace):
@@ -33,6 +33,42 @@ class RunFlowDashboardTests(DashboardWorkspace):
         expect(self.page).to_have_url(re.compile("/runs/" + run["id"]))
         self.assertEqual(self.client.get("/api/runs/" + run["id"]).json()["total"], 1)
         expect(self.page.locator("#launch-receipts")).to_be_hidden()
+
+    def test_live_failure_opens_and_single_case_rerun_keeps_the_original_task(self):
+        case = builder.api_case("TC-LIVE-FAIL", "持续更新的断言失败", "GET", "/slow",
+                                {"status": 200, "json_equals": {"/ok": False}}, params={"label": "{{label}}"})
+        projects.save_cases(self.pid, [case])
+        first = runner.create(self.pid, [case["id"]], api_only=True, session_id="live-report", inputs={"label": "fixed"})
+        run_id = first["id"]
+        result = self.page.locator('[data-case="TC-LIVE-FAIL"]')
+        self.open("runs/" + run_id)
+        expect(self.page.get_by_text("正在准备", exact=True)).to_be_visible()
+        self.assertEqual(runner.execute(run_id)["status"], "Fail")
+        head = result.locator(".result-head")
+        expect(head).to_have_attribute("aria-expanded", "true")
+        expect(result).to_contain_text("字段 /ok")
+        head.click()
+        with self.page.expect_response(lambda response: response.url.endswith("/api/runs/" + run_id)):
+            self.page.evaluate("""async () => {
+                const {refresh} = await import(new URL('core.js', document.querySelector('script[type="module"]').src).href);
+                refresh();
+            }""")
+        expect(head).to_have_attribute("aria-expanded", "false")
+        self.page.reload()
+        expect(head).to_have_attribute("aria-expanded", "true")
+        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith(f"/{run_id}/rerun")) as restarted:
+            result.get_by_role("button", name="只重跑这一条", exact=True).click()
+        reply = restarted.value
+        self.assertEqual(reply.status, 200, reply.text())
+        self.assertEqual(reply.request.post_data_json["case_id"], case["id"])
+        retry = reply.json()["id"]
+        self.assertNotEqual(retry, run_id)
+        expect(self.page).to_have_url(re.compile("/runs/" + retry))
+        expect(self.page.get_by_role("link", name="查看首条未通过结果", exact=True)).to_have_attribute("href", re.compile("/runs/" + retry))
+        expect(self.page.locator('#view').get_by_text("本次综合失败", exact=False)).to_be_visible()
+        replayed = self.client.get("/api/runs/" + retry).json()
+        self.assertEqual((replayed["session_id"], replayed["case_ids"]), ("live-report", [case["id"]]))
+        self.assertEqual(replayed["results"][0]["category"], "assertion_failed")
 
     def test_hidden_selections_can_be_removed_and_folder_failure_never_expands_scope(self):
         self.open("cases?range=all")

@@ -139,7 +139,7 @@ class CaseEditorDashboardTests(DashboardWorkspace):
         expect(dialog.get_by_role("alert")).to_contain_text("有未保存的修改")
         dialog.get_by_role("button", name="继续编辑", exact=True).click()
         expect(self.page.locator("#view")).not_to_have_attribute("aria-busy", "true")
-        expect(self.page.locator("#view h1")).to_have_text("项目与用例")
+        expect(self.page.locator("#view h1")).to_have_text("可复用用例")
         self.page.evaluate("window.dispatchEvent(new HashChangeEvent('hashchange'))")
         expect(dialog.get_by_label("功能描述", exact=True)).to_have_value("受保护的草稿")
         self.page.evaluate("location.hash = '#/runs'")
@@ -147,7 +147,7 @@ class CaseEditorDashboardTests(DashboardWorkspace):
         expect(dialog.get_by_role("alert")).to_contain_text("有未保存的修改")
         dialog.get_by_role("button", name="继续编辑", exact=True).click()
         expect(self.page.locator("#view")).not_to_have_attribute("aria-busy", "true")
-        expect(self.page.locator("#view h1")).to_have_text("项目与用例")
+        expect(self.page.locator("#view h1")).to_have_text("可复用用例")
         event = self.page.evaluate("""() => { const event = new Event('beforeunload', {cancelable:true});
             window.dispatchEvent(event); return event.defaultPrevented; }""")
         self.assertTrue(event)
@@ -163,7 +163,7 @@ class CaseEditorDashboardTests(DashboardWorkspace):
         dialog.get_by_role("button", name="放弃修改", exact=True).click()
         expect(dialog).not_to_be_visible()
         expect(self.page).to_have_url(re.compile(r"#/cases\?range=all$"))
-        expect(self.page.locator("#view h1")).to_have_text("项目与用例")
+        expect(self.page.locator("#view h1")).to_have_text("可复用用例")
         self.assertEqual(self.definition(original["id"])["case"], original)
 
     def test_discarding_a_route_draft_navigates_after_guard_is_removed(self):
@@ -173,7 +173,7 @@ class CaseEditorDashboardTests(DashboardWorkspace):
         self.page.evaluate("location.hash = '#/runs'")
         expect(dialog.get_by_role("alert")).to_contain_text("有未保存的修改")
         expect(self.page.locator("#view")).not_to_have_attribute("aria-busy", "true")
-        expect(self.page.locator("#view h1")).to_have_text("项目与用例")
+        expect(self.page.locator("#view h1")).to_have_text("可复用用例")
         dialog.get_by_role("button", name="放弃修改", exact=True).click()
         expect(dialog).not_to_be_visible()
         expect(self.page).to_have_url(re.compile(r"#/runs$"))

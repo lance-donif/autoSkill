@@ -98,7 +98,7 @@ def rerun_native(run: dict, body: dict) -> dict | JSONResponse:
     """Create a distinct full-asset run from the original frozen native identity."""
     from .. import native_run
 
-    if body.get("failed_only") or "case_ids" in body:
+    if body.get("failed_only") or "case_ids" in body or "case_id" in body:
         message = "原生资产暂不支持按失败项或单例精确重跑，请重跑完整原生资产"
         return JSONResponse({"detail": message, "error": message, "code": "native_partial_rerun_unsupported",
                              "details": {"supported": "full_asset"}}, status_code=400)
@@ -459,6 +459,22 @@ def _register_run_creation_route(app: FastAPI) -> None:
                 "skipped": skipped}
 
 
+def _rerun_case_ids(run: dict, body: dict) -> list[str]:
+    case_ids = json.loads(run["case_ids"])
+    if "case_id" in body:
+        case_id = body["case_id"]
+        if run["family"] != "replay" or body.get("failed_only") or case_id not in case_ids:
+            raise ValueError("请指定本次回放中的一条目标用例，单条重跑不能与只重跑未通过同时使用")
+        return [case_id]
+    if not body.get("failed_only"):
+        return case_ids
+    rows = db.rows("SELECT * FROM results WHERE run_id = ? AND prerequisite = 0", (run["id"],))
+    case_ids = [row["case_id"] for row in rows if task_state.result(row)["outcome"] != "pass"]
+    if not case_ids:
+        raise ValueError("这次运行没有未通过的用例")
+    return case_ids
+
+
 def _register_run_detail_routes(app: FastAPI) -> None:
     """Register run detail routes in their original order."""
     @app.get("/api/runs/{run_id}")
@@ -487,12 +503,7 @@ def _register_run_detail_routes(app: FastAPI) -> None:
             return await asyncio.to_thread(rerun_native, run, body)
         if run.get("trigger") == "workflow":
             raise ValueError("这次运行属于原测试任务，请回到该任务或在 DSH 对话中继续诊断与验证；本次记录会保留")
-        case_ids = json.loads(run["case_ids"])
-        if body.get("failed_only"):
-            rows = db.rows("SELECT * FROM results WHERE run_id = ? AND prerequisite = 0", (run_id,))
-            case_ids = [row["case_id"] for row in rows if task_state.result(row)["outcome"] != "pass"]
-            if not case_ids:
-                raise ValueError("这次运行没有未通过的用例")
+        case_ids = _rerun_case_ids(run, body)
         from .. import candidate_publication, execution_inputs
 
         publication = candidate_publication.receipt(run_id)
@@ -510,7 +521,10 @@ def _register_run_detail_routes(app: FastAPI) -> None:
         kept = [c for c in case_ids if c in active]
         if not kept:
             raise ValueError("这些用例已被归档，无法重新运行")
-        created = runner.create(run["project_id"], kept, body.get("engine") or run["engine"], headed=body.get("headed"))
+        manifest = await asyncio.to_thread(execution_inputs.load, run) if run.get("input_manifest") else {}
+        created = await asyncio.to_thread(runner.create, run["project_id"], kept, body.get("engine") or run["engine"],
+                                          headed=body.get("headed"), session_id=run["session_id"], plan_path=run.get("plan_path"),
+                                          inputs=manifest.get("inputs"), api_only=manifest.get("api_only", False))
         return {"id": created["id"], "total": created["total"], "dropped": len(case_ids) - len(kept)}
 
     @app.get("/api/runs/{run_id}/files/{name}")

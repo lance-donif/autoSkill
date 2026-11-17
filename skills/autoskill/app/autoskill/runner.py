@@ -303,8 +303,15 @@ class Session:
         self.attempts.setdefault(case["id"], []).append({"ref": reference, "outcome": copy.deepcopy(outcome)})
         return outcome
 
-    def api_replay(self, client, case: dict, variables: dict, *, kind: str = "case") -> dict:
-        return self.attempt(case, kind, lambda _attempt: api.run_case(client, case, self.config, variables))
+    def api_replay(self, client, case: dict, variables: dict, *, kind: str = "case", managed_session: bool = False) -> dict:
+        def replay(_attempt):
+            outcome = api.run_case(client, case, self.config, variables)
+            status = (outcome.get("response") or {}).get("status")
+            if (managed_session and outcome["category"] == "assertion_failed" and status in (401, 403)
+                    and case["assertions"]["status"] not in (401, 403)):
+                outcome["category"] = "session_expired"
+            return outcome
+        return self.attempt(case, kind, replay)
 
     def summarize(self, case: dict, outcome: dict) -> dict:
         """Keep a witnessed business failure even if a later retry or environment result differs."""
@@ -356,12 +363,12 @@ class Session:
         if not force and wanted and all(name in kept for name in wanted):
             probe = self.cases.get(self.auth.get("api_check_case", ""))
             trial = dict(kept)
-            if not probe or self.api_replay(self.client, probe, trial, kind="login_probe")["status"] == "Pass":
+            if not probe or self.api_replay(self.client, probe, trial, kind="login_probe", managed_session=True)["status"] == "Pass":
                 self.variables.update({name: kept[name] for name in wanted})
                 return self.attempt(case, "session_reuse", lambda _attempt:
                                     {"status": "Pass", "actual": "复用已保存的登录信息", "reason": "", "category": "",
                                      "assertions": [], "duration_ms": 0, "reused": True})
-        outcome = self.api_replay(self.client, case, self.variables)
+        outcome = self.api_replay(self.client, case, self.variables, managed_session=True)
         if outcome["status"] == "Pass" and wanted:
             self.saved["variables"] = {name: self.variables[name] for name in wanted}
             if not self.api_only:
@@ -398,13 +405,15 @@ class Session:
                 finally:
                     fresh.close()
                 return outcome
-            outcome = self.api_replay(self.client, case, self.variables)
             login = self.cases.get(self.auth.get("api_case", ""))
-            if outcome["category"] == "session_expired" and login and needs(case_id, login["id"], self.cases) and not self.relogged and not self.cancel_requested():
+            needs_api_login = login is not None and needs(case_id, login["id"], self.cases)
+            managed_session = needs_api_login or needs(case_id, self.auth.get("ui_case"), self.cases)
+            outcome = self.api_replay(self.client, case, self.variables, managed_session=managed_session)
+            if outcome["category"] == "session_expired" and needs_api_login and not self.relogged and not self.cancel_requested():
                 self.relogged = True
                 if self.api_login(login, force=True)["status"] != "Pass":
                     return blocked("登录已过期，重新登录没有成功", "session_expired")
-                outcome = self.api_replay(self.client, case, self.variables, kind="relogin_retry")
+                outcome = self.api_replay(self.client, case, self.variables, kind="relogin_retry", managed_session=True)
                 outcome["relogin"] = True
             return outcome
         if case_id == self.auth.get("ui_case"):

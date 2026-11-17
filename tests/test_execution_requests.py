@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import builder, data_refs, db, deletion, execution_inputs, execution_requests, native_assets, paths, projects, runner, task_context
+from autoskill import builder, data_refs, db, deletion, execution_inputs, execution_requests, host_bindings, host_context, native_assets, paths, projects, runner, task_context
 from autoskill.server import jobs
 from autoskill.server.app import create_app
 
@@ -268,6 +268,45 @@ class ExecutionRequestTests(unittest.TestCase):
             self.assertEqual(recovered.headers["cache-control"], "no-store")
             self.assertEqual(client.get("/api/runs/" + first.json()["run_id"]).status_code, 200)
         self.assertEqual(len(db.rows("SELECT * FROM runs")), 1)
+
+    def test_replay_rerun_keeps_task_sheet_and_inputs_while_using_current_case(self):
+        case = builder.api_case("TC-PARAMETERIZED", "Parameterized request", "POST", "/effect/{{order}}",
+                                {"status": 200, "json_equals": {"/answer": 41}})
+        projects.save_cases(self.pid, [case])
+        binding = host_bindings.upsert({"host": "dsh", "host_session_id": "host-session-a", "task_session_id": "task-a",
+                                       "project_id": self.pid, "idempotency_key": "bind-for-rerun"})["binding"]
+        sheet = self.root / "task-a-plan"
+        original = runner.create(self.pid, [case["id"]], session_id="task-a", plan_path=sheet,
+                                 api_only=True, inputs={"order": "41"})
+        self.assertEqual(runner.execute(original["id"])["status"], "Fail")
+        case["assertions"]["json_equals"]["/answer"] = 42
+        projects.save_cases(self.pid, [case])
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1") as client:
+            response = client.post(f"/api/runs/{original['id']}/rerun", json={"failed_only": True})
+            self.assertEqual(response.status_code, 200, response.text)
+        rerun_id = response.json()["id"]
+        self.assertNotEqual(rerun_id, original["id"])
+        retry = db.one("SELECT * FROM runs WHERE id = ?", (rerun_id,))
+        self.assertEqual(retry["session_id"], "task-a")
+        self.assertEqual(runner.plan_folder(retry["plan_path"]), sheet)
+        manifest = execution_inputs.load(retry)
+        self.assertEqual(manifest["inputs"], {"order": "41"})
+        self.assertTrue(manifest["api_only"])
+        self.assertEqual(runner.execute(rerun_id)["status"], "Pass")
+        self.assertEqual(self.site.calls, ["/effect/41", "/effect/41"])
+        self.assertEqual(db.one("SELECT status FROM runs WHERE id = ?", (original["id"],))["status"], "Fail")
+        context = host_context.read("dsh", "host-session-a", binding_id=binding["id"])
+        self.assertEqual({row["id"] for row in context["runs"]["items"]}, {rerun_id, original["id"]})
+
+    def test_legacy_replay_without_input_manifest_can_be_rerun(self):
+        original = runner.create(self.pid, [self.case["id"]], session_id="legacy-task")
+        db.update("runs", original["id"], {"input_manifest": "", "input_hash": ""})
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1") as client:
+            response = client.post(f"/api/runs/{original['id']}/rerun", json={})
+            self.assertEqual(response.status_code, 200, response.text)
+        retry = db.one("SELECT * FROM runs WHERE id = ?", (response.json()["id"],))
+        self.assertEqual(retry["session_id"], "legacy-task")
+        self.assertEqual(execution_inputs.load(retry)["inputs"], {})
 
     def test_public_http_admits_replay_and_native_then_real_worker_executes_each_once(self):
         file = self.root / "conversation.json"

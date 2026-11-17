@@ -1,7 +1,7 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
 import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
-import { empty, errorState, startRun, confirm } from '../ui.js';
+import { empty, errorState, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
 import { refreshShell } from '../shell.js';
 import { downloadRunHtml } from './run-export.js';
@@ -321,7 +321,7 @@ function deletionNotice() {
 }
 
 // ---- one run ----
-const openRows = new Set();
+const rowVisibility = new Map();
 let reportFor = null;
 
 async function report(view, runId) {
@@ -338,7 +338,11 @@ async function report(view, runId) {
   if (run.family === 'native') { go('native-runs/' + runId, Object.fromEntries(route().params)); return; }
   watchDeletion(run);
   const focus = route().params.get('case');
-  prepareReportRows(run, runId, focus);
+  const reportKey = runId + '/' + focus;
+  if (reportFor !== reportKey) {
+    reportFor = reportKey;
+    rowVisibility.clear();
+  }
   const running = active(run);
   if (running) live.until = Date.now() + 8000;
   const counted = run.results.filter((row) => !row.prerequisite);
@@ -351,7 +355,7 @@ async function report(view, runId) {
 
   const summary = runSummary(run, running, stop, again, notPassed, retry, spent, runDeleteButton([run]));
 
-  const rows = reportRows(run);
+  const rows = reportRows(run, false, focus);
 
   replace(view,
     h('a', { class: 'back', href: returnToRuns() }, icon('right'), '返回执行记录'),
@@ -368,27 +372,17 @@ async function report(view, runId) {
   }
 }
 
-function reportRows(run, offline = false) {
+function reportRows(run, offline = false, focus = null) {
   const running = active(run);
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例结果'),
       h('p', { class: 'sub' }, run.results.some((row) => row.prerequisite) ? '带「前置」标记的用例是为了满足依赖自动执行的，不计入统计。' : '点开一条查看每一步和每条断言。'))),
     run.results.length
-      ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row, offline)))
+      ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row, offline, focus)))
       : empty({ glyph: 'clock', title: running ? '正在准备' : '没有结果', text: running ? '浏览器启动后，结果会一条条出现在这里。' : (run.reason || '这次运行没有产生结果。') }));
 }
 
 const resultKey = (row) => String(row.id ?? row.case_id);
-
-function prepareReportRows(run, runId, focus) {
-  if (reportFor !== runId + '/' + focus) {
-    reportFor = runId + '/' + focus;
-    openRows.clear();
-    for (const row of run.results) {
-      if (focus ? focus.startsWith('result:') ? String(row.id) === focus.slice(7) : row.case_id === focus : !row.prerequisite && row.state?.outcome !== 'pass') openRows.add(resultKey(row));
-    }
-  }
-}
 
 function focusNotice(run, focus) {
   if (!focus) return null;
@@ -467,11 +461,12 @@ function stat(label, value, tone) {
   return h('div', { class: 'stat' + (tone ? ' ' + tone : '') }, h('span', { class: 'stat-value' }, String(value)), h('span', { class: 'stat-label' }, label));
 }
 
-function resultRow(run, row, offline = false) {
+function resultRow(run, row, offline, focus) {
   const key = resultKey(row);
-  const open = offline || openRows.has(key);
+  const selected = focus === (focus?.startsWith('result:') ? 'result:' + key : row.case_id);
+  const open = offline || (rowVisibility.get(key) ?? (focus ? selected : !row.prerequisite && row.state?.outcome !== 'pass'));
   const head = h('button', { class: 'result-head', 'aria-expanded': String(open), onClick: () => {
-    if (open) openRows.delete(key); else openRows.add(key);
+    rowVisibility.set(key, !open);
     refresh();
   } },
   icon('right', 'icon-svg caret'), primaryState(row),
@@ -519,9 +514,7 @@ function caseRetryControl(run, row) {
   if (run.family === 'native' || row.state?.outcome === 'pass' || row.prerequisite) return null;
   if (run.workflow_id) return h('p', { class: 'sub' }, '此结果属于原测试任务，请用上方“返回原测试任务”继续处理。');
   if (run.publication?.candidate_id) return h('p', { class: 'sub' }, '请使用上方候选验证操作再次验证本次版本；通过后才会入库。');
-  const again = h('button', { class: 'btn sm' }, icon('play'), '只重跑这一条');
-  again.addEventListener('click', () => startRun([{ project_id: run.project_id, case_ids: [row.case_id] }], again));
-  return h('div', { class: 'row' }, again);
+  return h('div', { class: 'row' }, rerunButton(run, { caseId: row.case_id }));
 }
 
 function attemptHistory(detail) {

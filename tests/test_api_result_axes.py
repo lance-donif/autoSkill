@@ -23,7 +23,7 @@ class SlowHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         time.sleep(0.03)
         data = b'{"ok":true}'
-        self.send_response(200)
+        self.send_response(401 if self.path == "/anonymous" else 200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
@@ -77,6 +77,17 @@ class ApiResultAxesTests(unittest.TestCase):
         final, _row, detail = self.execute(observed=True)
         self.assertEqual(final["status"], "Fail")
         self.assertEqual((detail["business_status"], detail["business_verified"], detail["performance_status"]), ("Unverified", False, "Fail"))
+
+    def test_anonymous_status_mismatch_is_a_business_failure(self):
+        case = builder.api_case("TC-ANONYMOUS", "Anonymous rejection", "GET", "/anonymous", {"status": 402})
+        projects.save_cases(self.pid, [case])
+        run = runner.create(self.pid, api_only=True)
+        final = runner.execute(run["id"])
+        row = db.one("SELECT * FROM results WHERE run_id = ?", (run["id"],))
+        detail = json.loads(row["detail"])
+        self.assertEqual((final["status"], row["category"], detail["business_status"]), ("Fail", "assertion_failed", "Fail"))
+        self.assertEqual([(check["expected"], check["actual"]) for check in detail["assertions"]], [(402, 401)])
+        self.assertTrue(execution_inputs.result_evidence(final, row))
 
 
 if __name__ == "__main__":

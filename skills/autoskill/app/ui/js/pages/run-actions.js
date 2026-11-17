@@ -106,24 +106,30 @@ async function loadReplayPreferences(key, native) {
   }
 }
 
-export function rerunButton(run, { failedOnly = false, count = 0 } = {}) {
+function rerunOptions(native, candidateId, { failedOnly, count, caseId }) {
+  if (native) return { action: 'all', style: ' primary', label: '按原版本再次运行', payload: {} };
+  if (caseId) return { action: 'case:' + caseId, style: ' sm', label: '只重跑这一条', payload: { case_id: caseId } };
+  if (failedOnly) return { action: 'failed', style: ' primary', payload: { failed_only: true },
+    label: candidateId ? `再次验证已记录未通过的 ${count} 条候选` : `重跑已记录未通过的 ${count} 条` };
+  return { action: 'all', style: '', payload: {}, label: candidateId ? '按本次候选版本再次验证' : '按当前用例重新运行' };
+}
+
+export function rerunButton(run, { failedOnly = false, count = 0, caseId = null } = {}) {
   if (run.workflow_id) return failedOnly ? null : h('a', { class: 'btn primary', href: href('workflows/' + run.workflow_id) }, '返回原测试任务');
   const native = run.family === 'native';
   const candidateId = native ? null : run.publication?.candidate_id;
-  const action = failedOnly ? 'failed' : 'all';
+  const { action, style, label, payload } = rerunOptions(native, candidateId, { failedOnly, count, caseId });
   const key = run.id + ':rerun:' + action;
-  const current = receipts.get(key);
-  const blocked = current?.status === 'pending';
-  const label = native ? '按原版本再次运行' : candidateId ? failedOnly ? `再次验证已记录未通过的 ${count} 条候选` : '按本次候选版本再次验证'
-    : failedOnly ? `重跑已记录未通过的 ${count} 条` : '按当前用例重新运行';
-  return h('button', { class: 'btn' + (failedOnly || native ? ' primary' : ''), disabled: blocked, onClick: async () => {
+  const blocked = receipts.get(key)?.status === 'pending';
+  const page = native ? 'native-runs' : 'runs';
+  return h('button', { class: 'btn' + style, disabled: blocked, onClick: async () => {
     if (receipts.get(key)?.status === 'pending') return;
     receipts.set(key, { key, status: 'pending', message: '正在提交重新运行请求…' }); refresh();
     try {
       if (!await loadReplayPreferences(key, native)) return;
-      const body = native ? {} : { headed: preferredHeaded(), ...(failedOnly ? { failed_only: true } : {}) };
+      const body = native ? {} : { headed: preferredHeaded(), ...payload };
       const result = await startOperation('rerun:' + run.id + ':' + JSON.stringify(body), () => operationRequest(
-        `/${native ? 'native-runs' : 'runs'}/${encodeURIComponent(run.id)}/rerun`, body,
+        `/${page}/${encodeURIComponent(run.id)}/rerun`, body,
         (value) => rerunReceipt(value, candidateId)));
       if (candidateId && !result.run_ids.length) {
         receipts.set(key, { key, status: 'rejected', message: '本次没有候选加入执行队列，未开始新的验证。' + preparationMessage(result) });
@@ -133,9 +139,9 @@ export function rerunButton(run, { failedOnly = false, count = 0 } = {}) {
       const message = rerunMessage(result, runIds, native, candidateId);
       receipts.set(key, { key, status: 'success', message, runIds });
       for (const id of runIds) notices.set(id, { message, runIds, context: rerunContext(result, native, candidateId) });
-      go((native ? 'native-runs/' : 'runs/') + result.id);
+      go(page + '/' + result.id);
     } catch (error) { actionError(key, error); refresh(); }
-  } }, icon('play'), blocked && current?.status === 'pending' ? '正在提交…' : label);
+  } }, icon('play'), blocked ? '正在提交…' : label);
 }
 
 export function cancelButton(run) {

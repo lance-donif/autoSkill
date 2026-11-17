@@ -207,6 +207,56 @@ test('a completed workflow retains its violated business conclusion in a closed 
   app.dispose();
 });
 
+test('recorded execution receipts show their nested run status, including after reopening the conversation', () => {
+  const app = harness();
+  const props = app.injected();
+  const identity = { host_session_id: 'session-a', run_id: 'run-original' };
+  const receipt = (status) => wire({ state: 'accepted', run: { id: 'run-original', status } }, { identity, operation: 'run.start' });
+  const card = (result) => app.taskCard.component({ ...props, phase: 'result', toolName: 'autoskill_read', block: {
+    content: [{ type: 'text', text: JSON.stringify(result) }],
+  } });
+  const queued = card(receipt('Queued'));
+  assert.match(text(queued), /执行状态：排队中/);
+  assert.match(text(queued), /取消执行/);
+  const reopened = card(wire(receipt('Fail'), { operation: 'operation' }));
+  assert.match(text(reopened), /执行状态：失败/);
+  assert.match(text(reopened), /打开执行报告/);
+  assert.doesNotMatch(text(reopened), /取消执行/);
+  const removed = card(wire({ state: 'deleted', run: null }, { identity, operation: 'run.start' }));
+  assert.match(text(removed), /执行记录已删除/);
+  assert.doesNotMatch(text(removed), /打开执行报告|取消执行/);
+  app.dispose();
+});
+
+test('two lost run receipts in the same conversation recover their own run and report navigation', async () => {
+  const app = harness(({ url }) => {
+    const requestId = url.searchParams.get('request_id');
+    const runId = 'run-' + requestId;
+    return response(wire(wire({ state: 'accepted', run: { id: runId, status: 'Pass' } }, {
+      operation: 'run.start', request_id: requestId, identity: { host_session_id: 'session-a', run_id: runId },
+    }), { operation: 'operation' }));
+  });
+  const props = app.injected();
+  const card = (requestId) => app.taskCard.component({ ...props, phase: 'result', toolName: 'autoskill_task', block: {
+    content: [{ type: 'text', text: JSON.stringify(wire(null, { operation: 'run.start', request_id: requestId,
+      request_state: 'unknown' })) }],
+  } });
+  click(card('first'), '查询操作结果');
+  click(card('second'), '查询操作结果');
+  await setImmediate();
+  for (const id of ['first', 'second']) {
+    const recovered = card(id);
+    assert.match(text(recovered), new RegExp('执行：run-' + id));
+    assert.match(text(recovered), /执行状态：通过/);
+    assert.doesNotMatch(text(recovered), /尚未确认|取消执行/);
+    click(recovered, '打开执行报告');
+    assert.equal(props.autoskill.navigation.route('autoskill-dashboard'), 'runs/run-' + id);
+  }
+  assert.deepEqual(app.requests.filter((request) => request.url.searchParams.get('resource') === 'operation')
+    .map((request) => request.url.searchParams.get('request_id')), ['first', 'second']);
+  app.dispose();
+});
+
 test('a lost cancel response is queried by request id and never automatically repeated', async () => {
   let operationState = 'unknown';
   const app = harness(({ url, options }) => {
@@ -335,18 +385,18 @@ test('a receipt missing a required Bug artifact cannot become ready', async () =
 });
 
 test('unknown tool history can query its own receipt without issuing a new task', async () => {
-  const app = harness(() => response(wire(wire({}, { request_state: 'completed', request_id: 'historic-request' }))));
+  const identity = { host_session_id: 'session-a', binding_id: 'old-binding', run_id: 'old-run' };
+  const app = harness(() => response(wire(wire({}, { request_id: 'historic-request', identity, operation: 'run.cancel' }))));
   const props = app.injected();
-  const view = app.taskCard.component({ ...props, phase: 'result', toolName: 'autoskill_task', block: {
-    meta: { autoskill: { host_session_id: 'session-a', binding_id: 'old-binding', run_id: 'old-run',
-      operation: 'run.cancel', request_id: 'historic-request', request_state: 'unknown' } }, content: [],
+  const view = () => app.taskCard.component({ ...props, phase: 'result', toolName: 'autoskill_task', block: {
+    meta: { autoskill: { ...identity, operation: 'run.cancel', request_id: 'historic-request', request_state: 'unknown' } }, content: [],
   } });
-  click(view, '查询操作结果');
+  click(view(), '查询操作结果');
   await setImmediate();
   assert.equal(app.requests.length, 1);
   assert.equal(app.requests[0].options.method, 'GET');
   assert.equal(app.requests[0].url.searchParams.get('request_id'), 'historic-request');
-  assert.equal(props.autoskill.store.getSnapshot().actions['run.cancel:old-run'].state, 'completed');
+  assert.match(text(view()), /工具操作已完成.*执行：old-run/);
   app.dispose();
 });
 

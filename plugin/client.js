@@ -15,7 +15,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     sources: '读取需求', requirements: '整理需求', design: '设计用例', coverage: '检查覆盖', completion: '补全遗漏',
     materialize: '生成可执行用例', execute: '执行测试', diagnose: '分析结果', maintain: '维护用例', knowledge: '沉淀知识', investigate: '核实操作结果',
     publishing: '发布中', done: '已完成', not_generated: '尚未生成', stale_cycle: '当前查看历史周期', reference_missing: '任务引用已不存在',
-    mixed: '部分不符合预期',
+    mixed: '部分不符合预期', deleted: '执行记录已删除', missing: '未找到执行记录',
     queued: '排队中', awaiting_host: '等待宿主', settled: '已结束', blocked: '阻塞',
     pass: '通过', fail: '失败', unverified: '未验证', not_applicable: '不适用',
     valid: '有效', invalid: '已失效', generating: '生成中', dispatching: '投递中', delivered: '已送达',
@@ -47,6 +47,8 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
   function actionKey(operation, payload) {
     return operation + ':' + (payload.run_id || payload.report_id || payload.binding_id || 'session');
   }
+
+  const receiptKey = (id) => 'receipt:' + id;
 
   async function responseJson(response) {
     try { return await response.json(); }
@@ -180,14 +182,14 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       } finally { requests.delete(controller); }
     }
     async function queryAction(key) {
-      if (disposed) return;
       const action = snapshot.actions[key];
-      if (action?.state !== 'unknown') return;
+      if (disposed || action?.state !== 'unknown' || action.querying) return;
       const startedGeneration = generation;
+      publish({ actions: { ...snapshot.actions, [key]: { ...action, querying: true } } });
       try {
         const result = await read('operation', { request_id: action.request_id });
         if (!currentGeneration(startedGeneration)) return;
-        if (result.request_state === 'completed' && object(result.data) && result.data.request_state) finishAction(key, action, result.data);
+        if (result.request_state === 'completed' && result.data?.request_state) finishAction(key, action, result.data);
         else publish({ actions: { ...snapshot.actions, [key]: { ...action, error: result.error?.message || '仍未查到操作结果，请稍后再查询。' } } });
       } catch (error) {
         if (currentGeneration(startedGeneration)) publish({ actions: { ...snapshot.actions,
@@ -218,7 +220,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       },
       command, queryAction, verifyReport,
       queryRecorded: (record) => {
-        const key = actionKey(record.operation, record);
+        const key = receiptKey(record.request_id);
         if (!snapshot.actions[key]) publish({ actions: { ...snapshot.actions, [key]: {
           key, operation: record.operation, request_id: record.request_id, payload: record, state: 'unknown',
         } } });
@@ -229,7 +231,9 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
         for (const request of requests) request.abort();
         requests.clear();
         const actions = {};
-        for (const [key, action] of Object.entries(snapshot.actions)) actions[key] = action.state === 'pending' ? { ...action, state: 'unknown' } : action;
+        for (const [key, action] of Object.entries(snapshot.actions)) {
+          actions[key] = action.state === 'pending' || action.querying ? { ...action, state: 'unknown', querying: false } : action;
+        }
         publish({ reports: {}, actions });
       },
       dispose: () => {
@@ -250,7 +254,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     if (!action) return null;
     return h('div', { role: action.state === 'failed' || action.state === 'unknown' ? 'status' : undefined },
       action.state === 'pending' ? '正在处理…' : action.error || (action.state === 'completed' ? '已确认操作完成。' : '操作结果尚未确认。'),
-      action.state === 'unknown' ? button('查询操作结果', () => { void store.queryAction(action.key); }) : null);
+      action.state === 'unknown' ? button(action.querying ? '正在查询…' : '查询操作结果', () => { void store.queryAction(action.key); }, action.querying) : null);
   }
 
   function reportLinks(store, reportId, receipt) {
@@ -291,19 +295,26 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       if (part.type !== 'text' || typeof part.text !== 'string') continue;
       try {
         const value = JSON.parse(part.text);
-        if (object(value) && value.version === 1 && object(value.identity)) return value;
+        if (object(value) && value.version === 1 && object(value.identity)) {
+          const receipt = value.data;
+          if (value.operation === 'operation' && receipt?.version === 1 && object(receipt.identity)) return receipt;
+          return value;
+        }
       } catch { /* Text tool output need not be JSON. */ }
     }
     return null;
   }
 
-  function toolRecord(phase, block) {
+  function toolRecord(phase, block, snapshot) {
     const result = phase === 'result' ? parseResult(block) : null;
     const recorded = object(block?.meta?.autoskill) ? block.meta.autoskill : {};
-    const identity = result?.identity || recorded;
-    return { identity, state: result?.request_state || recorded.request_state,
-      data: result?.data,
-      operation: result?.operation || recorded.operation, request_id: result?.request_id || recorded.request_id,
+    const id = result?.request_id || recorded.request_id;
+    const lookup = id && snapshot.actions[receiptKey(id)];
+    const current = ['completed', 'failed'].includes(lookup?.state) ? lookup.result : result;
+    const identity = current?.identity || recorded;
+    return { identity, state: current?.request_state || recorded.request_state,
+      data: current?.data, error: lookup?.error || current?.error?.message, querying: lookup?.querying,
+      operation: current?.operation || recorded.operation, request_id: id,
       raw: phase === 'result' ? list(block.content).map((part) => part.type === 'text' ? part.text : JSON.stringify(part)).join('\n') : block.argsRaw };
   }
 
@@ -314,42 +325,52 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     return state === 'unknown' ? '操作结果尚未确认' : '工具操作未完成';
   }
 
-  function recordedFacts(record) {
+  function recordedFacts(record, run, runUnavailable) {
     const { identity, data } = record;
     const facts = [];
     if (identity.task_session_id) facts.push('任务：' + identity.task_session_id);
     if (identity.workflow_id) facts.push('工作流：' + identity.workflow_id + (identity.cycle_id ? ' · ' + identity.cycle_id : ''));
     if (identity.run_id) facts.push('执行：' + identity.run_id);
-    const entity = data?.state ? data : recordedRun(record);
-    if (entity?.state) facts.push(stateSummary(entity));
+    const entity = object(data?.state) ? data : run;
+    if (object(entity?.state)) facts.push(stateSummary(entity));
+    else if (run?.status || runUnavailable) facts.push('执行状态：' + label(run?.status || data.state));
     else if (data?.conclusion) facts.push('业务验证：' + label(data.conclusion));
     return facts.map((fact) => h('p', { key: fact, style: STYLE.muted }, fact));
   }
 
   function recordedRun(record) {
     const runId = record.identity.run_id;
-    if (record.data?.id === runId && (record.data?.status || record.data?.state)) {
-      const run = record.data;
-      const canCancel = run.state ? ['pending', 'active'].includes(run.state.lifecycle) : ACTIVE.has(run.status);
-      return { ...run, can_cancel: run.can_cancel ?? canCancel };
-    }
-    return list(record.data?.runs?.items).find((run) => run.id === runId);
+    const data = record.data;
+    const run = [data, data?.run, ...list(data?.runs?.items)].find((item) => runId && item?.id === runId && (item.status || object(item.state)));
+    if (!run) return null;
+    const canCancel = object(run.state) ? ['pending', 'active'].includes(run.state.lifecycle) : ACTIVE.has(run.status);
+    return { ...run, can_cancel: run.can_cancel ?? canCancel };
+  }
+
+  function receiptControls(store, record) {
+    const unknown = record.state === 'unknown';
+    return h(React.Fragment, {},
+      unknown && record.request_id ? button(record.querying ? '正在查询…' : '查询操作结果', () => {
+        void store.queryRecorded({ ...record.identity, operation: record.operation, request_id: record.request_id });
+      }, record.querying) : null,
+      (unknown || record.state === 'failed') && record.error ? h('p', { role: 'status' }, record.error) : null);
   }
 
   function ToolCard({ phase, block, toolName, autoskill }) {
     const snapshot = useSnapshot(autoskill.store);
-    const record = toolRecord(phase, block);
+    const record = toolRecord(phase, block, snapshot);
     const { identity, state, raw } = record;
+    const run = recordedRun(record);
+    const runUnavailable = record.operation === 'run.start' && ['deleted', 'missing'].includes(record.data?.state);
+    const target = runUnavailable ? { ...identity, run_id: null, report_id: null } : identity;
     return h('details', { style: STYLE.card, 'aria-label': 'autoSkill 工具结果' },
       h('summary', {}, toolName === 'autoskill_read' ? '查看 autoSkill 查询结果' : '查看 autoSkill 操作结果'),
       h('p', {}, toolState(phase, state)),
       identity.project_id ? h('p', { style: STYLE.muted }, '项目：' + identity.project_id) : null,
-      recordedFacts(record),
-      phase === 'result' ? identityControls(autoskill, snapshot, identity, recordedRun(record)) : null,
-      state === 'unknown' && record.request_id ? button('查询操作结果', () => {
-        void autoskill.store.queryRecorded({ ...identity, operation: record.operation, request_id: record.request_id });
-      }) : null,
-      identity.report_id ? reportControls(autoskill.store, snapshot, { report_id: identity.report_id }, identity.binding_id) : null,
+      recordedFacts(record, run, runUnavailable),
+      phase === 'result' ? identityControls(autoskill, snapshot, target, run) : null,
+      receiptControls(autoskill.store, record),
+      target.report_id ? reportControls(autoskill.store, snapshot, { report_id: target.report_id }, target.binding_id) : null,
       raw ? h('details', {}, h('summary', {}, '查看工具输入与结果'), h('pre', { style: STYLE.pre }, raw)) : null);
   }
 

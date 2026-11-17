@@ -185,9 +185,7 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
         row.setdefault("scope", "business")
     failed = [row for row in rows if not row["passed"]]
     if failed:
-        expired = response.status_code in (401, 403) and case["assertions"]["status"] not in (401, 403)
-        outcome.update(status="Fail", category="session_expired" if expired else "assertion_failed",
-                       actual=f"HTTP {response.status_code}，{elapsed} ms",
+        outcome.update(status="Fail", category="assertion_failed", actual=f"HTTP {response.status_code}，{elapsed} ms",
                        reason="；".join(f'{row["name"]}：期望 {row["expected"]}，实际 {row["actual"]}' for row in failed)[:500])
         return outcome
     outcome.update(status="Pass", actual=f"HTTP {response.status_code}，{elapsed} ms，{len(rows)} 条断言通过")
