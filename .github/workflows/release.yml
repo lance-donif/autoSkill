@@ -16,8 +16,23 @@ env:
   RELEASE_COMMIT: ${{ github.sha }}
   RELEASE_REPOSITORY: ${{ github.repository }}
   RELEASE_RUN_ID: ${{ github.run_id }}
+  STAGING_TAG: autoskill-build-${{ github.run_id }}
 jobs:
+  staging:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Prepare a private draft for native package transfer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --json isDraft > /dev/null 2>&1; then
+            test "$(gh release view "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --target "$RELEASE_COMMIT" --draft --title "$RELEASE_TAG build $RELEASE_RUN_ID" --notes "Platform package transfer for $RELEASE_TAG."
+          fi
   windows:
+    needs: staging
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
@@ -39,13 +54,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Asset fetch failed' }
           python scripts/build-windows-bundle.py --assets "$build/assets" --output "$build/package" --zip
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bundle-windows-x64
-          path: ${{ runner.temp }}/autoskill-windows/autoSkill-*.zip
-          compression-level: 0
-          if-no-files-found: error
+      - name: Stage Windows package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$STAGING_TAG" "$RUNNER_TEMP"/autoskill-windows/autoSkill-*.zip --clobber
   linux:
+    needs: staging
     strategy:
       fail-fast: false
       matrix:
@@ -78,7 +93,7 @@ jobs:
           export AUTOSKILL_CHROMEDRIVER="$runtime/chromedriver/chromedriver-linux64/chromedriver"
           export AUTOSKILL_AGENT_BROWSER="$runtime/agent-browser/agent-browser"
           export AUTOSKILL_BRIDGE=off
-          "$runtime/python/bin/python3" - <<'PY' 2>&1 | tee "$RUNNER_TEMP/autoskill-linux-browser-validation.log"
+          xvfb-run -a -s '-screen 0 1600x900x24' "$runtime/python/bin/python3" - <<'PY' 2>&1 | tee "$RUNNER_TEMP/autoskill-linux-browser-validation.log"
           import os
           import subprocess
           import sys
@@ -98,29 +113,27 @@ jobs:
               if not found.countTestCases():
                   raise SystemExit("Empty release validation suite: " + pattern)
               suite.addTests(found)
-          suite.addTests(unittest.defaultTestLoader.loadTestsFromName(
-              "test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests."
-              "test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay"))
+          recorder = "test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests."
+          suite.addTests(unittest.defaultTestLoader.loadTestsFromNames([
+              recorder + "test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay",
+              recorder + "test_saved_setup_stays_on_the_page_and_preserves_the_selected_source_revision",
+              recorder + "test_default_and_explicit_recording_create_mapped_owned_windows",
+          ]))
           result = unittest.TextTestRunner(verbosity=2).run(suite)
           if result.skipped:
               raise SystemExit("Release browser validation must execute, not skip")
           sys.exit(0 if result.wasSuccessful() else 1)
           PY
-      - uses: actions/upload-artifact@v4
-        if: always() && matrix.arch == 'x64'
-        with:
-          name: linux-x64-browser-validation
-          path: ${{ runner.temp }}/autoskill-linux-browser-validation.log
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bundle-linux-${{ matrix.arch }}
-          path: ${{ runner.temp }}/autoskill-linux/autoSkill-*.zip
-          compression-level: 0
-          if-no-files-found: error
+      - name: Stage Linux package and validation evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=("$RUNNER_TEMP"/autoskill-linux/autoSkill-*.zip)
+          if [[ "${{ matrix.arch }}" == x64 ]]; then files+=("$RUNNER_TEMP/autoskill-linux-browser-validation.log"); fi
+          gh release upload "$STAGING_TAG" "${files[@]}" --clobber
   publish:
     needs: [windows, linux]
-    if: always()
+    if: always() && github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -130,16 +143,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        if: needs.windows.result == 'success' && needs.linux.result == 'success'
-        with:
-          pattern: bundle-*
-          path: ${{ runner.temp }}/autoskill-bundles
       - name: Require all three packages
         env:
           WINDOWS_RESULT: ${{ needs.windows.result }}
           LINUX_RESULT: ${{ needs.linux.result }}
         run: test "$WINDOWS_RESULT" = success && test "$LINUX_RESULT" = success
+      - name: Download native packages and the Linux browser validation log
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$STAGING_TAG" --pattern 'autoSkill-*.zip' --dir "$RUNNER_TEMP/autoskill-bundles"
+          gh release download "$STAGING_TAG" --pattern 'autoskill-linux-browser-validation.log' --dir "$RUNNER_TEMP/autoskill-release-proof"
       - name: Verify all uploads before replacement and publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -161,8 +175,9 @@ jobs:
             git commit -m "docs: record $RELEASE_TAG platform release result"
             git push origin main
           fi
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: platform-release-evidence
-          path: ${{ runner.temp }}/autoskill-release-proof
+      - name: Remove the draft after publication and evidence recording
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh release view "$STAGING_TAG" --json isDraft --jq .isDraft)" = true
+          gh release delete "$STAGING_TAG" --yes
