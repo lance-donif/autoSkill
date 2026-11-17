@@ -39,12 +39,11 @@ jobs:
       - name: Prepare a private draft for native package transfer
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ steps.source.outputs.commit }}
         run: |
           if gh release view "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --json isDraft > /dev/null 2>&1; then
             test "$(gh release view "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --json isDraft --jq .isDraft)" = true
           else
-            gh release create "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --target "$RELEASE_COMMIT" --draft --title "$RELEASE_TAG build $RELEASE_RUN_ID" --notes "Platform package transfer for $RELEASE_TAG."
+            gh release create "$STAGING_TAG" --repo "$RELEASE_REPOSITORY" --draft --title "$RELEASE_TAG build $RELEASE_RUN_ID" --notes "Platform package transfer for $RELEASE_TAG."
           fi
   windows:
     needs: staging
