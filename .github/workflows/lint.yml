@@ -32,19 +32,7 @@ jobs:
           PY
       - name: Lint, project conventions and review tooling
         if: always()
-        run: python scripts/validate_review.py --suite lint --suite conventions --suite review-tools --biome "$RUNNER_TEMP/review-tools/node_modules/.bin/biome" --output-dir "$RUNNER_TEMP/review-lint"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: lint-validation
-          path: ${{ runner.temp }}/review-lint/*.log
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: lint-validation-summary
-          path: ${{ runner.temp }}/review-lint/summary.json
-          if-no-files-found: warn
+        run: python scripts/validate_review.py --suite lint --suite conventions --suite review-tools --biome "$RUNNER_TEMP/review-tools/node_modules/.bin/biome" --output-dir "$RUNNER_TEMP/review-lint" --show-logs
   contracts:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -77,12 +65,4 @@ jobs:
           PY
       - name: Workflow, diagnosis, knowledge and host contracts
         if: always()
-        run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: contract-validation
-          path: |
-            ${{ runner.temp }}/review-contracts/*.log
-            ${{ runner.temp }}/review-contracts/summary.json
-          if-no-files-found: warn
+        run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts" --show-logs

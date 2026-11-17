@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -137,7 +138,19 @@ def _skip_count(command: dict, log_path: Path) -> int:
     return int(counts[-1]) if counts else 0
 
 
-def run_commands(root: Path, commands: list[dict], output: Path, timeout: float, python: str, fail_on_skip: bool = False) -> dict:
+@contextlib.contextmanager
+def _command_log(path: Path, name: str, show_logs: bool):
+    try:
+        with path.open("wb") as log:
+            yield log
+    finally:
+        if show_logs and path.is_file():
+            content = path.read_text(encoding="utf-8", errors="replace")
+            print(f"\n检查日志：{name}")
+            print(content, end="" if content.endswith("\n") else "\n", flush=True)
+
+
+def run_commands(root: Path, commands: list[dict], output: Path, timeout: float, python: str, fail_on_skip: bool = False, *, show_logs: bool = False) -> dict:
     if output.exists() and any(output.iterdir()):
         raise ValueError("输出目录非空，请使用新目录保留前次结果")
     output.mkdir(parents=True, exist_ok=True)
@@ -146,7 +159,7 @@ def run_commands(root: Path, commands: list[dict], output: Path, timeout: float,
     for index, command in enumerate(commands, 1):
         started = time.monotonic()
         log_path = output / f"{index:02d}-{command['name'].replace('*', 'all').replace('?', 'any')}.log"
-        with log_path.open("wb") as log:
+        with _command_log(log_path, command["name"], show_logs) as log:
             try:
                 if command.get("error"):
                     log.write((command["error"] + "\n").encode())
@@ -186,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--fail-on-skip", action="store_true", help="出现跳过的测试时整体失败，保留子进程原始退出码")
+    parser.add_argument("--show-logs", action="store_true", help="每项检查结束后输出完整日志，最后仍输出 JSON 摘要并保留失败退出码")
     args = parser.parse_args(argv)
     if args.list:
         print(json.dumps({"suites": SUITES, "python_suites": PYTHON_SUITES, "node_suites": NODE_SUITES}, ensure_ascii=False, indent=2))
@@ -202,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             if args.output_dir is None:
                 raise ValueError("必须指定 --output-dir；可位于仓库外")
-            result = run_commands(root, commands, args.output_dir.resolve(), args.timeout, args.python, args.fail_on_skip)
+            result = run_commands(root, commands, args.output_dir.resolve(), args.timeout, args.python, args.fail_on_skip, show_logs=args.show_logs)
     except (OSError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
         return 2

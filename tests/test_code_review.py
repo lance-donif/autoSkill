@@ -4,6 +4,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -175,6 +176,53 @@ class ValidationRunnerTests(unittest.TestCase):
         self.assertFalse((self.root / "tests/__pycache__").exists())
         with self.assertRaises(ValueError):
             validate_review.run_commands(self.root, commands, self.output, 15, sys.executable)
+
+    def test_cli_show_logs_keeps_full_success_and_failure_output_and_exit_code(self):
+        for name, check in (("success", "self.assertTrue(True)"), ("failure", "self.fail('fixture failure')")):
+            source = ("import sys, unittest\nclass Fixture(unittest.TestCase):\n    def test_result(self):\n"
+                      f"        print('{name} stdout first\\n{name} stdout last')\n"
+                      f"        print('{name} stderr first\\n{name} stderr last', file=sys.stderr)\n"
+                      f"        {check}\n")
+            self.root.joinpath(f"tests/test_{name}.py").write_text(source, encoding="utf-8")
+        summaries = []
+        for show_logs in (False, True):
+            with self.subTest(show_logs=show_logs):
+                output = self.output / ("shown" if show_logs else "json-only")
+                command = [sys.executable, str(ROOT / "scripts/validate_review.py"), "--root", str(self.root),
+                           "--python-test", "test_success.py", "--python-test", "test_failure.py", "--output-dir", str(output)]
+                completed = subprocess.run([*command, *(["--show-logs"] if show_logs else [])],
+                                           capture_output=True, text=True, timeout=30, shell=False, check=False)
+                self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
+                stored_summary = (output / "summary.json").read_text(encoding="utf-8")
+                summary = json.loads(stored_summary)
+                summaries.append([item["exit_code"] for item in summary["results"]])
+                if not show_logs:
+                    self.assertEqual(json.loads(completed.stdout), summary)
+                    self.assertNotIn("success stdout first", completed.stdout)
+                    self.assertNotIn("failure stderr last", completed.stdout)
+                    continue
+                self.assertTrue(completed.stdout.endswith(stored_summary))
+                for result in summary["results"]:
+                    self.assertIn(Path(result["log"]).read_text(encoding="utf-8"), completed.stdout)
+                self.assertLess(completed.stdout.index("success stdout first"), completed.stdout.index("failure stdout first"))
+                self.assertIn("success stderr last", completed.stdout)
+                self.assertIn("failure stderr last", completed.stdout)
+                self.assertIn("AssertionError: fixture failure", completed.stdout)
+        self.assertEqual(summaries, [[0, 1], [0, 1]])
+
+    def test_show_logs_includes_failed_version_probe_and_continues(self):
+        commands = [{"name": "version-failed", "argv": [sys.executable, "-c", "print('MUST_NOT_EXECUTE')"],
+                     "version_argv": [sys.executable, "-c", "print('VERSION_PROBE_FAILED'); raise SystemExit(7)"]},
+                    {"name": "next-check", "argv": [sys.executable, "-c", "print('NEXT_CHECK_PASSED')"]}]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = validate_review.run_commands(self.root, commands, self.output, 15, sys.executable, show_logs=True)
+        self.assertEqual(result["exit_code"], 7)
+        self.assertEqual([item["exit_code"] for item in result["results"]], [7, 0])
+        self.assertNotIn("MUST_NOT_EXECUTE", output.getvalue())
+        for item in result["results"]:
+            self.assertIn(Path(item["log"]).read_text(encoding="utf-8"), output.getvalue())
+        self.assertLess(output.getvalue().index("VERSION_PROBE_FAILED"), output.getvalue().index("NEXT_CHECK_PASSED"))
 
     def test_empty_and_missing_test_selection_cannot_pass(self):
         (self.root / "tests/test_empty.py").write_text('"""No tests here."""\n', encoding="utf-8")

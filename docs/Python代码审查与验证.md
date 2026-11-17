@@ -50,6 +50,8 @@ python scripts/validate_review.py --python-test test_api_execution_inputs.py --n
 
 每次运行使用新的 `--output-dir`，其中保留各项 `.log`、工具版本输出和 `summary.json`，目录可在仓库外。已有非空输出目录不会覆盖。临时文件、autoSkill 工作区和用例表被定向到此目录；保留显式浏览器运行时、`AUTOSKILL_DSH_SDK_ROOT` 及 `AUTOSKILL_REVIEW_*` 验收开关，清除其他 autoSkill 会话/业务环境继承。Node 契约的 Python 子进程使用本次选择的解释器。
 
+默认 stdout 仍只输出最终 JSON。显式添加 `--show-logs` 时，每项检查结束后将已保存的完整日志写到 stdout，包括成功、失败及版本探测提前失败的日志，最后再输出相同的 JSON 摘要；原始失败退出码和 `--fail-on-skip` 判定不变。需要程序读取结果时使用默认模式或 `summary.json`。
+
 每个子检查通过列表参数和 `shell=False` 启动。执行结束后继续收集其余检查，逐项保留原始退出码；总退出码取首个失败，信号退出转换为 `128 + 信号号`。缺少工具为 127，超时为 124；`--timeout` 控制单项秒数。POSIX 超时会终止该项进程组，防止遗留测试服务。工具不格式化源码，也不放宽现有 lint 配置。
 
-CI 使用相同入口，并预置 Ruff 0.17.4 / Biome 2.6.7。选定 Python 契约依赖取自项目现有版本锁定；日志与摘要作为 Actions artifact 保存。Linux x64 发布浏览器门禁仍使用刚构建的运行时，要求真实执行且不允许跳过；普通 host 契约不能代替真实 DSH SDK 或宿主文件卡验收。
+CI 使用相同入口，并预置 Ruff 0.17.4 / Biome 2.6.7。选定 Python 契约依赖取自项目现有版本锁定；CI 显式启用 `--show-logs`，完整日志与最终摘要保留在 Actions 步骤日志中，不依赖 artifact 存储额度。Linux x64 发布浏览器门禁仍使用刚构建的运行时，要求真实执行且不允许跳过；普通 host 契约不能代替真实 DSH SDK 或宿主文件卡验收。

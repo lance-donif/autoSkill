@@ -130,5 +130,50 @@
     "ruff_changed_tests": "passed",
     "ci_repeated": false,
     "first_failures_retained": true
+  },
+  "remote_ci_followup": {
+    "date": "2026-11-17",
+    "first_remote_run": {
+      "id": 43983805855,
+      "commit": "e044104",
+      "conclusion": "failure",
+      "validation_steps": {
+        "lint": "success",
+        "contracts": "success"
+      },
+      "failed_diagnostic_uploads": 3,
+      "reason": "Artifact storage quota has been hit",
+      "diagnostic_evidence": [
+        "Actions step conclusions",
+        "check annotations"
+      ],
+      "raw_log_download": "unavailable: signed log domain returned HTTP 403"
+    },
+    "change": {
+      "explicit_option": "--show-logs",
+      "default_stdout": "JSON only",
+      "enabled_stdout": "complete retained logs after each check, then final JSON summary",
+      "original_exit_codes_preserved": true,
+      "version_probe_failure_logs_included": true,
+      "removed_diagnostic_artifact_steps": 3,
+      "release_workflow_unchanged": true,
+      "old_artifacts_deleted": false
+    },
+    "local_validation": {
+      "ruff": "passed",
+      "tooling_tests": 18,
+      "skipped": 0,
+      "cli_success_and_failure_full_logs": "passed",
+      "default_json_contract": "passed",
+      "exit_code_1_preserved": true,
+      "version_exit_code_7_preserved": true,
+      "first_ruff_finding": "PLW1510: expected-failure CLI subprocess needed explicit check=False; fixed and rechecked"
+    },
+    "original_v1_validation": {
+      "python_tests": 160,
+      "node_host_tests": 36,
+      "skipped": 0
+    },
+    "new_remote_run": "pending root commit and push"
   }
 }
