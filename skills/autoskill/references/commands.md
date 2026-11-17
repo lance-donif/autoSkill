@@ -135,7 +135,9 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 | `record stop --title 标题 [--module 模块] [--category 分类]` | 结束并保存候选及录制观察；普通任务自动安排UI/API分别验证，只有实际通过后才发布；`--plan` 绑定设计行 |
 | `record cancel` | 放弃，不生成用例 |
 
-每个会话维护自己的录制；不同会话可以同时录制。
+每个会话维护自己的录制；不同会话可以同时录制。`record start`、`browser snapshot`、`browser wait`、`record status` 返回的 `session_id`、`browser_session`、`headed`、`tab` 用于核对当前录制的任务、内部浏览器、启动时窗口选择与标签页；继续命令始终用原任务 `--session`，不能把内部 `browser_session` 当任务标识。
+
+遇到 `needs_login` 或用户选择人工认证时保持原录制和窗口，只让用户在该窗口完成登录后回复继续。恢复时沿用相同 `--runtime-context` / `--host-session` / `--session`，执行 `browser snapshot`，必要时 `browser tab list` 确认登录产生的标签页，再根据新快照继续业务。等待用户不会关闭录制；不调用 `record cancel`、不重复 `record start`，不要求用户填写端口或 profile。事先知道需要手工操作时 `record start <项目> --headed`。手工认证不自动成为可回放登录用例，候选仍按实际认证依赖验证。
 
 目标支持 CSS、`@e编号`、`testid=`、`label=`、`placeholder=`、`text=`、`role=button:名称` 与 `xpath=//button[@id='save']`。显式 XPath 是主定位；录制时自动生成的 XPath 经唯一性验证后追加为末位备选。`browser describe <目标>` 返回可用写法、完整 `locator_definitions` 和 `context`，不会从离线 CSS 猜 XPath。
 
@@ -192,7 +194,7 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 `--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。
 
-- 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好；省略参数不会覆盖用户已经选择的隐藏。没有偏好时默认显示最大化窗口，无桌面的 Linux 默认隐藏。明确 `--headed` / `--headless` 或 `AUTOSKILL_HEADED=1/0` 优先；没有窗口时页面为 1920×1080。这些命令行选项适用于 `record start`、`run`、`login`、`dashboard`。
+- 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好；省略参数不会覆盖用户已经选择的隐藏。没有偏好时默认显示最大化窗口，无桌面的 Linux 默认隐藏。用户最新明确要求显示/隐藏时分别传 `--headed` / `--headless`，命令行优先于旧的 `AUTOSKILL_HEADED=1/0`，再优先于保存偏好；临时覆盖不改写保存偏好；没有窗口时页面为 1920×1080。这些命令行选项适用于 `record start`、`run`、`login`、`dashboard`。
 - 全局默认同时执行 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的浏览器/HTTP replay 共享登录态，会自动排队，native 原生任务使用独立输入与证据目录、同项目可并行。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
 - 前置用例自动先执行且每次运行只执行一次；前置没通过时，依赖它的用例记为阻塞。
 - API 动作声明 `extensions.postconditions` 时，单选该动作也会执行其后置及依赖；必须在同一运行完成全部独立业务检查，才可形成动作业务 Pass 与完整发布集合。仅 HTTP 201 等受理状态不证明业务完成；后置失败、阻塞或未验证时保留原结果，见[执行契约](workflow/execution.md#显式后置检查删除已受理不等于业务已完成)。

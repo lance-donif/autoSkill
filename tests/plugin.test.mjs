@@ -79,6 +79,24 @@ test('registered commands bind the same custom workspace and port as the service
   assert.match(token, /^[a-zA-Z0-9_-]+$/);
 });
 
+test('the registered skill resumes manual login with the original runtime and browser task', async () => {
+  const spec = runtimeSpec({ workspace: join(tmpdir(), 'autoskill manual-login-contract'), port: 8876 });
+  const token = runtimeContext(spec);
+  const [skill] = await bundledSkills(SKILL_DIR, spec);
+  const login = skill.content.slice(skill.content.indexOf('## 登录：'), skill.content.indexOf('## 接口候选'));
+  assert.ok(login.includes(`autoskill --runtime-context=${token} browser snapshot`));
+  assert.ok(login.includes(`autoskill --runtime-context=${token} browser tab list`));
+  assert.match(login, /保持原.*--host-session.*--session/);
+  assert.match(login, /browser_session.*不能拿它替换.*--session/);
+  assert.match(login, /手工登录只恢复当前浏览器/);
+  const blocked = skill.content.split('\n').find((line) => line.startsWith('- `needs_login`'));
+  assert.match(blocked, /保持打开.*原.*--session/);
+  assert.match(blocked, /不要 `record cancel` \/ 再 `record start`/);
+  assert.match(skill.content, /用户最新明确要求显示浏览器.*--headed/);
+  assert.match(skill.content, /payload.request.*headed:true/);
+  assert.match(skill.content, /临时覆盖不改写保存的窗口偏好/);
+});
+
 test('host guidance accompanies the entry skill without rewriting a user case skill', async () => {
   const root = mkdtempSync(join(tmpdir(), 'autoskill host-guidance-'));
   try {

@@ -453,7 +453,7 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
     previous = current(required=False)
     if previous:
         if _page_state()["url"].startswith(WEB):
-            raise RecordError("已有进行中的录制；先运行 autoskill record stop 或 autoskill record cancel")
+            raise RecordError("已有进行中的录制；运行 autoskill browser snapshot 接续当前浏览器；完成后再运行 record stop")
         previous["conversation_evidence"] = capture.stop(previous.get("network_capture"))
         retained = _retain_recording(previous)
         _file().unlink(missing_ok=True)
@@ -494,14 +494,14 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
     rec = {"project_id": project_id, "session_id": task_context.session_id(), "started_at": db.now(), "start_url": relative(start_url, config["base_url"]),
            "steps": [], "refs": {}, "secrets": [], "used_login": used_login, "as_login": as_login,
            "rand": uuid.uuid4().hex[:6], "workflow_binding": binding, "network_capture": network_capture,
-           "plan_at_start": plan_at_start}
+           "plan_at_start": plan_at_start, "headed": paths.headed()}
     ir.set_rand(rec["rand"])
     _observe_tabs(rec)
     tree = _settled_snapshot(rec)
     _save(rec)
     page = {**page, **_page_state()}  # the app may have moved on (for example to its sign-in page) while drawing
     result = {"recording": True, "project": project_id, "url": page["url"], "title": PageProbe().title(),
-              "login": note or ("本次录制的就是登录流程" if as_login else "未登录状态"), "snapshot": tree}
+              "login": note or ("本次录制的就是登录流程" if as_login else "未登录状态"), "snapshot": tree, **_identity(rec)}
     if page.get("slow"):
         notes.append(f"页面加载很慢，等了 {page['seconds']:.0f} 秒仍未完全加载，已继续；元素可能还没出齐，必要时再运行 autoskill browser snapshot")
     elif page["seconds"] >= 20:
@@ -509,8 +509,10 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
     if relative(page["url"], config["base_url"]).rstrip("/") != rec["start_url"].rstrip("/"):
         result["redirected"] = f"打开的是 {start_url}，页面跳转到了 {page['url']}"
     if page["password"] and not as_login and not used_login:
-        result["needs_login"] = ("页面上有密码输入框，看起来要先登录才能继续。运行 autoskill record cancel 放弃这次录制，"
-                                 "再按 SKILL.md「登录」一节用 --as-login 录一次登录；账号密码向用户要，不要猜。"
+        result["needs_login"] = ("页面上有密码输入框，看起来要先登录才能继续。保留当前浏览器和录制会话，"
+                                 "用户可以在此窗口手动登录；完成后保持相同 --session 运行 autoskill browser snapshot，"
+                                 "必要时用 browser wait 或 browser tab list 确认登录后的页面，再继续操作。"
+                                 "如果需要自动登录用例，按 SKILL.md「登录」一节另行录制；账号密码不要猜。"
                                  "如果要测的就是这个登录页本身，可以直接继续")
     if notes:
         result["notes"] = notes
@@ -523,12 +525,18 @@ def _record(rec: dict, step: dict) -> dict:
     return {"recorded": len(rec["steps"]), "step": ir.describe(step)}
 
 
+def _identity(rec: dict) -> dict:
+    """Return the recording's original task and browser mode without resolving a new default."""
+    result = {"session_id": rec.get("session_id"), "browser_session": session_name(), "headed": rec.get("headed")}
+    if rec.get("active_tab"):
+        result["tab"] = rec["tab_map"][rec["active_tab"]]
+    return result
+
+
 def _after(rec: dict, result: dict) -> dict:
     """Report the active page and its stable recording tab id."""
     url = PageProbe().url()
-    result["url"] = url
-    if rec.get("active_tab"):
-        result["tab"] = rec["tab_map"][rec["active_tab"]]
+    result.update(url=url, **_identity(rec))
     try:
         ir.check_origin(url, projects.config(rec["project_id"])["allowed_origins"])
     except PermissionError as error:
@@ -551,7 +559,7 @@ def status() -> dict:
     if not rec:
         return {"recording": False}
     return {"recording": True, "project": rec["project_id"], "started_at": rec["started_at"],
-            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]], "context": rec.get("context", [])}
+            "start_url": rec["start_url"], "steps": [ir.describe(s) for s in rec["steps"]], "context": rec.get("context", []), **_identity(rec)}
 
 
 def cancel() -> dict:
@@ -767,7 +775,7 @@ def browser(argv: list[str]) -> dict:
     if command == "snapshot":
         tree = snapshot(rec, interactive="--all" not in rest)
         _save(rec)
-        return {"snapshot": tree}
+        return _after(rec, {"snapshot": tree})
     if command == "describe":
         if not rest:
             raise RecordError("describe 需要目标，例如 @e5")
@@ -780,11 +788,11 @@ def browser(argv: list[str]) -> dict:
         is_targeted = ((command in ("get", "is") and rest and rest[0] not in ("url", "title", "cdp-url"))
                        or command == "scrollintoview" or (command == "wait" and rest and not rest[0].isdigit()))
         if is_targeted and (rec.get("context") or any(_rich_target(token) for token in rest)):
-            return {"result": _scoped_read(rec, command, rest)}
+            return _after(rec, {"result": _scoped_read(rec, command, rest)})
         result = agent.call(session_name(), argv)
         if command == "wait" and rest and rest[0].isdigit():
             result = {"waited_ms": int(rest[0])}
-        return {"result": result}
+        return _after(rec, {"result": result})
     step, early_change, recognized = _browser_action(rec, command, rest, argv, config)
     change = _observe_tabs(rec, settle=0.6 if command in ("click", "dblclick", "press") else 0)
     if early_change:
@@ -961,5 +969,5 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
     if rec.get("workflow_binding"):
         summary["next"] = "候选已保留，请将 candidates 提交到当前工作流的 materialize；本次未额外启动执行"
     else:
-        summary.update(candidate_publication.queue(summary["candidate_id"], plan_case=plan_case))
+        summary.update(candidate_publication.queue(summary["candidate_id"], plan_case=plan_case, headed=rec.get("headed", paths.headed())))
     return summary

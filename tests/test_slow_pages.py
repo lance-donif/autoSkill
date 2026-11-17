@@ -207,7 +207,8 @@ class RecordingStartTests(unittest.TestCase):
         started = session.start("slow", url="/app")
         self.assertTrue(started["url"].endswith("/sign-in"))
         self.assertIn("/sign-in", started["redirected"])
-        self.assertIn("--as-login", started["needs_login"])
+        self.assertIn("browser snapshot", started["needs_login"])
+        self.assertNotIn("record cancel", started["needs_login"])
         self.assertIn("Password", started["snapshot"])  # the late-drawn form, not an empty first snapshot
 
     def test_a_recording_whose_browser_is_gone_does_not_block_the_next_one(self):
@@ -216,7 +217,10 @@ class RecordingStartTests(unittest.TestCase):
             session.start("slow", url="/?d=0")  # a live recording is never thrown away
         agent.call(session.session_name(), ["close"], timeout=30)
         started = session.start("slow", url="/?d=0")
-        self.assertIn("已丢弃", started["notes"][0])
+        self.assertIn("已保留", started["notes"][0])
+        retained = list(session.recording_dir().glob("recording-retained-*.json"))
+        self.assertEqual(len(retained), 1)
+        self.assertEqual(json.loads(retained[0].read_text())["project_id"], "slow")
 
     def test_recording_can_navigate_reload_and_compile_another_origin(self):
         other, origin = serve()

@@ -55,7 +55,7 @@ def context(project_id: str) -> dict:
         steps.append("这个项目还没有登录用例。如果被测系统需要登录：autoskill record start "
                      f"{project_id} --as-login，完成登录操作并用 autoskill check 断言登录成功后 record stop；不需要登录则直接录制")
     else:
-        steps.append(f"需要登录的操作不用手动登录：autoskill record start {project_id} 会先执行登录用例 {login_case['id']}")
+        steps.append(f"autoskill record start {project_id} 会先执行已有登录用例 {login_case['id']}；如仍需人工认证，保留当前浏览器继续")
     steps.append(f"回放已有用例：autoskill run {project_id}；查看结果：autoskill dashboard")
     return {
         "project": {k: info[k] for k in ("id", "name", "category", "base_url", "start_url", "allowed_origins")},
@@ -63,7 +63,7 @@ def context(project_id: str) -> dict:
             "ui_case": auth.get("ui_case"), "api_case": auth.get("api_case"),
             "title": login_case["title"] if login_case else None,
             "saved_session": saved["saved"], "saved_at": saved["saved_at"],
-            "note": "登录由 autoskill 自动完成并在本机复用；不要自己输入账号密码" if login_case else "尚未定义登录方式",
+            "note": "优先复用已有登录；需要人工认证时在当前窗口完成，再用同一 --session 的 browser snapshot 继续" if login_case else "尚未定义登录方式",
         },
         "missing_secrets": info["missing_secrets"],
         "cases": [{"id": c["id"], "kind": c["kind"], "title": c["title"], "module": c["module"],

@@ -110,7 +110,9 @@ class CompileTests(unittest.TestCase):
         self.assertRegex(login["json"]["password"], r"^\$\{ENV:[A-Z_]+\}$")  # the password is a reference, stored locally
         self.assertEqual(secrets.resolve(login["json"]["password"]), PASSWORD)
         self.assertEqual(login["extensions"]["extract"], {"token": "/token"})
-        self.assertEqual(listing["headers"], {"Authorization": "Bearer {{token}}"})  # cookies and browser noise are dropped
+        self.assertEqual(listing["headers"], {"Authorization": "Bearer {{token}}", "Cookie": "sid=${ENV:T_COOKIE_SID}"})
+        self.assertIn("T_COOKIE_SID", listing["extensions"]["execution"]["unresolved_recorded_credentials"])
+        self.assertNotIn("sid=abc", json.dumps(cases))
         self.assertEqual(projects.depends_on(listing), [login["id"]])
         self.assertEqual(listing["extensions"]["extract"], {"item_id": "/items/0/id"})
         self.assertEqual(set(projects.depends_on(detail)), {login["id"], listing["id"]})

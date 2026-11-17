@@ -99,8 +99,13 @@ class RecorderBrowserCompatibilityTests(unittest.TestCase):
             thread.start()
             with task_context.use_session("visible-recording"):
                 try:
+                    paths.save_settings(dashboard={"headed": False})
                     project = projects.create("Visible recording", f"http://127.0.0.1:{site.server_port}")["id"]
-                    self.assertTrue(session.start(project, login=False)["recording"])
+                    started = session.start(project, login=False)
+                    self.assertTrue(started["recording"])
+                    self.assertTrue(started["headed"])
+                    self.assertTrue(session.current()["headed"])
+                    self.assertFalse(paths.settings()["dashboard"]["headed"])
                     name = session.session_name()
                     title = "autoskill-visible-" + uuid.uuid4().hex
                     agent.call(name, ["eval", "--stdin"], stdin_text="document.title = " + json.dumps(title))

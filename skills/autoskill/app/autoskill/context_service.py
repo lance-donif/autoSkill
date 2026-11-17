@@ -128,7 +128,7 @@ def context(project_id: str, *, limit: int = 50, cursor: str | None = None, know
                         "allowed_origins": config.get("allowed_origins", [])},
             "login": {"ui_case": auth.get("ui_case"), "api_case": auth.get("api_case"), "title": login["title"] if login else None,
                       "saved_session": saved["saved"], "saved_at": saved["saved_at"],
-                      "note": "登录由 autoskill 自动完成并复用" if login else "尚未定义登录方式"},
+                      "note": "优先复用已有登录；人工认证后保留原会话继续" if login else "尚未定义登录方式"},
             "missing_secrets": missing, "cases": case_page["cases"], "knowledge": knowledge_page["knowledge"],
             "knowledge_entries": entries_page["entries"], "next_steps": steps,
             "page": {"cases": case_page["page"], "knowledge": knowledge_page["page"], "knowledge_entries": entries_page["pagination"]}}

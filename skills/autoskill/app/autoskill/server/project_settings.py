@@ -27,7 +27,7 @@ def register(app: FastAPI) -> None:
         if not isinstance(body, dict):
             raise ValueError("登录参数需要是对象")
         force = body.get("force", False)
-        headed = body.get("headed", paths.settings().get("dashboard", {}).get("headed", paths.headed()))
+        headed = body.get("headed", paths.headed())
         if type(force) is not bool or type(headed) is not bool:
             raise ValueError("强制登录与显示浏览器窗口必须是布尔值")
         auth = projects.auth(project_id)
