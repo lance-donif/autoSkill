@@ -4,17 +4,52 @@ import io
 import json
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
 
 import openpyxl
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
-from autoskill import db, execution_inputs, plan, projects, runner, task_context, task_reports
+from autoskill import case_folders, case_plans, db, execution_inputs, plan, projects, runner, task_context, task_reports
 from autoskill.recorder import session
+from autoskill.server import jobs
 
 
 class FunctionalDesignDashboardTests(DashboardWorkspace):
+    def test_explicit_recording_subproject_keeps_the_published_design_binding_and_folder(self):
+        task, identity = "验证目录", "DESIGN-PATH"
+        row = {"id": identity, "title": "查看会话状态", "description": "验证初始会话状态", "source": "合成需求",
+               "preconditions": "会话页面可用", "steps": "1. 进入会话页面。", "expected": "1. 页面显示待执行。",
+               "business_path": ["业务", "功能", "会话状态"], "module": "未分组", "priority": "P1"}
+        revision = case_plans.get(self.pid, task)["revision"]
+        saved = case_plans.save(self.pid, row, session=task, expected_revision=revision)
+        with task_context.use_session(task), plan.use_folder(saved["folder"]):
+            session._save({"project_id": self.pid, "start_url": "/ui", "steps": [
+                {"assertion": "text", "locators": [{"by": "testid", "value": "result"}], "expected": "待执行",
+                 "oracle": {"source": "explicit"}}], "secrets": [], "used_login": False, "as_login": False})
+            with patch.object(session.agent, "call", return_value=None), patch.object(session.capture, "stop", return_value={}), \
+                    patch.object(jobs, "ensure_worker", return_value={}):
+                recording = session.stop(row["title"], module="会话服务", plan_case=identity)
+            with ThreadPoolExecutor(max_workers=1) as worker:
+                replay = worker.submit(runner.execute, recording["run_id"]).result(timeout=45)
+            self.assertEqual(replay["status"], "Pass", replay)
+            case_id = recording["ui_case"]["id"]
+            self.assertEqual(replay["publication"]["published_ids"], [case_id])
+            case = projects.case(self.pid, case_id)
+            self.assertEqual(case["module"], "会话服务")
+            self.assertEqual(case["extensions"]["test_case_document"]["module"], row["module"])
+            self.assertEqual(case["extensions"]["test_case_document"]["business_path"], row["business_path"])
+            self.assertNotIn("error", plan.link(identity, self.pid, case_id, 1))
+            binding = json.loads((Path(saved["folder"]) / "design.json").read_bytes())["rows"][identity]["binding"]
+            self.assertTrue(binding["design_mapped"])
+            self.assertEqual(binding["case_hash"], execution_inputs.content_hash(case))
+        folders = case_folders.list_folders(self.pid)
+        leaf = next(item for item in folders["folders"] if item["name"] == "会话状态")
+        self.assertEqual(folders["assignments"][case_id], leaf["id"])
+        self.assertEqual(execution_inputs.content_hash(projects.case(self.pid, case_id)), binding["case_hash"])
+
     def design_row(self, identity, *, task="功能设计会话"):
         response = self.client.get(f"/api/case-plans/{self.pid}", params={"session": task})
         self.assertEqual(response.status_code, 200, response.text)

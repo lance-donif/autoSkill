@@ -59,6 +59,10 @@ autoskill\autoskill.cmd dashboard
 
 在 DeepSeek Harness 中，先输入无参数的 `/autoskill-use` 加载技能，随后直接对话描述任务。这个命令不接受 `task`、`mode`，也不会自行启动模型任务；模型选择继续沿用当前宿主配置。输入框上方不再显示 autoSkill 任务栏，运行状态与报告可在原生工具结果卡和仪表盘查看。
 
+> 用多智能体续测 Bootstrap Accordion。复用上次“展开 Item #2”的用例，再点 Item #1，验证 #1 展开、#2 折叠，把新用例存到原目录并给我 Excel。
+
+主会话负责分工和交付，执行方在可见浏览器里回放前置、验证新增操作并保存结果。以后想手动重跑，可以在「可复用用例」里按业务目录找到它。
+
 智能体读取 `SKILL.md` 后，按持久工作流处理需求和变更。用于检查安装、录制一个独立场景的基础命令如下；同一任务始终保留自己的会话标识：
 
 ```
@@ -78,7 +82,7 @@ autoskill --session "订单测试" run-status <record stop 返回的运行编号
 
 宿主将智能体命令放在受限沙箱内时，autoSkill 可将命令转交给沙箱外的仪表盘进程执行，用法不变。前提是沙箱允许访问 `127.0.0.1`，且 DSH 插件已启动服务，或用户已运行 `autoskill.cmd dashboard` 并保持进程运行。本轮已在真实 DSH 的 `workspace-write` 策略下验证绑定的数据状态查询及 UI 回放；具体任务、录制和原生自测的实际范围见 [DSH 真实验收](reports/DSH真实验收.md)。
 
-可见窗口、多智能体交接、对话迭代和手动回放的记录见 [DSH 对话协作与可见窗口验收](reports/DSH对话协作与可见窗口验收.md)。
+Bootstrap 实测覆盖多智能体从对话生成用例、两层前置接续和从目录手动回放。[DSH 首轮协作与链式回放验收](reports/DSH首轮协作与链式回放验收.md) · [DSH 对话协作与可见窗口验收](reports/DSH对话协作与可见窗口验收.md)
 
 全部命令见 [`skills/autoskill/references/commands.md`](skills/autoskill/references/commands.md)。
 

@@ -20,6 +20,8 @@ onChange(() => { if (route().page !== 'cases') handledEntry = ''; });
 
 const keyOf = (item) => item.project_id + '/' + item.case_id;
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'ui' ? '页面' : '接口');
+const caseFolder = (tree, id) => tree && Object.hasOwn(tree.assignments, id) ? folderPath(tree, tree.assignments[id]) : '';
+const searchText = (value) => value.trim().toLowerCase().replace(/\s*\/\s*/g, '/');
 
 export async function render(view) {
   let data;
@@ -36,10 +38,11 @@ export async function render(view) {
     try { trees.set(project.id, { data: await api(`/projects/${encodeURIComponent(project.id)}/folders`) }); }
     catch (error) { trees.set(project.id, { error }); }
   }));
+  for (const item of data.items) item.folder_path = caseFolder(trees.get(item.project_id)?.data, item.case_id);
 
   const list = h('div', { class: 'stack' });
   const bar = h('div', { class: 'select-bar', hidden: true });
-  const search = h('input', { class: 'input', type: 'search', placeholder: '搜索用例编号、标题或模块', value: query, 'aria-label': '搜索用例', style: 'width:280px',
+  const search = h('input', { class: 'input', type: 'search', placeholder: '搜索编号、标题、子项目或目录', value: query, 'aria-label': '搜索用例', style: 'width:280px',
     onInput: (event) => { query = event.currentTarget.value; paint(); } });
   const kinds = h('div', { class: 'seg', role: 'group', 'aria-label': '用例类型' },
     [['', '全部'], ['ui', '页面'], ['api', '接口']].map(([value, label]) => h('button', {
@@ -48,9 +51,9 @@ export async function render(view) {
     }, label)));
 
   function visible(project) {
-    const text = query.trim().toLowerCase();
+    const text = searchText(query);
     return data.items.filter((item) => item.project_id === project.id && (!kind || item.kind === kind)
-      && (!text || [item.case_id, item.title, item.module].join(' ').toLowerCase().includes(text)));
+      && (!text || searchText([item.case_id, item.title, item.module, item.folder_path].join(' ')).includes(text)));
   }
 
   function displayed(project) {
@@ -157,10 +160,11 @@ function projectCard(project, items, projectItems, repaint, folderResult) {
         box.addEventListener('change', () => { if (box.checked) selected.set(key, item); else selected.delete(key); repaint(); });
         const deps = JSON.parse(item.depends_on || '[]');
         const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([{ project_id: item.project_id, case_ids: [item.case_id], name: project.name }], run); } }, icon('play'), '运行');
-        return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: () => caseDrawer(item.project_id, item.case_id) },
+        return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: () => caseDrawer(item.project_id, item.case_id, item.folder_path) },
           h('td', {}, box),
           h('td', {}, h('div', { class: 'title' }, item.title),
-            h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : '')),
+            h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : ''),
+            folderId === ALL_FOLDERS && item.folder_path && h('div', { class: 'sub' }, item.folder_path)),
           h('td', {}, kindTag(item.kind)),
           h('td', { class: 'sub' }, item.module),
           h('td', {}, caseStatus(item)),
@@ -299,10 +303,9 @@ async function projectSettings(projectId) {
   });
 }
 
-async function caseDrawer(projectId, caseId) {
-  let item;
-  try { item = await api(`/projects/${projectId}/cases/${encodeURIComponent(caseId)}`); } catch (error) { toast(error.message, { bad: true }); return; }
-  const body = item.state ? [h('div', { class: 'stack' }, primaryState(item), stateDetails(item))] : [];
+function caseOverview(item, folderLabel) {
+  const body = [folderLabel && h('p', { class: 'sub' }, '所在目录　', folderLabel),
+    item.state && h('div', { class: 'stack' }, primaryState(item), stateDetails(item))];
   if (item.current_status === null) body.push(h('div', { class: 'banner info' }, icon('info'), h('span', {},
     '当前版本尚待验证，请手动运行检查。', item.last_status && '历史执行结果不代表当前版本已经验证。')));
   if (item.current_status === 'Unverified') body.push(h('div', { class: 'banner info' }, icon('info'),
@@ -310,6 +313,17 @@ async function caseDrawer(projectId, caseId) {
   if (item.depends_on.length) {
     body.push(h('div', { class: 'banner info' }, icon('link'), h('span', {}, `前置用例：${item.depends_on.join('、')}。运行这条用例时会自动先执行。`)));
   }
+  return body;
+}
+
+async function caseDrawer(projectId, caseId, folderLabel) {
+  const project = '/projects/' + encodeURIComponent(projectId);
+  let item, location;
+  try {
+    [item, location] = await Promise.all([api(`${project}/cases/${encodeURIComponent(caseId)}`),
+      folderLabel ?? api(project + '/folders').then((tree) => caseFolder(tree, caseId)).catch(() => '')]);
+  } catch (error) { toast(error.message, { bad: true }); return; }
+  const body = caseOverview(item, location);
   if (item.kind === 'ui') {
     body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '回放步骤'),
       h('ol', { class: 'steps' },
@@ -338,7 +352,8 @@ async function caseDrawer(projectId, caseId) {
   }
   const run = h('button', { class: 'btn primary' }, icon('play'), '运行这条用例');
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId], name: state.projects.find((project) => project.id === projectId)?.name }], run); if (started) closeOverlay(); });
-  drawer({ title: item.title, subtitle: `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · ${item.module} · 第 ${item.revision} 版`, body, wide: true,
+  const subtitle = `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · 子项目 ${item.module} · 第 ${item.revision} 版`;
+  drawer({ title: item.title, subtitle, body, wide: true,
     foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
       h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),
       h('button', { class: 'btn', onClick: () => editCase(projectId, caseId, () => caseDrawer(projectId, caseId)) }, icon('edit'), '编辑用例'),

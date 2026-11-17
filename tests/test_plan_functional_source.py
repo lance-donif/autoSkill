@@ -103,6 +103,7 @@ class PlanFunctionalSourceTests(unittest.TestCase):
             result = session.stop("提交指定草稿订单审核", plan_case="DESIGN-001")
         saved = next(case for case in result["candidates"] if case["id"] == result["ui_case"]["id"])
         self.assertTrue(result["run_id"], result)
+        self.assertEqual(saved["module"], self.row["module"])
         self.assertEqual(saved["priority"], "P0")
         self.assertEqual(projects.cases(self.pid), [])
         document = saved["extensions"]["test_case_document"]

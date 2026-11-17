@@ -436,6 +436,8 @@ def build(project_id: str, rec: dict, har: dict, state: dict | None, title: str,
                               category=category or ("登录" if rec.get("as_login") else ""), risk=ui_risk(preparation + actions),
                               depends_on=[login_ui] if login_ui and login_ui != ui_id else None,
                               test_case_document=rec.get("test_case_document"))
+    if module:
+        ui_case["module"] = module  # The explicit subproject and the frozen design document are independent.
     observations = [step["recording_result"] for step in rec["steps"] if "recording_result" in step]
     ui_case["extensions"]["verification"] = "verified" if any("assertion" in step for step in rec["steps"]) else "unverified"
     if observations:

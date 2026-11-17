@@ -4,9 +4,11 @@ import { drawer, closeOverlay } from './ui.js';
 
 export const folderSelection = new Map();
 export const ALL_FOLDERS = '__all__';
+const foldersByTree = new WeakMap();
 
 export function folderPath(tree, folderId) {
-  const byId = new Map(tree.folders.map((item) => [item.id, item]));
+  if (!foldersByTree.has(tree)) foldersByTree.set(tree, new Map(tree.folders.map((item) => [item.id, item])));
+  const byId = foldersByTree.get(tree);
   const names = [];
   let current = byId.get(folderId);
   const visited = new Set();
