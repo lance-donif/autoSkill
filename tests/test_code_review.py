@@ -191,6 +191,7 @@ class ValidationRunnerTests(unittest.TestCase):
                 command = [sys.executable, str(ROOT / "scripts/validate_review.py"), "--root", str(self.root),
                            "--python-test", "test_success.py", "--python-test", "test_failure.py", "--output-dir", str(output)]
                 completed = subprocess.run([*command, *(["--show-logs"] if show_logs else [])],
+                                           env={**os.environ, "GITHUB_ACTIONS": "true"},
                                            capture_output=True, text=True, timeout=30, shell=False, check=False)
                 self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
                 stored_summary = (output / "summary.json").read_text(encoding="utf-8")
@@ -208,15 +209,54 @@ class ValidationRunnerTests(unittest.TestCase):
                 self.assertIn("success stderr last", completed.stdout)
                 self.assertIn("failure stderr last", completed.stdout)
                 self.assertIn("AssertionError: fixture failure", completed.stdout)
+                annotations = [line for line in completed.stdout.splitlines() if line.startswith("::error::")]
+                self.assertEqual(len(annotations), 1)
+                self.assertIn("python-test_failure.py", annotations[0])
+                self.assertIn("AssertionError: fixture failure", annotations[0])
         self.assertEqual(summaries, [[0, 1], [0, 1]])
+
+    def test_github_annotation_escapes_failed_check_and_limits_tail_preserving_exit_codes(self):
+        diagnostic = "Traceback: 100% failed\r\nexpected %0A literal\nAssertionError: final failure\n"
+        commands = [{"name": "failed%check", "argv": [sys.executable, "-c",
+                     f"import sys; sys.stdout.buffer.write({('omitted-prefix' + 'x' * 12000 + diagnostic).encode()!r}); sys.exit(7)"]},
+                    {"name": "successful-check", "argv": [sys.executable, "-c", "print('SUCCESS')"]}]
+        output = io.StringIO()
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(output):
+            result = validate_review.run_commands(self.root, commands, self.output, 15, sys.executable, show_logs=True)
+        annotations = [line for line in output.getvalue().splitlines() if line.startswith("::error::")]
+        self.assertEqual(len(annotations), 1)
+        self.assertTrue(annotations[0].startswith("::error::检查失败：failed%25check（退出码 7，跳过 0）%0A"))
+        self.assertTrue(annotations[0].endswith("Traceback: 100%25 failed%0D%0Aexpected %250A literal%0AAssertionError: final failure%0A"))
+        self.assertNotIn("omitted-prefix", annotations[0])
+        self.assertNotIn("successful-check", annotations[0])
+        self.assertLess(len(annotations[0].encode("utf-8")), 25000)
+        self.assertEqual(result["exit_code"], 7)
+        self.assertEqual([item["exit_code"] for item in result["results"]], [7, 0])
+        self.assertEqual(json.loads((self.output / "summary.json").read_text(encoding="utf-8")), result)
+        self.assertTrue(Path(result["results"][0]["log"]).read_bytes().endswith(diagnostic.encode()))
+
+    def test_github_annotations_require_explicit_logs_and_actions(self):
+        commands = [{"name": "failed", "argv": [sys.executable, "-c", "print('FAILURE'); raise SystemExit(3)"]}]
+        for show_logs, actions in ((False, "true"), (True, "false"), (True, "")):
+            with self.subTest(show_logs=show_logs, actions=actions):
+                output = io.StringIO()
+                with patch.dict(os.environ, {"GITHUB_ACTIONS": actions}), contextlib.redirect_stdout(output):
+                    result = validate_review.run_commands(self.root, commands, self.output / f"{show_logs}-{actions}",
+                                                          15, sys.executable, show_logs=show_logs)
+                self.assertNotIn("::error::", output.getvalue())
+                self.assertEqual(result["exit_code"], 3)
 
     def test_show_logs_includes_failed_version_probe_and_continues(self):
         commands = [{"name": "version-failed", "argv": [sys.executable, "-c", "print('MUST_NOT_EXECUTE')"],
                      "version_argv": [sys.executable, "-c", "print('VERSION_PROBE_FAILED'); raise SystemExit(7)"]},
                     {"name": "next-check", "argv": [sys.executable, "-c", "print('NEXT_CHECK_PASSED')"]}]
         output = io.StringIO()
-        with contextlib.redirect_stdout(output):
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(output):
             result = validate_review.run_commands(self.root, commands, self.output, 15, sys.executable, show_logs=True)
+        annotations = [line for line in output.getvalue().splitlines() if line.startswith("::error::")]
+        self.assertEqual(len(annotations), 1)
+        self.assertIn("version-failed", annotations[0])
+        self.assertIn("VERSION_PROBE_FAILED", annotations[0])
         self.assertEqual(result["exit_code"], 7)
         self.assertEqual([item["exit_code"] for item in result["results"]], [7, 0])
         self.assertNotIn("MUST_NOT_EXECUTE", output.getvalue())
@@ -244,7 +284,13 @@ class ValidationRunnerTests(unittest.TestCase):
             "import unittest\nclass Skipped(unittest.TestCase):\n    @unittest.skip('runtime absent')\n"
             "    def test_not_executed(self):\n        self.fail('must not claim execution')\n", encoding="utf-8")
         commands = validate_review.build_commands(self.root, [], ["test_skipped.py"], [], sys.executable)
-        result = validate_review.run_commands(self.root, commands, self.output, 15, sys.executable, fail_on_skip=True)
+        output = io.StringIO()
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(output):
+            result = validate_review.run_commands(self.root, commands, self.output, 15, sys.executable, fail_on_skip=True, show_logs=True)
+        annotations = [line for line in output.getvalue().splitlines() if line.startswith("::error::")]
+        self.assertEqual(len(annotations), 1)
+        self.assertIn("跳过 1", annotations[0])
+        self.assertIn("runtime absent", annotations[0])
         self.assertEqual(result["results"][0]["exit_code"], 0)
         self.assertEqual(result["results"][0]["skipped"], 1)
         self.assertFalse(result["results"][0]["coverage_ok"])

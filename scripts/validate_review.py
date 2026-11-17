@@ -150,6 +150,16 @@ def _command_log(path: Path, name: str, show_logs: bool):
             print(content, end="" if content.endswith("\n") else "\n", flush=True)
 
 
+def _github_error(result: dict) -> None:
+    path = Path(result["log"])
+    with path.open("rb") as log:
+        log.seek(max(0, path.stat().st_size - 8192))
+        tail = log.read().decode("utf-8", errors="replace")
+    message = f"检查失败：{result['name']}（退出码 {result['exit_code']}，跳过 {result.get('skipped', 0)}）\n{tail}"
+    escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::error::{escaped}", flush=True)
+
+
 def run_commands(root: Path, commands: list[dict], output: Path, timeout: float, python: str, fail_on_skip: bool = False, *, show_logs: bool = False) -> dict:
     if output.exists() and any(output.iterdir()):
         raise ValueError("输出目录非空，请使用新目录保留前次结果")
@@ -177,6 +187,10 @@ def run_commands(root: Path, commands: list[dict], output: Path, timeout: float,
         skipped = _skip_count(command, log_path)
         results.append({**command, "exit_code": code, "log": str(log_path), "seconds": round(time.monotonic() - started, 3),
                         "skipped": skipped, "coverage_ok": not (fail_on_skip and skipped)})
+    if show_logs and env.get("GITHUB_ACTIONS") == "true":
+        for item in results:
+            if item["exit_code"] or not item.get("coverage_ok", True):
+                _github_error(item)
     failed = next((item["exit_code"] or 1 for item in results if item["exit_code"] or not item.get("coverage_ok", True)), 0)
     result = {"ok": failed == 0, "root": str(root), "output_dir": str(output), "results": results,
               "exit_code": failed if failed >= 0 else 128 - failed}
