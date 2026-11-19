@@ -8,11 +8,10 @@ import re
 import uuid
 from pathlib import Path
 
-from . import db, execution_inputs, projects, task_report_data, task_workbook, task_workbook_data
+from . import db, projects, task_report_data, task_workbook, task_workbook_data
 from .replay import ir
 
-STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行", "Unknown": "未知", None: "未执行"}
-FILL = {"Pass": "E2F0D9", "Fail": "FCE4D6", "Blocked": "FFF2CC", "Cancelled": "EDEDED", "Unverified": "FFF2CC", None: "EDEDED"}
+STATUS = task_report_data.STATUS
 BAD_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
@@ -39,28 +38,25 @@ def _rows(project_id: str) -> list[dict]:
     out = []
     for case in projects.cases(project_id):
         result = results.get(case["id"])
-        stale = bool(result) and not execution_inputs.result_current(project_id, case, result)
-        detail = json.loads(result["detail"]) if result else {}
-        unverified = bool(result) and result["status"] == "Pass" and not detail.get("business_verified")
-        status = None if not result or stale else result["status"]
-        if unverified:
-            status = None
+        item = task_report_data.current_case_item(project_id, case, result)
+        status = task_report_data.case_verdict(item)
         if case["kind"] == "ui":
             automation = case.get("extensions", {}).get("automation") or {}
             steps = ["打开 " + str(automation.get("start_url", "")), *[s.get("name") or ir.describe(s) for s in automation.get("actions", [])]]
             checks = [s.get("name") or ir.describe(s) for s in automation.get("assertions", [])]
         else:
             steps = [f'{case["method"]} {case["path"]}']
-            rules = case["assertions"]
-            checks = [f'状态码 {rules["status"]}', *[f"{k} = {json.dumps(v, ensure_ascii=False)}" for k, v in rules.get("json_equals", {}).items()]]
+            rules = case.get("assertions") or {}
+            checks = [f'状态码 {rules["status"]}'] if "status" in rules else []
+            checks.extend(f"{k} = {json.dumps(v, ensure_ascii=False)}" for k, v in rules.get("json_equals", {}).items())
             if "schema" in rules:
                 checks.append("响应结构与录制时一致")
         out.append({
             "id": case["id"], "kind": "页面" if case["kind"] == "ui" else "接口", "module": case["module"], "title": case["title"],
             "priority": case["priority"], "depends": "、".join(projects.depends_on(case)),
             "steps": "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)), "checks": "\n".join(checks),
-            "status": status, "status_text": STATUS[status] + ("（输入或证据已变更，需重新回放）" if stale else "（动作完成，业务未验证）" if unverified else ""),
-            "reason": "" if status in ("Pass", None) else result["reason"],
+            "status": status, "status_text": STATUS[status],
+            "reason": item["note"] or (result or {}).get("reason", ""),
             "engine": "" if not result else result["engine"], "ran_at": "" if not result else result["started_at"],
             "ms": "" if not result else result["duration_ms"],
         })
@@ -88,7 +84,7 @@ def _build(project_id: str, out: str | None = None) -> dict:
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f") + "-" + uuid.uuid4().hex[:6]  # noqa: DTZ005  # Local display time plus unique identity prevents concurrent overwrites.
     folder = Path(out) if out else projects.path(project_id) / "reports" / "project-summary"
     folder.mkdir(parents=True, exist_ok=True)
-    counts = {key: sum(r["status"] == key for r in rows) for key in ("Pass", "Fail", "Blocked", None)}
+    counts = {key: sum(r["status"] == key for r in rows) for key in STATUS}
     judged = counts["Pass"] + counts["Fail"]
 
     functional = export_cases(project_id, [case["id"] for case in projects.cases(project_id)])
@@ -98,9 +94,9 @@ def _build(project_id: str, out: str | None = None) -> dict:
     overview = book.create_sheet("概览")
     lines = [("项目", info["name"]), ("被测地址", info["base_url"]),
              ("生成时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),  # noqa: DTZ005  # Report text preserves local wall-clock time.
-             ("用例总数", len(rows)), ("通过", counts["Pass"]), ("失败", counts["Fail"]), ("阻塞", counts["Blocked"]),
-             ("未执行", counts[None]), ("通过率", f"{counts['Pass'] / judged:.1%}" if judged else "—"),
-             ("口径", "每条用例取最近一次回放结果；通过率 = 通过 ÷（通过 + 失败），阻塞与未执行不计入。")]
+             ("用例总数", len(rows)), ("通过", counts["Pass"]), ("失败", counts["Fail"]),
+             ("未执行", counts["NotRun"]), ("通过率", f"{counts['Pass'] / judged:.1%}" if judged else "—"),
+             ("口径", "每条用例取最近一次回放结果；通过率 = 通过 ÷（通过 + 失败），未执行不计入。")]
     for label, value in lines:
         overview.append([label, value])
         if isinstance(value, str):
@@ -123,14 +119,14 @@ def _build(project_id: str, out: str | None = None) -> dict:
 
     md = [f"# {info['name']} 测试报告", "", f"- 被测地址：{info['base_url']}",
           f"- 生成时间：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",  # noqa: DTZ005  # Report text preserves local wall-clock time.
-          f"- 用例 {len(rows)} 条：通过 {counts['Pass']}，失败 {counts['Fail']}，阻塞 {counts['Blocked']}，未执行 {counts[None]}",
-          f"- 通过率：{counts['Pass'] / judged:.1%}（通过 ÷（通过 + 失败），阻塞与未执行不计入）" if judged else "- 通过率：—（还没有可判定的结果）",
+          f"- 用例 {len(rows)} 条：通过 {counts['Pass']}，失败 {counts['Fail']}，未执行 {counts['NotRun']}",
+          f"- 通过率：{counts['Pass'] / judged:.1%}（通过 ÷（通过 + 失败），未执行不计入）" if judged else "- 通过率：—（还没有可判定的结果）",
           "", "| 用例 | 类型 | 标题 | 最近结果 | 原因 |", "| --- | --- | --- | --- | --- |"]
     md += [f"| {r['id']} | {r['kind']} | {cell(r['title'])} | {r['status_text']} | {cell(r['reason'])} |" for r in rows]
     markdown = folder / f"{project_id}-测试报告-{stamp}.md"
     markdown.write_text("\n".join(md) + "\n", encoding="utf-8")
     return {"excel": str(xlsx), "markdown": str(markdown), "cases": len(rows), "passed": counts["Pass"], "failed": counts["Fail"],
-            "blocked": counts["Blocked"], "not_run": counts[None], "pass_rate": round(counts["Pass"] / judged, 4) if judged else None,
+            "not_run": counts["NotRun"], "pass_rate": round(counts["Pass"] / judged, 4) if judged else None,
             "template_id": task_workbook.TEMPLATE_ID, "validation": functional["validation"]}
 
 
@@ -163,8 +159,8 @@ def _task_row(item: dict) -> dict:
     detail = result.get("detail", {})
     status = task_report_data.observation_verdict(item)
     note = item.get("note", "")
-    if result.get("status") == "Pass" and status == "Unverified":
-        note += " 动作结果不等于完整业务验证；缺少有效证据或独立业务断言。"
+    if result.get("status") == "Pass" and not item.get("evidence_valid"):
+        note += " 缺少有效执行证据。"
     historical = item.get("historical_result") or {}
     if historical.get("business_status") == "Fail" or historical.get("status") == "Fail":
         status = "Fail"
@@ -257,8 +253,17 @@ def _task_sheets(book, snapshot: dict, rows: list[dict], long_text: list) -> Non
     columns = [(key, "本次结果" if key == "status_text" else label, width) for key, label, width in COLUMNS]
     columns += [("run_id", "运行标识", 26), ("business", "业务判断", 16), ("round", "验证轮次", 10), ("scenarios", "关联场景", 24), ("actual", "实际结果", 48)]
     _table(book, "用例与结果", columns, rows, long_text)
+
+    def row_key(row):
+        return row.get("run_id"), row.get("case_id"), row.get("id")
+
+    by_result = {row_key(item["result"]): item for item in snapshot["cases"] if item.get("result")}
+    details = []
+    for result in snapshot["results"]:
+        item = by_result.get(row_key(result), {"result": result, "evidence_valid": result.get("evidence_valid", False)})
+        details.append({**result, "status": STATUS[task_report_data.observation_verdict(item)]})
     _table(book, "执行明细", [("run_id", "运行标识", 26), ("case_id", "用例编号", 24), ("prerequisite", "自动前置", 10),
-                           ("status", "执行结果", 14), ("reason", "原因", 42), ("detail", "原始结果与证据引用", 90)], snapshot["results"], long_text)
+                           ("status", "执行结果", 14), ("reason", "原因", 42), ("detail", "原始结果与证据引用", 90)], details, long_text)
     turns = _turn_rows(snapshot)
     if turns:
         _table(book, "多轮对话", [("case_id", "所属用例", 24), ("run_id", "运行标识", 26), ("turn", "轮次", 8), ("question", "提问", 42),
@@ -330,8 +335,7 @@ def write_task(snapshot: dict, destination: Path) -> dict:
         "任务标题": snapshot["title"], "任务状态": snapshot["status"], "渲染模板": task_workbook.TEMPLATE_ID,
         "执行观察行数": summary["execution_rows"], "冻结用例定义数": summary["cases"],
         "通过": summary["counts"]["Pass"], "失败": summary["counts"]["Fail"],
-        "阻塞": summary["counts"]["Blocked"], "未执行": summary["counts"]["NotRun"],
-        "业务未验证": summary["counts"]["Unverified"], "已取消": summary["counts"]["Cancelled"], "未知": summary["counts"]["Unknown"],
+        "未执行": summary["counts"]["NotRun"],
         "范围与说明": snapshot["notes"], "任务元数据": snapshot["metadata"],
         "统计口径": "仅本任务冻结范围。主表每个原始用例及冻结定义一行；各轮/重试在明细保留，曾经失败不会被后续通过覆盖。多轮对话属于同一用例。",
     }.items()]
@@ -405,14 +409,12 @@ def export_cases(project_id: str, case_ids: list[str], *, organization: dict | N
         items, results, run_ids = [], [], []
         for identity in selected:
             case = definitions[identity]
-            original = latest.get(identity)
-            result = {**original, "detail": json.loads(original["detail"])} if original else None
-            valid = bool(original) and execution_inputs.result_current(project_id, case, original)
-            if result:
-                results.append(result)
-                run_ids.append(result["run_id"])
-            items.append({"definition": case, "result": result, "run_id": result["run_id"] if result else "", "evidence_valid": valid,
-                          "note": "最近记录与当前定义或证据不符，仅保留历史观察，不能宣称当前业务通过。" if result and not valid else ""})
+            item = task_report_data.current_case_item(project_id, case, latest.get(identity))
+            items.append(item)
+            if item["result"]:
+                results.append(item["result"])
+            if item["run_id"]:
+                run_ids.append(item["run_id"])
         info = projects.get(project_id)
         folder_export = organization is not None
         organization = organization if folder_export else case_folders.list_folders(project_id)

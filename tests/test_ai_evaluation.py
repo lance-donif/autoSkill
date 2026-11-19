@@ -296,7 +296,7 @@ class AiEvaluationTests(unittest.TestCase):
             native_run.execute(run["id"])
             result = native_run.get(run["id"])
         self.assertEqual(result["status"], "Fail")
-        self.assertEqual({row["case_id"]: row["status"] for row in result["results"]}, {"failed:1": "Fail", "invalid:1": "Blocked"})
+        self.assertEqual({row["case_id"]: row["status"] for row in result["results"]}, {"failed:1": "Fail", "invalid:1": "Fail"})
         self.assertTrue(result["outcome"]["evidence"])
 
     def test_cancel_one_evaluation_does_not_cancel_another_on_the_same_adapter(self):

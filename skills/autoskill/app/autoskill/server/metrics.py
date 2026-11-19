@@ -4,7 +4,7 @@ Definitions (shown next to each figure in the dashboard):
 - cases      active cases as of the end of the range
 - runs       runs started in the range, automatic logins excluded
 - executions case results in the range; prerequisites run on a case's behalf are not counted
-- pass rate  passed / (passed + failed); blocked results are shown separately, never in the denominator
+- pass rate  passed / (passed + failed); targets that never ran are counted separately
 """
 from __future__ import annotations
 
@@ -16,7 +16,21 @@ from dataclasses import dataclass, field
 from .. import db, projects, task_state
 
 COUNTED = "r.prerequisite = 0 AND u.trigger != 'login' AND u.family != 'load'"
-RESULTS = "FROM results r JOIN runs u ON u.id = r.run_id LEFT JOIN projects p ON p.id = r.project_id"
+# Keep named, unrecorded replay targets visible without writing fake execution receipts.
+RESULT_FIELDS = ("id, run_id, project_id, case_id, case_title, kind, engine, status, category, reason, actual, "
+                 "duration_ms, started_at, prerequisite, case_revision, detail, case_content_hash, input_hash")
+PLANNED_RESULTS = """
+    SELECT 'planned:' || plan.id || ':' || target.key AS id, plan.id AS run_id, plan.project_id, target.value AS case_id,
+           COALESCE(c.title, target.value) AS case_title, COALESCE(c.kind, '') AS kind, plan.engine, 'NotRun' AS status,
+           '' AS category, '' AS reason, '' AS actual, NULL AS duration_ms, NULL AS started_at, 0 AS prerequisite,
+           NULL AS case_revision, '{}' AS detail, '' AS case_content_hash, '' AS input_hash
+    FROM runs plan JOIN json_each(CASE WHEN json_valid(plan.case_ids) THEN plan.case_ids ELSE '[]' END) target
+    LEFT JOIN cases c ON c.project_id=plan.project_id AND c.case_id=target.value
+    WHERE plan.family='replay' AND plan.total > 0 AND plan.trigger!='login' AND target.type='text'
+      AND NOT EXISTS (SELECT 1 FROM results actual WHERE actual.run_id=plan.id AND actual.case_id=target.value AND actual.prerequisite=0)
+"""
+RESULTS = (f"FROM (SELECT {RESULT_FIELDS} FROM results UNION ALL {PLANNED_RESULTS}) r "
+           "JOIN runs u ON u.id = r.run_id LEFT JOIN projects p ON p.id = r.project_id")
 
 
 def normalize(stamp: str | None) -> str | None:
@@ -156,6 +170,9 @@ def _latest(scope: Scope) -> str:
 def _result_verdict(scope: Scope, row: dict, parent=None) -> dict:
     cache = scope._snapshot["verdicts"]
     if row["id"] not in cache:
+        if row["status"] == "NotRun" and row["started_at"] is None:
+            cache[row["id"]] = task_state.result_verdict(row, None)
+            return cache[row["id"]]
         if parent is None:
             parents = scope._snapshot["parents"]
             identity = row["run_id"]
@@ -181,11 +198,9 @@ def _verdict(scope: Scope, entity: str, row: dict) -> dict:
     return task_state.run_verdict(row, _children(scope, row, connection))
 
 
-def _history_status(state: dict) -> str | None:
-    """Only settled executions have a binary history verdict. Keep the original outcome for details."""
-    if state["lifecycle"] not in ("completed", "cancelled"):
-        return None
-    return "Pass" if state["outcome"] == "pass" else "NotPassed"
+def history_status(state: dict) -> str:
+    """Expose the same three case verdicts in history, filters and case details."""
+    return {"pass": "Pass", "fail": "Fail", "not_run": "NotRun"}[state["outcome"]]
 
 
 def _history_item(scope: Scope, entity: str, row: dict) -> dict:
@@ -213,7 +228,7 @@ def _prefilter(scope: Scope, entity: str, status: str | None, where: str, args: 
 
 def _candidates(scope: Scope, entity: str, status, trigger, current_only, run_time, exclude_load):
     result = entity == "result"
-    clock = "u.created_at" if not result or run_time else "r.started_at"
+    clock = "u.created_at" if not result or run_time else "COALESCE(r.started_at,u.created_at)"
     where, args = scope.where(clock, "r.project_id" if result else "u.project_id")
     where += " AND " + _cycle(scope, "u") + " AND " + (COUNTED if result else "u.trigger!='login'")
     if exclude_load and not result:
@@ -226,7 +241,7 @@ def _candidates(scope: Scope, entity: str, status, trigger, current_only, run_ti
     where, args = _prefilter(scope, entity, status, where, args)
     source = RESULTS if result else "FROM runs u LEFT JOIN projects p ON p.id=u.project_id"
     alias = "r" if result else "u"
-    order = "r.started_at DESC,r.id DESC" if result else "u.created_at DESC,u.id DESC"
+    order = "COALESCE(r.started_at,u.created_at) DESC,r.id DESC" if result else "u.created_at DESC,u.id DESC"
     return alias, f"{source} WHERE {where}", args, order
 
 
@@ -240,7 +255,8 @@ def _selected(scope: Scope, entity: str, *, status: str | None = None, trigger: 
     if key in cache:
         return cache[key]
     alias, source, args, order = _candidates(scope, entity, status, trigger, current_only, run_time, exclude_load)
-    rows = scope._snapshot["connection"].execute(f"SELECT {alias}.*,COALESCE(p.name,{alias}.project_id) project_name {source} ORDER BY {order}", args)
+    timeline = ",u.created_at planned_at" if entity == "result" else ""
+    rows = scope._snapshot["connection"].execute(f"SELECT {alias}.*{timeline},COALESCE(p.name,{alias}.project_id) project_name {source} ORDER BY {order}", args)
     items = []
     needs_delivery = bool(scope.state_filters.keys() & {"report", "delivery"})
     for saved in rows:
@@ -250,10 +266,9 @@ def _selected(scope: Scope, entity: str, *, status: str | None = None, trigger: 
             matched = state["lifecycle"] in ("pending", "active")
         elif status == "Running" and entity == "run":
             matched = state["phase"] == "running"
-        elif status == "NotPassed":
-            matched = _history_status(state) == "NotPassed"
         else:
-            matched = not status or state["outcome"] == status.lower()
+            expected = {"NotPassed": "fail", "NotRun": "not_run"}.get(status, (status or "").lower())
+            matched = not status or state["outcome"] == expected
         if matched and _matches(state, scope.state_filters):
             items.append({**row, "state": state})
     cache[key] = items
@@ -276,31 +291,42 @@ def result_counts(scope: Scope) -> dict:
             "reliability": reliability(scope)}
 
 
+def _attempt_outcomes(row: dict) -> tuple[str, str]:
+    """Use verified first and last receipts to distinguish retry recovery from the overall verdict."""
+    verdict = row["state"]["outcome"]
+    if row["state"]["evidence"] != "valid":
+        return verdict, verdict
+    detail = json.loads(row["detail"]) if isinstance(row["detail"], str) else row["detail"]
+    attempts = detail.get("attempts") if isinstance(detail, dict) else None
+    if not attempts:
+        return verdict, verdict
+
+    return task_state.attempt_outcome(attempts[0], evidence_valid=True), task_state.attempt_outcome(attempts[-1], evidence_valid=True)
+
+
 def reliability(scope: Scope) -> dict:
-    """First and final business checks share a denominator including unfinished target executions."""
-    where, args = _where(scope, "u.created_at", "u.project_id", "run")
-    planned = _one(scope, "SELECT COALESCE(SUM(MAX(u.total, u.done)), 0) n, "
-                     "COALESCE(SUM(CASE WHEN u.status = 'Cancelled' THEN MAX(u.total - u.done, 0) ELSE 0 END), 0) cancelled "
-                     ", COALESCE(SUM(u.family = 'native' AND u.total = 0), 0) unknown_runs "
-                     f"FROM runs u WHERE u.trigger != 'login' AND u.family != 'load' AND {where}", args)
-    first = "COALESCE(json_extract(r.detail, '$.attempts[0].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
-    final = "COALESCE(json_extract(r.detail, '$.attempts[#-1].business_status'), json_extract(r.detail, '$.business_status'), 'Unverified')"
-    row = _one(scope, "SELECT COUNT(*) observed, "
-                 f"COALESCE(SUM({first} = 'Pass'), 0) first_passed, COALESCE(SUM({final} = 'Pass'), 0) final_passed, "
-                 f"COALESCE(SUM({first} = 'Fail' AND {final} = 'Pass'), 0) recovered_after_failure, "
-                 f"COALESCE(SUM({final} = 'Unverified'), 0) unverified, "
-                 "COALESCE(SUM(r.status = 'Blocked'), 0) blocked, COALESCE(SUM(r.status = 'Cancelled'), 0) cancelled "
-                 f"{RESULTS} WHERE {COUNTED} AND {where}", args)
-    denominator = max(planned["n"], row["observed"])
-    row.update(denominator=denominator, unexecuted=max(denominator - row["observed"], 0),
-               cancelled=row["cancelled"] + planned["cancelled"],
-               unknown_target_runs=planned["unknown_runs"],
-               first_pass_rate=round(row["first_passed"] / denominator, 4) if denominator and not planned["unknown_runs"] else None,
-               final_pass_rate=round(row["final_passed"] / denominator, 4) if denominator and not planned["unknown_runs"] else None,
-               window="run_created_at", basis="historical_attempts",
-               denominator_definition="本范围创建的运行内全部目标用例，含阻塞、取消、未完成和无业务断言",
-               verification_note="首轮与末次业务结果为历史尝试事实；当前有效通过数使用独立核验后的 state.outcome")
-    return row
+    """Use the run creation window for both attempt rates, including planned targets that never ran."""
+    with snapshot(scope):
+        runs = _selected(scope, "run", exclude_load=True)
+        rows = _selected(scope, "result", run_time=True)
+        unknown = sum(run["family"] == "native" and run["total"] == 0 for run in runs)
+        planned = sum(max(run["total"], run["done"]) for run in runs)
+        missing = 0 if scope.state_filters else max(0, planned - len(rows))
+        denominator = len(rows) + missing
+        first_passed = final_passed = recovered = 0
+        for row in rows:
+            first, final = _attempt_outcomes(row)
+            first_passed += first == "pass"
+            final_passed += final == "pass"
+            recovered += first == "fail" and final == "pass"
+        not_run = missing + sum(row["state"]["outcome"] == "not_run" for row in rows)
+        return {"observed": sum(row["started_at"] is not None for row in rows), "denominator": denominator, "unexecuted": not_run, "not_run": not_run,
+                "first_passed": first_passed, "final_passed": final_passed, "recovered_after_failure": recovered,
+                "unknown_target_runs": unknown,
+                "first_pass_rate": round(first_passed / denominator, 4) if denominator and not unknown else None,
+                "final_pass_rate": round(final_passed / denominator, 4) if denominator and not unknown else None,
+                "window": "run_created_at", "basis": "verified_attempts",
+                "denominator_definition": "本范围创建的运行内全部目标用例，含未执行用例"}
 
 
 def run_counts(scope: Scope) -> dict:
@@ -315,7 +341,8 @@ def trend(scope: Scope, tz_minutes: int = 480) -> dict:
     pattern = "%Y-%m-%d %H:00" if hourly else "%Y-%m-%d"
     groups = {}
     for row in _selected(scope, "result"):
-        stamp = datetime.datetime.fromisoformat(row["started_at"]) + datetime.timedelta(minutes=int(tz_minutes))
+        timestamp = row["started_at"] or row["planned_at"]
+        stamp = datetime.datetime.fromisoformat(timestamp) + datetime.timedelta(minutes=int(tz_minutes))
         groups.setdefault(stamp.strftime(pattern), []).append(row)
     return {"unit": "hour" if hourly else "day", "points": [{"bucket": key, **_counts(rows)} for key, rows in sorted(groups.items())]}
 
@@ -355,8 +382,7 @@ def dashboard(scope: Scope, tz_minutes: int = 480, *, current_only: bool = False
     with snapshot(scope):
         totals = summary(scope, tz_minutes)
         recent = runs(scope, limit=limit, exclude_load=True)
-        outcomes = ("fail",) if current_only else ("fail", "blocked")
-        rows = [row for row in _selected(scope, "result", current_only=current_only) if row["state"]["outcome"] in outcomes]
+        rows = [row for row in _selected(scope, "result", current_only=current_only) if row["state"]["outcome"] == "fail"]
         items = [_history_item(scope, "result", row) for row in rows[:limit]]
         return {"summary": totals, "recent": recent, "failures": {"total": len(rows), "items": items}}
 
@@ -371,24 +397,17 @@ def _history_page(scope: Scope, entity: str, status, limit, offset, *, trigger=N
             total, counts = len(selected), _counts(selected)["state_counts"]
         else:
             alias, source, args, order = _candidates(scope, entity, status, trigger, current_only, False, exclude_load)
-            totals = _one(scope, f"SELECT COUNT(*) total, COUNT(*) FILTER (WHERE {alias}.status='Fail') failed {source}", args)
-            total = totals["total"]
-            rows = _rows(scope, f"SELECT {alias}.*,COALESCE(p.name,{alias}.project_id) project_name {source} ORDER BY {order} LIMIT ? OFFSET ?",
+            total = _one(scope, f"SELECT COUNT(*) n {source}", args)["n"]
+            timeline = ",u.created_at planned_at" if entity == "result" else ""
+            rows = _rows(scope, f"SELECT {alias}.*{timeline},COALESCE(p.name,{alias}.project_id) project_name {source} ORDER BY {order} LIMIT ? OFFSET ?",
                          [*args, limit, offset])
-            # A recorded failure always fails. Every other outcome still needs the shared verdict.
+            candidates = rows if len(rows) == total else snap["connection"].execute(f"SELECT {alias}.* {source}", args)
             counts = _counts([])["state_counts"]
-            counts["fail"] = totals["failed"]
-            if total > counts["fail"]:
-                if len(rows) == total:
-                    remaining = (row for row in rows if row["status"] != "Fail")
-                else:
-                    candidates = snap["connection"].execute(f"SELECT {alias}.* {source} AND {alias}.status!='Fail'", args)
-                    remaining = map(dict, candidates)
-                for row in remaining:
-                    counts[_verdict(scope, entity, row)["outcome"]] += 1
+            for row in candidates:
+                counts[_verdict(scope, entity, dict(row))["outcome"]] += 1
         items = [_history_item(scope, entity, row) for row in rows]
         for item in items:
-            item["history_status"] = _history_status(item["state"])
+            item["history_status"] = history_status(item["state"])
         return {"items": items, "total": total, "state_counts": counts}
 
 
@@ -434,7 +453,7 @@ def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> di
             current = bool(state and state["current"])
             item.update(state=state, last_state=state, last_status=latest["status"] if latest else None,
                         last_run_at=latest["started_at"] if latest else None, current=current,
-                        current_status=state["outcome"].capitalize() if current else None)
+                        current_status=history_status(state) if current else None)
     if scope.state_filters:
-        items = [item for item in items if item["state"] and _matches(item["state"], scope.state_filters)]
+        items = [item for item in items if _matches(item["state"] or {"outcome": "not_run"}, scope.state_filters)]
     return {"total": len(items), "items": items}

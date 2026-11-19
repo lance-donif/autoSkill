@@ -16,7 +16,7 @@ from contextvars import ContextVar
 from functools import wraps
 from pathlib import Path
 
-from . import execution_inputs, paths, projects
+from . import execution_inputs, paths, projects, task_report_data
 from .locking import file_lock, project_lock
 
 COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "用例标题", 32), ("type", "操作类型", 10),
@@ -25,8 +25,8 @@ COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "�
 FUNCTIONAL_FIELDS = ("description", "author", "remarks", "source", "requirement_ids", "business_path", "prefix")
 ALIASES = {"编号": "id", "用例ID": "id", "模块": "module", "标题": "title", "用例名称": "title", "类型": "type", "步骤": "steps",
            "测试步骤": "steps", "期望结果": "expected", "结果": "status", "是否通过": "status"}
-STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Unverified": "未验证", "Cancelled": "已取消", "NotRun": "未执行", "Unknown": "未知"}
-FILL = {"通过": "E2F0D9", "失败": "FCE4D6", "阻塞": "FFF2CC"}
+STATUS = task_report_data.STATUS
+FILL = {"通过": "E2F0D9", "失败": "FCE4D6"}
 _selected_folder: ContextVar[Path | None] = ContextVar("autoskill_plan_folder", default=None)
 SKILL_TEXT = """---
 name: autoskill-cases
@@ -44,7 +44,7 @@ description: autoSkill 内部读取的测试用例表（Excel），由同一技�
 2. 按用例逐条执行：`autoskill record start <项目>` → 按「操作步骤」操作页面 → 用 `autoskill check` 写上「预期结果」→
    `autoskill record stop --title <用例标题> --subproject <子项目> --plan <用例编号>`。
 3. 普通 `record stop --plan` 会安排候选验证；用 `autoskill run-status <运行ID>` 等待实际结果。正式14列 Excel 与内部结果同步回填，失败不因未入库而消失。
-4. 无法自动执行的用例：`autoskill plan mark <用例编号> 阻塞 --note <原因>`。
+4. 无法自动执行的用例：`autoskill plan mark <用例编号> 未执行 --note <原因>`。
 """
 
 
@@ -168,7 +168,11 @@ def _save(book) -> str:
 def _rows(sheet, columns):
     for number in range(2, sheet.max_row + 1):
         if sheet.cell(number, columns["id"]).value:
-            yield number, {key: str(sheet.cell(number, column).value or "") for key, column in columns.items()}
+            row = {key: str(sheet.cell(number, column).value or "") for key, column in columns.items()}
+            status = row.get("status", "")
+            if status not in STATUS.values():
+                row["status"] = STATUS.get(status, "失败" if status in ("Unverified", "未验证", "业务未验证") and row.get("replay") else "未执行")
+            yield number, row
 
 
 def _summary(sheet, columns) -> dict:
@@ -339,6 +343,10 @@ def mark(case_id: str, status: str, note: str = "") -> dict:
     number = _find(sheet, columns, case_id)
     if number is None:
         raise ValueError(f"用例表里没有 {case_id}")
+    if status in ("阻塞", "Blocked"):
+        status = "未执行"
+    if status not in STATUS.values():
+        raise ValueError("执行结果须为未执行、通过或失败")
     _set_status(sheet, columns, number, status, note)
     saved = {"case": case_id, "status": status, "excel": _save(book), "summary": _summary(sheet, columns)}
     from . import plan_execution
@@ -458,15 +466,13 @@ def _sync(quiet: bool, *, run_id: str | None = None) -> dict | None:
                     _set_status(sheet, columns, number, case_plans.STATUS[evidence["status"]], evidence["reason"])
                     updated += 1
                     continue
-                if result and result["status"] in STATUS:
+                if result:
                     case = cases[project_id].get(replay_case)
-                    detail = json.loads(result["detail"])
-                    if not case or not execution_inputs.result_current(project_id, case, result):
-                        _set_status(sheet, columns, number, "未执行", "用例已修改或不再有效，需重新回放")
-                    elif result["status"] == "Pass" and not detail.get("business_verified"):
-                        _set_status(sheet, columns, number, "未执行", "动作已完成；没有完整业务断言的实际通过证据")
+                    if not case:
+                        _set_status(sheet, columns, number, "未执行", "关联的用例已删除")
                     else:
-                        _set_status(sheet, columns, number, STATUS[result["status"]], "" if result["status"] == "Pass" else result["reason"])
+                        item = task_report_data.current_case_item(project_id, case, result)
+                        _set_status(sheet, columns, number, STATUS[task_report_data.case_verdict(item)], item["note"] or result.get("reason", ""))
                     updated += 1
             if not updated and not execution:
                 return None if quiet else {"updated": 0, "note": "没有已关联并回放过的用例；录制时加 --plan <用例编号> 关联"}

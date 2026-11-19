@@ -214,11 +214,11 @@ class NativeAdapter:
         report, evidence = Path(prepared["report"]), Path(prepared["evidence"])
         cases, metrics = [], {}
         try:
-            if report.is_file():
+            if self.id == "selenium-unittest" and (report.is_file() or report.with_suffix(".jsonl").is_file()):
+                cases = reports.unittest_report(report, raw.get("reason") or ("运行已取消" if raw.get("state") == "cancelled" else ""))
+            elif report.is_file():
                 if self.id == "selenium-pytest":
                     cases = reports.junit(report)
-                elif self.id == "selenium-unittest":
-                    cases = reports.unittest_report(report)
                 elif self.id in ("postman-newman", "apifox"):
                     cases = reports.newman(report)
                     if self.id == "apifox" and (evidence / "apifox.xml").is_file():

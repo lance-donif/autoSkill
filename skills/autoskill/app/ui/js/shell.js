@@ -4,30 +4,23 @@ import { menuButton, menuItem, preferredEngine, setEngine, preferredHeaded, setH
 import { preferenceDataId, setTheme } from './preferences.js';
 import { updateLiveView } from './live-refresh.js';
 
-const PRIMARY = [
-  ['case-plans', '测试用例表', 'table'],
+const NAV = [
+  ['dashboard', '总览', 'dashboard'],
+  ['cases', '测试用例', 'cases'],
   ['runs', '执行记录', 'runs'],
-  ['cases', '可复用用例', 'cases'],
+  ['schedules', '定时任务', 'clock'],
+  ['data', '数据管理', 'folder'],
 ];
-const OVERVIEW = ['dashboard', '总览', 'dashboard'];
-const GROUPS = [
-  ['prepare', '测试资料', [
-    ['workflows', '需求与工作流', 'link'],
-    ['project-materials', '项目资料', 'folder'],
-    ['native-assets', '原生资产', 'api'],
-    ['conversations', '多轮对话', 'api'],
-  ]],
-  ['execute', '执行工具', [
-    ['load-tests', '压测', 'sliders'],
-    ['schedules', '定时任务', 'clock'],
-  ]],
-  ['settings', '设置与维护', [
-    ['data', '数据管理', 'folder'],
-    ['diagnostics', '运行诊断', 'sliders'],
-  ]],
-];
-const NAV = [...PRIMARY, OVERVIEW, ...GROUPS.flatMap(([, , entries]) => entries)];
-let lastSidePage = null;
+const PAGE_LABELS = {
+  ...Object.fromEntries(NAV),
+  workflows: '需求与工作流',
+  'project-materials': '项目资料',
+  'native-assets': '原生资产',
+  conversations: '多轮对话',
+  'load-tests': '压测',
+  diagnostics: '运行诊断',
+  'case-plans': '测试用例表',
+};
 export const state = { projects: [], allProjects: [], status: null, active: 0, online: true };
 
 let frameVersion = 0;
@@ -103,14 +96,10 @@ function buildSide(side) {
     h('div', { class: 'side-heading' },
       h('a', { class: 'brand', href: href('dashboard'), 'aria-label': 'autoSkill 总览', onClick: () => closeNavigation(true) },
         h('span', { class: 'brand-mark' }, icon('spark')),
-        h('span', {}, h('div', { class: 'brand-name' }, 'autoSkill'), h('div', { class: 'brand-tag' }, '用例表 · 执行 · 复用'))),
+        h('span', { class: 'brand-name' }, 'autoSkill')),
       toggle, h('span', { class: 'nav-location', 'aria-live': 'polite' })),
     h('div', { class: 'side-panel', id: 'side-panel' },
-      h('nav', { class: 'nav', 'aria-label': '主导航' },
-        h('div', { class: 'nav-primary' }, PRIMARY.map(navigationLink)),
-        h('div', { class: 'nav-overview' }, navigationLink(OVERVIEW)),
-        GROUPS.map(([key, label, entries]) => h('details', { class: 'nav-group', dataset: { group: key } },
-          h('summary', {}, label, icon('chevron')), h('div', { class: 'nav-children' }, entries.map(navigationLink))))),
+      h('nav', { class: 'nav', 'aria-label': '主导航' }, NAV.map(navigationLink)),
       h('div', { class: 'side-foot' },
         h('div', { class: 'line service-status' }, h('i', { class: 'dot' }), h('span', { class: 'text' })),
         h('div', { class: 'line runtime-status', title: '离线运行：不联网、不更新、不上报' }, icon('lock'), h('span', { class: 'text' })),
@@ -138,15 +127,8 @@ export function renderSide() {
     if (link.dataset.page === current) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
-  // Update the existing frame so live counts never replace focused links or disclosures.
-  if (current !== lastSidePage) {
-    const group = side.querySelector('a[aria-current="page"]')?.closest('details');
-    if (group) group.open = true;
-    lastSidePage = current;
-  }
-  for (const group of side.querySelectorAll('.nav-group')) group.classList.toggle('current-group', !!group.querySelector('[aria-current="page"]'));
   side.querySelector('.brand').href = href('dashboard');
-  side.querySelector('.nav-location').textContent = '当前位置：' + (NAV.find(([page]) => page === current)?.[1] || '总览');
+  side.querySelector('.nav-location').textContent = '当前位置：' + (PAGE_LABELS[current] || '总览');
   const count = side.querySelector('.count');
   count.hidden = !state.active;
   count.textContent = String(state.active);
@@ -241,7 +223,7 @@ export function renderScope() {
   if (bar.querySelector('.menu')) return;
   const note = pageScopeNote(page, id);
   if (note) {
-    replaceScope(bar, h('span', { class: 'scope-label' }, NAV.find(([key]) => key === page)?.[1] || '执行记录'),
+    replaceScope(bar, h('span', { class: 'scope-label' }, PAGE_LABELS[page] || '执行记录'),
       h('span', { class: 'scope-text' }, note), h('span', { class: 'grow' }), runSettings());
     return;
   }

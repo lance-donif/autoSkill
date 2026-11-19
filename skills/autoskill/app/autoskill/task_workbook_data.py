@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import case_document, data_refs, execution_inputs, task_report_data
 
-STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行", "Unknown": "未知"}
+STATUS = task_report_data.STATUS
 NUMBERED = re.compile(r"^(\d+)\.\s+(.+)$")
 CHAPTER = re.compile(r"^\s*(?:第[一二三四五六七八九十百\d]+[章节]\s*|\d+(?:\.\d+)*(?:[、.)）]\s*|\s+))")
 PENDING_FUNCTION = "【待确认：功能项】"
@@ -262,9 +262,9 @@ def _row(group: dict, identity: str, data: list[dict]) -> dict:
     if not case.get("preconditions"):
         gaps.append(preconditions)
     verdict = STATUS[group["status"]]
-    if group["status"] == "Fail" and group["final_status"] == "Pass":
-        verdict += "（曾失败，后续通过）"
     remarks = [text(metadata["remarks"])] if metadata.get("remarks") else []
+    if group["status"] == "Fail" and group["final_status"] == "Pass":
+        remarks.append("曾失败，后续通过")
     remarks += [f"原始标识：{case['id']}；冻结定义：{group['definition_hash']}", *gaps]
     remarks += [str(item["note"]) for item in group["items"] if item.get("note")]
     remarks += ["本表每个冻结定义一行；全部轮次、重试和证据引用见「执行明细」。"]

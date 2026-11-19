@@ -36,8 +36,7 @@ export async function render(view) {
   } }, icon('folder'), '导出全部项目资料');
   const content = tab === 'share' ? sharePanel(projectId) : data ? materialsPanel(data, tab)
     : h('section', { class: 'card' }, empty({ glyph: 'folder', title: '还没有项目资料', text: '新建项目后，知识库、用例和报告会集中显示在这里。' }));
-  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '项目资料'),
-    h('p', { class: 'sub' }, '每个项目使用同一资料目录，分别保存知识库、用例和报告。')), exportButton),
+  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '项目资料')), exportButton),
   h('div', { class: 'toolbar wrap' }, index.projects.length > 0 && project, tabs),
   data && h('div', { class: 'card card-body' }, h('div', { class: 'sub' }, '本机项目目录'), h('code', {}, data.root),
     h('p', { class: 'hint' }, 'knowledge / 知识库　·　testcases / 用例　·　reports / 报告。旧报告保留原文件，导出时一起收集。')),
@@ -126,7 +125,7 @@ function fileList(data, category) {
         h('a', { class: 'btn sm', href: item.download_url, download: '' }, '下载'),
         category === 'knowledge' && h('button', { class: 'btn sm danger', onClick: (event) => removeKnowledge(data.project.id, item, event.currentTarget) }, '删除'))))))
     : empty({ glyph: 'folder', title: '还没有' + title, text: category === 'reports' ? '录制、执行或工作流完成后，报告自动保存在项目的 reports 子目录。'
-      : category === 'knowledge' ? '把业务规则、测试经验和参考资料保存到当前项目的知识库。' : '在「项目与用例」录制或导入用例后，这里显示权威用例文件。', actions: add });
+      : category === 'knowledge' ? '把业务规则、测试经验和参考资料保存到当前项目的知识库。' : '在 DSH 对话中录制用例后，可在此下载用例文件。', actions: add });
   return h('section', { class: 'card', style: 'margin-top:16px;overflow-x:auto' },
     h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, title), h('p', { class: 'sub' }, fmtNumber(files.length) + ' 个文件')), files.length > 0 && add), table);
 }

@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
+import httpx
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect, sync_playwright
 
@@ -18,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 ORIGIN = "http://127.0.0.1:8787"
 PAGES = {"runs": "index", "runs?view=results": "results", **{name: name for name in (
-    "dashboard", "cases", "case-plans", "workflows", "native-assets", "conversations", "schedules",
+    "dashboard", "cases", "workflows", "native-assets", "conversations", "schedules",
     "project-materials", "load-tests", "diagnostics", "data")}}
 
 # Capture the dashboard with enough state for local filtering and result disclosures.
@@ -114,7 +115,7 @@ def seed(root: Path, example_url: str) -> dict:
     return details
 
 
-def render(root: Path, example_url: str, pages: dict) -> None:
+def render(root: Path, pages: dict) -> None:
     from autoskill import paths
     from autoskill.server.app import create_app
 
@@ -149,24 +150,29 @@ def render(root: Path, example_url: str, pages: dict) -> None:
                 result_row.locator(".result-head").click()
                 expect(result_row.locator(".result-body")).to_be_visible()
             html = page.evaluate(SNAPSHOT, {"pages": pages, "openResults": open_results, "version": version})
-            html = html.replace(example_url, "https://tickets.example.invalid").replace(str(root), "/示例/autoSkill")
+            html = html.replace(str(root), "/示例/autoSkill")
             html = "\n".join(line.rstrip() for line in html.split("\n"))
             (output / (name + ".html")).write_text(html, encoding="utf-8")
         browser.close()
 
 
 def main() -> None:
-    from autoskill.server.app import demo_site
-
     with TemporaryDirectory() as temporary, ExitStack() as resources:
         root = Path(temporary)
         resources.enter_context(patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(root / "data"), "AUTOSKILL_CASE_SKILL": str(root / "design"),
             "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0", "AUTOSKILL_RUNTIME_CONTEXT": "", "AUTOSKILL_SESSION": "", "AUTOSKILL_WORKFLOW_BINDING": ""}))
-        site = demo_site(port=0)
-        resources.callback(site.server_close)
-        resources.callback(site.shutdown)
-        example_url = f"http://127.0.0.1:{site.server_port}"
-        render(root, example_url, {**PAGES, **seed(root, example_url)})
+        example_url = "https://tickets.example.invalid"
+
+        def tickets(request: httpx.Request) -> httpx.Response:
+            if request.method == "GET" and str(request.url) == example_url + "/api/tickets":
+                return httpx.Response(401, json={"code": "UNAUTHENTICATED"})
+            raise AssertionError(f"Unexpected preview fixture request: {request.method} {request.url}")
+
+        # Construct all sample results using in-memory fixture responses.
+        with patch("autoskill.replay.api.new_client",
+                   side_effect=lambda *_args, **_kwargs: httpx.Client(transport=httpx.MockTransport(tickets))):
+            pages = {**PAGES, **seed(root, example_url)}
+        render(root, pages)
 
 
 if __name__ == "__main__":

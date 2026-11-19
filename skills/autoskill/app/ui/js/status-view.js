@@ -5,7 +5,7 @@ export const STATE_LABELS = {
   pending: '待处理', active: '进行中', paused: '已暂停', completed: '已结束', cancelled: '已取消', unknown: '尚未确认',
   queued: '排队中', running: '执行中', awaiting_host: '等待宿主', waiting_execution: '等待执行',
   recovering: '恢复中', blocked: '阻塞', settled: '已结束', ready: '就绪', leased: '处理中', publishing: '发布中',
-  pass: '通过', fail: '失败', unverified: '未验证', not_applicable: '不适用',
+  not_run: '未执行', pass: '通过', fail: '失败', unverified: '未验证', not_applicable: '不适用',
   valid: '有效', invalid: '已失效', generating: '生成中', failed: '失败', skipped: '已跳过', not_generated: '尚未生成',
   dispatching: '投递中', delivered: '已送达',
 };
@@ -32,15 +32,16 @@ export function primaryState(entity) {
 
 export function stateResults(entity, compact = true) {
   const state = entity?.state;
-  if (!state) return h('span', { class: 'sub' }, '状态尚未同步');
-  const checks = AXES.filter(([axis]) => !compact || state.checks?.[axis] !== 'not_applicable');
+  const outcome = state?.current === false ? 'not_run' : state?.outcome || 'not_run';
+  if (compact || !state) return statePill(outcome);
+  const checks = AXES.filter(([axis]) => ['pass', 'fail'].includes(state.checks?.[axis]));
   const qualifier = state.current === false ? '历史' : '';
   return h('div', { class: 'row wrap state-results', 'aria-label': '分项结果' },
-    statePill(state.outcome, '综合：'),
+    statePill(outcome, '综合：'),
     checks.map(([axis, title]) => statePill(state.checks?.[axis], qualifier + title + '：')),
-    (!compact || state.evidence === 'invalid') && statePill(state.evidence, qualifier + '证据：'),
-    (!compact || state.report === 'failed') && statePill(state.report, qualifier + '报告：', state.report === 'ready' ? '已就绪' : null),
-    !compact && statePill(state.delivery, qualifier + '投递：'));
+    ['valid', 'invalid'].includes(state.evidence) && statePill(state.evidence, qualifier + '证据：'),
+    statePill(state.report, qualifier + '报告：', state.report === 'ready' ? '已就绪' : null),
+    statePill(state.delivery, qualifier + '投递：'));
 }
 
 export function stateDetails(entity) {

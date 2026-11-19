@@ -8,15 +8,10 @@ function svg(tag, attrs = {}, ...children) {
   node.append(...children.filter(Boolean));
   return node;
 }
-// Stack order bottom -> top. Blocked sits between pass and fail: green and red never touch,
-// which is what keeps the stack readable with red-green colour blindness (validated).
 export const SERIES = [
+  { key: 'not_run', label: '未执行', color: 'var(--ink-3)' },
   { key: 'passed', label: '通过', color: 'var(--good)' },
-  { key: 'blocked', label: '阻塞', color: 'var(--warn)' },
   { key: 'failed', label: '失败', color: 'var(--bad)' },
-  { key: 'unverified', label: '未验证', color: 'var(--ink-3)' },
-  { key: 'cancelled', label: '已取消', color: 'var(--line-strong)' },
-  { key: 'pending', label: '待处理', color: 'var(--accent)' },
 ];
 export const outcomeTotal = (counts) => SERIES.reduce((sum, series) => sum + (counts[series.key] || 0), 0);
 
@@ -43,7 +38,7 @@ export function fillBuckets(points, unit, start, end) {
   if (unit === 'hour') cursor.setMinutes(0, 0, 0); else cursor.setHours(0, 0, 0, 0);
   const out = [];
   for (let guard = 0; cursor <= last && guard < 400; guard++) {
-    out.push(byKey.get(key(cursor)) || { bucket: key(cursor), passed: 0, failed: 0, blocked: 0, pass_rate: null });
+    out.push(byKey.get(key(cursor)) || { bucket: key(cursor), passed: 0, failed: 0, not_run: 0, pass_rate: null });
     if (unit === 'hour') cursor.setHours(cursor.getHours() + 1); else cursor.setDate(cursor.getDate() + 1);
   }
   return out;

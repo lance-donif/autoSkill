@@ -100,7 +100,7 @@ class FlowTests(unittest.TestCase):
         self.assertEqual(shown["cases"][0]["steps"], "1. 打开\n2. 提交")
         plan.link("TC-001", self.pid, "TC-UI-001", 1)
         self.assertEqual(plan.mark("TC-X", "阻塞", "需要短信验证码")["summary"],
-                         {"通过": 0, "失败": 0, "阻塞": 1, "未验证": 0, "已取消": 0, "未执行": 1, "未知": 0})
+                         {"通过": 0, "失败": 0, "未执行": 2})
         self.assertEqual(plan.show()["cases"][0]["replay"], "t/TC-UI-001")
         self.assertEqual(plan.sync(quiet=True)["updated"], 0)  # No execution result may be invented.
         # a hand-made sheet dropped into the same folder is executed the same way

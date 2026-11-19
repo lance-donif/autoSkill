@@ -10,7 +10,7 @@ function field(id, label, value, placeholder, hint) {
 
 function card(title, description, body) {
   return h('section', { class: 'card' },
-    h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, title), h('p', { class: 'sub' }, description))),
+    h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, title), description && h('p', { class: 'sub' }, description))),
     h('div', { class: 'card-body stack' }, body));
 }
 
@@ -89,9 +89,8 @@ export async function render(view) {
   const shared = { actions, setBusy };
   const caseSkill = typeof status.external_case_skill === 'string' ? status.external_case_skill : status.external_case_skill?.resolved;
   replace(view,
-    h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '数据管理'),
-      h('p', { class: 'sub' }, '程序与数据分别存放。以后更新只替换程序，继续使用同一个数据目录。')), reload),
-    card('当前数据目录', '此页面和当前 autoSkill 服务正在使用的位置。', [
+    h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '数据管理')), reload),
+    card('当前数据目录', null, [
       h('pre', { class: 'code', 'data-testid': 'current-data-root' }, status.root),
       h('div', { class: 'row wrap' }, h('button', { class: 'btn', onClick: () => copyText(status.root) }, icon('copy'), '复制当前目录'),
         h('span', { class: 'sub' }, '数据集标识：'), h('code', { class: 'mono', 'data-testid': 'current-data-id' }, status.data_id || '尚未初始化')),

@@ -194,7 +194,11 @@ def _percentile(values: list, fraction: float):
 
 def metrics(run: dict, *, results: list[dict] | None = None) -> dict:
     """Count target executions, sent HTTP attempts and elapsed time as distinct measures."""
-    rows = results if results is not None else db.rows("SELECT prerequisite, duration_ms, detail FROM results WHERE run_id = ?", (run["id"],))
+    rows = results if results is not None else db.rows("SELECT * FROM results WHERE run_id = ?", (run["id"],))
+    if "not_run" not in run:
+        from . import task_state
+
+        run = task_state.run_values(run, results=rows)
     targets, requests = [], 0
     for row in rows:
         detail = row["detail"] if isinstance(row["detail"], dict) else json.loads(row["detail"])
@@ -202,9 +206,10 @@ def metrics(run: dict, *, results: list[dict] | None = None) -> dict:
         if not row["prerequisite"] and (detail.get("request") or detail.get("steps")):
             targets.append(row["duration_ms"])
     elapsed = _elapsed(run)
-    return {"planned_cases": run["total"], "completed_cases": run["done"], "unexecuted_cases": max(0, run["total"] - run["done"]),
-            "request_count": requests, "elapsed_seconds": elapsed, "throughput_per_second": run["done"] / elapsed if elapsed else 0,
-            "error_rate": (run["failed"] + run["blocked"]) / run["done"] if run["done"] else None,
+    completed = run["passed"] + run["failed"]
+    return {"planned_cases": run["total"], "completed_cases": completed, "unexecuted_cases": run["not_run"],
+            "request_count": requests, "elapsed_seconds": elapsed, "throughput_per_second": completed / elapsed if elapsed else 0,
+            "error_rate": run["failed"] / completed if completed else None,
             "latency_samples": len(targets), "p50_ms": _percentile(targets, .5), "p95_ms": _percentile(targets, .95), "p99_ms": _percentile(targets, .99)}
 
 
@@ -222,7 +227,7 @@ def summary(run: dict, *, results=None, result_states=None, connection=None) -> 
         manifest = execution_inputs.load(run)
         project = connection.execute("SELECT name FROM projects WHERE id = ?", (run["project_id"],)).fetchone()
         return {**runner.public_run(values, state=values["state"]), "case_ids": manifest["selected"], "load": manifest["load"],
-                "project_name": project["name"] if project else run["project_id"], "metrics": metrics(run, results=rows)}
+                "project_name": project["name"] if project else run["project_id"], "metrics": metrics(values, results=rows)}
 
 
 def get(run_id: str) -> dict:

@@ -98,6 +98,7 @@ def get(run_id: str) -> dict:
         for row in rows:
             row["detail"] = json.loads(row["detail"])
             row["state"] = task_state.result(row, connection=connection)
+            row["status"] = task_state.CASE_STATUS[row["state"]["outcome"]]
         targets = [row for row in rows if not row["prerequisite"]]
         values = task_state.run_values(run, results=targets, result_states=[row["state"] for row in targets], connection=connection)
         summary = paths.local() / "runs" / run_id / "native" / "outcome.json"
@@ -230,7 +231,7 @@ def _bind_evidence(run: dict, outcome: dict) -> dict:
 def _record(run: dict, outcome: dict) -> dict:
     cases = outcome.get("cases", [])
     if not cases and outcome["status"] == "Blocked":
-        cases = [{"id": "runtime", "title": "原生执行环境", "status": "Blocked", "reason": outcome.get("reason", ""), "assertions": []}]
+        cases = [{"id": "runtime", "target_started": False, "title": "原生执行环境", "status": "Blocked", "reason": outcome.get("reason", ""), "assertions": []}]
     counts = {"done": 0, "passed": 0, "failed": 0, "blocked": 0}
     for index, case in enumerate(cases, 1):
         status = case.get("status", "Blocked")

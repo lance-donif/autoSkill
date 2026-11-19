@@ -113,8 +113,8 @@ class NativeReaderTests(unittest.TestCase):
         original = db.one("SELECT * FROM runs WHERE id=?", (result["id"],))
         with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787") as client:
             damaged = client.get("/api/native-runs/" + result["id"]).json()
-        self.assertEqual((damaged["passed"], damaged["unverified"], damaged["recorded_counts"]["passed"]), (0, 1, 1))
-        self.assertEqual((damaged["state"]["outcome"], damaged["state"]["evidence"]), ("unverified", "invalid"))
+        self.assertEqual((damaged["passed"], damaged["failed"], damaged["recorded_counts"]["passed"]), (0, 1, 1))
+        self.assertEqual((damaged["state"]["outcome"], damaged["state"]["evidence"]), ("fail", "invalid"))
         self.assertEqual(db.one("SELECT * FROM runs WHERE id=?", (result["id"],)), original)
         self.assertEqual(native_reader.status(result["id"])["passed"], 0)
         self.assertEqual(result["passed"], 1)

@@ -62,10 +62,14 @@ def _run_counts(connection, where: str, parameters: tuple) -> dict:
 
 
 def _run_view(row, connection) -> dict:
-    value = dict(row)
+    projected = task_state.run_values(dict(row), connection=connection)
+    fields = ("id", "project_id", "family", "task_id", "status", "total", "done", "passed", "failed", "not_run",
+              "state_counts", "state", "current", "reason", "cancel", "delete_requested", "deletion_error",
+              "created_at", "started_at", "finished_at", "session_id")
+    value = {key: projected[key] for key in fields}
     reason = value["reason"]
     value.update(can_cancel=value["status"] in ACTIVE and not value["delete_requested"],
-                 state=task_state.run(value, connection=connection), updated_at=value["finished_at"] or value["started_at"] or value["created_at"],
+                 updated_at=value["finished_at"] or value["started_at"] or value["created_at"],
                  reason=reason[:600], reason_truncated=len(reason) > 600,
                  read_url="/api/native-runs/" + quote(value["id"], safe="") if value["family"] == "native" else "/api/runs/" + quote(value["id"], safe=""))
     return value
@@ -80,9 +84,7 @@ def _runs(connection, binding: dict, *, limit: int, cursor: str | None) -> tuple
     revision = paging.revision([query, counts])
     offset = paging.position(cursor, revision, query)
     rows = connection.execute(
-        "SELECT r.id,r.project_id,r.family,r.task_id,r.status,r.total,r.done,r.passed,r.failed,r.blocked,r.current,r.reason,r.cancel,"
-        "r.delete_requested,r.deletion_error,r.created_at,r.started_at,r.finished_at,r.session_id "
-        f"FROM runs r WHERE {where} ORDER BY r.created_at DESC,r.id DESC LIMIT ? OFFSET ?", (*parameters, limit, offset))
+        f"SELECT r.* FROM runs r WHERE {where} ORDER BY r.created_at DESC,r.id DESC LIMIT ? OFFSET ?", (*parameters, limit, offset))
     items = [_run_view(row, connection) for row in rows]
     page = bindings.page_info(sum(counts["states"].values()), len(items), limit, offset, revision, query)
     return {"items": items, "page": {**page, "consistency": "live"}, "association": source}, counts, (where, parameters)

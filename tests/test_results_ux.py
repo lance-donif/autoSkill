@@ -109,8 +109,8 @@ class ResultsUxTests(unittest.TestCase):
 
     def test_later_problem_and_duplicate_legacy_link_are_explicit(self):
         self.page.goto("http://127.0.0.1:8787/#/native-runs/native-70")
-        self.page.get_by_role("button", name="查看本次所有未通过结果", exact=True).click()
-        issues = self.page.locator('[aria-label="本次未通过结果"]')
+        self.page.get_by_role("button", name="查看本次所有失败结果", exact=True).click()
+        issues = self.page.locator('[aria-label="本次失败结果"]')
         expect(issues).to_contain_text("Native result 70")
         expect(issues).not_to_contain_text("Native result 69")
         self.page.goto("http://127.0.0.1:8787/#/native-runs/native-70?case=duplicate&cursor=second")

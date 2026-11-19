@@ -11,7 +11,7 @@ import time
 from contextlib import nullcontext
 from pathlib import Path
 
-from .. import paths, secrets
+from .. import execution_inputs, paths, secrets
 from . import ir
 
 # Failure categories shown in the dashboard.
@@ -33,7 +33,7 @@ def check_cancel(driver) -> None:
     """Managed runs supply a read-only cancellation hook; standalone drivers do not need one."""
     requested = getattr(driver, "cancel_requested", None)
     if requested and requested():
-        raise StepError("cancelled", "运行已取消，未完成的检查不作为业务失败")
+        raise StepError("cancelled", "运行已取消")
 
 
 def choose_locator(driver, step: dict, timeout: float, need: bool = True):
@@ -283,8 +283,6 @@ def run_setup(driver, stages: list[dict], config: dict, evidence_dir: Path, scre
         result = _run_flow(driver, stage["automation"], config, evidence_dir, name, keep_page=index > 0, stop_on_failed_check=True)
         receipt = {key: stage[key] for key in ("case_id", "revision", "content_hash")}
         receipt.update({key: result[key] for key in ("status", "reason", "assertions", "screenshots", "duration_ms")})
-        if receipt["status"] == "Pass" and result["business_status"] != "Pass":
-            receipt.update(status="Unverified", reason="前置页面状态缺少独立断言的真实通过证据")
         receipts.append(receipt)
         if receipt["status"] != "Pass":
             break
@@ -311,7 +309,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
                    "category": "cancelled" if cancelled else "prerequisite_failed",
                    "reason": f"前置用例 {last['case_id']} 未通过：{last['reason'] or last['status']}",
                    "verification": "unverified", "business_status": "Unverified",
-                   "steps": [], "assertions": [], "screenshots": [], "fallbacks": 0, "duration_ms": 0}
+                   "steps": [], "assertions": [], "screenshots": [], "fallbacks": 0, "duration_ms": 0, "target_started": False}
     steps = [{"index": index, "text": f"前置用例 {item['case_id']} · v{item['revision']}",
               "status": {"Pass": "done", "Cancelled": "cancelled"}.get(item["status"], "failed"), "ms": item["duration_ms"]}
              for index, item in enumerate(receipts)]
@@ -321,15 +319,17 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
             "duration_ms": outcome["duration_ms"] + sum(item["duration_ms"] for item in receipts)}
 
 
-def _enter_page(driver, start_url: str, allowed: list[str], steps: list, *, keep_page: bool, verify_redirect: bool) -> None:
+def _enter_page(driver, start_url: str, allowed: list[str], steps: list, *, keep_page: bool, setup_stage: bool) -> None:
     url = driver.url() if keep_page else start_url
     ir.check_origin(url, allowed)
     row = {"index": 0, "text": ("接续 " if keep_page else "打开 ") + url, "status": "running", "ms": 0}
     steps.append(row)
+    if not setup_stage:
+        execution_inputs.mark_target_started()
     clock = time.monotonic()
     if not keep_page:
         navigate(driver.goto, url)
-        if verify_redirect:
+        if setup_stage:
             ir.check_origin(driver.url(), allowed)
     check_cancel(driver)
     row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
@@ -349,7 +349,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
         check_cancel(driver)
         ir.validate(automation)
         _enter_page(driver, ir.absolute_url(automation["start_url"], base_url), allowed, steps,
-                    keep_page=keep_page, verify_redirect=stop_on_failed_check)
+                    keep_page=keep_page, setup_stage=stop_on_failed_check)
         acted = True
         for index, step in enumerate(automation.get("actions", []), 1):
             check_cancel(driver)
@@ -395,7 +395,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
                            reason="；".join(f'{a["name"]}（实际：{a["actual"]}）' for a in failed)[:500])
         else:
             done = sum(1 for row in steps if not row.get("check"))
-            actual = f"{done} 个步骤完成，{len(assertions)} 条断言通过" if assertions else f"{done} 个步骤完成；未声明业务断言"
+            actual = f"{done} 个步骤完成，{len(assertions)} 条断言通过" if assertions else f"{done} 个步骤完成"
             outcome.update(status="Pass", actual=actual)
     except Exception as error:  # noqa: BLE001  # Every engine failure must become the existing structured case result.
         category, message = classify(error, driver)
@@ -417,9 +417,9 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
     definition = automation if isinstance(automation, dict) else {}
     declared = any(isinstance(s, dict) and "assertion" in s for s in (definition.get("actions") or [])) or bool(definition.get("assertions"))
     independent = any(a.get("oracle", {}).get("source") != "observation" for a in assertions if "oracle" in a)
-    verified = declared and independent
+    verified = (declared and independent) or (not declared and bool(steps) and all(step["status"] == "done" for step in steps))
     outcome.update(verification="verified" if verified else "unverified",
                    business_status=outcome["status"] if verified and outcome["status"] in ("Pass", "Fail") else "Unverified",
-                   steps=steps, assertions=assertions, screenshots=evidence,
+                   target_started=bool(steps), steps=steps, assertions=assertions, screenshots=evidence,
                    duration_ms=round((time.monotonic() - started) * 1000))
     return outcome

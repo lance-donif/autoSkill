@@ -28,8 +28,7 @@ def _classification(item: dict) -> str | None:
     if historical.get("status") == "Fail" or historical.get("business_status") == "Fail":
         return "historical"
     business = result.get("detail", {}).get("business_status")
-    performance = result.get("detail", {}).get("performance_status")
-    if business == "Fail" or performance == "Fail" or result.get("status") == "Fail":
+    if result and task_report_data.observation_verdict(item) == "Fail":
         if not item.get("evidence_valid"):
             return "unverified"
         return "business" if business == "Fail" else "execution"
@@ -140,14 +139,14 @@ def render(snapshot: dict, *, excel_link: str) -> tuple[str, dict]:
              "", "| 分类 | 涉及用例版本数 |", "| --- | ---: |"]
     lines.extend(f"| {label} | {counts[kind]} |" for kind, label in KINDS.items())
     lines.extend(["", f"本轮共 {summary['cases']} 个用例版本、{summary['execution_rows']} 条结果；问题按用例版本归组，不表示同一根因。",
-                  "业务失败、执行问题和录制观察分别记录；未执行、已取消、未知或业务未验证不代表没有 Bug。"])
+                  "问题类型区分业务断言、执行环境和录制观察。"])
     if not found:
         lines.append("本轮没有记录到可列出的失败或阻塞问题；这不等于全部需求均已验证。")
     for issue in found:
         lines.extend(_issue_lines(issue))
-    incomplete = [group for group in task_report_data.logical_cases(snapshot) if group["status"] in ("NotRun", "Unknown", "Unverified", "Cancelled")]
+    incomplete = [group for group in task_report_data.logical_cases(snapshot) if group["status"] == "NotRun"]
     if incomplete:
-        lines.extend(["", "## 未完成或未验证", "", "| 用例 | 状态 | 说明 |", "| --- | --- | --- |"])
+        lines.extend(["", "## 未执行用例", "", "| 用例 | 状态 | 说明 |", "| --- | --- | --- |"])
         for group in incomplete:
             reasons = list(dict.fromkeys(item.get("note") or (item.get("result") or {}).get("reason") or "" for item in group["items"]))
             lines.append("| " + _text(group["definition"]["id"]) + " | " + task_markdown.LABELS[group["status"]] + " | " + _text("；".join(reasons)) + " |")

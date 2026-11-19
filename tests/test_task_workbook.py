@@ -69,7 +69,8 @@ class TaskWorkbookTests(unittest.TestCase):
         self.assertIn("点击搜索历史", row[5])
         self.assertEqual(row[6], case["expected"])
         self.assertEqual(row[7], "测试编制人甲")
-        self.assertIn("曾失败，后续通过", row[9])
+        self.assertEqual(row[9], "失败")
+        self.assertIn("曾失败，后续通过", row[12])
         self.assertIn("返回 0 条记录", row[8])
         self.assertIn("返回 2 条已保存记录", row[8])
         self.assertIsNone(row[10])
@@ -103,7 +104,7 @@ class TaskWorkbookTests(unittest.TestCase):
                 self.assertEqual(data, original)
                 book.close()
 
-    def test_cancel_receipts_do_not_invent_failures_or_erase_an_earlier_failure(self):
+    def test_cancel_receipts_distinguish_started_and_unstarted_targets(self):
         case = definition()
         cancelled = observation(case, "Cancelled", "run-cancelled")
         cancelled['result']['detail'].update(business_status='Unverified', execution_status='cancelled')
@@ -112,15 +113,14 @@ class TaskWorkbookTests(unittest.TestCase):
         unrun = {'definition': definition('TC-UI-NOT-STARTED'), 'result': None, 'run_id': 'run-cancelled', 'evidence_valid': False}
         data = snapshot([cancelled, unrun])
         _, rows, _ = self.render(data)
-        self.assertEqual([row[9] for row in rows], ['已取消', '未执行'])
+        self.assertEqual([row[9] for row in rows], ['失败', '未执行'])
         self.assertEqual(task_bugs.render(data, excel_link='report.xlsx')[1]['counts']['business'], 0)
         prior = observation(case, 'Fail', 'run-earlier-failure')
         cancelled['recording_result'] = {'status': 'Fail', 'actual': '原录制观察仍保留'}
         data = snapshot([prior, cancelled, unrun])
         _, rows, _ = self.render(data)
         self.assertEqual(rows[0][9], '失败')
-        self.assertIn('run-cancelled：已取消', rows[0][8])
-        self.assertNotIn('run-cancelled：失败', rows[0][8])
+        self.assertIn('run-cancelled：失败', rows[0][8])
         self.assertIn('原录制观察仍保留', rows[0][8])
         self.assertEqual(task_bugs.render(data, excel_link='report.xlsx')[1]['counts']['business'], 1)
 
@@ -132,7 +132,8 @@ class TaskWorkbookTests(unittest.TestCase):
         passed = {**observation(case, 'Pass', 'run-retest'), 'recording_result': recorded}
         data = snapshot([initial, failed, passed])
         book, rows, _ = self.render(data)
-        self.assertEqual(rows[0][9], '失败（曾失败，后续通过）')
+        self.assertEqual(rows[0][9], '失败')
+        self.assertIn('曾失败，后续通过', rows[0][12])
         self.assertIn('各轮结论：失败 → 失败 → 通过', rows[0][12])
         self.assertTrue(rows[0][8].startswith('run-first：失败'))
         self.assertIn('run-retest：通过', rows[0][8])
@@ -146,6 +147,17 @@ class TaskWorkbookTests(unittest.TestCase):
         bug_text, _ = task_bugs.render(data, excel_link='report.xlsx')
         self.assertIn('失败 → 失败 → 通过', bug_text)
 
+    def test_execution_only_pass_and_unstarted_target_match_across_workbook_sheets(self):
+        action = observation(definition("steps"))
+        action["result"]["detail"].update(business_status="Unverified", execution_only_pass=True)
+        skipped = observation(definition("skipped"), "Blocked")
+        skipped["result"]["detail"]["target_started"] = False
+        data = snapshot([action, skipped])
+        book, rows, _ = self.render(data)
+        self.assertEqual([row[9] for row in rows], ["通过", "未执行"])
+        self.assertEqual([row[3] for row in list(book["执行明细"].values)[1:]], ["通过", "未执行"])
+        self.assertEqual(task_report_data.task_summary(data)["counts"], {"Pass": 1, "NotRun": 1, "Fail": 0})
+
     def test_missing_facts_do_not_turn_observations_into_oracles(self):
         case = {"id": "native:case-a", "title": "未提供设计事实", "kind": "native", "assertions": [{"actual": "observed-answer"}]}
         item = observation(case, valid=False)
@@ -157,12 +169,11 @@ class TaskWorkbookTests(unittest.TestCase):
         self.assertIn("【待确认：有来源支持的预期结果】", rows[0][6])
         self.assertNotIn("observed-answer", rows[0][6])
         self.assertIn("待确认", rows[0][7])
-        self.assertEqual(rows[0][9], "业务未验证")
+        self.assertEqual(rows[0][9], "失败")
         self.assertEqual(rows[1][9], "失败")
         self.assertIn("recorded-failure", rows[1][8])
         summary = task_report_data.task_summary(data)
-        self.assertEqual(summary["counts"]["Unverified"], 1)
-        self.assertEqual(summary["counts"]["Fail"], 1)
+        self.assertEqual(summary["counts"]["Fail"], 2)
         self.assertIn("录制时已观察到断言失败", summary["issues"][1]["reason"])
 
     def test_multiline_input_and_wait_keep_step_expectation_mapping(self):
@@ -193,7 +204,7 @@ class TaskWorkbookTests(unittest.TestCase):
         frozen = "\n".join(str(row[1]) for row in book["来源与冻结定义"].iter_rows(min_row=2, values_only=True))
         self.assertIn("已发布", frozen)
 
-    def test_definition_changes_get_distinct_mapping_and_unknown_stays_unknown(self):
+    def test_definition_changes_get_distinct_mapping_and_unknown_result_fails(self):
         old = definition()
         new = copy.deepcopy(old)
         new["expected"] = "2. 展示已保存的三条历史记录。"
@@ -201,9 +212,9 @@ class TaskWorkbookTests(unittest.TestCase):
         book, rows, receipt = self.render(data)
         self.assertEqual(receipt["cases"], 2)
         self.assertEqual([row[0] for row in rows], ["FT-SSLS-001", "FT-SSLS-002"])
-        self.assertEqual(rows[1][9], "未知")
+        self.assertEqual(rows[1][9], "失败")
         self.assertNotEqual(book["编号映射"].cell(2, 3).value, book["编号映射"].cell(3, 3).value)
-        self.assertEqual(task_report_data.task_summary(data)["counts"]["Unknown"], 1)
+        self.assertEqual(task_report_data.task_summary(data)["counts"]["Fail"], 2)
 
     def test_thousand_cases_and_deep_real_hierarchy_are_not_restricted(self):
         items = []

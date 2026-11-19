@@ -17,17 +17,16 @@ export function returnToRuns() {
 
 export function resultConclusion(run) {
   const outcome = run.state?.outcome;
-  const label = ({ pass: '本次综合通过', fail: '本次综合失败', blocked: '本次受阻，尚未完成验证', unverified: '本次尚未验证通过',
-    cancelled: '本次已取消', pending: '本次正在等待结果' })[outcome] || '本次结果尚未确认';
+  const label = ({ pass: '本次综合通过', fail: '本次综合失败' })[outcome] || '本次未执行';
   const failedChecks = [['business', '业务'], ['performance', '性能目标'], ['quality', '回答质量']]
     .filter(([key]) => run.state?.checks?.[key] === 'fail').map(([, title]) => title + '未通过');
   return h('p', { class: outcome === 'fail' ? 'error' : 'sub', role: 'status' }, label,
     failedChecks.length ? ' · ' + failedChecks.join('、') : '',
-    ` · 用例汇总：${run.failed || 0} 失败、${run.blocked || 0} 阻塞、${run.unverified || 0} 未验证`);
+    ` · 用例汇总：${run.not_run || 0} 未执行、${run.passed || 0} 通过、${run.failed || 0} 失败`);
 }
 
 export function recoveryActions(run, row = run) {
-  if (row.state?.outcome !== 'blocked' && row.status !== 'Blocked') return null;
+  if (row.state?.phase !== 'blocked' && row.status !== 'Blocked') return null;
   const category = row.category;
   let text = '请根据上方原因补齐条件，再手动重新运行；本次记录会保留。';
   let action;
@@ -89,7 +88,7 @@ function rerunMessage(result, runIds, native, candidateId) {
     + (result.dropped ? `原记录中有 ${result.dropped} 条用例已不存在，本次跳过。` : '');
   if (native) return started + '沿用原资产版本和参数。';
   if (candidateId) return started + '使用本次候选版本；入队不等于验证通过或已入库。' + preparationMessage(result);
-  return started + '使用当前用例定义；尚未执行的目标不包含在“已记录未通过”范围内。';
+  return started + '使用当前用例定义。';
 }
 
 function rerunContext(result, native, candidateId) {
@@ -110,7 +109,7 @@ function rerunOptions(native, candidateId, { failedOnly, count, caseId }) {
   if (native) return { action: 'all', style: ' primary', label: '按原版本再次运行', payload: {} };
   if (caseId) return { action: 'case:' + caseId, style: ' sm', label: '只重跑这一条', payload: { case_id: caseId } };
   if (failedOnly) return { action: 'failed', style: ' primary', payload: { failed_only: true },
-    label: candidateId ? `再次验证已记录未通过的 ${count} 条候选` : `重跑已记录未通过的 ${count} 条` };
+    label: candidateId ? `再次验证失败的 ${count} 条候选` : `重跑失败的 ${count} 条` };
   return { action: 'all', style: '', payload: {}, label: candidateId ? '按本次候选版本再次验证' : '按当前用例重新运行' };
 }
 

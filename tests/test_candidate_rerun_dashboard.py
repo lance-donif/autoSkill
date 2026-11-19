@@ -126,7 +126,7 @@ class CandidateRerunDashboardTests(unittest.TestCase):
         expect(self.page.locator('#view')).to_contain_text('本次综合失败')
         self.target.passing = True
         with self.page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/rerun')) as response:
-            self.page.get_by_role('button', name='再次验证已记录未通过的 1 条候选', exact=True).click()
+            self.page.get_by_role('button', name='再次验证失败的 1 条候选', exact=True).click()
         created = response.value.json()
         self.assertEqual(response.value.status, 200, created)
         self.assertEqual(created['candidate_id'], self.candidate['id'])
@@ -146,7 +146,7 @@ class CandidateRerunDashboardTests(unittest.TestCase):
         self.assertEqual(current['publication']['published_ids'], ['API-UNPUBLISHED'])
         expect(self.page.locator('[aria-label="本批候选入库结果"]')).to_contain_text('本批候选已入库 1 条')
         expect(self.page.locator('[aria-label="本批候选入库结果"]')).to_contain_text('API-UNPUBLISHED')
-        expect(self.page.get_by_role('link', name='查看本项目可复用用例', exact=True)).to_have_attribute('href', '#/cases?projects=' + self.pid)
+        expect(self.page.get_by_role('link', name='查看本项目测试用例', exact=True)).to_have_attribute('href', '#/cases?projects=' + self.pid)
         expect(self.page.locator('#view')).not_to_contain_text('已加入执行队列')
         expect(self.page.locator('#view')).not_to_contain_text('入队不等于验证通过')
         self.assertEqual(len(self.rerun_requests), 1)
@@ -240,7 +240,7 @@ class CandidateRerunDashboardTests(unittest.TestCase):
         expect(self.page.locator('#view')).to_contain_text('本次综合失败')
         self.target.passing = True
         with self.page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/rerun')) as response:
-            self.page.get_by_role('button', name='再次验证已记录未通过的 1 条候选', exact=True).click()
+            self.page.get_by_role('button', name='再次验证失败的 1 条候选', exact=True).click()
         self.assertEqual(response.value.request.post_data_json, {'headed': False, 'failed_only': True})
         created = response.value.json()
         self.assertEqual(response.value.status, 200, created)

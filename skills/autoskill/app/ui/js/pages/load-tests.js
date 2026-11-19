@@ -90,7 +90,7 @@ function loadEditor(options, picked, missing) {
 
 function casePicker(options, picked, update) {
   const box = h('div', { class: 'case-pick load-case-pick' });
-  if (!options.items.length) return h('p', { class: 'sub' }, '还没有用例，请先到「项目与用例」录制或导入。');
+  if (!options.items.length) return h('p', { class: 'sub' }, '请先在 DSH 对话中录制用例。');
   for (const project of options.projects) {
     const items = options.items.filter((item) => item.project_id === project.id);
     if (!items.length) continue;
@@ -126,13 +126,12 @@ async function history(view) {
       h('td', {}, h('a', { class: 'title', href: href('load-tests/' + run.id) }, run.project_name), h('div', { class: 'sub mono' }, run.id)),
       h('td', { class: 'sub' }, `${run.load.concurrency} 并发 · ${run.load.iterations} 次迭代`),
       h('td', { class: 'num' }, `${run.done} / ${run.total}`),
-      h('td', { class: 'sub' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞 · ${run.unverified || 0} 未验证`),
+      h('td', { class: 'sub' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.not_run || 0} 未执行`),
       h('td', { class: 'sub num' }, fmtTime(run.created_at)),
       h('td', { class: 'actions' }, h('a', { class: 'btn sm', href: href('load-tests/' + run.id) }, '查看结果')))))))
     : empty({ glyph: 'sliders', title: '还没有压测记录', text: '选择已有的页面或接口用例，配置并发数和迭代次数后开始压测。',
       actions: h('button', { class: 'btn primary', onClick: start }, icon('plus'), '新建压测') });
-  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '压测'),
-    h('p', { class: 'sub' }, '复用已有用例，观察并发负载下的业务结果和执行耗时。')),
+  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '压测')),
   h('button', { class: 'btn primary', onClick: start }, icon('plus'), '新建压测')),
   h('section', { class: 'card' }, body, historyPager(data.total, offset)));
 }
@@ -190,9 +189,7 @@ function reportSummary(run, action, download) {
       h('div', { class: 'row sub' }, h('span', { class: 'grow' }, active(run) ? (run.current || '准备执行') : '执行结束'),
         h('span', { class: 'num' }, `${run.done} / ${run.total} 条次`))),
     stateDetails(run),
-    h('div', { class: 'stats' }, stat('综合通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'),
-      stat('未验证', run.unverified || 0),
-      stat('尚未执行', Math.max(0, run.total - run.done))),
+    h('div', { class: 'stats' }, stat('未执行', run.not_run || 0), stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail')),
     run.reason && h('div', { class: 'banner bad', style: 'margin-top:16px', role: 'alert' }, icon('warn'), run.reason)));
 }
 
@@ -205,12 +202,12 @@ function metricCards(run) {
   const timing = (key) => m.latency_samples ? number(m[key]) + ' ms' : '—';
   const metric = (label, value, note) => h('div', { class: 'card load-metric' }, h('div', { class: 'kpi-label' }, label, definition(note)), h('div', { class: 'load-metric-value num' }, value));
   return h('section', { class: 'stack', 'aria-label': '压测指标' }, h('div', { class: 'load-metrics' },
-    metric('用例吞吐量', run.done ? number(m.throughput_per_second) + ' 用例/秒' : '—', '已完成目标用例条次 ÷ 实际墙钟耗时，包含失败与阻塞，不含前置；这是用例吞吐量，不是 HTTP QPS。'),
-    metric('失败与阻塞率', run.done ? fmtPercent(m.error_rate) : '—', '（失败条次 + 阻塞条次）÷ 已完成目标用例条次；尚未执行的数量单独展示。'),
+    metric('用例吞吐量', run.done ? number(m.throughput_per_second) + ' 用例/秒' : '—', '已完成目标用例条次 ÷ 实际墙钟耗时，不含前置；这是用例吞吐量，不是 HTTP QPS。'),
+    metric('失败率', fmtPercent(m.error_rate), '失败条次 ÷ 已完成目标用例条次。'),
     metric('P50', timing('p50_ms'), '真正执行的目标用例耗时第 50 百分位；前置阻塞等未发起的目标不计入延迟样本。'),
     metric('P95', timing('p95_ms'), '真正执行的目标用例耗时第 95 百分位；页面用例包含整个页面场景耗时。'),
     metric('P99', timing('p99_ms'), '真正执行的目标用例耗时第 99 百分位，单位为毫秒。')),
-  h('p', { class: 'sub' }, `延迟样本 ${fmtNumber(m.latency_samples || 0)} 条 · 接口请求发送 ${fmtNumber(m.request_count || 0)} 次（含前置，不统计页面内部请求）。执行通过仍需结合业务断言判断。`));
+  h('p', { class: 'sub' }, `延迟样本 ${fmtNumber(m.latency_samples || 0)} 条 · 接口请求发送 ${fmtNumber(m.request_count || 0)} 次（含前置，不统计页面内部请求）。`));
 }
 
 function resultTable(run) {
@@ -220,7 +217,7 @@ function resultTable(run) {
   rows.length ? h('div', { class: 'load-table-wrap' }, h('table', { class: 'table' },
     h('thead', {}, h('tr', {}, ['结果', '用例', '用户 / 迭代', '耗时', '详情'].map((text) => h('th', {}, text)))),
     h('tbody', {}, rows.map((row) => h('tr', {},
-      h('td', {}, primaryState(row), stateResults(row)),
+      h('td', {}, stateResults(row)),
       h('td', {}, h('div', { class: 'title' }, row.case_title, row.prerequisite ? h('span', { class: 'tag' }, '前置') : null),
         h('div', { class: 'sub mono' }, row.case_id)),
       h('td', { class: 'num' }, `${row.detail.load_user} / ${row.detail.load_iteration}`),

@@ -15,7 +15,7 @@
 
 普通录制会把 UI 与 API 候选分别安排验证。API 使用冷的 HTTP 会话，不借用浏览器 Cookie 或已保存登录；认证、提取变量、创建/查询/修改/删除的数据依赖须通过接口依赖图自理。使用 `run <项目> --candidate <候选ID> --api-only --inputs <运行参数文件>` 可主动验证指定候选和不同输入；运行参数由你准备，`{{RAND}}` 每次生成，不能以旧响应中的固定资源 ID 冒充可复用数据链。
 
-HAR 候选只有 observation 预期时，首次 API 未验证不是任务终点。由你读取原需求、已交付用例表和接口资料，保留录制请求作为技术依据，使用已有 `workflow start` → `workflow next` / `workflow submit` 继续一份纯 API 验证：提交来源、需求、场景和 `kind: api` 的独立 oracle，再在 materialize 提交登录、造数、业务校验、清理的 API 候选、依赖提取与场景 bindings。沿用原设计任务的 `--session`，从 `plan show` 选中设计行，将该行的 **`execution_source` 原样复制到 `extensions.test_case_document.source`**，功能描述、前置、步骤和预期也取自同一行；不能只写 Excel 路径和行编号。按[执行文档的接口补全示例](workflow/execution.md)核对公开的绑定、执行及发布回执，再确认原 `task_id`、原 `delivery_excel` 的对应行已经回填；失败未入库也要保留在原表中。这些数据由你准备，不让用户填 JSON 或重新调用技能；原 candidate 包及失败报告不改写。只有需求或认证确实无法确定时说明具体缺口，不能仅改 observation 标签、照抄错误响应或省略数据依赖来声称已生成可复用接口。
+HAR 候选只有 observation 预期时，首次 API 回放只核对录制时的观测值。由你读取原需求、已交付用例表和接口资料，保留录制请求作为技术依据，使用已有 `workflow start` → `workflow next` / `workflow submit` 继续一份纯 API 验证：提交来源、需求、场景和 `kind: api` 的独立 oracle，再在 materialize 提交登录、造数、业务校验、清理的 API 候选、依赖提取与场景 bindings。沿用原设计任务的 `--session`，从 `plan show` 选中设计行，将该行的 **`execution_source` 原样复制到 `extensions.test_case_document.source`**，功能描述、前置、步骤和预期也取自同一行；不能只写 Excel 路径和行编号。按[执行文档的接口补全示例](workflow/execution.md)核对公开的绑定、执行及发布回执，再确认原 `task_id`、原 `delivery_excel` 的对应行已经回填；失败未入库也要保留在原表中。这些数据由你准备，不让用户填 JSON 或重新调用技能；原 candidate 包及失败报告不改写。只有需求或认证确实无法确定时说明具体缺口，不能仅改 observation 标签、照抄错误响应或省略数据依赖来声称已生成可复用接口。
 
 接口只返回受理状态时，可由有来源的 API 后置用例检查真实业务结果；用 `extensions.postconditions` 显式关联，后置通过 `depends_on` 追溯原动作，单选动作也会实际执行后置。全部后置在同一运行通过后才形成动作的业务 Pass 与完整发布集合；后置失败不能用受理状态掩盖。字段与示例见[执行文档](workflow/execution.md#显式后置检查删除已受理不等于业务已完成)。
 
@@ -40,7 +40,7 @@ autoskill import <分享包>                     # 导入别人给的分享包
 autoskill dashboard                           # 仪表盘（给人看；会一直运行，放后台启动或请用户运行）
 ```
 
-结果需区分执行和业务验证：独立业务断言全部成立才是业务 Pass；实际与独立预期不符是 Fail；前置没过、缺凭据、地址不可达记 Blocked。只有动作或观测基线的执行即使显示 Pass，业务仍为 Unverified。阻塞、取消、未验证不能当业务通过；最后成功不能覆盖前面已证实的失败，未真正回放也不能说成通过。
+目标步骤全部完成、已配置检查通过且执行记录完整时，用例结果为通过。未配置业务断言时，按步骤执行结果判定。目标开始前取消或受阻记为未执行，开始后中断、检查失败或执行证据缺失记为失败。
 
 ### 删除用例与执行记录
 
@@ -52,7 +52,7 @@ autoskill dashboard                           # 仪表盘（给人看；会一�
 
 用户提供已有用例时，先核对真实来源、步骤、预期和范围，再由你读取为本任务设计，不要求用户重新填表或再次调用技能。`plan write` 返回的 `delivery_excel` 才是正式交付文件；默认表在数据根的 `.local/case-plans/default/autoskill-cases`，命名会话各有独立目录，以返回路径为准。`AUTOSKILL_CASE_SKILL` 仍可指定兼容表目录。
 
-保持同一任务设计完整。录制结束使用 `--plan` 绑定行；未入库的失败候选也通过冻结身份和实际运行回填，不用当前案例库是否有该案例推断是否执行。`plan mark <编号> 阻塞 --note <实际原因>` 可记下无法继续的原因；手填“通过”不是执行证据。需求确实改变时保存新设计和新验证，原任务的初始 Excel、历史失败与报告继续保留。
+保持同一任务设计完整。录制结束使用 `--plan` 绑定行；未入库的失败候选也通过冻结身份和实际运行回填，不用当前案例库是否有该案例推断是否执行。`plan mark <编号> 未执行 --note <实际原因>` 可记下无法继续的原因；手填“通过”不是执行证据。需求确实改变时保存新设计和新验证，原任务的初始 Excel、历史失败与报告继续保留。
 
 项目知识先从 `context`、`knowledge list/read` 按需读取（业务规则、角色、测试数据、历史缺陷）；工作流中通过 knowledge 阶段提交关联来源与证据的事实，形成可追溯版本。旧项目 `knowledge/*.md` 继续作为兼容资料读取。只记录确认过的事实，不把密码写入说明文档。
 

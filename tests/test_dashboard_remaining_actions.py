@@ -146,9 +146,9 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         original = self.wait_run(original_id)
         self.assertEqual((original["status"], original["total"], original["passed"], original["failed"]), ("Fail", 5, 4, 1), original)
         self.assertEqual({row["case_id"] for row in original["results"] if not row["prerequisite"]}, {"TC-BEGIN", "TC-CHECK", "TC-SLOW", "TC-CHANGING", "TC-UI"})
-        expect(self.page.get_by_role("button", name="重跑已记录未通过的 1 条", exact=True)).to_be_visible(timeout=15000)
+        expect(self.page.get_by_role("button", name="重跑失败的 1 条", exact=True)).to_be_visible(timeout=15000)
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/rerun")) as retried:
-            self.page.get_by_role("button", name="重跑已记录未通过的 1 条", exact=True).click()
+            self.page.get_by_role("button", name="重跑失败的 1 条", exact=True).click()
         self.assertEqual(retried.value.status, 200, retried.value.text())
         repeated = self.wait_run(retried.value.json()["id"])
         self.assertEqual((repeated["status"], repeated["total"], repeated["passed"]), ("Pass", 1, 1), repeated)

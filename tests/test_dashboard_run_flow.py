@@ -64,7 +64,7 @@ class RunFlowDashboardTests(DashboardWorkspace):
         retry = reply.json()["id"]
         self.assertNotEqual(retry, run_id)
         expect(self.page).to_have_url(re.compile("/runs/" + retry))
-        expect(self.page.get_by_role("link", name="查看首条未通过结果", exact=True)).to_have_attribute("href", re.compile("/runs/" + retry))
+        expect(self.page.get_by_role("link", name="查看首条失败结果", exact=True)).to_have_attribute("href", re.compile("/runs/" + retry))
         expect(self.page.locator('#view').get_by_text("本次综合失败", exact=False)).to_be_visible()
         replayed = self.client.get("/api/runs/" + retry).json()
         self.assertEqual((replayed["session_id"], replayed["case_ids"]), ("live-report", [case["id"]]))

@@ -256,7 +256,7 @@ class TaskReportTests(unittest.TestCase):
         (folder / report["path"]).write_bytes(original + b" ")
         changed = task_report_data.run_snapshot(run)
         self.assertFalse(changed["cases"][0]["evidence_valid"])
-        self.assertEqual(task_report_data.case_verdict(changed["cases"][0]), "Unverified")
+        self.assertEqual(task_report_data.case_verdict(changed["cases"][0]), "Fail")
         (folder / report["path"]).write_bytes(original)
         outcome["evidence"] = [reference["path"] for reference in outcome["evidence"]]
         outcome_path.write_text(json.dumps(outcome), encoding="utf-8")
@@ -398,7 +398,7 @@ with deletion.execution_guard(sys.argv[1]):
             result = session.stop("Saved recording")
         rows = self.rows(self.workbook(result["test_report"]))
         self.assertEqual([row["用例编号"] for row in rows], [result["ui_case"]["id"]])
-        self.assertEqual(rows[0]["本次结果"], "业务未验证")
+        self.assertEqual(rows[0]["本次结果"], "未执行")
         self.assertTrue(result["candidate_id"])
         self.assertEqual(db.one("SELECT COUNT(*) n FROM runs")["n"], len(result["run_ids"]))
         self.assertFalse(any(case["id"] == result["ui_case"]["id"] for case in projects.cases(self.pid)))

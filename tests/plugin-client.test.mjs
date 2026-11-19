@@ -461,7 +461,7 @@ test('unloading aborts pending writes and never leaves polling or completion not
 
 test('inline state axes retain the failed SLA and invalid evidence independently of delivery', () => {
   const app = harness();
-  const data = { id: 'run-a', status: 'Running', conclusion: 'satisfied', state: {
+  const data = { id: 'run-a', status: 'Running', conclusion: 'satisfied', state_counts: { pass: 1, fail: 1, not_run: 2 }, state: {
     lifecycle: 'completed', phase: 'settled', outcome: 'fail',
     checks: { business: 'pass', performance: 'fail', quality: 'unverified' }, evidence: 'invalid', report: 'failed', delivery: 'delivered',
     scope: { historical: true, cycle_id: 'cycle-old', current_cycle_id: 'cycle-current' },
@@ -470,7 +470,7 @@ test('inline state axes retain the failed SLA and invalid evidence independently
     content: [{ type: 'text', text: JSON.stringify(wire(data, { identity: { host_session_id: 'session-a', run_id: 'run-a' } })) }],
   } });
   const rendered = text(view);
-  for (const fact of ['当前阶段：已结束', '综合结果：失败', '业务验证：通过', '性能：失败', '质量：未验证',
+  for (const fact of ['当前阶段：已结束', '综合结果：失败', '业务验证：通过', '性能：失败', '质量：未验证', '用例结果：通过 1 · 失败 1 · 未执行 2',
     '证据：已失效', '报告：失败', '投递：已送达', '历史周期：cycle-old', '当前周期：cycle-current']) assert.ok(rendered.includes(fact), fact);
   assert.doesNotMatch(rendered, /业务验证：符合预期/);
   assert.equal(nodes(view, (node) => node.tag === 'button' && text(node) === '取消执行').length, 0);

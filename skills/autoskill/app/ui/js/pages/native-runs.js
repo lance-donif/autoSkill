@@ -12,10 +12,9 @@ const issueResults = new Map();
 const pendingDetails = new WeakMap();
 const evidenceFiles = new Map();
 const show = (value) => value == null ? '—' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-const quality = (value) => ({ Pass: '业务通过', Fail: '业务失败', Unverified: '业务未验证' })[value] || '业务未验证';
 const names = {
   planned_cases: '计划对话数', completed_cases: '完成对话数', quality_passed: '质量通过数', quality_pass_rate: '质量通过率',
-  failed_cases: '失败对话数', blocked_cases: '阻塞对话数', cancelled_cases: '取消对话数', sent_turns: '已发送轮次',
+  failed_cases: '失败对话数', not_run_cases: '未执行对话数', sent_turns: '已发送轮次',
   concurrency: '并发会话数', elapsed_ms: '总耗时（ms）', throughput_turns_per_second: '吞吐（轮/秒）',
   p50_ms: 'P50 耗时（ms）', p95_ms: 'P95 耗时（ms）', p99_ms: 'P99 耗时（ms）', samples: '采样数', failed_samples: '失败采样数',
   elapsed_seconds: '总耗时（秒）', throughput_per_second: '吞吐（采样/秒）', max_threads: '最大线程数', error_rate: '错误率',
@@ -73,15 +72,15 @@ function issuesPanel(run) {
   const button = h('button', { class: 'btn', disabled: entry?.loading, onClick: async () => {
     issueResults.set(run.id, { loading: true }); refresh();
     try {
-      const rows = (await allSummaries(run.id)).filter((row) => row.state?.outcome !== 'pass');
+      const rows = (await allSummaries(run.id)).filter((row) => row.state?.outcome === 'fail');
       issueResults.set(run.id, { rows });
     } catch (error) { issueResults.set(run.id, { error: error.message }); }
     refresh();
-  } }, entry?.loading ? '正在查找本次问题结果…' : '查看本次所有未通过结果');
+  } }, entry?.loading ? '正在查找本次问题结果…' : '查看本次所有失败结果');
   return h('div', { class: 'stack' }, button,
     entry?.error && h('p', { class: 'error', role: 'status' }, entry.error),
-    entry?.rows && h('div', { class: 'stack', 'aria-label': '本次未通过结果' },
-      h('p', { class: 'sub' }, `共 ${entry.rows.length} 条已记录的未通过结果；未执行目标没有结果记录。`),
+    entry?.rows && h('div', { class: 'stack', 'aria-label': '本次失败结果' },
+      h('p', { class: 'sub' }, `共 ${entry.rows.length} 条失败结果。`),
       entry.rows.map((row) => h('a', { class: 'card-link', href: href('native-runs/' + run.id, { ...Object.fromEntries(route().params), case: 'result:' + row.id }) },
         row.case_title, ' · ', stateResults(row), row.state?.reason || ''))));
 }
@@ -151,7 +150,7 @@ function checksTable(checks, title) {
 
 function turnBody(turn) {
   return h('section', { class: 'stack', style: 'gap:12px' },
-    h('div', { class: 'row wrap' }, h('h3', {}, `第 ${turn.turn} 轮`), statusPill(turn.status), h('span', { class: 'tag' }, quality(turn.business_status))),
+    h('div', { class: 'row wrap' }, h('h3', {}, `第 ${turn.turn} 轮`), ['Pass', 'Fail', 'NotRun'].includes(turn.status) && statusPill(turn.status)),
     h('div', {}, h('div', { class: 'sub' }, '问题'), h('pre', { class: 'code' }, show(turn.question))),
     h('div', {}, h('div', { class: 'sub' }, '实际回答'), h('pre', { class: 'code' }, show(turn.answer))),
     turn.reason && h('p', { class: 'error' }, turn.reason),
@@ -182,7 +181,7 @@ function caseRow(run, row, initial = null) {
     body.hidden = !open;
     button.setAttribute('aria-expanded', String(open));
     if (open && !loaded) load();
-  } }, icon('right', 'icon-svg caret'), primaryState(row),
+  } }, icon('right', 'icon-svg caret'),
   h('span', { class: 'grow' }, h('b', {}, row.case_title), h('span', { class: 'sub mono' }, '　' + row.case_id),
     stateResults(row), row.state?.outcome !== 'pass' && h('span', { class: 'sub' }, row.state?.reason || '展开查看实际结果与未通过原因')),
   h('span', { class: 'sub' }, `${row.turn_count || 0} 轮 · ${fmtDuration(row.duration_ms)}`));

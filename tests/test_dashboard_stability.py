@@ -27,31 +27,23 @@ class DashboardStabilityTests(unittest.TestCase):
         if query.get("status") == ["active"]:
             return {"total": 0, "items": []}
         status = query.get("status", ["Fail"])[0]
-        if status == "NotPassed":
-            status = "Fail"
         record = self.result if path == "/api/results" else self.run
-        count = 1 if query.get("current") else 4
-        state = {"lifecycle": "completed", "phase": "blocked" if status == "Blocked" else "settled", "outcome": status.lower(),
+        count = 1 if query.get("current") == ["true"] else 6
+        state = {"lifecycle": "completed", "phase": "settled", "outcome": "not_run" if status == "NotRun" else status.lower(),
                  "checks": {"business": "fail" if status == "Fail" else "unverified", "performance": "not_applicable", "quality": "not_applicable"},
                  "evidence": "valid", "report": "not_generated", "delivery": "not_applicable"}
-        return {"total": count, "items": [{**record, "id": f"run-{status}-{i}", "status": status, "history_status": "Pass" if status == "Pass" else "NotPassed",
+        return {"total": count, "items": [{**record, "id": f"run-{status}-{i}", "status": status, "history_status": status,
                                             "state": state, "case_title": f"{status} case {i}", "reason": status} for i in range(count)]}
 
     def dashboard_response(self, query):
-        current = query.get("current") == ["true"]
-        failed = self.history_response("/api/results", {**query, "status": ["Fail"]})
-        if current:
-            failures = failed
-        else:
-            blocked = self.history_response("/api/results", {**query, "status": ["Blocked"]})
-            failures = {"total": failed["total"] + blocked["total"], "items": (failed["items"] + blocked["items"])[:6]}
+        failures = self.history_response("/api/results", {**query, "status": ["Fail"]})
         return {"summary": self.summary_response(), "recent": self.history_response("/api/runs", query), "failures": failures}
 
     def summary_response(self):
-        return {"results": {"executions": 8, "passed": 0, "failed": 4, "blocked": 4, "still_failing": 1},
+        return {"results": {"executions": 8, "passed": 0, "failed": 6, "not_run": 2, "still_failing": 1},
                 "cases": {"total": 1, "ui": 1, "api": 0, "added": 0},
                 "runs": {"total": 4, "scheduled": 0, "active": 0},
-                "trend": {"unit": "day", "points": [{"bucket": "2026-11-12", "passed": 0, "failed": 4, "blocked": 4, "pass_rate": 0}]},
+                "trend": {"unit": "day", "points": [{"bucket": "2026-11-12", "passed": 0, "failed": 6, "not_run": 2, "pass_rate": 0}]},
                 "tasks": {"total": 0, "enabled": 0, "paused": 0, "fired_in_range": 0, "tasks": []}}
 
     def api_response(self, request, path, query):
@@ -110,12 +102,12 @@ class DashboardStabilityTests(unittest.TestCase):
         self.assert_regions_unchanged()
         self.assertEqual(sum(path == "/api/dashboard" for path, _ in self.requests), bundles + 2)
 
-    def test_binary_history_filters_keep_controls_and_back_navigation(self):
+    def test_three_history_filters_keep_controls_and_back_navigation(self):
         self.page.goto("http://127.0.0.1:8787/#/runs?view=results&range=all")
         choices = self.page.get_by_role("group", name="用例结果", exact=True)
-        expect(choices.get_by_role("button")).to_have_count(2)
+        expect(choices.get_by_role("button")).to_have_count(3)
         self.remember_regions(["#side", "#scope", "#view .page-head", "#view .toolbar", "#view section.card"])
-        for status, name, title in (("Pass", "通过", "Pass case"), ("NotPassed", "不通过", "Fail case")):
+        for status, name, title in (("NotRun", "未执行", "NotRun case"), ("Pass", "通过", "Pass case"), ("Fail", "失败", "Fail case")):
             button = choices.get_by_role("button", name=name, exact=True)
             button.click()
             expect(self.page.locator("#view .table tbody tr").first).to_contain_text(title)
@@ -147,9 +139,9 @@ class DashboardStabilityTests(unittest.TestCase):
         choices.get_by_role("button", name="通过", exact=True).click()
         expect(self.page.locator("#view")).to_have_attribute("aria-busy", "true")
         self.assert_regions_unchanged()
-        choices.get_by_role("button", name="不通过", exact=True).click()
+        choices.get_by_role("button", name="失败", exact=True).click()
         expect(self.page.locator("#view .table tbody tr").first).to_contain_text("Fail case")
-        expect(choices.get_by_role("button", name="不通过", exact=True)).to_have_attribute("aria-pressed", "true")
+        expect(choices.get_by_role("button", name="失败", exact=True)).to_have_attribute("aria-pressed", "true")
         self.page.wait_for_function("document.getElementById('view').getAttribute('aria-busy') !== 'true'")
         self.assert_regions_unchanged()
 
@@ -174,8 +166,8 @@ class DashboardStabilityTests(unittest.TestCase):
         toolbar = self.page.locator('[data-history-region="toolbar"]')
         rows = self.page.locator("#view tbody tr:visible")
         passed = toolbar.get_by_role("button", name="通过", exact=True)
-        other = toolbar.get_by_role("button", name="不通过", exact=True)
-        expect(toolbar.get_by_role("group", name="运行状态").get_by_role("button")).to_have_count(2)
+        other = toolbar.get_by_role("button", name="失败", exact=True)
+        expect(toolbar.get_by_role("group", name="运行状态").get_by_role("button")).to_have_count(3)
         expect(toolbar.get_by_text("周期", exact=True)).to_have_count(0)
         expect(rows).to_have_count(3)
         passed.click()
@@ -197,12 +189,14 @@ class DashboardStabilityTests(unittest.TestCase):
         expect(passed).to_have_attribute("aria-pressed", "true")
         expect(rows).to_have_count(2)
         other.click()
-        expect(rows.locator("td:first-child .status")).to_have_text(["不通过", "不通过"])
+        expect(rows.locator("td:first-child .status")).to_have_text(["失败"])
         other.click()
         expect(rows).to_have_count(4)
         self.page.go_back()
         expect(other).to_have_attribute("aria-pressed", "true")
-        expect(rows).to_have_count(2)
+        expect(rows).to_have_count(1)
+        toolbar.get_by_role("button", name="未执行", exact=True).click()
+        expect(rows.locator("td:first-child .status")).to_have_text(["未执行"])
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
         self.assertEqual(errors, [])
         self.assertFalse(any(kind in ("fetch", "xhr") or "/api/" in url for kind, url in requests))

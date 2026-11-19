@@ -1,7 +1,7 @@
 """One read-only projection of execution, checks, evidence and delivery state.
 
 Stored verdicts remain historical facts. A current projection cannot claim a
-verified pass when its evidence is unavailable or its business checks are absent.
+pass when the configured steps or their execution records are incomplete.
 """
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ from functools import wraps
 from pathlib import Path
 
 from . import data_refs, db, execution_inputs, paging, paths
+
+CASE_STATUS = {"pass": "Pass", "fail": "Fail", "not_run": "NotRun"}
 
 _lock = threading.RLock()
 _watched: dict[str, set[Path]] = {}
@@ -160,10 +162,10 @@ def current_result(project_id: str, case: dict | None, row: dict, *, connection=
     """Qualify current case validation without rewriting its historical run verdict."""
     historical = result(row, connection=connection)
     watch_current(project_id)
-    current = bool(case) and execution_inputs.result_current(project_id, case, row)
+    current = bool(case) and execution_inputs.result_scope_current(project_id, case, row)
     value = {**historical, "current": current, "historical_outcome": historical["outcome"]}
-    if not current and value["outcome"] == "pass":
-        value.update(outcome="unverified", reason="当前用例、依赖或执行配置已变化；历史执行事实保留")
+    if not current:
+        value.update(outcome="not_run", reason="当前用例、依赖或执行配置已变化；历史执行事实保留")
     value["revision"] = paging.revision({key: item for key, item in value.items() if key != "revision"})
     return value
 
@@ -267,6 +269,46 @@ def _evidence(run_row: dict, row: dict, detail: dict) -> bool:
         return False
 
 
+def case_outcome(row: dict, detail: dict, *, evidence_valid: bool) -> str:
+    """Classify a target case independently of the surrounding task lifecycle."""
+    status = str(row.get("status") or "").lower()
+    assertions = _object_rows(detail.get("assertions")) + _object_rows(detail.get("performance_assertions"))
+    for turn in _object_rows(detail.get("turns")):
+        assertions.extend(_object_rows(turn.get("performance_assertions")))
+    attempts = _object_rows(detail.get("attempts"))
+    if (any(item.get("passed") is False for item in assertions)
+            or any(item.get("business_status") == "Fail" or item.get("performance_status") == "Fail" for item in attempts)
+            or any(detail.get(key) == "Fail" for key in ("business_status", "performance_status", "quality_status"))):
+        return "fail"
+    if status in ("notrun", "not_run", "queued", "pending"):
+        return "not_run"
+    if status in ("blocked", "cancelled", "canceled", "skipped"):
+        started = detail.get("target_started")
+        if started is None:
+            # Older adapters may record a synthetic start time even for skipped prerequisites.
+            steps = _object_rows(detail.get("steps"))
+            setup = _object_rows(detail.get("setup_cases"))
+            started = bool(len(steps) > len(setup) or detail.get("request")
+                           or detail.get("response") or detail.get("turns") or detail.get("assertions")
+                           or (not setup and (detail.get("duration_ms") or row.get("duration_ms"))))
+        return "fail" if started else "not_run"
+    if status != "pass" or not evidence_valid or (detail.get("business_status") != "Pass" and detail.get("execution_only_pass") is not True):
+        return "fail"
+    return "pass"
+
+
+def attempt_outcome(reference: dict, *, evidence_valid: bool = True) -> str:
+    """Use the pinned receipt to distinguish unstarted targets from interrupted target execution."""
+    try:
+        receipt = watch_json(_resolve(reference["path"]))
+        if execution_inputs.content_hash(receipt) != reference["sha256"]:
+            return "fail"
+        record = receipt["outcome"]
+        return case_outcome(record, record, evidence_valid=evidence_valid)
+    except (KeyError, OSError, TypeError, ValueError):
+        return "fail"
+
+
 def result_verdict(row: dict, run_row: dict | None, detail=None) -> dict:
     """Evaluate the business, performance and evidence axes without opening delivery reports."""
     details = _json(row.get("detail") if detail is None else detail)
@@ -302,14 +344,9 @@ def result_verdict(row: dict, run_row: dict | None, detail=None) -> dict:
     phase = "blocked" if blocked else "cancelled" if status == "cancelled" else "settled"
     evidence = "valid" if run_row and run_row.get("input_manifest") and _evidence(run_row, row, details) else "invalid"
     checks = {"business": business, "performance": performance, "quality": quality}
-    if status == "fail" or "fail" in checks.values():
+    outcome = case_outcome(row, details, evidence_valid=evidence == "valid")
+    if "fail" in checks.values():
         outcome = "fail"
-    elif blocked:
-        outcome = "blocked"
-    elif lifecycle == "cancelled":
-        outcome = "cancelled"
-    else:
-        outcome = "pass" if business == "pass" and evidence == "valid" else "unverified"
     return {"lifecycle": lifecycle, "phase": phase, "outcome": outcome, "checks": checks, "evidence": evidence,
             "last_attempt_outcome": _axis(details.get("last_attempt_status"), default=status)}
 
@@ -342,17 +379,15 @@ def run_verdict(row: dict, states: list[dict]) -> dict:
     if unfinished:
         checks = {key: "unverified" if value == "pass" else value for key, value in checks.items()}
     evidence = "invalid" if any(value["evidence"] == "invalid" for value in states) else "valid" if states and not unfinished else "unverified"
-    failed = stored == "fail" or any(value["outcome"] == "fail" for value in states)
-    if failed:
+    outcomes = {value["outcome"] for value in states}
+    if stored == "fail" or "fail" in outcomes:
         outcome = "fail"
-    elif lifecycle in ("pending", "active"):
-        outcome = "pending"
-    elif lifecycle == "cancelled":
-        outcome = "cancelled"
-    elif stored == "blocked" or any(value["outcome"] == "blocked" for value in states):
-        outcome = "blocked"
+    elif lifecycle in ("pending", "active") or not outcomes or outcomes == {"not_run"}:
+        outcome = "not_run"
+    elif not unfinished and outcomes == {"pass"} and evidence == "valid":
+        outcome = "pass"
     else:
-        outcome = "pass" if checks["business"] == "pass" and evidence == "valid" else "unverified"
+        outcome = "fail"
     return {"lifecycle": lifecycle, "phase": phase, "outcome": outcome, "checks": checks, "evidence": evidence}
 
 
@@ -386,8 +421,8 @@ def counts(states: list[dict]) -> dict:
     judged = outcomes["pass"] + outcomes["fail"]
     return {"passed": outcomes["pass"], "failed": outcomes["fail"], "blocked": outcomes["blocked"],
             "unverified": outcomes["unverified"], "cancelled": outcomes["cancelled"], "pending": outcomes["pending"],
-            "judged": judged, "pass_rate": round(outcomes["pass"] / judged, 4) if judged else None,
-            "state_counts": {key: outcomes[key] for key in ("pass", "fail", "blocked", "unverified", "cancelled", "pending")}}
+            "not_run": outcomes["not_run"], "judged": judged, "pass_rate": round(outcomes["pass"] / judged, 4) if judged else None,
+            "state_counts": {key: outcomes[key] for key in ("pass", "fail", "not_run")}}
 
 
 @_projected
@@ -401,9 +436,8 @@ def run_values(row: dict, *, results=None, result_states=None, connection=None) 
     state = run(row, result_states=states, connection=connection)
     totals = counts(states)
     missing = max(0, max(row.get("total", 0), row.get("done", 0)) - len(states))
-    key = "pending" if state["lifecycle"] in ("pending", "active") else "cancelled" if state["lifecycle"] == "cancelled" else "unverified"
-    totals[key] += missing
-    totals["state_counts"][key] += missing
+    totals["not_run"] += missing
+    totals["state_counts"]["not_run"] += missing
     return {**row, **totals, "state": state,
             "recorded_counts": dict(row.get("recorded_counts") or {name: row.get(name, 0) for name in ("passed", "failed", "blocked")})}
 
@@ -435,12 +469,12 @@ def _workflow(summary: dict, connection) -> dict:
     failed = any(value["outcome"] == "fail" for value in states) or summary.get("conclusion") in ("violated", "mixed")
     if failed:
         outcome = "fail"
-    elif lifecycle == "cancelled":
-        outcome = "cancelled"
-    elif lifecycle != "completed":
-        outcome = "pending"
+    elif not states or all(value["outcome"] == "not_run" for value in states):
+        outcome = "not_run"
+    elif lifecycle == "completed" and all(value["outcome"] == "pass" for value in states) and evidence == "valid":
+        outcome = "pass"
     else:
-        outcome = "pass" if checks["business"] == "pass" and evidence == "valid" else "unverified"
+        outcome = "fail" if lifecycle in ("completed", "cancelled") else "not_run"
     from . import task_reports
 
     report_id = task_reports.workflow_report_id(identity, summary.get("cycle_id"), connection=connection)

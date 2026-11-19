@@ -44,9 +44,9 @@ class TaskMarkdownSummaryTests(unittest.TestCase):
                           observation("E", "Pass", valid=False), observation("F", "Cancelled")]
         text, summary = task_markdown.render(value, excel_link="cases.xlsx")
         self.assertEqual((summary["cases"], summary["execution_rows"]), (6, 7))
-        self.assertEqual(summary["counts"], {"Pass": 0, "Fail": 1, "Blocked": 1, "Cancelled": 1, "Unverified": 1, "NotRun": 1, "Unknown": 1})
-        for label in ("失败", "阻塞", "未执行", "未知", "业务未验证", "已取消"):
-            self.assertIn("| " + label + " | 1 |", text)
+        self.assertEqual(summary["counts"], {"Pass": 0, "Fail": 3, "NotRun": 3})
+        for label in ("失败", "未执行"):
+            self.assertIn("| " + label + " | 3 |", text)
         self.assertIn("另有 1 项问题", text)
         self.assertIn("Observed wrong priority", text)
         self.assertIn("[查看完整 Excel](cases.xlsx)", text)
@@ -73,7 +73,7 @@ class TaskMarkdownSummaryTests(unittest.TestCase):
         self.assertIn("时间：未记录", text)
         self.assertNotIn("<script>", text)
         self.assertNotIn("[pretend]", text)
-        self.assertIn("不代表通过", text)
+        self.assertIn("| 通过 | 0 |", text)
 
 
 class TaskMarkdownDeliveryTests(unittest.TestCase):

@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     publishing: '发布中', done: '已完成', not_generated: '尚未生成', stale_cycle: '当前查看历史周期', reference_missing: '任务引用已不存在',
     mixed: '部分不符合预期', deleted: '执行记录已删除', missing: '未找到执行记录',
     queued: '排队中', awaiting_host: '等待宿主', settled: '已结束', blocked: '阻塞',
-    pass: '通过', fail: '失败', unverified: '未验证', not_applicable: '不适用',
+    pass: '通过', fail: '失败', not_run: '未执行', NotRun: '未执行', unverified: '未验证', not_applicable: '不适用',
     valid: '有效', invalid: '已失效', generating: '生成中', dispatching: '投递中', delivered: '已送达',
   };
   const STYLE = {
@@ -122,9 +122,16 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
   function stateSummary(entity) {
     const state = entity?.state;
     if (!state) return null;
+    if (state.scope?.case_id) {
+      const verdict = state.current === false ? 'not_run' : state.outcome;
+      return ['用例结果：' + label(verdict), state.reason].filter(Boolean).join('；');
+    }
     const facts = [['当前阶段', state.phase || state.lifecycle], ['综合结果', state.outcome],
       ['业务验证', state.checks?.business], ['性能', state.checks?.performance], ['质量', state.checks?.quality],
       ['证据', state.evidence], ['报告', state.report], ['投递', state.delivery]];
+    if (entity.state_counts) {
+      facts.push(['用例结果', ['pass', 'fail', 'not_run'].map((key) => label(key) + ' ' + (entity.state_counts[key] || 0)).join(' · ')]);
+    }
     if (state.scope?.historical) facts.push(['历史周期', state.scope.cycle_id], ['当前周期', state.scope.current_cycle_id]);
     return facts.map(([title, value]) => title + '：' + label(value)).join('；');
   }

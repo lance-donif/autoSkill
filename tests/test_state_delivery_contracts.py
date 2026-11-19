@@ -88,14 +88,15 @@ class StateDeliveryContractTests(unittest.TestCase):
         self.assertIsNone(blocked["run_id"])
         self.assertFalse(blocked["evidence_valid"])
         self.assertIn("没有本行执行回执", blocked["note"])
-        self.assertEqual(task_report_data.case_verdict(blocked), "Blocked")
+        self.assertEqual(task_report_data.case_verdict(blocked), "NotRun")
         manual_pass = plan_execution.unexecuted_item({"status": "通过"}, case)
         self.assertEqual(task_report_data.case_verdict(manual_pass), "NotRun")
         data = fixture.snapshot([fixture.observation(case, "Fail", "failed"), fixture.observation(case, "Pass", "passed")])
         group = task_report_data.logical_cases(data)[0]
         self.assertEqual((group["status"], group["final_status"], group["run_ids"]), ("Fail", "Pass", ["failed", "passed"]))
         rows, _ = task_workbook_data.rows(data)
-        self.assertEqual(rows[0]["conclusion"], "失败（曾失败，后续通过）")
+        self.assertEqual(rows[0]["conclusion"], "失败")
+        self.assertIn("曾失败，后续通过", rows[0]["remarks"])
 
 
 if __name__ == "__main__":

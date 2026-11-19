@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import json
 
-from . import db, projects, workflow, workflow_definition, workflow_state
+from . import db, projects, workflow, workflow_definition, workflow_execution, workflow_state
 from .locking import project_lock
 from .workflow_state import WorkflowError, digest
 
@@ -14,7 +14,11 @@ def overview(workflow_id: str) -> dict:
     current = workflow_definition.snapshot(flow)
     rows = db.rows("SELECT id,cycle_id,phase,state,run_id,context,created_at,finished_at FROM workflow_items WHERE workflow_id = ? ORDER BY sequence", (workflow_id,))
     for row in rows:
-        row["context"] = json.loads(row["context"])
+        context = json.loads(row["context"])
+        summary = context.get("summary", {})
+        if "materialization" in context and any("outcome" not in case for case in summary.get("results", [])):
+            context["summary"] = workflow_execution._refresh_summary(context)
+        row["context"] = context
     delivery = db.rows("SELECT id,state,reason,created_at,updated_at FROM host_outbox WHERE json_extract(payload, '$.workflow_id') = ? ORDER BY created_at DESC", (workflow_id,))
     return {"workflow": workflow.status(workflow_id), "documents": current["documents"], "definition_hash": current["hash"], "head": current["head"],
             "coverage": workflow_definition.coverage(current["documents"]), "items": rows, "deliveries": delivery,

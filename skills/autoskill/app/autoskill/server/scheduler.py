@@ -301,6 +301,7 @@ def _prepare(task: dict, trigger: str) -> dict:
         stamp = db.now()
         return {"id": db.new_id("run"), "project_id": task["project_id"], "engine": task["engine"], "trigger": trigger,
                 "task_id": task["id"], "status": "Blocked", "reason": str(error), "case_ids": task["case_ids"],
+                "total": len(task["case_ids"]) if task["kind"] == "replay" else 0,
                 "created_at": stamp, "finished_at": stamp}
 
 

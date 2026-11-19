@@ -18,7 +18,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import data_refs, db, execution_inputs, paths, projects, runtime_identity, secrets, sessions, task_context
+from . import data_refs, db, execution_inputs, paths, projects, runtime_identity, secrets, sessions, task_context, task_state
 from .core import store
 from .replay import api, ir, ui
 
@@ -140,12 +140,12 @@ def make_driver(engine: str, config: dict):
 
 
 def blocked(reason: str, category: str) -> dict:
-    return {"status": "Blocked", "reason": reason, "category": category, "actual": "", "assertions": [],
+    return {"status": "Blocked", "target_started": False, "reason": reason, "category": category, "actual": "", "assertions": [],
             "duration_ms": 0}
 
 
 def cancelled() -> dict:
-    return {**blocked("运行已取消，未完成的检查不作为业务失败", "cancelled"), "status": "Cancelled"}
+    return {**blocked("运行已取消", "cancelled"), "status": "Cancelled"}
 
 
 def build_plan(chosen: list[str], cases: dict) -> list[tuple[str, bool]]:
@@ -207,10 +207,6 @@ def validate_postconditions(cases: dict, selected=None) -> None:
             check = cases.get(target)
             if target == identity or not check or check.get("lifecycle") != "active" or check.get("kind") != "api":
                 raise ValueError(f"{identity} 的后置验证 {target} 必须指向另一个存在且启用的 API 用例")
-            assertions = check.get("assertions", {})
-            independent = store.has_real_assertion(assertions) or assertions.get("status", 0) >= 400
-            if not independent or check.get("extensions", {}).get("oracle", {}).get("source") == "observation":
-                raise ValueError(f"{identity} 的后置验证 {target} 缺少独立业务断言")
             if not needs(target, identity, cases):
                 raise ValueError(f"{identity} 的后置验证 {target} 必须通过 depends_on 依赖该动作")
 
@@ -286,10 +282,18 @@ class Session:
                    "case_scope_hash": self.manifest["scope_hashes"][case["id"]], "kind": kind,
                    "started_at": db.now(), "state": "started", "outcome": None}
         execution_inputs.write_json(file, receipt)
+        def mark_started():
+            receipt["target_started"] = True
+            execution_inputs.write_json(file, receipt)
+        token = execution_inputs.on_target_start.set(mark_started if kind in ("case", "captcha_retry", "relogin_retry") else None)
         try:
             outcome = cancelled() if self.cancel_requested() else invoke(attempt_id)
         except Exception as error:  # noqa: BLE001  # Preserve an attempt receipt even when an adapter unexpectedly exits its structured path.
             outcome = cancelled() if isinstance(error, ui.StepError) and error.category == "cancelled" else blocked("执行器出错：" + type(error).__name__, "environment")
+        finally:
+            execution_inputs.on_target_start.reset(token)
+        if receipt.get("target_started"):
+            outcome["target_started"] = True
         outcome = {**outcome, **verification(case, outcome, probe=kind in ("login_probe", "session_reuse"))}
         artifacts = []
         for name in outcome.get("screenshots", []):
@@ -442,14 +446,38 @@ class Session:
         return self.attempt(login, "login_probe", probe)["status"] == "Pass"
 
 
-DETAIL_KEYS = ("steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted",
+DETAIL_KEYS = ("target_started", "execution_only_pass", "steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted",
                "attempts", "verification", "business_status", "business_verified", "performance_status", "performance_assertions",
                "execution_status", "execution_blocker", "last_attempt_status", "load_user", "load_iteration",
                "postcondition_source", "postcondition_results", "setup_cases")
 
 
+def _completed_replay(case: dict, outcome: dict) -> bool:
+    """A completed adapter must account for every configured action and check."""
+    if not outcome.get("target_started") or outcome.get("reused") or outcome["status"] != "Pass":
+        return False
+    assertions = outcome.get("assertions", [])
+    if any(row.get("passed") is not True for row in assertions):
+        return False
+    postconditions = case.get("extensions", {}).get("postconditions", [])
+    if postconditions and [row.get("case_id") for row in outcome.get("postcondition_results", [])] != postconditions:
+        return False
+    if case["kind"] == "api":
+        rules = case.get("assertions", {})
+        expected_checks = 1 + sum(len(rules.get(key, [])) for key in ("header_contains", "body_contains", "json_equals"))
+        expected_checks += int("schema" in rules) + int("max_ms" in rules) + len(postconditions)
+        return (bool(outcome.get("request")) and (outcome.get("response") or {}).get("status") == rules.get("status")
+                and len(assertions) == expected_checks)
+    automation = case.get("extensions", {}).get("automation", {})
+    actions = automation.get("actions", [])
+    expected_checks = len(automation.get("assertions", [])) + sum("assertion" in step for step in actions)
+    steps = outcome.get("steps", [])
+    return (len(assertions) == expected_checks and len(steps) == 1 + len(actions) + len(automation.get("setup_cases", []))
+            and all(step.get("status") == "done" for step in steps))
+
+
 def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
-    """Business evaluation requires declared checks, never an action-only or saved-session success."""
+    """Apply configured checks, or require a completed record of every configured action."""
     extensions = case.get("extensions", {})
     automation = extensions.get("automation", {})
     declared = ((store.has_real_assertion(case.get("assertions", {})) or case.get("assertions", {}).get("status", 0) >= 400)
@@ -467,6 +495,9 @@ def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
         elif (outcome["status"] == "Pass" or (case["kind"] == "api" and performance_status == "Fail"
                                              and outcome.get("category") == "assertion_failed")) and all(row.get("passed") is True for row in rows):
             business = "Pass"
+    complete = not probe and _completed_replay(case, outcome)
+    if complete and not declared:
+        business = "Pass"
     if extensions.get("postconditions"):
         source = outcome.get("postcondition_source")
         results = outcome.get("postcondition_results")
@@ -474,11 +505,15 @@ def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
             business = _postcondition_business(case, source, results)
         elif business == "Pass":
             business = "Unverified"
+    if (outcome.get("target_started") and outcome["status"] == "Pass" and not complete and not probe and not outcome.get("reused")
+            and (not extensions.get("postconditions") or outcome.get("postcondition_results") is not None)):
+        business = "Fail"
     interrupted = outcome.get("category") == "cancelled" or outcome.get("execution_blocker", {}).get("category") == "cancelled"
     execution = "cancelled" if interrupted or outcome["status"] == "Cancelled" else "blocked" if outcome.get("execution_blocker") or outcome["status"] == "Blocked" else "completed"
     if business == "Pass" and extensions.get("functional_design", {}).get("state") == "unmapped":
         business = "Unverified"
-    return {"verification": "verified" if business != "Unverified" else "unverified", "business_status": business,
+    return {**({"execution_only_pass": True} if complete and business == "Unverified" else {}),
+            "verification": "verified" if business != "Unverified" else "unverified", "business_status": business,
             "business_verified": business == "Pass", "execution_status": execution,
             "performance_status": performance_status, "performance_assertions": performance}
 
@@ -524,13 +559,13 @@ def postcondition_outcome(case: dict, source: dict, results: list[dict]) -> dict
     outcome["postcondition_results"] = copy.deepcopy(results)
     checks = [{"name": "后置验证 " + row["case_id"], "expected": "独立业务验证通过",
                "actual": _postcondition_detail(row).get("business_status", "Unverified"),
-               "passed": True if _postcondition_detail(row).get("business_status") == "Pass" else
+               "passed": True if task_state.case_outcome(row, _postcondition_detail(row), evidence_valid=True) == "pass" else
                          False if _postcondition_detail(row).get("business_status") == "Fail" else None,
                "scope": "business"} for row in results]
     outcome["assertions"] = [*outcome.get("assertions", []), *checks]
     if source["status"] == "Pass":
         failed = [row for row in results if row.get("status") == "Fail"]
-        incomplete = [row for row in results if row.get("status") != "Pass" or _postcondition_detail(row).get("business_status") != "Pass"]
+        incomplete = [row for row in results if task_state.case_outcome(row, _postcondition_detail(row), evidence_valid=True) != "pass"]
         if failed:
             outcome.update(status="Fail", category="assertion_failed", reason="后置验证失败：" + "、".join(row["case_id"] for row in failed))
         elif incomplete:
@@ -611,10 +646,45 @@ def process_alive(pid: int | None) -> bool:
     return True
 
 
+def _recover_interrupted_targets(conn, run: dict) -> None:
+    """Materialize only dispatched targets with no durable result after a worker stopped."""
+    if run.get("family") != "replay" or not run.get("input_manifest"):
+        return
+    try:
+        manifest = execution_inputs.load(run)
+    except (OSError, ValueError):
+        return
+    missing = set(manifest["selected"]) - {row[0] for row in conn.execute("SELECT case_id FROM results WHERE run_id=?", (run["id"],))}
+    for file in sorted((evidence_dir(run["id"]) / "attempts").glob("*.json")):
+        if not missing:
+            break
+        try:
+            receipt = json.loads(file.read_bytes())
+            if not isinstance(receipt, dict) or not isinstance(identity := receipt.get("case_id"), str) or identity not in missing:
+                continue
+            if (receipt.get("target_started") is not True or receipt.get("run_id") != run["id"] or file.stem != receipt.get("id")
+                    or receipt.get("input_hash") != run["input_hash"] or receipt.get("case_content_hash") != manifest["case_hashes"][identity]
+                    or receipt.get("case_scope_hash") != manifest["scope_hashes"][identity] or not isinstance(receipt.get("started_at"), str)):
+                continue
+        except (OSError, ValueError, KeyError):
+            continue
+        case = manifest["cases"][identity]
+        detail = {"target_started": True, "case_scope_hash": receipt["case_scope_hash"], "interrupted_attempt": receipt["id"]}
+        conn.execute("INSERT INTO results (run_id,project_id,case_id,case_title,kind,engine,status,category,reason,started_at,"
+                     "case_revision,case_content_hash,input_hash,detail) VALUES (?,?,?,?,?,?,'Fail','environment',?,?,?,?,?,?)",
+                     (run["id"], run["project_id"], identity, case["title"], case["kind"], "http" if case["kind"] == "api" else run["engine"],
+                      "执行中断，缺少完整结果记录", receipt["started_at"], case["revision"], receipt["case_content_hash"], run["input_hash"],
+                      json.dumps(detail)))
+        conn.execute("UPDATE runs SET done=(SELECT count(*) FROM results WHERE run_id=? AND prerequisite=0), "
+                     "failed=(SELECT count(*) FROM results WHERE run_id=? AND prerequisite=0 AND status='Fail') WHERE id=?",
+                     (run["id"], run["id"], run["id"]))
+        missing.remove(identity)
+
+
 def recover_runs() -> None:
     """Recover dead executors without overwriting a child that just accepted its reservation or finished."""
     reap_children()
-    for run in db.rows("SELECT id, pid, claim_token, owner_identity FROM runs WHERE status = 'Running'"):
+    for run in db.rows("SELECT * FROM runs WHERE status = 'Running'"):
         if process_alive(run["pid"]) and runtime_identity.owns(run["pid"], run["owner_identity"]):
             continue
         with db.connect() as conn:
@@ -624,6 +694,8 @@ def recover_runs() -> None:
                 "reason = CASE WHEN cancel = 1 THEN '' ELSE ? END "
                 "WHERE id = ? AND status = 'Running' AND pid IS ? AND claim_token = ? AND owner_identity = ?",
                 (db.now(), "运行进程已结束或不属于当前数据位置，未自动重放未确认的操作", run["id"], run["pid"], run["claim_token"], run["owner_identity"])).rowcount
+            if recovered:
+                _recover_interrupted_targets(conn, run)
         if recovered:
             current = db.one("SELECT * FROM runs WHERE id = ?", (run["id"],))
             if current and not current["delete_requested"]:
@@ -784,6 +856,10 @@ def _execute_claimed(run: dict) -> dict:
         if session:
             with contextlib.suppress(Exception):  # Cleanup must not prevent the durable run from reaching its terminal state.
                 session.close()
+    if reason:
+        with db.connect() as conn:
+            _recover_interrupted_targets(conn, run)
+            counts.update(dict(conn.execute("SELECT done, failed FROM runs WHERE id=?", (run_id,)).fetchone()))
     db.finish_run(run_id, os.getpid(), counts, final, reason)
     return db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
 

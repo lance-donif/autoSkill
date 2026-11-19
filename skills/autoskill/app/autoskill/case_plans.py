@@ -9,12 +9,12 @@ import shutil
 import uuid
 from pathlib import Path
 
-from . import case_document, db, domain, execution_inputs, paths, plan, plan_execution, projects, reporting, runner, task_context, task_workbook
+from . import case_document, db, domain, execution_inputs, paths, plan, plan_execution, projects, reporting, runner, task_context, task_report_data, task_workbook
 from .locking import named_lock, project_lock
 
 EDITABLE = {"id", "module", "title", "type", "priority", "preconditions", "steps", "expected", "description", "author", "remarks", "requirement_ids", "source", "business_path", "prefix"}
 BUSINESS = ("id", "module", "title", "type", "preconditions", "steps", "expected", "description", "requirement_ids")
-STATUS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消", "Unverified": "业务未验证", "NotRun": "未执行"}
+STATUS = task_report_data.STATUS
 
 
 def _folder(project_id: str, session: str) -> Path:
@@ -99,8 +99,8 @@ def _evidence(project_id: str, row: dict, extra: dict, latest: dict, current: di
     value = {"status": "NotRun", "actual": "", "executor": "", "environment": "", "screenshots": [], "reason": "尚未关联可执行用例", "result": None,
              "run_id": None, "materialized_case_id": identity or None, "binding_current": False, "current": False}
     if not identity:
-        if row.get("status") == "阻塞":
-            return {**value, "status": "Blocked", "reason": "；".join(filter(None, [row.get("note"), "记录为阻塞；没有本行执行回执"]))}
+        if row.get("note"):
+            return {**value, "reason": row["note"] + "；没有本行执行回执"}
         return value
     if linked_project != project_id:
         return {**value, "reason": "关联属于其他项目，不能借用其执行结果"}
@@ -116,19 +116,18 @@ def _evidence(project_id: str, row: dict, extra: dict, latest: dict, current: di
         return {**value, "reason": "关联用例尚无真实执行结果"}
     if binding.get("execution_after") and result["started_at"] < binding["execution_after"]:
         return {**value, "reason": "已有结果早于本次设计关联；请重新回放"}
-    if not execution_inputs.result_current(project_id, case, result):
-        return {**value, "reason": "关联用例的执行输入或证据已变化，需重新回放"}
-    detail = json.loads(result["detail"])
-    business = detail.get("business_status", "Unverified")
-    mapped = binding.get("design_mapped", False)
-    status = result["status"] if result["status"] != "Pass" or (business == "Pass" and mapped) else "Unverified"
-    reason = result.get("reason", "")
-    if status == "Unverified" and (not mapped or case.get("extensions", {}).get("functional_design", {}).get("state") == "unmapped"):
-        reason = "已有断言未证明覆盖本次功能预期；请按设计重新录制独立检查，或提交来源驱动的新候选断言后回归"
+    item = task_report_data.current_case_item(project_id, case, result)
+    if not item["result"]:
+        return {**value, "reason": item["note"]}
+    detail = item["result"]["detail"]
+    status = task_report_data.case_verdict(item)
+    reason = result.get("reason") or item["note"]
+    if status == "Pass" and not binding.get("design_mapped"):
+        reason = "已完成关联用例的步骤和已配置检查；功能预期的覆盖关系待确认"
     return {**value, "status": status, "actual": result.get("actual", "") or result.get("reason", ""),
             "executor": "autoSkill / " + result["engine"], "environment": projects.config(project_id)["base_url"],
             "screenshots": [f"/api/runs/{result['run_id']}/files/{name}" for name in detail.get("screenshots", [])],
-            "reason": reason, "run_id": result["run_id"], "result": {**result, "detail": detail}, "current": True}
+            "reason": reason, "run_id": result["run_id"], "result": item["result"], "current": True, "evidence_valid": item["evidence_valid"]}
 
 
 def _view(project_id: str, session: str, folder: Path) -> dict:
@@ -465,7 +464,19 @@ def history(project_id: str, version: int, *, session: str = "") -> dict:
         file = folder / "history" / str(version) / "snapshot.json"
         if not file.is_file():
             raise ValueError("设计历史版本不存在")
-        return json.loads(file.read_bytes())
+        view = json.loads(file.read_bytes())
+        for row in view["rows"]:
+            evidence = row["evidence"]
+            if row["status"] not in STATUS:
+                result = evidence.get("result")
+                status = task_report_data.result_status(result, evidence_valid=evidence.get("current", False)) if result else "NotRun"
+                row.update(status=status, conclusion=STATUS[status])
+                evidence["status"] = status
+            for entry in [*evidence.get("execution_history", []), evidence.get("latest_execution")]:
+                if entry and entry["status"] not in STATUS:
+                    entry["status"] = task_report_data.result_status(entry, evidence_valid=entry.get("evidence_valid", False))
+        view["summary"] = {status: sum(row["status"] == status for row in view["rows"]) for status in STATUS}
+        return view
 
 
 def previous_deliveries(project_id: str, session: str = "") -> dict:
@@ -482,10 +493,15 @@ def export(project_id: str, *, session: str = "", version: int | None = None) ->
 
         return task_reports.download(view["test_report"]["report_id"])
     folder = _folder(project_id, session) / "exports"
-    destination = folder / ("design-" + str(view["version"]) + "-" + view["revision"][:12] + ".xlsx")
+    prefix = f"design-{view['version']}-{view['revision'][:12]}"
+    legacy = folder / (prefix + ".xlsx")
+    if version is not None and legacy.is_file():
+        return legacy
     snapshot = _snapshot(view)
+    destination = folder / (prefix + "-" + execution_inputs.content_hash(snapshot)[:16] + ".xlsx")
     with named_lock("case-plan-export", str(destination)):
-        reporting.write_task(snapshot, destination)
+        if not destination.is_file():
+            reporting.write_task(snapshot, destination)
     return destination
 
 
@@ -503,7 +519,7 @@ def _snapshot(view: dict) -> dict:
             cases.append({**plan_execution.unexecuted_item(row, definition), "note": row["evidence"]["reason"]})
             continue
         cases.append({"definition": definition, "result": result, "run_id": row["evidence"].get("run_id"),
-                      "evidence_valid": row["evidence"].get("current", False) and row["status"] != "Unverified", "environment": [row["environment"]] if row["environment"] else [],
+                      "evidence_valid": row["evidence"].get("evidence_valid", row["evidence"].get("current", False)), "environment": [row["environment"]] if row["environment"] else [],
                       "note": row["evidence"]["reason"]})
     sources = {"version": view["version"], "session": view["session"], "requirements": view["requirements"],
                "materialization": [{"design_id": row["id"], "case_id": row["evidence"].get("materialized_case_id"),

@@ -75,17 +75,23 @@ def context(project_id: str) -> dict:
 
 def run_summary(run: dict, *, brief: bool = False) -> dict:
     rows = None if brief else db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
-    state = run.get("state") if brief else None
+    totals = task_state.run_values(run, results=rows)
     summary = {
         "run_id": run["id"], "status": run["status"], "status_text": STATUS_TEXT.get(run["status"], run["status"]),
-        "state": state if state is not None else task_state.run(run, results=rows),
-        "engine": run["engine"], "total": run["total"], "passed": run["passed"], "failed": run["failed"],
-        "blocked": run["blocked"], "reason": run["reason"],
+        "state": totals["state"],
+        "engine": run["engine"], "total": run["total"], "passed": totals["passed"], "failed": totals["failed"],
+        "not_run": totals["not_run"], "reason": run["reason"],
     }
     if rows is not None:
-        summary["results"] = [{"case_id": r["case_id"], "title": r["case_title"], "kind": r["kind"], "status": r["status"],
-                               "prerequisite": bool(r["prerequisite"]), "ms": r["duration_ms"],
-                               "detail": r["actual"] or r["reason"], "state": task_state.result(r)} for r in rows]
+        summary["results"] = []
+        for row in rows:
+            state = task_state.result(row)
+            summary["results"].append({
+                "case_id": row["case_id"], "title": row["case_title"], "kind": row["kind"],
+                "status": task_state.CASE_STATUS[state["outcome"]],
+                "prerequisite": bool(row["prerequisite"]), "ms": row["duration_ms"],
+                "detail": row["actual"] or row["reason"], "state": state,
+            })
     if "test_report" in run:
         report = run["test_report"]
         if brief:
@@ -463,7 +469,7 @@ def parser() -> argparse.ArgumentParser:
     linker.add_argument("replay_case", help="同项目可复用用例编号")
     marker = plan.add_parser("mark", help="给一条用例记录执行结果")
     marker.add_argument("case")
-    marker.add_argument("status", choices=("通过", "失败", "阻塞", "未执行"))
+    marker.add_argument("status", choices=("通过", "失败", "未执行"))
     marker.add_argument("--note", default="")
     plan.add_parser("sync", help="把回放结果写回用例表")
     for command in (login, start, run, dash):

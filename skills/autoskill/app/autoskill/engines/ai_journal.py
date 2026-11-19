@@ -62,7 +62,7 @@ def recover_cases(prepared, reason):
                  for item in sorted(entries, key=lambda item: item["turn"])]
         failed = any(turn["status"] == "Fail" for turn in turns)
         business_failed = any(turn["business_status"] == "Fail" for turn in turns)
-        cases[case_id] = {"id": case_id, "title": entries[0]["title"], "status": "Fail" if failed else "Blocked", "reason": reason,
+        cases[case_id] = {"id": case_id, "target_started": True, "title": entries[0]["title"], "status": "Fail" if failed else "Blocked", "reason": reason,
                           "business_status": "Fail" if business_failed else "Unverified", "verification": "verified" if business_failed else "unverified",
                           "assertions": [check for turn in turns for check in turn["assertions"]], "turns": turns,
                           "expected_turns": entries[0]["expected_turns"], "duration_ms": sum(turn["timings"]["total_ms"] for turn in turns), "incomplete": True}

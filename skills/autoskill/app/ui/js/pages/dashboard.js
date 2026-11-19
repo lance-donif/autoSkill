@@ -6,11 +6,12 @@ import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts
 import { primaryState, stateResults } from '../status-view.js';
 
 const DEFINITIONS = {
-  rate: '历史首轮业务通过率 = 首次尝试业务断言通过数 ÷ 本范围创建的运行内全部目标用例。阻塞、取消、未完成、无业务断言均在分母；历史重试后通过率使用相同分母。这些是当次尝试事实，不代表当前证据仍有效；当前有效结果见执行记录的综合结果。原生目标数未知时不显示百分比。',
+  rate: '首次尝试通过的用例数 ÷ 范围内的目标用例数。重试后通过率使用同一分母。目标数未知时不显示百分比。',
   cases: '截至所选时间范围结束时仍然有效（未归档）的用例数。',
   runs: '所选时间范围内开始的运行次数（手动 + 定时）。自动登录不计入。',
-  failed: '所选时间范围内结果为「失败」的用例执行条次：页面或接口的实际结果与预期不一致。',
-  blocked: '所选时间范围内结果为「阻塞」的用例执行条次：没有真正验证到结果，例如前置用例未通过、缺少凭据、环境不可达。',
+  passed: '全部步骤成功且所有适用断言通过的用例条次。没有断言时按步骤执行结果判断。',
+  failed: '已开始执行后步骤、断言或结果校验失败的用例条次。',
+  not_run: '本范围内尚未开始执行的目标用例条次。',
   trend: '每个时间段内的用例执行条次，按结果堆叠。范围不超过一天时按小时，否则按天。',
 };
 let showTable = false;
@@ -20,7 +21,7 @@ function kpi({ label, value, note, def, to, hero, extra }) {
   return h('a', { class: 'kpi' + (hero ? ' hero' : ''), href: to },
     h('span', { class: 'kpi-label' }, label, definition(def)),
     hero ? h('div', { class: 'hero-row' }, h('span', { class: 'kpi-value' }, value), extra) : h('span', { class: 'kpi-value' }, value),
-    hero && note ? note : h('span', { class: 'kpi-note' }, note),
+    note && (hero ? note : h('span', { class: 'kpi-note' }, note)),
     h('span', { class: 'kpi-go' }, icon('right')));
 }
 
@@ -81,24 +82,23 @@ function summaryKpis(r, c, u, s, _points, none) {
   const reliability = r.reliability || {};
   const heroNote = h('div', { class: 'stack', style: 'gap:8px' }, splitBar(r),
     h('span', { class: 'kpi-note' }, none ? '这个范围内还没有执行'
-      : [h('b', {}, `${fmtNumber(reliability.first_passed || 0)} 历史首轮业务通过 / ${fmtNumber(reliability.denominator || 0)} 已知目标`),
-        ` · 历史重试后通过 ${fmtPercent(reliability.final_pass_rate)} · ${fmtNumber(reliability.unverified || 0)} 业务未验证`,
-        ' · 当前有效结果见分项状态',
+      : [h('b', {}, `${fmtNumber(reliability.first_passed || 0)} 历史首轮通过 / ${fmtNumber(reliability.denominator || 0)} 已知目标`),
+        ` · 重试后通过率 ${fmtPercent(reliability.final_pass_rate)}`,
         reliability.unknown_target_runs ? ` · ${reliability.unknown_target_runs} 次运行的目标数仍未知` : '']));
 
   return h('section', { class: 'kpis', 'aria-label': '汇总指标' },
-    kpi({ hero: true, label: '历史首轮业务通过率', value: fmtPercent(reliability.first_pass_rate), def: DEFINITIONS.rate, note: heroNote,
+    kpi({ hero: true, label: '历史首轮通过率', value: fmtPercent(reliability.first_pass_rate), def: DEFINITIONS.rate, note: heroNote,
       to: href('runs', { view: 'results' }) }),
     kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
       note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
     kpi({ label: '执行次数', value: fmtNumber(u.total), def: DEFINITIONS.runs,
       note: [`共 ${fmtNumber(r.executions)} 条次`, u.scheduled ? ` · 定时 ${u.scheduled}` : '', u.active ? ` · ${u.active} 个进行中` : ''], to: href('runs') }),
+    kpi({ label: '未执行', value: fmtNumber(r.not_run || 0), def: DEFINITIONS.not_run,
+      to: href('runs', { view: 'results', status: 'NotRun' }) }),
+    kpi({ label: '通过', value: fmtNumber(r.passed), def: DEFINITIONS.passed,
+      to: href('runs', { view: 'results', status: 'Pass' }) }),
     kpi({ label: '失败', value: fmtNumber(r.failed), def: DEFINITIONS.failed,
-      note: r.failed ? [h('b', {}, `${r.still_failing} 条`), ' 当前仍失败'] : '没有失败', to: href('runs', { view: 'results', status: 'Fail' }) }),
-    kpi({ label: '阻塞', value: fmtNumber(r.blocked), def: DEFINITIONS.blocked,
-      note: r.blocked ? '没有验证到结果' : '没有阻塞', to: href('runs', { view: 'results', status: 'Blocked' }) }),
-    kpi({ label: '未验证', value: fmtNumber(r.unverified || 0),
-      note: '执行记录尚不能证明业务结果', to: href('runs', { view: 'results', outcome: 'unverified' }) }));
+      note: r.failed > 0 && [h('b', {}, `${r.still_failing} 条`), ' 当前仍失败'], to: href('runs', { view: 'results', status: 'Fail' }) }));
 }
 
 function runAll(options = {}) {
@@ -107,7 +107,7 @@ function runAll(options = {}) {
 
 function pageHead(summary) {
   return h('div', { class: 'page-head' },
-    h('div', { class: 'grow' }, h('h1', {}, '总览'), h('p', { class: 'sub' }, '查看测试进度与结果，需要时重新运行已有用例。下方统计按上方项目与时间范围显示。')),
+    h('div', { class: 'grow' }, h('h1', {}, '总览')),
     summary?.cases.total > 0 && runAll());
 }
 
@@ -117,13 +117,13 @@ function tasksCard(tasks) {
       h('span', { class: 'grow' },
         h('div', { class: 'primary-text ellipsis' }, task.title),
         h('div', { class: 'secondary-text ellipsis' }, `${task.project_name} · ${task.enabled ? '下次 ' + fmtUntil(task.next_due) : '已暂停'}`)),
-      task.last_status ? h('div', { class: 'stack' }, primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state })) : h('span', { class: 'tag' }, '尚未执行'))))
-    : empty({ glyph: 'clock', title: '还没有定时任务', text: '把稳定的回归安排在固定时间自动执行。',
+      task.last_status ? h('div', { class: 'stack' }, primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state })) : h('span', { class: 'tag' }, '未执行'))))
+    : empty({ glyph: 'clock', title: '还没有定时任务',
       actions: h('a', { class: 'btn', href: href('schedules', { new: 1 }) }, icon('plus'), '新建定时任务') });
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', { class: 'grow' }, h('h2', {}, '定时任务'),
-        h('p', { class: 'sub' }, tasks.total ? `启用 ${tasks.enabled} · 暂停 ${tasks.paused} · 范围内触发 ${tasks.fired_in_range} 次` : '所选项目内')),
+        tasks.total > 0 && h('p', { class: 'sub' }, `启用 ${tasks.enabled} · 暂停 ${tasks.paused} · 范围内触发 ${tasks.fired_in_range} 次`)),
       tasks.total > 0 && h('a', { class: 'card-link', href: href('schedules') }, '全部', icon('right'))),
     body);
 }
@@ -136,13 +136,13 @@ async function loadFailures(current) {
 function failuresBody(failures, r, current) {
   return [failures.items.length
     ? h('div', { class: 'list' }, failures.items.map((item) => h('a', { class: 'list-row', href: href('runs/' + item.run_id, { case: item.case_id }) },
-      h('div', { class: 'stack', style: 'gap:4px' }, primaryState(item), stateResults(item)),
+      h('div', { class: 'stack', style: 'gap:4px' }, stateResults(item)),
       h('span', { class: 'grow' },
         h('div', { class: 'primary-text ellipsis' }, item.case_title),
         h('div', { class: 'secondary-text ellipsis' }, `${item.project_name} · ${CATEGORY[item.category] || '未分类'} · ${item.reason || item.actual}`)),
       h('span', { class: 'secondary-text num' }, fmtTime(item.started_at)))))
-    : empty({ glyph: 'check', title: current ? '没有仍在失败的用例' : '没有失败或阻塞',
-      text: r.executions ? '这个范围内没有失败或阻塞记录；业务验证度见上方汇总。' : '这个范围内还没有执行。' }),
+    : empty({ glyph: 'check', title: current ? '没有仍在失败的用例' : '没有失败',
+      text: r.executions ? '这个范围内没有失败记录。' : '这个范围内还没有执行。' }),
   failures.total > failures.items.length && h('div', { class: 'card-body', style: 'padding-top:8px' },
     h('a', { class: 'card-link', href: href('runs', { view: 'results', status: 'Fail' }) }, '查看全部', icon('right')))];
 }
@@ -152,7 +152,7 @@ function failuresCard(failures, r) {
   const initialScope = scopeQuery();
   const subtitle = h('p', { class: 'sub' });
   const content = h('div', { dataset: { dashboardFailures: '' } }, failuresBody(failures, r, currentOnly));
-  const note = () => { subtitle.textContent = currentOnly ? `最近一次执行仍为失败的用例 ${r.still_failing} 条` : `范围内共 ${r.failed + r.blocked} 条次`; };
+  const note = () => { subtitle.textContent = currentOnly ? `最近一次执行仍为失败的用例 ${r.still_failing} 条` : `范围内共 ${r.failed} 条次`; };
   async function choose(current) {
     currentOnly = current;
     const mine = ++request;
@@ -175,7 +175,7 @@ function failuresCard(failures, r) {
   note();
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
-      h('div', { class: 'grow' }, h('h2', {}, '失败与阻塞'),
+      h('div', { class: 'grow' }, h('h2', {}, '失败用例'),
         subtitle),
       toggle),
     content);
@@ -191,7 +191,7 @@ function recentCard(recent) {
           ? `${run.done}/${run.total} · ${run.current || '准备中'}`
           : `${run.passed}/${run.total} 通过 · ${TRIGGER[run.trigger] || run.trigger} · ${ENGINE[run.engine] || run.engine || '未记录'}${run.finished_at && run.started_at ? ' · ' + fmtDuration(new Date(run.finished_at) - new Date(run.started_at)) : ''}`)),
       h('span', { class: 'secondary-text num' }, fmtTime(run.created_at)))))
-    : empty({ glyph: 'runs', title: '还没有执行记录', text: '运行一次用例后，这里显示最近的执行。' });
+    : empty({ glyph: 'runs', title: '还没有执行记录' });
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', { class: 'grow' }, h('h2', {}, '最近执行'), h('p', { class: 'sub' }, `范围内共 ${recent.total} 次`)),

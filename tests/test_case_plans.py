@@ -70,8 +70,8 @@ class CasePlanTests(unittest.TestCase):
             run = case_plans.run(self.pid, ["PLAN-001"])
         self.assertEqual(runner.execute(run["id"])["status"], "Pass")
         synced = case_plans.sync(self.pid, expected_revision=case_plans.get(self.pid)["revision"])
-        self.assertEqual(synced["rows"][0]["status"], "Unverified")
-        self.assertIn("未证明覆盖", synced["rows"][0]["evidence"]["reason"])
+        self.assertEqual(synced["rows"][0]["status"], "Pass")
+        self.assertIn("覆盖关系待确认", synced["rows"][0]["evidence"]["reason"])
         changed = case_plans.save(self.pid, {"expected": "1. 返回新需求要求的值"}, case_id="PLAN-001", expected_revision=synced["revision"])
         self.assertEqual(changed["rows"][0]["status"], "NotRun")
         self.assertFalse(changed["rows"][0]["evidence"]["binding_current"])
@@ -79,7 +79,7 @@ class CasePlanTests(unittest.TestCase):
             plan.sync()
             self.assertEqual(plan.show()["cases"][0]["status"], "未执行")
         old = case_plans.history(self.pid, linked["version"])
-        self.assertEqual(old["rows"][0]["status"], "Unverified")
+        self.assertEqual(old["rows"][0]["status"], "Pass")
         self.assertEqual(len(projects.cases(self.pid)), 1)
         with self.assertRaisesRegex(ValueError, "草稿不能直接执行"):
             case_plans.run(self.pid, ["PLAN-001"])
@@ -166,7 +166,7 @@ class CasePlanTests(unittest.TestCase):
         with patch("autoskill.server.jobs.ensure_worker", return_value={"status": "test"}):
             second = case_plans.run(self.pid, ["API-001"])
         self.assertEqual(runner.execute(second["id"])["status"], "Pass")
-        self.assertEqual(case_plans.get(self.pid)["rows"][0]["status"], "Unverified")
+        self.assertEqual(case_plans.get(self.pid)["rows"][0]["status"], "Fail")
         outcome = json.loads(db.one("SELECT detail FROM results WHERE run_id = ?", (second["id"],))["detail"])
         self.assertEqual(outcome["business_status"], "Unverified")
         frozen = execution_inputs.load(db.one("SELECT * FROM runs WHERE id = ?", (second["id"],)))
@@ -201,7 +201,7 @@ class CasePlanTests(unittest.TestCase):
         original = json.loads(metadata.read_bytes())
         original["rows"]["API-001"]["binding"].pop("design_mapped")
         metadata.write_text(json.dumps(original), encoding="utf-8")
-        self.assertEqual(case_plans.get(self.pid)["rows"][0]["status"], "Unverified")
+        self.assertEqual(case_plans.get(self.pid)["rows"][0]["status"], "Pass")
         self.assertEqual(db.one("SELECT status FROM runs WHERE id = ?", (first["id"],))["status"], "Pass")
 
     def test_project_export_waits_for_a_complete_workbook_and_metadata_revision(self):

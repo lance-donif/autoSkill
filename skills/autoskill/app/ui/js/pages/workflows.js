@@ -8,7 +8,7 @@ const PHASE = { sources: '来源整理', requirements: '需求拆分', design: '
 const STATE = { active: '进行中', cancelled: '已暂停', awaiting_host: '等待 AI 处理', waiting_execution: '正在回归', settled: '已完成', recovering: '等待恢复调查', ready: '待处理', leased: '处理中', completed: '已完成', obsolete: '已替代', publishing: '正在保存' };
 const CONCLUSION = { satisfied: '业务满足', violated: '业务不满足', mixed: '存在业务失败', incomplete: '尚未完整验证', unassessed: '尚未验证' };
 const PUBLICATION = { published: '通过验证的候选已入库', partially_published: '部分候选已入库', bound_existing: '已验证已有用例', conflict: '入库冲突，原用例保留', unverified: '证据不足，候选未入库', rejected: '回归未满足，候选未入库', pending_validation: '等待回归验证', historical: '旧周期证据', interrupted: '回归中断' };
-const VERDICT = { Pass: '通过', Fail: '失败', Blocked: '阻塞', Cancelled: '已取消', Unverified: '未验证' };
+const VERDICT = { Pass: '通过', Fail: '失败', NotRun: '未执行' };
 const key = () => crypto.randomUUID();
 const text = (value) => JSON.stringify(value, null, 2);
 const readingPositions = new Map();
@@ -64,7 +64,7 @@ export async function render(view, { id } = {}) {
   const data = await api('/workflows' + scopeQuery());
   if (data.items.some((item) => item.lifecycle === 'active' && !item.complete)) live.until = Date.now() + 8000;
   replace(view, h('div', { class: 'page-head' },
-    h('div', { class: 'grow' }, h('h1', {}, '需求与工作流'), h('p', { class: 'sub' }, '在 DSH 对话中交给 autoSkill 开始或调整测试，在这里查看设计、执行进度与历史结果。'))),
+    h('div', { class: 'grow' }, h('h1', {}, '需求与工作流'))),
   h('section', { class: 'card' }, data.items.length ? h('table', { class: 'table' },
     h('thead', {}, h('tr', {}, ['工作流', '执行阶段', '综合与分项结果', '版本', ''].map((label) => h('th', {}, label)))),
     h('tbody', {}, data.items.map((item) => h('tr', { class: 'click', onClick: () => go('workflows/' + item.workflow_id) },
@@ -89,7 +89,7 @@ async function detail(view, identity) {
   const documents = data.documents;
   const title = h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', { tabIndex: -1 }, flow.title),
     h('p', { class: 'sub row wrap' }, primaryState(flow), `版本 ${flow.revision}`),
-    h('a', { class: 'btn', href: href('case-plans', { project: flow.project_id, projects: flow.project_id }) }, icon('table'), '查看项目用例 Excel')),
+    h('a', { class: 'btn', href: href('cases', { projects: flow.project_id }) }, icon('cases'), '查看项目测试用例')),
   flow.lifecycle === 'active' ? control('暂停', 'cancel') : control('恢复', 'resume'));
   replace(view, h('a', { class: 'back', href: href('workflows') }, icon('right'), '需求与工作流'), title,
     h('section', { class: 'card card-body stack' }, h('h2', {}, '当前任务状态'), stateResults(flow),
@@ -150,9 +150,9 @@ function publicationSummary(context) {
 
 function executionSummary(summary, identity) {
   return h('details', { class: 'more', dataset: { readingId: 'execution:' + identity } }, h('summary', {}, '历史回归结论：', CONCLUSION[summary.conclusion] || summary.conclusion),
-    h('table', { class: 'table' }, h('thead', {}, h('tr', {}, ['回归用例', '历史执行结果', '业务验证', '证据'].map((label) => h('th', {}, label)))),
-      h('tbody', {}, (summary.results || []).map((item) => h('tr', {}, h('td', {}, item.case_id), h('td', {}, VERDICT[item.status] || '未执行'),
-        h('td', {}, VERDICT[item.business_status] || item.business_status), h('td', {}, item.evidence_valid ? '已核验' : (item.reason || '待补充')))))));
+    h('table', { class: 'table' }, h('thead', {}, h('tr', {}, ['回归用例', '历史执行结果', '证据'].map((label) => h('th', {}, label)))),
+      h('tbody', {}, (summary.results || []).map((item) => h('tr', {}, h('td', {}, item.case_id), h('td', {}, VERDICT[item.status] || '—'),
+        h('td', {}, item.evidence_valid ? '已核验' : (item.reason || '待补充')))))));
 }
 
 function workflowReport(flow) {

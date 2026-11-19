@@ -11,7 +11,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from . import data_refs, db, execution_inputs, maintenance, paths, projects, runtime_identity
+from . import data_refs, db, maintenance, paths, projects, runtime_identity
 from .locking import file_lock, named_lock, project_lock
 
 IDENTITY = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
@@ -98,19 +98,15 @@ def _latest(project_id: str, excluded: str | None) -> dict:
 
 
 def _sheet_status(project_id: str, case_id: str, latest: dict, current: dict, deleted_case: bool) -> tuple[str, str]:
-    from . import plan
+    from . import task_report_data
 
     if deleted_case or case_id not in current:
         return "未执行", "关联的用例已删除，需重新关联可执行用例"
     result = latest.get(case_id)
     if not result:
         return "未执行", "没有保留的执行证据，需重新回放"
-    if not execution_inputs.result_current(project_id, current[case_id], result):
-        return "未执行", "用例已修改或执行证据不再有效，需重新回放"
-    detail = json.loads(result["detail"])
-    if result["status"] == "Pass" and not detail.get("business_verified"):
-        return "未执行", "没有完整业务断言的实际通过证据"
-    return plan.STATUS.get(result["status"], "未执行"), result.get("reason", "")
+    item = task_report_data.current_case_item(project_id, current[case_id], result)
+    return task_report_data.STATUS[task_report_data.case_verdict(item)], item["note"] or result.get("reason", "")
 
 
 def _current_cases(project_id: str) -> dict:

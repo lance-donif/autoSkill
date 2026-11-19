@@ -57,14 +57,14 @@ export async function render(view) {
           h('td', {}, task.last_status
             ? h('a', { href: href('runs/' + task.last_run_id), onClick: (event) => event.stopPropagation(), class: 'stack' },
               primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state }), h('span', { class: 'sub num' }, fmtTime(task.last_finished)))
-            : h('span', { class: 'sub' }, '尚未执行')),
+            : h('span', { class: 'sub' }, '未执行')),
           h('td', { class: 'actions' }, h('div', { class: 'row', style: 'justify-content:flex-end' }, now, remove)));
       })));
   }
   replace(view,
     h('div', { class: 'page-head' },
       h('div', { class: 'grow' }, h('h1', {}, '定时任务'),
-        h('p', { class: 'sub' }, tasks.length ? `${tasks.filter((t) => t.enabled).length} 个启用 · ${tasks.filter((t) => !t.enabled).length} 个暂停。到点自动回放，结果进入执行记录和仪表盘。` : '按固定时间自动回放用例。')),
+        tasks.length > 0 && h('p', { class: 'sub' }, `${tasks.filter((t) => t.enabled).length} 个启用 · ${tasks.filter((t) => !t.enabled).length} 个暂停`)),
       tasks.length > 0 && create),
     h('section', { class: 'card' }, body));
   if (route().params.get('new') && projects.length) { editor(null, refresh, projects); }

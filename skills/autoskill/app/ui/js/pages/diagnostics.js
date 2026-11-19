@@ -86,8 +86,7 @@ export async function render(view) {
   catch (error) { replace(view, h('section', { class: 'card' }, errorState(error, () => render(view)))); return; }
   const choice = h('select', { class: 'select', id: 'diagnostic-engine' }, h('option', { value: '' }, '全部执行器'),
     engines.map((engine) => h('option', { value: engine.id }, engine.name || engine.title || engine.id)));
-  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '运行诊断'),
-    h('p', { class: 'sub' }, '检查这台机器实际可用的浏览器、依赖和原生执行器。'))),
+  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '运行诊断'))),
   checkCard({ title: '运行环境', note: '检查 Python 依赖、浏览器、驱动与录制器；启动检查会实际打开浏览器完成本机探测。', mine,
     actions: [{ label: '检查运行环境', specification: () => ({ kind: 'doctor' }) },
       { label: '检查并启动浏览器', specification: () => ({ kind: 'doctor', launch: true }) }], renderResult: doctorResult }),

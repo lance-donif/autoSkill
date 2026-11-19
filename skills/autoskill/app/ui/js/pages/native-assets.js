@@ -11,8 +11,7 @@ export async function render(view, { id }) {
   const selected = projects.find((project) => project.id === projectId);
   const select = filterSelect('项目', projectId, projects.map((item) => [item.id, item.name]),
     (value) => go('native-assets', { project: value, cursor: null }), '原生资产项目');
-  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '原生资产'),
-    h('p', { class: 'sub' }, '查看已保存脚本、集合、负载计划和多轮对话。新增或调整测试请在 DSH 对话中交给 autoSkill。'))),
+  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '原生资产'))),
   projects.length ? h('div', { class: 'toolbar' }, select,
     h('a', { class: 'btn', href: href('diagnostics') }, '检查执行器'), h('a', { class: 'btn', href: href('runs', { projects: projectId, range: 'all' }) }, '执行记录')) : null);
   if (!selected) { view.append(h('section', { class: 'card' }, empty({ title: '还没有原生资产', text: '在 DSH 对话中交给 autoSkill 使用已有测试项目；保存后可在这里查看。' }))); return; }

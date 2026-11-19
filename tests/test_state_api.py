@@ -140,18 +140,20 @@ class StateApiTests(unittest.TestCase):
         running = self.client.get("/api/runs?status=Running").json()
         self.assertEqual([row["id"] for row in running["items"]], ["active-extra"])
 
-    def test_binary_history_filters_use_the_run_or_the_individual_result_before_pagination(self):
+    def test_history_verdict_filters_use_the_run_or_the_individual_result_before_pagination(self):
         mixed = self.measured()["id"]
         passed = runner.execute(runner.create(self.pid, ["TC-API-001"])["id"])["id"]
         for identity, status in (("waiting", "Running"), ("stopped", "Cancelled"), ("blocked", "Blocked")):
             self.queued(identity)
             db.update("runs", identity, {"status": status})
         runs = self.client.get("/api/runs?status=NotPassed").json()
-        self.assertEqual({row["id"] for row in runs["items"]}, {mixed, "stopped", "blocked"})
-        self.assertEqual({row["history_status"] for row in runs["items"]}, {"NotPassed"})
-        self.assertEqual({row["state"]["outcome"] for row in runs["items"]}, {"fail", "cancelled", "blocked"})
+        self.assertEqual({row["id"] for row in runs["items"]}, {mixed})
+        self.assertEqual({row["history_status"] for row in runs["items"]}, {"Fail"})
+        self.assertEqual({row["state"]["outcome"] for row in runs["items"]}, {"fail"})
         self.assertEqual([row["id"] for row in self.client.get("/api/runs?status=Pass").json()["items"]], [passed])
-        self.assertIsNone(self.client.get("/api/runs?status=Running").json()["items"][0]["history_status"])
+        self.assertEqual(self.client.get("/api/runs?status=Running").json()["items"][0]["history_status"], "NotRun")
+        idle = self.client.get("/api/runs?status=NotRun").json()["items"]
+        self.assertEqual({row["id"] for row in idle}, {"waiting", "stopped", "blocked"})
         results = self.client.get("/api/results?status=Pass").json()["items"]
         self.assertEqual({row["run_id"] for row in results}, {mixed, passed})
         self.assertTrue(all(row["history_status"] == "Pass" for row in results))
@@ -196,13 +198,13 @@ class StateApiTests(unittest.TestCase):
         db.insert("results", {"run_id": "unverified", "project_id": self.pid, "case_id": "TC-API-001", "case_title": "未验证",
                               "kind": "api", "engine": "http", "status": "Pass", "started_at": db.now(), "detail": {"business_status": "Unverified"}})
         summary = self.client.get("/api/summary").json()
-        self.assertEqual((summary["results"]["passed"], summary["results"]["unverified"]), (0, 1))
-        self.assertIsNone(summary["results"]["pass_rate"])
+        self.assertEqual((summary["results"]["passed"], summary["results"]["failed"]), (0, 1))
+        self.assertEqual(summary["results"]["pass_rate"], 0)
         self.assertEqual(self.client.get("/api/results?status=Pass").json()["total"], 0)
-        self.assertEqual(self.client.get("/api/results?status=Unverified").json()["total"], 1)
-        self.assertEqual(self.client.get("/api/results?status=NotPassed").json()["items"][0]["state"]["outcome"], "unverified")
+        self.assertEqual(self.client.get("/api/results?status=Fail").json()["total"], 1)
+        self.assertEqual(self.client.get("/api/results?status=NotPassed").json()["items"][0]["state"]["outcome"], "fail")
         row = self.client.get("/api/runs").json()["items"][0]
-        self.assertEqual((row["passed"], row["unverified"], row["recorded_counts"]["passed"]), (0, 1, 1))
+        self.assertEqual((row["passed"], row["failed"], row["recorded_counts"]["passed"]), (0, 1, 1))
 
     def test_changed_definition_invalidates_current_case_without_rewriting_run_history(self):
         run = self.measured()
@@ -213,7 +215,7 @@ class StateApiTests(unittest.TestCase):
         case["assertions"]["json_equals"] = {"/ok": False}
         projects.save_cases(self.pid, [case])
         after = next(row for row in metrics.cases(metrics.Scope())["items"] if row["case_id"] == "TC-API-001")
-        self.assertEqual(after["state"]["outcome"], "unverified")
+        self.assertEqual(after["state"]["outcome"], "not_run")
         self.assertFalse(after["state"]["current"])
         self.assertEqual(after["state"]["historical_outcome"], "pass")
         self.assertEqual((after["current"], after["current_status"], after["last_status"]), (False, None, "Pass"))
@@ -261,21 +263,62 @@ class StateApiTests(unittest.TestCase):
         receipt.write_bytes(b"damaged execution evidence")
         before = db.one("SELECT * FROM runs WHERE id=?", (run["id"],))
         for projected in (self.client.get("/api/load-tests/" + run["id"]).json(), self.client.get("/api/load-tests").json()["items"][0]):
-            self.assertEqual((projected["passed"], projected["unverified"], projected["recorded_counts"]["passed"]), (0, 1, 1))
-            self.assertEqual((projected["state"]["outcome"], projected["state"]["evidence"]), ("unverified", "invalid"))
+            self.assertEqual((projected["passed"], projected["failed"], projected["recorded_counts"]["passed"]), (0, 1, 1))
+            self.assertEqual((projected["state"]["outcome"], projected["state"]["evidence"]), ("fail", "invalid"))
         self.assertEqual(db.one("SELECT * FROM runs WHERE id=?", (run["id"],)), before)
         self.assertEqual(receipt.read_bytes(), b"damaged execution evidence")
         self.assertEqual(first["passed"], 1)
 
-    def test_missing_targets_are_counted_for_pending_cancelled_and_unverified_runs(self):
+    def test_unstarted_targets_are_counted_for_pending_and_finished_runs(self):
         self.queued("incomplete")
         db.update("runs", "incomplete", {"total": 3})
-        for status, field in (("Queued", "pending"), ("Cancelled", "cancelled"), ("Pass", "unverified")):
+        for status in ("Queued", "Cancelled", "Pass"):
             with self.subTest(status=status):
                 db.update("runs", "incomplete", {"status": status})
                 item = self.client.get("/api/runs/incomplete").json()
-                self.assertEqual((item[field], item["state_counts"][field], item["passed"]), (3, 3, 0))
+                self.assertEqual((item["not_run"], item["state_counts"]["not_run"], item["passed"]), (3, 3, 0))
                 self.assertEqual(item["recorded_counts"], {"passed": 0, "failed": 0, "blocked": 0})
+
+    def test_named_unstarted_targets_match_history_filter_and_run_detail_without_persisting_results(self):
+        self.queued("mixed")
+        ids = ["PRESTART", "INTERRUPTED", "MISSING"]
+        db.update("runs", "mixed", {"status": "Cancelled", "total": 3, "done": 2, "case_ids": ids})
+        for case_id, started in zip(ids, (False, True)):
+            db.insert("results", {"run_id": "mixed", "project_id": self.pid, "case_id": case_id, "case_title": case_id,
+                                  "kind": "api", "engine": "http", "status": "Cancelled", "started_at": db.now(),
+                                  "detail": {"target_started": started}})
+        detail = self.client.get("/api/runs/mixed").json()
+        self.assertEqual((detail["not_run"], detail["failed"], len(detail["results"])), (2, 1, 3))
+        planned = next(row for row in detail["results"] if row["case_id"] == "MISSING")
+        self.assertIsNone(planned["started_at"])
+        for status, outcomes in (("NotRun", {"MISSING", "PRESTART"}), ("Fail", {"INTERRUPTED"})):
+            history = self.client.get("/api/results?status=" + status).json()
+            self.assertEqual({row["case_id"] for row in history["items"]}, outcomes)
+            self.assertEqual({row["history_status"] for row in history["items"]}, {status})
+            if status == "NotRun":
+                self.assertIn(planned["id"], {row["id"] for row in history["items"]})
+        summary = self.client.get("/api/dashboard").json()
+        totals = summary["summary"]["results"]
+        self.assertEqual((totals["not_run"], totals["failed"], summary["failures"]["total"]), (2, 1, 1))
+        self.assertEqual((totals["reliability"]["denominator"], totals["reliability"]["not_run"]), (3, 2))
+        self.assertEqual(db.one("SELECT COUNT(*) n FROM results")["n"], 2)
+
+    def test_unstarted_targets_follow_the_run_creation_window_and_yield_to_recorded_results(self):
+        self.queued("scheduled")
+        db.update("runs", "scheduled", {"case_ids": ["A", "B", "C"], "total": 3})
+        detail = self.client.get("/api/runs/scheduled").json()
+        self.assertEqual((detail["not_run"], len(detail["results"])), (3, 3))
+        initial = self.client.get("/api/results?status=NotRun&limit=1&offset=1").json()
+        self.assertEqual((initial["total"], len(initial["items"])), (3, 1))
+        old = self.client.get("/api/results?end=2000-01-01").json()
+        self.assertEqual(old["total"], 0)
+        db.insert("results", {"run_id": "scheduled", "project_id": self.pid, "case_id": "A", "case_title": "A", "kind": "api",
+                              "engine": "http", "status": "Fail", "started_at": db.now(), "detail": {}})
+        history = self.client.get("/api/results").json()
+        self.assertEqual((history["total"], history["state_counts"]), (3, {"pass": 0, "fail": 1, "not_run": 2}))
+        page = self.client.get("/api/results?status=NotRun").json()
+        self.assertEqual({row["case_id"] for row in page["items"]}, {"B", "C"})
+        self.assertEqual({row["id"] for row in page["items"]}, {row["id"] for row in detail["results"] if row["case_id"] in ("B", "C")})
 
     def test_response_snapshot_does_not_cache_a_later_evidence_change(self):
         run = self.measured()
@@ -286,7 +329,7 @@ class StateApiTests(unittest.TestCase):
         receipt = data_refs.resolve(json.loads(row["detail"])["attempts"][0]["path"])
         receipt.write_bytes(b"damaged execution evidence")
         later = metrics.summary(scope)
-        self.assertEqual((later["results"]["passed"], later["results"]["unverified"], later["results"]["failed"]), (0, 1, 2))
+        self.assertEqual((later["results"]["passed"], later["results"]["not_run"], later["results"]["failed"]), (0, 0, 3))
         self.assertEqual(sum(point["passed"] for point in later["trend"]["points"]), 0)
         self.assertEqual(first["results"]["passed"], 1)
 

@@ -11,7 +11,7 @@ import os
 import re
 import time
 
-from .. import paths, secrets
+from .. import execution_inputs, paths, secrets
 from ..core import store
 from . import ir
 
@@ -133,7 +133,7 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
     import httpx
 
     outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "assertions": [],
-               "request": None, "response": None, "duration_ms": 0, "extracted": []}
+               "request": None, "response": None, "duration_ms": 0, "extracted": [], "target_started": False}
     variables.setdefault("RAND", os.urandom(3).hex())
     try:
         filled = fill({k: case[k] for k in ("path", "headers", "params", "json", "form") if k in case}, variables)
@@ -165,6 +165,8 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
     if case.get("extensions", {}).get("traffic") == "resource":
         sent["timeout"] = float(config.get("page_load_seconds", 90))  # a page's own files may be as slow as the page
     clock = time.monotonic()
+    execution_inputs.mark_target_started()
+    outcome["target_started"] = True
     try:
         response = client.request(case["method"], url, **sent)
     except httpx.TimeoutException:

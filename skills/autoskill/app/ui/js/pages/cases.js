@@ -8,7 +8,7 @@ import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
 import { updateLiveView } from '../live-refresh.js';
 import { editCase } from '../case-editor.js';
-import { primaryState, stateResults, stateDetails } from '../status-view.js';
+import { stateResults, stateDetails } from '../status-view.js';
 
 
 const selected = new Map();  // "project/case" -> {project_id, case_id}
@@ -125,13 +125,13 @@ export async function render(view, { isCurrent }) {
 
   replace(view,
     h('div', { class: 'page-head' },
-      h('div', { class: 'grow' }, h('h1', {}, '可复用用例'),
-        h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例。查看已有用例，需要时按当前范围重新运行。前置用例（如登录）会自动先执行。`))),
+      h('div', { class: 'grow' }, h('h1', {}, '测试用例'),
+        h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例`))),
     state.projects.length ? h('div', { class: 'toolbar' }, kinds, search) : null,
     caseDeletionNotice(), list, bar);
   if (!state.projects.length) {
     replace(list, h('div', { class: 'card' }, empty({
-      glyph: 'spark', title: '还没有可复用用例', text: '在 DSH 对话中告诉 AI 测试地址与目标，验证通过的用例会自动显示在这里。',
+      glyph: 'spark', title: '还没有测试用例', text: '在 DSH 对话中告诉 AI 测试地址与目标，验证通过的用例会自动显示在这里。',
     })));
   } else {
     paint();
@@ -224,7 +224,7 @@ function projectFolderTools(project, tree, folderId, count) {
   const folder = tree.folders.find((item) => item.id === folderId);
   return h('div', { class: 'folder-toolbar row wrap' }, h('div', { class: 'grow' },
     h('h3', {}, folderId === ALL_FOLDERS ? '全部用例' : folderPath(tree, folderId)),
-    h('p', { class: 'sub' }, `${count} 条用例 · 文件夹用于整理用例，业务子项目单独保留`)),
+    h('p', { class: 'sub' }, `${count} 条用例`)),
   folder && h('button', { class: 'btn sm', onClick: () => folderEditor(project, tree, folder.parent_id, folder) }, icon('edit'), '编辑文件夹'),
   folderId !== ALL_FOLDERS && h('a', { class: 'btn sm', download: '', title: '包含当前文件夹及全部子文件夹的用例',
     href: `/api/projects/${encodeURIComponent(project.id)}/folders/export?folder_id=${encodeURIComponent(folderId || 'root')}&recursive=true&expected_revision=${encodeURIComponent(tree.revision)}` },
@@ -339,11 +339,9 @@ async function projectSettings(projectId) {
 
 function caseOverview(item, folderLabel) {
   const body = [folderLabel && h('p', { class: 'sub' }, '所在目录　', folderLabel),
-    item.state && h('div', { class: 'stack' }, primaryState(item), stateDetails(item))];
+    stateDetails(item)];
   if (item.current_status === null) body.push(h('div', { class: 'banner info' }, icon('info'), h('span', {},
     '当前版本尚待验证，请手动运行检查。', item.last_status && '历史执行结果不代表当前版本已经验证。')));
-  if (item.current_status === 'Unverified') body.push(h('div', { class: 'banner info' }, icon('info'),
-    '当前版本已经执行，业务预期尚未验证。请确认技术断言覆盖手工维护的业务预期。'));
   if (item.depends_on.length) {
     body.push(h('div', { class: 'banner info' }, icon('link'), h('span', {}, `前置用例：${item.depends_on.join('、')}。运行这条用例时会自动先执行。`)));
   }
@@ -398,8 +396,7 @@ async function caseDrawer(projectId, caseId, folderLabel) {
 }
 
 function caseStatus(item) {
-  return item.state ? h('div', { class: 'stack', style: 'gap:4px' }, primaryState(item), stateResults(item))
-    : h('span', { class: 'status idle' }, icon('blocked'), '未执行');
+  return stateResults(item);
 }
 
 function apiAssertionRows(rules) {

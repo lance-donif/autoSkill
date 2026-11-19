@@ -167,7 +167,7 @@ class FunctionalCaseDocumentsTests(unittest.TestCase):
         self.assertIn("点击【提交审核】", exported[5])
         self.assertNotIn("__technical", exported[5])
         self.assertEqual(exported[6], row["expected"])
-        self.assertEqual(exported[9], "业务未验证")
+        self.assertEqual(exported[9], "未执行")
 
     def test_conversation_questions_and_independent_expected_values_are_known_functional_facts(self):
         case = {"kind": "native", "turns": [{"question": "2025年销售额是多少？", "expected": 700},

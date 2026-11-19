@@ -12,7 +12,7 @@ HEADERS = ["用例标识", "用例名称", "功能需求追踪", "测试说明",
 FIELDS = ["id", "name", "trace", "description", "preconditions", "steps", "expected", "author", "actual", "conclusion", "executor", "environment", "remarks", "screenshots"]
 WIDTHS = [26, 34, 24, 36, 30, 52, 52, 20, 46, 22, 18, 30, 48, 36]
 COLORS = ["FFD966", "A9D18E", "F4B183", "BFBFBF"]
-FILLS = {"Pass": "E2F0D9", "Fail": "FCE4D6", "Blocked": "FFF2CC", "Cancelled": "EDEDED", "Unverified": "FFF2CC", "NotRun": "EDEDED", "Unknown": "FFF2CC"}
+FILLS = {"Pass": "E2F0D9", "Fail": "FCE4D6", "NotRun": "EDEDED"}
 
 
 def _font(*, bold=False):

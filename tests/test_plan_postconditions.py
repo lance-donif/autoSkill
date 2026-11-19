@@ -83,7 +83,8 @@ class PlanPostconditionTests(unittest.TestCase):
             self.assertEqual([item["run_id"] for item in row["evidence"]["execution_history"]], [first_run["id"], second_run["id"]])
         rows = self.workbook_rows(shown["delivery_excel"])
         for original in self.rows[:2]:
-            self.assertEqual(rows[original["title"]][9], "失败（曾失败，后续通过）")
+            self.assertEqual(rows[original["title"]][9], "失败")
+            self.assertIn("曾失败，后续通过", rows[original["title"]][12])
             self.assertEqual(rows[original["title"]][6], original["expected"])
         self.assertEqual(rows[self.rows[2]["title"]][9], "未执行")
         self.assertEqual(first_report.read_bytes(), first_bytes)

@@ -107,6 +107,7 @@
 .table .title { font-weight: 600; }
 .table-scroll { min-width: 0; max-width: 100%; overflow-x: auto; }
 .table-scroll .table { min-width: 800px; }
+[data-history-verdict] .status { min-inline-size: calc(3em + 32px); justify-content: center; }
 .table-scroll .title { min-width: 180px; }
 
 /* ---- states ---- */

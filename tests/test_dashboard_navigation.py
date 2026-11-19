@@ -5,9 +5,11 @@ from test_load_dashboard import DashboardWorkspace
 
 from autoskill import builder, projects, runner
 
+MENU = ["总览", "测试用例", "执行记录", "定时任务", "数据管理"]
+
 
 class NavigationDashboardTests(DashboardWorkspace):
-    def test_menu_height_stays_fixed_across_destinations_and_disclosures(self):
+    def test_menu_height_stays_fixed_across_destinations(self):
         measure = """() => ['#side', '#side-panel'].map(selector =>
             document.querySelector(selector).getBoundingClientRect().height)"""
         for width, height, embedded in ((656, 1000, True), (390, 550, False), (225, 700, True)):
@@ -19,19 +21,15 @@ class NavigationDashboardTests(DashboardWorkspace):
                 toggle.click()
                 original = self.page.evaluate(measure)
                 self.assertGreater(original[1], 0)
-                for group_name, page_name in (("设置与维护", "运行诊断"), ("测试资料", "需求与工作流"), ("执行工具", "定时任务")):
-                    group = self.page.locator(".nav-group").filter(has=self.page.get_by_text(group_name, exact=True))
-                    group.locator("summary").click()
-                    self.assertEqual(self.page.evaluate(measure), original)
-                    group.get_by_role("link", name=page_name, exact=True).click()
+                nav = self.page.get_by_role("navigation", name="主导航")
+                for page_name in MENU[1:]:
+                    nav.get_by_role("link", name=page_name, exact=True).click()
                     expect(self.page.locator("#view h1")).to_have_text(page_name)
                     self.assertEqual(self.page.evaluate(measure), [original[0], 0])
                     toggle.click()
                     self.assertEqual(self.page.evaluate(measure), original)
 
     def test_all_destinations_remain_readable_and_keyboard_reachable_in_host_panels(self):
-        names = ["总览", "可复用用例", "执行记录", "需求与工作流", "项目资料", "测试用例表",
-                 "原生资产", "多轮对话", "压测", "定时任务", "数据管理", "运行诊断"]
         for width, embedded in ((390, False), (620, False), (390, True)):
             with self.subTest(width=width, embedded=embedded):
                 self.page.set_viewport_size({"width": width, "height": 500})
@@ -41,33 +39,30 @@ class NavigationDashboardTests(DashboardWorkspace):
                 toggle.focus()
                 toggle.press("Space")
                 expect(toggle).to_have_attribute("aria-expanded", "true")
-                for group in self.page.locator("nav details").all():
-                    if not group.evaluate("node => node.open"):
-                        group.locator("summary").focus()
-                        self.page.keyboard.press("Enter")
-                for name in names:
-                    link = self.page.get_by_role("link", name=name, exact=True)
+                nav = self.page.get_by_role("navigation", name="主导航")
+                expect(nav.get_by_role("link")).to_have_count(len(MENU))
+                for name in MENU:
+                    self.page.keyboard.press("Tab")
+                    link = nav.get_by_role("link", name=name, exact=True)
                     expect(link).to_be_visible()
-                    link.focus()
                     expect(link).to_be_focused()
                     link.scroll_into_view_if_needed()
                     bounds = link.bounding_box()
                     self.assertGreaterEqual(bounds["x"], 0)
                     self.assertLessEqual(bounds["x"] + bounds["width"], width)
                     self.assertLessEqual(bounds["y"] + bounds["height"], 500)
-                focused = self.page.get_by_role("link", name="运行诊断", exact=True).element_handle()
+                focused = nav.get_by_role("link", name="数据管理", exact=True).element_handle()
                 change_project_and_wait_for_ui(self, self.pid)
                 self.assertTrue(focused.evaluate("node => node.isConnected && node === document.activeElement"))
-                self.assertTrue(all(group.evaluate("node => node.open") for group in self.page.locator("nav details").all()))
                 self.page.keyboard.press("Escape")
                 expect(toggle).to_be_focused()
                 expect(toggle).to_have_attribute("aria-expanded", "false")
                 toggle.press("Enter")
-                self.page.get_by_role("link", name="可复用用例", exact=True).click()
-                expect(self.page.locator("#view h1")).to_have_text("可复用用例")
+                self.page.get_by_role("link", name="测试用例", exact=True).click()
+                expect(self.page.locator("#view h1")).to_have_text("测试用例")
                 expect(toggle).to_be_focused()
                 expect(toggle).to_have_attribute("aria-expanded", "false")
-                expect(self.page.locator(".nav-location")).to_have_text("当前位置：可复用用例")
+                expect(self.page.locator(".nav-location")).to_have_text("当前位置：测试用例")
                 self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), width)
 
     def test_bookmarks_keep_parameters_and_only_offer_effective_scope_controls(self):
@@ -79,8 +74,10 @@ class NavigationDashboardTests(DashboardWorkspace):
                 expect(self.page.locator("#scope").get_by_role("button", name="筛选时间范围", exact=True)).to_have_count(0)
                 self.assertEqual(self.page.evaluate("location.hash"), "#/" + route + "?" + query)
                 active = self.page.locator("nav a[aria-current='page']")
-                self.assertEqual(active.get_attribute("data-page"), route)
-                self.assertTrue(active.locator("xpath=ancestor::details").evaluate("node => node.open"))
+                if route == "data":
+                    expect(active).to_have_attribute("data-page", route)
+                else:
+                    expect(active).to_have_count(0)
         for route in ("workflows", "schedules"):
             self.open(route + "?" + query)
             expect(self.page.get_by_role("button", name="筛选项目", exact=True)).to_be_visible()
@@ -96,7 +93,8 @@ class NavigationDashboardTests(DashboardWorkspace):
         self.open("cases?range=all")
         expect(self.page.get_by_role("button", name="功能导航", exact=True)).not_to_be_visible()
         expect(self.page.get_by_role("button", name="筛选时间范围", exact=True)).to_be_visible()
-        self.assertEqual(self.page.locator(".nav-primary a").evaluate_all("nodes => nodes.map(node => node.getAttribute('aria-label'))"), ["测试用例表", "执行记录", "可复用用例"])
+        links = self.page.get_by_role("navigation", name="主导航").get_by_role("link")
+        self.assertEqual(links.evaluate_all("nodes => nodes.map(node => node.getAttribute('aria-label'))"), MENU)
 
     def test_scope_focus_and_date_draft_survive_external_revision(self):
         self.open("cases?range=all")

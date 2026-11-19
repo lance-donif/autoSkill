@@ -7,9 +7,29 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath
 
-from . import data_refs, db, execution_inputs, paths
+from . import data_refs, db, execution_inputs, paths, task_state
 
-VERDICTS = ("Pass", "Fail", "Blocked", "Cancelled", "Unverified", "NotRun", "Unknown")
+STATUS = {"NotRun": "未执行", "Pass": "通过", "Fail": "失败"}
+OUTCOME_STATUS = {"not_run": "NotRun", "pass": "Pass", "fail": "Fail"}
+
+
+def result_status(row: dict, *, evidence_valid: bool) -> str:
+    """Use the same case verdict for frozen deliveries, current exports and design sheets."""
+    outcome = task_state.case_outcome(row, _json(row.get("detail"), {}), evidence_valid=evidence_valid)
+    return OUTCOME_STATUS[outcome]
+
+
+def current_case_item(project_id: str, case: dict, result: dict | None) -> dict:
+    """A different input scope has no current result; damaged proof belongs to its own run."""
+    item = {"definition": case, "result": None, "run_id": "", "evidence_valid": False, "note": ""}
+    if not result:
+        return item
+    if not execution_inputs.result_scope_current(project_id, case, result):
+        return {**item, "run_id": result["run_id"], "note": "执行输入已经变化，需重新回放；历史结果保留在原运行中"}
+    run = db.one("SELECT * FROM runs WHERE id = ?", (result["run_id"],))
+    valid = bool(run and execution_inputs.result_evidence(run, result, case))
+    return {**item, "result": {**result, "detail": _json(result.get("detail"), {})}, "run_id": result["run_id"],
+            "evidence_valid": valid, "note": "" if valid else "执行证据不足或已变化"}
 
 
 def case_verdict(item: dict) -> str:
@@ -21,16 +41,7 @@ def case_verdict(item: dict) -> str:
     observed = item.get("recording_result") or {}
     if observed.get("status") == "Fail":
         return "Fail"
-    status = result.get("status")
-    if not result:
-        return "Unverified" if observed else "NotRun"
-    if result.get("detail", {}).get("business_status") == "Fail":
-        return "Fail"
-    if result.get("detail", {}).get("performance_status") == "Fail":
-        return "Fail"
-    if status == "Pass" and (not item.get("evidence_valid") or result.get("detail", {}).get("business_status") != "Pass"):
-        return "Unverified"
-    return status if status in VERDICTS else "Unknown"
+    return result_status(result, evidence_valid=bool(item.get("evidence_valid"))) if result else "NotRun"
 
 
 def observation_verdict(item: dict) -> str:
@@ -59,7 +70,7 @@ def logical_cases(snapshot: dict) -> list[dict]:
 def task_summary(snapshot: dict) -> dict:
     """Expose one verdict and concise facts per definition to every delivery renderer."""
     groups = logical_cases(snapshot)
-    counts = {status: sum(group["status"] == status for group in groups) for status in VERDICTS}
+    counts = {status: sum(group["status"] == status for group in groups) for status in STATUS}
     issues, environments = [], []
     for group in groups:
         reasons = []
@@ -207,6 +218,12 @@ def _native_row_evidence(run: dict, outcome: dict, row: dict) -> bool:
         return False
     if detail.get("input_hash") != run["input_hash"] or detail.get("evidence") != outcome.get("evidence"):
         return False
+
+    def matches(case, number):
+        return (str(case.get("id", number)) == row["case_id"] and row.get("status") == case.get("status", "Blocked")
+                and all(detail.get(key) == case.get(key) for key in ("execution_only_pass", "target_started"))
+                and all(detail.get(key) == value for key, value in case.items()))
+
     index = detail.get("native_case_index")
     if index is not None:
         if type(index) is not int or not 0 <= index < len(originals):
@@ -214,10 +231,8 @@ def _native_row_evidence(run: dict, outcome: dict, row: dict) -> bool:
         original = originals[index]
         if detail.get("native_case_hash") != execution_inputs.content_hash(original):
             return False
-        return str(original.get("id", index + 1)) == row["case_id"] and all(detail.get(key) == value for key, value in original.items())
-    matches = [case for number, case in enumerate(originals, 1) if str(case.get("id", number)) == row["case_id"]
-               and all(detail.get(key) == value for key, value in case.items())]
-    return len(matches) == 1
+        return matches(original, index + 1)
+    return sum(matches(case, number) for number, case in enumerate(originals, 1)) == 1
 
 
 def _native_files_evidence(run: dict, manifest: dict, outcome: dict) -> bool:
@@ -271,6 +286,9 @@ def run_snapshot(run: dict) -> dict:
     for item in cases:
         item["environment"] = environment
         item["evidence_directory"] = data_refs.store(paths.local() / "runs" / run["id"])
+    for row in results:
+        if row.get("prerequisite"):
+            row["evidence_valid"] = execution_inputs.result_evidence(run, row)
     metadata = {key: run.get(key) for key in ("id", "family", "engine", "trigger", "task_id", "created_at", "started_at",
                                            "finished_at", "reason", "total", "done", "input_hash", "input_manifest")}
     if metadata.get("input_manifest"):

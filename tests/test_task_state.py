@@ -36,6 +36,66 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(value)
 
 
+class CaseOutcomeTests(unittest.TestCase):
+    def test_interruption_uses_target_start_not_batch_start(self):
+        for status in ("Blocked", "Cancelled"):
+            for started, expected in ((False, "not_run"), (True, "fail")):
+                detail = {"target_started": started}
+                with self.subTest(status=status, started=started):
+                    self.assertEqual(task_state.case_outcome({"status": status}, detail, evidence_valid=True), expected)
+            self.assertEqual(task_state.case_outcome({"status": status, "started_at": "2025-01-01"}, {}, evidence_valid=True), "not_run")
+
+    def test_steps_without_assertions_require_complete_execution_records(self):
+        case = {"kind": "ui", "extensions": {"automation": {"actions": [{"action": "click"}]}}}
+        success = {"status": "Pass", "target_started": True, "steps": [{"status": "done"}, {"status": "done"}]}
+        result = runner.verification(case, success)
+        self.assertEqual(task_state.case_outcome(success, result, evidence_valid=True), "pass")
+        self.assertEqual(task_state.case_outcome(success, result, evidence_valid=False), "fail")
+        incomplete = {**success, "steps": [{"status": "done"}]}
+        self.assertEqual(task_state.case_outcome(incomplete, runner.verification(case, incomplete), evidence_valid=True), "fail")
+        self.assertEqual(task_state.case_outcome({"status": "Unverified"}, {"business_status": "Pass"}, evidence_valid=True), "fail")
+
+    def test_api_with_no_business_assertion_checks_the_response_and_configured_status(self):
+        case = {"kind": "api", "assertions": {"status": 200}}
+        outcome = {"status": "Pass", "target_started": True, "request": {"method": "GET"},
+                   "response": {"status": 200}, "assertions": [{"name": "状态码", "passed": True}]}
+        self.assertEqual(runner.verification(case, outcome)["business_status"], "Pass")
+        self.assertEqual(runner.verification(case, {**outcome, "response": None})["business_status"], "Fail")
+        outcome["assertions"][0]["passed"] = False
+        self.assertEqual(runner.verification(case, outcome)["business_status"], "Fail")
+
+
+    def test_completed_observation_and_unmapped_checks_retain_execution_pass(self):
+        for ext in ({"oracle": {"source": "observation"}}, {"functional_design": {"state": "unmapped"}}):
+            case = {"kind": "api", "assertions": {"status": 200, "json_equals": {"/ok": True}}, "extensions": ext}
+            outcome = {"status": "Pass", "target_started": True, "request": {"method": "GET"}, "response": {"status": 200},
+                       "assertions": [{"passed": True}, {"passed": True}]}
+            detail = runner.verification(case, outcome)
+            self.assertEqual(detail["business_status"], "Unverified")
+            self.assertEqual(task_state.case_outcome(outcome, detail, evidence_valid=True), "pass")
+
+    def test_recover_only_started_target_once(self):
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": root, "AUTOSKILL_BRIDGE": "off"}):
+            db.init()
+            pid = projects.create("Recovery fixture", "http://example.invalid")["id"]
+            cases = [builder.api_case(identity, identity, "GET", "/", {"status": 200}) for identity in ("started", "waiting")]
+            projects.save_cases(pid, cases)
+            run = runner.create(pid, ["started", "waiting"])
+            manifest = execution_inputs.load(run)
+            for identity in ("started", "waiting"):
+                receipt = {"id": "attempt-" + identity, "run_id": run["id"], "case_id": identity,
+                           "input_hash": run["input_hash"], "case_content_hash": manifest["case_hashes"][identity],
+                           "case_scope_hash": manifest["scope_hashes"][identity], "started_at": db.now(),
+                           "target_started": identity == "started", "state": "started"}
+                execution_inputs.write_json(runner.evidence_dir(run["id"]) / "attempts" / (receipt["id"] + ".json"), receipt)
+            with db.connect() as conn:
+                runner._recover_interrupted_targets(conn, run)
+                runner._recover_interrupted_targets(conn, run)
+            rows = db.rows("SELECT * FROM results WHERE run_id=?", (run["id"],))
+            self.assertEqual([(row["case_id"], task_state.result(row)["outcome"]) for row in rows], [("started", "fail")])
+            self.assertEqual(db.one("SELECT done,failed FROM runs WHERE id=?", (run["id"],)), {"done": 1, "failed": 1})
+
+
 class TaskStateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -70,9 +130,9 @@ class TaskStateTests(unittest.TestCase):
         final, row = self.execute({})
         self.assertEqual(final["status"], "Pass")
         state = task_state.result(row)
-        self.assertEqual((state["phase"], state["outcome"], state["checks"]["business"]), ("settled", "unverified", "unverified"))
+        self.assertEqual((state["phase"], state["outcome"], state["checks"]["business"]), ("settled", "pass", "unverified"))
         self.assertEqual(state["checks"]["performance"], "not_applicable")
-        self.assertEqual(task_state.run(final)["outcome"], "unverified")
+        self.assertEqual(task_state.run(final)["outcome"], "pass")
 
     def test_business_pass_and_sla_failure_have_separate_axes(self):
         final, row = self.execute({"json_equals": {"/ok": True}, "max_ms": 1})
@@ -106,7 +166,7 @@ class TaskStateTests(unittest.TestCase):
         _final, row = self.execute()
         detail = {**json.loads(row["detail"]), "business_status": []}
         state = task_state.result({**row, "detail": json.dumps(detail)})
-        self.assertEqual((state["checks"]["business"], state["outcome"]), ("unverified", "unverified"))
+        self.assertEqual((state["checks"]["business"], state["outcome"]), ("unverified", "fail"))
 
     def test_mixed_malformed_items_retain_a_real_performance_failure(self):
         _final, row = self.execute({"max_ms": 1})
@@ -139,7 +199,7 @@ class TaskStateTests(unittest.TestCase):
         original = receipt.read_bytes()
         receipt.unlink()
         self.assertNotEqual(task_state.revision(), revision)
-        self.assertEqual(task_state.result(row)["outcome"], "unverified")
+        self.assertEqual(task_state.result(row)["outcome"], "fail")
         receipt.write_bytes(original)
         self.assertEqual(task_state.run(final)["outcome"], "pass")
 
@@ -173,7 +233,7 @@ class TaskStateTests(unittest.TestCase):
         self.assertTrue(changed)
         for _ in range(3):
             state = task_state.result(row)
-            self.assertEqual((state["evidence"], state["outcome"]), ("invalid", "unverified"))
+            self.assertEqual((state["evidence"], state["outcome"]), ("invalid", "fail"))
 
     def test_missing_bug_report_is_failed_on_read_without_regeneration(self):
         final, _row = self.execute()
@@ -222,7 +282,7 @@ class TaskStateTests(unittest.TestCase):
         projects.save_cases(self.project, [case])
         current = task_state.current_result(self.project, projects.case(self.project, row["case_id"]), row)
         self.assertFalse(current["current"])
-        self.assertEqual((current["outcome"], current["historical_outcome"]), ("unverified", "pass"))
+        self.assertEqual((current["outcome"], current["historical_outcome"]), ("not_run", "pass"))
         self.assertEqual(task_state.run(final)["outcome"], "pass")
 
     def test_light_host_revision_does_not_read_or_render_full_context(self):

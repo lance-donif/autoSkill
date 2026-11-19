@@ -87,7 +87,7 @@ class DashboardStartupTests(unittest.TestCase):
         self.assertEqual(self.started, [])
 
         self.page.go_back()
-        expect(self.page.get_by_role('link', name='可复用用例', exact=True)).to_have_attribute('aria-current', 'page')
+        expect(self.page.get_by_role('link', name='测试用例', exact=True)).to_have_attribute('aria-current', 'page')
         expect(action).to_be_visible()
         expect(self.page.locator('#view')).not_to_have_attribute('aria-busy', 'true')
 

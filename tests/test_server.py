@@ -69,12 +69,12 @@ class MetricsTests(Workspace):
         scope = metrics.Scope()
         s = metrics.summary(scope)
         r = s["results"]
-        self.assertEqual((r["passed"], r["failed"], r["blocked"]), (5, 0, 3))  # prerequisites are not counted
-        self.assertEqual(r["pass_rate"], 1.0)  # blocked results never enter the denominator
-        for status, key in (("Pass", "passed"), ("Fail", "failed"), ("Blocked", "blocked")):
+        self.assertEqual((r["passed"], r["failed"], r["not_run"]), (5, 0, 3))  # prerequisites are not counted
+        self.assertEqual(r["pass_rate"], 1.0)  # unstarted targets are not executed attempts
+        for status, key in (("Pass", "passed"), ("Fail", "failed"), ("NotRun", "not_run")):
             self.assertEqual(metrics.results(scope, status)["total"], r[key])
         self.assertEqual(metrics.results(scope)["total"], r["executions"])
-        self.assertEqual(sum(p["passed"] + p["failed"] + p["blocked"] for p in s["trend"]["points"]), r["executions"])
+        self.assertEqual(sum(p["passed"] + p["failed"] + p["not_run"] for p in s["trend"]["points"]), r["executions"])
         self.assertEqual(metrics.runs(scope)["total"], s["runs"]["total"])
         self.assertEqual(metrics.cases(scope)["total"], s["cases"]["total"])
 

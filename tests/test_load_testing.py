@@ -106,10 +106,11 @@ class LoadTests(unittest.TestCase):
         run = load_testing.enqueue("load", ["TARGET"], concurrency=2, iterations=3)
         runner.execute(run["id"])
         detail = load_testing.get(run["id"])
-        self.assertEqual((detail["status"], detail["done"], detail["blocked"]), ("Blocked", 3, 3))
+        self.assertEqual((detail["status"], detail["done"], detail["not_run"]), ("Blocked", 3, 3))
         self.assertEqual(len(self.server.seen), 3)
         self.assertIsNone(detail["metrics"]["p95_ms"])
-        self.assertEqual(detail["metrics"]["error_rate"], 1)
+        self.assertEqual(detail["metrics"]["completed_cases"], 0)
+        self.assertIsNone(detail["metrics"]["error_rate"])
         self.assertEqual(len(task_report_data.run_snapshot(detail)["cases"]), 3)
 
     def test_load_status_does_not_recreate_a_missing_report_receipt(self):

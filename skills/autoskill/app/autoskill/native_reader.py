@@ -89,6 +89,12 @@ def status(run_id: str, *, limit: int = 50, cursor: str | None = None, all_items
         raise paging.PageError("单用例读取不能同时使用分页游标或 --all")
     rows, page = paging.select(result["results"], content_revision=content_revision, query={"run": run_id},
                                cursor=cursor, limit=limit, all_items=all_items)
+    if isinstance(result["outcome"].get("metrics"), dict) and "planned_cases" in result["outcome"]["metrics"]:
+        metrics = dict(result["outcome"]["metrics"])
+        for key in ("blocked_cases", "cancelled_cases"):
+            metrics.pop(key, None)
+        metrics.update(failed_cases=result["failed"], not_run_cases=result["not_run"])
+        result["outcome"] = {**result["outcome"], "metrics": metrics}
     if all_items:
         return {**_public_result(result), "page": page}
     report = _file_ref(Path(result["evidence_dir"]) / "outcome.json")
@@ -97,6 +103,7 @@ def status(run_id: str, *, limit: int = 50, cursor: str | None = None, all_items
     if case_id:
         row = _case(result["results"], case_id)
         detail = {key: value for key, value in row["detail"].items() if key != "evidence"}
+        detail["status"] = row["status"]
         detail["evidence_ref"] = {**_ref(report, "/evidence", row["detail"].get("evidence", [])), "count": len(row["detail"].get("evidence", []))}
         summary.update(results=[_summary(row)], case=_audio_paths(detail), content_revision=paging.revision(row["detail"]))
         summary["page"] = {**page, "returned": 1, "has_more": False, "next_cursor": None}

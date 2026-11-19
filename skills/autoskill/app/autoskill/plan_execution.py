@@ -207,7 +207,7 @@ def _item(binding: dict, definition: dict) -> dict:
     item = {"definition": definition, "result": None, "run_id": binding["run_id"], "case_id": binding["case_id"], "evidence_valid": False,
             "recording_result": copy.deepcopy(observed), "note": ""}
     if not binding["run_id"]:
-        item["recording_result"] = observed or {"status": "Unverified", "reason": "录制未形成完整独立断言；尚未回放"}
+        item["recording_result"] = observed or {"status": "Unverified", "reason": "候选尚未回放"}
         return item
     run = db.one("SELECT * FROM runs WHERE id = ?", (binding["run_id"],))
     if not run:
@@ -250,9 +250,8 @@ def items_for_row(value: dict, row: dict, definition: dict) -> list[dict]:
 def unexecuted_item(row: dict, definition: dict) -> dict:
     """Preserve an explicit blocker without treating a manual mark as execution proof."""
     item = {"definition": definition, "result": None, "run_id": None, "evidence_valid": False}
-    if row.get("status") in ("阻塞", "Blocked"):
-        item.update(result={"status": "Blocked", "reason": row.get("note", ""), "detail": {"business_status": "Unverified"}},
-                    note="记录为阻塞；没有本行执行回执")
+    if row.get("note"):
+        item["note"] = row["note"] + "；没有本行执行回执"
     return item
 
 
@@ -275,11 +274,11 @@ def evidence(project_id: str, row: dict) -> dict | None:
     latest_binding = _matches(value, row)[-1]
     if latest_binding.get("linked_existing") and result:
         current = plan._current_cases(project_id).get(latest_binding["case_id"])
-        if not current or not execution_inputs.result_current(project_id, current, result):
+        if not current or not execution_inputs.result_scope_current(project_id, current, result):
             return {"status": "NotRun", "actual": "", "executor": "", "environment": "", "screenshots": [],
                     "reason": "关联用例已修改或不再有效，需重新回放；历史结果仍保留在原任务报告", "result": last["result"],
                     "run_id": last["run_id"], "materialized_case_id": latest_binding["case_id"], "binding_current": False,
-                    "current": False, "candidate_bound": True, "items": group["items"], **history_fields}
+                    "current": False, "candidate_bound": True, "items": [], **history_fields}
     detail = result.get("detail", {})
     reason = "；".join(dict.fromkeys(filter(None, [*(item.get("note", "") for item in group["items"]),
                                                       *(str((item.get("result") or {}).get("reason", "")) for item in group["items"])])))

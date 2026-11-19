@@ -1,5 +1,5 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
-import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt, toast,
+import { h, icon, replace, api, scopeQuery, go, href, route, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
 import { empty, errorState, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
@@ -11,12 +11,9 @@ import { cancelButton, rerunButton, runActionFeedback, resultConclusion, recover
 import { reportControls, setReportFeedback } from './report-controls.js';
 
 const PAGE = 50;
-const HISTORY_STATUSES = [
-  { value: 'Pass', key: 'passed', label: '通过', color: 'var(--good)' },
-  { value: 'NotPassed', key: 'notPassed', label: '不通过', color: 'var(--bad)' },
-];
-const isHistoryStatus = (value) => HISTORY_STATUSES.some((option) => option.value === value);
-const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'native' ? '原生' : value === 'ui' ? '页面' : '接口');
+const HISTORY_STATUSES = { NotRun: 'not_run', Pass: 'pass', Fail: 'fail' };
+const isHistoryStatus = (value) => Object.hasOwn(HISTORY_STATUSES, value);
+const kindTag = (value) => value && h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'native' ? '原生' : value === 'ui' ? '页面' : '接口');
 const active = (run) => ['Queued', 'Running'].includes(run.status);
 const selected = new Map();
 const pendingDeletions = new Map();
@@ -87,7 +84,8 @@ export function commit(view, next, { id }) {
 async function history(view, isCurrent) {
   const { params } = route();
   const mode = params.get('view') === 'results' ? 'results' : 'runs';
-  const status = params.get('status') || '';
+  const bookmarked = params.get('status');
+  const status = bookmarked === 'NotPassed' ? 'Fail' : bookmarked || '';
   const stateFilters = Object.fromEntries(Object.keys(stateAxes).filter((key) => params.get(key)).map((key) => [key, params.get(key)]));
   const offset = Number(params.get('offset') || 0);
   let data;
@@ -139,29 +137,33 @@ async function history(view, isCurrent) {
 
 function emptyHistory(filtered) {
   return empty({ glyph: 'runs', title: filtered ? '没有符合条件的记录' : '这个范围内还没有执行',
-      text: filtered ? '调整筛选条件、项目或时间范围后再试。' : '首次测试请在 DSH 对话中让 autoSkill 生成用例 Excel 并执行；已有用例可在「可复用用例」重新运行，也可调整上方范围查找历史记录。',
-      actions: h('a', { class: 'btn', href: href('cases') }, '查看可复用用例') });
+      text: filtered ? '调整筛选条件、项目或时间范围后再试。' : '首次测试请在 DSH 对话中让 autoSkill 生成用例 Excel 并执行；已有用例可在「测试用例」重新运行，也可调整上方范围查找历史记录。',
+      actions: h('a', { class: 'btn', href: href('cases') }, '查看测试用例') });
 }
 
 function historyVerdict(item) {
-  const value = item.history_status;
-  const title = stateLabel(value ? item.state?.outcome : item.state?.phase);
-  if (!value) return h('span', { class: 'sub', title, 'aria-label': title }, '—');
-  const passed = value === 'Pass';
-  const pill = statePill(passed ? 'pass' : 'fail', '', passed ? '通过' : '不通过');
-  pill.title = item.state?.scope?.historical ? '历史执行 · ' + title : title;
+  const value = HISTORY_STATUSES[item.history_status] || item.state?.outcome || 'not_run';
+  const pill = statePill(value);
+  if (item.state?.scope?.historical) pill.title = '历史执行 · ' + pill.title;
   return pill;
+}
+
+function resultDestination(item, params) {
+  const page = item.kind === 'native' ? 'native-runs/' : 'runs/';
+  // A planned target can acquire a result ID between the list and report reads.
+  const focus = String(item.id).startsWith('planned:') ? item.case_id : 'result:' + item.id;
+  return href(page + item.run_id, { ...Object.fromEntries(params), case: focus, return: location.hash });
 }
 
 function resultTable(items, params) {
   return h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, ['结果', '用例', '类型', '项目', '原因', '时间', '耗时'].map((t) => h('th', {}, t)))),
-      h('tbody', {}, items.map((item) => h('tr', { dataset: { historyVerdict: item.history_status || '', historyOutcome: item.state?.outcome || '' } },
+      h('tbody', {}, items.map((item) => h('tr', { dataset: { historyVerdict: item.history_status || '', historyRawStatus: item.status } },
         h('td', {}, historyVerdict(item)),
-        h('td', {}, historyLink(item.case_title, href((item.kind === 'native' ? 'native-runs/' : 'runs/') + item.run_id, { ...Object.fromEntries(params), case: 'result:' + item.id, return: location.hash }), 'result:' + item.id), h('div', { class: 'sub mono' }, item.case_id)),
+        h('td', {}, historyLink(item.case_title, resultDestination(item, params), 'result:' + item.id), h('div', { class: 'sub mono' }, item.case_id)),
         h('td', {}, kindTag(item.kind)),
         h('td', { class: 'sub' }, item.project_name),
-        h('td', { class: 'sub', style: 'max-width:340px' }, item.state?.outcome === 'pass' ? '—'
+        h('td', { class: 'sub', style: 'max-width:340px' }, item.state?.outcome === 'pass' || (!item.category && !item.reason) ? '—'
           : h('div', { class: 'ellipsis', title: item.reason }, h('b', {}, CATEGORY[item.category] || '未分类'), item.reason ? '：' + item.reason : '')),
         h('td', { class: 'sub num' }, fmtTime(item.started_at)),
         h('td', { class: 'sub num' }, fmtDuration(item.duration_ms))))));
@@ -174,10 +176,10 @@ function historyToolbar(mode, status) {
       onClick: () => changeHistory({ view: value === 'runs' ? null : value }),
     }, label)));
   const label = mode === 'runs' ? '运行状态' : '用例结果';
-  const choices = h('div', { class: 'seg', role: 'group', 'aria-label': label }, HISTORY_STATUSES.map(({ value, label: text }) => h('button', {
+  const choices = h('div', { class: 'seg', role: 'group', 'aria-label': label }, Object.entries(HISTORY_STATUSES).map(([value, outcome]) => h('button', {
     dataset: { historyStatus: value }, 'aria-pressed': String(status === value), title: '再次点击可清除筛选',
-    onClick: () => changeHistory({ status: route().params.get('status') === value ? null : value }),
-  }, text)));
+    onClick: (event) => changeHistory({ status: event.currentTarget.getAttribute('aria-pressed') === 'true' ? null : value }),
+  }, stateLabel(outcome))));
   return h('div', { class: 'toolbar', dataset: { historyRegion: 'toolbar', historyMode: mode, selectedStatus: status } },
     tabs, h('div', { class: 'filter-field' }, h('span', { class: 'sub' }, label), choices));
 }
@@ -233,9 +235,8 @@ function runProgress(run) {
     return h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${width}%` })),
       h('span', { class: 'sub num' }, `${run.done}/${run.total}`));
   }
-  const counts = { passed: run.passed ?? 0, notPassed: (run.failed ?? 0) + (run.blocked ?? 0) + (run.cancelled ?? 0) + (run.unverified ?? 0) };
-  return h('div', { class: 'stack', style: 'gap:4px' }, splitBar(counts, HISTORY_STATUSES),
-    h('span', { class: 'sub num' }, `${counts.passed} 通过 · ${counts.notPassed} 不通过`));
+  return h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run),
+    h('span', { class: 'sub num' }, `${run.not_run || 0} 未执行 · ${run.passed || 0} 通过 · ${run.failed || 0} 失败`));
 }
 
 function historyRow(run, params, repaint) {
@@ -247,8 +248,8 @@ function historyRow(run, params, repaint) {
   const note = run.deletion_error || (deleting(run) ? '正在取消并删除，等待执行器退出及清理完成' :
     active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
   const destination = ({ load: 'load-tests', native: 'native-runs' })[run.family] || 'runs';
-  return h('tr', { class: selected.has(run.id) ? 'selected' : '', dataset: { historyVerdict: run.history_status || '', historyOutcome: run.state?.outcome || '' } },
-    h('td', {}, box), h('td', {}, historyVerdict(run)),
+  return h('tr', { class: selected.has(run.id) ? 'selected' : '', dataset: { historyVerdict: run.history_status || '', historyRawStatus: run.status } },
+    h('td', {}, box), h('td', {}, historyVerdict(run), active(run) && primaryState(run)),
     h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href(destination + '/' + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
     h('td', { style: 'min-width:170px' }, runProgress(run)),
     h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine] || run.engine || '未记录'),
@@ -394,14 +395,14 @@ async function report(view, runId, isCurrent) {
   const running = active(run);
   if (running) live.until = Date.now() + 8000;
   const counted = run.results.filter((row) => !row.prerequisite);
-  const spent = run.results.reduce((sum, row) => sum + row.duration_ms, 0);
-  const notPassed = counted.filter((row) => row.state?.outcome !== 'pass').length;
+  const spent = run.results.reduce((sum, row) => sum + (row.duration_ms || 0), 0);
+  const failedCount = counted.filter((row) => row.state?.outcome === 'fail').length;
 
   const again = rerunButton(run);
-  const retry = rerunButton(run, { failedOnly: true, count: notPassed });
+  const retry = rerunButton(run, { failedOnly: true, count: failedCount });
   const stop = cancelButton(run);
 
-  const summary = runSummary(run, running, stop, again, notPassed, retry, spent, runDeleteButton([run]));
+  const summary = runSummary(run, running, stop, again, failedCount, retry, spent, runDeleteButton([run]));
 
   const rows = reportRows(run, false, focus);
 
@@ -424,7 +425,7 @@ function reportRows(run, offline = false, focus = null) {
   const running = active(run);
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例结果'),
-      h('p', { class: 'sub' }, run.results.some((row) => row.prerequisite) ? '带「前置」标记的用例是为了满足依赖自动执行的，不计入统计。' : '点开一条查看每一步和每条断言。'))),
+      run.results.some((row) => row.prerequisite) && h('p', { class: 'sub' }, '自动执行的前置用例不计入统计。'))),
     run.results.length
       ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row, offline, focus)))
       : empty({ glyph: 'clock', title: running ? '正在准备' : '没有结果', text: running ? '浏览器启动后，结果会一条条出现在这里。' : (run.reason || '这次运行没有产生结果。') }));
@@ -444,8 +445,8 @@ function focusNotice(run, focus) {
 }
 
 function firstIssueLink(run) {
-  const row = run.results.find((entry) => !entry.prerequisite && entry.state?.outcome !== 'pass');
-  return row && h('a', { class: 'btn', href: href('runs/' + run.id, { ...Object.fromEntries(route().params), case: 'result:' + row.id }) }, '查看首条未通过结果');
+  const row = run.results.find((entry) => !entry.prerequisite && entry.state?.outcome === 'fail');
+  return row && h('a', { class: 'btn', href: href('runs/' + run.id, { ...Object.fromEntries(route().params), case: 'result:' + row.id }) }, '查看首条失败结果');
 }
 
 function htmlReportControl(run) {
@@ -462,12 +463,12 @@ function htmlReportControl(run) {
 }
 
 function offlineReport(run) {
-  const spent = run.results.reduce((sum, row) => sum + row.duration_ms, 0);
+  const spent = run.results.reduce((sum, row) => sum + (row.duration_ms || 0), 0);
   return h('main', { class: 'view report-document', id: 'view' },
     runSummary(run, active(run), null, null, 0, null, spent, null, true), reportRows(run, true));
 }
 
-function runSummary(run, running, stop, again, notPassed, retry, spent, remove, offline = false) {
+function runSummary(run, running, stop, again, failedCount, retry, spent, remove, offline = false) {
   return h('section', { class: 'card run-summary' },
     h('div', { class: 'card-body stack report-summary' },
       h('div', { class: 'row wrap', style: 'gap:16px' },
@@ -481,12 +482,12 @@ function runSummary(run, running, stop, again, notPassed, retry, spent, remove, 
             h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`))),
       run.reason && h('div', { class: 'banner bad' }, icon('warn'), run.reason),
       !offline && reportControls(run, htmlReportControl(run)),
-      !offline && h('div', { class: 'row wrap' }, !deleting(run) && (running ? stop : [firstIssueLink(run), again, notPassed > 0 && retry]), remove),
+      !offline && h('div', { class: 'row wrap' }, !deleting(run) && (running ? stop : [firstIssueLink(run), again, failedCount > 0 && retry]), remove),
       !offline && recoveryActions(run),
       h('details', { class: 'more report-technical', open: offline }, h('summary', {}, '执行与技术详情'),
         h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 执行引擎 ${ENGINE[run.engine] || run.engine || '未记录'}`),
         stateDetails(run), h('div', { class: 'stats' },
-          stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('阻塞', run.blocked, 'blocked'), stat('未验证', run.unverified || 0),
+          stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('未执行', run.not_run || 0),
           stat('用例', run.total), stat('总耗时', fmtDuration(spent))),
         !offline && h('p', { class: 'sub' }, '重新运行会保留本次记录；使用的版本和范围以上方操作说明为准。'))));
 }
@@ -500,7 +501,7 @@ function publicationSummary(run, offline) {
     h('p', { class: 'sub' }, receipt.complete ? `本批候选已入库 ${published.length} 条` : '候选入库结果待确认',
       published.length > 0 && '：' + published.join('、'),
       unpublished.length > 0 && `；${unpublished.length} 条未入库`,
-      !offline && published.length > 0 && [' · ', h('a', { href: href('cases', { projects: run.project_id }) }, '查看本项目可复用用例')]),
+      !offline && published.length > 0 && [' · ', h('a', { href: href('cases', { projects: run.project_id }) }, '查看本项目测试用例')]),
     unpublished.length > 0 && h('details', { class: 'more' }, h('summary', {}, '查看未入库原因'),
       unpublished.map(([id, reason]) => h('p', { class: 'sub' }, `${id}：${reason}`))));
 }
@@ -517,7 +518,7 @@ function resultRow(run, row, offline, focus) {
     rowVisibility.set(key, !open);
     refresh();
   } },
-  icon('right', 'icon-svg caret'), primaryState(row),
+  icon('right', 'icon-svg caret'),
   h('span', { class: 'grow' }, h('span', { class: 'title' }, row.case_title),
     h('span', { class: 'sub' }, `　${row.case_id}`),
     row.prerequisite ? h('span', { class: 'tag accent', style: 'margin-left:8px' }, '前置') : null,
@@ -533,9 +534,9 @@ function resultBody(run, row, offline = false) {
   const d = row.detail;
   const parts = [stateDetails(row), attemptHistory(d)];
   if (!offline) parts.push(recoveryActions(run, row));
-  if (row.status !== 'Pass') {
-    parts.push(h('div', { class: 'banner ' + (row.status === 'Fail' ? 'bad' : '') }, icon(row.status === 'Fail' ? 'x' : 'warn'),
-      h('span', {}, h('b', {}, CATEGORY[row.category] || (row.status === 'Fail' ? '失败' : '阻塞')), row.reason ? '：' + row.reason : '')));
+  if (row.state?.outcome !== 'pass') {
+    parts.push(h('div', { class: 'banner ' + (row.state?.outcome === 'fail' ? 'bad' : '') }, icon(row.state?.outcome === 'fail' ? 'x' : 'warn'),
+      h('span', {}, h('b', {}, CATEGORY[row.category] || stateLabel(row.state?.outcome)), row.reason ? '：' + row.reason : '')));
   } else if (row.actual) {
     parts.push(h('p', { class: 'sub' }, row.actual));
   }
@@ -567,12 +568,10 @@ function caseRetryControl(run, row) {
 
 function attemptHistory(detail) {
   const attempts = detail.attempts || [];
-  if (!attempts.length && !detail.last_attempt_status) return null;
+  if (!attempts.length) return null;
   return h('section', { class: 'stack', 'aria-label': '执行尝试历史' }, h('h3', {}, '执行尝试'),
-    detail.last_attempt_status && h('p', { class: 'sub' }, '末次尝试：', statusPill(detail.last_attempt_status)),
-    attempts.length > 0 && h('ol', { class: 'steps timeline' }, attempts.map((entry, index) => h('li', {},
-      h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.status ? statusPill(entry.status) : statePill(entry.execution_status),
-        entry.business_status ? h('span', { class: 'tag' }, '业务：' + stateLabel(entry.business_status.toLowerCase())) : null),
+    h('ol', { class: 'steps timeline' }, attempts.map((entry, index) => h('li', {},
+      h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.outcome && statePill(entry.outcome)),
       h('span', { class: 'step-sub' }, entry.reason || entry.error || '详见本次尝试的执行记录'),
       h('details', {}, h('summary', {}, '查看本次记录'), h('pre', { class: 'mono' }, JSON.stringify(entry, null, 2)))))));
 }

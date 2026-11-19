@@ -301,6 +301,8 @@ class HostContextTests(unittest.TestCase):
         first = self.context(runs_limit=3)
         self.assertEqual((len(first["runs"]["items"]), first["runs"]["page"]["total"]), (3, 11))
         self.assertTrue(all(row["can_cancel"] for row in first["runs"]["items"]))
+        for run in first["runs"]["items"]:
+            self.assertEqual(run["state_counts"], {"pass": 0, "fail": 0, "not_run": 1})
         following = self.context(runs_limit=3, runs_cursor=first["runs"]["page"]["next_cursor"])
         self.assertNotIn(other["id"], {row["id"] for row in following["runs"]["items"]})
         db.execute("UPDATE runs SET status='Running',done=1 WHERE id=?", (rows[-1]["id"],))

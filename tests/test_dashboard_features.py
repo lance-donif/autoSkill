@@ -220,7 +220,7 @@ class FeatureDashboardTests(DashboardWorkspace):
             else:
                 self.assertEqual(execution_inputs.canonical(current), baseline[current["id"]])
         self.evidence("workflow-published.png")
-        expect(self.page.get_by_role("link", name="查看项目用例 Excel", exact=True)).to_be_visible()
+        expect(self.page.get_by_role("link", name="查看项目测试用例", exact=True)).to_be_visible()
         self.assertEqual(self.page.locator("#view textarea").count(), 0)
 
     def test_workflow_partial_publication_shows_real_counts_reasons_and_source_identity(self):
@@ -271,7 +271,7 @@ class FeatureDashboardTests(DashboardWorkspace):
         self.page.set_content('<iframe name="host" style="width:390px;height:500px;border:0" src="' + destination + '"></iframe>')
         reader = self.page.frame(name='host')
         expect(reader.get_by_role('heading', name='入库结果查阅', exact=True)).to_be_visible()
-        expect(reader.get_by_role('link', name='查看项目用例 Excel', exact=True)).to_be_in_viewport(ratio=1)
+        expect(reader.get_by_role('link', name='查看项目测试用例', exact=True)).to_be_in_viewport(ratio=1)
         self.evidence('f7-workflow-first-screen.png')
         oracle = reader.locator('[data-reading-id="source:oracles"] summary')
         oracle.focus()

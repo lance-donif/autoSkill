@@ -7,7 +7,7 @@ import re
 import uuid
 from pathlib import Path
 
-from . import data_refs, db, execution_inputs, paths, projects
+from . import data_refs, db, execution_inputs, paths, projects, task_state
 from .locking import project_lock
 
 
@@ -90,12 +90,13 @@ def _attempt_failed(detail: dict) -> bool:
 
 def _row_qualification(case: dict, run: dict, row: dict, *, cold_api: bool) -> tuple[bool, str, str]:
     detail = json.loads(row["detail"]) if isinstance(row.get("detail"), str) else row.get("detail", {})
-    if row.get("status") != "Pass" or detail.get("business_status") != "Pass":
-        return False, row.get("reason") or "业务尚未通过，保留结果但不生成可复用用例", ""
-    if detail.get("performance_status") == "Fail":
-        return False, "声明的性能检查未通过", ""
-    if not execution_inputs.result_evidence(run, row, case):
+    evidence_valid = execution_inputs.result_evidence(run, row, case)
+    if not evidence_valid:
         return False, "实际执行证据缺失或与候选版本不一致", ""
+    if task_state.case_outcome(row, detail, evidence_valid=evidence_valid) != "pass":
+        return False, row.get("reason") or "用例没有通过", ""
+    if case.get("extensions", {}).get("oracle", {}).get("source") == "observation" or case.get("extensions", {}).get("functional_design", {}).get("state") == "unmapped":
+        return False, "候选缺少已关联的独立业务预期", ""
     if _attempt_failed(detail):
         return False, "本批已有业务或性能失败，后续重试不能覆盖原失败", ""
     manifest = execution_inputs.load(run)

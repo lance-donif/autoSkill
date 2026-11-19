@@ -39,26 +39,29 @@ function bindHistory(toolbar) {
   const buttons = [...toolbar.querySelectorAll('[data-history-status]')];
   const rows = [...document.querySelectorAll('#view tr[data-history-verdict]')];
   const total = document.querySelector('[data-history-count]');
-  // Dashboard links to a specific failed or blocked result retain that narrower scope.
-  const legacyLabels = { Fail: '失败', Blocked: '阻塞' };
+  // Preserve bookmarked filters that refer to a raw execution status.
+  const legacyLabels = { Blocked: '阻塞', Cancelled: '已取消', Unverified: '未验证' };
   const clear = document.createElement('button');
   clear.className = 'btn sm';
   clear.hidden = true;
   document.querySelector('[data-history-region="filters"]').append(clear);
 
-  function selected() { return new URL(location.href).searchParams.get('status') || ''; }
+  function selected() {
+    const status = new URL(location.href).searchParams.get('status') || '';
+    return status === 'NotPassed' ? 'Fail' : status;
+  }
   function render() {
     const status = selected();
     const legacy = Object.hasOwn(legacyLabels, status);
-    const binary = buttons.some((button) => button.dataset.historyStatus === status);
+    const verdict = buttons.some((button) => button.dataset.historyStatus === status);
     let count = 0;
     for (const row of rows) {
-      row.hidden = legacy ? row.dataset.historyOutcome !== status.toLowerCase() : binary && row.dataset.historyVerdict !== status;
+      row.hidden = legacy ? row.dataset.historyRawStatus !== status : verdict && row.dataset.historyVerdict !== status;
       if (!row.hidden) count++;
       const link = row.querySelector('a[data-history-id]');
       const url = new URL(link.href);
       url.searchParams.set('from', mode);
-      if (binary || legacy) url.searchParams.set('status', status);
+      if (verdict || legacy) url.searchParams.set('status', status);
       else url.searchParams.delete('status');
       link.href = url.href;
     }

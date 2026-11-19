@@ -111,7 +111,7 @@ class CandidateSheetTests(unittest.TestCase):
         self.assertEqual([row['status'] for row in plan.show()['cases']], ['未执行'] * 3)
         self.assertEqual([row[9] for row in self.workbook_rows(replacement['delivery_excel'])], ['未执行'] * 3)
         old_rows = self.workbook_rows(old['delivery_excel'])
-        self.assertEqual([row[9] for row in old_rows], ['失败', '未执行', '阻塞'])
+        self.assertEqual([row[9] for row in old_rows], ['失败', '未执行', '未执行'])
         self.assertIn('必要测试账号尚未提供', old_rows[2][8])
         self.assertEqual(old_rows[0][6], self.rows[0]['expected'])
         synchronized = plan.sync(run_id=run['id'])
@@ -137,7 +137,7 @@ class CandidateSheetTests(unittest.TestCase):
         unverified = self.candidate('TC-API-UNVERIFIED')
         self.assertNotIn('error', plan.bind_execution('DESIGN-2', self.pid, unverified, None))
         rows = self.workbook_rows(plan.show()['delivery_excel'])
-        self.assertEqual([row[9] for row in rows], ['失败', '业务未验证', '未执行'])
+        self.assertEqual([row[9] for row in rows], ['失败', '未执行', '未执行'])
         self.assertIn('录制观察', rows[0][8])
         self.assertEqual(db.one('SELECT COUNT(*) AS n FROM runs')['n'], 0)
         self.assertEqual(projects.cases(self.pid), [])
@@ -193,7 +193,7 @@ class CandidateSheetTests(unittest.TestCase):
         receipt = json.loads(result['detail'])['attempts'][0]
         data_refs.resolve(receipt['path']).unlink()
         invalid = case_plans.get(self.pid)['rows'][0]['evidence']['latest_execution']
-        self.assertEqual(invalid['status'], 'Unverified')
+        self.assertEqual(invalid['status'], 'Fail')
         self.assertFalse(invalid['evidence_valid'])
 
     def test_failed_export_retry_uses_frozen_rows_without_execution_or_publication(self):

@@ -69,24 +69,26 @@ def page(request: Request, default_limit: int = 50) -> tuple[int, int]:
     return max(1, min(200, int(q.get("limit", default_limit)))), max(0, int(q.get("offset", 0)))
 
 
-def run_view(run: dict) -> dict:
-    run = metrics.run_values(run)
-    run = runner.public_run(run)
+def run_view(run: dict, *, results=None, connection=None) -> dict:
+    run = metrics.run_values(run, results=results, connection=connection)
+    run = runner.public_run(run, state=run["state"])
     run["case_ids"] = json.loads(run["case_ids"])
     project = db.one("SELECT name FROM projects WHERE id = ?", (run["project_id"],))
     run["project_name"] = project["name"] if project else run["project_id"]
     return run
 
 
-def result_view(row: dict) -> dict:
+def result_view(row: dict, *, connection=None) -> dict:
     detail = json.loads(row["detail"])
+    state = task_state.result(row, detail, connection=connection)
     attempts = detail.get("attempts")
     if isinstance(attempts, list):
         for attempt in attempts:
             if isinstance(attempt, dict) and attempt.get("path"):
+                attempt["outcome"] = task_state.attempt_outcome(attempt, evidence_valid=state["evidence"] == "valid")
                 with contextlib.suppress(ValueError):
                     attempt["path"] = str(data_refs.resolve(attempt["path"]))
-    return {**row, "detail": detail, "state": task_state.result(row, detail)}
+    return {**row, "detail": detail, "state": state}
 
 
 def report_view(run: dict) -> dict:
@@ -127,7 +129,7 @@ def case_view(project_id: str, case: dict) -> dict:
                                     " ORDER BY r.id DESC LIMIT 1", (project_id, case["id"])).fetchone()
         state = task_state.current_result(project_id, case, dict(latest), connection=connection) if latest else None
     current = bool(state and state["current"])
-    view.update(state=state, last_state=state, current=current, current_status=state["outcome"].capitalize() if current else None,
+    view.update(state=state, last_state=state, current=current, current_status=metrics.history_status(state) if current else None,
                 last_status=latest["status"] if latest else None)
     if case["kind"] == "ui":
         automation = case.get("extensions", {}).get("automation") or {}
@@ -469,7 +471,7 @@ def _rerun_case_ids(run: dict, body: dict) -> list[str]:
     if not body.get("failed_only"):
         return case_ids
     rows = db.rows("SELECT * FROM results WHERE run_id = ? AND prerequisite = 0", (run["id"],))
-    case_ids = [row["case_id"] for row in rows if task_state.result(row)["outcome"] != "pass"]
+    case_ids = [row["case_id"] for row in rows if task_state.result(row)["outcome"] == "fail"]
     if not case_ids:
         raise ValueError("这次运行没有未通过的用例")
     return case_ids
@@ -479,11 +481,18 @@ def _register_run_detail_routes(app: FastAPI) -> None:
     """Register run detail routes in their original order."""
     @app.get("/api/runs/{run_id}")
     def run_detail(run_id: str):
-        run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
-        if not run:
-            raise HTTPException(404, "运行不存在")
-        rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
-        return {**run_view(run), "results": [result_view(row) for row in rows], "test_report": report_view(run),
+        with metrics.snapshot(metrics.Scope()) as snap:
+            connection = snap["connection"]
+            saved = connection.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+            if not saved:
+                raise HTTPException(404, "运行不存在")
+            run = dict(saved)
+            rows = [dict(row) for row in connection.execute("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))]
+            missing = connection.execute(metrics.PLANNED_RESULTS + " AND plan.id=? ORDER BY target.key", (run_id,))
+            results = [result_view(row, connection=connection) for row in rows]
+            results.extend(result_view(dict(row), connection=connection) for row in missing)
+            view = run_view(run, results=rows, connection=connection)
+        return {**view, "results": results, "test_report": report_view(run),
                 **({"workflow_id": run["session_id"]} if run.get("trigger") == "workflow" and run.get("session_id") else {})}
 
     @app.post("/api/runs/{run_id}/cancel")
@@ -492,7 +501,7 @@ def _register_run_detail_routes(app: FastAPI) -> None:
 
     @app.post("/api/runs/{run_id}/rerun")
     async def rerun(run_id: str, request: Request):
-        """Run again as a new run; `failed_only` keeps just the cases that did not pass."""
+        """Run again as a new run; `failed_only` keeps just the cases with a failed verdict."""
         body = await request.json()
         if not isinstance(body, dict):
             raise ValueError("重新运行参数必须是对象")

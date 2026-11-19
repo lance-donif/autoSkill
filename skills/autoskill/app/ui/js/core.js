@@ -94,14 +94,14 @@ export async function api(path, options = {}) {
   return data;
 }
 
-export const STATUS = {
-  Pass: ['pass', '通过', 'check'], Fail: ['fail', '失败', 'x'], Blocked: ['blocked', '阻塞', 'blocked'],
-  Unverified: ['idle', '业务未验证', 'info'],
-  Running: ['running', '执行中', null], Queued: ['queued', '排队中', 'clock'], Cancelled: ['cancelled', '已取消', 'stop'],
+const STATUS = {
+  NotRun: ['idle', '未执行', 'info'],
+  Pass: ['pass', '通过', 'check'],
+  Fail: ['fail', '失败', 'x'],
 };
-export function statusPill(status, label) {
-  const [cls, text, glyph] = STATUS[status] || ['idle', label || '未执行', 'blocked'];
-  return h('span', { class: 'status ' + cls }, glyph ? icon(glyph) : h('i', { class: 'spin', style: 'width:10px;height:10px;border-width:1.5px' }), label || text);
+export function statusPill(status) {
+  const [cls, text, glyph] = STATUS[status] || ['idle', '—', 'info'];
+  return h('span', { class: 'status ' + cls }, icon(glyph), text);
 }
 export const CATEGORY = {
   locator_not_found: '找不到元素', assertion_failed: '结果与预期不符', timeout: '超时', unauthorized_origin: '地址未授权',

@@ -29,8 +29,7 @@ async function overview(view, projects, project) {
   const picker = filterSelect('项目', project.id, projects.map((item) => [item.id, item.name]),
     (value) => go('conversations', { project: value }), '对话所属项目');
   const existing = assets.assets.filter((item) => item.engine === 'ai-eval');
-  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '多轮对话'),
-    h('p', { class: 'sub' }, '查看真实请求来源与已保存的多轮验证资产；新增或调整测试请在 DSH 对话中交给 autoSkill。'))),
+  replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '多轮对话'))),
   h('div', { class: 'toolbar' }, picker),
   h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', {}, '捕获来源')),
     captures.items.length ? captureTable(project, captures.items) : empty({ glyph: 'api', title: '还没有对话来源',

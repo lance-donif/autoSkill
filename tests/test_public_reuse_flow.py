@@ -203,21 +203,21 @@ class PublicReuseFlowTests(unittest.TestCase):
         source.write_text(json.dumps([{"id": "BLOCKED", "title": "Unavailable input"}, {"id": "MANUAL", "title": "No execution proof"}]), encoding="utf-8")
         written = self.command("plan", "write", self.project, "--file", str(source))
         reason = "业务输入尚未提供，无法开始实际操作"
-        self.command("plan", "mark", "BLOCKED", "阻塞", "--note", reason)
+        self.command("plan", "mark", "BLOCKED", "未执行", "--note", reason)
         self.command("plan", "mark", "MANUAL", "通过", "--note", "手填不构成证据")
         with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1") as client:
             response = client.get(f"/api/case-plans/{self.project}?session=public-reuse")
             self.assertEqual(response.status_code, 200)
             view = response.json()
-        self.assertEqual([row["status"] for row in view["rows"]], ["Blocked", "NotRun"])
+        self.assertEqual([row["status"] for row in view["rows"]], ["NotRun", "NotRun"])
         self.assertIn(reason, view["rows"][0]["evidence"]["reason"])
         self.assertIn("没有本行执行回执", view["rows"][0]["evidence"]["reason"])
         self.assertIsNone(view["rows"][0]["evidence"]["result"])
         self.assertFalse(view["rows"][0]["evidence"]["current"])
-        self.assertEqual(view["test_report"]["summary_counts"]["Blocked"], 1)
+        self.assertEqual(view["test_report"]["summary_counts"]["NotRun"], 2)
         book = load_workbook(written["delivery_excel"])
         self.addCleanup(book.close)
-        self.assertEqual([row[9] for row in book["功能测试用例"].values if row[9] in {"阻塞", "未执行"}], ["阻塞", "未执行"])
+        self.assertEqual([row[9] for row in book["功能测试用例"].values if row[9] in {"阻塞", "未执行"}], ["未执行", "未执行"])
 
     @unittest.skipUnless(os.environ.get("AUTOSKILL_CHROMIUM"), "Real Chromium is required")
     def test_real_dashboard_keeps_unlinked_blocked_reason_visible(self):
@@ -229,7 +229,7 @@ class PublicReuseFlowTests(unittest.TestCase):
             source.write_text(json.dumps([{"id": "BLOCKED", "title": "缺少业务输入"}]), encoding="utf-8")
             self.command("plan", "write", self.project, "--file", str(source))
             reason = "业务输入尚未提供，无法开始实际操作"
-            self.command("plan", "mark", "BLOCKED", "阻塞", "--note", reason)
+            self.command("plan", "mark", "BLOCKED", "未执行", "--note", reason)
             service = DataServer(self.folder)
             self.addCleanup(service.close)
             with sync_playwright() as playwright:
@@ -239,7 +239,7 @@ class PublicReuseFlowTests(unittest.TestCase):
                     page.goto(service.origin + f"/#/case-plans?projects={self.project}&session=public-reuse")
                     row = page.locator('[data-case="BLOCKED"]')
                     expect(row).to_be_visible()
-                    expect(row).to_contain_text("阻塞")
+                    expect(row).to_contain_text("未执行")
                     expect(row).to_contain_text(reason)
                     expect(row).to_contain_text("没有本行执行回执")
                     self.assertNotIn("尚未关联可执行用例", row.inner_text())

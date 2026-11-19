@@ -177,19 +177,22 @@ def _performance(observation: dict, goals: dict) -> list[dict]:
 def _case_result(sample, case_id, turns, elapsed):
     assertions = [check for turn in turns for check in turn["assertions"]]
     business = "Fail" if any(turn["business_status"] == "Fail" for turn in turns) else "Pass"
-    if business == "Pass" and any(turn["business_status"] != "Pass" for turn in turns):
+    if not turns or (business == "Pass" and any(turn["business_status"] != "Pass" for turn in turns)):
         business = "Unverified"
     status = "Fail" if any(turn["status"] == "Fail" for turn in turns) else "Pass"
     if status == "Pass" and any(turn["status"] == "Blocked" for turn in turns):
         status = "Blocked"
     if status in ("Pass", "Blocked") and any(turn["status"] == "Cancelled" for turn in turns):
         status = "Cancelled"
-    if business == "Pass" and turns and turns[-1].get("judgement"):
-        judgement = turns[-1]["judgement"]
-        if judgement.get("verdict") != "pass" or judgement.get("action") != "finish":
-            business = "Unverified"
+    final = turns[-1].get("judgement") if turns else None
+    final_unresolved = final and (final.get("verdict") != "pass" or final.get("action") != "finish")
+    if final_unresolved and business == "Pass":
+        business = "Unverified"
     reason = next((turn["reason"] for turn in turns if turn["status"] in ("Fail", "Cancelled", "Blocked")), "")
-    return {"id": case_id, "title": sample.get("title", sample.get("id", "AI 多轮对话")), "status": status, "reason": reason,
+    if status == "Pass" and (final_unresolved or any(turn.get("judgement") and turn["business_status"] != "Pass" for turn in turns)):
+        status, reason = "Fail", "已配置的对话评审没有给出最终通过结论"
+    return {"id": case_id, "target_started": bool(turns), "execution_only_pass": status == "Pass" and bool(turns) and business != "Pass",
+            "title": sample.get("title", sample.get("id", "AI 多轮对话")), "status": status, "reason": reason,
             "business_status": business, "verification": "verified" if business != "Unverified" else "unverified",
             "assertions": assertions, "turns": turns, "duration_ms": elapsed, "attempts": 1}
 
@@ -215,9 +218,13 @@ async def _conversation(sample, spec, case_id, user_id, cancelled, emit, prepare
     started, history, turns = time.monotonic(), [], []
     context = {"user_id": user_id, "case_id": case_id, "conversation_id": uuid.uuid4().hex, **sample.get("context", {})}
     pending = deque(sample.get("turns", [sample]))
+    interrupted = False
     paths.configure_http_environment()
     async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
         while pending:
+            if cancelled():
+                interrupted = True
+                break
             turn, number = pending.popleft(), len(turns) + 1
             question = _fill(turn["question"], context)
             history.append({"role": "user", "content": question})
@@ -247,6 +254,8 @@ async def _conversation(sample, spec, case_id, user_id, cancelled, emit, prepare
             elif judgement and judgement.get("action") == "finish" and sample.get("adaptive", False):
                 break
     result = _case_result(sample, case_id, turns, round((time.monotonic() - started) * 1000, 3))
+    if interrupted and result["status"] != "Fail":
+        result.update(status="Cancelled", execution_only_pass=False, reason="运行已取消")
     result.update(user_id=user_id, conversation_id=context["conversation_id"], expected_turns=len(sample.get("turns", [sample])))
     ai_journal.finish_case(prepared, result)
     return result

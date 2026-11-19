@@ -155,12 +155,12 @@ class DashboardReviewTests(unittest.TestCase):
         self.run['state'] = {'lifecycle': 'completed', 'phase': 'settled', 'outcome': 'fail',
                              'checks': {'business': 'pass', 'performance': 'fail', 'quality': 'not_applicable'},
                              'evidence': 'valid', 'report': 'failed', 'delivery': 'pending'}
-        self.run['history_status'] = 'NotPassed'
+        self.run['history_status'] = 'Fail'
         self.empty_history = False
         started = time.monotonic()
         self.revision = 'external-finished'
         verdict = self.page.locator('#view .table tbody .status').first
-        expect(verdict).to_have_text('不通过', timeout=1000)
+        expect(verdict).to_have_text('失败', timeout=1000)
         self.assertLess(time.monotonic() - started, 1.0)
         expect(verdict).to_have_attribute('title', '失败')
 
@@ -170,10 +170,10 @@ class DashboardReviewTests(unittest.TestCase):
         search.fill('Example')
         original = search.element_handle()
         search.evaluate('(node) => node.setSelectionRange(2, 5)')
-        self.case['state'] = {'phase': 'settled', 'outcome': 'unverified',
+        self.case['state'] = {'phase': 'settled', 'outcome': 'pass',
                               'checks': {'business': 'unverified', 'performance': 'not_applicable', 'quality': 'not_applicable'}}
         self.revision = 'case-result-finished'
-        expect(self.page.locator('#view')).to_contain_text('业务：未验证', timeout=1000)
+        expect(self.page.locator('#view tbody .status')).to_have_text('通过', timeout=1000)
         expect(search).to_be_focused()
         expect(search).to_have_value('Example')
         self.assertEqual(search.evaluate('(node) => [node.selectionStart,node.selectionEnd]'), [2, 5])
@@ -192,9 +192,9 @@ class DashboardReviewTests(unittest.TestCase):
         self.assertGreater(before, 0)
         self.run['state'] = {'phase': 'settled', 'outcome': 'fail',
                              'checks': {'business': 'pass', 'performance': 'fail', 'quality': 'not_applicable'}}
-        self.run['history_status'] = 'NotPassed'
+        self.run['history_status'] = 'Fail'
         self.revision = 'result-updated-while-scrolled'
-        expect(region.locator('tbody .status').first).to_have_text('不通过', timeout=1000)
+        expect(region.locator('tbody .status').first).to_have_text('失败', timeout=1000)
         self.assertTrue(original.evaluate('(node) => node.isConnected'))
         self.assertEqual(region.evaluate('(node) => node.scrollLeft'), before)
 
@@ -202,15 +202,15 @@ class DashboardReviewTests(unittest.TestCase):
         self.open_history('projects=review&range=all&cycle=all&phase=settled&business=pass')
         toolbar = self.page.locator('[data-history-region="toolbar"]')
         expect(toolbar.get_by_text('周期', exact=True)).to_have_count(0)
-        expect(toolbar.get_by_role('group', name='运行状态').get_by_role('button')).to_have_count(2)
+        expect(toolbar.get_by_role('group', name='运行状态').get_by_role('button')).to_have_count(3)
         phase = self.page.get_by_role('button', name='清除执行阶段：已结束')
         expect(phase).to_be_visible()
-        self.page.get_by_role('button', name='不通过', exact=True).click()
-        expect(self.page).to_have_url(re.compile(r'status=NotPassed'))
+        self.page.get_by_role('button', name='失败', exact=True).click()
+        expect(self.page).to_have_url(re.compile(r'status=Fail'))
         self.page.get_by_role('button', name='按用例结果', exact=True).click()
         expect(self.page).to_have_url(re.compile(r'view=results'))
         status = toolbar.get_by_role('group', name='用例结果')
-        expect(status.get_by_role('button', name='不通过', exact=True)).to_have_attribute('aria-pressed', 'true')
+        expect(status.get_by_role('button', name='失败', exact=True)).to_have_attribute('aria-pressed', 'true')
         self.assertIn('cycle=all', self.page.url)
         phase.click()
         expect(phase).to_have_count(0)
@@ -221,13 +221,13 @@ class DashboardReviewTests(unittest.TestCase):
         self.page.evaluate("location.hash = '#/runs?view=results&status=Unverified'")
         legacy = self.page.get_by_role('button', name='清除状态：未验证')
         expect(legacy).to_be_visible()
-        expect(status.get_by_role('button')).to_have_count(2)
+        expect(status.get_by_role('button')).to_have_count(3)
         status.get_by_role('button', name='通过', exact=True).click()
         expect(legacy).to_have_count(0)
         self.page.go_back()
         expect(legacy).to_be_visible()
         legacy.click()
-        expect(status.get_by_role('button', name='通过', exact=True)).to_be_focused()
+        expect(status.get_by_role('button', name='未执行', exact=True)).to_be_focused()
 
     def test_workspace_revision_keeps_inflight_diagnostic_and_its_result(self):
         original_api_response = self.api_response
@@ -257,14 +257,14 @@ class DashboardReviewTests(unittest.TestCase):
         expect(self.page.locator('#view')).to_contain_text('synthetic-runtime')
         self.assertEqual(commands, [{'kind': 'doctor'}])
 
-    def test_unverified_raw_pass_keeps_ir_subset_and_single_case_rerun_visible(self):
-        state = {'phase': 'settled', 'lifecycle': 'completed', 'outcome': 'unverified',
+    def test_raw_pass_with_evidence_failure_keeps_ir_subset_and_single_case_rerun_visible(self):
+        state = {'phase': 'settled', 'lifecycle': 'completed', 'outcome': 'fail',
                  'checks': {'business': 'unverified', 'performance': 'not_applicable', 'quality': 'not_applicable'}}
         self.run.update(family='replay', project_id='review', state=state, results=[{
             **self.result, 'id': 1, 'state': state, 'detail': {}, 'prerequisite': False,
-            'category': '', 'reason': '缺少独立业务断言', 'actual': ''}])
+            'category': '', 'reason': '执行证据缺失', 'actual': ''}])
         self.page.goto('http://127.0.0.1:8787/#/runs/run-1?range=all')
-        expect(self.page.get_by_role('button', name='重跑已记录未通过的 1 条', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('button', name='重跑失败的 1 条', exact=True)).to_be_visible()
         expect(self.page.get_by_role('button', name='只重跑这一条', exact=True)).to_be_visible()
         expect(self.page.get_by_role('button', name='按当前用例重新运行', exact=True)).to_be_visible()
 
@@ -278,14 +278,14 @@ class DashboardReviewTests(unittest.TestCase):
                 ? new Promise(resolve => setTimeout(resolve, 1500)).then(() => original(url, options))
                 : original(url, options);
         }''')
-        self.run['state'] = {'phase': 'settled', 'outcome': 'unverified',
+        self.run['state'] = {'phase': 'settled', 'outcome': 'fail',
                              'checks': {'business': 'unverified', 'performance': 'not_applicable', 'quality': 'not_applicable'}}
-        self.run['history_status'] = 'NotPassed'
+        self.run['history_status'] = 'Fail'
         self.empty_history = False
         self.revision = 'completed-with-slow-runtime'
         verdict = self.page.locator('#view .table tbody .status').first
-        expect(verdict).to_have_text('不通过', timeout=1000)
-        expect(verdict).to_have_attribute('title', '未验证')
+        expect(verdict).to_have_text('失败', timeout=1000)
+        expect(verdict).to_have_attribute('title', '失败')
 
 
 if __name__ == "__main__":

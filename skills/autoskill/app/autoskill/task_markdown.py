@@ -9,8 +9,7 @@ from pathlib import Path
 
 from . import task_report_data
 
-LABELS = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "NotRun": "未执行", "Unknown": "未知",
-          "Unverified": "业务未验证", "Cancelled": "已取消"}
+LABELS = task_report_data.STATUS
 
 
 def _text(value, limit: int = 160) -> str:
@@ -62,7 +61,7 @@ def render(snapshot: dict, *, excel_link: str) -> tuple[str, dict]:
     if len(issues) > 5:
         lines.append(f"- 另有 {len(issues) - 5} 项问题，详见 Excel。")
     if not issues:
-        lines.append("本次汇总没有列出的主要问题；未执行、未知和业务未验证不代表通过。")
+        lines.append("本次汇总未发现主要问题。")
     lines.extend(["", f"[查看完整 Excel]({excel_link})", ""])
     return "\n".join(lines), summary
 

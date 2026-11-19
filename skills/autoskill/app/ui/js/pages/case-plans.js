@@ -121,10 +121,8 @@ export async function render(view) {
 
 function heading(data) {
   const retained = data?.rows.some((row) => row.status === 'Fail' && row.evidence?.has_historical_failure && row.evidence.latest_execution?.status === 'Pass');
-  const other = [['Blocked', '阻塞'], ['Cancelled', '已取消'], ['Unverified', '业务未验证']]
-    .filter(([status]) => data?.summary?.[status]).map(([status, label]) => `${data.summary[status]} ${label}`).join(' · ');
   return h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', { tabIndex: -1 }, '测试用例表'),
-    h('p', { class: 'sub' }, data ? `${data.project.name} · ${data.rows.length} 条用例 · ${data.summary?.Pass || 0} 通过 · ${data.summary?.Fail || 0} ${retained ? '曾失败（含后续复测）' : '失败'} · ${data.summary?.NotRun || 0} 未执行${other ? ' · ' + other : ''}`
+    h('p', { class: 'sub' }, data ? `${data.project.name} · ${data.rows.length} 条用例 · ${data.summary?.Pass || 0} 通过 · ${data.summary?.Fail || 0} ${retained ? '曾失败（含后续复测）' : '失败'} · ${data.summary?.NotRun || 0} 未执行`
       : '先查看用例 Excel，再核对执行结果和问题证据。'), data?.task_id && changedTask === data.task_id && taskChangeNotice()));
 }
 
@@ -220,7 +218,7 @@ function caseOutcome(data, row, evidence, problem, retested, stale) {
   const latest = evidence.latest_execution;
   const conclusion = stale ? '当前定义尚未验证，需重新执行'
     : retested && evidence.has_historical_failure ? '本任务曾失败' : row.conclusion;
-  return h('div', {}, statusPill(row.status, conclusion),
+  return h('div', {}, statusPill(row.status), conclusion && h('span', { class: 'sub' }, ' ' + conclusion),
     (stale || !retested) && h('p', { class: 'sub case-plan-problem' }, problem),
     (stale || retested) && h('p', { class: 'sub' }, stale ? '历史执行：' : '最新复测：', statusPill(latest.status)),
     latest && publicationResult(latest, data.project.id, stale));
@@ -235,7 +233,7 @@ function publicationResult(entry, projectId, historical = false) {
   const receipt = entry.publication;
   if (!receipt) return null;
   if (receipt.published_ids?.includes(entry.case_id)) return h('p', { class: 'sub' }, historical ? '该历史版本曾入库 · ' : '本次版本已入库 · ',
-    h('a', { href: href('cases', { projects: projectId }) }, '查看可复用用例'));
+    h('a', { href: href('cases', { projects: projectId }) }, '查看测试用例'));
   if (!receipt.complete) return h('p', { class: 'sub' }, '入库结果待确认');
   const reason = receipt.unpublished?.[entry.case_id];
   return reason && h('p', { class: 'sub case-plan-problem' }, '未入库：' + reason);
@@ -274,8 +272,9 @@ function history(data) {
 
 function previousDelivery(item) {
   const report = item.report;
-  const labels = [['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞'], ['Cancelled', '已取消'], ['Unverified', '业务未验证'], ['NotRun', '未执行'], ['Unknown', '未知']];
-  const counts = labels.filter(([key]) => report.summary_counts?.[key]).map(([key, label]) => `${report.summary_counts[key]} ${label}`).join(' · ');
+  const labels = [['NotRun', '未执行'], ['Pass', '通过'], ['Fail', '失败']];
+  const legacySummary = Object.entries(report.summary_counts || {}).some(([key, count]) => count && !labels.some(([status]) => status === key));
+  const counts = !legacySummary && labels.filter(([key]) => report.summary_counts?.[key]).map(([key, label]) => `${report.summary_counts[key]} ${label}`).join(' · ');
   const links = [['download_url', '下载原任务 Excel'], ['markdown_download_url', '下载原任务简报'], ['bugs_download_url', '下载原任务 Bug 清单']];
   return h('article', { class: 'card stack', dataset: { task: item.task_id } },
     item.title && h('h3', {}, item.title),

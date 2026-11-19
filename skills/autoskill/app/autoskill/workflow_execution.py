@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from . import candidate_publication, db, failure_context, projects, runner
+from . import candidate_publication, db, failure_context, projects, runner, task_state
 from . import workflow_definition as definitions
 from . import workflow_state as state
 
@@ -122,7 +122,7 @@ def _result_summary(run: dict, materialization: dict) -> dict:
     for identity in materialization["case_ids"]:
         result = by_case.get(identity)
         if not result:
-            observed.append({"case_id": identity, "business_status": "Unverified", "performance_status": "Unverified",
+            observed.append({"case_id": identity, "outcome": "not_run", "status": "NotRun", "business_status": "Unverified", "performance_status": "Unverified",
                              "evidence_valid": False, "reason": "缺少实际执行结果"})
             continue
         try:
@@ -139,9 +139,10 @@ def _result_summary(run: dict, materialization: dict) -> dict:
         performance = detail.get("performance_status", "Unverified")
         business = business if business in ("Pass", "Fail", "Unverified") else "Unverified"
         performance = performance if performance in ("Pass", "Fail", "Unverified") else "Unverified"
-        observed.append({"case_id": identity, "result_id": result["id"], "business_status": business if valid or business == "Fail" else "Unverified",
+        outcome = task_state.case_outcome(result, detail, evidence_valid=valid)
+        observed.append({"case_id": identity, "outcome": outcome, "result_id": result["id"], "business_status": business if valid or business == "Fail" else "Unverified",
                          "performance_status": performance if valid or performance == "Fail" else "Unverified", "execution_attempts": attempts if valid_attempts else [],
-                         "evidence_valid": valid, "verification": detail.get("verification"), "status": result["status"], "reason": result.get("reason", "")})
+                         "evidence_valid": valid, "verification": detail.get("verification"), "status": task_state.CASE_STATUS[outcome], "reason": result.get("reason", "")})
     verdicts = {record["business_status"] for record in observed}
     performance = {record["performance_status"] for record in observed}
     performance_status = "Fail" if "Fail" in performance else "Pass" if "Pass" in performance else "Unverified"
@@ -222,9 +223,12 @@ def _refresh_summary(record: dict) -> dict:
     previous = record["summary"]
     run = db.one("SELECT * FROM runs WHERE id = ?", (previous["run_id"],))
     if not run:
-        rows = [{**row, "evidence_valid": False,
-                 "business_status": "Fail" if row.get("business_status") == "Fail" else "Unverified",
-                 "performance_status": "Fail" if row.get("performance_status") == "Fail" else "Unverified"} for row in previous["results"]]
+        rows = []
+        for row in previous["results"]:
+            outcome = task_state.case_outcome(row, row, evidence_valid=False) if row.get("result_id") else "not_run"
+            rows.append({**row, "evidence_valid": False, "outcome": outcome, "status": task_state.CASE_STATUS[outcome],
+                         "business_status": "Fail" if row.get("business_status") == "Fail" else "Unverified",
+                         "performance_status": "Fail" if row.get("performance_status") == "Fail" else "Unverified"})
         return {**previous, "evidence_valid": False, "business_verified": False, "results": rows,
                 "conclusion": "violated" if previous["conclusion"] == "violated" else "incomplete"}
     current = _result_summary(run, record["materialization"])
@@ -236,6 +240,9 @@ def _refresh_summary(record: dict) -> dict:
                 row[key] = "Fail"
         if any(ref not in row.get("execution_attempts", []) for ref in old.get("execution_attempts", [])):
             row["evidence_valid"] = False
+        if (old.get("outcome") == "fail" or old.get("status") == "Fail" or "Fail" in (row["business_status"], row["performance_status"])
+                or (row.get("outcome") == "pass" and not row["evidence_valid"]) or (old.get("result_id") and not row.get("result_id"))):
+            row.update(outcome="fail", status="Fail")
         references = [*old.get("execution_attempts", []), *row.get("execution_attempts", [])]
         row["execution_attempts"] = list({state.digest(ref): ref for ref in references}.values())
     current["evidence_valid"] = all(row["evidence_valid"] for row in current["results"])

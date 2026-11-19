@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import uuid
+from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 
@@ -16,6 +17,15 @@ from . import __version__, data_refs, db, paths, projects, secrets, sessions
 from .core import store
 from .locking import named_lock, project_lock
 from .replay import ir
+
+# The adapter signals dispatch after preflight and any inline prerequisite, just before the target action.
+on_target_start = ContextVar("on_target_start", default=None)
+
+
+def mark_target_started() -> None:
+    handler = on_target_start.get()
+    if handler:
+        handler()
 
 
 def canonical(value) -> bytes:
@@ -465,6 +475,10 @@ def result_evidence(run: dict, result: dict, case: dict | None = None, *, _seen:
         return (result.get("status") == expected_status and detail.get("business_status") == expected_business
                 and detail.get("business_verified") == (expected_business == "Pass")
                 and detail.get("execution_status") == last.get("execution_status")
+                and detail.get("target_started") == last.get("target_started")
+                and detail.get("execution_only_pass") == last.get("execution_only_pass")
+                and (last.get("target_started") is None or all(detail.get(key) == (last.get(key) or None)
+                     for key in ("steps", "request", "response")))
                 and detail.get("performance_status") == last.get("performance_status")
                 and detail.get("assertions", []) == selected.get("assertions", [])
                 and detail.get("performance_assertions", []) == last.get("performance_assertions", [])
@@ -474,11 +488,11 @@ def result_evidence(run: dict, result: dict, case: dict | None = None, *, _seen:
         return False
 
 
-def result_current(project_id: str, case: dict, result: dict, *, current: dict | None = None) -> bool:
-    """Qualify retained local evidence against the current complete dependency scope."""
+def result_scope_current(project_id: str, case: dict, result: dict, *, current: dict | None = None, run: dict | None = None) -> bool:
+    """Compare input identity separately from the integrity of the attempt evidence."""
     try:
-        run = db.one("SELECT * FROM runs WHERE id = ?", (result["run_id"],))
-        if not run or not result_evidence(run, result, case):
+        run = run or db.one("SELECT * FROM runs WHERE id = ?", (result["run_id"],))
+        if not run or result.get("case_content_hash") != content_hash(case):
             return False
         detail = json.loads(result["detail"]) if isinstance(result["detail"], str) else result["detail"]
         current = current or capture(project_id, [case["id"]], run["engine"], persist=False)
@@ -486,3 +500,9 @@ def result_current(project_id: str, case: dict, result: dict, *, current: dict |
         return bool(expected and expected == detail.get("case_scope_hash"))
     except (ValueError, KeyError, OSError, TypeError):
         return False
+
+
+def result_current(project_id: str, case: dict, result: dict, *, current: dict | None = None) -> bool:
+    """Qualify retained evidence against both the receipt and the current input scope."""
+    run = db.one("SELECT * FROM runs WHERE id = ?", (result["run_id"],))
+    return bool(run and result_evidence(run, result, case) and result_scope_current(project_id, case, result, current=current, run=run))
