@@ -619,9 +619,16 @@ function httpDetails(exchanges, row) {
       label && h('b', {}, label), h('div', { class: 'io' }, fields))));
 }
 
+let screenshotUrl = (run, _row, name) => `/api/runs/${run.id}/files/${encodeURIComponent(name)}`;
+
+export function setRunScreenshotResolver(resolve) {
+  screenshotUrl = resolve;
+}
+
 function appendScreenshots(parts, d, run, row) {
   for (const name of d.screenshots || []) {
-    const url = `/api/runs/${run.id}/files/${encodeURIComponent(name)}`;
+    const url = screenshotUrl(run, row, name);
+    if (!url) continue;
     parts.push(h('a', { class: 'shot', href: url, target: '_blank', rel: 'noreferrer', title: '在新标签页查看原图' },
       h('img', { src: url, alt: `${row.case_title} 结束时的页面截图`, loading: 'lazy' }),
       h('span', { class: 'sub' }, icon('image'), '结束时的页面截图（密码输入框已遮盖）')));

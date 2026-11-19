@@ -61,6 +61,25 @@ class ObservedPreviewStepsTests(unittest.TestCase):
                          key=lambda r: r["revision"])
         self.assertEqual([(r["timeline"][0]["ms"], [c["passed"] for c in r["checks"]]) for r in records], expected)
 
+    def test_available_screenshots_match_each_run_case_and_hash(self):
+        rendered = set()
+        for record in self.source["cases"] + self.source["previous_cases"]:
+            key = record["run_id"], record["case_id"]
+            row = next(r for r in self.fixture["/runs/" + key[0]]["results"] if r["case_id"] == key[1])
+            if digest := record["artifact_hashes"].get("screenshot_sha256"):
+                raw = (ROOT / record["screenshot_path"]).read_bytes()
+                self.assertTrue(raw.startswith(b"\x89PNG\r\n\x1a\n"))
+                self.assertEqual(hashlib.sha256(raw).hexdigest(), digest, key)
+                self.assertEqual(row["detail"]["screenshots"], [digest + ".png"], key)
+                rendered.add(key)
+            else:
+                self.assertNotIn("screenshot_path", record)
+                self.assertNotIn("screenshots", row["detail"])
+        self.assertEqual(len(rendered), 4)
+        sample = next(r for r in self.source["cases"] if r.get("screenshot_path"))
+        with self.assertRaisesRegex(ValueError, "Invalid screenshot"):
+            builder.observation_detail({**sample, "artifact_hashes": {**sample["artifact_hashes"], "screenshot_sha256": "0" * 64}})
+
     def test_timeout_and_missing_evidence_are_not_successful_steps(self):
         for record in self.source["cases"] + self.source["previous_cases"]:
             if record["case_id"] != "RN-HOME-PYTHON3":

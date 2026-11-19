@@ -150,6 +150,12 @@ def observation_detail(observation: dict) -> dict:
     detail = {"assertions": checks, "steps": timeline, "artifact_hashes": observation["artifact_hashes"],
               "attempts": [{**attempt, "outcome": observation["outcome"], "case_id": observation["case_id"], "kind": "case"}
                            for attempt in observation.get("attempts", [])]}
+    if path := observation.get("screenshot_path"):
+        digest = observation["artifact_hashes"]["screenshot_sha256"]
+        image = (ROOT / path).resolve()
+        if not image.is_relative_to(ROOT) or image.suffix != ".png" or hashlib.sha256(image.read_bytes()).hexdigest() != digest:
+            raise ValueError(f"Invalid screenshot for {observation['run_id']}/{observation['case_id']}")
+        detail["screenshots"] = [digest + ".png"]
     automation = observation["automation"]
     start = automation.get("start_url")
     navigation = ir.describe({"action": "goto", "url": start}) if start else None

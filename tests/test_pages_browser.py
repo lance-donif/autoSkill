@@ -1,6 +1,8 @@
 """Exercise the published Pages assets and the HTML downloads using only a local static server."""
 import ast
+import base64
 import copy
+import hashlib
 import json
 import os
 import re
@@ -194,6 +196,19 @@ class PagesBrowserTests(unittest.TestCase):
             evidence = result.locator(".checks")
             expect(evidence).to_contain_text("Python 保留关键字")
 
+    def check_historical_screenshot(self, result, *, offline=False):
+        image = result.locator(".shot img")
+        expect(image).to_be_visible()
+        image.scroll_into_view_if_needed()
+        expect(image).to_be_in_viewport()
+        dimensions = image.evaluate("async img => { await img.decode(); return [img.naturalWidth, img.naturalHeight] }")
+        self.assertEqual(dimensions, [1920, 11328])
+        if offline:
+            encoding, data = image.get_attribute("src").split(",", 1)
+            self.assertEqual(encoding, "data:image/png;base64")
+            digest = hashlib.sha256(base64.b64decode(data, validate=True)).hexdigest()
+            self.assertEqual(digest, "7b5077ec9bdc3926e768806ebbf1605920cc2cc0a9580f5af4b481a8d9ac90ed")
+
     def test_successful_and_timed_out_ui_reports(self):
         for width in WIDTHS:
             for run_id, case, timed_out in [("run-83be44ec7c93", "TC-UI-004", False),
@@ -201,8 +216,13 @@ class PagesBrowserTests(unittest.TestCase):
                 with self.subTest(width=width, run=run_id), self.session(width, run_id):
                     result = self.open_result(run_id, case)
                     self.check_ui(result, timed_out)
+                    if not timed_out:
+                        self.check_historical_screenshot(result)
                     with self.offline(run_id) as reader:
-                        self.check_ui(reader.locator(f'.result[data-case="{case}"]'), timed_out)
+                        saved = reader.locator(f'.result[data-case="{case}"]')
+                        self.check_ui(saved, timed_out)
+                        if not timed_out:
+                            self.check_historical_screenshot(saved, offline=True)
 
     def check_failed_api(self, result):
         line = result.locator(".req-line")

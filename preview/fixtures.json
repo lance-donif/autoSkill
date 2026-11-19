@@ -3876,6 +3876,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "3de3309c465648ccf75ad6d9b4599d8f28b30272dd77c2ad559627336bbfaa80.png"
           ]
         }
       },
@@ -3967,6 +3970,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "cb2d5810209602ff22a375f0e32ad798a1d2895900f83a76376177126702a1bb.png"
           ]
         }
       },
@@ -4131,6 +4137,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "92baf5845172d2f0d1398dc6fcc38e66f459871c9f6d43f2c9026afa2abc85f9.png"
           ]
         }
       },
@@ -4718,6 +4727,9 @@
               "case_id": "TC-UI-004",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "7b5077ec9bdc3926e768806ebbf1605920cc2cc0a9580f5af4b481a8d9ac90ed.png"
           ]
         }
       },
@@ -6526,6 +6538,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "3de3309c465648ccf75ad6d9b4599d8f28b30272dd77c2ad559627336bbfaa80.png"
           ]
         }
       },
@@ -6856,6 +6871,9 @@
               "case_id": "TC-UI-004",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "7b5077ec9bdc3926e768806ebbf1605920cc2cc0a9580f5af4b481a8d9ac90ed.png"
           ]
         }
       },
@@ -7396,6 +7414,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "cb2d5810209602ff22a375f0e32ad798a1d2895900f83a76376177126702a1bb.png"
           ]
         }
       },
@@ -7560,6 +7581,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "92baf5845172d2f0d1398dc6fcc38e66f459871c9f6d43f2c9026afa2abc85f9.png"
           ]
         }
       },
@@ -19248,7 +19272,8 @@
             "id": "attempt-f9463e78c68644c28b9e5346694cbc50",
             "sha256": "b9e0298e154a26976df5797b83f3c1a6e6cc21d42c9184c87fc66b6e238032cc"
           }
-        ]
+        ],
+        "screenshot_path": "preview/evidence/3de3309c465648ccf75ad6d9b4599d8f28b30272dd77c2ad559627336bbfaa80.png"
       },
       {
         "source_kind": "historical",
@@ -19487,7 +19512,8 @@
             "id": "attempt-80c6e24f9bca4bd49d11d53a539929ce",
             "sha256": "6fabc88b9d8341e9901ed5fe4a9bd2b1ded0e458d83a69c8ac81a381e4d9f789"
           }
-        ]
+        ],
+        "screenshot_path": "reports/evidence/2026-11-13-dsh-live/runoob-jcyf-final/replay.png"
       }
     ],
     "previous_cases": [
@@ -19650,7 +19676,8 @@
             "id": "attempt-eb8a7d3c919b4328a8b6dc94c43e426a",
             "sha256": "1b5fc5481d508d7dc22524a59651a78c9c3f52ba88c8dcf0db272df5e467c5ea"
           }
-        ]
+        ],
+        "screenshot_path": "preview/evidence/92baf5845172d2f0d1398dc6fcc38e66f459871c9f6d43f2c9026afa2abc85f9.png"
       },
       {
         "source_kind": "live",
@@ -19754,7 +19781,8 @@
             "id": "attempt-78f308aa6a874417ab9911b47f80806b",
             "sha256": "52f8da2a0708be9b181d8142d80835a7d8437695a29c81c882ee1d8e0fea65ff"
           }
-        ]
+        ],
+        "screenshot_path": "preview/evidence/cb2d5810209602ff22a375f0e32ad798a1d2895900f83a76376177126702a1bb.png"
       }
     ],
     "previous_attempts": [
@@ -19981,6 +20009,9 @@
               "case_id": "TC-UI-004",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "7b5077ec9bdc3926e768806ebbf1605920cc2cc0a9580f5af4b481a8d9ac90ed.png"
           ]
         }
       }
@@ -20220,6 +20251,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "92baf5845172d2f0d1398dc6fcc38e66f459871c9f6d43f2c9026afa2abc85f9.png"
           ]
         }
       }
@@ -20459,6 +20493,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "cb2d5810209602ff22a375f0e32ad798a1d2895900f83a76376177126702a1bb.png"
           ]
         }
       }
@@ -20624,6 +20661,9 @@
               "case_id": "RN-PYTHON3-INTRO",
               "kind": "case"
             }
+          ],
+          "screenshots": [
+            "3de3309c465648ccf75ad6d9b4599d8f28b30272dd77c2ad559627336bbfaa80.png"
           ]
         }
       }
