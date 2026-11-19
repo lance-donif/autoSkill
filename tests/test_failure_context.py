@@ -20,6 +20,7 @@ from autoskill import builder, data_refs, db, execution_inputs, failure_context,
 from autoskill import workflow_execution as execution
 from autoskill import workflow_state as state
 from autoskill.replay import api
+from autoskill.server import jobs
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -476,6 +477,17 @@ class FailureContextTests(unittest.TestCase):
         self.assert_error("revision_conflict", failure_context.validate_diagnoses, self.project, damaged, payload)
 
     def test_interruption_uses_original_operation_intent_without_execution_attempt(self):
+        # The outstanding investigation lease keeps its monitor writing to this temporary workspace.
+        previous = set(jobs._dispatchers)
+
+        def stop_monitors():
+            for pid in jobs._dispatchers.keys() - previous:
+                child = jobs._dispatchers.pop(pid)
+                if child.poll() is None:
+                    child.terminate()
+                child.wait(timeout=10)
+
+        self.addCleanup(stop_monitors)
         identity = workflow.create(self.project, {"title": "未知影响", "sources": [{"id": "s1", "text": "业务约束"}]}, idempotency_key=uuid.uuid4().hex)["workflow_id"]
         task = workflow.next_task(identity, idempotency_key=uuid.uuid4().hex)["task"]
         binding = {"workflow_id": identity, "item_id": task["id"], "attempt_id": task["attempt_id"], "lease_token": task["lease_token"]}
