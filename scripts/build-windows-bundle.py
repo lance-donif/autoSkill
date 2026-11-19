@@ -147,9 +147,9 @@ def smoke_test(package: Path) -> None:
     python = package / "vendor" / "windows-x64" / "python" / "python.exe"
     env = {
         "SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"),  # noqa: SIM112  # Preserve the canonical Windows key on case-sensitive hosts.
-        "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1",
+        "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1", "LOCUST_SKIP_MONKEY_PATCH": "1",
     }
-    code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema; print(autoskill.__file__)"
+    code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema, locust; print(autoskill.__file__)"
     done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent), check=False)
     located = done.stdout.strip()
     if done.returncode or not Path(located).resolve().is_relative_to(package.resolve()):

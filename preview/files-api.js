@@ -237,7 +237,7 @@ async function runWorkbook(ctx, run) {
     if (run.load_templates) {
       const { pass: passed, fail: failed, not_run: notRun } = compactCaseCounts(run, index);
       record.status = failed ? 'Fail' : notRun ? 'NotRun' : 'Pass';
-      record.aggregate = '浏览器模拟，共 ' + run.load.iterations + ' 轮；通过 ' + passed + '，失败 ' + failed + '，未执行 ' + notRun + '。';
+      record.aggregate = '浏览器模拟，共 ' + (passed + failed + notRun) + ' 次；通过 ' + passed + '，失败 ' + failed + '，未执行 ' + notRun + '。';
     }
     records.set(row.case_id, record);
   }

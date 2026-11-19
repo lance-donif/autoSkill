@@ -1,4 +1,5 @@
 // Local examples only. A run's simulated clock advances when the demo is open.
+import { loadConfiguration, mockSchedule, samplesDone, sampleTiming, mockLoadReport, mockLoadMetrics, legacyLoadReport } from './load-simulation.js';
 import { casesApi } from './cases-api.js';
 import { simulateCase, pendingDetails, completedDetails, actualText } from './simulated-details.js';
 import { schedulesApi } from './schedules-api.js';
@@ -14,6 +15,54 @@ function caseRows(context, projectId) {
   const params = new URLSearchParams({ limit: '100000' });
   if (projectId) params.set('projects', projectId);
   return casesApi({ ...context, path: '/cases', method: 'GET', params }).items;
+}
+
+function apiLoadCases(context, rows) {
+  const definitions = context.db.caseLibrary.definitions;
+  const ancestors = new Map();
+  function prerequisites(project, id, visiting) {
+    const key = project + '/' + id;
+    if (ancestors.has(key)) return ancestors.get(key);
+    const candidate = definitions[key]?.case;
+    if (!candidate || candidate.kind !== 'api' || candidate.lifecycle === 'archived' || visiting.has(id)) return null;
+    const result = new Set();
+    visiting.add(id);
+    for (const dependency of candidate.extensions?.depends_on || []) {
+      const previous = prerequisites(project, dependency, visiting);
+      if (!previous) {
+        visiting.delete(id);
+        ancestors.set(key, null);
+        return null;
+      }
+      result.add(dependency);
+      for (const ancestor of previous) result.add(ancestor);
+    }
+    visiting.delete(id);
+    ancestors.set(key, result);
+    return result;
+  }
+
+  function eligible(row) {
+    const project = row.project_id;
+    const candidate = definitions[project + '/' + row.case_id]?.case;
+    if (row.kind !== 'api' || !row.replayable || candidate?.extensions?.traffic === 'resource') return false;
+    const before = prerequisites(project, row.case_id, new Set());
+    if (!before) return false;
+    const selection = new Set([row.case_id, ...before]);
+    for (const id of selection) {
+      const targets = definitions[project + '/' + id].case.extensions?.postconditions;
+      if (targets === undefined) continue;
+      if (!Array.isArray(targets) || !targets.length || new Set(targets).size !== targets.length) return false;
+      for (const target of targets) {
+        const upstream = prerequisites(project, target, new Set());
+        if (!upstream?.has(id) || definitions[project + '/' + target].case.lifecycle !== 'active') return false;
+        selection.add(target);
+        for (const dependency of upstream) selection.add(dependency);
+      }
+    }
+    return true;
+  }
+  return rows.filter(eligible);
 }
 
 function receipt(id, ready) {
@@ -46,7 +95,8 @@ export function compactCaseCounts(run, index) {
   const completed = run.done - Number(run.cancelled_index != null);
   const count = Math.floor(completed / n) + Number(index < completed % n);
   const outcome = plannedOutcome(run, run.load_templates[index]);
-  const counts = { pass: 0, fail: 0, not_run: run.load.iterations - count };
+  const assigned = Math.floor(run.total / n) + Number(index < run.total % n);
+  const counts = { pass: 0, fail: 0, not_run: assigned - count };
   counts[outcome] += count;
   if (run.cancelled_index != null && index === run.cancelled_index % n && outcome !== 'not_run') {
     counts.fail++;
@@ -105,7 +155,8 @@ function aggregate(run, phase) {
   run.state = state(outcome, phase);
   run.test_report = receipt(run.id, !active(run));
   run.state.report = run.test_report.status;
-  if (run.load) {
+  if (run.load_schedule) run.metrics = mockLoadMetrics(run);
+  else if (run.load) {
     const apiCount = compact?.requests ?? run.results.filter((r) => r.kind === 'api' && r.started_at).length;
     const targets = run.load_templates || run.results;
     const aborted = run.cancelled_index != null && plannedOutcome(run, targets[run.cancelled_index % targets.length]) !== 'not_run';
@@ -119,14 +170,17 @@ function aggregate(run, phase) {
   }
 }
 
-function start(context, projectId, ids, body, batch, load) {
+function start(context, projectId, ids, body, batch, load, seed) {
   const { db, fixtures } = context;
   const project = casesApi({ ...context, method: 'GET', path: '/projects', params: new URLSearchParams() }).find((item) => item.id === projectId);
   if (!project) throw new Error('找不到所选项目');
   const cases = caseRows(context, projectId);
-  const all = new Map(cases.map((item) => [item.case_id, item]));
+  const options = load ? apiLoadCases(context, cases) : cases;
+  const all = new Map(options.map((item) => [item.case_id, item]));
   const chosen = ids?.length ? [...new Set(ids)] : [...all.keys()];
-  if (!chosen.length || chosen.some((id) => !all.has(id))) throw new Error('用例不存在或已删除');
+  if (!chosen.length || chosen.some((id) => !all.has(id))) {
+    throw new Error(load ? '负载测试只能选择可回放的 API 用例' : '用例不存在或已删除');
+  }
   const definitions = Object.fromEntries(chosen.map((caseId) => {
     const definition = db.caseLibrary.definitions[projectId + '/' + caseId]?.case;
     if (!definition) throw new Error('缺少用例定义：' + caseId);
@@ -139,17 +193,19 @@ function start(context, projectId, ids, body, batch, load) {
     return [caseId, simulateCase(definitions[caseId], detail, project, previous, fixtures)];
   }));
   const iterations = load?.iterations ?? 1;
-  const total = chosen.length * iterations;
+  const schedule = load?.mode ? mockSchedule(load, chosen.map((caseId) => plans[caseId])) : null;
+  const total = schedule?.total ?? chosen.length * iterations;
   if (!Number.isSafeInteger(total)) throw new Error('目标总条数超出浏览器可精确计数的整数范围');
-  const now = Date.now();
-  const id = 'demo-' + crypto.randomUUID();
+  const now = seed?.created ?? Date.now();
+  const id = seed?.id || 'demo-' + crypto.randomUUID();
   const run = { id, family: load ? 'load' : 'replay', simulated: true, trigger: body.trigger || 'manual', task_id: body.task_id || null,
-    project_id: projectId, project_name: project.name + ' · 浏览器模拟', case_ids: chosen, batch_id: batch, engine: body.engine || 'playwright',
+    project_id: projectId, project_name: project.name + ' · 浏览器模拟', case_ids: chosen, batch_id: batch, engine: load?.mode ? 'locust' : body.engine || 'playwright',
     report_project: { id: projectId, name: project.name, base_url: project.base_url }, report_definitions: definitions, simulation_cases: plans,
     headed: body.headed, status: 'Queued', created_at: stamp(now), started_at: null, finished_at: null,
     current: '预览模拟：等待开始', reason: '', total, done: 0, results: [] };
   if (load) run.load = load;
-  const compact = load && total > LOAD_PAGE_SIZE;
+  if (schedule) Object.assign(run, { load_schedule: schedule, mock_elapsed_ms: 0 });
+  const compact = load && (schedule || total > LOAD_PAGE_SIZE);
   const storedIterations = compact ? 1 : iterations;
   for (let iteration = 1; iteration <= storedIterations; iteration++) {
     for (const caseId of chosen) {
@@ -159,7 +215,7 @@ function start(context, projectId, ids, body, batch, load) {
         case_id: caseId, case_title: item.title, kind: item.kind, case_revision: item.revision || 1, prerequisite: false,
         status: 'NotRun', history_status: 'NotRun', state: state('not_run', 'queued'), reason: '', actual: '', category: '',
         started_at: null, duration_ms: null, simulated: true,
-        detail: { ...pendingDetails(plan), ...(load ? { load_iteration: iteration, load_user: (iteration - 1) % load.concurrency + 1 } : {}) } });
+        detail: { ...pendingDetails(plan), ...(load && !schedule ? { load_iteration: iteration, load_user: (iteration - 1) % load.concurrency + 1 } : {}) } });
     }
   }
   if (compact) {
@@ -171,13 +227,13 @@ function start(context, projectId, ids, body, batch, load) {
   return run;
 }
 
-function finishRow(run, row, time, cancelled = false) {
+function finishRow(run, row, time, cancelled = false, duration = 180) {
   const plan = run.simulation_cases?.[row.case_id];
   const planned = plannedOutcome(run, row);
   const outcome = cancelled && planned !== 'not_run' ? 'fail' : planned;
   row.state = state(outcome);
   row.history_status = row.status = outcomeStatus[outcome];
-  row.duration_ms = outcome === 'not_run' ? null : cancelled ? 0 : 180;
+  row.duration_ms = outcome === 'not_run' ? null : cancelled ? 0 : duration;
   row.started_at = row.duration_ms == null ? null : stamp(time - row.duration_ms);
   row.category = outcome !== 'fail' ? '' : cancelled ? 'cancelled' : 'assertion';
   row.reason = cancelled && outcome === 'fail' ? '模拟执行已取消' : plan?.reason || '';
@@ -193,8 +249,35 @@ function finishRow(run, row, time, cancelled = false) {
 
 const durationOf = (run) => 1600 + Math.min(3200, run.total * 240);
 
+function finishLegacyRow(run, row, index) {
+  const cancelled = run.cancelled_index === index;
+  const at = cancelled ? Date.parse(run.finished_at) : Date.parse(run.started_at) + Math.ceil((index + 1) * durationOf(run) / run.total);
+  finishRow(run, row, at, cancelled);
+}
+
+function compactLegacyReport(run) {
+  const templates = run.load_templates;
+  const done = Math.min(run.done, run.total);
+  const measured = templates.flatMap((row, i) => !row.prerequisite && plannedOutcome(run, row) !== 'not_run' ? [i] : []);
+  const total = Math.floor(done / templates.length) * measured.length + measured.filter((i) => i < done % templates.length).length;
+  function* rows() {
+    for (let ordinal = 0; ordinal < total; ordinal++) {
+      const position = measured[ordinal % measured.length];
+      const row = { ...templates[position], detail: templates[position].detail || {} };
+      const index = Math.floor(ordinal / measured.length) * templates.length + position;
+      finishLegacyRow(run, row, index);
+      yield row;
+    }
+  }
+  return legacyLoadReport(run, rows(), total);
+}
+
 export function runPage(run, requestedOffset = 0) {
-  const { simulation_cases: _plans, load_templates: templates, ...view } = run;
+  const { simulation_cases: _plans, load_schedule: schedule, load_templates: templates, ...view } = run;
+  if (schedule) view.load_report = mockLoadReport(run);
+  else if (run.family === 'load' && !view.load_report) {
+    view.load_report = templates?.length ? compactLegacyReport(run) : legacyLoadReport(run);
+  }
   if (!templates) return view;
   const lastPage = Math.floor((run.total - 1) / LOAD_PAGE_SIZE);
   const page = Math.min(lastPage, Math.max(0, Math.floor(Number(requestedOffset) / LOAD_PAGE_SIZE) || 0));
@@ -204,17 +287,18 @@ export function runPage(run, requestedOffset = 0) {
   for (let i = offset; i < end; i++) {
     const original = templates[i % templates.length];
     const iteration = Math.floor(i / templates.length) + 1;
-    const row = { ...original, id: run.id + '-' + (i + 1), detail: { ...original.detail,
-      load_iteration: iteration, load_user: (iteration - 1) % run.load.concurrency + 1,
-    } };
+    const timing = schedule ? sampleTiming(run, i) : null;
+    const position = timing ? { load_user: timing.user, load_stage: timing.stage } : { load_iteration: iteration, load_user: (iteration - 1) % run.load.concurrency + 1 };
+    const row = { ...original, id: run.id + '-' + (i + 1), detail: { ...original.detail, ...position } };
     if (i < run.done) {
-      const interrupted = run.cancelled_index === i;
-      const at = interrupted ? Date.parse(run.finished_at) : Date.parse(run.started_at) + Math.ceil((i + 1) * durationOf(run) / run.total);
-      finishRow(run, row, at, interrupted);
+      if (timing) {
+        finishRow(run, row, Date.parse(run.started_at) + timing.end, false, timing.latency);
+        Object.assign(row.detail, position);
+      } else finishLegacyRow(run, row, i);
     }
     results.push(row);
   }
-  return { ...view, project_name: run.project_name + `（明细 ${offset + 1}–${end} / ${run.total}）`, results,
+  return { ...view, project_name: schedule ? run.project_name : run.project_name + `（明细 ${offset + 1}–${end} / ${run.total}）`, results,
     result_page: { offset, end, total: run.total } };
 }
 
@@ -226,8 +310,10 @@ export function advanceRuns(db, now = Date.now()) {
     const elapsed = now - startTime;
     if (elapsed < 0) continue;
     const duration = durationOf(run);
-    const done = Math.min(run.total, Math.floor(elapsed / duration * run.total));
-    if (run.status === 'Running' && run.done === done) continue;
+    const virtualElapsed = run.load_schedule ? Math.min(run.load_schedule.duration, Math.floor(elapsed / duration * run.load_schedule.duration)) : null;
+    const done = run.load_schedule ? samplesDone(run.load_schedule, virtualElapsed) : Math.min(run.total, Math.floor(elapsed / duration * run.total));
+    if (run.status === 'Running' && run.done === done && (virtualElapsed == null || virtualElapsed === run.mock_elapsed_ms)) continue;
+    if (virtualElapsed != null) run.mock_elapsed_ms = virtualElapsed;
     if (!run.load_templates) {
       for (let i = run.done; i < done; i++) {
         finishRow(run, run.results[i], startTime + Math.ceil((i + 1) * duration / run.total));
@@ -239,8 +325,9 @@ export function advanceRuns(db, now = Date.now()) {
     run.status = finished ? 'Pass' : 'Running';
     const targets = run.load_templates || run.results;
     run.current = finished ? '' : '预览模拟：' + targets[done % targets.length].case_title;
-    run.finished_at = finished ? stamp(startTime + duration) : null;
+    run.finished_at = finished ? stamp(startTime + (run.load_schedule?.duration ?? duration)) : null;
     aggregate(run, finished ? 'settled' : 'running');
+    if (finished && run.load_schedule && !run.metrics.latency_samples) run.reason = '所选接口均未产生模拟 HTTP 交换，没有可统计的请求样本。';
     if (finished && run.trigger === 'login' && run.status === 'Pass') {
       const project = db.caseLibrary?.projects.find((p) => p.id === run.project_id);
       if (project) project.session = { saved: true, saved_at: run.finished_at };
@@ -298,7 +385,7 @@ function historyRows(runs, params) {
 }
 
 function runList(runs) {
-  return runs.map(({ results: _rows, report_definitions: _definitions, simulation_cases: _plans, load_templates: _templates, ...r }) => ({ ...r, history_status: outcomeStatus[r.state?.outcome || 'not_run'] }));
+  return runs.map(({ load_report: _report, load_schedule: _schedule, results: _rows, report_definitions: _definitions, simulation_cases: _plans, load_templates: _templates, ...r }) => ({ ...r, history_status: outcomeStatus[r.state?.outcome || 'not_run'] }));
 }
 
 function trend(rows, params) {
@@ -387,20 +474,25 @@ export function runsApi(context) {
   if (method === 'GET' && path === '/results') return paginate(historyRows(all, params).filter((r) => matches(r, params)), params);
   if (method === 'POST' && path === '/runs/delete') return removeRuns(db, body.run_ids);
   if (path === '/load-tests/options') {
-    const items = scoped(caseRows(context), params, null);
+    const items = apiLoadCases(context, scoped(caseRows(context), params, null));
     const projects = casesApi({ ...context, path: '/projects', method: 'GET' }).filter((p) => items.some((c) => c.project_id === p.id));
     return { items, projects };
   }
   if (path === '/runs' || path === '/load-tests') {
     if (method === 'GET') {
+      if (path === '/load-tests' && params.has('mode') && !['performance', 'stress'].includes(params.get('mode'))) return problem('测试模式无效');
       const runs = scoped(all, params, 'created_at').filter((r) => r.trigger !== 'login' && (path !== '/load-tests' || r.family === 'load') && matches(r, params));
-      return paginate(runList(runs), params);
+      const mode = path === '/load-tests' && params.get('mode');
+      const page = paginate(runList(mode ? runs.filter((run) => (run.load?.mode || 'performance') === mode) : runs), params);
+      if (path === '/load-tests' && params.get('include_metrics') === 'false') {
+        for (const run of page.items) delete run.metrics;
+      }
+      return page;
     }
     if (method !== 'POST') return undefined;
     if (path === '/runs') return batchStart(context);
-    const { concurrency, iterations, ramp_up_seconds } = body;
-    if (![concurrency, iterations].every((v) => Number.isSafeInteger(v) && v > 0) || !Number.isFinite(ramp_up_seconds) || ramp_up_seconds < 0) return problem('压测参数无效');
-    return batchStart(context, { concurrency, iterations, ramp_up_seconds });
+    try { return batchStart(context, loadConfiguration(body)); }
+    catch (error) { return problem(error.message); }
   }
   const login = path.match(/^\/projects\/([^/]+)\/login$/);
   if (login && method === 'POST') {
@@ -420,13 +512,13 @@ export function runsApi(context) {
   if (action === 'cancel') {
     if (active(run)) {
       const now = Date.now();
-      if (run.status === 'Running' && run.done < run.total) {
+      if (!run.load_schedule && run.status === 'Running' && run.done < run.total) {
         run.cancelled_index = run.done;
         if (!run.load_templates) finishRow(run, run.results[run.done], now, true);
         run.done++;
       }
       run.status = 'Cancelled';
-      run.finished_at = stamp(now);
+      run.finished_at = stamp(run.load_schedule && run.started_at ? Date.parse(run.started_at) + run.mock_elapsed_ms : now);
       run.current = '';
       run.reason = '模拟运行已取消';
       aggregate(run, 'cancelled');
@@ -442,7 +534,8 @@ export function runsApi(context) {
       return compactCaseCounts(run, i).fail > 0;
     });
     if (!targets.length) return problem('没有可重跑的目标用例');
-    const remaining = new Set(caseRows(context, run.project_id).map((c) => c.case_id));
+    const relevant = caseRows(context, run.project_id).filter((c) => !run.load || c.kind === 'api' && c.replayable);
+    const remaining = new Set(relevant.map((c) => c.case_id));
     const ids = [...new Set(targets.map((r) => r.case_id))];
     const kept = ids.filter((caseId) => remaining.has(caseId));
     if (!kept.length) return problem('这些用例已删除');
@@ -450,4 +543,18 @@ export function runsApi(context) {
     return { id: r.id, total: r.total, dropped: ids.length - kept.length };
   }
   return undefined;
+}
+
+export function seedLoadRuns(db, fixtures, now = Date.now()) {
+  const context = { db, fixtures, params: new URLSearchParams() };
+  const examples = [
+    { mode: 'performance', concurrency: 3, duration_seconds: 20, target_requests: 54 },
+    { mode: 'stress', initial_concurrency: 2, step_concurrency: 2, max_concurrency: 6, step_duration_seconds: 6 },
+  ];
+  for (const [index, load] of examples.entries()) {
+    const seed = { id: 'load-demo-' + load.mode, created: now - (2 - index) * 3600000 };
+    const run = start(context, 'stock-room', ['ST-API-001', 'ST-API-002'], {}, null, loadConfiguration(load), seed);
+    advanceRuns({ runs: [run] }, now);
+  }
+  db.runs.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 }

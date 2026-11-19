@@ -20,24 +20,13 @@ from autoskill.engines import reports
 
 
 class Handler(BaseHTTPRequestHandler):
-    active = 0
-    maximum = 0
-    lock = threading.Lock()
-
     def do_GET(self):
-        with self.lock:
-            type(self).active += 1
-            type(self).maximum = max(type(self).maximum, type(self).active)
-        try:
-            time.sleep(0.12)
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html" if self.path == "/page" else "application/json")
-            self.end_headers()
-            with contextlib.suppress(BrokenPipeError):
-                self.wfile.write(b"<title>Native fixture</title><h1>preserved</h1>" if self.path == "/page" else b'{"value":"okay"}')
-        finally:
-            with self.lock:
-                type(self).active -= 1
+        time.sleep(0.12)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html" if self.path == "/page" else "application/json")
+        self.end_headers()
+        with contextlib.suppress(BrokenPipeError):
+            self.wfile.write(b"<title>Native fixture</title><h1>preserved</h1>" if self.path == "/page" else b'{"value":"okay"}')
 
     def log_message(self, *_args):
         pass
@@ -70,6 +59,11 @@ class Workspace(unittest.TestCase):
 
 
 class NativeTests(Workspace):
+    def test_retired_runner_is_not_advertised_or_available(self):
+        self.assertNotIn("jmeter", {item["id"] for item in engines.list_engines()})
+        with self.assertRaisesRegex(ValueError, "执行引擎不存在"):
+            engines.get("jmeter")
+
     def test_original_unittest_positive_negative_and_fixture_cleanup(self):
         source = self.fixture("import unittest\nfrom pathlib import Path\n"
                               "def tearDownModule(): Path('cleanup.txt').write_text('done')\n"
@@ -233,7 +227,6 @@ class NativeTests(Workspace):
 class InstalledEngines(Workspace):
     def setUp(self):
         super().setUp()
-        Handler.maximum = 0
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -283,19 +276,6 @@ class InstalledEngines(Workspace):
         for expected, status in ((200, "Pass"), (201, "Fail")):
             result = self.execute(self.collection(expected, True), "apifox")
             self.assertEqual(result["status"], status, result["outcome"])
-
-    def test_jmeter_real_concurrency_report_and_negative_assertion(self):
-        self.require("jmeter")
-        source = ROOT / "tests/fixtures/native_load.jmx"
-        for expected, status in (("okay", "Pass"), ("wrong", "Fail")):
-            parameters = {"args": [f"-Jport={self.server.server_port}", f"-Jexpected={expected}"], "thresholds": {"max_error_rate": 0}}
-            result = self.execute(source, "jmeter", parameters, argv=["jmeter", "-n", "-t", "native_load.jmx", "-l", "old.jtl", "-j", "old.log", "-e", "-o", "old-html"])
-            self.assertEqual(result["status"], status, result["outcome"])
-            self.assertEqual(result["outcome"]["metrics"]["samples"], 6)
-            self.assertGreaterEqual(Handler.maximum, 2)
-            evidence = paths.local() / "runs" / result["id"] / "native"
-            self.assertTrue((evidence / "html/index.html").is_file())
-            self.assertTrue((evidence / "samples.jtl").is_file())
 
     def test_selenium_pytest_keeps_pom_data_parameterization_and_fixture_scope(self):
         self.require("selenium-pytest")

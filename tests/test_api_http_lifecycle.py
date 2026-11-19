@@ -211,14 +211,13 @@ class ApiHttpLifecycleTests(unittest.TestCase):
         target = db.one("SELECT * FROM results WHERE run_id = ? AND case_id = ?", (run["id"], "API-ABSENT"))
         self.assertEqual(target["prerequisite"], 0)
 
-    def test_http_success_without_later_check_never_publishes_status_only_action(self):
+    def test_successful_status_assertion_is_enough_to_publish_without_a_later_check(self):
         cases, queued, runs = self.execute_lifecycle(include_postcondition=False)
         self.assertEqual(runs[0]["status"], "Pass")
         receipt = candidate_publication.receipt(queued["run_id"])
-        self.assertNotIn("API-DELETE", receipt["published_ids"])
-        self.assertNotIn("API-ABSENT", receipt["published_ids"])
+        self.assertEqual(set(receipt["published_ids"]), {case["id"] for case in cases})
         row = db.one("SELECT * FROM results WHERE run_id = ? AND case_id = ?", (runs[0]["id"], cases[-2]["id"]))
-        self.assertEqual(json.loads(row["detail"])["business_status"], "Unverified")
+        self.assertEqual(row["status"], "Pass")
         self.assertTrue(execution_inputs.result_evidence(runs[0], row, cases[-2]))
 
     def test_successful_delete_response_with_failed_empty_query_never_publishes_action(self):
@@ -274,7 +273,7 @@ class ApiHttpLifecycleTests(unittest.TestCase):
     def test_invalid_or_missing_postcondition_is_rejected_before_http(self):
         cases = self.cases()
         cases[-2]["extensions"]["postconditions"] = ["API-ABSENT"]
-        for label in ("missing", "self", "empty", "duplicate", "unrelated", "observation", "status_only"):
+        for label in ("missing", "self", "empty", "duplicate", "unrelated"):
             altered = copy.deepcopy(cases)
             if label == "missing":
                 altered.pop()
@@ -284,12 +283,8 @@ class ApiHttpLifecycleTests(unittest.TestCase):
                 altered[-2]["extensions"]["postconditions"] = []
             elif label == "duplicate":
                 altered[-2]["extensions"]["postconditions"] = ["API-ABSENT", "API-ABSENT"]
-            elif label == "unrelated":
-                altered[-1]["extensions"]["depends_on"] = ["API-CREATE"]
-            elif label == "observation":
-                altered[-1]["extensions"]["oracle"] = {"source": "observation"}
             else:
-                altered[-1]["assertions"] = {"status": 200}
+                altered[-1]["extensions"]["depends_on"] = ["API-CREATE"]
             with self.subTest(label=label), self.assertRaises(ValueError):
                 runner.prepare(self.project, ["API-DELETE"], candidate_cases=altered, api_only=True)
         self.assertEqual(self.server.requests, [])

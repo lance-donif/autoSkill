@@ -75,12 +75,12 @@ class LoadTarget(BaseHTTPRequestHandler):
         if parsed.path in ("/check", "/slow", "/ui-work"):
             with state["lock"]:
                 state["active"] += 1
+                if parsed.path == "/slow":
+                    state["slow_started"] += 1
                 state["maximum"] = max(state["maximum"], state["active"])
                 if parsed.path == "/ui-work":
                     state["ui_tokens"].append(self.headers.get("Cookie", ""))
             try:
-                if parsed.path == "/ui-work" and state.get("ui_rendezvous") is not None:
-                    state["ui_rendezvous"].wait(timeout=20)
                 time.sleep(0.25)
                 marker = query.get("token", [""])[0]
                 ok = (self.headers.get("Cookie", "") == "marker=" + marker) if parsed.path == "/check" else True
@@ -114,7 +114,7 @@ class DashboardWorkspace(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
         self.target = ThreadingHTTPServer(("127.0.0.1", 0), LoadTarget)
-        self.target.fixture = {"lock": threading.Lock(), "active": 0, "maximum": 0, "changing_calls": 0,
+        self.target.fixture = {"lock": threading.Lock(), "active": 0, "maximum": 0, "changing_calls": 0, "slow_started": 0,
                                "api_tokens": [], "api_initial_cookies": [], "ui_tokens": [], "ui_initial_cookies": []}
         threading.Thread(target=self.target.serve_forever, daemon=True).start()
         self.addCleanup(self.target.server_close)
@@ -213,13 +213,20 @@ class DashboardWorkspace(unittest.TestCase):
         self.page.get_by_role("button", name="压测所选", exact=True).click()
         return self.page.get_by_role("dialog", name="新建压测", exact=True)
 
-    def start(self, dialog, *, concurrency=2, iterations=4):
-        dialog.get_by_label("并发用户数", exact=True).fill(str(concurrency))
-        dialog.get_by_label("迭代次数", exact=True).fill(str(iterations))
-        dialog.get_by_label("渐增时间（秒）", exact=True).fill("0")
+    def start(self, dialog, *, concurrency=2, target_requests=4):
+        dialog.get_by_label("并发数", exact=True).fill(str(concurrency))
+        dialog.get_by_label("目标请求数", exact=True).fill(str(target_requests))
+        dialog.get_by_label("持续时间（秒）", exact=True).fill("")
+        return self.submit(dialog, "performance")
+
+    def submit(self, dialog, mode):
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/load-tests")) as response:
             dialog.get_by_role("button", name="开始压测", exact=True).click()
         self.assertEqual(response.value.status, 200, response.value.text())
+        payload = response.value.request.post_data_json
+        self.assertEqual(payload["mode"], mode)
+        self.assertNotIn("engine", payload)
+        self.assertNotIn("headed", payload)
         run_id = response.value.json()["runs"][0]["id"]
         expect(self.page).to_have_url(re.compile(r"/#/load-tests/" + run_id))
         return run_id
@@ -234,6 +241,10 @@ class DashboardWorkspace(unittest.TestCase):
         self.fail("Load did not finish:\n" + self.log.read_text(encoding="utf-8"))
         return None
 
+    def statistic_cells(self, document, label="总计"):
+        table = document.get_by_role("table", name="统计", exact=True)
+        return table.get_by_role("row").filter(has=document.get_by_role("rowheader", name=label, exact=True)).locator("th, td")
+
     def evidence(self, name):
         destination = os.environ.get("AUTOSKILL_VALIDATION_OUTPUT")
         if destination:
@@ -243,44 +254,81 @@ class DashboardWorkspace(unittest.TestCase):
 
 
 class LoadDashboardTests(DashboardWorkspace):
+    def setUp(self):
+        super().setUp()
+        output = os.environ.get("AUTOSKILL_VALIDATION_OUTPUT")
+        if output:
+            diagnostics = Path(output) / self._testMethodName
+            diagnostics.mkdir(parents=True, exist_ok=True)
+            self.context.tracing.start(screenshots=True, snapshots=True)
+            self.addCleanup(self.context.tracing.stop, path=diagnostics / "trace.zip")
+            self.addCleanup(self.page.screenshot, path=diagnostics / "page.png", timeout=5000)
+
     def test_case_selection_loads_real_concurrent_requests_and_preserves_history(self):
         run_id = self.start(self.editor_from_case("TC-CHECK"))
         run = self.wait_finished(run_id)
         self.assertEqual((run["status"], run["done"], run["total"], run["passed"]), ("Pass", 4, 4, 4), run)
-        self.assertEqual((run["metrics"]["request_count"], run["metrics"]["latency_samples"]), (8, 4))
+        self.assertEqual(run["engine"], "locust")
+        self.assertEqual((run["metrics"]["request_count"], run["metrics"]["latency_samples"]), (4, 4))
+        self.assertEqual([s["label"] for s in run["load_report"]["samples"]], ["TC-CHECK"] * 4)
         self.assertGreater(run["metrics"]["throughput_per_second"], 0)
         self.assertGreaterEqual(self.target.fixture["maximum"], 2)
         self.assertEqual(len(set(self.target.fixture["api_tokens"])), 4)
         self.assertEqual(self.target.fixture["api_initial_cookies"], [""] * 4)
         self.assertEqual(sessions.load(self.pid), {})
         targets = [row for row in run["results"] if not row["prerequisite"]]
-        self.assertEqual({row["detail"]["load_iteration"] for row in targets}, {1, 2, 3, 4})
-        expect(self.page.get_by_role("progressbar", name="压测进度")).to_have_attribute("aria-valuenow", "4", timeout=15000)
-        expect(self.page.get_by_role("region", name="压测指标")).to_contain_text("P95")
+        self.assertEqual([row["case_id"] for row in targets], ["TC-CHECK"] * 4)
+        expect(self.statistic_cells(self.page).nth(1)).to_have_text("4", timeout=15000)
+        expect(self.page.get_by_role("table", name="统计", exact=True)).to_contain_text("P95")
         self.evidence("api-result.png")
         self.page.get_by_role("link", name="压测记录", exact=True).click()
-        expect(self.page.get_by_role("heading", name="压测", exact=True)).to_be_visible()
+        expect(self.page.get_by_role("heading", name="压测记录", exact=True)).to_be_visible()
         self.page.reload()
         self.page.get_by_role("link", name="查看结果", exact=True).click()
-        expect(self.page.get_by_role("progressbar", name="压测进度")).to_have_attribute("aria-valuenow", "4")
+        expect(self.statistic_cells(self.page).nth(1)).to_have_text("4")
         self.assertEqual(self.client.get("/api/cases").json()["items"][0]["last_status"], None)
 
-    def test_ui_cases_use_independent_real_browsers(self):
-        # Browser startup may be staggered; require both real requests to overlap.
-        self.target.fixture["ui_rendezvous"] = threading.Barrier(2)
-        run_id = self.start(self.editor_from_case("TC-UI"), concurrency=2, iterations=2)
+    def test_pressure_tab_sends_staged_api_request_and_displays_measured_samples(self):
+        dialog = self.editor_from_case("TC-SLOW")
+        dialog.get_by_role("tab", name="压力测试", exact=True).click()
+        expect(dialog.get_by_role("checkbox", name=re.compile("TC-UI"))).to_have_count(0)
+        for field, value in (("初始并发数", "1"), ("每阶段增加并发数", "1"), ("最大并发数", "2"), ("每阶段持续时间（秒）", "0.8")):
+            dialog.get_by_label(field, exact=True).fill(value)
+        run_id = self.submit(dialog, "stress")
         run = self.wait_finished(run_id)
-        self.assertEqual((run["status"], run["done"], run["passed"]), ("Pass", 2, 2), run)
-        self.assertEqual(self.target.fixture["ui_initial_cookies"], ["", ""])
-        self.assertEqual(len(set(self.target.fixture["ui_tokens"])), 2)
+        self.assertEqual((run["status"], run["engine"], run["load"]["mode"]), ("Pass", "locust", "stress"), run)
+        report = run["load_report"]
+        self.assertEqual([stage["concurrency"] for stage in report["stages"]], [1, 2])
         self.assertGreaterEqual(self.target.fixture["maximum"], 2)
-        self.assertEqual(sessions.load(self.pid), {})
-        expect(self.page.get_by_role("progressbar", name="压测进度")).to_have_attribute("aria-valuenow", "2", timeout=15000)
-        self.evidence("ui-result.png")
+        self.assertEqual(self.target.fixture["slow_started"], len(report["samples"]))
+        selector = self.page.get_by_role("combobox", name="阶段", exact=True)
+        expect(selector.locator("option")).to_have_count(3, timeout=15000)
+        for stage in (1, 2):
+            count = sum(sample["stage"] == stage for sample in report["samples"])
+            self.assertGreater(count, 0)
+            selector.select_option(value=str(stage))
+            expect(self.statistic_cells(self.page).nth(1)).to_have_text(str(count))
+
+    def test_ui_case_keeps_normal_browser_replay_and_cannot_start_a_load_test(self):
+        self.open("cases?range=all")
+        ui = self.page.get_by_role("row").filter(has=self.page.get_by_role("checkbox", name="选择 TC-UI", exact=True))
+        expect(ui.get_by_role("button", name="压测", exact=True)).to_have_count(0)
+        ui.get_by_role("checkbox").check()
+        expect(self.page.get_by_role("button", name="压测所选", exact=True).and_(self.page.locator(":enabled"))).to_have_count(0)
+        options = self.client.get("/api/load-tests/options").json()
+        self.assertEqual({item["kind"] for item in options["items"]}, {"api"})
+        with self.page.expect_response(lambda r: r.request.method == "POST" and r.url.endswith("/api/runs")) as launch:
+            ui.get_by_role("button", name="运行", exact=True).click()
+        run_id = launch.value.json()["runs"][0]["id"]
+        expect(self.page.locator(".run-summary .status").first).to_have_text("通过", timeout=30000)
+        self.assertEqual(self.client.get("/api/runs/" + run_id).json()["status"], "Pass")
+        self.assertEqual(self.target.fixture["ui_initial_cookies"], [""])
+        self.assertEqual(len(self.target.fixture["ui_tokens"]), 1)
+        self.assertEqual(self.client.get("/api/load-tests").json()["total"], 0)
 
     def test_first_failure_survives_later_pass_and_export(self):
         original = projects.case(self.pid, "TC-CHANGING")
-        run_id = self.start(self.editor_from_case("TC-CHANGING"), concurrency=1, iterations=2)
+        run_id = self.start(self.editor_from_case("TC-CHANGING"), concurrency=1, target_requests=2)
         run = self.wait_finished(run_id)
         self.assertEqual((run["status"], run["done"], run["failed"], run["passed"]), ("Fail", 2, 1, 1), run)
         self.assertEqual([row["status"] for row in run["results"]], ["Fail", "Pass"])
@@ -291,11 +339,11 @@ class LoadDashboardTests(DashboardWorkspace):
         self.assertTrue(all(item["evidence_valid"] for item in snapshot["cases"]))
         logical = task_report_data.logical_cases(snapshot)
         self.assertEqual((len(logical), logical[0]["status"], logical[0]["first_status"], logical[0]["final_status"]), (1, "Fail", "Fail", "Pass"))
-        expect(self.page.get_by_role("progressbar", name="压测进度")).to_have_attribute("aria-valuenow", "2", timeout=15000)
+        expect(self.statistic_cells(self.page).nth(1)).to_have_text("2", timeout=15000)
         with self.page.expect_download() as downloaded:
-            self.page.get_by_role("button", name="导出报告", exact=True).click()
+            self.page.get_by_role("button", name="下载 HTML 报告", exact=True).click()
         exported = Path(downloaded.value.path()).read_text(encoding="utf-8")
-        self.assertIn("原始断言先失败后通过", exported)
+        self.assertIn("TC-CHANGING", exported)
         self.assertIn("失败", exported)
         self.assertIn("P95", exported)
         offline = self.browser.new_context(offline=True)
@@ -305,13 +353,11 @@ class LoadDashboardTests(DashboardWorkspace):
         for document in (self.page, reader):
             for removed in ("本次报告", "执行尝试", "详见本次尝试的执行记录", "查看本次记录"):
                 expect(document.get_by_text(removed, exact=True)).to_have_count(0)
-            expect(document.locator(".report-heading").locator("..").locator(".status")).to_have_text("不通过")
-            rows = document.locator(".load-table-wrap tbody tr")
-            expect(rows.locator("td:first-child .status")).to_have_text(["失败", "通过"])
-            details = rows.first.locator("details")
-            details.evaluate("node => { node.open = true }")
-            expect(details.locator(".status")).to_have_count(0)
-            expect(details.locator("li").first).to_be_visible()
+            cells = self.statistic_cells(document, "TC-CHANGING")
+            expect(cells.nth(1)).to_have_text("2")
+            expect(cells.nth(2)).to_have_text("1")
+            expect(document.get_by_role("table", name="错误汇总", exact=True)).to_contain_text("字段 /ok")
+            expect(document.get_by_role("table", name="每个采样器的前五项错误", exact=True)).to_contain_text("TC-CHANGING")
         receipt = self.client.get("/api/runs/" + run_id).json()["test_report"]
         self.assertEqual(receipt["status"], "ready", receipt)
         workbook = openpyxl.load_workbook(io.BytesIO(self.client.get(receipt["download_url"]).content))
@@ -326,7 +372,7 @@ class LoadDashboardTests(DashboardWorkspace):
 
     def test_cancel_retains_completed_results_and_start_errors_remain_actionable(self):
         dialog = self.editor_from_case("TC-SLOW")
-        run_id = self.start(dialog, concurrency=2, iterations=100)
+        run_id = self.start(dialog, concurrency=2, target_requests=100)
         expect(self.page.get_by_role("button", name="停止压测", exact=True)).to_be_visible(timeout=10000)
         deadline = time.monotonic() + 15
         while self.client.get("/api/load-tests/" + run_id).json()["done"] == 0 and time.monotonic() < deadline:
@@ -335,12 +381,15 @@ class LoadDashboardTests(DashboardWorkspace):
         run = self.wait_finished(run_id)
         self.assertEqual(run["status"], "Cancelled", run)
         self.assertGreater(run["done"], 0)
-        self.assertLess(run["done"], run["total"])
-        self.assertEqual(run["metrics"]["unexecuted_cases"], run["total"] - run["done"])
+        self.assertLess(run["done"], run["load"]["target_requests"])
+        self.assertEqual(self.target.fixture["active"], 0)
+        self.assertEqual(self.target.fixture["slow_started"], len(run["load_report"]["samples"]))
         expect(self.page.get_by_role("button", name="再次压测", exact=True)).to_be_visible(timeout=15000)
+        self.assertEqual(self.client.get("/api/load-tests/" + run_id).json()["done"], run["done"])
         self.evidence("cancelled.png")
         self.page.get_by_role("button", name="再次压测", exact=True).click()
         dialog = self.page.get_by_role("dialog", name="新建压测", exact=True)
+        expect(dialog.get_by_role("checkbox", name=re.compile("TC-SLOW"))).to_be_checked()
         original = projects.case(self.pid, "TC-SLOW")
         original["lifecycle"] = "archived"
         projects.save_cases(self.pid, [original])

@@ -86,7 +86,7 @@ class LoadTests(unittest.TestCase):
         final = runner.execute(run["id"])
         self.assertEqual(final["status"], "Pass", final)
         detail = load_testing.get(run["id"])
-        self.assertEqual((detail["done"], detail["total"], detail["metrics"]["request_count"]), (6, 6, 12))
+        self.assertEqual((detail["done"], detail["total"], detail["metrics"]["request_count"]), (6, 6, 6))
         self.assertGreaterEqual(self.server.maximum, 2)
         login_requests = [item for item in self.server.seen if item[0] == "/login"]
         targets = [item for item in self.server.seen if item[0] == "/target"]

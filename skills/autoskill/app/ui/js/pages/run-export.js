@@ -68,13 +68,13 @@ async function embedScreenshots(content) {
   return outcomes.filter(Boolean);
 }
 
-function toolbar(run, exportedAt) {
+function toolbar(run, exportedAt, title, load) {
   return h('header', { class: 'scope report-toolbar' },
-    h('div', { class: 'grow scope-text' }, h('b', {}, 'autoSkill 执行报告'),
+    h('div', { class: 'grow scope-text' }, h('b', {}, 'autoSkill ' + title),
       h('div', {}, `${run.id} · 导出于 ${exportedAt.toLocaleString('zh-CN', { hour12: false })}`),
       ['Queued', 'Running'].includes(run.status) && h('div', {}, '导出时任务尚未完成，结果以本文件中的执行进度为准。')),
-    h('button', { class: 'btn sm', dataset: { reportAction: 'expand' } }, '全部展开'),
-    h('button', { class: 'btn sm', dataset: { reportAction: 'collapse' } }, '全部收起'));
+    !load && h('button', { class: 'btn sm', dataset: { reportAction: 'expand' } }, '全部展开'),
+    !load && h('button', { class: 'btn sm', dataset: { reportAction: 'collapse' } }, '全部收起'));
 }
 
 function imageViewer() {
@@ -116,18 +116,34 @@ function installReportInteractions() {
   viewer.addEventListener('click', (event) => { if (event.target === viewer) viewer.close(); });
 }
 
-export async function downloadRunHtml(run, content) {
+function installLoadInteractions(render) {
+  const run = JSON.parse(document.getElementById('load-report-data').textContent);
+  const target = document.querySelector('[data-load-dashboard]');
+  const select = document.querySelector('[data-load-stage]');
+  const update = () => target.replaceChildren(render(run, { stage: select?.value || null }));
+  select?.addEventListener('change', update);
+  update();
+}
+
+export async function downloadRunHtml(run, content, { loadDashboard } = {}) {
   const styles = captureStyles();
   const warnings = await embedScreenshots(content);
-  const output = document.implementation.createHTMLDocument(`${run.project_name || run.project_id} · autoSkill 执行报告`);
+  const title = loadDashboard ? (run.load?.mode === 'stress' ? '压力测试报告' : '性能测试报告') : '执行报告';
+  const output = document.implementation.createHTMLDocument(`${run.project_name || run.project_id} · autoSkill ${title}`);
   output.documentElement.lang = 'zh-CN';
   output.documentElement.dataset.theme = document.documentElement.dataset.theme || 'light';
   output.head.prepend(h('meta', { charset: 'utf-8' }));
   output.head.append(h('meta', { name: 'viewport', content: 'width=device-width,initial-scale=1' }), h('style', {}, styles));
-  output.body.append(toolbar(run, new Date()), content, imageViewer());
+  output.body.append(toolbar(run, new Date(), title, !!loadDashboard), content);
   if (warnings.length) content.prepend(h('div', { class: 'banner', role: 'status' }, icon('warn'),
     `有 ${warnings.length} 张截图未能嵌入，原因已标在对应明细中；其他结果与明细已保存。`));
-  output.body.append(h('script', {}, `(${installReportInteractions.toString()})();`));
+  if (loadDashboard) {
+    const data = JSON.stringify(loadDashboard.data).replaceAll('<', '\\u003c');
+    output.body.append(h('script', { type: 'application/json', id: 'load-report-data' }, data),
+      h('script', {}, loadDashboard.script + `\n(${installLoadInteractions.toString()})(renderLoadDashboard);`));
+  } else {
+    output.body.append(imageViewer(), h('script', {}, `(${installReportInteractions.toString()})();`));
+  }
   const html = '<!doctype html>\n' + output.documentElement.outerHTML;
   const filename = `autoSkill-${String(run.id).replace(/[\\/:*?"<>|]/g, '-')}.html`;
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));

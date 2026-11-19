@@ -31,7 +31,7 @@ class ArtifactShareTests(unittest.TestCase):
         self.folder = projects.path(PID)
 
     def create_assets(self):
-        source = {"scripts/pages/login.py": b"class LoginPage:\n    pass\n", "input/plan.jmx": b"<jmeterTestPlan/>",
+        source = {"scripts/pages/login.py": b"class LoginPage:\n    pass\n", "input/fixture.json": b'{"fixture":true}',
                   "input/fixture.bin": b"\x00\xff\x80fixture", "input/README": b"extensionless source", "scripts/run.cmd": b"@echo fixture\r\n",
                   "input/large.bin": b"large fixture\0" * 410_000}
         for name, data in source.items():
@@ -94,7 +94,7 @@ class ArtifactShareTests(unittest.TestCase):
         package = share.pack([PID], str(self.root / "source.zip"))["file"]
         projects.update(PID, name="Local version")
         before = {file.relative_to(self.folder).as_posix(): file.read_bytes() for file in self.folder.rglob("*") if file.is_file()}
-        name = f"projects/{PID}/input/plan.jmx"
+        name = f"projects/{PID}/input/fixture.json"
         for changes in ({name: b"<tampered/>"}, {name: None}, {f"projects/{PID}/new.py": b"unlisted"}):
             with self.subTest(changes=list(changes)):
                 result = share.import_pack(str(self.rewrite(package, changes)), overwrite=True)
@@ -149,7 +149,7 @@ class ArtifactShareTests(unittest.TestCase):
             package = share.pack_full(str(self.root / "full.zip"))["file"]
         with zipfile.ZipFile(package) as archive:
             prefix = f"autoskill/workspace/projects/{PID}/"
-            self.assertEqual(archive.read(prefix + "input/plan.jmx"), b"<jmeterTestPlan/>")
+            self.assertEqual(archive.read(prefix + "input/fixture.json"), b'{"fixture":true}')
             self.assertEqual(archive.read(prefix + "scripts/pages/login.py"), b"class LoginPage:\n    pass\n")
             self.assertTrue(any(name.startswith(prefix + "domain/objects/") for name in archive.namelist()))
 

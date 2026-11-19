@@ -10,6 +10,7 @@ import json
 import os
 import re
 import time
+from functools import partial
 
 from .. import execution_inputs, paths, secrets
 from ..core import store
@@ -128,7 +129,21 @@ def _merge_cookies(client, url: str, sent: dict) -> None:
     headers[name] = "; ".join(key + "=" + value for key, value in values.items())
 
 
-def run_case(client, case: dict, config: dict, variables: dict) -> dict:
+def _sender(client, method, url, options, send_prepared):
+    if send_prepared is None:
+        return partial(client.request, method, url, **options)
+    import h11
+    import httpx
+
+    try:
+        request = client.build_request(method, url, **options)
+        h11.Request(method=request.method, target=request.url.raw_path, headers=request.headers.raw)
+    except (TypeError, ValueError, httpx.InvalidURL, h11.LocalProtocolError) as error:
+        raise ValueError("HTTP 请求构建失败：" + type(error).__name__) from error
+    return partial(send_prepared, request)
+
+
+def run_case(client, case: dict, config: dict, variables: dict, *, send_prepared=None) -> dict:
     """Send one API case and judge it. `variables` is updated with anything the case extracts."""
     import httpx
 
@@ -158,17 +173,22 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
         outcome.update(reason=str(error), category="missing_secret" if "缺少凭据" in str(error) else "environment")
         return outcome
 
+    if case.get("extensions", {}).get("traffic") == "resource":
+        sent["timeout"] = float(config.get("page_load_seconds", 90))  # a page's own files may be as slow as the page
+    try:
+        send = _sender(client, case["method"], url, sent, send_prepared)
+    except ValueError as error:
+        outcome.update(category="environment", reason=str(error))
+        return outcome
     # what is stored and shown: the case as written (references intact), never resolved secrets
     outcome["request"] = {"method": case["method"], "url": url, "headers": redact(filled.get("headers", {})),
                           "params": redact(filled.get("params", {})), "json": redact(filled.get("json")),
                           **({"form": redact(filled["form"])} if "form" in filled else {})}
-    if case.get("extensions", {}).get("traffic") == "resource":
-        sent["timeout"] = float(config.get("page_load_seconds", 90))  # a page's own files may be as slow as the page
-    clock = time.monotonic()
     execution_inputs.mark_target_started()
     outcome["target_started"] = True
+    clock = time.monotonic()
     try:
-        response = client.request(case["method"], url, **sent)
+        response = send()
     except httpx.TimeoutException:
         outcome.update(reason="请求超时，目标服务没有在限定时间内响应", category="timeout",
                        duration_ms=round((time.monotonic() - clock) * 1000))

@@ -49,7 +49,7 @@ class ReliabilityTests(unittest.TestCase):
 
     def test_unknown_native_target_count_never_becomes_a_hundred_percent_claim(self):
         self.result("one", "Pass", {"business_status": "Pass"})
-        db.insert("runs", {"id": "native", "project_id": self.pid, "engine": "jmeter", "family": "native", "status": "Queued", "total": 0, "created_at": db.now()})
+        db.insert("runs", {"id": "native", "project_id": self.pid, "engine": "postman-newman", "family": "native", "status": "Queued", "total": 0, "created_at": db.now()})
         row = metrics.reliability(metrics.Scope([self.pid]))
         self.assertEqual(row["unknown_target_runs"], 1)
         self.assertIsNone(row["first_pass_rate"])

@@ -1,6 +1,6 @@
 ---
 name: autoskill
-description: 在 DSH/AI 对话中一次完成测试：先交付完整14列用例Excel，按表实际执行并回填，只有真实通过的UI/API候选才发布为可复用案例；失败留在Excel、报告与证据。自动化测试与持续需求维护。宿主 AI 拆解需求、补齐遗漏、关联用例并维护变更；页面实操录制后用 Playwright/Selenium/HTTP 回放，保留原生 Selenium、Postman、Apifox、JMeter 资产；AI 问数按一条多轮用例验证答案、反问与流式负载。持久工作流保存版本、证据和调度，结果在仪表盘查看。用户提到系统测试、需求用例、遗漏审查、变更维护、回归、接口测试、原生测试导入、AI 对话评估、问数压测、定时巡检或 autoSkill 时使用。
+description: 在 DSH/AI 对话中一次完成测试：先交付完整14列用例Excel，按表实际执行并回填，只有真实通过的UI/API候选才发布为可复用案例；失败留在Excel、报告与证据。自动化测试与持续需求维护。宿主 AI 拆解需求、补齐遗漏、关联用例并维护变更；页面实操录制后用 Playwright/Selenium/HTTP 回放，保留原生 Selenium、Postman 和 Apifox 资产；AI 问数按一条多轮用例验证答案、反问与流式负载。持久工作流保存版本、证据和调度，结果在仪表盘查看。用户提到系统测试、需求用例、遗漏审查、变更维护、回归、接口测试、原生测试导入、AI 对话评估、问数压测、定时巡检或 autoSkill 时使用。
 ---
 
 # autoSkill
@@ -89,7 +89,7 @@ UI 工作流按 [UI 预期与录制候选的对应](references/workflow/executio
 
 ## 复用已有测试与 AI 问数
 
-已有 Selenium 项目、Postman/Apifox 集合、JMeter 计划可用 `asset import` 保留原资产和入口，先用 `engine probe` 查实际运行能力，再 `native run`。入口是 JSON `argv` 数组，不拼 shell 命令。导出过某种格式不代表本机已安装它的执行器。
+已有 Selenium 项目和 Postman/Apifox 集合可用 `asset import` 保留原资产和入口，先用 `engine probe` 查实际运行能力，再 `native run`。入口是 JSON `argv` 数组，不拼 shell 命令。导出过某种格式不代表本机已安装它的执行器。
 
 AI 问数默认顺序是：**页面真实体验一遍对话 → 保存录制捕获或导入 cURL/HAR → 映射并复现多轮接口 → 验证答案与对话行为 → 再做负载测试**。`conversation import` 只解析 cURL，不执行 shell；`conversation show` 查看捕获；`conversation build --file <映射.json>` 设置问题、答案、会话字段和独立预期。未知字段保留为未知，读取真实请求/响应后明确映射，不从被测系统答案反推正确答案。
 

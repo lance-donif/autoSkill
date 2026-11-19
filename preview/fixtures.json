@@ -4989,23 +4989,6 @@
         "measurement_only_is_business_verified": false
       },
       {
-        "id": "jmeter",
-        "title": "Apache JMeter",
-        "family": "native",
-        "protocol_version": 1,
-        "asset_formats": [
-          "*.jmx"
-        ],
-        "preserves_tree": true,
-        "conversion": false,
-        "events": true,
-        "heartbeat": true,
-        "cancel": true,
-        "results": "native per-case reports",
-        "scope": "原生运行",
-        "measurement_only_is_business_verified": false
-      },
-      {
         "id": "ai-eval",
         "name": "AI 多轮问数与流式性能评估",
         "protocols": [

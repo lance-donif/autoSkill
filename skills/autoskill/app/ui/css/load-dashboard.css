@@ -1,0 +1,22 @@
+.load-dashboard, .load-chart-panels { display: grid; gap: var(--s-4); min-width: 0; }
+.load-chart-panels { grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); }
+.load-dash-panel { min-width: 0; padding: var(--s-4); container-type: inline-size; }
+.load-dash-panel h2 { margin-bottom: var(--s-3); font-size: var(--t-lg); }
+.load-request-share { display: flex; height: 6px; overflow: hidden; border-radius: var(--r-pill); margin-bottom: var(--s-3); }
+.load-share-pass { background: var(--good); }
+.load-share-fail { background: var(--bad); }
+.load-dash-scroll { max-width: 100%; min-width: 0; overflow-x: auto; }
+.load-dash-scroll th, .load-dash-scroll td { padding-inline: var(--s-2); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.load-dash-scroll th:first-child { text-align: left; }
+.load-dash-scroll tbody th { font-weight: 500; }
+.load-chart-svg { display: block; width: 100%; height: auto; }
+.load-chart-svg text { fill: var(--ink-2); font: 12px var(--font); }
+.load-chart-svg .load-grid { stroke: var(--line); }
+.load-chart-legend { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); list-style: none; margin: var(--s-2) 0; padding: 0; font-size: var(--t-xs); }
+.load-chart-legend li { display: inline-flex; gap: var(--s-1); align-items: center; overflow-wrap: anywhere; }
+.load-chart-legend i { width: 12px; height: 3px; flex: none; }
+.load-dash-empty { padding: var(--s-6) 0; }
+
+@container (max-width: 420px) {
+  .load-chart-svg text { font-size: 18px; }
+}
