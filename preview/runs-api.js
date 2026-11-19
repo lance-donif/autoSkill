@@ -1,8 +1,8 @@
 // Local examples only. A run's simulated clock advances when the demo is open.
 import { casesApi } from './cases-api.js';
 import { schedulesApi } from './schedules-api.js';
+import { restoreResult, verdictStatus as outcomeStatus } from './verdicts.js';
 
-const outcomeStatus = { pass: 'Pass', fail: 'Fail', not_run: 'NotRun' };
 export const LOAD_PAGE_SIZE = 200;
 const active = (run) => run.status === 'Queued' || run.status === 'Running';
 const stamp = (time) => new Date(time).toISOString();
@@ -53,6 +53,31 @@ function compactCounts(run) {
     if (templates[run.cancelled_index % templates.length].kind === 'api') requests++;
   }
   return { counts, requests };
+}
+
+export function restoreRunVerdicts(run) {
+  let changed = run.history_status === 'Unverified' || run.unverified > 0
+    || !Object.hasOwn(outcomeStatus, run.state?.outcome) || !Object.hasOwn(run.state_counts || {}, 'not_run')
+    || Object.keys(run.state_counts || {}).some((key) => !Object.hasOwn(outcomeStatus, key));
+  for (const row of run.results) {
+    if (restoreResult(row)) changed = true;
+  }
+  if (!changed) return false;
+  const targets = run.results.filter((row) => !row.prerequisite);
+  const counts = run.load_templates ? compactCounts(run).counts : outcomeCounts(targets);
+  if (!run.load_templates) counts.not_run += Math.max(0, Math.max(run.total || 0, run.done || 0) - targets.length);
+  const judged = counts.pass + counts.fail;
+  let outcome = 'not_run';
+  if (counts.fail || run.status === 'Fail') outcome = 'fail';
+  else if (!active(run) && counts.pass) outcome = counts.pass === run.total ? 'pass' : 'fail';
+  run.state = { ...run.state, outcome };
+  run.recorded_counts ??= { passed: run.passed || 0, failed: run.failed || 0, blocked: run.blocked || 0 };
+  Object.assign(run, { state_counts: counts, history_status: outcomeStatus[outcome], passed: counts.pass,
+    failed: counts.fail, not_run: counts.not_run, judged, pass_rate: fraction(counts.pass, judged) });
+  for (const key of ['blocked', 'unverified', 'cancelled', 'pending']) {
+    if (Object.hasOwn(run, key)) run[key] = 0;
+  }
+  return true;
 }
 
 function aggregate(run, phase) {
@@ -211,10 +236,11 @@ function matches(row, params) {
   const status = params.get('status');
   const value = row.state?.outcome || 'not_run';
   if (status === 'active' && !active(row)) return false;
-  if (status && status !== 'active') {
-    const selected = status === 'NotPassed' ? 'Fail' : status;
-    const expected = ['Pass', 'Fail', 'NotRun'].includes(selected) ? outcomeStatus[value] : row.status;
-    if (selected !== expected) return false;
+  if (status === 'Running') {
+    if (row.status !== 'Running') return false;
+  } else if (status && status !== 'active') {
+    const selected = { NotPassed: 'fail', NotRun: 'not_run' }[status] || status.toLowerCase();
+    if (selected !== value) return false;
   }
   if (params.has('trigger') && row.trigger !== params.get('trigger')) return false;
   for (const axis of ['phase', 'outcome', 'business', 'performance', 'quality', 'evidence', 'report', 'delivery']) {

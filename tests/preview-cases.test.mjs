@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { casesApi } from '../preview/cases-api.js';
+import { runsApi } from '../preview/runs-api.js';
+import { currentData, getData, restoreData, startSession } from '../preview/store.js';
 
 const fixtures = JSON.parse(readFileSync(new URL('../preview/fixtures.json', import.meta.url), 'utf8'));
 
@@ -71,4 +73,63 @@ test('project settings and credentials update within the visit', () => {
   assert.deepEqual(request('/secrets').items.find((item) => item.name === 'DEMO_KEY'), { name: 'DEMO_KEY', value: 'sample-value' });
   request('/secrets/DEMO_KEY', 'DELETE');
   assert.equal(request('/secrets').items.some((item) => item.name === 'DEMO_KEY'), false);
+});
+
+test('restoring legacy results uses the same verdicts for case revisions, history filters, dashboard and run details', () => {
+  startSession(fixtures);
+  const saved = getData();
+  const project = 'ticket-desk';
+  const items = saved.caseLibrary.items.filter((item) => item.project_id === project);
+  const template = saved.runs.find((run) => run.id === 'run-demo-06');
+  const run = { ...template, id: 'legacy-run', status: 'Unverified', total: 6, done: 6, passed: 6,
+    state: { ...template.state, outcome: 'unverified' }, state_counts: { pass: 0, unverified: 6 } };
+  const samples = [
+    ['Pass', 'valid', { execution_only_pass: true }, 'pass'],
+    ['Pass', 'invalid', { business_status: 'Pass' }, 'fail'],
+    ['Pass', 'valid', { business_status: 'Pass' }, 'pass'],
+    ['Cancelled', 'valid', { target_started: false }, 'not_run'],
+    ['Blocked', 'valid', { request: { method: 'GET' } }, 'fail'],
+    ['Unverified', 'valid', { business_status: 'Unverified' }, 'fail'],
+  ];
+  run.results = samples.map(([status, evidence, detail], index) => {
+    const item = items[index];
+    item.state = { current: true, outcome: 'unverified', scope: { run_id: run.id } };
+    const row = { ...template.results[0], id: 'old-' + index, run_id: run.id, case_id: item.case_id,
+      case_revision: item.revision, state: { phase: 'settled', outcome: 'unverified', evidence }, status, detail };
+    if (index === 2) item.revision++;
+    return row;
+  });
+  run.results.push({ ...run.results[0], id: 'setup', status: 'Fail', prerequisite: true });
+  saved.runs = [run];
+  restoreData(saved);
+  const db = currentData();
+  const request = (target) => {
+    const url = new URL(target, 'https://example.invalid/');
+    const ctx = { path: url.pathname, params: url.searchParams, method: 'GET', fixtures, db };
+    return casesApi(ctx) ?? runsApi(ctx);
+  };
+  assert.equal(saved.runs[0].state.outcome, 'unverified');
+  const restored = request('/runs/' + run.id);
+  assert.equal(restored.status, 'Unverified');
+  assert.equal(restored.state.outcome, 'fail');
+  assert.deepEqual(restored.state_counts, { pass: 2, fail: 3, not_run: 1 });
+  assert.deepEqual(restored.results.slice(0, 6).map((r) => r.state.outcome), samples.map((s) => s[3]));
+  for (const [status, count] of Object.entries({ Pass: 2, Fail: 3, NotRun: 1, Unverified: 0 })) {
+    assert.equal(request('/results?status=' + status).total, count, status);
+  }
+  assert.equal(request('/runs?status=Fail').items[0].id, run.id);
+  assert.equal(request('/runs?status=Unverified').total, 0);
+  assert.deepEqual(request('/dashboard').summary.results.state_counts, restored.state_counts);
+  const list = request('/cases?projects=' + project).items;
+  for (const [index, item] of items.entries()) {
+    const detail = request('/projects/' + project + '/cases/' + item.case_id);
+    assert.deepEqual(detail.state, list.find((candidate) => candidate.case_id === item.case_id).state);
+    assert.equal(detail.state.historical_outcome, samples[index][3]);
+    assert.equal(detail.state.scope.run_id, run.id);
+    assert.equal(detail.state.outcome, index === 2 ? 'not_run' : samples[index][3]);
+    if (index === 2) assert.deepEqual([detail.current, detail.current_status, detail.last_status], [false, null, 'Pass']);
+  }
+  const once = getData();
+  restoreData(once);
+  assert.deepEqual(getData(), once);
 });

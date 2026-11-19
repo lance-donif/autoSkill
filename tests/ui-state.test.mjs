@@ -35,11 +35,11 @@ test('the primary phase remains ended while business and performance verdicts di
   assert.match(facts, /投递：尚未确认/);
 });
 
-test('an unverified business result is explicit and does not inherit an execution pass', () => {
-  const entity = { state: { phase: 'settled', outcome: 'unverified',
+test('a completed result without valid evidence has one failing verdict', () => {
+  const entity = { state: { phase: 'settled', outcome: 'fail', evidence: 'invalid',
     checks: { business: 'unverified', performance: 'not_applicable', quality: 'not_applicable' } } };
-  assert.match(text(stateResults(entity)), /业务：未验证/);
-  assert.doesNotMatch(text(stateResults(entity)), /业务：通过/);
+  assert.equal(text(stateResults(entity)).trim(), '失败');
+  assert.doesNotMatch(text(stateDetails(entity)), /业务：通过|未验证/);
   assert.equal(text(primaryState({})).trim(), '未同步');
 });
 
@@ -47,18 +47,19 @@ test('historical executions are labelled without changing their original verdict
   const entity = { state: { phase: 'settled', outcome: 'pass', checks: { business: 'pass', performance: 'not_applicable', quality: 'not_applicable' },
     scope: { historical: true, cycle_id: 'old-cycle', current_cycle_id: 'new-cycle' } } };
   assert.match(text(primaryState(entity)), /已结束.*历史周期/);
-  assert.match(text(stateResults(entity)), /业务：通过/);
+  assert.equal(text(stateResults(entity)).trim(), '通过');
+  assert.match(text(stateDetails(entity)), /历史周期：old-cycle.*当前周期：new-cycle/);
 });
 
 test('an edited case keeps the current version unexecuted and labels prior passing facts as history', () => {
-  const entity = { state: { current: false, phase: 'settled', lifecycle: 'completed', outcome: 'unverified', historical_outcome: 'pass',
+  const entity = { state: { current: false, phase: 'settled', lifecycle: 'completed', outcome: 'not_run', historical_outcome: 'pass',
     checks: { business: 'pass', performance: 'not_applicable', quality: 'not_applicable' },
     evidence: 'valid', report: 'ready', delivery: 'not_applicable', scope: { run_id: 'run-before-edit' } } };
   const before = JSON.stringify(entity);
   assert.equal(text(primaryState(entity)).trim(), '未执行');
-  assert.match(text(stateResults(entity)), /综合：未验证/);
-  assert.match(text(stateResults(entity)), /历史业务：通过/);
+  assert.equal(text(stateResults(entity)).trim(), '未执行');
   const detail = stateDetails(entity);
+  assert.match(text(detail), /历史业务：通过/);
   assert.match(text(detail), /历史阶段：已结束/);
   assert.match(text(detail), /历史综合：通过/);
   const history = detail.children.flatMap((node) => node.children).find((node) => node.tagName === 'a');
@@ -66,12 +67,12 @@ test('an edited case keeps the current version unexecuted and labels prior passi
   assert.equal(JSON.stringify(entity), before);
 });
 
-test('an executed current version with unverified business checks keeps its ended phase', () => {
-  const entity = { state: { current: true, phase: 'settled', lifecycle: 'completed', outcome: 'unverified',
+test('an execution-only pass keeps its ended phase without claiming a business assertion', () => {
+  const entity = { state: { current: true, phase: 'settled', lifecycle: 'completed', outcome: 'pass',
     checks: { business: 'unverified', performance: 'not_applicable', quality: 'not_applicable' } } };
   assert.equal(text(primaryState(entity)).trim(), '已结束');
-  assert.match(text(stateResults(entity)), /业务：未验证/);
-  assert.doesNotMatch(text(stateResults(entity)), /历史业务/);
+  assert.equal(text(stateResults(entity)).trim(), '通过');
+  assert.doesNotMatch(text(stateDetails(entity)), /业务：|未验证|历史业务/);
 });
 
 test('revision polling notices idle external completion and skips unchanged snapshots', async () => {

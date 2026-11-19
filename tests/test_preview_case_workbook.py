@@ -1,4 +1,6 @@
 """Validate the XLSX bytes downloaded from the static Pages case library."""
+import hashlib
+import json
 import sys
 import unittest
 from collections import Counter
@@ -98,6 +100,35 @@ class PreviewCaseWorkbookTests(unittest.TestCase):
         for line in source["expected"].splitlines():
             self.assertIn(line.split(". ", 1)[1], case[6].value)
         self.assertIn("待确认", case[6].value)
+
+    def test_xml_characters_round_trip_in_exported_case_and_source(self):
+        self.open_project("stock-room")
+        self.page.get_by_role("link", name="导出测试用例", exact=True).wait_for()
+        case_id = "ST-API-001"
+        text = '中文😀&<>"\t换行\n回车\r后\x00\x1f\ufffe|\uffff|\ud800|\udc00|字面\\ufffe'
+        displayed = '中文😀&<>"\t换行\n回车\r后\\ufffe|\\uffff|\\ud800|\\udc00|字面\\ufffe'
+        status = self.page.evaluate("""async (encoded) => {
+          const record = await (await fetch('/api/case-definitions/stock-room/ST-API-001')).json();
+          const definition = record.case;
+          definition.extensions.test_case_document = { description: JSON.parse(encoded) };
+          const response = await fetch('/api/projects/stock-room/cases/ST-API-001', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case: definition, expected_content_revision: record.content_revision })
+          });
+          return response.status;
+        }""", json.dumps(text))
+        self.assertEqual(status, 200)
+
+        rows = self.export_rows({**self.expected, case_id: "NotRun"})
+        cell = rows[case_id][3]
+        self.assertEqual(cell.value, displayed)
+        book = cell.parent.parent
+        source = "".join(row[4] for row in book["来源与冻结定义"].values if row[1] == case_id)
+        frozen = json.loads(source)
+        self.assertEqual(frozen["extensions"]["test_case_document"]["description"], text)
+        canonical = json.dumps(frozen, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8", "backslashreplace")
+        mapped = next(row for row in book["编号映射"].values if row[1] == case_id)
+        self.assertEqual(hashlib.sha256(canonical).hexdigest(), mapped[2])
 
     def test_folder_keeps_its_cases_and_descendants_and_exports_an_empty_scope(self):
         self.open_project("stock-room")

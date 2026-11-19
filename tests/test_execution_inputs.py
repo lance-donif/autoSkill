@@ -190,7 +190,7 @@ class ExecutionInputTests(unittest.TestCase):
         file.unlink()
         self.assertFalse(execution_inputs.result_current(self.pid, self.case, results[0]))
 
-    def test_an_assertion_free_ui_run_is_only_action_success(self):
+    def test_a_completed_assertion_free_ui_run_counts_as_passed(self):
         case = builder.ui_case("TC-UI-001", "Actions only", {"start_url": "/", "actions": [], "assertions": []})
         projects.save_cases(self.pid, [case])
         prepared = runner.prepare(self.pid, [case["id"]])
@@ -200,9 +200,10 @@ class ExecutionInputTests(unittest.TestCase):
             final, results = self.execute(prepared)
         self.assertEqual(final["status"], "Pass")
         detail = json.loads(results[0]["detail"])
-        self.assertEqual((detail["verification"], detail["business_status"], detail["business_verified"]), ("unverified", "Unverified", False))
+        self.assertTrue(detail["target_started"])
+        self.assertFalse(any(step.get("check") for step in detail["steps"]))
         self.assertTrue(execution_inputs.result_evidence(final, results[0]))
-        self.assertEqual(reporting.build(self.pid)["passed"], 0)
+        self.assertEqual(reporting.build(self.pid)["passed"], 1)
 
     def test_a_self_reported_pass_without_attempt_receipts_is_not_execution_evidence(self):
         run = runner.create(self.pid, [self.case["id"]])
@@ -295,7 +296,7 @@ class ExecutionInputTests(unittest.TestCase):
         self.assertEqual(len(set(shots)), 2)
         self.assertTrue(execution_inputs.result_evidence(final, results[0]))
 
-    def test_worker_execution_syncs_original_plan_and_observation_pass_stays_unverified(self):
+    def test_worker_syncs_original_plan_and_preserves_observation_only_check_provenance(self):
         source = self.folder / "design.json"
         source.write_text(json.dumps([{"id": "TC-001", "title": "Requirement"}]))
         plan.write(self.pid, str(source))
@@ -309,9 +310,12 @@ class ExecutionInputTests(unittest.TestCase):
         projects.save_cases(self.pid, [self.case])
         final, results = self.execute()
         self.assertEqual(final["status"], "Pass")
-        self.assertFalse(json.loads(results[0]["detail"])["business_verified"])
-        self.assertEqual(plan.show()["summary"]["通过"], 0)
-        self.assertEqual(reporting.build(self.pid)["passed"], 0)
+        detail = json.loads(results[0]["detail"])
+        self.assertFalse(detail["business_verified"])
+        self.assertTrue(detail["execution_only_pass"])
+        self.assertTrue(execution_inputs.result_evidence(final, results[0]))
+        self.assertEqual(plan.show()["summary"]["通过"], 1)
+        self.assertEqual(reporting.build(self.pid)["passed"], 1)
 
 
 if __name__ == "__main__":

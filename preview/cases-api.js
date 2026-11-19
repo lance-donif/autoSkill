@@ -1,9 +1,10 @@
 // Project and case operations for the browser-local dashboard demo.
+import { resultOutcome, verdictStatus } from './verdicts.js';
+
 const copy = structuredClone;
 const stamp = () => Array.from(crypto.getRandomValues(new Uint32Array(4)), (part) => part.toString(16).padStart(8, '0')).join('');
 const keyOf = (projectId, caseId) => projectId + '/' + caseId;
 const problem = (message, status = 400) => Response.json({ detail: message }, { status });
-const verdicts = { pass: 'Pass', fail: 'Fail', not_run: 'NotRun' };
 
 export function initCases(db, fixtures) {
   if (db.caseLibrary) return db.caseLibrary;
@@ -99,7 +100,7 @@ function removeCases(library, targets) {
 }
 
 function caseStatus(db, item, end) {
-  const noHistory = { state: null, current: false, last_status: null, last_run_at: null, current_status: null };
+  const noHistory = { state: null, last_state: null, current: false, last_status: null, last_run_at: null, current_status: null };
   if (!db.runs) {
     const { state, last_state, current, current_status, last_status, last_run_at } = item;
     return { state, last_state, current, current_status, last_status, last_run_at };
@@ -110,14 +111,30 @@ function caseStatus(db, item, end) {
   for (const run of relevant) {
     const row = run.results?.find((result) => result.case_id === item.case_id && !result.prerequisite);
     if (!row) continue;
-    const current = (row.case_revision || 1) === item.revision;
-    const outcome = row.state?.outcome || ({ Pass: 'pass', Fail: 'fail', NotRun: 'not_run' }[row.status] || 'not_run');
+    const savedScope = item.state?.scope?.run_id === run.id ? item.state.current ?? item.current : null;
+    const current = savedScope !== false && (row.case_revision == null ? savedScope === true : row.case_revision === item.revision);
+    const outcome = resultOutcome(row);
     const state = { ...row.state, current, outcome: current ? outcome : 'not_run', historical_outcome: outcome,
       scope: { ...row.state?.scope, run_id: run.id } };
-    return { state, last_state: state, current, current_status: current ? verdicts[outcome] : null,
-      last_status: verdicts[outcome], last_run_at: row.started_at || run.created_at };
+    return { state, last_state: state, current, current_status: current ? verdictStatus[outcome] : null,
+      last_status: verdictStatus[outcome], last_run_at: row.started_at || run.created_at };
   }
   return noHistory;
+}
+
+export function restoreCaseStates(db, changedProjects) {
+  for (const item of db.caseLibrary.items) {
+    const key = keyOf(item.project_id, item.case_id);
+    const detail = db.caseLibrary.details[key];
+    const outdated = [item, detail].some((view) => view.current_status === 'Unverified' || view.last_status === 'Unverified'
+      || [view.state, view.last_state].some((state) => state && (!Object.hasOwn(verdictStatus, state.outcome)
+        || (state.historical_outcome && !Object.hasOwn(verdictStatus, state.historical_outcome)))));
+    if (!changedProjects.has(item.project_id) && !outdated) continue;
+    item.revision ??= db.caseLibrary.definitions[key].case.revision ?? detail.revision;
+    const view = caseStatus(db, item);
+    Object.assign(item, view);
+    Object.assign(detail, view);
+  }
 }
 
 function saveCase(library, projectId, item, body) {

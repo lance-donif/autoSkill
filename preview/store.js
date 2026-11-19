@@ -1,5 +1,6 @@
 // Each document gets a fresh sample workspace. The hash router shares it across views.
-import { initCases } from './cases-api.js';
+import { initCases, restoreCaseStates } from './cases-api.js';
+import { restoreRunVerdicts } from './runs-api.js';
 import { initSchedules, validateTasks } from './schedules-api.js';
 
 let data;
@@ -48,5 +49,11 @@ export function restoreData(saved) {
         || !library.definitions[item.project_id + '/' + item.case_id]?.case)
       || saved.runs.some((run) => !run.id || !Array.isArray(run.results))) throw new Error('备份中的用例或运行数据不完整');
   validateTasks(saved.tasks, ids);
-  commitData(structuredClone(saved));
+  const next = structuredClone(saved);
+  const changedProjects = new Set();
+  for (const run of next.runs) {
+    if (restoreRunVerdicts(run)) changedProjects.add(run.project_id);
+  }
+  restoreCaseStates(next, changedProjects);
+  commitData(next);
 }

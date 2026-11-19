@@ -5,7 +5,17 @@ const office = 'http://schemas.openxmlformats.org/officeDocument/2006/relationsh
 const packageRels = 'http://schemas.openxmlformats.org/package/2006/relationships';
 const spreadsheet = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const prefix = 'application/vnd.openxmlformats-officedocument.spreadsheetml.';
-const xml = (value) => String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const invalidXmlCharacter = /[^\t\n\r\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu;
+
+function xml(value) {
+  const printable = String(value ?? '').replace(invalidXmlCharacter, (character) => {
+    const unit = character.charCodeAt(0);
+    return unit < 0x20 ? '' : '\\u' + unit.toString(16).padStart(4, '0');
+  });
+  return printable.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll('\r', '&#13;');
+}
+
 const letter = (index) => String.fromCharCode(65 + index);
 export const displayLines = (value, width) => String(value ?? '').split(/\r\n|\r|\n/).reduce((total, line) => total + Math.max(1, Math.ceil(Array.from(line).length * 1.8 / width)), 0);
 
