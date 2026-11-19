@@ -303,6 +303,8 @@ class LoadDashboardTests(DashboardWorkspace):
         reader = offline.new_page()
         reader.set_content(exported)
         for document in (self.page, reader):
+            for removed in ("本次报告", "执行尝试", "详见本次尝试的执行记录", "查看本次记录"):
+                expect(document.get_by_text(removed, exact=True)).to_have_count(0)
             expect(document.locator(".report-heading").locator("..").locator(".status")).to_have_text("不通过")
             rows = document.locator(".load-table-wrap tbody tr")
             expect(rows.locator("td:first-child .status")).to_have_text(["失败", "通过"])

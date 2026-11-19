@@ -499,12 +499,6 @@ function resultBody(run, row, offline = false) {
   } else if (row.actual) {
     parts.push(h('p', { class: 'sub' }, row.actual));
   }
-  if (d.request) {
-    const req = d.request, res = d.response;
-    parts.push(h('div', { class: 'req-line' }, h('span', { class: 'method ' + req.method.toLowerCase() }, req.method),
-      h('span', { class: 'mono grow ellipsis', title: req.url }, req.url),
-      res && h('span', { class: 'tag' + (res.status < 400 ? ' accent' : '') }, 'HTTP ' + res.status), res && h('span', { class: 'sub num' }, `${fmtDuration(row.duration_ms)} · ${res.bytes} B`)));
-  }
   appendAssertionResults(parts, d);
   if (d.steps?.length) {
     parts.push(h('ol', { class: 'steps timeline' }, d.steps.map((step) => h('li', { class: step.status },
@@ -528,11 +522,8 @@ function caseRetryControl(run, row) {
 function attemptHistory(detail) {
   const attempts = detail.attempts || [];
   if (!attempts.length) return null;
-  return h('section', { class: 'stack', 'aria-label': '执行尝试历史' }, h('h3', {}, '执行尝试'),
-    h('ol', { class: 'steps timeline' }, attempts.map((entry, index) => h('li', {},
-      h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.outcome && statePill(entry.outcome)),
-      h('span', { class: 'step-sub' }, entry.reason || entry.error || '详见本次尝试的执行记录'),
-      h('details', {}, h('summary', {}, '查看本次记录'), h('pre', { class: 'mono' }, JSON.stringify(entry, null, 2)))))));
+  return h('ol', { class: 'steps timeline', 'aria-label': '尝试历史' }, attempts.map((entry, index) =>
+    h('li', {}, h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.outcome && statePill(entry.outcome)))));
 }
 
 function appendAssertionResults(parts, d) {
@@ -546,17 +537,47 @@ function appendAssertionResults(parts, d) {
   }
 }
 
-function appendRequestDetails(parts, d, row) {
-  if (d.request) {
-    const sections = [['请求头', d.request.headers], ['查询参数', d.request.params], ['请求体', d.request.json]]
-      .filter(([, value]) => value && (typeof value !== 'object' || Object.keys(value).length));
-    if (sections.length || d.response) {
-      parts.push(h('details', { class: 'more', open: row.status === 'Fail' }, h('summary', {}, '请求与响应详情'),
-        h('div', { class: 'io' },
-          h('div', {}, sections.map(([label, value]) => [h('div', { class: 'sub io-label' }, label), h('pre', { class: 'code' }, JSON.stringify(value, null, 2))])),
-          d.response && h('div', {}, h('div', { class: 'sub io-label' }, '响应体'), h('pre', { class: 'code' }, d.response.body || '（空）')))));
-    }
+function httpFields(fields) {
+  const items = fields.filter(([, value]) => value != null && value !== '');
+  if (!items.length) return null;
+  return h('div', {}, items.map(([label, value]) => [
+    h('div', { class: 'sub io-label' }, label),
+    h('pre', { class: 'code' }, typeof value === 'string' ? value : JSON.stringify(value, null, 2)),
+  ]));
+}
+
+function httpExchange(entry) {
+  const { request, response } = entry;
+  const method = request?.method;
+  const nonempty = (value) => value && Object.keys(value).length ? value : null;
+  const line = [
+    method && h('span', { class: 'method ' + method.toLowerCase() }, method),
+    request?.url && h('span', { class: 'mono grow ellipsis', title: request.url }, request.url),
+    response?.status != null && h('span', { class: 'tag' + (response.status < 400 ? ' accent' : '') }, 'HTTP ' + response.status),
+    response?.bytes != null && h('span', { class: 'sub num' }, `${response.bytes} B`),
+  ].filter(Boolean);
+  const fields = [
+    httpFields([['请求头', nonempty(request?.headers)], ['查询参数', nonempty(request?.params)],
+      ['请求体', request?.json ?? request?.body], ['表单', request?.form]]),
+    httpFields([['响应头', nonempty(response?.headers)], ['响应体', response?.body]]),
+  ].filter(Boolean);
+  if (!line.length && !fields.length) return null;
+  if (entry.duration_ms != null) line.push(h('span', { class: 'sub num' }, fmtDuration(entry.duration_ms)));
+  return h('div', { class: 'stack' }, line.length > 0 && h('div', { class: 'req-line' }, line),
+    fields.length > 0 && h('div', { class: 'io' }, fields));
+}
+
+function appendRequestDetails(parts, detail, row) {
+  const exchanges = (detail.attempts || []).flatMap((entry, index) =>
+    entry.kind === 'postcondition' ? [] : [{ number: index + 1, content: httpExchange(entry) }]);
+  if (!exchanges.at(-1)?.content) {
+    exchanges.push({ content: httpExchange({ ...detail, duration_ms: exchanges.length <= 1 ? row.duration_ms : null }) });
   }
+  const recorded = exchanges.filter((item) => item.content);
+  if (!recorded.length) return;
+  parts.push(h('details', { class: 'more', open: row.state?.outcome === 'fail' || row.status === 'Fail' },
+    h('summary', {}, '请求与响应详情'), recorded.map(({ number, content }) => h('div', { class: 'stack' },
+      recorded.length > 1 && h('b', {}, number ? `第 ${number} 次` : '用例结果'), content))));
 }
 
 function appendScreenshots(parts, d, run, row) {

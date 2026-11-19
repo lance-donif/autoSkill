@@ -297,16 +297,31 @@ def case_outcome(row: dict, detail: dict, *, evidence_valid: bool) -> str:
     return "pass"
 
 
+def attempt_record(reference: dict, *, result: dict | None = None) -> dict | None:
+    """Read a pinned outcome, checking its run and case before exposing transport data."""
+    try:
+        path = _resolve(reference["path"])
+        if result is not None and not path.resolve().is_relative_to((_local() / "runs" / result["run_id"] / "attempts").resolve()):
+            return None
+        receipt = watch_json(path)
+        if execution_inputs.content_hash(receipt) != reference["sha256"]:
+            return None
+        if result is not None and (receipt.get("state") != "completed" or receipt.get("id") != reference["id"]
+                                   or receipt.get("kind") != reference.get("kind")
+                                   or receipt.get("run_id") != result["run_id"] or receipt.get("case_id") != result["case_id"]
+                                   or reference.get("case_id") != result["case_id"]
+                                   or any(result.get(key) and result[key] != receipt.get(key) for key in ("input_hash", "case_content_hash"))):
+            return None
+        record = receipt["outcome"]
+        return record if isinstance(record, dict) else None
+    except (KeyError, OSError, TypeError, ValueError):
+        return None
+
+
 def attempt_outcome(reference: dict, *, evidence_valid: bool = True) -> str:
     """Use the pinned receipt to distinguish unstarted targets from interrupted target execution."""
-    try:
-        receipt = watch_json(_resolve(reference["path"]))
-        if execution_inputs.content_hash(receipt) != reference["sha256"]:
-            return "fail"
-        record = receipt["outcome"]
-        return case_outcome(record, record, evidence_valid=evidence_valid)
-    except (KeyError, OSError, TypeError, ValueError):
-        return "fail"
+    record = attempt_record(reference)
+    return case_outcome(record, record, evidence_valid=evidence_valid) if record is not None else "fail"
 
 
 def result_verdict(row: dict, run_row: dict | None, detail=None) -> dict:

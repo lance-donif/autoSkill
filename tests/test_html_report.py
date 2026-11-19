@@ -1,7 +1,9 @@
 """Exercise standalone report downloads in Chromium, including offline details and images."""
 import base64
+import copy
 import json
 import mimetypes
+import re
 import sys
 import tempfile
 import unittest
@@ -165,6 +167,14 @@ class HtmlReportTests(unittest.TestCase):
         for document in (self.page, page):
             expect(document.locator(".result-body .state-details")).to_have_count(0)
             expect(document.locator(".result[data-result='2'] .result-head .status")).to_have_count(1)
+            case = document.locator(".result[data-result='2']")
+            http = case.locator("details").filter(has=document.get_by_text("请求与响应详情", exact=True))
+            expect(http).to_have_count(1)
+            expect(http).to_contain_text("https://example.invalid/chat")
+            expect(http).to_contain_text("Header value")
+            expect(http).to_contain_text('"page": 2')
+            expect(http).to_contain_text("Response body " + PAYLOAD)
+            self.assertEqual(case.inner_text().count("https://example.invalid/chat"), 1)
         self.assertEqual(self.report_style(page), online_style)
         expect(page.locator(".result-body")).to_have_count(3)
         expect(page.locator(".result[data-result='1'] .steps")).to_contain_text("Save the value")
@@ -191,6 +201,35 @@ class HtmlReportTests(unittest.TestCase):
         expect(page.get_by_role("dialog", name="执行截图原图", exact=True)).to_be_hidden()
         self.assertTrue(all(url.startswith(("file:", "data:")) for url in requests), requests)
         self.assertNotIn('src="/api/', file.read_text(encoding="utf-8"))
+
+    def test_retry_requests_remain_separate_in_one_http_panel_online_and_offline(self):
+        http = self.run["results"][1]["detail"]
+        attempts = []
+        for number in (1, 2):
+            request = {"method": "POST", "url": "https://example.invalid/retry", "json": {"input": f"input-{number}"}}
+            response = {"status": 500 if number == 1 else 200, "body": f"response-{number}"}
+            attempts.append({"id": f"attempt-{number}", "outcome": "fail" if number == 1 else "pass",
+                             "kind": "case" if number == 1 else "relogin_retry", "request": request, "response": response,
+                             "sha256": "internal-receipt-hash", "duration_ms": number})
+        http.update(attempts=attempts, request=copy.deepcopy(attempts[1]["request"]), response=copy.deepcopy(attempts[1]["response"]))
+        self.run["results"][2]["detail"].update(request={}, response={}, attempts=[
+            {"id": "did-not-start", "outcome": "not_run", "kind": "not_executed", "request": {}, "response": {}}])
+        self.open()
+        offline, _ = self.offline(self.download())
+        for document in (self.page, offline):
+            with self.subTest(online=document == self.page):
+                for removed in ("本次报告", "执行尝试", "详见本次尝试的执行记录", "查看本次记录"):
+                    expect(document.get_by_text(removed, exact=True)).to_have_count(0)
+                case = document.locator("[data-result='2']")
+                expect(case).not_to_contain_text("internal-receipt-hash")
+                panel = case.locator("details").filter(has=document.get_by_text("请求与响应详情", exact=True))
+                expect(panel).to_have_count(1)
+                expect(panel).to_contain_text(re.compile(r"第 1 次.*input-1.*response-1.*第 2 次.*input-2.*response-2", re.DOTALL))
+                for token in ("input-1", "response-1", "input-2", "response-2"):
+                    self.assertEqual(panel.text_content().count(token), 1, token)
+                no_request = document.locator("[data-result='3']")
+                expect(no_request).to_contain_text("第 1 次")
+                expect(no_request.get_by_text("请求与响应详情", exact=True)).to_have_count(0)
 
     def test_summary_badge_distinguishes_pass_failure_and_unexecuted_runs(self):
         for status, passed, failed, not_run, label in (("Pass", 3, 0, 0, "通过"), ("Fail", 1, 1, 1, "不通过"),

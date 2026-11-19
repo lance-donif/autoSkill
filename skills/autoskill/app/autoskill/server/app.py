@@ -85,7 +85,17 @@ def result_view(row: dict, *, connection=None) -> dict:
     if isinstance(attempts, list):
         for attempt in attempts:
             if isinstance(attempt, dict) and attempt.get("path"):
-                attempt["outcome"] = task_state.attempt_outcome(attempt, evidence_valid=state["evidence"] == "valid")
+                record = task_state.attempt_record(attempt, result=row)
+                attempt["outcome"] = task_state.case_outcome(record, record, evidence_valid=state["evidence"] == "valid") if record is not None else "fail"
+                for field in ("request", "response", "duration_ms"):
+                    attempt.pop(field, None)
+                # A postcondition reuses the source result without sending another HTTP request.
+                if record and attempt.get("kind") != "postcondition":
+                    for field in ("request", "response"):
+                        if isinstance(record.get(field), dict):
+                            attempt[field] = record[field]
+                    if ("request" in attempt or "response" in attempt) and record.get("duration_ms") is not None:
+                        attempt["duration_ms"] = record["duration_ms"]
                 with contextlib.suppress(ValueError):
                     attempt["path"] = str(data_refs.resolve(attempt["path"]))
     return {**row, "detail": detail, "state": state}

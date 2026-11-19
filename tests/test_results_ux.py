@@ -125,6 +125,8 @@ class ResultsUxTests(unittest.TestCase):
         expect(final.locator(".result-head .status")).to_have_count(1)
         expect(final.locator(".result-body .checks")).to_contain_text("250 ms")
         expect(reader.locator(".result-body .state-details")).to_have_count(0)
+        for document in (self.page, reader):
+            expect(document.get_by_text("本次报告", exact=True)).to_have_count(0)
         self.assertEqual(self.post_count, 0)
 
     def test_later_problem_and_duplicate_legacy_link_are_explicit(self):
@@ -140,7 +142,7 @@ class ResultsUxTests(unittest.TestCase):
     def test_html_export_still_works_when_excel_generation_failed(self):
         self.run["test_report"] = {"status": "failed", "error": "原工作簿校验失败"}
         self.open()
-        report = self.page.get_by_role("region", name="本次报告")
+        report = self.page.locator(".report-summary")
         expect(report.get_by_role("link")).to_have_count(0)
         expect(report.get_by_role("button")).to_have_count(1)
         with self.page.expect_download() as download:

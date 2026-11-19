@@ -10,10 +10,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, db, execution_inputs, projects, runner
+from autoskill import builder, data_refs, db, execution_inputs, projects, runner
+from autoskill.server.app import create_app
 
 
 class SlowHandler(BaseHTTPRequestHandler):
@@ -88,6 +91,43 @@ class ApiResultAxesTests(unittest.TestCase):
         self.assertEqual((final["status"], row["category"], detail["business_status"]), ("Fail", "assertion_failed", "Fail"))
         self.assertEqual([(check["expected"], check["actual"]) for check in detail["assertions"]], [(402, 401)])
         self.assertTrue(execution_inputs.result_evidence(final, row))
+
+    def test_report_projects_http_from_each_bound_attempt_receipt(self):
+        case = builder.api_case("TC-RETRY", "Retry fixture", "POST", "/same", {"status": 200})
+        projects.save_cases(self.pid, [case])
+        run = runner.create(self.pid, [case["id"]])
+        session = runner.Session(run)
+        self.addCleanup(session.close)
+        requests = [{"method": "POST", "url": "https://example.invalid/same", "json": {"input": number}} for number in (1, 2)]
+        responses = [{"status": code, "body": body} for code, body in ((503, "first"), (200, "second"))]
+        for number, (request, response) in enumerate(zip(requests, responses, strict=True), 1):
+            outcome = {"status": "Fail" if number == 1 else "Pass", "request": request, "response": response,
+                       "duration_ms": number, "assertions": [{"name": "状态码", "passed": number == 2}]}
+            last = session.attempt(case, "case" if number == 1 else "relogin_retry", lambda _id, value=outcome: value)
+        runner.record(run, case, session.summarize(case, last), False, db.now())
+        client = TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787")
+        endpoint = "/api/runs/" + run["id"]
+        attempts = client.get(endpoint).json()["results"][0]["detail"]["attempts"]
+        self.assertEqual([item["request"] for item in attempts], requests)
+        self.assertEqual([item["response"] for item in attempts], responses)
+        self.assertEqual([item["duration_ms"] for item in attempts], [1, 2])
+        row = db.one("SELECT id, detail FROM results WHERE run_id = ?", (run["id"],))
+        original = json.loads(row["detail"])
+        file = data_refs.resolve(original["attempts"][0]["path"])
+        receipt = json.loads(file.read_text(encoding="utf-8"))
+        for damage in ("bad hash", "wrong case"):
+            with self.subTest(damage=damage):
+                detail = json.loads(row["detail"])
+                if damage == "bad hash":
+                    detail["attempts"][0]["sha256"] = "0" * 64
+                else:
+                    altered = {**receipt, "case_id": "another-case"}
+                    execution_inputs.write_json(file, altered)
+                    detail["attempts"][0]["sha256"] = execution_inputs.content_hash(altered)
+                db.execute("UPDATE results SET detail=? WHERE id=?", (json.dumps(detail), row["id"]))
+                attempt = client.get(endpoint).json()["results"][0]["detail"]["attempts"][0]
+                self.assertNotIn("request", attempt)
+                self.assertNotIn("response", attempt)
 
 
 if __name__ == "__main__":

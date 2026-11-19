@@ -126,7 +126,7 @@ class NativeStateDashboardTests(unittest.TestCase):
         before = service.api('/runs/' + run['id'])
         original_results = [row['id'] for row in before['results']]
         page.goto(service.origin + '/#/native-runs/' + run['id'])
-        report = page.locator('[aria-label="本次报告"]')
+        report = page.locator('.report-summary')
         expect(report.get_by_role('button', name='下载 HTML 报告', exact=True)).to_be_visible()
         expect(report.get_by_role('link')).to_have_count(0)
         receipt = before['test_report']

@@ -26,6 +26,5 @@ export function reportControls(download) {
     const result = await attempt(download, button);
     if (result) toast(result.warnings.length ? `HTML 已生成，${result.warnings.length} 张截图未能嵌入，原因已写入报告` : 'HTML 报告已生成，可离线查看全部明细', { bad: result.warnings.length > 0 });
   } }, icon('globe'), '下载 HTML 报告');
-  return h('section', { class: 'stack', 'aria-label': '本次报告' },
-    h('h3', {}, '本次报告'), h('div', { class: 'row' }, button));
+  return h('section', { class: 'row', 'aria-label': '本次报告' }, button);
 }
