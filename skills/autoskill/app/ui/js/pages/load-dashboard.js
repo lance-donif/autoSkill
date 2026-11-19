@@ -301,7 +301,10 @@ function createLoadRenderer(aggregate) {
     const order = stress ? ['threads', 'tps', 'codes', 'percentiles', 'scatter'] : ['mean', 'percentiles', 'tps', 'threads', 'distribution'];
     const graphs = element('div', { class: 'load-chart-panels' }, order.map((id) => chart(id, model)));
     const tables = summaries(model);
-    return element('div', { class: 'load-dashboard', 'data-stage': model.stage ?? 'all' }, stress ? [graphs, tables] : [tables, graphs],
+    const report = run.load_report;
+    const partial = report?.samples_partial ? element('p', { class: 'banner' },
+      `旧模拟记录共有 ${format(report.sample_count_total)} 条样本，本报告统计前 ${format(model.total.sampleCount)} 条。`) : null;
+    return element('div', { class: 'load-dashboard', 'data-stage': model.stage ?? 'all' }, partial, stress ? [graphs, tables] : [tables, graphs],
       errorTables(model));
   };
 }

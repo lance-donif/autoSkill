@@ -208,7 +208,7 @@ async function history(view) {
   const mode = modeOf(route().params.get('mode'));
   const offset = Math.max(0, Number(route().params.get('offset')) || 0);
   let data;
-  try { data = await api('/load-tests' + scopeQuery({ mode, limit: PAGE, offset })); }
+  try { data = await api('/load-tests' + scopeQuery({ mode, limit: PAGE, offset, include_metrics: 'false' })); }
   catch (error) { replace(view, h('section', { class: 'card' }, errorState(error, refresh))); return; }
   const start = () => openLoadTest([], { mode });
   const tabs = modeTabs('load-history', mode, (next) => go('load-tests', { mode: next }));

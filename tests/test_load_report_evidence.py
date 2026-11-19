@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
-from autoskill import data_refs, execution_inputs, load_report, paths
+from autoskill import data_refs, execution_inputs, load_report, load_testing, paths
 
 
 class LoadReportEvidenceTests(unittest.TestCase):
@@ -63,7 +63,7 @@ class LoadReportEvidenceTests(unittest.TestCase):
         sample = {"label": "SEARCH", "kind": "api", "start_ms": 12345.75, "elapsed_ms": 0.625, "stage": 2}
         self.assertEqual(report, {"samples": [{**sample, "success": True, "code": 200},
                                               {**sample, "success": False, "code": 503, "error": "503/Service Unavailable"}],
-                                  "threads": threads, "stages": stages, "granularity_ms": 1000})
+                                  "threads": threads, "stages": stages, "granularity_ms": 1000, "thread_events": True})
 
     def test_chart_resolution_follows_the_observed_locust_span(self):
         def result(name, start, elapsed):
@@ -75,6 +75,27 @@ class LoadReportEvidenceTests(unittest.TestCase):
         self.assertEqual(load_report.project(self.run, [first, almost], self.manifest)["granularity_ms"], 1000)
         ten_minutes = result("END", 619_000, 1000)
         self.assertEqual(load_report.project(self.run, [first, ten_minutes], self.manifest)["granularity_ms"], 60_000)
+
+    def test_assertion_errors_keep_distinct_check_names_without_response_values(self):
+        names = ["字段 /balance", "响应内容包含"]
+        rows = [
+            self.row("SEARCH", {"target_started": True, "status": "Fail", "business_status": "Fail", "category": "assertion_failed",
+                                "assertions": [{"name": name, "passed": False, "actual": "private value"}],
+                                "response": {"status": 200}, "load_sample": {"start_ms": 100 + index, "elapsed_ms": 3, "stage": 1}},
+                     attempt=f"failure-{index}")
+            for index, name in enumerate(names)
+        ]
+        report = load_report.project(self.run, rows, self.manifest)
+        self.assertEqual([sample["error"] for sample in report["samples"]], names)
+        self.assertNotIn("private value", str(report))
+
+    def test_api_summary_uses_the_same_percentiles_and_sample_window_as_the_dashboard(self):
+        samples = [{"start_ms": 100, "elapsed_ms": 100, "success": True},
+                   {"start_ms": 180, "elapsed_ms": 200, "success": False}]
+        stats = load_testing.metrics({"total": 2, "passed": 1, "failed": 1, "not_run": 0}, results=[], samples=samples)
+        self.assertEqual((stats["p50_ms"], stats["p95_ms"], stats["p99_ms"]), (150, 200, 200))
+        self.assertAlmostEqual(stats["elapsed_seconds"], .28)
+        self.assertAlmostEqual(stats["throughput_per_second"], 2 / .28)
 
     def test_verified_legacy_elapsed_without_invented_start_or_wire_bytes(self):
         self.manifest["load"] = {"iterations": 1, "concurrency": 1}
@@ -97,12 +118,14 @@ class LoadReportEvidenceTests(unittest.TestCase):
         (self.folder / "load-timeline.json").write_text(json.dumps(other))
         self.assertEqual(load_report.project(self.run, [], self.manifest)["threads"], [])
 
-    def test_timed_client_preserves_raised_error_and_submillisecond_observation(self):
+    def test_timed_send_preserves_raised_error_and_submillisecond_observation(self):
         client = Mock()
-        client.request.side_effect = TimeoutError("transport stopped")
+        client.send.side_effect = TimeoutError("transport stopped")
+        request = object()
         timing = {}
         with patch.object(load_report.time, "time_ns", return_value=10_250_000), patch.object(
             load_report.time, "monotonic_ns", side_effect=[100_000, 850_000],
         ), self.assertRaises(TimeoutError):
-            load_report.TimedClient(client, timing).request("GET", "https://local.invalid/?secret=private")
+            load_report.timed_send(client, timing, request)
+        client.send.assert_called_once_with(request)
         self.assertEqual(timing, {"start_ms": 10.25, "elapsed_ms": 0.75})

@@ -1,4 +1,4 @@
-"""Dashboard routes for load runs over saved browser and HTTP cases."""
+"""Dashboard routes for Locust runs over saved HTTP cases and retained load history."""
 from __future__ import annotations
 
 import asyncio
@@ -37,7 +37,7 @@ def register(app: FastAPI) -> None:
                                     if project["id"] in eligible]}
 
     @app.get("/api/load-tests")
-    def history(request: Request, limit: int = 50, offset: int = 0):
+    def history(request: Request, limit: int = 50, offset: int = 0, include_metrics: bool = True):
         scope = metrics.Scope.parse(request.query_params.get("projects"), request.query_params.get("start"), request.query_params.get("end"))
         where, args = scope.where("created_at", "project_id")
         mode = request.query_params.get("mode")
@@ -49,7 +49,7 @@ def register(app: FastAPI) -> None:
         base = f"FROM runs WHERE family = 'load' AND {where}"
         total = db.one(f"SELECT COUNT(*) n {base}", args)["n"]
         rows = db.rows(f"SELECT * {base} ORDER BY created_at DESC LIMIT ? OFFSET ?", [*args, max(1, min(limit, 200)), max(0, offset)])
-        return {"total": total, "items": [load_testing.summary(run) for run in rows]}
+        return {"total": total, "items": [load_testing.summary(run, include_metrics=include_metrics) for run in rows]}
 
     @app.post("/api/load-tests")
     async def start(request: Request):

@@ -14,23 +14,14 @@ _ERRORS = {
 }
 
 
-class TimedClient:
+def timed_send(client, timing: dict, request):
     """Time only the underlying HTTP exchange; never retain its URL, headers or payload."""
-
-    def __init__(self, client, timing: dict):
-        self.client = client
-        self.timing = timing
-
-    def __getattr__(self, key):
-        return getattr(self.client, key)
-
-    def request(self, *args, **kwargs):
-        self.timing["start_ms"] = time.time_ns() / 1_000_000
-        start = time.monotonic_ns()
-        try:
-            return self.client.request(*args, **kwargs)
-        finally:
-            self.timing["elapsed_ms"] = (time.monotonic_ns() - start) / 1_000_000
+    timing["start_ms"] = time.time_ns() / 1_000_000
+    start = time.monotonic_ns()
+    try:
+        return client.send(request)
+    finally:
+        timing["elapsed_ms"] = (time.monotonic_ns() - start) / 1_000_000
 
 
 def _timeline_file(run_id):
@@ -92,6 +83,18 @@ def _legacy_elapsed(kind, outcome):
     return target if target >= 0 else None
 
 
+def _sample_error(outcome, code):
+    # Group the original failed check without exposing request data or assertion values.
+    for check in outcome.get("assertions") or []:
+        if isinstance(check, dict) and check.get("passed") is False:
+            name = check.get("name")
+            if isinstance(name, str) and name.strip():
+                return name.strip()[:200]
+    if type(code) is int and code >= 400:
+        return f"{code}/{responses[code]}" if code in responses else f"HTTP {code}"
+    return _ERRORS.get(outcome.get("category"), "执行失败")
+
+
 def _sample(case, outcome, *, legacy):
     timing = outcome.get("load_sample")
     stage = None
@@ -114,10 +117,7 @@ def _sample(case, outcome, *, legacy):
     if type(code) is int and 100 <= code <= 599:
         sample["code"] = code
     if not success:
-        if "code" in sample and code >= 400:
-            sample["error"] = f"{code}/{responses[code]}" if code in responses else f"HTTP {code}"
-        else:
-            sample["error"] = _ERRORS.get(outcome.get("category"), "执行失败")
+        sample["error"] = _sample_error(outcome, sample.get("code"))
     return sample
 
 

@@ -95,14 +95,11 @@ function sample(run, index, base) {
   const plan = run.simulation_cases[row.case_id];
   if (plan.outcome === 'not_run') return null;
   const timing = sampleTiming(run, index);
-  const cancelled = index === run.cancelled_index;
-  const end = cancelled ? run.mock_elapsed_ms : timing.end;
-  const start = cancelled ? Math.min(end, Math.max(0, timing.end - timing.latency)) : end - timing.latency;
-  const result = { label: row.case_id, kind: row.kind, start_ms: base + start, elapsed_ms: end - start,
-    success: !cancelled && plan.outcome === 'pass' };
+  const result = { label: row.case_id, kind: row.kind, start_ms: base + timing.end - timing.latency,
+    elapsed_ms: timing.latency, success: plan.outcome === 'pass' };
   if (run.load.mode === 'stress') result.stage = timing.stage;
-  if (!result.success) result.error = cancelled ? '模拟执行已取消' : plan.reason;
-  if (!cancelled && plan.response) {
+  if (!result.success) result.error = plan.reason;
+  if (plan.response) {
     result.code = String(plan.response.status);
     if (Number.isFinite(plan.response.bytes)) result.received_bytes = plan.response.bytes;
   }
@@ -141,17 +138,26 @@ export function mockLoadReport(run) {
 
 export function mockLoadMetrics(run) {
   const { samples } = mockLoadReport(run);
-  const times = samples.map((s) => s.elapsed_ms).sort((a, b) => a - b);
-  const quantile = (p) => times[Math.ceil(times.length * p) - 1] ?? null;
+  const times = samples.slice(-20000).map((sample) => sample.elapsed_ms).sort((a, b) => a - b);
+  const quantile = (percent) => {
+    if (!times.length) return null;
+    const position = (times.length + 1) * percent / 100;
+    if (position <= 1) return times[0];
+    if (position >= times.length) return times.at(-1);
+    const lower = Math.floor(position);
+    return times[lower - 1] + (position - lower) * (times[lower] - times[lower - 1]);
+  };
+  const first = samples.reduce((time, sample) => Math.min(time, sample.start_ms), Infinity);
+  const last = samples.reduce((time, sample) => Math.max(time, sample.start_ms + sample.elapsed_ms), -Infinity);
   return { latency_samples: samples.length, request_count: samples.filter((s) => s.kind === 'api').length,
-    throughput_per_second: run.mock_elapsed_ms ? samples.length * 1000 / run.mock_elapsed_ms : null,
+    throughput_per_second: last > first ? samples.length * 1000 / (last - first) : null,
     error_rate: samples.length ? samples.filter((s) => !s.success).length / samples.length : null,
-    p50_ms: quantile(0.5), p95_ms: quantile(0.95), p99_ms: quantile(0.99) };
+    p50_ms: quantile(50), p95_ms: quantile(95), p99_ms: quantile(99) };
 }
 
-export function legacyLoadReport(run) {
+export function legacyLoadReport(run, rows = run.results || [], compactSampleCount = null) {
   const samples = [];
-  for (const row of run.results || []) {
+  for (const row of rows) {
     const start = Date.parse(row.started_at);
     const outcome = row.state?.outcome;
     if (row.prerequisite || !['pass', 'fail'].includes(outcome) || !Number.isFinite(start)
@@ -165,6 +171,8 @@ export function legacyLoadReport(run) {
       if (Number.isFinite(response.bytes)) sample.received_bytes = response.bytes;
     }
     samples.push(sample);
+    if (compactSampleCount != null && samples.length === RECORD_BUDGET) break;
   }
-  return { samples, threads: [], stages: [], simulated: Boolean(run.simulated) };
+  const coverage = compactSampleCount > RECORD_BUDGET ? { samples_partial: true, sample_count_total: compactSampleCount } : {};
+  return { samples, threads: [], stages: [], simulated: Boolean(run.simulated), ...coverage };
 }

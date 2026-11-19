@@ -131,8 +131,24 @@ def _elapsed(run: dict) -> float:
     return max(0, (finish - start).total_seconds())
 
 
-def _percentile(values: list, fraction: float):
-    return sorted(values)[max(0, math.ceil(len(values) * fraction) - 1)] if values else None
+def _percentiles(values: list, *, jmeter: bool) -> tuple:
+    if not values:
+        return None, None, None
+    ordered = sorted(values[-20_000:] if jmeter else values)
+    size = len(ordered)
+
+    def percentile(fraction):
+        if not jmeter:
+            return ordered[math.ceil(size * fraction) - 1]
+        position = (size + 1) * fraction
+        if position <= 1:
+            return ordered[0]
+        if position >= size:
+            return ordered[-1]
+        lower = math.floor(position)
+        return ordered[lower - 1] + (position - lower) * (ordered[lower] - ordered[lower - 1])
+
+    return percentile(.5), percentile(.95), percentile(.99)
 
 
 def metrics(run: dict, *, results: list[dict] | None = None, samples=None) -> dict:
@@ -160,31 +176,36 @@ def metrics(run: dict, *, results: list[dict] | None = None, samples=None) -> di
         elapsed = _elapsed(run)
         throughput = completed / elapsed if elapsed else 0
         error_rate = run["failed"] / completed if completed else None
+    median, p95, p99 = _percentiles(targets, jmeter=samples is not None)
     return {"planned_cases": run["total"], "completed_cases": completed, "unexecuted_cases": run["not_run"],
             "request_count": requests, "elapsed_seconds": elapsed, "throughput_per_second": throughput, "error_rate": error_rate,
-            "latency_samples": len(targets), "p50_ms": _percentile(targets, .5), "p95_ms": _percentile(targets, .95), "p99_ms": _percentile(targets, .99)}
+            "latency_samples": len(targets), "p50_ms": median, "p95_ms": p95, "p99_ms": p99}
 
 
-def summary(run: dict, *, results=None, result_states=None, connection=None, samples=None) -> dict:
+def summary(run: dict, *, results=None, result_states=None, connection=None, samples=None, include_metrics=True) -> dict:
     from . import task_state
 
     with task_state.projection():
         if connection is None:
             with db.connect() as current:
                 current.execute("BEGIN")
-                return summary(run, results=results, result_states=result_states, connection=current, samples=samples)
+                return summary(run, results=results, result_states=result_states, connection=current, samples=samples,
+                               include_metrics=include_metrics)
         rows = results if results is not None else [dict(row) for row in connection.execute("SELECT * FROM results WHERE run_id=? ORDER BY id", (run["id"],))]
         targets = [row for row in rows if not row["prerequisite"]]
         values = task_state.run_values(run, results=targets, result_states=result_states, connection=connection)
         manifest = execution_inputs.load(run)
+        project = connection.execute("SELECT name FROM projects WHERE id = ?", (run["project_id"],)).fetchone()
+        public = {**runner.public_run(values, state=values["state"]), "case_ids": manifest["selected"],
+                  "load": {"mode": "performance", **manifest["load"]}, "project_name": project["name"] if project else run["project_id"]}
+        if not include_metrics:
+            return public
         if samples is None and manifest["load"].get("driver") == "locust":
             for row in targets:
                 if "state" not in row:
                     row["state"] = task_state.result(row, connection=connection)
             samples = load_report.project(run, targets, manifest)["samples"]
-        project = connection.execute("SELECT name FROM projects WHERE id = ?", (run["project_id"],)).fetchone()
-        return {**runner.public_run(values, state=values["state"]), "case_ids": manifest["selected"], "load": {"mode": "performance", **manifest["load"]},
-                "project_name": project["name"] if project else run["project_id"], "metrics": metrics(values, results=rows, samples=samples)}
+        return {**public, "metrics": metrics(values, results=rows, samples=samples)}
 
 
 def get(run_id: str) -> dict:

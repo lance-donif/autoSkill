@@ -19,21 +19,50 @@ function caseRows(context, projectId) {
 
 function apiLoadCases(context, rows) {
   const definitions = context.db.caseLibrary.definitions;
-  const allowed = new Map();
-  function check(project, id, visiting) {
+  const ancestors = new Map();
+  function prerequisites(project, id, visiting) {
     const key = project + '/' + id;
-    if (allowed.has(key)) return allowed.get(key);
+    if (ancestors.has(key)) return ancestors.get(key);
     const candidate = definitions[key]?.case;
-    if (!candidate || candidate.kind !== 'api' || visiting.has(key)) return false;
-    const links = candidate.extensions || {};
-    visiting.add(key);
-    const valid = [...(links.depends_on || []), ...(links.postconditions || [])].every((ref) => check(project, ref, visiting));
-    visiting.delete(key);
-    allowed.set(key, valid);
-    return valid;
+    if (!candidate || candidate.kind !== 'api' || candidate.lifecycle === 'archived' || visiting.has(id)) return null;
+    const result = new Set();
+    visiting.add(id);
+    for (const dependency of candidate.extensions?.depends_on || []) {
+      const previous = prerequisites(project, dependency, visiting);
+      if (!previous) {
+        visiting.delete(id);
+        ancestors.set(key, null);
+        return null;
+      }
+      result.add(dependency);
+      for (const ancestor of previous) result.add(ancestor);
+    }
+    visiting.delete(id);
+    ancestors.set(key, result);
+    return result;
   }
-  return rows.filter((row) => row.kind === 'api' && row.replayable && definitions[row.project_id + '/' + row.case_id]?.case.extensions?.traffic !== 'resource'
-    && check(row.project_id, row.case_id, new Set()));
+
+  function eligible(row) {
+    const project = row.project_id;
+    const candidate = definitions[project + '/' + row.case_id]?.case;
+    if (row.kind !== 'api' || !row.replayable || candidate?.extensions?.traffic === 'resource') return false;
+    const before = prerequisites(project, row.case_id, new Set());
+    if (!before) return false;
+    const selection = new Set([row.case_id, ...before]);
+    for (const id of selection) {
+      const targets = definitions[project + '/' + id].case.extensions?.postconditions;
+      if (targets === undefined) continue;
+      if (!Array.isArray(targets) || !targets.length || new Set(targets).size !== targets.length) return false;
+      for (const target of targets) {
+        const upstream = prerequisites(project, target, new Set());
+        if (!upstream?.has(id) || definitions[project + '/' + target].case.lifecycle !== 'active') return false;
+        selection.add(target);
+        for (const dependency of upstream) selection.add(dependency);
+      }
+    }
+    return true;
+  }
+  return rows.filter(eligible);
 }
 
 function receipt(id, ready) {
@@ -175,7 +204,7 @@ function start(context, projectId, ids, body, batch, load, seed) {
     headed: body.headed, status: 'Queued', created_at: stamp(now), started_at: null, finished_at: null,
     current: '预览模拟：等待开始', reason: '', total, done: 0, results: [] };
   if (load) run.load = load;
-  if (schedule) Object.assign(run, { mode: load.mode, load_schedule: schedule, mock_elapsed_ms: 0 });
+  if (schedule) Object.assign(run, { load_schedule: schedule, mock_elapsed_ms: 0 });
   const compact = load && (schedule || total > LOAD_PAGE_SIZE);
   const storedIterations = compact ? 1 : iterations;
   for (let iteration = 1; iteration <= storedIterations; iteration++) {
@@ -220,10 +249,35 @@ function finishRow(run, row, time, cancelled = false, duration = 180) {
 
 const durationOf = (run) => 1600 + Math.min(3200, run.total * 240);
 
+function finishLegacyRow(run, row, index) {
+  const cancelled = run.cancelled_index === index;
+  const at = cancelled ? Date.parse(run.finished_at) : Date.parse(run.started_at) + Math.ceil((index + 1) * durationOf(run) / run.total);
+  finishRow(run, row, at, cancelled);
+}
+
+function compactLegacyReport(run) {
+  const templates = run.load_templates;
+  const done = Math.min(run.done, run.total);
+  const measured = templates.flatMap((row, i) => !row.prerequisite && plannedOutcome(run, row) !== 'not_run' ? [i] : []);
+  const total = Math.floor(done / templates.length) * measured.length + measured.filter((i) => i < done % templates.length).length;
+  function* rows() {
+    for (let ordinal = 0; ordinal < total; ordinal++) {
+      const position = measured[ordinal % measured.length];
+      const row = { ...templates[position], detail: templates[position].detail || {} };
+      const index = Math.floor(ordinal / measured.length) * templates.length + position;
+      finishLegacyRow(run, row, index);
+      yield row;
+    }
+  }
+  return legacyLoadReport(run, rows(), total);
+}
+
 export function runPage(run, requestedOffset = 0) {
   const { simulation_cases: _plans, load_schedule: schedule, load_templates: templates, ...view } = run;
   if (schedule) view.load_report = mockLoadReport(run);
-  else if (run.family === 'load' && !view.load_report) view.load_report = legacyLoadReport(run);
+  else if (run.family === 'load' && !view.load_report) {
+    view.load_report = templates?.length ? compactLegacyReport(run) : legacyLoadReport(run);
+  }
   if (!templates) return view;
   const lastPage = Math.floor((run.total - 1) / LOAD_PAGE_SIZE);
   const page = Math.min(lastPage, Math.max(0, Math.floor(Number(requestedOffset) / LOAD_PAGE_SIZE) || 0));
@@ -237,12 +291,10 @@ export function runPage(run, requestedOffset = 0) {
     const position = timing ? { load_user: timing.user, load_stage: timing.stage } : { load_iteration: iteration, load_user: (iteration - 1) % run.load.concurrency + 1 };
     const row = { ...original, id: run.id + '-' + (i + 1), detail: { ...original.detail, ...position } };
     if (i < run.done) {
-      const interrupted = run.cancelled_index === i;
-      const at = interrupted ? Date.parse(run.finished_at) : Date.parse(run.started_at) + Math.ceil((i + 1) * durationOf(run) / run.total);
       if (timing) {
-        finishRow(run, row, Date.parse(run.started_at) + timing.end, interrupted, timing.latency);
+        finishRow(run, row, Date.parse(run.started_at) + timing.end, false, timing.latency);
         Object.assign(row.detail, position);
-      } else finishRow(run, row, at, interrupted);
+      } else finishLegacyRow(run, row, i);
     }
     results.push(row);
   }
@@ -431,7 +483,11 @@ export function runsApi(context) {
       if (path === '/load-tests' && params.has('mode') && !['performance', 'stress'].includes(params.get('mode'))) return problem('测试模式无效');
       const runs = scoped(all, params, 'created_at').filter((r) => r.trigger !== 'login' && (path !== '/load-tests' || r.family === 'load') && matches(r, params));
       const mode = path === '/load-tests' && params.get('mode');
-      return paginate(runList(mode ? runs.filter((run) => (run.load?.mode || 'performance') === mode) : runs), params);
+      const page = paginate(runList(mode ? runs.filter((run) => (run.load?.mode || 'performance') === mode) : runs), params);
+      if (path === '/load-tests' && params.get('include_metrics') === 'false') {
+        for (const run of page.items) delete run.metrics;
+      }
+      return page;
     }
     if (method !== 'POST') return undefined;
     if (path === '/runs') return batchStart(context);

@@ -356,7 +356,7 @@ class LoadDashboardTests(DashboardWorkspace):
             cells = self.statistic_cells(document, "TC-CHANGING")
             expect(cells.nth(1)).to_have_text("2")
             expect(cells.nth(2)).to_have_text("1")
-            expect(document.get_by_role("table", name="错误汇总", exact=True)).to_contain_text("断言")
+            expect(document.get_by_role("table", name="错误汇总", exact=True)).to_contain_text("字段 /ok")
             expect(document.get_by_role("table", name="每个采样器的前五项错误", exact=True)).to_contain_text("TC-CHANGING")
         receipt = self.client.get("/api/runs/" + run_id).json()["test_report"]
         self.assertEqual(receipt["status"], "ready", receipt)

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { casesApi } from '../preview/cases-api.js';
 import { currentData, getData, restoreData, startSession } from '../preview/store.js';
+import { aggregateLoadReport } from '../skills/autoskill/app/ui/js/pages/load-dashboard.js';
 import { advanceRuns, runsApi, seedLoadRuns } from '../preview/runs-api.js';
 
 const examples = JSON.parse(await readFile(new URL('../preview/fixtures.json', import.meta.url), 'utf8'));
@@ -118,6 +119,10 @@ test('large simulated loads keep only case templates and generate any detail pag
   assert.equal(first.failed, iterations);
   assert.equal(first.metrics.latency_samples, total);
   assert.equal(first.metrics.error_rate, 0.5);
+  assert.equal(first.load_report.samples_partial, true);
+  assert.equal(first.load_report.sample_count_total, total);
+  assert.equal(first.load_report.samples.length, 50000);
+  assert.deepEqual(first.load_report.samples.slice(0, 2).map((sample) => sample.success), [true, false]);
   const last = request(path + '?detail_offset=' + (total - 1));
   assert.equal(last.results.length, 6);
   assert.equal(last.results.at(-1).detail.load_iteration, iterations);
@@ -364,4 +369,72 @@ test('modern report capacity fails explicitly without allocating or recording a 
   assert.equal(response.status, 422);
   assert.match((await response.json()).detail, /浏览器模拟.*50000/);
   assert.equal(db.runs.length, total);
+});
+
+test('a downstream postcondition can depend on its API action directly or through another API prerequisite', () => {
+  const { db, request } = environment();
+  request('/load-tests/options');
+  const byId = (id) => db.caseLibrary.definitions['stock-room/' + id].case.extensions;
+  const hasAction = () => request('/load-tests/options?projects=stock-room').items.some((r) => r.case_id === 'ST-API-001');
+  byId('ST-API-001').postconditions = ['ST-API-002'];
+  byId('ST-API-002').depends_on = ['ST-API-001'];
+  assert.ok(hasAction());
+  byId('ST-API-002').depends_on = ['ST-API-004'];
+  byId('ST-API-004').depends_on = ['ST-API-001'];
+  assert.ok(hasAction());
+  const body = { mode: 'performance', concurrency: 1, target_requests: 1, project_id: 'stock-room', case_ids: ['ST-API-001'] };
+  assert.equal(request('/load-tests', 'POST', body).runs.length, 1);
+  byId('ST-API-002').depends_on.push('ST-UI-001');
+  assert.ok(!hasAction());
+  byId('ST-API-002').depends_on = [];
+  assert.ok(!hasAction());
+  byId('ST-API-002').depends_on = ['ST-API-001'];
+  byId('ST-API-001').depends_on = ['ST-API-002'];
+  assert.ok(!hasAction());
+  assert.equal(request('/load-tests', 'POST', body).status, 422);
+});
+
+test('restoring a compact 201-request legacy backup projects every completed sample independently of pagination', () => {
+  startSession(structuredClone(examples));
+  const request = (path, method = 'GET', body = {}, params = new URLSearchParams()) =>
+    runsApi({ path, method, body, params, db: currentData(), fixtures: examples });
+  const run = request('/load-tests', 'POST', { project_id: 'stock-room', case_ids: ['ST-API-001'],
+    iterations: 201, concurrency: 2, ramp_up_seconds: 0 }).runs[0];
+  advanceRuns(currentData(), Date.now() + 10000);
+  const backup = getData();
+  const packed = backup.runs.find((r) => r.id === run.id);
+  assert.equal(packed.results.length, 0);
+  assert.equal(packed.done, 201);
+  restoreData(JSON.parse(JSON.stringify(backup)));
+  const first = request('/load-tests/' + run.id);
+  const last = request('/load-tests/' + run.id, 'GET', {}, new URLSearchParams({ detail_offset: '200' }));
+  assert.equal(first.results.length, 200);
+  assert.equal(last.results.length, 1);
+  const samples = first.load_report.samples;
+  assert.equal(samples.length, 201);
+  assert.deepEqual(last.load_report.samples, samples);
+  assert.ok(!first.load_report.samples_partial);
+  assert.equal(samples.at(-1).start_ms, Date.parse(last.results[0].started_at));
+  assert.equal(samples.at(-1).elapsed_ms, last.results[0].duration_ms);
+  assert.ok(samples.every((s) => s.success && s.label === 'ST-API-001' && s.code === '200'));
+});
+
+test('modern preview percentiles and throughput agree with the same samples in the report', () => {
+  const { db, request } = environment();
+  for (const count of [2, 20503]) {
+    const plan = { mode: 'performance', project_id: 'stock-room', case_ids: ['ST-API-001', 'ST-API-002'], concurrency: 100, target_requests: count };
+    const id = request('/load-tests', 'POST', plan).runs[0].id;
+    advanceRuns(db, Date.now() + 10000);
+    const run = request('/load-tests/' + id);
+    const { total } = aggregateLoadReport(run);
+    assert.equal(run.metrics.p50_ms, total.medianResTime);
+    assert.equal(run.metrics.p95_ms, total.pct2ResTime);
+    assert.equal(run.metrics.p99_ms, total.pct3ResTime);
+    assert.equal(run.metrics.throughput_per_second, total.throughput);
+    if (count === 2) {
+      const [a, b] = run.load_report.samples;
+      assert.equal(run.metrics.p50_ms, (a.elapsed_ms + b.elapsed_ms) / 2);
+      assert.equal(run.metrics.throughput_per_second, 2000 / Math.max(a.elapsed_ms, b.elapsed_ms));
+    }
+  }
 });

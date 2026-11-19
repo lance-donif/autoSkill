@@ -1,9 +1,11 @@
 """Locust modes against an isolated loopback service with frozen prerequisite and target inputs."""
 import socket
+import subprocess
 import sys
 import threading
 import unittest
 from pathlib import Path
+from textwrap import dedent
 from unittest.mock import patch
 
 import test_load_testing
@@ -45,6 +47,32 @@ class LocustModes(unittest.TestCase):
         self.assertEqual(len(samples), sum(path == "/target" for path, _, _ in self.server.seen))
         self.assertEqual(timed["load_report"]["threads"][-1]["count"], 0)
         self.assertTrue(all(s["start_ms"] <= stage["end_ms"] + 5 for s in samples))
+
+    def test_slow_timeline_sync_cannot_consume_the_rendezvous_duration(self):
+        # Locust patches the interpreter, so isolate its campaign from this test process.
+        script = dedent('''
+            from unittest.mock import patch
+
+            from autoskill import load_report, locust_worker
+            from gevent.monkey import get_original
+
+            sleep = get_original("time", "sleep")
+            campaign = locust_worker.Campaign({"id": "rendezvous"}, {
+                "mode": "performance", "concurrency": 1, "duration_seconds": .25,
+            }, 0)
+
+            def slow_timeline(*args, **kwargs):
+                sleep(.50)
+
+            with patch.object(campaign, "cancelled", return_value=False), patch.object(load_report, "write_timeline", slow_timeline):
+                assert campaign.admit(1) == (1, 1)
+                assert campaign.samples == 1
+                assert not campaign.timeline_write.ready()
+                campaign.timeline_write.get(timeout=3)
+        ''')
+        done = subprocess.run([sys.executable, "-c", script], cwd=ROOT / "skills/autoskill/app", text=True, capture_output=True,
+                              timeout=15, check=False)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
 
     def test_nondivisible_stages_use_real_locust_users_and_preserve_slow_request_stage(self):
         detail = self.execute("LOGIN", mode="stress", initial_concurrency=1, step_concurrency=2, max_concurrency=4, step_duration_seconds=.8)
@@ -122,6 +150,78 @@ class LocustModes(unittest.TestCase):
         self.assertEqual([s["success"] for s in detail["load_report"]["samples"]], [True])
         self.assertEqual([r["state"]["outcome"] for r in detail["results"] if not r["prerequisite"]], ["pass"])
 
+    def test_invalid_http_headers_do_not_spend_the_single_target_slot(self):
+        cases = [builder.api_case(name, name, "GET", "/invalid", {"status": 200}, headers={"X-Label": value})
+                 for name, value in (("INVALID-ENCODING", "中文"), ("INVALID-FIELD", "illegal\nvalue"))]
+        projects.save_cases("load", cases)
+        run = load_testing.enqueue("load", [cases[0]["id"], cases[1]["id"], "LOGIN"], mode="performance", concurrency=1, target_requests=1)
+        runner.execute(run["id"])
+        detail = load_testing.get(run["id"])
+        self.assertEqual([path for path, _, _ in self.server.seen], ["/login"])
+        self.assertEqual([s["label"] for s in detail["load_report"]["samples"]], ["LOGIN"])
+        self.assertEqual(detail["metrics"]["request_count"], 1)
+        for row in detail["results"][:2]:
+            self.assertIn("请求构建失败", row["reason"])
+            self.assertFalse(row["detail"].get("target_started"))
+            self.assertFalse(row["detail"].get("request"))
+
+    def temporary_failures(self, fails):
+        original = test_load_testing.Handler.do_GET
+        logins = 0
+
+        def receive(handler):
+            nonlocal logins
+            if handler.path == "/login":
+                logins += 1
+                if fails(logins):
+                    handler.send_response(503)
+                    handler.send_header("Content-Length", "0")
+                    handler.end_headers()
+                    return
+            original(handler)
+
+        return patch.object(test_load_testing.Handler, "do_GET", receive)
+
+    def test_transient_full_group_prerequisite_failure_recovers_before_time_limit(self):
+        for mode in ({"mode": "performance", "concurrency": 2, "duration_seconds": 1.4}, {"mode": "stress",
+                     "initial_concurrency": 2, "max_concurrency": 2, "step_concurrency": 1, "step_duration_seconds": 1.4}):
+            with self.subTest(mode=mode), self.temporary_failures(lambda i: i in (3, 4)):
+                run = self.execute(**mode)
+                stage = run["load_report"]["stages"][0]
+                self.assertGreaterEqual(stage["end_ms"] - stage["start_ms"], 1398)
+                self.assertGreater(len(run["load_report"]["samples"]), 2)
+                self.assertGreaterEqual(sum(row["state"]["outcome"] == "not_run" for row in run["results"] if not row["prerequisite"]), 2)
+
+    def test_count_only_ends_after_repeated_whole_group_preparation_failures(self):
+        with self.temporary_failures(lambda i: i > 2):
+            run = load_testing.enqueue("load", ["TARGET"], mode="performance", concurrency=2, target_requests=12)
+            worker = threading.Thread(target=runner.execute, args=(run["id"],))
+            worker.start()
+            worker.join(25)
+            if worker.is_alive():
+                jobs.cancel(run["id"])
+                worker.join(25)
+                self.fail("Count-only run did not detect sustained lack of target progress")
+            detail = load_testing.get(run["id"])
+        self.assertIn("整组", detail["reason"])
+        self.assertEqual(len(detail["load_report"]["samples"]), 2)
+        self.assertEqual(sum(path == "/target" for path, _, _ in self.server.seen), 2)
+
+    def test_stage_changes_before_locust_spawns_additional_users(self):
+        detail = self.execute("LOGIN", mode="stress", initial_concurrency=1, step_concurrency=5, max_concurrency=6, step_duration_seconds=.35)
+        users = {1: set(), 2: set()}
+        for row in detail["results"]:
+            sample = row["detail"]["attempts"][0].get("load_sample")
+            if sample:
+                users[sample["stage"]].add(row["detail"]["load_user"])
+        self.assertEqual(users[1], {1})
+        self.assertTrue({2, 6} <= users[2], users)
+        clocks = detail["load_report"]
+        final = clocks["stages"][1]
+        ready = next(t["time_ms"] for t in clocks["threads"] if t["count"] == 6)
+        self.assertLessEqual(final["start_ms"], ready)
+        self.assertGreaterEqual(final["end_ms"] - ready, 348)
+
     def test_http_excludes_ui_and_filters_legacy_mode_before_pagination(self):
         ui = builder.ui_case("UI", "页面", {"start_url": "/", "actions": [], "assertions": [{"assertion": "url_contains", "expected": "/"}]})
         mixed = builder.api_case("MIX", "混合", "GET", "/target", {"status": 200}, depends_on=["UI"])
@@ -145,3 +245,8 @@ class LocustModes(unittest.TestCase):
             for mode in ("stress", "performance"):
                 result = client.get(api, params={"mode": mode, "limit": 1}).json()
                 self.assertEqual((result["total"], result["items"][0]["load"]["mode"]), (1, mode))
+                self.assertIn("metrics", result["items"][0])
+            with patch.object(load_testing.load_report, "project", side_effect=AssertionError("history projected samples")):
+                compact = client.get(api, params={"include_metrics": "false"}).json()
+            self.assertEqual(compact["total"], 2)
+            self.assertTrue(all("metrics" not in run for run in compact["items"]))

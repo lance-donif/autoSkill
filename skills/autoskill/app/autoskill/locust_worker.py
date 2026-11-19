@@ -7,9 +7,10 @@ import os
 import sys
 import time
 import uuid
+from functools import partial
 
 import locust
-from gevent import sleep
+from gevent import get_hub, sleep
 from gevent.event import Event
 from locust import User, constant, task
 from locust.env import Environment
@@ -41,6 +42,8 @@ class Campaign:
         self.local = self.environment.create_local_runner()
         self.release = Event()
         self.ready = set()
+        self.startup_misses = set()
+        self.misses = {}
         self.initialized = 0
         self.pending_level = None
         self.registered = self.live = self.retired = self.iterations = self.samples = 0
@@ -51,6 +54,7 @@ class Campaign:
         self.deadline = None
         self.stages = []
         self.threads = []
+        self.timeline_write = None
         self.errors = []
 
     def user_count(self, delta):
@@ -65,9 +69,8 @@ class Campaign:
     def initialized_user(self):
         self.initialized += 1
         if self.pending_level and self.initialized >= self.pending_level:
-            self.level = self.pending_level
             self.pending_level = None
-            self.stage()
+            self.deadline = time.monotonic() + self.spec["step_duration_seconds"]
 
     def stage(self):
         now = time.time_ns() // 1_000_000
@@ -75,17 +78,50 @@ class Campaign:
             self.stages[-1]["end_ms"] = now
         self.stages.append({"index": len(self.stages) + 1, "concurrency": self.level, "start_ms": now, "end_ms": None})
         seconds = self.spec.get("duration_seconds", self.spec.get("step_duration_seconds"))
-        self.deadline = time.monotonic() + seconds if seconds else None
-        self.publish()
+        self.deadline = time.monotonic() + seconds if seconds and not self.pending_level else None
 
     def publish(self):
-        load_report.write_timeline(self.run["id"], threads=self.threads, stages=self.stages)
+        # Keep stage snapshots available without charging the evidence sync to a dispatch deadline.
+        if self.timeline_write is not None:
+            if not self.timeline_write.ready():
+                return
+            self.timeline_write.get()
+        self.timeline_write = get_hub().threadpool.spawn(
+            load_report.write_timeline, self.run["id"], threads=self.threads.copy(),
+            stages=[stage.copy() for stage in self.stages])
 
     def open_when_ready(self):
         count = 1 if "iterations" in self.spec else self.level
-        if not self.closed and not self.release.is_set() and self.ready and len(self.ready) + self.retired >= count:
+        if self.closed or self.release.is_set() or len(self.ready | self.startup_misses) + self.retired < count:
+            return
+        if self.ready:
             self.stage()
             self.release.set()
+            self.publish()
+        elif "iterations" not in self.spec:
+            self.no_targets()
+
+    def no_targets(self):
+        self.errors.append("整组虚拟用户未能发出目标请求，请检查前置用例和输入参数")
+        self.stop()
+
+    def no_progress(self, user):
+        if self.closed or "iterations" in self.spec:
+            return
+        if not self.release.is_set():
+            self.startup_misses.add(user)
+            self.open_when_ready()
+            self.release.wait()
+            return
+        if self.spec.get("duration_seconds") or self.spec["mode"] == "stress":
+            sleep(.02)
+            return
+        self.misses[user] = self.misses.get(user, 0) + 1
+        while self.misses.get(user, 0) >= 2 and self.check():
+            if len(self.misses) >= self.live and min(self.misses.values()) >= 2:
+                self.no_targets()
+                return
+            sleep(.02)
 
     def stop(self):
         if not self.closed:
@@ -113,9 +149,11 @@ class Campaign:
             if self.level == self.maximum:
                 self.stop()
             else:
-                self.pending_level = min(self.maximum, self.level + self.spec["step_concurrency"])
-                self.deadline = None
-                self.local.start(self.pending_level, spawn_rate=self.pending_level)
+                self.level = min(self.maximum, self.level + self.spec["step_concurrency"])
+                self.pending_level = self.level
+                self.stage()
+                self.local.start(self.level, spawn_rate=self.level)
+                self.publish()
         return not self.closed
 
     def admit(self, user):
@@ -125,6 +163,7 @@ class Campaign:
         if not self.check():
             raise DispatchClosedError
         self.samples += 1
+        self.misses.clear()
         if self.samples == self.spec.get("target_requests"):
             self.stop()
         return self.stages[-1]["index"], self.level
@@ -162,8 +201,10 @@ class Campaign:
         finally:
             self.stop()
             self.local.quit()
+            if self.timeline_write is not None:
+                self.timeline_write.get()
             if not self.owner_lost:
-                self.publish()
+                load_report.write_timeline(self.run["id"], threads=self.threads, stages=self.stages)
         if not self.cancelled() and not self.samples and not self.errors:
             self.errors.append("没有目标接口发出请求，请检查用例前置条件、凭据及变量")
         return "；".join(dict.fromkeys(self.errors))
@@ -199,7 +240,7 @@ class MeasuredSession(runner.Session):
             client = self.independent
             client.cookies.clear()
         timing = {}
-        observed = load_report.TimedClient(client, timing) if selected else client
+        send = partial(load_report.timed_send, client, timing) if selected else client.send
         denied = False
         stage = None
 
@@ -224,7 +265,7 @@ class MeasuredSession(runner.Session):
 
             token = execution_inputs.on_target_start.set(admit)
             try:
-                outcome = api.run_case(observed, case, self.config, self.variables)
+                outcome = api.run_case(client, case, self.config, self.variables, send_prepared=send)
             except DispatchClosedError:
                 return runner.blocked("已停止派发新请求", "load_limit")
             finally:
@@ -301,11 +342,8 @@ class FrozenAPIUser(User):
                         pending[identity] = (summary, started)
                     else:
                         campaign.record(case, {**summary, "load_user": self.number, "load_iteration": iteration}, not selected, started)
-                if not session.sent and not campaign.closed and "iterations" not in campaign.spec:
-                    campaign.errors.append("本轮没有目标接口发出请求，请检查前置用例及输入变量")
-                    if campaign.pending_level:
-                        campaign.stop()
-                    raise StopUser
+                if not session.sent:
+                    campaign.no_progress(self.number)
         except DispatchClosedError as stop:
             raise StopUser from stop
         except StopUser:

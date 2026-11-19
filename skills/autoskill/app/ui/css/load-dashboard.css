@@ -17,9 +17,6 @@
 .load-chart-legend i { width: 12px; height: 3px; flex: none; }
 .load-dash-empty { padding: var(--s-6) 0; }
 
-@media (max-width: 540px) {
-  .load-chart-svg text { font-size: 18px; }
-}
 @container (max-width: 420px) {
   .load-chart-svg text { font-size: 18px; }
 }
