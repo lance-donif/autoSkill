@@ -294,6 +294,8 @@ class Session:
             execution_inputs.on_target_start.reset(token)
         if receipt.get("target_started"):
             outcome["target_started"] = True
+            if outcome["status"] == "Pass" and self.cancel_requested():
+                outcome.update(status="Cancelled", category="cancelled", reason="目标执行期间已取消")
         outcome = {**outcome, **verification(case, outcome, probe=kind in ("login_probe", "session_reuse"))}
         artifacts = []
         for name in outcome.get("screenshots", []):

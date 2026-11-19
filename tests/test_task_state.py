@@ -74,6 +74,24 @@ class CaseOutcomeTests(unittest.TestCase):
             self.assertEqual(detail["business_status"], "Unverified")
             self.assertEqual(task_state.case_outcome(outcome, detail, evidence_valid=True), "pass")
 
+    def test_cancel_while_waiting_for_dispatched_target(self):
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": root, "AUTOSKILL_BRIDGE": "off"}):
+            project = projects.create("Cancellation fixture", "https://example.invalid")["id"]
+            case = builder.api_case("in-flight", "Request", "GET", "/", {"status": 200})
+            projects.save_cases(project, [case])
+            run = runner.create(project, [case["id"]])
+            session = runner.Session(run)
+
+            def respond(_attempt):
+                execution_inputs.on_target_start.get()()
+                db.execute("UPDATE runs SET cancel=1 WHERE id=?", (run["id"],))
+                return {"status": "Pass", "response": {"status": 200}}
+
+            outcome = session.attempt(case, "case", respond)
+            self.assertEqual(outcome["response"]["status"], 200)
+            self.assertEqual(outcome["status"], "Cancelled")
+            self.assertEqual(task_state.case_outcome(outcome, outcome, evidence_valid=True), "fail")
+
     def test_recover_only_started_target_once(self):
         with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": root, "AUTOSKILL_BRIDGE": "off"}):
             db.init()
