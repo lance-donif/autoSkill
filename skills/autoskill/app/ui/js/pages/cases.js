@@ -164,9 +164,8 @@ function projectCard(project, items, projectItems, repaint, folderResult, retry)
   const missing = project.missing_secrets || [];
   const head = h('div', { class: 'card-head project-head' },
     h('div', { class: 'grow' },
-      h('h2', { class: 'row' }, project.name, project.category && h('span', { class: 'tag' }, project.category)),
-      h('p', { class: 'sub ellipsis' }, `${project.base_url} · 页面 ${project.cases.ui} · 接口 ${project.cases.api} · `,
-        project.login.ui_case || project.login.api_case ? '已定义登录方式，运行时自动登录' : '未定义登录方式')),
+      h('h2', {}, project.name),
+      h('p', { class: 'sub ellipsis' }, `${project.base_url} · 页面 ${project.cases.ui} · 接口 ${project.cases.api}`)),
     project.cases.total > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
     h('a', { class: 'btn sm', href: `/api/projects/${encodeURIComponent(project.id)}/folders/export`, download: '' }, icon('table'), '导出 Excel'),
     projectRunButtons(project, items, projectItems, tree),
@@ -287,13 +286,12 @@ async function projectSettings(projectId) {
   try { project = await api('/projects/' + projectId); } catch (error) { toast(error.message, { bad: true }); return; }
   if (location.hash !== source) return;
   const name = h('input', { class: 'input', value: project.name, id: 'ps-name' });
-  const category = h('input', { class: 'input', value: project.category, id: 'ps-cat' });
   const runtime = runtimeFields(project);
 
   const save = h('button', { class: 'btn primary' }, '保存');
   save.addEventListener('click', async () => {
     const done = await attempt(() => api('/projects/' + projectId, { method: 'PATCH', body: {
-      name: name.value, category: category.value, ...runtime.read(),
+      name: name.value, ...runtime.read(),
     } }), save);
     if (done) { await refreshShell(); closeOverlay(); toast('已保存'); refresh(); }
   });
@@ -321,9 +319,7 @@ async function projectSettings(projectId) {
   drawer({
     title: '项目设置', subtitle: project.base_url,
     body: [
-      h('div', { class: 'stack' }, h('h3', {}, '基本信息'),
-        h('div', { class: 'field' }, h('label', { for: 'ps-name' }, '项目名称'), name),
-        h('div', { class: 'field' }, h('label', { for: 'ps-cat' }, '分类'), category)), runtime.node,
+      h('div', { class: 'field' }, h('label', { for: 'ps-name' }, '项目名称'), name), runtime.node,
       h('div', { class: 'stack' }, h('h3', {}, '登录'),
         h('p', { class: 'sub' }, project.login.ui_case || project.login.api_case
           ? `登录用例：${[project.login.ui_case, project.login.api_case].filter(Boolean).join('、')}。运行依赖登录的用例时会自动先登录，并在本机复用登录态。`

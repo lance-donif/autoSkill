@@ -237,7 +237,7 @@ export function renderScope() {
     for (const project of projects) {
       const on = s.projects.includes(project.id);
       menu.append(menuItem(project.name, {
-        checked: on, meta: project.category || null,
+        checked: on,
         onPick: () => { close(); setScope({ projects: on ? s.projects.filter((id) => id !== project.id) : [...s.projects, project.id] }); },
       }));
     }

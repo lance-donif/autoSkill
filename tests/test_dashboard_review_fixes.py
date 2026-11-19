@@ -128,14 +128,13 @@ class DashboardReviewTests(unittest.TestCase):
         expect(self.page.get_by_text("这个范围内还没有执行", exact=True)).to_be_visible()
         self.assertNotIn("offset", parse_qs(urlsplit(self.page.url).fragment.partition("?")[2]))
 
-    def test_saved_project_name_and_category_appear_immediately(self):
+    def test_saved_project_name_appears_immediately_without_a_category_tag(self):
         self.page.goto("http://127.0.0.1:8787/#/cases?projects=review&range=all")
         self.page.get_by_role("button", name="「Original project」设置").click()
         self.page.locator("#ps-name").fill("Renamed project")
-        self.page.locator("#ps-cat").fill("Updated category")
+        expect(self.page.get_by_label("分类", exact=True)).to_have_count(0)
         self.page.locator(".drawer-foot").get_by_role("button", name="保存", exact=True).click()
-        expect(self.page.locator("#view h2")).to_contain_text("Renamed project")
-        expect(self.page.locator("#view h2 .tag")).to_have_text("Updated category")
+        expect(self.page.locator("#view h2")).to_have_text("Renamed project")
         self.assertEqual(self.project["name"], "Renamed project")
         self.assertIn("projects=review", self.page.url)
 

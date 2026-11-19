@@ -270,17 +270,21 @@ class DashboardStabilityTests(unittest.TestCase):
         self.page.get_by_role("button", name=f'「{project["name"]}」设置', exact=True).click()
         settings = self.page.get_by_role("dialog", name="项目设置", exact=True)
         expect(settings.get_by_label("项目名称")).to_have_value(project["name"])
-        category = project.get("category", "") + "（预览）"
-        settings.get_by_label("分类", exact=True).fill(category)
+        expect(settings.get_by_label("分类", exact=True)).to_have_count(0)
+        renamed = project["name"] + "（预览）"
+        settings.get_by_label("项目名称").fill(renamed)
         settings.get_by_role("button", name="保存", exact=True).click()
         expect(settings).to_be_hidden()
         for name in ("执行记录", "定时任务", "数据管理", "测试用例"):
             nav.get_by_role("link", name=name, exact=True).click()
             expect(self.page.locator("#view h1")).to_have_text(name)
         expect(self.page.get_by_role("button", name=edited, exact=True)).to_be_visible()
-        expect(self.page.locator(".project-head").filter(has_text=project["name"])).to_contain_text(category)
+        expect(self.page.get_by_role("heading", name=renamed, exact=True)).to_be_visible()
         self.page.reload()
-        expect(self.page.locator(".project-head").filter(has_text=project["name"])).not_to_contain_text(category)
+        expect(self.page.get_by_role("heading", name=project["name"], exact=True)).to_be_visible()
+        for item in sample["/projects"]:
+            head = self.page.locator(".project-head").filter(has=self.page.get_by_role("heading", name=item["name"], exact=True))
+            expect(head.locator(".sub")).to_have_text(f'{item["base_url"]} · 页面 {item["cases"]["ui"]} · 接口 {item["cases"]["api"]}')
         expect(title).to_be_visible()
         expect(self.page.get_by_role("button", name=edited, exact=True)).to_have_count(0)
 
