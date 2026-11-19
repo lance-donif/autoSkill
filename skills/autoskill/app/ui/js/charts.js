@@ -9,7 +9,7 @@ function svg(tag, attrs = {}, ...children) {
   return node;
 }
 export const SERIES = [
-  { key: 'not_run', label: '未执行', color: 'var(--ink-3)' },
+  { key: 'not_run', label: '未执行', color: 'var(--idle)' },
   { key: 'passed', label: '通过', color: 'var(--good)' },
   { key: 'failed', label: '失败', color: 'var(--bad)' },
 ];

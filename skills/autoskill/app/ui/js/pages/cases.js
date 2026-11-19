@@ -8,7 +8,7 @@ import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
 import { updateLiveView } from '../live-refresh.js';
 import { editCase } from '../case-editor.js';
-import { stateResults, stateDetails } from '../status-view.js';
+import { stateResults } from '../status-view.js';
 
 
 const selected = new Map();  // "project/case" -> {project_id, case_id}
@@ -202,7 +202,7 @@ function projectCard(project, items, repaint, folderResult, retry) {
         box.addEventListener('change', () => { if (box.checked) selected.set(key, item); else selected.delete(key); repaint(); });
         const deps = JSON.parse(item.depends_on || '[]');
         const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([{ project_id: item.project_id, case_ids: [item.case_id], name: project.name }], run); } }, icon('play'), '运行');
-        const openDetail = () => caseDrawer(item.project_id, item.case_id, item.folder_path);
+        const openDetail = () => caseDrawer(item.project_id, item.case_id);
         return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: openDetail },
           h('td', {}, box),
           h('td', {}, h('button', { class: 'title case-title', type: 'button', 'aria-haspopup': 'dialog',
@@ -212,7 +212,9 @@ function projectCard(project, items, repaint, folderResult, retry) {
           h('td', { class: 'sub' }, item.module),
           h('td', {}, caseStatus(item)),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
-          h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, disabled: !tree, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
+          h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '编辑用例', 'aria-label': `编辑用例 ${item.case_id}`,
+            onClick: (event) => { event.stopPropagation(); editCase(item.project_id, item.case_id); } }, icon('edit')),
+            h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, disabled: !tree, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
             loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }), run, caseDeleteButton([item], { small: true })));
       })])));
   }
@@ -238,25 +240,22 @@ function projectFolderTools(project, tree, folderId, count) {
   h('button', { class: 'btn sm', onClick: () => folderEditor(project, tree, folderId === ALL_FOLDERS ? null : folderId) }, icon('plus'), '新建文件夹'));
 }
 
-function caseDeleteButton(items, { bulk = false, small = false, detail = false } = {}) {
+function caseDeleteButton(items, { bulk = false, small = false } = {}) {
   const label = bulk ? '删除所选' : '删除用例';
   const button = h('button', { class: 'btn danger' + (small ? ' sm icon' : ''),
     title: label, 'aria-label': small ? `删除用例 ${items[0].case_id}` : label,
-    onClick: (event) => { event.stopPropagation(); deleteCases(items, button, { bulk, detail }); },
+    onClick: (event) => { event.stopPropagation(); deleteCases(items, button, bulk); },
   }, icon('trash'), !small && label);
   return button;
 }
 
-async function deleteCases(items, button, { bulk, detail }) {
+async function deleteCases(items, button, bulk) {
   const first = items[0];
   const agreed = await confirm({ title: bulk ? `删除所选的 ${items.length} 条用例？` : '删除这条用例？',
     text: bulk ? `将删除所选的 ${items.length} 条用例定义。已有执行记录会保留。`
       : `将删除「${first.title || first.case_id}」（${first.case_id}）的用例定义。已有执行记录会保留。`,
     action: bulk ? '删除所选' : '删除用例', danger: true });
-  if (!agreed) {
-    if (detail && route().page === 'cases') await caseDrawer(first.project_id, first.case_id);
-    return;
-  }
+  if (!agreed) return;
   const result = await attempt(() => bulk
     ? api('/cases/delete', { method: 'POST', body: { items: items.map(({ project_id, case_id }) => ({ project_id, case_id })) } })
     : api(`/projects/${encodeURIComponent(first.project_id)}/cases/${encodeURIComponent(first.case_id)}`, { method: 'DELETE' }), button);
@@ -340,48 +339,37 @@ async function projectSettings(projectId) {
   });
 }
 
-function caseOverview(item, folderLabel) {
-  const body = [folderLabel && h('p', { class: 'sub' }, '所在目录　', folderLabel),
-    stateDetails(item)];
-  if (item.current_status === null) body.push(h('div', { class: 'banner info' }, icon('info'), h('span', {},
-    '当前版本尚待验证，请手动运行检查。', item.last_status && '历史执行结果不代表当前版本已经验证。')));
-  if (item.depends_on.length) {
+async function caseDrawer(projectId, caseId) {
+  const source = location.hash;
+  const caseUrl = `/projects/${encodeURIComponent(projectId)}/cases/${encodeURIComponent(caseId)}`;
+  let item;
+  try { item = await api(caseUrl); } catch (error) { toast(error.message, { bad: true }); return; }
+  if (location.hash !== source) return;
+  const body = [];
+  if (item.depends_on?.length) {
     body.push(h('div', { class: 'banner info' }, icon('link'), h('span', {}, `前置用例：${item.depends_on.join('、')}。运行这条用例时会自动先执行。`)));
   }
-  return body;
-}
-
-async function caseDrawer(projectId, caseId, folderLabel) {
-  const source = location.hash;
-  const project = '/projects/' + encodeURIComponent(projectId);
-  let item, folder;
-  try {
-    [item, folder] = await Promise.all([api(`${project}/cases/${encodeURIComponent(caseId)}`),
-      folderLabel ?? api(project + '/folders').then((tree) => caseFolder(tree, caseId)).catch(() => '')]);
-  } catch (error) { toast(error.message, { bad: true }); return; }
-  if (location.hash !== source) return;
-  const body = caseOverview(item, folder);
   if (item.kind === 'ui') {
     body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '回放步骤'),
       h('ol', { class: 'steps' },
         h('li', {}, h('span', { class: 'step-text' }, '打开 ' + item.start_url)),
         (item.steps || []).map((step) => h('li', { class: step.check ? 'is-check' : '' },
           h('span', { class: 'step-text' }, step.check && h('span', { class: 'tag accent' }, '断言'), step.text),
-          step.locators.length > 1 && h('span', { class: 'step-sub' }, `备选定位：${step.locators.slice(1).join(' / ')}`))))));
+          step.locators?.length > 1 && h('span', { class: 'step-sub' }, `备选定位：${step.locators.slice(1).join(' / ')}`))))));
     if (!item.replayable) body.push(h('div', { class: 'banner' }, icon('warn'), '这条用例没有可回放的步骤。'));
     else body.push(h('div', { class: 'row wrap' }, h('span', { class: 'sub' }, '独立脚本（不依赖 autoSkill）：'),
-      ['playwright', 'selenium'].map((engine) => h('a', { class: 'btn sm', download: '', href: `/api/projects/${projectId}/cases/${encodeURIComponent(caseId)}/script?engine=${engine}` },
+      ['playwright', 'selenium'].map((engine) => h('a', { class: 'btn sm', download: '', href: `/api${caseUrl}/script?engine=${engine}` },
         engine === 'playwright' ? 'Playwright .py' : 'Selenium .py'))));
   } else {
     const request = item.request;
     body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '请求'),
       h('div', { class: 'req-line' }, h('span', { class: 'method ' + request.method.toLowerCase() }, request.method), h('span', { class: 'mono' }, request.path)),
-      ['headers', 'params', 'json'].filter((part) => request[part] && Object.keys(request[part]).length).map((part) => h('div', {},
-        h('div', { class: 'sub', style: 'margin:6px 0 4px' }, { headers: '请求头', params: '查询参数', json: '请求体' }[part]),
+      ['headers', 'params', 'json', 'form'].filter((part) => hasRequestValue(request[part])).map((part) => h('div', {},
+        h('div', { class: 'sub', style: 'margin:6px 0 4px' }, { headers: '请求头', params: '查询参数', json: '请求体', form: '表单' }[part]),
         h('pre', { class: 'code' }, JSON.stringify(request[part], null, 2))))));
     const rules = item.assertions || {};
     const rows = apiAssertionRows(rules);
-    body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '断言'),
+    if (rows.length) body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '断言'),
       h('table', { class: 'table kv' }, h('tbody', {}, rows.map(([label, value]) => h('tr', {}, h('td', { class: 'sub' }, label), h('td', { class: 'mono' }, String(value))))))));
     const extract = Object.entries(item.extract || {});
     if (extract.length) body.push(h('p', { class: 'sub' }, '为后续用例提供变量：' + extract.map(([name, pointer]) => `{{${name}}} ← ${pointer}`).join('，')));
@@ -391,19 +379,19 @@ async function caseDrawer(projectId, caseId, folderLabel) {
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId], name: state.projects.find((project) => project.id === projectId)?.name }], run); if (started) closeOverlay(); });
   const subtitle = `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · 菜单名 ${item.module} · 第 ${item.revision} 版`;
   drawer({ title: item.title, subtitle, body, wide: true,
-    foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
-      h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),
-      h('button', { class: 'btn', onClick: () => editCase(projectId, caseId, () => caseDrawer(projectId, caseId)) }, icon('edit'), '编辑用例'),
-      h('button', { class: 'btn', onClick: () => moveCases([{ project_id: projectId, case_id: caseId }]) }, icon('folder'), '移动到文件夹'),
-      loadTestButton('压测这条用例', () => [{ project_id: projectId, case_ids: [caseId] }]), item.replayable && run] });
+    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), item.replayable && run] });
 }
 
 function caseStatus(item) {
   return stateResults(item);
 }
 
+function hasRequestValue(value) {
+  return value != null && value !== '' && (typeof value !== 'object' || Object.keys(value).length > 0);
+}
+
 function apiAssertionRows(rules) {
-  const rows = [['状态码', rules.status]];
+  const rows = rules.status == null ? [] : [['状态码', rules.status]];
   for (const [pointer, value] of Object.entries(rules.json_equals || {})) rows.push([`字段 ${pointer}`, JSON.stringify(value)]);
   for (const [name, value] of Object.entries(rules.header_contains || {})) rows.push([`响应头 ${name} 包含`, value]);
   for (const value of rules.body_contains || []) rows.push(['响应内容包含', value]);

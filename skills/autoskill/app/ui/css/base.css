@@ -52,8 +52,7 @@ button:disabled { cursor: not-allowed; }
   color: var(--side-ink-2); font-weight: 550; transition: background var(--fast), color var(--fast);
 }
 .nav a:hover { background: var(--side-wash); color: var(--side-ink); }
-.nav a[aria-current="page"] { background: var(--side-wash); color: var(--side-ink); }
-.nav a[aria-current="page"] svg { color: var(--accent); }
+.nav a[aria-current="page"] { background: var(--side-wash); color: var(--on-accent); }
 .nav .count {
   margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px;
   background: var(--accent); color: var(--on-accent);
@@ -73,7 +72,7 @@ button:disabled { cursor: not-allowed; }
 /* ---- scope bar: always shows what the numbers below cover ---- */
 .scope {
   position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap;
-  padding: var(--s-3) var(--s-8); background: color-mix(in srgb, var(--plane) 72%, transparent);
+  padding: var(--s-3) var(--s-8); background: color-mix(in srgb, var(--plane) 88%, transparent);
   backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--line);
 }
 .scope-label { font-size: var(--t-xs); color: var(--ink-3); }

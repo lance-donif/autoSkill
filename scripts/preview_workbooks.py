@@ -101,6 +101,7 @@ def report_item(case, result, observed, frozen):
     key = record["run_id"], record["case_id"]
     if key in observed:
         observation = observed[key]
+        record["detail"].update({k: detail[k] for k in ("steps", "pending_steps", "definition_steps", "attempts") if k in detail})
         if observation["outcome"] == "pass" and observation["checks"] and all(check["passed"] for check in observation["checks"]):
             record["detail"]["business_status"] = "Pass"
         if screenshot := observation["artifact_hashes"].get("screenshot_sha256"):

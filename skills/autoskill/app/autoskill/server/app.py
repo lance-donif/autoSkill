@@ -24,6 +24,7 @@ from .. import (
     db,
     deletion,
     demo,
+    execution_inputs,
     paths,
     projects,
     runner,
@@ -99,6 +100,46 @@ def result_view(row: dict, *, connection=None) -> dict:
                 with contextlib.suppress(ValueError):
                     attempt["path"] = str(data_refs.resolve(attempt["path"]))
     return {**row, "detail": detail, "state": state}
+
+
+def _supplement_ui_steps(run: dict, results: list[dict]) -> None:
+    """Project the run's frozen definition onto receipts which stopped before the final checks."""
+    candidates = [row for row in results if row.get("kind") == "ui" and _needs_step_definition(row["detail"])]
+    if not candidates or not run.get("input_manifest"):
+        return
+    try:
+        cases = execution_inputs.load(run)["cases"]
+    except ValueError:
+        return
+    for row in candidates:
+        case = cases.get(row["case_id"])
+        if not case or row.get("case_content_hash") != execution_inputs.content_hash(case):
+            continue
+        definition = case.get("extensions", {}).get("automation", {})
+        detail = row["detail"]
+        steps = detail.get("steps", [])
+        actions = definition.get("actions", [])
+        rules = definition.get("assertions", [])
+        if steps:
+            if row["state"].get("evidence") != "valid":
+                continue
+            # The target navigation is step zero; setup receipts precede it.
+            attempted = len(steps) - len(detail.get("setup_cases", [])) - 1
+            if attempted < 0:
+                continue
+            detail["pending_steps"] = _describe_steps(actions[attempted:] + rules)
+        else:
+            start = definition.get("start_url")
+            detail["definition_steps"] = ([{"text": "打开 " + start}] if start else []) + _describe_steps(actions + rules)
+
+
+def _needs_step_definition(detail: dict) -> bool:
+    steps = detail.get("steps", [])
+    return not steps or (steps[-1].get("status") in ("failed", "cancelled") and bool(steps[-1].get("error")))
+
+
+def _describe_steps(items: list[dict]) -> list[dict]:
+    return [{"text": item.get("name") or ir.describe(item), "check": "assertion" in item} for item in items]
 
 
 def report_view(run: dict) -> dict:
@@ -501,6 +542,7 @@ def _register_run_detail_routes(app: FastAPI) -> None:
             missing = connection.execute(metrics.PLANNED_RESULTS + " AND plan.id=? ORDER BY target.key", (run_id,))
             results = [result_view(row, connection=connection) for row in rows]
             results.extend(result_view(dict(row), connection=connection) for row in missing)
+            _supplement_ui_steps(run, results)
             view = run_view(run, results=rows, connection=connection)
         return {**view, "results": results, "test_report": report_view(run),
                 **({"workflow_id": run["session_id"]} if run.get("trigger") == "workflow" and run.get("session_id") else {})}

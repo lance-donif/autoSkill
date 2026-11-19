@@ -114,6 +114,8 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.assertEqual(moved.value.status, 200, moved.value.text())
         expect(dialog).not_to_be_visible()
         self.page.reload()
+        self.page.get_by_role("button", name="展开订单", exact=True).click()
+        self.page.get_by_role("button", name="展开订单回归", exact=True).click()
         expect(self.page.get_by_role("button", name="共同验证，2 条用例", exact=True)).to_be_visible()
         self.page.get_by_role("button", name="共同验证，2 条用例", exact=True).click()
         expect(self.page.get_by_role("checkbox", name="选择 TC-CHECK", exact=True)).to_be_visible()
