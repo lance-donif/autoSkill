@@ -1,6 +1,6 @@
 {
   "target": "windows-x64",
-  "autoskill": "2.4.0",
+  "autoskill": "2.5.0",
   "python": "3.12.10",
   "chrome_for_testing": "157.0.8103.78",
   "chromedriver": "157.0.8103.78",
@@ -8,10 +8,10 @@
   "wheels": [
     {
       "name": "annotated-doc",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "license": "MIT",
-      "file": "annotated_doc-0.0.6-py3-none-any.whl",
-      "sha256": "361ca0950cc7082f53fa69e9328409f40a62c61e57e0a47e1825a08078a58a53"
+      "file": "annotated_doc-0.0.7-py3-none-any.whl",
+      "sha256": "6bc31bbbec6dfaaedc1676dbc11dbda96fe22a2b5c400e9ebad113fec44a9dc6"
     },
     {
       "name": "annotated-types",
@@ -35,6 +35,27 @@
       "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
     },
     {
+      "name": "bidict",
+      "version": "0.24.1",
+      "license": "MPL-2.0",
+      "file": "bidict-0.24.1-py3-none-any.whl",
+      "sha256": "fd3eaa737917d8a14f4baa391670c433c4e3f6f5fd2cd99d4bf436437f432364"
+    },
+    {
+      "name": "blinker",
+      "version": "1.9.0",
+      "license": "",
+      "file": "blinker-1.9.0-py3-none-any.whl",
+      "sha256": "ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc"
+    },
+    {
+      "name": "brotli",
+      "version": "1.2.1",
+      "license": "MIT",
+      "file": "brotli-1.2.1-cp312-cp312-win_amd64.whl",
+      "sha256": "f5342b8256476554b4045db8b7bf4dc4044d0405485f220f0cd80764bc0d7faf"
+    },
+    {
       "name": "certifi",
       "version": "2026.10.23",
       "license": "MPL-2.0",
@@ -47,6 +68,13 @@
       "license": "MIT-0",
       "file": "cffi-2.1.1-cp312-cp312-win_amd64.whl",
       "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "license": "MIT",
+      "file": "charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl",
+      "sha256": "780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc"
     },
     {
       "name": "click",
@@ -70,6 +98,13 @@
       "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934"
     },
     {
+      "name": "ConfigArgParse",
+      "version": "1.10.1",
+      "license": "MIT",
+      "file": "configargparse-1.10.1-py3-none-any.whl",
+      "sha256": "148ffe1ba93304bbcb4a832f513e6d51c08d214215f1e943954f6d01f2394621"
+    },
+    {
       "name": "et_xmlfile",
       "version": "2.0.0",
       "license": "MIT",
@@ -84,11 +119,46 @@
       "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
     },
     {
+      "name": "Flask",
+      "version": "3.1.3",
+      "license": "BSD-3-Clause",
+      "file": "flask-3.1.3-py3-none-any.whl",
+      "sha256": "f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c"
+    },
+    {
+      "name": "flask-cors",
+      "version": "6.0.5",
+      "license": "MIT",
+      "file": "flask_cors-6.0.5-py3-none-any.whl",
+      "sha256": "68fcf75693e961f3af26683b23c4b9a8fb6b64de17d20d0c37b95e8de7ab2ed8"
+    },
+    {
+      "name": "Flask-Login",
+      "version": "0.6.3",
+      "license": "MIT",
+      "file": "Flask_Login-0.6.3-py3-none-any.whl",
+      "sha256": "849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d"
+    },
+    {
       "name": "flatbuffers",
       "version": "25.12.19",
       "license": "Apache 2.0",
       "file": "flatbuffers-25.12.19-py2.py3-none-any.whl",
       "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"
+    },
+    {
+      "name": "gevent",
+      "version": "26.9.0",
+      "license": "MIT",
+      "file": "gevent-26.9.0-cp312-cp312-win_amd64.whl",
+      "sha256": "44a0d58301a333608aad5fef0c19ca8122eb7753484416f000c1f00b4b407697"
+    },
+    {
+      "name": "geventhttpclient",
+      "version": "2.6.2",
+      "license": "MIT",
+      "file": "geventhttpclient-2.6.2-cp312-cp312-win_amd64.whl",
+      "sha256": "35d05f4e1863862ffbf3b0ce4a24779b3f4b7d7fd892e1fd9d9cda9271b4d7d8"
     },
     {
       "name": "greenlet",
@@ -133,6 +203,27 @@
       "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
     },
     {
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "license": "MIT",
+      "file": "iniconfig-2.3.1-py3-none-any.whl",
+      "sha256": "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"
+    },
+    {
+      "name": "itsdangerous",
+      "version": "2.2.0",
+      "license": "",
+      "file": "itsdangerous-2.2.0-py3-none-any.whl",
+      "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"
+    },
+    {
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "license": "",
+      "file": "jinja2-3.1.6-py3-none-any.whl",
+      "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+    },
+    {
       "name": "jsonschema",
       "version": "4.26.0",
       "license": "MIT",
@@ -147,11 +238,32 @@
       "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
     },
     {
+      "name": "locust",
+      "version": "2.47.0",
+      "license": "MIT",
+      "file": "locust-2.47.0-py3-none-any.whl",
+      "sha256": "a773af200bb93b1bed0b99c48c18f11343ed159803a8af3ee3ad0696b05b7d09"
+    },
+    {
+      "name": "MarkupSafe",
+      "version": "3.0.4",
+      "license": "BSD-3-Clause",
+      "file": "markupsafe-3.0.4-cp312-cp312-win_amd64.whl",
+      "sha256": "11935df9bf455ed0c04eb87bcd720f02b1fe5e02128a9430f23aed6f93336fc7"
+    },
+    {
       "name": "mpmath",
       "version": "1.3.0",
       "license": "BSD",
       "file": "mpmath-1.3.0-py3-none-any.whl",
       "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+    },
+    {
+      "name": "msgpack",
+      "version": "1.2.4",
+      "license": "Apache-2.0",
+      "file": "msgpack-1.2.4-cp312-cp312-win_amd64.whl",
+      "sha256": "6e38b123681df22373d545520f54bbeddc4706d9235a1161061f12bd6648497d"
     },
     {
       "name": "numpy",
@@ -203,11 +315,25 @@
       "sha256": "92c0d98ed04eb35af557b709875edba415b1f548bdb22ddb5bb3e1e6c835c2f1"
     },
     {
+      "name": "pluggy",
+      "version": "1.7.0",
+      "license": "MIT",
+      "file": "pluggy-1.7.0-py3-none-any.whl",
+      "sha256": "7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec"
+    },
+    {
       "name": "protobuf",
       "version": "7.36.2",
       "license": "3-Clause BSD License",
       "file": "protobuf-7.36.2-cp310-abi3-win_amd64.whl",
       "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353"
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "license": "BSD-3-Clause",
+      "file": "psutil-7.2.2-cp37-abi3-win_amd64.whl",
+      "sha256": "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988"
     },
     {
       "name": "pycparser",
@@ -238,6 +364,13 @@
       "sha256": "af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228"
     },
     {
+      "name": "Pygments",
+      "version": "2.21.0",
+      "license": "BSD-2-Clause",
+      "file": "pygments-2.21.0-py3-none-any.whl",
+      "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
+    },
+    {
       "name": "pyreadline3",
       "version": "3.5.6",
       "license": "BSD",
@@ -252,11 +385,53 @@
       "sha256": "2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5"
     },
     {
+      "name": "pytest",
+      "version": "9.2.0",
+      "license": "MIT",
+      "file": "pytest-9.2.0-py3-none-any.whl",
+      "sha256": "07acdcf88ec174f907dc01af70bf52d49b014bbab03faeeade31c96b18c2e588"
+    },
+    {
+      "name": "python-engineio",
+      "version": "4.15.1",
+      "license": "MIT",
+      "file": "python_engineio-4.15.1-py3-none-any.whl",
+      "sha256": "745cb3c07701c719a2906439a00b67e44ef042904036568530a2c3a8cf18c89a"
+    },
+    {
+      "name": "python-socketio",
+      "version": "5.18.1",
+      "license": "MIT",
+      "file": "python_socketio-5.18.1-py3-none-any.whl",
+      "sha256": "e768c473842be811f6dd24bd0a49cd0d4a0c994182e3eba23cc9d1489c7a697e"
+    },
+    {
+      "name": "pywin32",
+      "version": "312",
+      "license": "PSF",
+      "file": "pywin32-312-cp312-cp312-win_amd64.whl",
+      "sha256": "b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc"
+    },
+    {
+      "name": "pyzmq",
+      "version": "27.3.0",
+      "license": "BSD-3-Clause",
+      "file": "pyzmq-27.3.0-cp312-abi3-win_amd64.whl",
+      "sha256": "3ea8e8fa5c097e68fef91d70b150fda96f307758103868018fc4deeb9c214122"
+    },
+    {
       "name": "referencing",
       "version": "0.37.0",
       "license": "MIT",
       "file": "referencing-0.37.0-py3-none-any.whl",
       "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "license": "Apache-2.0",
+      "file": "requests-2.34.2-py3-none-any.whl",
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
     },
     {
       "name": "rpds-py",
@@ -271,6 +446,13 @@
       "license": "Apache-2.0",
       "file": "selenium-4.38.0-py3-none-any.whl",
       "sha256": "ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd"
+    },
+    {
+      "name": "simple-websocket",
+      "version": "1.1.0",
+      "license": "",
+      "file": "simple_websocket-1.1.0-py3-none-any.whl",
+      "sha256": "4af6069630a38ed6c561010f0e11a5bc0d4ca569b36306eb257cd9a192497c8c"
     },
     {
       "name": "sniffio",
@@ -371,11 +553,32 @@
       "sha256": "5569417dc80977fc8c2d43a86f78e0a5a22fee17565d78621b6bb264a115d4ea"
     },
     {
+      "name": "Werkzeug",
+      "version": "3.1.9",
+      "license": "BSD-3-Clause",
+      "file": "werkzeug-3.1.9-py3-none-any.whl",
+      "sha256": "6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab"
+    },
+    {
       "name": "wsproto",
       "version": "1.3.2",
       "license": "MIT",
       "file": "wsproto-1.3.2-py3-none-any.whl",
       "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+    },
+    {
+      "name": "zope.event",
+      "version": "6.2",
+      "license": "ZPL-2.1",
+      "file": "zope_event-6.2-py3-none-any.whl",
+      "sha256": "5e755153ac4faf64c10a4b6dd3307680166a3edf65b38df22df592610f8fa874"
+    },
+    {
+      "name": "zope.interface",
+      "version": "8.7",
+      "license": "ZPL-2.1",
+      "file": "zope_interface-8.7-cp312-cp312-win_amd64.whl",
+      "sha256": "68acf0f25707f9c6277552a3d10114405235385ea1f66bffc89612e0b84f6edd"
     }
   ],
   "sources": {
@@ -413,52 +616,54 @@
   "network_install": false,
   "telemetry": false,
   "auto_update": false,
-  "runtime_files": 5705,
+  "runtime_files": 7696,
   "file": "autoSkill-Windows-x64-Offline.zip",
-  "bytes": 327370691,
-  "sha256": "cfe216938464fe5c4e9013971c08b35ee442a7ae272bf26643399d8c03b7f85c",
+  "bytes": 342177491,
+  "sha256": "07ea19196c3c32b08efa25180e89bc01aa965575f6527d5b84a4b7009d881ff5",
   "ui_files": {
     "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
-    "autoskill/app/ui/js/shell.js": "4b54ee5e8cd639523227fc174752563c1c6bf02b2e44fd01158254570cb6bf17",
-    "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
-    "autoskill/app/ui/js/core.js": "e6c842de89922f3d1bd57765ffe776bdad20ee5874585d7fa24342af2231c86f",
-    "autoskill/app/ui/js/main.js": "f26ab1888d96251ae5f9b1c8b337f2e2c79f5f07e703a7b6db37843fc9199e94",
-    "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
-    "autoskill/app/ui/js/case-editor.js": "0ad113c88ea9376cb1b00d29dfc226b253dcdde14870dd3f39a1c352f5cefc5a",
-    "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
-    "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
-    "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
-    "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
-    "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
-    "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
-    "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
-    "autoskill/app/ui/js/folders.js": "ae014df19a3e5a4444ba39ad6b5784744b4e112e1ab2a331653e0bf7057a4ea9",
-    "autoskill/app/ui/js/ui.js": "4421e3df719af006d03eb6233b4e3e3a667e912f32c9e60cfa3a1156390696b4",
     "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
+    "autoskill/app/ui/js/shell.js": "85467bec1173f320883a0fdf549b482b4060c4c4c2d27b49fdd8bc531baf2ffc",
+    "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+    "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+    "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
+    "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
+    "autoskill/app/ui/js/main.js": "ab7539bb0307117cdb5ec776e6f47de160db1f61c33b29a596149ad2539b3c5b",
+    "autoskill/app/ui/js/status-view.js": "0fd7325c5d263f89872fe4ac018f2a5c2648b9fcba95dfc745fd8cbe109fec40",
+    "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
     "autoskill/app/ui/js/case-api-editor.js": "a7eb83744f9c21d324f7652f654b20b0619be9e32eda4e9f524bf78d9ea8f779",
-    "autoskill/app/ui/js/charts.js": "6d5a438b4160c7ada5c122919d1745f870f5b6e3a173eb45e91828f4a88f68b1",
-    "autoskill/app/ui/js/status-view.js": "7daf03442896610b6f6282e4825d66c4c80d398ab2eea09a30310f310c4eadf5",
+    "autoskill/app/ui/js/charts.js": "d8e6b23fc72769e391177b5c2e9ec34069f2ed0bcb309e03366d7326be8668d1",
+    "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
+    "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
+    "autoskill/app/ui/js/folders.js": "82240c1eef76d8e54914eb5c17db5a74e7cb9542827c2690972de071cdf9d7cf",
+    "autoskill/app/ui/js/case-editor.js": "803a0e3663c22520dfc5c4b92980ae5ba6b555cd37478cc8e566f292d410198e",
     "autoskill/app/ui/js/live-refresh.js": "ac21b7dc66dbde23679ce30b61080eed6c7c09b57e5e083062b8b7d18ea9fbf8",
-    "autoskill/app/ui/css/components.css": "0ff59213d00686518bacd3c3b2e338bd7d01f20ac033192dc2b2ae58c6b5aea6",
-    "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
-    "autoskill/app/ui/css/base.css": "f30500f8b269cef8123acd3723bed44a952a126edface2798565c1172ef3c656",
-    "autoskill/app/ui/css/views.css": "0a9850f21d120de1eeb905becafa1b0d34e3fa525835e8da082c7daccba7031a",
-    "autoskill/app/ui/js/pages/runs.js": "81a927fc4be31355ca2e8c2dc952dab060e3c6f59f1dc683f1b50a332b057a5a",
-    "autoskill/app/ui/js/pages/schedules.js": "fae608b13b9c108acfa50d0e86cf4bbbe7b3de8c4e43b7734ddc5b18c4c3d404",
-    "autoskill/app/ui/js/pages/run-actions.js": "ea68c43c04b8e464414f51dad2a7be1844645e06a8729f22174c1d0118f189c0",
-    "autoskill/app/ui/js/pages/workflows.js": "c5046e013043f62b17616b102240ff142f7ddf4d28f4649f51f027e4ee0a9d09",
-    "autoskill/app/ui/js/pages/report-controls.js": "e71b3b8e4031183ddee675647aba8c31ea4bb074a329e7d5acdb8aee74cf6e7c",
-    "autoskill/app/ui/js/pages/native-runs.js": "8d3d2228c9e6a3b7ebc2cadb7d69adecbee4cf8566a0d59f881832748c6634dd",
-    "autoskill/app/ui/js/pages/cases.js": "93cdc3090cf72d4cbe13dce1a9fc0db14b0b5d3288e1bd10daefee0866bc0854",
-    "autoskill/app/ui/js/pages/dashboard.js": "3630553e00ee41180435e24eaaf29dc9d3d72f3296a60fc2e0728a0d234b6f27",
-    "autoskill/app/ui/js/pages/load-tests.js": "bbcd26b5eb84f7d4bea21450bbd713f86106ac6233c75009eb9b35619ced3962",
-    "autoskill/app/ui/js/pages/case-plans.js": "1b5d2afcca0ba10f913c5f5a60679671d48fec63b03458dff30d18510ed7498f",
-    "autoskill/app/ui/js/pages/diagnostics.js": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
-    "autoskill/app/ui/js/pages/run-export.js": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
-    "autoskill/app/ui/js/pages/conversations.js": "c24cca2a9def956c539651e1f42323855e921aeb1cfe0772221ddbb6a59351f5",
-    "autoskill/app/ui/js/pages/native-assets.js": "63b71a547684df21f0fd8fe0b25722fa13c028aa0adae6ab38aae536177bbe94",
-    "autoskill/app/ui/js/pages/project-materials.js": "7a0b6b973cdebc1f24a3ac3b7444cf57f74ada501600354bed32595a3b4d64a8",
-    "autoskill/app/ui/js/pages/data.js": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee"
+    "autoskill/app/ui/js/core.js": "e24a25bcb354d36ec03bc2dd5a178ef98aab7ca256161aa9e3867b267f73c936",
+    "autoskill/app/ui/js/ui.js": "5e8378a8b3a3b27207ef171e4df2d3a7919a7519b71019636ca9cdeab5af048c",
+    "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
+    "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
+    "autoskill/app/ui/css/base.css": "2ee06511424359e26a83cff6992b5e6a7920f0adec1f2941289feff4c2f7d1d8",
+    "autoskill/app/ui/css/load-dashboard.css": "4bf374f2b389b33e933b2c56ed20610ab54225908728663204a584cde1caf644",
+    "autoskill/app/ui/css/components.css": "1c5ec82c409de310c27604636ee58d557955bf5c049a1818e2014d82040efa7f",
+    "autoskill/app/ui/css/views.css": "91ec65261a4b6235896279629cb745f1f84871a231bc45d5fdb9b1303b4766e5",
+    "autoskill/app/ui/css/tokens.css": "861b38dc1960813282a08a4c4a71f01eeb1e37dd1879d159ee91fc9a76744a0e",
+    "autoskill/app/ui/js/pages/native-assets.js": "c8e1ebe9158909ae2967c59057d92da1a373dbff4645c55f754599ba2690babf",
+    "autoskill/app/ui/js/pages/case-plans.js": "1d1ea9c3bd5e845f4555cbd38771bc48bc73ffdc895450328b6fe53b1db8ca29",
+    "autoskill/app/ui/js/pages/schedules.js": "663b624b9c56f921a776b353fc73858a2b2444c2cd44a928d9521915e9193cb2",
+    "autoskill/app/ui/js/pages/load-dashboard.js": "43d8ac4da014c30460b1309e8f62834863c88aadd0227f2f0f6a2a04385f2eb0",
+    "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
+    "autoskill/app/ui/js/pages/data.js": "0d9a60dffb41ec4d07dac90de671be06eec6f98e79386b83fba69557e7c69ede",
+    "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
+    "autoskill/app/ui/js/pages/runs.js": "4fa1e4b19c755ccecae1abb87f4a1c3e5745d8df565065ba76f9e9fc8a8ab435",
+    "autoskill/app/ui/js/pages/diagnostics.js": "8830f0f426a987b4c349b32b235f6b5ac21c63bd6d202072b8f7d0e07efcbee0",
+    "autoskill/app/ui/js/pages/run-actions.js": "90c3ec6f6400754b07b5cc84052df6bc62b3760808c7655f6b81dac3707d7d16",
+    "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
+    "autoskill/app/ui/js/pages/workflows.js": "07d3402f833e632c2f87fb8a0351606a26c1875d03329f5be12b11fb7994c7dd",
+    "autoskill/app/ui/js/pages/project-materials.js": "2e645fbf719aff72a439a1d9f3c384a9999a0b5ca2f84025aa1dfc0c3f2c0795",
+    "autoskill/app/ui/js/pages/cases.js": "69c389461e20118d73eb3b8ff6875a63c1ad2ae170781a01c8f44745eed6639e",
+    "autoskill/app/ui/js/pages/dashboard.js": "92bb023645564fe09d959a42d089688e321f6a21fe171a6cbde1c6e87d5d0bda",
+    "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
+    "autoskill/app/ui/js/pages/native-runs.js": "d2a8c41b0994c95a3532089921f326b3809d77305f394c3bc4a164d53d1d2735"
   },
   "verification": {
     "mode": "archive-only",
@@ -466,12 +671,12 @@
     "zip_crc_ok": true,
     "uploaded_digest_verified": true
   },
-  "asset_id": 761031011,
-  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Windows-x64-Offline.zip",
+  "asset_id": 769635268,
+  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.0/autoSkill-Windows-x64-Offline.zip",
   "packages": [
     {
       "target": "windows-x64",
-      "autoskill": "2.4.0",
+      "autoskill": "2.5.0",
       "python": "3.12.10",
       "chrome_for_testing": "157.0.8103.78",
       "chromedriver": "157.0.8103.78",
@@ -479,10 +684,10 @@
       "wheels": [
         {
           "name": "annotated-doc",
-          "version": "0.0.6",
+          "version": "0.0.7",
           "license": "MIT",
-          "file": "annotated_doc-0.0.6-py3-none-any.whl",
-          "sha256": "361ca0950cc7082f53fa69e9328409f40a62c61e57e0a47e1825a08078a58a53"
+          "file": "annotated_doc-0.0.7-py3-none-any.whl",
+          "sha256": "6bc31bbbec6dfaaedc1676dbc11dbda96fe22a2b5c400e9ebad113fec44a9dc6"
         },
         {
           "name": "annotated-types",
@@ -506,6 +711,27 @@
           "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
         },
         {
+          "name": "bidict",
+          "version": "0.24.1",
+          "license": "MPL-2.0",
+          "file": "bidict-0.24.1-py3-none-any.whl",
+          "sha256": "fd3eaa737917d8a14f4baa391670c433c4e3f6f5fd2cd99d4bf436437f432364"
+        },
+        {
+          "name": "blinker",
+          "version": "1.9.0",
+          "license": "",
+          "file": "blinker-1.9.0-py3-none-any.whl",
+          "sha256": "ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc"
+        },
+        {
+          "name": "brotli",
+          "version": "1.2.1",
+          "license": "MIT",
+          "file": "brotli-1.2.1-cp312-cp312-win_amd64.whl",
+          "sha256": "f5342b8256476554b4045db8b7bf4dc4044d0405485f220f0cd80764bc0d7faf"
+        },
+        {
           "name": "certifi",
           "version": "2026.10.23",
           "license": "MPL-2.0",
@@ -518,6 +744,13 @@
           "license": "MIT-0",
           "file": "cffi-2.1.1-cp312-cp312-win_amd64.whl",
           "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a"
+        },
+        {
+          "name": "charset-normalizer",
+          "version": "3.5.2",
+          "license": "MIT",
+          "file": "charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl",
+          "sha256": "780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc"
         },
         {
           "name": "click",
@@ -541,6 +774,13 @@
           "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934"
         },
         {
+          "name": "ConfigArgParse",
+          "version": "1.10.1",
+          "license": "MIT",
+          "file": "configargparse-1.10.1-py3-none-any.whl",
+          "sha256": "148ffe1ba93304bbcb4a832f513e6d51c08d214215f1e943954f6d01f2394621"
+        },
+        {
           "name": "et_xmlfile",
           "version": "2.0.0",
           "license": "MIT",
@@ -555,11 +795,46 @@
           "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
         },
         {
+          "name": "Flask",
+          "version": "3.1.3",
+          "license": "BSD-3-Clause",
+          "file": "flask-3.1.3-py3-none-any.whl",
+          "sha256": "f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c"
+        },
+        {
+          "name": "flask-cors",
+          "version": "6.0.5",
+          "license": "MIT",
+          "file": "flask_cors-6.0.5-py3-none-any.whl",
+          "sha256": "68fcf75693e961f3af26683b23c4b9a8fb6b64de17d20d0c37b95e8de7ab2ed8"
+        },
+        {
+          "name": "Flask-Login",
+          "version": "0.6.3",
+          "license": "MIT",
+          "file": "Flask_Login-0.6.3-py3-none-any.whl",
+          "sha256": "849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d"
+        },
+        {
           "name": "flatbuffers",
           "version": "25.12.19",
           "license": "Apache 2.0",
           "file": "flatbuffers-25.12.19-py2.py3-none-any.whl",
           "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"
+        },
+        {
+          "name": "gevent",
+          "version": "26.9.0",
+          "license": "MIT",
+          "file": "gevent-26.9.0-cp312-cp312-win_amd64.whl",
+          "sha256": "44a0d58301a333608aad5fef0c19ca8122eb7753484416f000c1f00b4b407697"
+        },
+        {
+          "name": "geventhttpclient",
+          "version": "2.6.2",
+          "license": "MIT",
+          "file": "geventhttpclient-2.6.2-cp312-cp312-win_amd64.whl",
+          "sha256": "35d05f4e1863862ffbf3b0ce4a24779b3f4b7d7fd892e1fd9d9cda9271b4d7d8"
         },
         {
           "name": "greenlet",
@@ -604,6 +879,27 @@
           "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
         },
         {
+          "name": "iniconfig",
+          "version": "2.3.1",
+          "license": "MIT",
+          "file": "iniconfig-2.3.1-py3-none-any.whl",
+          "sha256": "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"
+        },
+        {
+          "name": "itsdangerous",
+          "version": "2.2.0",
+          "license": "",
+          "file": "itsdangerous-2.2.0-py3-none-any.whl",
+          "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"
+        },
+        {
+          "name": "Jinja2",
+          "version": "3.1.6",
+          "license": "",
+          "file": "jinja2-3.1.6-py3-none-any.whl",
+          "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+        },
+        {
           "name": "jsonschema",
           "version": "4.26.0",
           "license": "MIT",
@@ -618,11 +914,32 @@
           "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
         },
         {
+          "name": "locust",
+          "version": "2.47.0",
+          "license": "MIT",
+          "file": "locust-2.47.0-py3-none-any.whl",
+          "sha256": "a773af200bb93b1bed0b99c48c18f11343ed159803a8af3ee3ad0696b05b7d09"
+        },
+        {
+          "name": "MarkupSafe",
+          "version": "3.0.4",
+          "license": "BSD-3-Clause",
+          "file": "markupsafe-3.0.4-cp312-cp312-win_amd64.whl",
+          "sha256": "11935df9bf455ed0c04eb87bcd720f02b1fe5e02128a9430f23aed6f93336fc7"
+        },
+        {
           "name": "mpmath",
           "version": "1.3.0",
           "license": "BSD",
           "file": "mpmath-1.3.0-py3-none-any.whl",
           "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+        },
+        {
+          "name": "msgpack",
+          "version": "1.2.4",
+          "license": "Apache-2.0",
+          "file": "msgpack-1.2.4-cp312-cp312-win_amd64.whl",
+          "sha256": "6e38b123681df22373d545520f54bbeddc4706d9235a1161061f12bd6648497d"
         },
         {
           "name": "numpy",
@@ -674,11 +991,25 @@
           "sha256": "92c0d98ed04eb35af557b709875edba415b1f548bdb22ddb5bb3e1e6c835c2f1"
         },
         {
+          "name": "pluggy",
+          "version": "1.7.0",
+          "license": "MIT",
+          "file": "pluggy-1.7.0-py3-none-any.whl",
+          "sha256": "7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec"
+        },
+        {
           "name": "protobuf",
           "version": "7.36.2",
           "license": "3-Clause BSD License",
           "file": "protobuf-7.36.2-cp310-abi3-win_amd64.whl",
           "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353"
+        },
+        {
+          "name": "psutil",
+          "version": "7.2.2",
+          "license": "BSD-3-Clause",
+          "file": "psutil-7.2.2-cp37-abi3-win_amd64.whl",
+          "sha256": "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988"
         },
         {
           "name": "pycparser",
@@ -709,6 +1040,13 @@
           "sha256": "af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228"
         },
         {
+          "name": "Pygments",
+          "version": "2.21.0",
+          "license": "BSD-2-Clause",
+          "file": "pygments-2.21.0-py3-none-any.whl",
+          "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
+        },
+        {
           "name": "pyreadline3",
           "version": "3.5.6",
           "license": "BSD",
@@ -723,11 +1061,53 @@
           "sha256": "2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5"
         },
         {
+          "name": "pytest",
+          "version": "9.2.0",
+          "license": "MIT",
+          "file": "pytest-9.2.0-py3-none-any.whl",
+          "sha256": "07acdcf88ec174f907dc01af70bf52d49b014bbab03faeeade31c96b18c2e588"
+        },
+        {
+          "name": "python-engineio",
+          "version": "4.15.1",
+          "license": "MIT",
+          "file": "python_engineio-4.15.1-py3-none-any.whl",
+          "sha256": "745cb3c07701c719a2906439a00b67e44ef042904036568530a2c3a8cf18c89a"
+        },
+        {
+          "name": "python-socketio",
+          "version": "5.18.1",
+          "license": "MIT",
+          "file": "python_socketio-5.18.1-py3-none-any.whl",
+          "sha256": "e768c473842be811f6dd24bd0a49cd0d4a0c994182e3eba23cc9d1489c7a697e"
+        },
+        {
+          "name": "pywin32",
+          "version": "312",
+          "license": "PSF",
+          "file": "pywin32-312-cp312-cp312-win_amd64.whl",
+          "sha256": "b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc"
+        },
+        {
+          "name": "pyzmq",
+          "version": "27.3.0",
+          "license": "BSD-3-Clause",
+          "file": "pyzmq-27.3.0-cp312-abi3-win_amd64.whl",
+          "sha256": "3ea8e8fa5c097e68fef91d70b150fda96f307758103868018fc4deeb9c214122"
+        },
+        {
           "name": "referencing",
           "version": "0.37.0",
           "license": "MIT",
           "file": "referencing-0.37.0-py3-none-any.whl",
           "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+        },
+        {
+          "name": "requests",
+          "version": "2.34.2",
+          "license": "Apache-2.0",
+          "file": "requests-2.34.2-py3-none-any.whl",
+          "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
         },
         {
           "name": "rpds-py",
@@ -742,6 +1122,13 @@
           "license": "Apache-2.0",
           "file": "selenium-4.38.0-py3-none-any.whl",
           "sha256": "ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd"
+        },
+        {
+          "name": "simple-websocket",
+          "version": "1.1.0",
+          "license": "",
+          "file": "simple_websocket-1.1.0-py3-none-any.whl",
+          "sha256": "4af6069630a38ed6c561010f0e11a5bc0d4ca569b36306eb257cd9a192497c8c"
         },
         {
           "name": "sniffio",
@@ -842,11 +1229,32 @@
           "sha256": "5569417dc80977fc8c2d43a86f78e0a5a22fee17565d78621b6bb264a115d4ea"
         },
         {
+          "name": "Werkzeug",
+          "version": "3.1.9",
+          "license": "BSD-3-Clause",
+          "file": "werkzeug-3.1.9-py3-none-any.whl",
+          "sha256": "6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab"
+        },
+        {
           "name": "wsproto",
           "version": "1.3.2",
           "license": "MIT",
           "file": "wsproto-1.3.2-py3-none-any.whl",
           "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+        },
+        {
+          "name": "zope.event",
+          "version": "6.2",
+          "license": "ZPL-2.1",
+          "file": "zope_event-6.2-py3-none-any.whl",
+          "sha256": "5e755153ac4faf64c10a4b6dd3307680166a3edf65b38df22df592610f8fa874"
+        },
+        {
+          "name": "zope.interface",
+          "version": "8.7",
+          "license": "ZPL-2.1",
+          "file": "zope_interface-8.7-cp312-cp312-win_amd64.whl",
+          "sha256": "68acf0f25707f9c6277552a3d10114405235385ea1f66bffc89612e0b84f6edd"
         }
       ],
       "sources": {
@@ -884,52 +1292,54 @@
       "network_install": false,
       "telemetry": false,
       "auto_update": false,
-      "runtime_files": 5705,
+      "runtime_files": 7696,
       "file": "autoSkill-Windows-x64-Offline.zip",
-      "bytes": 327370691,
-      "sha256": "cfe216938464fe5c4e9013971c08b35ee442a7ae272bf26643399d8c03b7f85c",
+      "bytes": 342177491,
+      "sha256": "07ea19196c3c32b08efa25180e89bc01aa965575f6527d5b84a4b7009d881ff5",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
-        "autoskill/app/ui/js/shell.js": "4b54ee5e8cd639523227fc174752563c1c6bf02b2e44fd01158254570cb6bf17",
-        "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
-        "autoskill/app/ui/js/core.js": "e6c842de89922f3d1bd57765ffe776bdad20ee5874585d7fa24342af2231c86f",
-        "autoskill/app/ui/js/main.js": "f26ab1888d96251ae5f9b1c8b337f2e2c79f5f07e703a7b6db37843fc9199e94",
-        "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
-        "autoskill/app/ui/js/case-editor.js": "0ad113c88ea9376cb1b00d29dfc226b253dcdde14870dd3f39a1c352f5cefc5a",
-        "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
-        "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
-        "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
-        "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
-        "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
-        "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
-        "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
-        "autoskill/app/ui/js/folders.js": "ae014df19a3e5a4444ba39ad6b5784744b4e112e1ab2a331653e0bf7057a4ea9",
-        "autoskill/app/ui/js/ui.js": "4421e3df719af006d03eb6233b4e3e3a667e912f32c9e60cfa3a1156390696b4",
         "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
+        "autoskill/app/ui/js/shell.js": "85467bec1173f320883a0fdf549b482b4060c4c4c2d27b49fdd8bc531baf2ffc",
+        "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+        "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+        "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
+        "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
+        "autoskill/app/ui/js/main.js": "ab7539bb0307117cdb5ec776e6f47de160db1f61c33b29a596149ad2539b3c5b",
+        "autoskill/app/ui/js/status-view.js": "0fd7325c5d263f89872fe4ac018f2a5c2648b9fcba95dfc745fd8cbe109fec40",
+        "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
         "autoskill/app/ui/js/case-api-editor.js": "a7eb83744f9c21d324f7652f654b20b0619be9e32eda4e9f524bf78d9ea8f779",
-        "autoskill/app/ui/js/charts.js": "6d5a438b4160c7ada5c122919d1745f870f5b6e3a173eb45e91828f4a88f68b1",
-        "autoskill/app/ui/js/status-view.js": "7daf03442896610b6f6282e4825d66c4c80d398ab2eea09a30310f310c4eadf5",
+        "autoskill/app/ui/js/charts.js": "d8e6b23fc72769e391177b5c2e9ec34069f2ed0bcb309e03366d7326be8668d1",
+        "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
+        "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
+        "autoskill/app/ui/js/folders.js": "82240c1eef76d8e54914eb5c17db5a74e7cb9542827c2690972de071cdf9d7cf",
+        "autoskill/app/ui/js/case-editor.js": "803a0e3663c22520dfc5c4b92980ae5ba6b555cd37478cc8e566f292d410198e",
         "autoskill/app/ui/js/live-refresh.js": "ac21b7dc66dbde23679ce30b61080eed6c7c09b57e5e083062b8b7d18ea9fbf8",
-        "autoskill/app/ui/css/components.css": "0ff59213d00686518bacd3c3b2e338bd7d01f20ac033192dc2b2ae58c6b5aea6",
-        "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
-        "autoskill/app/ui/css/base.css": "f30500f8b269cef8123acd3723bed44a952a126edface2798565c1172ef3c656",
-        "autoskill/app/ui/css/views.css": "0a9850f21d120de1eeb905becafa1b0d34e3fa525835e8da082c7daccba7031a",
-        "autoskill/app/ui/js/pages/runs.js": "81a927fc4be31355ca2e8c2dc952dab060e3c6f59f1dc683f1b50a332b057a5a",
-        "autoskill/app/ui/js/pages/schedules.js": "fae608b13b9c108acfa50d0e86cf4bbbe7b3de8c4e43b7734ddc5b18c4c3d404",
-        "autoskill/app/ui/js/pages/run-actions.js": "ea68c43c04b8e464414f51dad2a7be1844645e06a8729f22174c1d0118f189c0",
-        "autoskill/app/ui/js/pages/workflows.js": "c5046e013043f62b17616b102240ff142f7ddf4d28f4649f51f027e4ee0a9d09",
-        "autoskill/app/ui/js/pages/report-controls.js": "e71b3b8e4031183ddee675647aba8c31ea4bb074a329e7d5acdb8aee74cf6e7c",
-        "autoskill/app/ui/js/pages/native-runs.js": "8d3d2228c9e6a3b7ebc2cadb7d69adecbee4cf8566a0d59f881832748c6634dd",
-        "autoskill/app/ui/js/pages/cases.js": "93cdc3090cf72d4cbe13dce1a9fc0db14b0b5d3288e1bd10daefee0866bc0854",
-        "autoskill/app/ui/js/pages/dashboard.js": "3630553e00ee41180435e24eaaf29dc9d3d72f3296a60fc2e0728a0d234b6f27",
-        "autoskill/app/ui/js/pages/load-tests.js": "bbcd26b5eb84f7d4bea21450bbd713f86106ac6233c75009eb9b35619ced3962",
-        "autoskill/app/ui/js/pages/case-plans.js": "1b5d2afcca0ba10f913c5f5a60679671d48fec63b03458dff30d18510ed7498f",
-        "autoskill/app/ui/js/pages/diagnostics.js": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
-        "autoskill/app/ui/js/pages/run-export.js": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
-        "autoskill/app/ui/js/pages/conversations.js": "c24cca2a9def956c539651e1f42323855e921aeb1cfe0772221ddbb6a59351f5",
-        "autoskill/app/ui/js/pages/native-assets.js": "63b71a547684df21f0fd8fe0b25722fa13c028aa0adae6ab38aae536177bbe94",
-        "autoskill/app/ui/js/pages/project-materials.js": "7a0b6b973cdebc1f24a3ac3b7444cf57f74ada501600354bed32595a3b4d64a8",
-        "autoskill/app/ui/js/pages/data.js": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee"
+        "autoskill/app/ui/js/core.js": "e24a25bcb354d36ec03bc2dd5a178ef98aab7ca256161aa9e3867b267f73c936",
+        "autoskill/app/ui/js/ui.js": "5e8378a8b3a3b27207ef171e4df2d3a7919a7519b71019636ca9cdeab5af048c",
+        "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
+        "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
+        "autoskill/app/ui/css/base.css": "2ee06511424359e26a83cff6992b5e6a7920f0adec1f2941289feff4c2f7d1d8",
+        "autoskill/app/ui/css/load-dashboard.css": "4bf374f2b389b33e933b2c56ed20610ab54225908728663204a584cde1caf644",
+        "autoskill/app/ui/css/components.css": "1c5ec82c409de310c27604636ee58d557955bf5c049a1818e2014d82040efa7f",
+        "autoskill/app/ui/css/views.css": "91ec65261a4b6235896279629cb745f1f84871a231bc45d5fdb9b1303b4766e5",
+        "autoskill/app/ui/css/tokens.css": "861b38dc1960813282a08a4c4a71f01eeb1e37dd1879d159ee91fc9a76744a0e",
+        "autoskill/app/ui/js/pages/native-assets.js": "c8e1ebe9158909ae2967c59057d92da1a373dbff4645c55f754599ba2690babf",
+        "autoskill/app/ui/js/pages/case-plans.js": "1d1ea9c3bd5e845f4555cbd38771bc48bc73ffdc895450328b6fe53b1db8ca29",
+        "autoskill/app/ui/js/pages/schedules.js": "663b624b9c56f921a776b353fc73858a2b2444c2cd44a928d9521915e9193cb2",
+        "autoskill/app/ui/js/pages/load-dashboard.js": "43d8ac4da014c30460b1309e8f62834863c88aadd0227f2f0f6a2a04385f2eb0",
+        "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
+        "autoskill/app/ui/js/pages/data.js": "0d9a60dffb41ec4d07dac90de671be06eec6f98e79386b83fba69557e7c69ede",
+        "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
+        "autoskill/app/ui/js/pages/runs.js": "4fa1e4b19c755ccecae1abb87f4a1c3e5745d8df565065ba76f9e9fc8a8ab435",
+        "autoskill/app/ui/js/pages/diagnostics.js": "8830f0f426a987b4c349b32b235f6b5ac21c63bd6d202072b8f7d0e07efcbee0",
+        "autoskill/app/ui/js/pages/run-actions.js": "90c3ec6f6400754b07b5cc84052df6bc62b3760808c7655f6b81dac3707d7d16",
+        "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
+        "autoskill/app/ui/js/pages/workflows.js": "07d3402f833e632c2f87fb8a0351606a26c1875d03329f5be12b11fb7994c7dd",
+        "autoskill/app/ui/js/pages/project-materials.js": "2e645fbf719aff72a439a1d9f3c384a9999a0b5ca2f84025aa1dfc0c3f2c0795",
+        "autoskill/app/ui/js/pages/cases.js": "69c389461e20118d73eb3b8ff6875a63c1ad2ae170781a01c8f44745eed6639e",
+        "autoskill/app/ui/js/pages/dashboard.js": "92bb023645564fe09d959a42d089688e321f6a21fe171a6cbde1c6e87d5d0bda",
+        "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
+        "autoskill/app/ui/js/pages/native-runs.js": "d2a8c41b0994c95a3532089921f326b3809d77305f394c3bc4a164d53d1d2735"
       },
       "verification": {
         "mode": "archive-only",
@@ -938,18 +1348,24 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 761031011,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Windows-x64-Offline.zip"
+      "asset_id": 769635268,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.0/autoSkill-Windows-x64-Offline.zip"
     },
     {
       "target": "linux-x64",
-      "autoskill": "2.4.0",
+      "autoskill": "2.5.0",
       "python": "3.12.10",
       "python_distribution": "astral-sh/python-build-standalone",
       "chrome_for_testing": "157.0.8103.78",
       "chromedriver": "157.0.8103.78",
       "agent_browser": "0.43.0",
       "wheels": [
+        {
+          "name": "Flask-Login",
+          "version": "0.6.3",
+          "file": "Flask_Login-0.6.3-py3-none-any.whl",
+          "sha256": "849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d"
+        },
         {
           "name": "PySocks",
           "version": "1.7.1",
@@ -958,9 +1374,9 @@
         },
         {
           "name": "annotated-doc",
-          "version": "0.0.6",
-          "file": "annotated_doc-0.0.6-py3-none-any.whl",
-          "sha256": "361ca0950cc7082f53fa69e9328409f40a62c61e57e0a47e1825a08078a58a53"
+          "version": "0.0.7",
+          "file": "annotated_doc-0.0.7-py3-none-any.whl",
+          "sha256": "6bc31bbbec6dfaaedc1676dbc11dbda96fe22a2b5c400e9ebad113fec44a9dc6"
         },
         {
           "name": "annotated-types",
@@ -981,6 +1397,24 @@
           "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
         },
         {
+          "name": "bidict",
+          "version": "0.24.1",
+          "file": "bidict-0.24.1-py3-none-any.whl",
+          "sha256": "fd3eaa737917d8a14f4baa391670c433c4e3f6f5fd2cd99d4bf436437f432364"
+        },
+        {
+          "name": "blinker",
+          "version": "1.9.0",
+          "file": "blinker-1.9.0-py3-none-any.whl",
+          "sha256": "ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc"
+        },
+        {
+          "name": "brotli",
+          "version": "1.2.1",
+          "file": "brotli-1.2.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+          "sha256": "4b9dd0173ca5e01d1eb307d3c184fe8c09bdc168ede560889b1018d216d38c61"
+        },
+        {
           "name": "certifi",
           "version": "2026.10.23",
           "file": "certifi-2026.10.23-py3-none-any.whl",
@@ -991,6 +1425,12 @@
           "version": "2.1.1",
           "file": "cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
           "sha256": "c1453022f490d2459a11819d83ad1d586e9ff65a12ac3e705ffebd46d3685dcf"
+        },
+        {
+          "name": "charset-normalizer",
+          "version": "3.5.2",
+          "file": "charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "3d31298449090ab8d47b7b1b2a555ff73cac7ed438a08b7ac160980c7ebed649"
         },
         {
           "name": "click",
@@ -1011,6 +1451,12 @@
           "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934"
         },
         {
+          "name": "ConfigArgParse",
+          "version": "1.10.1",
+          "file": "configargparse-1.10.1-py3-none-any.whl",
+          "sha256": "148ffe1ba93304bbcb4a832f513e6d51c08d214215f1e943954f6d01f2394621"
+        },
+        {
           "name": "cryptography",
           "version": "50.0.0",
           "file": "cryptography-50.0.0-cp311-abi3-manylinux_2_28_x86_64.whl",
@@ -1029,10 +1475,34 @@
           "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
         },
         {
+          "name": "Flask",
+          "version": "3.1.3",
+          "file": "flask-3.1.3-py3-none-any.whl",
+          "sha256": "f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c"
+        },
+        {
+          "name": "flask-cors",
+          "version": "6.0.5",
+          "file": "flask_cors-6.0.5-py3-none-any.whl",
+          "sha256": "68fcf75693e961f3af26683b23c4b9a8fb6b64de17d20d0c37b95e8de7ab2ed8"
+        },
+        {
           "name": "flatbuffers",
           "version": "25.12.19",
           "file": "flatbuffers-25.12.19-py2.py3-none-any.whl",
           "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"
+        },
+        {
+          "name": "gevent",
+          "version": "26.9.0",
+          "file": "gevent-26.9.0-cp312-cp312-manylinux_2_28_x86_64.whl",
+          "sha256": "c59d95daacf71dfb763824b85a89b06ca4faa74b2e7df926714d439d5a47ee26"
+        },
+        {
+          "name": "geventhttpclient",
+          "version": "2.6.2",
+          "file": "geventhttpclient-2.6.2-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+          "sha256": "6724d3b7716021f4677b1f981dde5c5e9e6e35fccd8b37fb118adefb2303c1d2"
         },
         {
           "name": "greenlet",
@@ -1071,6 +1541,24 @@
           "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
         },
         {
+          "name": "iniconfig",
+          "version": "2.3.1",
+          "file": "iniconfig-2.3.1-py3-none-any.whl",
+          "sha256": "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"
+        },
+        {
+          "name": "itsdangerous",
+          "version": "2.2.0",
+          "file": "itsdangerous-2.2.0-py3-none-any.whl",
+          "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"
+        },
+        {
+          "name": "Jinja2",
+          "version": "3.1.6",
+          "file": "jinja2-3.1.6-py3-none-any.whl",
+          "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+        },
+        {
           "name": "jsonschema",
           "version": "4.26.0",
           "file": "jsonschema-4.26.0-py3-none-any.whl",
@@ -1083,10 +1571,28 @@
           "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
         },
         {
+          "name": "locust",
+          "version": "2.47.0",
+          "file": "locust-2.47.0-py3-none-any.whl",
+          "sha256": "a773af200bb93b1bed0b99c48c18f11343ed159803a8af3ee3ad0696b05b7d09"
+        },
+        {
+          "name": "MarkupSafe",
+          "version": "3.0.4",
+          "file": "markupsafe-3.0.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "8e124f974786f831d6043728e38296969d3579db8896fe004682f5758e613581"
+        },
+        {
           "name": "mpmath",
           "version": "1.3.0",
           "file": "mpmath-1.3.0-py3-none-any.whl",
           "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+        },
+        {
+          "name": "msgpack",
+          "version": "1.2.4",
+          "file": "msgpack-1.2.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "c4d5bbdbea8f5669b3a734d6c226772804fb120848f99cbe63a0ddee63b049c9"
         },
         {
           "name": "numpy",
@@ -1131,10 +1637,22 @@
           "sha256": "ba33bae6a13b3d9d354c751cb618af357d20fe1d57767cbcce52079bbef17ad3"
         },
         {
+          "name": "pluggy",
+          "version": "1.7.0",
+          "file": "pluggy-1.7.0-py3-none-any.whl",
+          "sha256": "7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec"
+        },
+        {
           "name": "protobuf",
           "version": "7.36.2",
           "file": "protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl",
           "sha256": "89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2"
+        },
+        {
+          "name": "psutil",
+          "version": "7.2.2",
+          "file": "psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "076a2d2f923fd4821644f5ba89f059523da90dc9014e85f8e45a5774ca5bc6f9"
         },
         {
           "name": "pycparser",
@@ -1161,10 +1679,46 @@
           "sha256": "af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228"
         },
         {
+          "name": "Pygments",
+          "version": "2.21.0",
+          "file": "pygments-2.21.0-py3-none-any.whl",
+          "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
+        },
+        {
+          "name": "pytest",
+          "version": "9.2.0",
+          "file": "pytest-9.2.0-py3-none-any.whl",
+          "sha256": "07acdcf88ec174f907dc01af70bf52d49b014bbab03faeeade31c96b18c2e588"
+        },
+        {
+          "name": "python-engineio",
+          "version": "4.15.1",
+          "file": "python_engineio-4.15.1-py3-none-any.whl",
+          "sha256": "745cb3c07701c719a2906439a00b67e44ef042904036568530a2c3a8cf18c89a"
+        },
+        {
+          "name": "python-socketio",
+          "version": "5.18.1",
+          "file": "python_socketio-5.18.1-py3-none-any.whl",
+          "sha256": "e768c473842be811f6dd24bd0a49cd0d4a0c994182e3eba23cc9d1489c7a697e"
+        },
+        {
+          "name": "pyzmq",
+          "version": "27.3.0",
+          "file": "pyzmq-27.3.0-cp312-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "858fe25231e0fd8612da142efde019faa5ef63fa150a821a27870e791b38c798"
+        },
+        {
           "name": "referencing",
           "version": "0.37.0",
           "file": "referencing-0.37.0-py3-none-any.whl",
           "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+        },
+        {
+          "name": "requests",
+          "version": "2.34.2",
+          "file": "requests-2.34.2-py3-none-any.whl",
+          "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
         },
         {
           "name": "rpds-py",
@@ -1177,6 +1731,12 @@
           "version": "4.38.0",
           "file": "selenium-4.38.0-py3-none-any.whl",
           "sha256": "ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd"
+        },
+        {
+          "name": "simple-websocket",
+          "version": "1.1.0",
+          "file": "simple_websocket-1.1.0-py3-none-any.whl",
+          "sha256": "4af6069630a38ed6c561010f0e11a5bc0d4ca569b36306eb257cd9a192497c8c"
         },
         {
           "name": "sniffio",
@@ -1263,10 +1823,28 @@
           "sha256": "9b5aca38b67492ef518a8ab76851862488a478602229112c4b0d58d63a7a4d5c"
         },
         {
+          "name": "Werkzeug",
+          "version": "3.1.9",
+          "file": "werkzeug-3.1.9-py3-none-any.whl",
+          "sha256": "6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab"
+        },
+        {
           "name": "wsproto",
           "version": "1.3.2",
           "file": "wsproto-1.3.2-py3-none-any.whl",
           "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+        },
+        {
+          "name": "zope.event",
+          "version": "6.2",
+          "file": "zope_event-6.2-py3-none-any.whl",
+          "sha256": "5e755153ac4faf64c10a4b6dd3307680166a3edf65b38df22df592610f8fa874"
+        },
+        {
+          "name": "zope.interface",
+          "version": "8.7",
+          "file": "zope_interface-8.7-cp312-cp312-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl",
+          "sha256": "90aef6e0a9924af18f60528895f2fc50cb634191939d65b10a96d9ced05030b5"
         }
       ],
       "sources": {
@@ -1304,56 +1882,58 @@
       "network_install": false,
       "telemetry": false,
       "auto_update": false,
-      "runtime_files": 10814,
+      "runtime_files": 12197,
       "system_dependencies_bundled": false,
       "glibc_minimum_runtime": "2.28",
       "uos_hardware_verified": false,
       "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
       "file": "autoSkill-Linux-x64-Offline.zip",
-      "bytes": 410795984,
-      "sha256": "68c136d4f88093ad16b411fe2c0cb4a9123549b1eff8767c1a1f99273edf77ed",
+      "bytes": 420944777,
+      "sha256": "fb063f68b864f2a0aba10eca64e990f11f2d47278c4f03974648a655d81e33ab",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
-        "autoskill/app/ui/js/shell.js": "4b54ee5e8cd639523227fc174752563c1c6bf02b2e44fd01158254570cb6bf17",
-        "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
-        "autoskill/app/ui/js/core.js": "e6c842de89922f3d1bd57765ffe776bdad20ee5874585d7fa24342af2231c86f",
-        "autoskill/app/ui/js/main.js": "f26ab1888d96251ae5f9b1c8b337f2e2c79f5f07e703a7b6db37843fc9199e94",
-        "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
-        "autoskill/app/ui/js/case-editor.js": "0ad113c88ea9376cb1b00d29dfc226b253dcdde14870dd3f39a1c352f5cefc5a",
-        "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
-        "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
-        "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
-        "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
-        "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
-        "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
-        "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
-        "autoskill/app/ui/js/folders.js": "ae014df19a3e5a4444ba39ad6b5784744b4e112e1ab2a331653e0bf7057a4ea9",
-        "autoskill/app/ui/js/ui.js": "4421e3df719af006d03eb6233b4e3e3a667e912f32c9e60cfa3a1156390696b4",
         "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
+        "autoskill/app/ui/js/shell.js": "85467bec1173f320883a0fdf549b482b4060c4c4c2d27b49fdd8bc531baf2ffc",
+        "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+        "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+        "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
+        "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
+        "autoskill/app/ui/js/main.js": "ab7539bb0307117cdb5ec776e6f47de160db1f61c33b29a596149ad2539b3c5b",
+        "autoskill/app/ui/js/status-view.js": "0fd7325c5d263f89872fe4ac018f2a5c2648b9fcba95dfc745fd8cbe109fec40",
+        "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
         "autoskill/app/ui/js/case-api-editor.js": "a7eb83744f9c21d324f7652f654b20b0619be9e32eda4e9f524bf78d9ea8f779",
-        "autoskill/app/ui/js/charts.js": "6d5a438b4160c7ada5c122919d1745f870f5b6e3a173eb45e91828f4a88f68b1",
-        "autoskill/app/ui/js/status-view.js": "7daf03442896610b6f6282e4825d66c4c80d398ab2eea09a30310f310c4eadf5",
+        "autoskill/app/ui/js/charts.js": "d8e6b23fc72769e391177b5c2e9ec34069f2ed0bcb309e03366d7326be8668d1",
+        "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
+        "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
+        "autoskill/app/ui/js/folders.js": "82240c1eef76d8e54914eb5c17db5a74e7cb9542827c2690972de071cdf9d7cf",
+        "autoskill/app/ui/js/case-editor.js": "803a0e3663c22520dfc5c4b92980ae5ba6b555cd37478cc8e566f292d410198e",
         "autoskill/app/ui/js/live-refresh.js": "ac21b7dc66dbde23679ce30b61080eed6c7c09b57e5e083062b8b7d18ea9fbf8",
-        "autoskill/app/ui/css/components.css": "0ff59213d00686518bacd3c3b2e338bd7d01f20ac033192dc2b2ae58c6b5aea6",
-        "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
-        "autoskill/app/ui/css/base.css": "f30500f8b269cef8123acd3723bed44a952a126edface2798565c1172ef3c656",
-        "autoskill/app/ui/css/views.css": "0a9850f21d120de1eeb905becafa1b0d34e3fa525835e8da082c7daccba7031a",
-        "autoskill/app/ui/js/pages/runs.js": "81a927fc4be31355ca2e8c2dc952dab060e3c6f59f1dc683f1b50a332b057a5a",
-        "autoskill/app/ui/js/pages/schedules.js": "fae608b13b9c108acfa50d0e86cf4bbbe7b3de8c4e43b7734ddc5b18c4c3d404",
-        "autoskill/app/ui/js/pages/run-actions.js": "ea68c43c04b8e464414f51dad2a7be1844645e06a8729f22174c1d0118f189c0",
-        "autoskill/app/ui/js/pages/workflows.js": "c5046e013043f62b17616b102240ff142f7ddf4d28f4649f51f027e4ee0a9d09",
-        "autoskill/app/ui/js/pages/report-controls.js": "e71b3b8e4031183ddee675647aba8c31ea4bb074a329e7d5acdb8aee74cf6e7c",
-        "autoskill/app/ui/js/pages/native-runs.js": "8d3d2228c9e6a3b7ebc2cadb7d69adecbee4cf8566a0d59f881832748c6634dd",
-        "autoskill/app/ui/js/pages/cases.js": "93cdc3090cf72d4cbe13dce1a9fc0db14b0b5d3288e1bd10daefee0866bc0854",
-        "autoskill/app/ui/js/pages/dashboard.js": "3630553e00ee41180435e24eaaf29dc9d3d72f3296a60fc2e0728a0d234b6f27",
-        "autoskill/app/ui/js/pages/load-tests.js": "bbcd26b5eb84f7d4bea21450bbd713f86106ac6233c75009eb9b35619ced3962",
-        "autoskill/app/ui/js/pages/case-plans.js": "1b5d2afcca0ba10f913c5f5a60679671d48fec63b03458dff30d18510ed7498f",
-        "autoskill/app/ui/js/pages/diagnostics.js": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
-        "autoskill/app/ui/js/pages/run-export.js": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
-        "autoskill/app/ui/js/pages/conversations.js": "c24cca2a9def956c539651e1f42323855e921aeb1cfe0772221ddbb6a59351f5",
-        "autoskill/app/ui/js/pages/native-assets.js": "63b71a547684df21f0fd8fe0b25722fa13c028aa0adae6ab38aae536177bbe94",
-        "autoskill/app/ui/js/pages/project-materials.js": "7a0b6b973cdebc1f24a3ac3b7444cf57f74ada501600354bed32595a3b4d64a8",
-        "autoskill/app/ui/js/pages/data.js": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee"
+        "autoskill/app/ui/js/core.js": "e24a25bcb354d36ec03bc2dd5a178ef98aab7ca256161aa9e3867b267f73c936",
+        "autoskill/app/ui/js/ui.js": "5e8378a8b3a3b27207ef171e4df2d3a7919a7519b71019636ca9cdeab5af048c",
+        "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
+        "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
+        "autoskill/app/ui/css/base.css": "2ee06511424359e26a83cff6992b5e6a7920f0adec1f2941289feff4c2f7d1d8",
+        "autoskill/app/ui/css/load-dashboard.css": "4bf374f2b389b33e933b2c56ed20610ab54225908728663204a584cde1caf644",
+        "autoskill/app/ui/css/components.css": "1c5ec82c409de310c27604636ee58d557955bf5c049a1818e2014d82040efa7f",
+        "autoskill/app/ui/css/views.css": "91ec65261a4b6235896279629cb745f1f84871a231bc45d5fdb9b1303b4766e5",
+        "autoskill/app/ui/css/tokens.css": "861b38dc1960813282a08a4c4a71f01eeb1e37dd1879d159ee91fc9a76744a0e",
+        "autoskill/app/ui/js/pages/native-assets.js": "c8e1ebe9158909ae2967c59057d92da1a373dbff4645c55f754599ba2690babf",
+        "autoskill/app/ui/js/pages/case-plans.js": "1d1ea9c3bd5e845f4555cbd38771bc48bc73ffdc895450328b6fe53b1db8ca29",
+        "autoskill/app/ui/js/pages/schedules.js": "663b624b9c56f921a776b353fc73858a2b2444c2cd44a928d9521915e9193cb2",
+        "autoskill/app/ui/js/pages/load-dashboard.js": "43d8ac4da014c30460b1309e8f62834863c88aadd0227f2f0f6a2a04385f2eb0",
+        "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
+        "autoskill/app/ui/js/pages/data.js": "0d9a60dffb41ec4d07dac90de671be06eec6f98e79386b83fba69557e7c69ede",
+        "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
+        "autoskill/app/ui/js/pages/runs.js": "4fa1e4b19c755ccecae1abb87f4a1c3e5745d8df565065ba76f9e9fc8a8ab435",
+        "autoskill/app/ui/js/pages/diagnostics.js": "8830f0f426a987b4c349b32b235f6b5ac21c63bd6d202072b8f7d0e07efcbee0",
+        "autoskill/app/ui/js/pages/run-actions.js": "90c3ec6f6400754b07b5cc84052df6bc62b3760808c7655f6b81dac3707d7d16",
+        "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
+        "autoskill/app/ui/js/pages/workflows.js": "07d3402f833e632c2f87fb8a0351606a26c1875d03329f5be12b11fb7994c7dd",
+        "autoskill/app/ui/js/pages/project-materials.js": "2e645fbf719aff72a439a1d9f3c384a9999a0b5ca2f84025aa1dfc0c3f2c0795",
+        "autoskill/app/ui/js/pages/cases.js": "69c389461e20118d73eb3b8ff6875a63c1ad2ae170781a01c8f44745eed6639e",
+        "autoskill/app/ui/js/pages/dashboard.js": "92bb023645564fe09d959a42d089688e321f6a21fe171a6cbde1c6e87d5d0bda",
+        "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
+        "autoskill/app/ui/js/pages/native-runs.js": "d2a8c41b0994c95a3532089921f326b3809d77305f394c3bc4a164d53d1d2735"
       },
       "verification": {
         "mode": "archive-only",
@@ -1362,18 +1942,24 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 761031588,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Linux-x64-Offline.zip"
+      "asset_id": 769635538,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.0/autoSkill-Linux-x64-Offline.zip"
     },
     {
       "target": "linux-arm64",
-      "autoskill": "2.4.0",
+      "autoskill": "2.5.0",
       "python": "3.12.10",
       "python_distribution": "astral-sh/python-build-standalone",
       "chrome_for_testing": "157.0.8103.78",
       "chromedriver": "157.0.8103.78",
       "agent_browser": "0.43.0",
       "wheels": [
+        {
+          "name": "Flask-Login",
+          "version": "0.6.3",
+          "file": "Flask_Login-0.6.3-py3-none-any.whl",
+          "sha256": "849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d"
+        },
         {
           "name": "PySocks",
           "version": "1.7.1",
@@ -1382,9 +1968,9 @@
         },
         {
           "name": "annotated-doc",
-          "version": "0.0.6",
-          "file": "annotated_doc-0.0.6-py3-none-any.whl",
-          "sha256": "361ca0950cc7082f53fa69e9328409f40a62c61e57e0a47e1825a08078a58a53"
+          "version": "0.0.7",
+          "file": "annotated_doc-0.0.7-py3-none-any.whl",
+          "sha256": "6bc31bbbec6dfaaedc1676dbc11dbda96fe22a2b5c400e9ebad113fec44a9dc6"
         },
         {
           "name": "annotated-types",
@@ -1405,6 +1991,24 @@
           "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
         },
         {
+          "name": "bidict",
+          "version": "0.24.1",
+          "file": "bidict-0.24.1-py3-none-any.whl",
+          "sha256": "fd3eaa737917d8a14f4baa391670c433c4e3f6f5fd2cd99d4bf436437f432364"
+        },
+        {
+          "name": "blinker",
+          "version": "1.9.0",
+          "file": "blinker-1.9.0-py3-none-any.whl",
+          "sha256": "ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc"
+        },
+        {
+          "name": "brotli",
+          "version": "1.2.1",
+          "file": "brotli-1.2.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+          "sha256": "875975f91870682cca4371260522ad3f22d636e845b5c5355c52bc045c0f75c8"
+        },
+        {
           "name": "certifi",
           "version": "2026.10.23",
           "file": "certifi-2026.10.23-py3-none-any.whl",
@@ -1415,6 +2019,12 @@
           "version": "2.1.1",
           "file": "cffi-2.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
           "sha256": "68e62fe11f30d5ca8289242866f0a5291402d8529ca2178ab8afc5c9694ae890"
+        },
+        {
+          "name": "charset-normalizer",
+          "version": "3.5.2",
+          "file": "charset_normalizer-3.5.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "b91363207bd9dc966a691e959bb47f64b30f7ac4b072be9968b366982f7db77c"
         },
         {
           "name": "click",
@@ -1435,6 +2045,12 @@
           "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934"
         },
         {
+          "name": "ConfigArgParse",
+          "version": "1.10.1",
+          "file": "configargparse-1.10.1-py3-none-any.whl",
+          "sha256": "148ffe1ba93304bbcb4a832f513e6d51c08d214215f1e943954f6d01f2394621"
+        },
+        {
           "name": "cryptography",
           "version": "50.0.0",
           "file": "cryptography-50.0.0-cp311-abi3-manylinux_2_28_aarch64.whl",
@@ -1453,10 +2069,34 @@
           "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
         },
         {
+          "name": "Flask",
+          "version": "3.1.3",
+          "file": "flask-3.1.3-py3-none-any.whl",
+          "sha256": "f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c"
+        },
+        {
+          "name": "flask-cors",
+          "version": "6.0.5",
+          "file": "flask_cors-6.0.5-py3-none-any.whl",
+          "sha256": "68fcf75693e961f3af26683b23c4b9a8fb6b64de17d20d0c37b95e8de7ab2ed8"
+        },
+        {
           "name": "flatbuffers",
           "version": "25.12.19",
           "file": "flatbuffers-25.12.19-py2.py3-none-any.whl",
           "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"
+        },
+        {
+          "name": "gevent",
+          "version": "26.9.0",
+          "file": "gevent-26.9.0-cp312-cp312-manylinux_2_28_aarch64.whl",
+          "sha256": "0b3f0ad9dc8e2ba585e0f6498c96b78ba61b1214f5b2e17081839c93b69a58c3"
+        },
+        {
+          "name": "geventhttpclient",
+          "version": "2.6.2",
+          "file": "geventhttpclient-2.6.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "b6958cd827bc9e420144fd453cc7ab078b9b4af1772a16f8a26071a91b33dd93"
         },
         {
           "name": "greenlet",
@@ -1495,6 +2135,24 @@
           "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
         },
         {
+          "name": "iniconfig",
+          "version": "2.3.1",
+          "file": "iniconfig-2.3.1-py3-none-any.whl",
+          "sha256": "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"
+        },
+        {
+          "name": "itsdangerous",
+          "version": "2.2.0",
+          "file": "itsdangerous-2.2.0-py3-none-any.whl",
+          "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"
+        },
+        {
+          "name": "Jinja2",
+          "version": "3.1.6",
+          "file": "jinja2-3.1.6-py3-none-any.whl",
+          "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+        },
+        {
           "name": "jsonschema",
           "version": "4.26.0",
           "file": "jsonschema-4.26.0-py3-none-any.whl",
@@ -1507,10 +2165,28 @@
           "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
         },
         {
+          "name": "locust",
+          "version": "2.47.0",
+          "file": "locust-2.47.0-py3-none-any.whl",
+          "sha256": "a773af200bb93b1bed0b99c48c18f11343ed159803a8af3ee3ad0696b05b7d09"
+        },
+        {
+          "name": "MarkupSafe",
+          "version": "3.0.4",
+          "file": "markupsafe-3.0.4-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "6a45c3d514f2436064db00d7fc8778d888f0236ebfed649b53d13a59e69ad51b"
+        },
+        {
           "name": "mpmath",
           "version": "1.3.0",
           "file": "mpmath-1.3.0-py3-none-any.whl",
           "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+        },
+        {
+          "name": "msgpack",
+          "version": "1.2.4",
+          "file": "msgpack-1.2.4-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "9ca1e78106675f2aed07dc37b842ce19be70010ab22c5c5c04688f0840d48539"
         },
         {
           "name": "numpy",
@@ -1555,10 +2231,22 @@
           "sha256": "db2d76613a57ad844362ce42f7d0c2fa26b19a4f7a46d4f76b891c631e6e5aff"
         },
         {
+          "name": "pluggy",
+          "version": "1.7.0",
+          "file": "pluggy-1.7.0-py3-none-any.whl",
+          "sha256": "7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec"
+        },
+        {
           "name": "protobuf",
           "version": "7.36.2",
           "file": "protobuf-7.36.2-cp310-abi3-manylinux2014_aarch64.whl",
           "sha256": "e11e1f0180583a2af89db6a2ecd9e8dc40aa6d2988ca175bfd0e6d12ea72d74e"
+        },
+        {
+          "name": "psutil",
+          "version": "7.2.2",
+          "file": "psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "b0726cecd84f9474419d67252add4ac0cd9811b04d61123054b9fb6f57df6e9e"
         },
         {
           "name": "pycparser",
@@ -1585,10 +2273,46 @@
           "sha256": "af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228"
         },
         {
+          "name": "Pygments",
+          "version": "2.21.0",
+          "file": "pygments-2.21.0-py3-none-any.whl",
+          "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
+        },
+        {
+          "name": "pytest",
+          "version": "9.2.0",
+          "file": "pytest-9.2.0-py3-none-any.whl",
+          "sha256": "07acdcf88ec174f907dc01af70bf52d49b014bbab03faeeade31c96b18c2e588"
+        },
+        {
+          "name": "python-engineio",
+          "version": "4.15.1",
+          "file": "python_engineio-4.15.1-py3-none-any.whl",
+          "sha256": "745cb3c07701c719a2906439a00b67e44ef042904036568530a2c3a8cf18c89a"
+        },
+        {
+          "name": "python-socketio",
+          "version": "5.18.1",
+          "file": "python_socketio-5.18.1-py3-none-any.whl",
+          "sha256": "e768c473842be811f6dd24bd0a49cd0d4a0c994182e3eba23cc9d1489c7a697e"
+        },
+        {
+          "name": "pyzmq",
+          "version": "27.3.0",
+          "file": "pyzmq-27.3.0-cp312-abi3-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "ad8b828407caee77ff3ab0bdb2984ee8d48922328b226e8fda7c84a71a55dbb4"
+        },
+        {
           "name": "referencing",
           "version": "0.37.0",
           "file": "referencing-0.37.0-py3-none-any.whl",
           "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+        },
+        {
+          "name": "requests",
+          "version": "2.34.2",
+          "file": "requests-2.34.2-py3-none-any.whl",
+          "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
         },
         {
           "name": "rpds-py",
@@ -1601,6 +2325,12 @@
           "version": "4.38.0",
           "file": "selenium-4.38.0-py3-none-any.whl",
           "sha256": "ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd"
+        },
+        {
+          "name": "simple-websocket",
+          "version": "1.1.0",
+          "file": "simple_websocket-1.1.0-py3-none-any.whl",
+          "sha256": "4af6069630a38ed6c561010f0e11a5bc0d4ca569b36306eb257cd9a192497c8c"
         },
         {
           "name": "sniffio",
@@ -1687,10 +2417,28 @@
           "sha256": "e0334872c0a37b606418ac52f6ab9cfd17317ac26365f7f65e203e2d0d0d359f"
         },
         {
+          "name": "Werkzeug",
+          "version": "3.1.9",
+          "file": "werkzeug-3.1.9-py3-none-any.whl",
+          "sha256": "6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab"
+        },
+        {
           "name": "wsproto",
           "version": "1.3.2",
           "file": "wsproto-1.3.2-py3-none-any.whl",
           "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+        },
+        {
+          "name": "zope.event",
+          "version": "6.2",
+          "file": "zope_event-6.2-py3-none-any.whl",
+          "sha256": "5e755153ac4faf64c10a4b6dd3307680166a3edf65b38df22df592610f8fa874"
+        },
+        {
+          "name": "zope.interface",
+          "version": "8.7",
+          "file": "zope_interface-8.7-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+          "sha256": "383c04293dbcfee8ae8d24f85592291207d5bb6a703af437343e44ddb94fb68c"
         }
       ],
       "sources": {
@@ -1728,56 +2476,58 @@
       "network_install": false,
       "telemetry": false,
       "auto_update": false,
-      "runtime_files": 10813,
+      "runtime_files": 12195,
       "system_dependencies_bundled": false,
       "glibc_minimum_runtime": "2.28",
       "uos_hardware_verified": false,
       "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
       "file": "autoSkill-Linux-arm64-Offline.zip",
-      "bytes": 385071858,
-      "sha256": "f799d05620a4f1017a1568113c371f25fed2f9efde64ffe013a413eef7bf92a8",
+      "bytes": 394771779,
+      "sha256": "b165457bd73f53ffb556ac63cf16bc8d202b965932fafe7f81e04003f381cde7",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
-        "autoskill/app/ui/js/shell.js": "4b54ee5e8cd639523227fc174752563c1c6bf02b2e44fd01158254570cb6bf17",
-        "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
-        "autoskill/app/ui/js/core.js": "e6c842de89922f3d1bd57765ffe776bdad20ee5874585d7fa24342af2231c86f",
-        "autoskill/app/ui/js/main.js": "f26ab1888d96251ae5f9b1c8b337f2e2c79f5f07e703a7b6db37843fc9199e94",
-        "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
-        "autoskill/app/ui/js/case-editor.js": "0ad113c88ea9376cb1b00d29dfc226b253dcdde14870dd3f39a1c352f5cefc5a",
-        "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
-        "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
-        "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
-        "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
-        "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
-        "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
-        "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
-        "autoskill/app/ui/js/folders.js": "ae014df19a3e5a4444ba39ad6b5784744b4e112e1ab2a331653e0bf7057a4ea9",
-        "autoskill/app/ui/js/ui.js": "4421e3df719af006d03eb6233b4e3e3a667e912f32c9e60cfa3a1156390696b4",
         "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
+        "autoskill/app/ui/js/shell.js": "85467bec1173f320883a0fdf549b482b4060c4c4c2d27b49fdd8bc531baf2ffc",
+        "autoskill/app/ui/js/project-settings.js": "7d0f20e363719e713115552ac134fe2f57d80c3ac07028c9ed76ea2c290f91cb",
+        "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
+        "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
+        "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
+        "autoskill/app/ui/js/main.js": "ab7539bb0307117cdb5ec776e6f47de160db1f61c33b29a596149ad2539b3c5b",
+        "autoskill/app/ui/js/status-view.js": "0fd7325c5d263f89872fe4ac018f2a5c2648b9fcba95dfc745fd8cbe109fec40",
+        "autoskill/app/ui/js/run-launcher.js": "35464e8dcff33773e914c5703e95fdca232e1738b7b6cf14e2ec92431dd54eae",
         "autoskill/app/ui/js/case-api-editor.js": "a7eb83744f9c21d324f7652f654b20b0619be9e32eda4e9f524bf78d9ea8f779",
-        "autoskill/app/ui/js/charts.js": "6d5a438b4160c7ada5c122919d1745f870f5b6e3a173eb45e91828f4a88f68b1",
-        "autoskill/app/ui/js/status-view.js": "7daf03442896610b6f6282e4825d66c4c80d398ab2eea09a30310f310c4eadf5",
+        "autoskill/app/ui/js/charts.js": "d8e6b23fc72769e391177b5c2e9ec34069f2ed0bcb309e03366d7326be8668d1",
+        "autoskill/app/ui/js/case-ui-editor.js": "2663b738c0d748f69cf291449234b4b0b40c37ff7794ad6669e7c0d867cf3e16",
+        "autoskill/app/ui/js/dom-events.js": "bd19a3a5c082e6507bfe569eed5d5005311b7a505f80cb8e6ef05f34595be1b1",
+        "autoskill/app/ui/js/folders.js": "82240c1eef76d8e54914eb5c17db5a74e7cb9542827c2690972de071cdf9d7cf",
+        "autoskill/app/ui/js/case-editor.js": "803a0e3663c22520dfc5c4b92980ae5ba6b555cd37478cc8e566f292d410198e",
         "autoskill/app/ui/js/live-refresh.js": "ac21b7dc66dbde23679ce30b61080eed6c7c09b57e5e083062b8b7d18ea9fbf8",
-        "autoskill/app/ui/css/components.css": "0ff59213d00686518bacd3c3b2e338bd7d01f20ac033192dc2b2ae58c6b5aea6",
-        "autoskill/app/ui/css/tokens.css": "cb54c1e2393a14115371f7880c6cc21165fdf5c27a03e94fecaf04ea796b681b",
-        "autoskill/app/ui/css/base.css": "f30500f8b269cef8123acd3723bed44a952a126edface2798565c1172ef3c656",
-        "autoskill/app/ui/css/views.css": "0a9850f21d120de1eeb905becafa1b0d34e3fa525835e8da082c7daccba7031a",
-        "autoskill/app/ui/js/pages/runs.js": "81a927fc4be31355ca2e8c2dc952dab060e3c6f59f1dc683f1b50a332b057a5a",
-        "autoskill/app/ui/js/pages/schedules.js": "fae608b13b9c108acfa50d0e86cf4bbbe7b3de8c4e43b7734ddc5b18c4c3d404",
-        "autoskill/app/ui/js/pages/run-actions.js": "ea68c43c04b8e464414f51dad2a7be1844645e06a8729f22174c1d0118f189c0",
-        "autoskill/app/ui/js/pages/workflows.js": "c5046e013043f62b17616b102240ff142f7ddf4d28f4649f51f027e4ee0a9d09",
-        "autoskill/app/ui/js/pages/report-controls.js": "e71b3b8e4031183ddee675647aba8c31ea4bb074a329e7d5acdb8aee74cf6e7c",
-        "autoskill/app/ui/js/pages/native-runs.js": "8d3d2228c9e6a3b7ebc2cadb7d69adecbee4cf8566a0d59f881832748c6634dd",
-        "autoskill/app/ui/js/pages/cases.js": "93cdc3090cf72d4cbe13dce1a9fc0db14b0b5d3288e1bd10daefee0866bc0854",
-        "autoskill/app/ui/js/pages/dashboard.js": "3630553e00ee41180435e24eaaf29dc9d3d72f3296a60fc2e0728a0d234b6f27",
-        "autoskill/app/ui/js/pages/load-tests.js": "bbcd26b5eb84f7d4bea21450bbd713f86106ac6233c75009eb9b35619ced3962",
-        "autoskill/app/ui/js/pages/case-plans.js": "1b5d2afcca0ba10f913c5f5a60679671d48fec63b03458dff30d18510ed7498f",
-        "autoskill/app/ui/js/pages/diagnostics.js": "d5278d013bed4f3a223716fd71c5c47556e674eb25ca0efcd6c888005f5ac4a0",
-        "autoskill/app/ui/js/pages/run-export.js": "a322014d7be60283669035d141a35fe84cf78b0ab41c139c3a60a44132e11a9c",
-        "autoskill/app/ui/js/pages/conversations.js": "c24cca2a9def956c539651e1f42323855e921aeb1cfe0772221ddbb6a59351f5",
-        "autoskill/app/ui/js/pages/native-assets.js": "63b71a547684df21f0fd8fe0b25722fa13c028aa0adae6ab38aae536177bbe94",
-        "autoskill/app/ui/js/pages/project-materials.js": "7a0b6b973cdebc1f24a3ac3b7444cf57f74ada501600354bed32595a3b4d64a8",
-        "autoskill/app/ui/js/pages/data.js": "07e8429372cc620d487722f55f19549e405425a73a2b30aed45883daf73d3bee"
+        "autoskill/app/ui/js/core.js": "e24a25bcb354d36ec03bc2dd5a178ef98aab7ca256161aa9e3867b267f73c936",
+        "autoskill/app/ui/js/ui.js": "5e8378a8b3a3b27207ef171e4df2d3a7919a7519b71019636ca9cdeab5af048c",
+        "autoskill/app/ui/js/locator-editor.js": "ee75100996107bcd31623442bed2179b216579097b5120dc9773533fd1345966",
+        "autoskill/app/ui/js/value-editor.js": "e3476d2ffa522b66318645bce616dabcc5482b32b10f884121868b41453e2c33",
+        "autoskill/app/ui/css/base.css": "2ee06511424359e26a83cff6992b5e6a7920f0adec1f2941289feff4c2f7d1d8",
+        "autoskill/app/ui/css/load-dashboard.css": "4bf374f2b389b33e933b2c56ed20610ab54225908728663204a584cde1caf644",
+        "autoskill/app/ui/css/components.css": "1c5ec82c409de310c27604636ee58d557955bf5c049a1818e2014d82040efa7f",
+        "autoskill/app/ui/css/views.css": "91ec65261a4b6235896279629cb745f1f84871a231bc45d5fdb9b1303b4766e5",
+        "autoskill/app/ui/css/tokens.css": "861b38dc1960813282a08a4c4a71f01eeb1e37dd1879d159ee91fc9a76744a0e",
+        "autoskill/app/ui/js/pages/native-assets.js": "c8e1ebe9158909ae2967c59057d92da1a373dbff4645c55f754599ba2690babf",
+        "autoskill/app/ui/js/pages/case-plans.js": "1d1ea9c3bd5e845f4555cbd38771bc48bc73ffdc895450328b6fe53b1db8ca29",
+        "autoskill/app/ui/js/pages/schedules.js": "663b624b9c56f921a776b353fc73858a2b2444c2cd44a928d9521915e9193cb2",
+        "autoskill/app/ui/js/pages/load-dashboard.js": "43d8ac4da014c30460b1309e8f62834863c88aadd0227f2f0f6a2a04385f2eb0",
+        "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
+        "autoskill/app/ui/js/pages/data.js": "0d9a60dffb41ec4d07dac90de671be06eec6f98e79386b83fba69557e7c69ede",
+        "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
+        "autoskill/app/ui/js/pages/runs.js": "4fa1e4b19c755ccecae1abb87f4a1c3e5745d8df565065ba76f9e9fc8a8ab435",
+        "autoskill/app/ui/js/pages/diagnostics.js": "8830f0f426a987b4c349b32b235f6b5ac21c63bd6d202072b8f7d0e07efcbee0",
+        "autoskill/app/ui/js/pages/run-actions.js": "90c3ec6f6400754b07b5cc84052df6bc62b3760808c7655f6b81dac3707d7d16",
+        "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
+        "autoskill/app/ui/js/pages/workflows.js": "07d3402f833e632c2f87fb8a0351606a26c1875d03329f5be12b11fb7994c7dd",
+        "autoskill/app/ui/js/pages/project-materials.js": "2e645fbf719aff72a439a1d9f3c384a9999a0b5ca2f84025aa1dfc0c3f2c0795",
+        "autoskill/app/ui/js/pages/cases.js": "69c389461e20118d73eb3b8ff6875a63c1ad2ae170781a01c8f44745eed6639e",
+        "autoskill/app/ui/js/pages/dashboard.js": "92bb023645564fe09d959a42d089688e321f6a21fe171a6cbde1c6e87d5d0bda",
+        "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
+        "autoskill/app/ui/js/pages/native-runs.js": "d2a8c41b0994c95a3532089921f326b3809d77305f394c3bc4a164d53d1d2735"
       },
       "verification": {
         "mode": "archive-only",
@@ -1786,21 +2536,21 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 761032203,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Linux-arm64-Offline.zip"
+      "asset_id": 769636040,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.0/autoSkill-Linux-arm64-Offline.zip"
     }
   ],
   "package_count": 3,
-  "tag": "v2.4.0",
-  "built_from_commit": "b9290351dab0fed5faa8d422c04c058e7f57d1f2",
-  "release_id": 449315882,
-  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.4.0",
+  "tag": "v2.5.0",
+  "built_from_commit": "2dc77b7a5a8df5d4fbaf276340085ebb17c86784",
+  "release_id": 452048091,
+  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.5.0",
   "checksum_asset": {
     "file": "SHA256SUMS.txt",
     "bytes": 298,
-    "sha256": "5d89e8cc9c15ee17bd723cd00b5cbafd41b6c6febb082e8ba5cd7565c9e859d6",
-    "asset_id": 761032726,
-    "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/SHA256SUMS.txt"
+    "sha256": "e3ab718a4aff431cd6a54a34a555ed75dab7f2c53bdfa8476609441034ce9535",
+    "asset_id": 769636489,
+    "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.0/SHA256SUMS.txt"
   },
   "real_dsh_agent_sandbox_verified": false,
   "uos_hardware_verified": false
