@@ -90,3 +90,36 @@ jobs:
       - name: Workflow, diagnosis, knowledge and host contracts
         if: always()
         run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts" --show-logs
+      - name: Check immutable report evidence and Pages simulation snapshots
+        run: |
+          PYTHONPATH=tests python -m unittest -v test_preview_observation_steps test_report_step_definitions
+          node --test tests/preview-runs.test.mjs
+  dashboard-e2e:
+    name: Dashboard E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install project browser version
+        run: |
+          python -m pip install "$(grep '^playwright==' requirements.txt)"
+          python -m playwright install --with-deps chromium
+          python - <<'PY'
+          import os
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p, open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"AUTOSKILL_CHROMIUM={p.chromium.executable_path}\n")
+          PY
+      - name: Check case drawers, execution reports, offline HTML and dashboard colours
+        env:
+          AUTOSKILL_VALIDATION_OUTPUT: ${{ runner.temp }}/dashboard-e2e
+        run: PYTHONPATH=tests python -m unittest -v test_pages_browser test_dashboard_palette
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: dashboard-e2e-diagnostics
+          path: ${{ runner.temp }}/dashboard-e2e
+          if-no-files-found: warn

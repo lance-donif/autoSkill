@@ -1,5 +1,6 @@
 // Local examples only. A run's simulated clock advances when the demo is open.
 import { casesApi } from './cases-api.js';
+import { simulateCase, pendingDetails, completedDetails, actualText } from './simulated-details.js';
 import { schedulesApi } from './schedules-api.js';
 import { restoreResult, verdictStatus as outcomeStatus } from './verdicts.js';
 
@@ -36,21 +37,31 @@ function outcomeCounts(rows) {
   return counts;
 }
 
-function compactCounts(run) {
-  const counts = { pass: 0, fail: 0, not_run: run.total - run.done };
-  const templates = run.load_templates;
-  const complete = run.done - (run.cancelled_index != null ? 1 : 0);
-  const rounds = Math.floor(complete / templates.length);
-  const remainder = complete % templates.length;
-  let requests = 0;
-  for (const [i, row] of templates.entries()) {
-    const count = rounds + Number(i < remainder);
-    counts[row.simulateFailure ? 'fail' : 'pass'] += count;
-    if (row.kind === 'api') requests += count;
-  }
-  if (run.cancelled_index != null) {
+function plannedOutcome(run, row) {
+  return run.simulation_cases?.[row.case_id]?.outcome || (row.simulateFailure ? 'fail' : 'pass');
+}
+
+export function compactCaseCounts(run, index) {
+  const n = run.load_templates.length;
+  const completed = run.done - Number(run.cancelled_index != null);
+  const count = Math.floor(completed / n) + Number(index < completed % n);
+  const outcome = plannedOutcome(run, run.load_templates[index]);
+  const counts = { pass: 0, fail: 0, not_run: run.load.iterations - count };
+  counts[outcome] += count;
+  if (run.cancelled_index != null && index === run.cancelled_index % n && outcome !== 'not_run') {
     counts.fail++;
-    if (templates[run.cancelled_index % templates.length].kind === 'api') requests++;
+    counts.not_run--;
+  }
+  return counts;
+}
+
+function compactCounts(run) {
+  const counts = { pass: 0, fail: 0, not_run: 0 };
+  let requests = 0;
+  for (const [i, row] of run.load_templates.entries()) {
+    const current = compactCaseCounts(run, i);
+    for (const key of Object.keys(counts)) counts[key] += current[key];
+    if (row.kind === 'api') requests += current.pass + current.fail;
   }
   return { counts, requests };
 }
@@ -84,7 +95,7 @@ function aggregate(run, phase) {
   const compact = run.load_templates && compactCounts(run);
   const counts = compact?.counts || outcomeCounts(run.results);
   const outcome = counts.fail ? 'fail' : counts.pass === run.total ? 'pass' : 'not_run';
-  run.done = counts.pass + counts.fail;
+  const judged = counts.pass + counts.fail;
   run.passed = counts.pass;
   run.failed = counts.fail;
   run.not_run = counts.not_run;
@@ -96,10 +107,15 @@ function aggregate(run, phase) {
   run.state.report = run.test_report.status;
   if (run.load) {
     const apiCount = compact?.requests ?? run.results.filter((r) => r.kind === 'api' && r.started_at).length;
-    const percentile = (p) => Math.ceil(p * run.done) > (run.cancelled_index != null ? 1 : 0) ? 180 : 0;
+    const targets = run.load_templates || run.results;
+    const aborted = run.cancelled_index != null && plannedOutcome(run, targets[run.cancelled_index % targets.length]) !== 'not_run';
+    const percentile = (p) => {
+      if (!judged) return null;
+      return Math.ceil(p * judged) > Number(aborted) ? 180 : 0;
+    };
     const elapsed = run.started_at && run.finished_at ? (Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000 : 0;
-    run.metrics = { latency_samples: run.done, request_count: apiCount, throughput_per_second: fraction(run.done, elapsed),
-      error_rate: fraction(run.failed, run.done), p50_ms: percentile(0.5), p95_ms: percentile(0.95), p99_ms: percentile(0.99) };
+    run.metrics = { latency_samples: judged, request_count: apiCount, throughput_per_second: fraction(judged, elapsed),
+      error_rate: fraction(run.failed, judged), p50_ms: percentile(0.5), p95_ms: percentile(0.95), p99_ms: percentile(0.99) };
   }
 }
 
@@ -116,6 +132,12 @@ function start(context, projectId, ids, body, batch, load) {
     if (!definition) throw new Error('缺少用例定义：' + caseId);
     return [caseId, structuredClone(definition)];
   }));
+  const seedResults = fixtures['/results']?.items || [];
+  const plans = Object.fromEntries(chosen.map((caseId) => {
+    const previous = seedResults.find((r) => r.project_id === projectId && r.case_id === caseId && !r.prerequisite);
+    const detail = db.caseLibrary.details[projectId + '/' + caseId];
+    return [caseId, simulateCase(definitions[caseId], detail, project, previous, fixtures)];
+  }));
   const iterations = load?.iterations ?? 1;
   const total = chosen.length * iterations;
   if (!Number.isSafeInteger(total)) throw new Error('目标总条数超出浏览器可精确计数的整数范围');
@@ -123,22 +145,21 @@ function start(context, projectId, ids, body, batch, load) {
   const id = 'demo-' + crypto.randomUUID();
   const run = { id, family: load ? 'load' : 'replay', simulated: true, trigger: body.trigger || 'manual', task_id: body.task_id || null,
     project_id: projectId, project_name: project.name + ' · 浏览器模拟', case_ids: chosen, batch_id: batch, engine: body.engine || 'playwright',
-    report_project: { id: projectId, name: project.name, base_url: project.base_url }, report_definitions: definitions,
+    report_project: { id: projectId, name: project.name, base_url: project.base_url }, report_definitions: definitions, simulation_cases: plans,
     headed: body.headed, status: 'Queued', created_at: stamp(now), started_at: null, finished_at: null,
     current: '预览模拟：等待开始', reason: '', total, done: 0, results: [] };
   if (load) run.load = load;
-  const seedResults = fixtures['/results']?.items || [];
   const compact = load && total > LOAD_PAGE_SIZE;
   const storedIterations = compact ? 1 : iterations;
   for (let iteration = 1; iteration <= storedIterations; iteration++) {
     for (const caseId of chosen) {
       const item = all.get(caseId);
-      const expected = seedResults.find((r) => r.project_id === projectId && r.case_id === caseId && !r.prerequisite);
+      const plan = plans[caseId];
       run.results.push({ id: id + '-' + (run.results.length + 1), run_id: id, project_id: projectId, project_name: run.project_name,
         case_id: caseId, case_title: item.title, kind: item.kind, case_revision: item.revision || 1, prerequisite: false,
         status: 'NotRun', history_status: 'NotRun', state: state('not_run', 'queued'), reason: '', actual: '', category: '',
-        started_at: null, duration_ms: null, simulated: true, simulateFailure: expected?.state?.outcome === 'fail',
-        detail: load ? { load_iteration: iteration, load_user: (iteration - 1) % load.concurrency + 1 } : {} });
+        started_at: null, duration_ms: null, simulated: true,
+        detail: { ...pendingDetails(plan), ...(load ? { load_iteration: iteration, load_user: (iteration - 1) % load.concurrency + 1 } : {}) } });
     }
   }
   if (compact) {
@@ -150,22 +171,31 @@ function start(context, projectId, ids, body, batch, load) {
   return run;
 }
 
-function finishRow(row, outcome, time, cancelled = false) {
+function finishRow(run, row, time, cancelled = false) {
+  const plan = run.simulation_cases?.[row.case_id];
+  const planned = plannedOutcome(run, row);
+  const outcome = cancelled && planned !== 'not_run' ? 'fail' : planned;
   row.state = state(outcome);
   row.history_status = row.status = outcomeStatus[outcome];
-  row.duration_ms = cancelled ? 0 : 180;
-  row.started_at = stamp(time - row.duration_ms);
-  row.category = outcome === 'fail' ? 'assertion' : '';
-  row.reason = cancelled ? '模拟执行已取消' : outcome === 'fail' ? '模拟检查的实际值与预期不同' : '';
-  row.actual = outcome === 'pass' ? '模拟步骤已完成' : row.reason;
-  row.detail.steps = [{ text: '执行示例步骤', status: outcome, ms: row.duration_ms, error: row.reason }];
+  row.duration_ms = outcome === 'not_run' ? null : cancelled ? 0 : 180;
+  row.started_at = row.duration_ms == null ? null : stamp(time - row.duration_ms);
+  row.category = outcome !== 'fail' ? '' : cancelled ? 'cancelled' : 'assertion';
+  row.reason = cancelled && outcome === 'fail' ? '模拟执行已取消' : plan?.reason || '';
+  row.actual = actualText(plan, outcome, row.reason, cancelled);
+  const { load_iteration, load_user } = row.detail;
+  row.detail = completedDetails(plan, outcome, row.duration_ms, row.reason, cancelled);
+  if (load_iteration != null) Object.assign(row.detail, { load_iteration, load_user });
+  for (const check of row.detail.assertions || []) {
+    const checks = row.state.checks;
+    if (checks[check.scope] !== 'fail') checks[check.scope] = check.passed ? 'pass' : 'fail';
+  }
 }
 
 const durationOf = (run) => 1600 + Math.min(3200, run.total * 240);
 
 export function runPage(run, requestedOffset = 0) {
-  if (!run.load_templates) return run;
-  const templates = run.load_templates;
+  const { simulation_cases: _plans, load_templates: templates, ...view } = run;
+  if (!templates) return view;
   const lastPage = Math.floor((run.total - 1) / LOAD_PAGE_SIZE);
   const page = Math.min(lastPage, Math.max(0, Math.floor(Number(requestedOffset) / LOAD_PAGE_SIZE) || 0));
   const offset = page * LOAD_PAGE_SIZE;
@@ -174,17 +204,17 @@ export function runPage(run, requestedOffset = 0) {
   for (let i = offset; i < end; i++) {
     const original = templates[i % templates.length];
     const iteration = Math.floor(i / templates.length) + 1;
-    const row = { ...original, id: run.id + '-' + (i + 1), detail: {
+    const row = { ...original, id: run.id + '-' + (i + 1), detail: { ...original.detail,
       load_iteration: iteration, load_user: (iteration - 1) % run.load.concurrency + 1,
     } };
     if (i < run.done) {
       const interrupted = run.cancelled_index === i;
       const at = interrupted ? Date.parse(run.finished_at) : Date.parse(run.started_at) + Math.ceil((i + 1) * durationOf(run) / run.total);
-      finishRow(row, original.simulateFailure || interrupted ? 'fail' : 'pass', at, interrupted);
+      finishRow(run, row, at, interrupted);
     }
     results.push(row);
   }
-  return { ...run, project_name: run.project_name + `（明细 ${offset + 1}–${end} / ${run.total}）`, results,
+  return { ...view, project_name: run.project_name + `（明细 ${offset + 1}–${end} / ${run.total}）`, results,
     result_page: { offset, end, total: run.total } };
 }
 
@@ -198,12 +228,12 @@ export function advanceRuns(db, now = Date.now()) {
     const duration = durationOf(run);
     const done = Math.min(run.total, Math.floor(elapsed / duration * run.total));
     if (run.status === 'Running' && run.done === done) continue;
-    if (run.load_templates) run.done = done;
-    else {
+    if (!run.load_templates) {
       for (let i = run.done; i < done; i++) {
-        finishRow(run.results[i], run.results[i].simulateFailure ? 'fail' : 'pass', startTime + Math.ceil((i + 1) * duration / run.total));
+        finishRow(run, run.results[i], startTime + Math.ceil((i + 1) * duration / run.total));
       }
     }
+    run.done = done;
     run.started_at = stamp(startTime);
     const finished = done === run.total;
     run.status = finished ? 'Pass' : 'Running';
@@ -268,7 +298,7 @@ function historyRows(runs, params) {
 }
 
 function runList(runs) {
-  return runs.map(({ results, report_definitions, load_templates, ...r }) => ({ ...r, history_status: outcomeStatus[r.state?.outcome || 'not_run'] }));
+  return runs.map(({ results: _rows, report_definitions: _definitions, simulation_cases: _plans, load_templates: _templates, ...r }) => ({ ...r, history_status: outcomeStatus[r.state?.outcome || 'not_run'] }));
 }
 
 function trend(rows, params) {
@@ -377,7 +407,7 @@ export function runsApi(context) {
     const project = casesApi({ ...context, path: '/projects/' + login[1], method: 'GET' });
     const ids = [project.login?.ui_case, project.login?.api_case].filter(Boolean);
     if (!ids.length) return problem('请先选择登录用例');
-    return start(context, project.id, ids, { ...body, trigger: 'login' }, null, null);
+    return runPage(start(context, project.id, ids, { ...body, trigger: 'login' }, null, null));
   }
   const detail = path.match(/^\/(runs|load-tests)\/([^/]+)(?:\/(cancel|rerun))?$/);
   if (!detail) return undefined;
@@ -392,8 +422,8 @@ export function runsApi(context) {
       const now = Date.now();
       if (run.status === 'Running' && run.done < run.total) {
         run.cancelled_index = run.done;
-        if (run.load_templates) run.done++;
-        else finishRow(run.results[run.done], 'fail', now, true);
+        if (!run.load_templates) finishRow(run, run.results[run.done], now, true);
+        run.done++;
       }
       run.status = 'Cancelled';
       run.finished_at = stamp(now);
@@ -401,7 +431,7 @@ export function runsApi(context) {
       run.reason = '模拟运行已取消';
       aggregate(run, 'cancelled');
     }
-    return run;
+    return runPage(run);
   }
   if (action === 'rerun') {
     const templates = run.load_templates;
@@ -409,7 +439,7 @@ export function runsApi(context) {
       if (r.prerequisite || (body.case_id && r.case_id !== body.case_id)) return false;
       if (!body.failed_only) return true;
       if (!templates) return r.state?.outcome === 'fail';
-      return (i < run.done && r.simulateFailure) || (run.cancelled_index != null && i === run.cancelled_index % templates.length);
+      return compactCaseCounts(run, i).fail > 0;
     });
     if (!targets.length) return problem('没有可重跑的目标用例');
     const remaining = new Set(caseRows(context, run.project_id).map((c) => c.case_id));

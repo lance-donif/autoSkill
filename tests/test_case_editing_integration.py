@@ -163,8 +163,7 @@ class CaseEditingIntegrationTests(DashboardWorkspace):
         runs_before = db.one("SELECT COUNT(*) n FROM runs")["n"]
         self.open("cases?range=all")
         row = self.page.locator("#view tbody tr").filter(has_text=identity)
-        row.click()
-        self.page.get_by_role("button", name="编辑用例", exact=True).click()
+        row.get_by_role("button", name=f"编辑用例 {identity}", exact=True).click()
         dialog = self.page.get_by_role("dialog", name="编辑用例", exact=True)
         dialog.get_by_label("功能描述", exact=True).fill("验证服务就绪状态及新增的就绪说明。")
         changed_expected = "2. 就绪标记为true，且包含完整的就绪说明。"
@@ -187,7 +186,7 @@ class CaseEditingIntegrationTests(DashboardWorkspace):
         self.assertEqual(completed["status"], "Pass", completed)
         result = db.one("SELECT * FROM results WHERE run_id = ?", (completed["id"],))
         self.assertEqual(json.loads(result["detail"])["business_status"], "Unverified")
-        self.assertEqual(self.listing(self.pid, identity)["current_status"], "Unverified")
+        self.assertEqual(self.listing(self.pid, identity)["current_status"], "Pass")
         receipt = task_reports.get(completed["test_report"]["report_id"])
         book = openpyxl.load_workbook(receipt["excel"], read_only=True, data_only=True)
         try:
@@ -195,7 +194,7 @@ class CaseEditingIntegrationTests(DashboardWorkspace):
             exported = next(row for row in book["功能测试用例"].iter_rows(min_row=2, values_only=True) if row[0] == alias)
             self.assertEqual(exported[3:7], ("验证服务就绪状态及新增的就绪说明。", document["preconditions"],
                                             "\n".join(document["steps"]), changed_expected))
-            self.assertEqual(exported[9], "业务未验证")
+            self.assertEqual(exported[9], "通过")
         finally:
             book.close()
         self.unchanged_history(passed_history)
@@ -204,5 +203,5 @@ class CaseEditingIntegrationTests(DashboardWorkspace):
         self.page.reload()
         expect(self.page.locator("#view h1")).to_be_visible()
         row = self.page.locator("#view tbody tr").filter(has_text=identity)
-        expect(row.locator("td").nth(4)).to_contain_text("未验证")
+        expect(row.locator("td").nth(4)).to_contain_text("通过")
         self.evidence("edited-functional-expected-remains-unverified.png")

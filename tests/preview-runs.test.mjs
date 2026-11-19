@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { casesApi } from '../preview/cases-api.js';
 import { advanceRuns, runsApi } from '../preview/runs-api.js';
 
 const examples = JSON.parse(await readFile(new URL('../preview/fixtures.json', import.meta.url), 'utf8'));
@@ -9,7 +10,8 @@ function environment() {
   const db = { runs: fixtures['/runs'].items.map((r) => structuredClone(fixtures['/runs/' + r.id])) };
   const request = (url, method = 'GET', body = {}) => {
     const { pathname: path, searchParams: params } = new URL(url, 'https://example.invalid/');
-    return runsApi({ path, method, body, params, db, fixtures });
+    const ctx = { path, method, body, params, db, fixtures };
+    return runsApi(ctx) ?? casesApi(ctx);
   };
   return { db, request, project_id: fixtures['/results'].items.find((r) => r.state.outcome === 'fail').project_id };
 }
@@ -66,8 +68,9 @@ test('load simulation honors iterations and remains separate from dashboard repl
   const case_ids = request('/load-tests/options?projects=' + project_id).items.slice(0, 2).map((c) => c.case_id);
   const body = { items: [{ project_id, case_ids }], concurrency: 2, iterations: 3, ramp_up_seconds: 0 };
   const { runs } = request('/load-tests', 'POST', body);
-  const run = request('/load-tests/' + runs[0].id);
-  advanceRuns(db, Date.parse(run.created_at) + 11000);
+  const path = '/load-tests/' + runs[0].id;
+  advanceRuns(db, Date.parse(request(path).created_at) + 11000);
+  const run = request(path);
   assert.equal(run.done, 6);
   assert.equal(run.metrics.latency_samples, 6);
   assert.deepEqual(run.results.map((r) => r.detail.load_iteration), [1, 1, 2, 2, 3, 3]);
@@ -80,7 +83,7 @@ test('batch pass rate covers each accepted project and skipped items do not leav
   const cases = request('/load-tests/options?projects=' + project_id).items;
   const passing = request('/results?status=Pass&projects=' + project_id).items[0].case_id;
   const failing = request('/results?status=Fail&projects=' + project_id).items[0].case_id;
-  db.caseLibrary.projects.push({ ...db.caseLibrary.projects[0], id: 'other-demo', name: '第二个示例项目' });
+  db.caseLibrary.projects.push({ ...db.caseLibrary.projects.find((p) => p.id === project_id), id: 'other-demo', name: '第二个示例项目' });
   db.caseLibrary.items.push({ ...cases.find((c) => c.case_id === passing), project_id: 'other-demo' });
   db.caseLibrary.definitions['other-demo/' + passing] = structuredClone(db.caseLibrary.definitions[project_id + '/' + passing]);
   const created = request('/runs', 'POST', { items: [
@@ -106,6 +109,7 @@ test('large simulated loads keep only case templates and generate any detail pag
   assert.equal(raw.load_templates.length, 2);
   const total = iterations * 2;
   assert.equal(request(path).not_run, total);
+  assert.equal(request(path).metrics.p95_ms, null);
   advanceRuns(db, Date.parse(raw.created_at) + 9000);
   const first = request(path);
   assert.deepEqual(first.result_page, { offset: 0, end: 200, total });
@@ -137,4 +141,89 @@ test('cancelling a compact simulation counts the interrupted target and preserve
   assert.equal(interrupted.history_status, 'Fail');
   assert.deepEqual(detail.state_counts, { pass: previous, fail: 1, not_run: detail.total - previous - 1 });
   assert.equal(request(path + '?detail_offset=99000').results[0].history_status, 'NotRun');
+});
+
+test('browser simulation freezes actual UI steps and pairs a scrubbed API request with its offline response', () => {
+  const { db, request } = environment();
+  const api = '/projects/stock-room/cases/ST-API-002';
+  const ui = '/projects/stock-room/cases/ST-UI-001';
+  const edit = (path, change) => {
+    const { case: definition, content_revision } = request(path.replace('/projects/', '/case-definitions/').replace('/cases/', '/'));
+    const draft = structuredClone(definition);
+    change(draft);
+    assert.equal(request(path, 'PUT', { case: draft, expected_content_revision: content_revision }).changed, true);
+  };
+  edit(api, (d) => { d.headers = { Authorization: 'demo-hidden', 'X-Correlation': 'demo-001' }; });
+  const body = { project_id: 'stock-room', case_ids: ['ST-UI-001', 'ST-API-002'] };
+  const first = '/runs/' + request('/runs', 'POST', body).runs[0].id;
+  assert.deepEqual(request(first).results[0].detail.steps.map((s) => s.status), ['not_run', 'not_run']);
+  assert.equal(request(first).results[1].detail.response, undefined);
+  assert.equal(request(first).simulation_cases, undefined);
+  edit(ui, (d) => { d.extensions.automation.assertions[0].name = '新版搜索框'; });
+  edit(api, (d) => { d.assertions.json_equals['/threshold'] = 10; });
+  const next = '/runs/' + request('/runs', 'POST', body).runs[0].id;
+  advanceRuns(db, Date.parse(request(next).created_at) + 9000);
+  const [uiRow, apiRow] = request(first).results;
+  assert.deepEqual(uiRow.detail.steps.map((s) => [s.text, s.status, s.check]), [
+    ['打开 https://stock.example.invalid/stock', 'done', false], ['测试标识 stock-search 可见', 'done', true],
+  ]);
+  assert.equal(uiRow.detail.steps.reduce((s, step) => s + step.ms, 0), uiRow.duration_ms);
+  const detail = apiRow.detail;
+  assert.equal(apiRow.history_status, 'Fail');
+  assert.equal(detail.target_started, true);
+  assert.deepEqual(detail.request.headers, { Authorization: '<已隐藏>', 'X-Correlation': 'demo-001' });
+  assert.deepEqual([detail.request.method, detail.request.url, detail.response.status, detail.response.bytes],
+    ['GET', 'https://stock.example.invalid/api/stock', 200, 31]);
+  assert.equal(JSON.parse(detail.response.body).threshold, 10);
+  assert.deepEqual(detail.assertions.at(-1), { name: '字段 /threshold', expected: 20, actual: 10, passed: false, scope: 'business' });
+  assert.deepEqual(detail.attempts.map((a) => [a.request, a.response, a.simulated, a.duration_ms]), [
+    [detail.request, detail.response, true, apiRow.duration_ms],
+  ]);
+  assert.equal(request(next).results[0].detail.steps.at(-1).text, '新版搜索框');
+  assert.equal(request(next).results[1].state.outcome, 'pass');
+  assert.equal(request('/runs').items[0].simulation_cases, undefined);
+});
+
+test('queued cancellation and interrupted exchanges never supply an unobserved simulated response', () => {
+  const { db, request } = environment();
+  const launch = () => '/runs/' + request('/runs', 'POST', { project_id: 'stock-room', case_ids: ['ST-API-001', 'ST-UI-001'] }).runs[0].id;
+  const queued = request(launch() + '/cancel', 'POST').results;
+  assert.deepEqual(queued.map((r) => r.detail.target_started), [false, false]);
+  assert.equal(queued[0].detail.request, undefined);
+  assert.equal(queued[0].detail.response, undefined);
+  assert.equal(queued[0].detail.attempts, undefined);
+  assert.deepEqual(queued[1].detail.steps.map((s) => [s.status, s.ms]), [['not_run', undefined], ['not_run', undefined]]);
+  const path = launch();
+  advanceRuns(db, Date.parse(request(path).created_at) + 650);
+  const [interrupted, untouched] = request(path + '/cancel', 'POST').results;
+  assert.equal(interrupted.state.outcome, 'fail');
+  assert.equal(interrupted.detail.attempts[0].request.url, 'https://stock.example.invalid/api/stock');
+  assert.equal(interrupted.detail.attempts[0].response, undefined);
+  assert.equal(interrupted.detail.assertions, undefined);
+  assert.equal(untouched.detail.target_started, false);
+});
+
+test('compact load pages distinguish unresolved targets from completed offline exchanges in all counts', () => {
+  const { db, request } = environment();
+  const body = { project_id: 'stock-room', case_ids: ['ST-API-001', 'ST-API-003'], iterations: 103, concurrency: 2, ramp_up_seconds: 0 };
+  const path = '/load-tests/' + request('/load-tests', 'POST', body).runs[0].id;
+  advanceRuns(db, Date.parse(request(path).created_at) + 10000);
+  const page = request(path + '?detail_offset=200');
+  assert.deepEqual(page.state_counts, { pass: 103, fail: 0, not_run: 103 });
+  assert.equal(page.done, 206);
+  assert.equal(page.metrics.request_count, 103);
+  assert.equal(page.metrics.latency_samples, 103);
+  for (const row of page.results) {
+    if (row.case_id === 'ST-API-003') {
+      assert.match(row.reason, /未解析变量/);
+      assert.equal(row.started_at, null);
+      assert.equal(row.detail.target_started, false);
+      assert.equal(row.detail.request, undefined);
+      assert.equal(row.detail.response, undefined);
+      assert.equal(row.detail.attempts, undefined);
+    } else {
+      assert.deepEqual(row.detail.response, row.detail.attempts[0].response);
+      assert.equal(row.detail.request.method, 'GET');
+    }
+  }
 });

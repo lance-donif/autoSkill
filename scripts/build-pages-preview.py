@@ -141,6 +141,60 @@ def register_observed_cases(source: dict) -> None:
         previous[cid] = domain.content_hash(projects.case(project, cid))
 
 
+def observation_detail(observation: dict) -> dict:
+    """Publish measured steps and report any remaining frozen definitions separately."""
+    from autoskill.replay import ir
+
+    timeline = observation.get("timeline", [])
+    checks = observation["checks"]
+    detail = {"assertions": checks, "steps": timeline, "artifact_hashes": observation["artifact_hashes"],
+              "attempts": [{**attempt, "outcome": observation["outcome"], "case_id": observation["case_id"], "kind": "case"}
+                           for attempt in observation.get("attempts", [])]}
+    if path := observation.get("screenshot_path"):
+        digest = observation["artifact_hashes"]["screenshot_sha256"]
+        image = (ROOT / path).resolve()
+        if not image.is_relative_to(ROOT) or image.suffix != ".png" or hashlib.sha256(image.read_bytes()).hexdigest() != digest:
+            raise ValueError(f"Invalid screenshot for {observation['run_id']}/{observation['case_id']}")
+        detail["screenshots"] = [digest + ".png"]
+    automation = observation["automation"]
+    start = automation.get("start_url")
+    navigation = ir.describe({"action": "goto", "url": start}) if start else None
+    if timeline:
+        first = timeline[0]
+        if len(timeline) != 1 or checks or first.get("text") != navigation or first["status"] != "failed":
+            return detail
+    # The failed initial navigation aborted before any of the configured actions/terminal checks.
+    # Without a timeline the definition alone cannot establish when any action ran.
+    key, status = ("pending_steps", "not_run") if timeline else ("definition_steps", "definition_only")
+    planned = []
+    if not timeline and navigation:
+        planned.append({"text": navigation, "status": status})
+    for step in automation.get("actions", []) + automation.get("assertions", []):
+        text = step.get("name") or ir.describe(step)
+        entry = {"text": text, "status": status}
+        if "assertion" in step:
+            entry["check"] = True
+        planned.append(entry)
+    if planned:
+        detail[key] = planned
+    return detail
+
+
+def refresh_observation_details(data: dict, source: dict) -> None:
+    """Refresh only the public UI evidence in an existing Pages snapshot."""
+    data["/observations/" + source["project_id"]] = source
+    records = source.get("previous_cases", []) + source["cases"]
+    details = {(r["run_id"], r["case_id"], r["revision"]): observation_detail(r) for r in records}
+    run_ids = {r["run_id"] for r in records}
+    listings = [data["/runs/" + run_id]["results"] for run_id in run_ids]
+    listings.extend(value["items"] for path, value in data.items() if path == "/results" or path.startswith("/results?"))
+    for rows in listings:
+        for row in rows:
+            key = row["run_id"], row["case_id"], row["case_revision"]
+            if row["project_id"] == source["project_id"] and key in details:
+                row["detail"] = details[key]
+
+
 def add_observations(data: dict, source: dict) -> None:
     """Project public receipts into the browser's result lists without replaying a target."""
     project = source["project_id"]
@@ -169,8 +223,7 @@ def add_observations(data: dict, source: dict) -> None:
                "case_revision": revision, "category": observation.get("category", ""), "project_name": source["project_name"], "engine": observation["engine"],
                "reason": reason, "actual": actual, "status": labels[outcome], "history_status": labels[outcome], "prerequisite": False,
                "started_at": started_at, "duration_ms": observation["duration_ms"], "state": state,
-               "detail": {"assertions": observation["checks"], "steps": observation.get("timeline", []),
-                          "attempts": [], "artifact_hashes": observation["artifact_hashes"]}}
+               "detail": observation_detail(observation)}
         observed_runs[run_id].append(row)
         current = {"state": state, "current_status": labels[outcome], "current": True, "last_status": labels[outcome],
                    "last_state": state, "last_run_at": started_at, **provenance}
@@ -325,11 +378,16 @@ def render(root: Path, pages: dict, observed: dict | None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workbooks-only", action="store_true", help="Update reports from existing fixtures, preserving sample IDs and clocks.")
-    if parser.parse_args().workbooks_only:
+    parser.add_argument("--observations-only", action="store_true", help="Refresh public UI receipts and reports without changing sample IDs or clocks.")
+    args = parser.parse_args()
+    if args.workbooks_only or args.observations_only:
         from preview_workbooks import enrich_workbooks
 
         path = ROOT / "preview/fixtures.json"
         data = json.loads(path.read_text(encoding="utf-8"))
+        if args.observations_only:
+            source = ROOT / "scripts/fixtures/runoob-observations.json"
+            refresh_observation_details(data, json.loads(source.read_text(encoding="utf-8")))
         enrich_workbooks(data)
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return

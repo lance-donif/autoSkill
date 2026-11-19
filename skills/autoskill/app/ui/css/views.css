@@ -108,10 +108,13 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .steps li::before { content: counter(step); position: absolute; left: 0; top: 8px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); font-size: 11px; font-weight: 650; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
 .steps .step-text { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .steps .step-sub { color: var(--ink-3); font-size: var(--t-xs); text-align: right; max-width: 46%; }
+.result-body .step-text, .result-body .step-sub { overflow-wrap: anywhere; }
 .steps.timeline li.done::before { background: var(--good-wash); color: var(--good-ink); }
 .steps.timeline li.failed::before { background: var(--bad-wash); color: var(--bad-ink); }
 .steps.timeline li.failed .step-sub { color: var(--bad-ink); }
 .req-line { display: flex; align-items: center; gap: var(--s-3); padding: 8px 12px; border-radius: var(--r-md); background: var(--surface-2); font-size: var(--t-sm); }
+.result-body .req-line { flex-wrap: wrap; }
+.result-body .request-url { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
 .method { font: 700 11px var(--mono); padding: 2px 7px; border-radius: 5px; background: var(--surface-3); color: var(--ink-2); letter-spacing: .02em; }
 .method.get { background: var(--accent-wash); color: var(--accent-strong); }
 .method.post, .method.put, .method.patch { background: var(--good-wash); color: var(--good-ink); }

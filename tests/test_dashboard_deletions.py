@@ -170,17 +170,18 @@ class DashboardDeletionTests(unittest.TestCase):
     def confirm(self, action):
         self.page.get_by_role("alertdialog").get_by_role("button", name=action, exact=True).click()
 
-    def test_case_row_cancel_and_detail_delete_preserve_scope_and_other_cases(self):
+    def test_case_detail_close_and_row_delete_preserve_scope_and_other_cases(self):
         self.open("cases?projects=one&range=all")
         self.page.get_by_role("button", name="删除用例 TC-001", exact=True).click()
         self.confirm("取消")
         self.assertEqual(self.mutations, [])
         self.page.get_by_text("Alpha case", exact=True).click()
-        self.page.get_by_role("dialog", name="Alpha case", exact=True).get_by_role("button", name="删除用例", exact=True).click()
-        self.confirm("取消")
-        expect(self.page.get_by_role("dialog", name="Alpha case", exact=True)).to_be_visible()
+        detail = self.page.get_by_role("dialog", name="Alpha case", exact=True)
+        expect(detail.get_by_role("button", name="删除用例")).to_have_count(0)
+        detail.locator(".drawer-foot").get_by_role("button", name="关闭", exact=True).click()
+        expect(detail).to_be_hidden()
         self.assertEqual(self.mutations, [])
-        self.page.get_by_role("dialog", name="Alpha case", exact=True).get_by_role("button", name="删除用例", exact=True).click()
+        self.page.get_by_role("button", name="删除用例 TC-001", exact=True).click()
         self.confirm("删除用例")
         expect(self.page.get_by_text("Alpha case", exact=True)).to_have_count(0)
         expect(self.page.get_by_text("Beta case", exact=True)).to_be_visible()

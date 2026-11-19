@@ -1,4 +1,5 @@
 // The Pages demo runs the dashboard against a document-local sample workspace.
+import { setRunScreenshotResolver } from '../skills/autoskill/app/ui/js/pages/runs.js';
 import { casesApi } from './cases-api.js';
 import { advanceRuns, runsApi } from './runs-api.js';
 import { installLoadPages } from './load-pages.js';
@@ -124,11 +125,29 @@ function dateSampleRuns(catalog) {
   }
 }
 
+function bindObservedScreenshots(source) {
+  const images = new Map();
+  for (const record of [...source.previous_cases, ...source.cases]) {
+    if (!record.screenshot_path) continue;
+    const hash = record.artifact_hashes.screenshot_sha256;
+    const url = new URL('../' + record.screenshot_path, import.meta.url);
+    if (url.origin !== location.origin) continue;
+    const key = JSON.stringify([record.run_id, record.case_id, record.revision, hash]);
+    images.set(key, url.href);
+  }
+  setRunScreenshotResolver((run, row, name) => {
+    const hash = row.detail.artifact_hashes?.screenshot_sha256;
+    if (run.simulated || run.project_id !== source.project_id || row.run_id !== run.id || name !== hash + '.png') return null;
+    return images.get(JSON.stringify([run.id, row.case_id, row.case_revision, hash]));
+  });
+}
+
 async function start() {
   const response = await networkFetch(new URL('./fixtures.json', import.meta.url));
   if (!response.ok) throw new Error('示例数据加载失败，请刷新重试');
   fixtures = await response.json();
   dateSampleRuns(fixtures);
+  if (fixtures['/observations/runoob']) bindObservedScreenshots(fixtures['/observations/runoob']);
   startSession(fixtures);
   localReceipts();
   window.fetch = previewFetch;

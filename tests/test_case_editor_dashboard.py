@@ -28,8 +28,7 @@ class CaseEditorDashboardTests(DashboardWorkspace):
 
     def editor(self, identity):
         self.open("cases?range=all")
-        self.page.get_by_role("row").filter(has=self.page.get_by_role("checkbox", name="选择 " + identity, exact=True)).click()
-        self.page.get_by_role("dialog").get_by_role("button", name="编辑用例", exact=True).click()
+        self.page.get_by_role("button", name="编辑用例 " + identity, exact=True).click()
         dialog = self.page.get_by_role("dialog", name="编辑用例", exact=True)
         expect(dialog).to_be_visible()
         return dialog
@@ -75,8 +74,10 @@ class CaseEditorDashboardTests(DashboardWorkspace):
         self.assertEqual(self.definition(original["id"])["case"], expected)
         self.assertEqual(self.client.get("/api/runs").json()["total"], before_runs)
         self.assertEqual(skill.read_bytes() if skill.exists() else None, before_skill)
+        row = self.page.get_by_role("row").filter(has=self.page.get_by_role("checkbox", name="选择 " + original["id"], exact=True))
+        expect(row.locator("td").nth(4)).to_have_text("未执行")
+        row.get_by_role("button", name=original["title"], exact=True).click()
         detail = self.page.get_by_role("dialog", name=original["title"], exact=True)
-        expect(detail).to_contain_text("当前版本尚待验证")
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/runs")) as event:
             detail.get_by_role("button", name="运行这条用例", exact=True).click()
         identity = event.value.json()["runs"][0]["id"]
@@ -245,6 +246,7 @@ class CaseEditorDashboardTests(DashboardWorkspace):
         self.assertNotIn("value", action)
         self.assertEqual(action["action"], "click")
         self.assertEqual(action["retained"], {"unknown": True})
+        self.page.get_by_role("button", name=original["title"], exact=True).click()
         detail = self.page.get_by_role("dialog", name=original["title"], exact=True)
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/runs")) as event:
             detail.get_by_role("button", name="运行这条用例", exact=True).click()
@@ -277,7 +279,7 @@ class CaseEditorDashboardTests(DashboardWorkspace):
         untouched = self.save_editor(self.editor(original["id"]))
         self.assertFalse(untouched["changed"])
         self.assertEqual(untouched["case"], original)
-        self.page.get_by_role("dialog", name=original["title"], exact=True).get_by_role("button", name="编辑用例", exact=True).click()
+        self.page.get_by_role("button", name="编辑用例 " + original["id"], exact=True).click()
         dialog = self.page.get_by_role("dialog", name="编辑用例", exact=True)
         dialog.get_by_label("步骤 1 图片沿用步骤上下文", exact=True).check()
         dialog.get_by_label("沿用父断言上下文", exact=True).uncheck()

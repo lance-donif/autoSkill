@@ -17,6 +17,7 @@
 .btn.sm { height: 28px; padding: 0 10px; font-size: var(--t-xs); }
 .btn.icon { width: 32px; padding: 0; }
 .btn.sm.icon { width: 28px; }
+.side .nav-toggle, .side .nav-toggle:hover:not(:disabled) { background: var(--side-wash); color: var(--side-ink); }
 .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .icon-svg { width: 16px; height: 16px; flex: none; }

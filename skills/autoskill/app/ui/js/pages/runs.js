@@ -499,14 +499,11 @@ function resultBody(run, row, offline = false) {
   } else if (row.actual) {
     parts.push(h('p', { class: 'sub' }, row.actual));
   }
+  const exchanges = httpExchanges(d, row.duration_ms);
+  parts.push(exchanges.map(({ label, line }) => line.length > 0 && h('div', { class: 'req-line' },
+    label && h('b', {}, label), line)));
   appendAssertionResults(parts, d);
-  if (d.steps?.length) {
-    parts.push(h('ol', { class: 'steps timeline' }, d.steps.map((step) => h('li', { class: step.status },
-      h('span', { class: 'step-text' }, step.check && h('span', { class: 'tag accent' }, '断言'), step.text,
-        step.fallback ? h('span', { class: 'tag' }, '备选定位') : null),
-      h('span', { class: 'step-sub num' }, step.error || fmtDuration(step.ms))))));
-  }
-  appendRequestDetails(parts, d, row);
+  parts.push(stepTimelines(d), httpDetails(exchanges, row));
   appendScreenshots(parts, d, run, row);
   if (!offline) parts.push(caseRetryControl(run, row));
   return h('div', { class: 'result-body' }, parts);
@@ -526,14 +523,47 @@ function attemptHistory(detail) {
     h('li', {}, h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.outcome && statePill(entry.outcome)))));
 }
 
+const stepStates = { done: '已完成', pass: '已完成', failed: '失败', fail: '失败', running: '执行中', not_run: '未执行' };
+
+function stepTimeline(steps, definition = false) {
+  if (!steps.length) return null;
+  return h('ol', { class: 'steps timeline', 'aria-label': definition ? '用例定义步骤' : '操作步骤' }, steps.map((step) => {
+    const state = definition ? null : step.status;
+    const observed = !definition && state !== 'not_run';
+    const elapsed = observed && step.ms != null && !(step.error && step.ms === 0) ? fmtDuration(step.ms) : '';
+    const facts = [stepStates[state], elapsed, observed && step.error].filter(Boolean);
+    return h('li', { class: state || '' },
+      h('span', { class: 'step-text' }, step.check && h('span', { class: 'tag accent' }, '断言'), step.text,
+        observed && step.fallback && h('span', { class: 'tag' }, '备选定位')),
+      facts.length > 0 && h('span', { class: 'step-sub' }, facts.join(' · ')));
+  }));
+}
+
+function stepTimelines(detail) {
+  const steps = detail.steps || [];
+  const definitions = [...steps.filter((step) => step.status === 'definition_only'), ...(detail.definition_steps || [])];
+  const actual = steps.filter((step) => step.status !== 'definition_only');
+  const pending = (detail.pending_steps || []).map((step) => ({ ...step, status: 'not_run' }));
+  return [stepTimeline([...actual, ...pending]), definitions.length > 0 && h('section', { class: 'stack' },
+    h('h3', {}, '用例定义步骤'), stepTimeline(definitions, true))];
+}
+
+function assertionMark(check) {
+  if (typeof check.passed !== 'boolean') return check.status === 'not_run' ? '未执行' : '—';
+  return h('span', { class: 'mark ' + (check.passed ? 'ok' : 'no'), 'aria-label': check.passed ? '通过' : '失败' },
+    icon(check.passed ? 'check' : 'x'));
+}
+
 function appendAssertionResults(parts, d) {
   if (d.assertions?.length) {
     parts.push(h('table', { class: 'table checks' },
       h('thead', {}, h('tr', {}, ['', '断言', '期望', '实际'].map((t) => h('th', {}, t)))),
-      h('tbody', {}, d.assertions.map((check) => h('tr', { class: check.passed ? '' : 'bad' },
-        h('td', { style: 'width:28px' }, h('span', { class: 'mark ' + (check.passed ? 'ok' : 'no') }, icon(check.passed ? 'check' : 'x'))),
-        h('td', {}, check.name, check.fallback ? h('span', { class: 'tag', style: 'margin-left:6px' }, '备选定位') : null),
-        h('td', { class: 'mono' }, show(check.expected)), h('td', { class: 'mono' }, show(check.actual)))))));
+      h('tbody', {}, d.assertions.map((check) => h('tr', { class: check.passed === false ? 'bad' : '' },
+        h('td', { style: 'width:28px' }, assertionMark(check)),
+        h('td', {}, check.name, check.fallback && h('span', { class: 'tag' }, '备选定位'),
+          check.elapsed_ms != null && h('div', { class: 'sub num' }, fmtDuration(check.elapsed_ms))),
+        h('td', { class: 'mono' }, show(check.expected)),
+        h('td', { class: 'mono' }, check.actual_excerpt && h('span', { class: 'tag' }, '摘录'), show(check.actual)))))));
   }
 }
 
@@ -552,37 +582,53 @@ function httpExchange(entry) {
   const nonempty = (value) => value && Object.keys(value).length ? value : null;
   const line = [
     method && h('span', { class: 'method ' + method.toLowerCase() }, method),
-    request?.url && h('span', { class: 'mono grow ellipsis', title: request.url }, request.url),
+    request?.url && h('span', { class: 'mono request-url' }, request.url),
     response?.status != null && h('span', { class: 'tag' + (response.status < 400 ? ' accent' : '') }, 'HTTP ' + response.status),
-    response?.bytes != null && h('span', { class: 'sub num' }, `${response.bytes} B`),
   ].filter(Boolean);
+  const body = response?.body === '' || (response?.body == null && response?.bytes === 0) ? '（空）' : response?.body;
   const fields = [
     httpFields([['请求头', nonempty(request?.headers)], ['查询参数', nonempty(request?.params)],
       ['请求体', request?.json ?? request?.body], ['表单', request?.form]]),
-    httpFields([['响应头', nonempty(response?.headers)], ['响应体', response?.body]]),
+    httpFields([['响应头', nonempty(response?.headers)], ['响应体', body]]),
   ].filter(Boolean);
-  if (!line.length && !fields.length) return null;
+  if (!fields.length && response?.status != null) fields.push(httpFields([['响应状态', 'HTTP ' + response.status]]));
+  if (!line.length && !fields.length && response?.bytes == null) return null;
   if (entry.duration_ms != null) line.push(h('span', { class: 'sub num' }, fmtDuration(entry.duration_ms)));
-  return h('div', { class: 'stack' }, line.length > 0 && h('div', { class: 'req-line' }, line),
-    fields.length > 0 && h('div', { class: 'io' }, fields));
+  if (response?.bytes != null) line.push(h('span', { class: 'sub num' }, `${response.bytes} B`));
+  return { line, fields };
 }
 
-function appendRequestDetails(parts, detail, row) {
-  const exchanges = (detail.attempts || []).flatMap((entry, index) =>
-    entry.kind === 'postcondition' ? [] : [{ number: index + 1, content: httpExchange(entry) }]);
-  if (!exchanges.at(-1)?.content) {
-    exchanges.push({ content: httpExchange({ ...detail, duration_ms: exchanges.length <= 1 ? row.duration_ms : null }) });
+function httpExchanges(detail, duration) {
+  const attempts = (detail.attempts || []).map((entry, index) => ({ entry, number: index + 1 }))
+    .filter(({ entry }) => entry.kind !== 'postcondition');
+  const records = attempts.map(({ entry, number }) => ({ number,
+    exchange: httpExchange({ ...entry, duration_ms: entry.duration_ms ?? (attempts.length === 1 ? duration : null) }) }));
+  if (!records.at(-1)?.exchange) {
+    records.push({ exchange: httpExchange({ ...detail, duration_ms: attempts.length <= 1 ? duration : null }) });
   }
-  const recorded = exchanges.filter((item) => item.content);
-  if (!recorded.length) return;
-  parts.push(h('details', { class: 'more', open: row.state?.outcome === 'fail' || row.status === 'Fail' },
-    h('summary', {}, '请求与响应详情'), recorded.map(({ number, content }) => h('div', { class: 'stack' },
-      recorded.length > 1 && h('b', {}, number ? `第 ${number} 次` : '用例结果'), content))));
+  const captured = records.filter(({ exchange }) => exchange);
+  return captured.map(({ number, exchange }) => ({ ...exchange,
+    label: attempts.length > 1 ? number ? `第 ${number} 次` : '用例结果' : '' }));
+}
+
+function httpDetails(exchanges, row) {
+  const records = exchanges.filter(({ fields }) => fields.length);
+  if (!records.length) return null;
+  return h('details', { class: 'more', open: row.state?.outcome === 'fail' || row.status === 'Fail' },
+    h('summary', {}, '请求与响应详情'), records.map(({ label, fields }) => h('div', { class: 'stack' },
+      label && h('b', {}, label), h('div', { class: 'io' }, fields))));
+}
+
+let screenshotUrl = (run, _row, name) => `/api/runs/${run.id}/files/${encodeURIComponent(name)}`;
+
+export function setRunScreenshotResolver(resolve) {
+  screenshotUrl = resolve;
 }
 
 function appendScreenshots(parts, d, run, row) {
   for (const name of d.screenshots || []) {
-    const url = `/api/runs/${run.id}/files/${encodeURIComponent(name)}`;
+    const url = screenshotUrl(run, row, name);
+    if (!url) continue;
     parts.push(h('a', { class: 'shot', href: url, target: '_blank', rel: 'noreferrer', title: '在新标签页查看原图' },
       h('img', { src: url, alt: `${row.case_title} 结束时的页面截图`, loading: 'lazy' }),
       h('span', { class: 'sub' }, icon('image'), '结束时的页面截图（密码输入框已遮盖）')));

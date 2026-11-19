@@ -9,6 +9,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.utils.cell import range_to_tuple
+from playwright.sync_api import expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_dashboard_stability as preview
@@ -145,9 +146,7 @@ class PreviewCaseWorkbookTests(unittest.TestCase):
         sample = self.open_project("stock-room")
         before = self.export_rows(self.expected)
         identity = "ST-API-001"
-        title = "读取可售库存"
-        self.page.get_by_role("button", name=title, exact=True).click()
-        self.page.get_by_role("dialog", name=title).get_by_role("button", name="编辑用例").click()
+        self.page.get_by_role("button", name=f"编辑用例 {identity}", exact=True).click()
         editor = self.page.get_by_role("dialog", name="编辑用例")
         fields = {"功能描述": "核对查询返回的可售数量", "前置条件": "库存样例包含两件可售商品",
                   "功能测试步骤": "打开样例库存\n查询可售商品数量", "预期结果": "2. 可售数量显示为 2 件"}
@@ -163,7 +162,7 @@ class PreviewCaseWorkbookTests(unittest.TestCase):
             editor.get_by_role("button", name="添加数组项：业务层级", exact=True).click()
             editor.get_by_label(f"业务层级[{index}]", exact=True).fill(part)
         editor.get_by_role("button", name="保存修改", exact=True).click()
-        self.page.get_by_role("dialog", name=title).get_by_role("button", name="关闭", exact=True).last.click()
+        expect(editor).to_be_hidden()
 
         after = self.export_rows({**self.expected, identity: "NotRun"})
         row = after[identity]

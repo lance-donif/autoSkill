@@ -1,6 +1,6 @@
 // The interactive Pages demo generates documents from the browser's current sample data.
 import { casesApi } from './cases-api.js';
-import { runPage } from './runs-api.js';
+import { runPage, compactCaseCounts } from './runs-api.js';
 import { folderPath, functionalWorkbook } from './workbook.js';
 import { validateTasks } from './schedules-api.js';
 import { previewZip, readPreviewEntry } from './preview-zip.js';
@@ -235,12 +235,7 @@ async function runWorkbook(ctx, run) {
     if (!definition) throw new Error('此旧运行缺少用例 ' + row.case_id + ' 的冻结版本，无法生成可追溯的 Excel');
     const record = { definition, observations: [] };
     if (run.load_templates) {
-      const count = run.load_templates.length;
-      const observed = Math.floor(run.done / count) + Number(index < run.done % count);
-      const interrupted = run.cancelled_index != null && run.cancelled_index % count === index;
-      const failed = row.simulateFailure ? observed : Number(interrupted);
-      const passed = observed - failed;
-      const notRun = run.load.iterations - observed;
+      const { pass: passed, fail: failed, not_run: notRun } = compactCaseCounts(run, index);
       record.status = failed ? 'Fail' : notRun ? 'NotRun' : 'Pass';
       record.aggregate = '浏览器模拟，共 ' + run.load.iterations + ' 轮；通过 ' + passed + '，失败 ' + failed + '，未执行 ' + notRun + '。';
     }

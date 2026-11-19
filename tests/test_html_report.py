@@ -170,7 +170,12 @@ class HtmlReportTests(unittest.TestCase):
             case = document.locator(".result[data-result='2']")
             http = case.locator("details").filter(has=document.get_by_text("请求与响应详情", exact=True))
             expect(http).to_have_count(1)
-            expect(http).to_contain_text("https://example.invalid/chat")
+            line = case.locator(".req-line")
+            expect(line).to_have_text(re.compile(r"POST.*https://example.invalid/chat.*HTTP 200.*54 ms.*33 B"))
+            self.assertTrue(line.evaluate("node => Boolean(node.compareDocumentPosition(node.closest('.result-body').querySelector('.checks')) & Node.DOCUMENT_POSITION_FOLLOWING)"))
+            http.evaluate("node => { node.open = false; }")
+            expect(line).to_be_visible()
+            http.evaluate("node => { node.open = true; }")
             expect(http).to_contain_text("Header value")
             expect(http).to_contain_text('"page": 2')
             expect(http).to_contain_text("Response body " + PAYLOAD)
@@ -207,7 +212,7 @@ class HtmlReportTests(unittest.TestCase):
         attempts = []
         for number in (1, 2):
             request = {"method": "POST", "url": "https://example.invalid/retry", "json": {"input": f"input-{number}"}}
-            response = {"status": 500 if number == 1 else 200, "body": f"response-{number}"}
+            response = {"status": 500 if number == 1 else 200, "body": f"response-{number}", "bytes": 30 + number}
             attempts.append({"id": f"attempt-{number}", "outcome": "fail" if number == 1 else "pass",
                              "kind": "case" if number == 1 else "relogin_retry", "request": request, "response": response,
                              "sha256": "internal-receipt-hash", "duration_ms": number})
@@ -222,6 +227,10 @@ class HtmlReportTests(unittest.TestCase):
                     expect(document.get_by_text(removed, exact=True)).to_have_count(0)
                 case = document.locator("[data-result='2']")
                 expect(case).not_to_contain_text("internal-receipt-hash")
+                lines = case.locator(".req-line")
+                expect(lines).to_have_count(2)
+                expect(lines.nth(0)).to_have_text(re.compile(r"第 1 次.*POST.*retry.*HTTP 500.*1 ms.*31 B"))
+                expect(lines.nth(1)).to_have_text(re.compile(r"第 2 次.*POST.*retry.*HTTP 200.*2 ms.*32 B"))
                 panel = case.locator("details").filter(has=document.get_by_text("请求与响应详情", exact=True))
                 expect(panel).to_have_count(1)
                 expect(panel).to_contain_text(re.compile(r"第 1 次.*input-1.*response-1.*第 2 次.*input-2.*response-2", re.DOTALL))
@@ -230,6 +239,58 @@ class HtmlReportTests(unittest.TestCase):
                 no_request = document.locator("[data-result='3']")
                 expect(no_request).to_contain_text("第 1 次")
                 expect(no_request.get_by_text("请求与响应详情", exact=True)).to_have_count(0)
+
+    def test_ui_steps_distinguish_recorded_pending_and_definitions_in_both_reports(self):
+        case = self.run["results"][0]
+        case.update(status="Fail", reason="Timeout at navigation")
+        case["detail"]["steps"][1].update(status="failed", error="Timeout at navigation", ms=25)
+        case["detail"]["pending_steps"] = [{"text": "Check the saved value", "check": True}]
+        definition = self.run["results"][2]["detail"]
+        definition["definition_steps"] = [{"text": "Read archived definition", "check": True}]
+        self.open()
+        offline, _ = self.offline(self.download())
+        for document in (self.page, offline):
+            with self.subTest(online=document == self.page):
+                result = document.locator("[data-result='1']")
+                timeline = result.get_by_role("list", name="操作步骤")
+                steps = timeline.get_by_role("listitem")
+                expect(steps).to_have_count(3)
+                expect(steps.nth(0)).to_have_text(re.compile(r"Open the editor.*已完成.*20 ms"))
+                expect(steps.nth(1)).to_have_text(re.compile(r"Save the value.*失败.*25 ms.*Timeout at navigation"))
+                expect(steps.nth(2)).to_have_text(re.compile(r"断言.*Check the saved value.*未执行"))
+                expect(steps.nth(2)).not_to_contain_text("ms")
+                self.assertTrue(result.locator(".checks").evaluate(
+                    "checks => Boolean(checks.compareDocumentPosition(checks.parentElement.querySelector('.steps')) & Node.DOCUMENT_POSITION_FOLLOWING)"))
+                self.assertTrue(timeline.evaluate(
+                    "steps => Boolean(steps.compareDocumentPosition(steps.closest('.result').querySelector('.shot')) & Node.DOCUMENT_POSITION_FOLLOWING)"))
+                archive = document.locator("[data-result='3']")
+                expect(archive.get_by_role("heading", name="用例定义步骤")).to_be_visible()
+                expect(archive.get_by_role("list", name="用例定义步骤")).to_have_text("断言Read archived definition")
+                expect(archive.get_by_role("list", name="操作步骤")).to_have_count(0)
+
+    def test_status_only_empty_body_and_interrupted_http_attempts(self):
+        detail = self.run["results"][1]["detail"]
+        request = {"method": "GET", "url": "https://example.invalid/resource"}
+        detail.update(request=request, response=None, attempts=[
+            {"request": request, "response": {"status": 200}},
+            {"request": request, "response": {"status": 204, "body": "", "bytes": 0}, "duration_ms": 0},
+            {"request": request, "duration_ms": 7}])
+        self.open()
+        offline, _ = self.offline(self.download())
+        for document in (self.page, offline):
+            with self.subTest(online=document == self.page):
+                result = document.locator("[data-result='2']")
+                lines = result.locator(".req-line")
+                expect(lines).to_have_count(3)
+                expect(lines.nth(0)).to_contain_text("HTTP 200")
+                expect(lines.nth(0)).not_to_contain_text("ms")
+                expect(lines.nth(1)).to_have_text(re.compile(r"HTTP 204.*0 ms.*0 B"))
+                expect(lines.nth(2)).to_contain_text("7 ms")
+                expect(lines.nth(2)).not_to_contain_text("HTTP")
+                expect(lines.nth(2)).not_to_contain_text(" B")
+                panel = result.locator("details").filter(has=document.get_by_text("请求与响应详情", exact=True))
+                expect(panel).to_contain_text(re.compile(r"第 1 次.*响应状态HTTP 200.*第 2 次.*响应体（空）", re.DOTALL))
+                expect(panel).not_to_contain_text("第 3 次")
 
     def test_summary_badge_distinguishes_pass_failure_and_unexecuted_runs(self):
         for status, passed, failed, not_run, label in (("Pass", 3, 0, 0, "通过"), ("Fail", 1, 1, 1, "不通过"),

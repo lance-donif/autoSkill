@@ -43,7 +43,22 @@
       "artifact_hashes": {
         "attempt_sha256": "4fdfacfd224d520d25fd29b2fe95f23134def0f3c861e2ce72ef5deb877a01c3",
         "case_sha256": "b239eee98dcca38ed20537191bee0a268d8bee6f8919b8cd65d79c5ee050a1e6"
-      }
+      },
+      "timeline": [
+        {
+          "error": "页面没有在限定时间内加载完成；页面本身很慢时可以调大：autoskill project update <项目> --page-load <秒>",
+          "index": 0,
+          "ms": 0,
+          "status": "failed",
+          "text": "打开 https://www.runoob.com/"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "attempt-e9a546a4588b4035aa5161193582fe95",
+          "sha256": "4fdfacfd224d520d25fd29b2fe95f23134def0f3c861e2ce72ef5deb877a01c3"
+        }
+      ]
     },
     {
       "source_kind": "live",
@@ -65,19 +80,25 @@
           "name": "课程主标题可见",
           "passed": true,
           "expected": true,
-          "actual": "可见"
+          "actual": "可见",
+          "phase": "complete",
+          "elapsed_ms": 317
         },
         {
           "name": "主标题标明 Python",
           "passed": true,
           "expected": "Python",
-          "actual": "Python3.x\nPython 3 教程"
+          "actual": "Python3.x\nPython 3 教程",
+          "phase": "complete",
+          "elapsed_ms": 25
         },
         {
           "name": "主标题标明教程",
           "passed": true,
           "expected": "教程",
-          "actual": "Python3.x\nPython 3 教程"
+          "actual": "Python3.x\nPython 3 教程",
+          "phase": "complete",
+          "elapsed_ms": 24
         }
       ],
       "engine": "playwright",
@@ -127,7 +148,22 @@
         "attempt_sha256": "b9e0298e154a26976df5797b83f3c1a6e6cc21d42c9184c87fc66b6e238032cc",
         "case_sha256": "90875b28fd3c0966e5da9fdcf21d2f5c016134ff4265761e2b8150b456f56010",
         "screenshot_sha256": "3de3309c465648ccf75ad6d9b4599d8f28b30272dd77c2ad559627336bbfaa80"
-      }
+      },
+      "timeline": [
+        {
+          "index": 0,
+          "ms": 2022,
+          "status": "done",
+          "text": "打开 https://www.runoob.com/python3/python3-tutorial.html"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "attempt-f9463e78c68644c28b9e5346694cbc50",
+          "sha256": "b9e0298e154a26976df5797b83f3c1a6e6cc21d42c9184c87fc66b6e238032cc"
+        }
+      ],
+      "screenshot_path": "preview/evidence/3de3309c465648ccf75ad6d9b4599d8f28b30272dd77c2ad559627336bbfaa80.png"
     },
     {
       "source_kind": "historical",
@@ -149,37 +185,53 @@
           "name": "地址包含「/python3/python3-tutorial.html」",
           "expected": "/python3/python3-tutorial.html",
           "actual": "https://www.runoob.com/python3/python3-tutorial.html",
-          "passed": true
+          "passed": true,
+          "phase": "complete",
+          "elapsed_ms": 0
         },
         {
           "name": "选择器 #leftcolumn 文本包含「Python3 基础语法」",
           "expected": "Python3 基础语法",
           "actual": "ython3 VScode\nPython3 基础语法\nPython3 基本数",
-          "passed": true
+          "passed": true,
+          "actual_excerpt": true,
+          "phase": "complete",
+          "elapsed_ms": 207
         },
         {
           "name": "heading「Python3.xPython3 基础语法」 文本包含「Python3 基础语法」",
           "expected": "Python3 基础语法",
           "actual": "Python3 基础语法",
-          "passed": true
+          "passed": true,
+          "phase": "complete",
+          "elapsed_ms": 254
         },
         {
           "name": "选择器 #content 文本包含「编码」",
           "expected": "编码",
           "actual": "Python3 基础语法\n编码\n\n默认情况下，Pyth",
-          "passed": true
+          "passed": true,
+          "actual_excerpt": true,
+          "phase": "complete",
+          "elapsed_ms": 118
         },
         {
           "name": "选择器 #content 文本包含「标识符」",
           "expected": "标识符",
           "actual": "顿语、俄语、塞尔维亚语。\n\n标识符\n第一个字符必须以字母（",
-          "passed": true
+          "passed": true,
+          "actual_excerpt": true,
+          "phase": "complete",
+          "elapsed_ms": 207
         },
         {
           "name": "选择器 #content 文本包含「Python 保留关键字」",
           "expected": "Python 保留关键字",
           "actual": "2\"))  # True\n\nPython 保留关键字\n\n保留字即关键字，我们",
-          "passed": true
+          "passed": true,
+          "actual_excerpt": true,
+          "phase": "complete",
+          "elapsed_ms": 31
         }
       ],
       "engine": "playwright",
@@ -309,7 +361,49 @@
         "workbook_sha256": "de412ddef31efbb94f72c900f6aa5bff3c6990859912e6e33d33f4e1513a6911",
         "screenshot_sha256": "7b5077ec9bdc3926e768806ebbf1605920cc2cc0a9580f5af4b481a8d9ac90ed",
         "summary_sha256": "7233906ea1ec24914c1d8d34e2d00e14ebd650a5de65a415b2ecf9f5653f25e0"
-      }
+      },
+      "timeline": [
+        {
+          "index": 0,
+          "text": "打开 https://www.runoob.com/",
+          "status": "done",
+          "ms": 8549
+        },
+        {
+          "index": 1,
+          "text": "点击 link「【学习 Python】 Python3 是当前主流 Python 版本。」",
+          "status": "done",
+          "ms": 2333,
+          "fallback": true
+        },
+        {
+          "index": 2,
+          "text": "地址包含「/python3/python3-tutorial.html」",
+          "status": "done",
+          "ms": 0,
+          "check": true
+        },
+        {
+          "index": 3,
+          "text": "选择器 #leftcolumn 文本包含「Python3 基础语法」",
+          "status": "done",
+          "ms": 207,
+          "check": true
+        },
+        {
+          "index": 4,
+          "text": "点击 link「Python3 基础语法」",
+          "status": "done",
+          "ms": 1040
+        }
+      ],
+      "attempts": [
+        {
+          "id": "attempt-80c6e24f9bca4bd49d11d53a539929ce",
+          "sha256": "6fabc88b9d8341e9901ed5fe4a9bd2b1ded0e458d83a69c8ac81a381e4d9f789"
+        }
+      ],
+      "screenshot_path": "reports/evidence/2026-11-13-dsh-live/runoob-jcyf-final/replay.png"
     }
   ],
   "previous_cases": [
@@ -353,7 +447,22 @@
       "artifact_hashes": {
         "attempt_sha256": "a4a50ec18185d1b57070bf187a3fd5abcd51b4becf0a8e88e5d13aac73563ab7",
         "case_sha256": "b259b26fceb242e9d9d4068360a752fc385682addaeca7d14dc84e0775270f7b"
-      }
+      },
+      "timeline": [
+        {
+          "error": "页面没有在限定时间内加载完成；页面本身很慢时可以调大：autoskill project update <项目> --page-load <秒>",
+          "index": 0,
+          "ms": 0,
+          "status": "failed",
+          "text": "打开 https://www.runoob.com/"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "attempt-ce2f2dca7a7f403e8e6c796a2fd64f31",
+          "sha256": "a4a50ec18185d1b57070bf187a3fd5abcd51b4becf0a8e88e5d13aac73563ab7"
+        }
+      ]
     },
     {
       "source_kind": "live",
@@ -375,19 +484,25 @@
           "name": "课程主标题可见",
           "passed": false,
           "expected": true,
-          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector."
+          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector.",
+          "phase": "postcondition",
+          "elapsed_ms": 8022
         },
         {
           "name": "主标题标明 Python",
           "passed": false,
           "expected": "Python",
-          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector."
+          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector.",
+          "phase": "postcondition",
+          "elapsed_ms": 8010
         },
         {
           "name": "主标题标明教程",
           "passed": false,
           "expected": "教程",
-          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector."
+          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector.",
+          "phase": "postcondition",
+          "elapsed_ms": 8014
         }
       ],
       "engine": "playwright",
@@ -437,7 +552,22 @@
         "attempt_sha256": "1b5fc5481d508d7dc22524a59651a78c9c3f52ba88c8dcf0db272df5e467c5ea",
         "case_sha256": "4287ae72bd1be136dbca6c2b72d67c6548a010ffc45cc44b854e67e56c23bb60",
         "screenshot_sha256": "92baf5845172d2f0d1398dc6fcc38e66f459871c9f6d43f2c9026afa2abc85f9"
-      }
+      },
+      "timeline": [
+        {
+          "index": 0,
+          "ms": 3254,
+          "status": "done",
+          "text": "打开 https://www.runoob.com/python3/python3-tutorial.html"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "attempt-eb8a7d3c919b4328a8b6dc94c43e426a",
+          "sha256": "1b5fc5481d508d7dc22524a59651a78c9c3f52ba88c8dcf0db272df5e467c5ea"
+        }
+      ],
+      "screenshot_path": "preview/evidence/92baf5845172d2f0d1398dc6fcc38e66f459871c9f6d43f2c9026afa2abc85f9.png"
     },
     {
       "source_kind": "live",
@@ -459,19 +589,25 @@
           "name": "课程主标题可见",
           "passed": true,
           "expected": true,
-          "actual": "可见"
+          "actual": "可见",
+          "phase": "complete",
+          "elapsed_ms": 261
         },
         {
           "name": "主标题标明 Python",
           "passed": false,
           "expected": "Python",
-          "actual": "菜鸟教程 -- 学的不仅是技术，更是梦想！"
+          "actual": "菜鸟教程 -- 学的不仅是技术，更是梦想！",
+          "phase": "postcondition",
+          "elapsed_ms": 8030
         },
         {
           "name": "主标题标明教程",
           "passed": true,
           "expected": "教程",
-          "actual": "菜鸟教程 -- 学的不仅是技术，更是梦想！"
+          "actual": "菜鸟教程 -- 学的不仅是技术，更是梦想！",
+          "phase": "complete",
+          "elapsed_ms": 45
         }
       ],
       "engine": "playwright",
@@ -521,7 +657,22 @@
         "attempt_sha256": "52f8da2a0708be9b181d8142d80835a7d8437695a29c81c882ee1d8e0fea65ff",
         "case_sha256": "b225b270d29a267301206282a1420b6cd2c45baf99dbaf1be23bd4543037e830",
         "screenshot_sha256": "cb2d5810209602ff22a375f0e32ad798a1d2895900f83a76376177126702a1bb"
-      }
+      },
+      "timeline": [
+        {
+          "index": 0,
+          "ms": 2774,
+          "status": "done",
+          "text": "打开 https://www.runoob.com/python3/python3-tutorial.html"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "attempt-78f308aa6a874417ab9911b47f80806b",
+          "sha256": "52f8da2a0708be9b181d8142d80835a7d8437695a29c81c882ee1d8e0fea65ff"
+        }
+      ],
+      "screenshot_path": "preview/evidence/cb2d5810209602ff22a375f0e32ad798a1d2895900f83a76376177126702a1bb.png"
     }
   ],
   "previous_attempts": [
