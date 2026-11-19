@@ -38,6 +38,10 @@ export async function render(view, { isCurrent }) {
     try { result = { data: await api(`/projects/${encodeURIComponent(project.id)}/folders`) }; }
     catch (error) { result = { error }; }
     if (!isCurrent()) return;
+    const selectedFolder = folderSelection.get(project.id);
+    if (result.data && selectedFolder && selectedFolder !== ALL_FOLDERS && !result.data.folders.some((folder) => folder.id === selectedFolder)) {
+      folderSelection.delete(project.id);
+    }
     trees.set(project.id, result);
     if (cards.has(project.id)) {
       paintProject(project);
@@ -190,9 +194,11 @@ function projectCard(project, items, projectItems, repaint, folderResult, retry)
         box.addEventListener('change', () => { if (box.checked) selected.set(key, item); else selected.delete(key); repaint(); });
         const deps = JSON.parse(item.depends_on || '[]');
         const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([{ project_id: item.project_id, case_ids: [item.case_id], name: project.name }], run); } }, icon('play'), '运行');
-        return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: () => caseDrawer(item.project_id, item.case_id, item.folder_path) },
+        const openDetail = () => caseDrawer(item.project_id, item.case_id, item.folder_path);
+        return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: openDetail },
           h('td', {}, box),
-          h('td', {}, h('div', { class: 'title' }, item.title),
+          h('td', {}, h('button', { class: 'title case-title', type: 'button', 'aria-haspopup': 'dialog',
+            onClick: (event) => { event.stopPropagation(); openDetail(); } }, item.title),
             h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : ''),
             folderId === ALL_FOLDERS && item.folder_path && h('div', { class: 'sub' }, item.folder_path)),
           h('td', {}, kindTag(item.kind)),
@@ -229,7 +235,7 @@ function projectFolderTools(project, tree, folderId, count) {
   folderId !== ALL_FOLDERS && h('a', { class: 'btn sm', download: '', title: '包含当前文件夹及全部子文件夹的用例',
     href: `/api/projects/${encodeURIComponent(project.id)}/folders/export?folder_id=${encodeURIComponent(folderId || 'root')}&recursive=true&expected_revision=${encodeURIComponent(tree.revision)}` },
   icon('table'), '导出文件夹 Excel'),
-  h('button', { class: 'btn sm', onClick: () => folderEditor(project, tree, folderId) }, icon('plus'), '新建文件夹'));
+  h('button', { class: 'btn sm', onClick: () => folderEditor(project, tree, folderId === ALL_FOLDERS ? null : folderId) }, icon('plus'), '新建文件夹'));
 }
 
 function caseDeleteButton(items, { bulk = false, small = false, detail = false } = {}) {

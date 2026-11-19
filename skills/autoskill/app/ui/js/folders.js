@@ -5,6 +5,7 @@ import { drawer, closeOverlay } from './ui.js';
 export const folderSelection = new Map();
 export const ALL_FOLDERS = '__all__';
 const foldersByTree = new WeakMap();
+const expandedByProject = new Map();
 
 export function folderPath(tree, folderId) {
   if (!foldersByTree.has(tree)) foldersByTree.set(tree, new Map(tree.folders.map((item) => [item.id, item])));
@@ -17,29 +18,59 @@ export function folderPath(tree, folderId) {
     names.unshift(current.name);
     current = byId.get(current.parent_id);
   }
-  return names.join(' / ') || '根目录';
+  return names.join(' / ');
 }
 
-export function folderSelect(tree, selectedId, label) {
-  return h('select', { class: 'select', 'aria-label': label }, h('option', { value: '', selected: !selectedId }, '根目录'),
+export function folderSelect(tree, selectedId, label, emptyLabel = '不放入文件夹') {
+  return h('select', { class: 'select', 'aria-label': label }, h('option', { value: '', selected: !selectedId }, emptyLabel),
     tree.folders.map((item) => h('option', { value: item.id, selected: item.id === selectedId }, folderPath(tree, item.id))));
 }
 
 export function folderTree(project, tree, selectedId, choose) {
-  const count = (id) => Object.values(tree.assignments).filter((value) => value === id).length;
-  const item = (id, title, depth, total) => h('button', { class: 'folder-item' + (selectedId === id ? ' selected' : ''),
-    'aria-pressed': String(selectedId === id), 'aria-label': `${title}，${total} 条用例`, style: `padding-left:${12 + depth * 16}px`, onClick: () => choose(id) },
-  icon('folder'), h('span', { class: 'grow ellipsis' }, title), h('span', { class: 'sub num' }, total));
-  const branch = (parentId, depth) => tree.folders.filter((folder) => folder.parent_id === parentId).flatMap((folder) => [
-    item(folder.id, folder.name, depth, count(folder.id)), ...branch(folder.id, depth + 1),
-  ]);
+  if (!expandedByProject.has(project.id)) expandedByProject.set(project.id, new Set([ALL_FOLDERS]));
+  const expanded = expandedByProject.get(project.id);
+  const children = new Map();
+  for (const folder of tree.folders) {
+    const parent = folder.parent_id ?? ALL_FOLDERS;
+    if (!children.has(parent)) children.set(parent, []);
+    children.get(parent).push(folder);
+  }
+  const counts = new Map();
+  for (const id of Object.values(tree.assignments)) counts.set(id, (counts.get(id) || 0) + 1);
+
+  function branch(id, title, depth, total) {
+    const nested = children.get(id);
+    const key = `folder-${project.id}-${id}`;
+    const item = h('button', { class: 'folder-item' + (selectedId === id ? ' selected' : ''), id: key,
+      dataset: { folderId: id }, 'aria-pressed': String(selectedId === id), 'aria-label': `${title}，${total} 条用例`,
+      onClick: () => {
+        if (nested) expanded.add(id);
+        choose(id);
+      } }, icon('folder'), h('span', { class: 'grow ellipsis' }, title), h('span', { class: 'sub num' }, total));
+    const row = h('div', { class: 'folder-row', style: `padding-inline-start:${Math.min(depth, 6) * 10}px` }, item);
+    if (!nested) return row;
+    const group = h('div', { class: 'folder-children', id: key + '-children', hidden: !expanded.has(id) },
+      nested.map((folder) => branch(folder.id, folder.name, depth + 1, counts.get(folder.id) || 0)));
+    const verb = () => expanded.has(id) ? '收起' : '展开';
+    const toggle = h('button', { class: 'folder-toggle', id: key + '-toggle', 'aria-expanded': String(expanded.has(id)),
+      'aria-controls': group.id, 'aria-label': verb() + title, onClick: () => {
+        if (expanded.has(id)) expanded.delete(id);
+        else expanded.add(id);
+        group.hidden = !expanded.has(id);
+        toggle.setAttribute('aria-expanded', String(expanded.has(id)));
+        toggle.setAttribute('aria-label', verb() + title);
+      } }, icon('right'));
+    row.append(toggle);
+    return [row, group];
+  }
+
   return h('nav', { class: 'folder-tree', 'aria-label': `${project.name}文件夹` },
-    item(ALL_FOLDERS, '全部用例', 0, Object.keys(tree.assignments).length), item('', '根目录', 0, count(null)), branch(null, 0));
+    branch(ALL_FOLDERS, '全部用例', 0, Object.keys(tree.assignments).length));
 }
 
 export function folderEditor(project, tree, parentId, folder = null) {
   const name = h('input', { class: 'input', id: 'folder-name', value: folder?.name || '', required: true, autofocus: true, placeholder: '例如：订单回归' });
-  const parent = folderSelect(tree, folder ? folder.parent_id : parentId, '上级文件夹');
+  const parent = folderSelect(tree, folder ? folder.parent_id : parentId, '上级文件夹', '无上级文件夹');
   if (folder) for (const option of parent.options) if (option.value === folder.id) option.disabled = true;
   const error = h('p', { class: 'error', role: 'alert', hidden: true });
   const save = h('button', { class: 'btn primary', form: 'folder-form', type: 'submit' }, folder ? '保存' : '创建文件夹');

@@ -2,26 +2,24 @@
 import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope,
   fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope, refresh } from '../core.js';
 import { definition, empty, errorState, skeletonRows } from '../ui.js';
-import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts.js';
+import { trendChart, trendTable, legend, fillBuckets } from '../charts.js';
 import { primaryState, stateResults } from '../status-view.js';
 
 const DEFINITIONS = {
-  rate: '首次尝试通过的用例数 ÷ 范围内的目标用例数。重试后通过率使用同一分母。目标数未知时不显示百分比。',
+  rate: '当前筛选范围内，最近一批运行通过的目标用例数 ÷ 该批目标用例数。',
   cases: '截至所选时间范围结束时仍然有效（未归档）的用例数。',
-  runs: '所选时间范围内开始的运行次数（手动 + 定时）。自动登录不计入。',
   passed: '全部步骤成功且所有适用断言通过的用例条次。没有断言时按步骤执行结果判断。',
   failed: '已开始执行后步骤、断言或结果校验失败的用例条次。',
-  not_run: '本范围内尚未开始执行的目标用例条次。',
   trend: '每个时间段内的用例执行条次，按结果堆叠。范围不超过一天时按小时，否则按天。',
 };
 let showTable = false;
 let currentOnly = false;
 
-function kpi({ label, value, note, def, to, hero, extra }) {
+function kpi({ label, value, note, def, to, hero }) {
   return h('a', { class: 'kpi' + (hero ? ' hero' : ''), href: to },
     h('span', { class: 'kpi-label' }, label, definition(def)),
-    hero ? h('div', { class: 'hero-row' }, h('span', { class: 'kpi-value' }, value), extra) : h('span', { class: 'kpi-value' }, value),
-    note && (hero ? note : h('span', { class: 'kpi-note' }, note)),
+    h('span', { class: 'kpi-value' }, value),
+    note && h('span', { class: 'kpi-note' }, note),
     h('span', { class: 'kpi-go' }, icon('right')));
 }
 
@@ -47,7 +45,7 @@ export async function render(view) {
   const points = fillBuckets(summary.trend.points, summary.trend.unit, start, end);
   const none = r.executions === 0;
 
-  const kpis = summaryKpis(r, c, u, s, points, none);
+  const kpis = summaryKpis(r, c, u.latest_batch, s);
 
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '趋势展示方式' },
     h('button', { 'aria-pressed': String(!showTable), onClick: () => changeTrend(false) }, '图表'),
@@ -78,23 +76,12 @@ export async function render(view) {
     h('div', { class: 'dash-grid even' }, failuresCard(failures, r, view), recentCard(recent)));
 }
 
-function summaryKpis(r, c, u, s, _points, none) {
-  const reliability = r.reliability || {};
-  const heroNote = h('div', { class: 'stack', style: 'gap:8px' }, splitBar(r),
-    h('span', { class: 'kpi-note' }, none ? '这个范围内还没有执行'
-      : [h('b', {}, `${fmtNumber(reliability.first_passed || 0)} 历史首轮通过 / ${fmtNumber(reliability.denominator || 0)} 已知目标`),
-        ` · 重试后通过率 ${fmtPercent(reliability.final_pass_rate)}`,
-        reliability.unknown_target_runs ? ` · ${reliability.unknown_target_runs} 次运行的目标数仍未知` : '']));
-
+function summaryKpis(r, c, batch, s) {
   return h('section', { class: 'kpis', 'aria-label': '汇总指标' },
-    kpi({ hero: true, label: '历史首轮通过率', value: fmtPercent(reliability.first_pass_rate), def: DEFINITIONS.rate, note: heroNote,
-      to: href('runs', { view: 'results' }) }),
+    kpi({ hero: true, label: '最近一批通过率', value: fmtPercent(batch?.pass_rate), def: DEFINITIONS.rate,
+      note: batch?.pass_rate != null && `${fmtNumber(batch.passed)} 通过 / ${fmtNumber(batch.total)} 个目标用例`, to: href('runs') }),
     kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
       note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
-    kpi({ label: '执行次数', value: fmtNumber(u.total), def: DEFINITIONS.runs,
-      note: [`共 ${fmtNumber(r.executions)} 条次`, u.scheduled ? ` · 定时 ${u.scheduled}` : '', u.active ? ` · ${u.active} 个进行中` : ''], to: href('runs') }),
-    kpi({ label: '未执行', value: fmtNumber(r.not_run || 0), def: DEFINITIONS.not_run,
-      to: href('runs', { view: 'results', status: 'NotRun' }) }),
     kpi({ label: '通过', value: fmtNumber(r.passed), def: DEFINITIONS.passed,
       to: href('runs', { view: 'results', status: 'Pass' }) }),
     kpi({ label: '失败', value: fmtNumber(r.failed), def: DEFINITIONS.failed,
@@ -184,7 +171,7 @@ function failuresCard(failures, r) {
 function recentCard(recent) {
   const body = recent.items.length
     ? h('div', { class: 'list' }, recent.items.map((run) => h('a', { class: 'list-row', href: href('runs/' + run.id) },
-      h('div', { class: 'stack', style: 'gap:4px' }, primaryState(run), stateResults(run)),
+      h('div', { class: 'stack', style: 'gap:4px' }, !['settled', 'completed', 'blocked'].includes(run.state?.phase || run.state?.lifecycle) && primaryState(run), stateResults(run)),
       h('span', { class: 'grow' },
         h('div', { class: 'primary-text ellipsis' }, run.project_name),
         h('div', { class: 'secondary-text ellipsis' }, ['Queued', 'Running'].includes(run.status)
