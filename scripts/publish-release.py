@@ -39,11 +39,13 @@ def verify_inventory(bundle: zipfile.ZipFile, version: str) -> None:
 
 
 def _excluded_member(name: str) -> bool:
-    """Keep user roots and retired updater code out without excluding library data assets."""
+    """Exclude user data, Pages demo sources and retired updater code from the packages."""
     path = Path(name)
     retired = {"autoskill-upgrade.py", "autoskill/app/autoskill/upgrade.py", "autoskill/app/autoskill/server/upgrades.py"}
+    pages = path.parts[:1] == ("preview",) or path.parts[:2] in (("autoskill", "preview"), ("scripts", "fixtures"))
     return ("workspace" in path.parts or ".local" in path.parts or name.startswith("/") or ".." in path.parts
-            or name in retired or path.parts[:1] == ("data",) or path.parts[:2] == ("autoskill", "data"))
+            or pages or name == "scripts/build-pages-preview.py" or name in retired
+            or path.parts[:1] == ("data",) or path.parts[:2] == ("autoskill", "data"))
 
 
 def describe_archive(archive: Path, version: str) -> dict:
@@ -55,7 +57,7 @@ def describe_archive(archive: Path, version: str) -> dict:
     with zipfile.ZipFile(archive) as bundle:
         names = bundle.namelist()
         if len(names) != len(set(names)) or not required.issubset(names) or any(_excluded_member(name) for name in names):
-            raise ValueError("Incorrect package layout or private data included: " + archive.name)
+            raise ValueError("Incorrect package layout or excluded files included: " + archive.name)
         if bundle.testzip() is not None:
             raise ValueError("ZIP CRC failure: " + archive.name)
         manifest = json.loads(bundle.read("autoskill/offline-manifest.json"))

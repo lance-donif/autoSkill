@@ -523,7 +523,7 @@ def verify() -> dict:
 
 
 def launch_check() -> dict:
-    """Really start the bundled browser on a local page with both engines; file presence proves nothing."""
+    """Start both engines with their configured browsers and check a local page."""
     import functools
     import threading
     from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -580,7 +580,7 @@ def doctor(launch: bool = False) -> dict:
         problems.append("cryptography（Linux 本机凭据加密）")
     problems += [name for name in ("chrome", "chromedriver", "agent_browser") if not report[name]]
     if launch and not problems:
-        report["browser_versions"] = platforms.browser_pair(report["chrome"], report["chromedriver"])
+        report["browser_versions"] = platforms.browser_pair(paths.chrome(bundled=True), report["chromedriver"])
         report["agent_browser_version"] = platforms.binary_status(report["agent_browser"])
         if not report["browser_versions"]["ok"] or not report["agent_browser_version"]["ok"]:
             problems.append("浏览器 / 驱动版本或运行时系统库，请查看 browser_versions 和 agent_browser_version")

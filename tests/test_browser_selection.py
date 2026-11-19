@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
-from autoskill import paths, platforms
+from autoskill import cli, paths, platforms
 
 
 @unittest.skipUnless(sys.platform == "linux", "Linux setup selection")
@@ -50,6 +50,18 @@ class BrowserSelectionTests(unittest.TestCase):
         self.assertTrue(platforms.configure()["ok"])
         with patch.object(paths, "system_chrome", return_value=None):
             self.assertEqual(paths.chrome(), self.bundled)
+
+    def test_doctor_checks_the_selenium_pair_when_playwright_prefers_system_chrome(self):
+        self.assertTrue(platforms.configure()["ok"])
+        with (patch("importlib.util.find_spec", return_value=True),
+              patch.object(paths, "agent_browser", return_value="agent-browser"),
+              patch.object(platforms, "binary_status", return_value={"ok": True}),
+              patch.object(platforms, "browser_pair", return_value={"ok": True}) as pair,
+              patch.object(cli, "launch_check", return_value={"playwright": "ok", "selenium": "ok"})):
+            report = cli.doctor(launch=True)
+        self.assertEqual(report["chrome"], self.system)
+        pair.assert_called_once_with(self.bundled, self.driver)
+        self.assertTrue(report["ok"], report)
 
     def test_explicit_setup_choice_survives_system_mode_and_repeated_setup(self):
         self.assertTrue(platforms.configure(self.bundled, self.driver)["ok"])

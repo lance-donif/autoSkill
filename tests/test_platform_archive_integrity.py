@@ -58,6 +58,13 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
             path = self.archive(folder, additional={"autoskill/vendor/linux-x64/python/lib/package/data/fixture.json": b"{}"})
             self.assertEqual(publisher.describe_archive(path, "2.2.0")["file"], path.name)
 
+    def test_pages_demo_assets_are_rejected_even_with_a_matching_inventory(self):
+        names = ("preview/fixtures.json", "autoskill/preview/load-simulation.js", "scripts/fixtures/runoob-observations.json",
+                 "scripts/build-pages-preview.py")
+        for name in names:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as folder, self.assertRaisesRegex(ValueError, "Incorrect package layout"):
+                publisher.describe_archive(self.archive(folder, additional={name: b"{}"}), "2.2.0")
+
     def test_unlisted_program_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder, self.assertRaisesRegex(ValueError, "Incomplete program package inventory"):
             publisher.describe_archive(self.archive(folder, unlisted="plugin/index.mjs"), "2.2.0")
