@@ -2,7 +2,7 @@
 import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope,
   fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope, refresh } from '../core.js';
 import { definition, empty, errorState, skeletonRows } from '../ui.js';
-import { trendChart, trendTable, legend, fillBuckets } from '../charts.js';
+import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts.js';
 import { primaryState, stateResults } from '../status-view.js';
 
 const DEFINITIONS = {
@@ -15,10 +15,11 @@ const DEFINITIONS = {
 let showTable = false;
 let currentOnly = false;
 
-function kpi({ label, value, note, def, to, hero }) {
-  return h('a', { class: 'kpi' + (hero ? ' hero' : ''), href: to },
+function kpi({ label, value, note, def, to, bar }) {
+  return h('a', { class: 'kpi' + (bar ? ' hero' : ''), href: to },
     h('span', { class: 'kpi-label' }, label, definition(def)),
     h('span', { class: 'kpi-value' }, value),
+    bar,
     note && h('span', { class: 'kpi-note' }, note),
     h('span', { class: 'kpi-go' }, icon('right')));
 }
@@ -35,11 +36,11 @@ export async function render(view) {
   try {
     ({ summary, failures, recent } = await api('/dashboard' + scopeQuery({ current: currentOnly, limit: 6 })));
   } catch (error) {
-    replace(view, pageHead(null), h('div', { class: 'card' }, errorState(error, () => refresh())));
+    replace(view, pageHead(), h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
   const r = summary.results, c = summary.cases, u = summary.runs;
-  if (isDefaultScope() && !c.total && !u.total && !r.executions) { replace(view, pageHead(null), firstUse()); return; }
+  if (isDefaultScope() && !c.total && !u.total && !r.executions) { replace(view, pageHead(), firstUse()); return; }
   const s = scope();
   const { start, end } = bounds(s);
   const points = fillBuckets(summary.trend.points, summary.trend.unit, start, end);
@@ -62,40 +63,34 @@ export async function render(view) {
   }
   const trend = h('section', { class: 'card' },
     h('div', { class: 'card-head' },
-      h('div', { class: 'grow' }, h('h2', { class: 'row' }, '执行趋势', definition(DEFINITIONS.trend)),
-        h('p', { class: 'sub' }, summary.trend.unit === 'hour' ? '每小时的用例执行条次' : '每天的用例执行条次')),
+      h('h2', { class: 'grow row' }, '执行趋势', definition(DEFINITIONS.trend)),
       !none && legend(), !none && toggle),
     none
       ? empty({ glyph: 'runs', title: '这个范围内还没有执行',
         text: isDefaultScope(s) ? '运行一次用例，这里就会出现趋势。' : '换一个时间范围或项目，或者现在运行一次。',
-        actions: [runAll({ primary: true }), !isDefaultScope(s) && h('button', { class: 'btn', onClick: () => setScope({ projects: [], range: DEFAULT_RANGE, from: '', to: '' }) }, icon('reset'), '重置筛选')] })
+        actions: [h('a', { class: 'btn primary', href: href('cases') }, icon('play'), '选择用例重新运行'),
+          !isDefaultScope(s) && h('button', { class: 'btn', onClick: () => setScope({ projects: [], range: DEFAULT_RANGE, from: '', to: '' }) }, icon('reset'), '重置筛选')] })
       : chartBody);
 
-  replace(view, pageHead(summary), kpis,
+  replace(view, pageHead(), kpis,
     h('div', { class: 'dash-grid' }, trend, tasksCard(summary.tasks)),
-    h('div', { class: 'dash-grid even' }, failuresCard(failures, r, view), recentCard(recent)));
+    h('div', { class: 'dash-grid even' }, failuresCard(failures), recentCard(recent)));
 }
 
 function summaryKpis(r, c, batch, s) {
   return h('section', { class: 'kpis', 'aria-label': '汇总指标' },
-    kpi({ hero: true, label: '最近一批通过率', value: fmtPercent(batch?.pass_rate), def: DEFINITIONS.rate,
-      note: batch?.pass_rate != null && `${fmtNumber(batch.passed)} 通过 / ${fmtNumber(batch.total)} 个目标用例`, to: href('runs') }),
+    kpi({ label: '最近一批通过率', value: fmtPercent(batch?.pass_rate), def: DEFINITIONS.rate,
+      bar: splitBar(batch || {}), to: href('runs') }),
     kpi({ label: '用例总数', value: fmtNumber(c.total), def: DEFINITIONS.cases,
       note: [`页面 ${c.ui} · 接口 ${c.api}`, s.range !== 'all' && c.added ? ` · 新增 ${c.added}` : ''], to: href('cases') }),
     kpi({ label: '通过', value: fmtNumber(r.passed), def: DEFINITIONS.passed,
       to: href('runs', { view: 'results', status: 'Pass' }) }),
     kpi({ label: '失败', value: fmtNumber(r.failed), def: DEFINITIONS.failed,
-      note: r.failed > 0 && [h('b', {}, `${r.still_failing} 条`), ' 当前仍失败'], to: href('runs', { view: 'results', status: 'Fail' }) }));
+      to: href('runs', { view: 'results', status: 'Fail' }) }));
 }
 
-function runAll(options = {}) {
-  return h('a', { class: 'btn' + (options.primary === false ? '' : ' primary'), href: href('cases') }, icon('play'), '选择用例重新运行');
-}
-
-function pageHead(summary) {
-  return h('div', { class: 'page-head' },
-    h('div', { class: 'grow' }, h('h1', {}, '总览')),
-    summary?.cases.total > 0 && runAll());
+function pageHead() {
+  return h('div', { class: 'page-head' }, h('h1', {}, '总览'));
 }
 
 function tasksCard(tasks) {
@@ -104,13 +99,13 @@ function tasksCard(tasks) {
       h('span', { class: 'grow' },
         h('div', { class: 'primary-text ellipsis' }, task.title),
         h('div', { class: 'secondary-text ellipsis' }, `${task.project_name} · ${task.enabled ? '下次 ' + fmtUntil(task.next_due) : '已暂停'}`)),
-      task.last_status ? h('div', { class: 'stack' }, primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state })) : h('span', { class: 'tag' }, '未执行'))))
+      h('div', { class: 'stack' }, task.last_status && primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state })))))
     : empty({ glyph: 'clock', title: '还没有定时任务',
       actions: h('a', { class: 'btn', href: href('schedules', { new: 1 }) }, icon('plus'), '新建定时任务') });
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', { class: 'grow' }, h('h2', {}, '定时任务'),
-        tasks.total > 0 && h('p', { class: 'sub' }, `启用 ${tasks.enabled} · 暂停 ${tasks.paused} · 范围内触发 ${tasks.fired_in_range} 次`)),
+        tasks.total > 0 && h('p', { class: 'sub' }, `启用 ${tasks.enabled} · 暂停 ${tasks.paused}`)),
       tasks.total > 0 && h('a', { class: 'card-link', href: href('schedules') }, '全部', icon('right'))),
     body);
 }
@@ -120,7 +115,7 @@ async function loadFailures(current) {
   return snapshot.failures;
 }
 
-function failuresBody(failures, r, current) {
+function failuresBody(failures, current) {
   return [failures.items.length
     ? h('div', { class: 'list' }, failures.items.map((item) => h('a', { class: 'list-row', href: href('runs/' + item.run_id, { case: item.case_id }) },
       h('div', { class: 'stack', style: 'gap:4px' }, stateResults(item)),
@@ -128,18 +123,15 @@ function failuresBody(failures, r, current) {
         h('div', { class: 'primary-text ellipsis' }, item.case_title),
         h('div', { class: 'secondary-text ellipsis' }, `${item.project_name} · ${CATEGORY[item.category] || '未分类'} · ${item.reason || item.actual}`)),
       h('span', { class: 'secondary-text num' }, fmtTime(item.started_at)))))
-    : empty({ glyph: 'check', title: current ? '没有仍在失败的用例' : '没有失败',
-      text: r.executions ? '这个范围内没有失败记录。' : '这个范围内还没有执行。' }),
+    : empty({ glyph: 'check', title: current ? '没有仍在失败的用例' : '没有失败' }),
   failures.total > failures.items.length && h('div', { class: 'card-body', style: 'padding-top:8px' },
     h('a', { class: 'card-link', href: href('runs', { view: 'results', status: 'Fail' }) }, '查看全部', icon('right')))];
 }
 
-function failuresCard(failures, r) {
+function failuresCard(failures) {
   let request = 0;
   const initialScope = scopeQuery();
-  const subtitle = h('p', { class: 'sub' });
-  const content = h('div', { dataset: { dashboardFailures: '' } }, failuresBody(failures, r, currentOnly));
-  const note = () => { subtitle.textContent = currentOnly ? `最近一次执行仍为失败的用例 ${r.still_failing} 条` : `范围内共 ${r.failed} 条次`; };
+  const content = h('div', { dataset: { dashboardFailures: '' } }, failuresBody(failures, currentOnly));
   async function choose(current) {
     currentOnly = current;
     const mine = ++request;
@@ -148,8 +140,7 @@ function failuresCard(failures, r) {
     try {
       const data = await loadFailures(current);
       if (mine !== request || !content.isConnected || initialScope !== scopeQuery()) return;
-      replace(content, failuresBody(data, r, current));
-      note();
+      replace(content, failuresBody(data, current));
     } catch (error) {
       if (mine === request && content.isConnected) replace(content, errorState(error, () => choose(current)));
     } finally {
@@ -159,11 +150,9 @@ function failuresCard(failures, r) {
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '失败列表范围' },
     h('button', { 'aria-pressed': String(!currentOnly), onClick: () => choose(false) }, '范围内全部'),
     h('button', { 'aria-pressed': String(currentOnly), onClick: () => choose(true) }, '当前仍失败'));
-  note();
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
-      h('div', { class: 'grow' }, h('h2', {}, '失败用例'),
-        subtitle),
+      h('h2', { class: 'grow' }, '失败用例'),
       toggle),
     content);
 }
@@ -181,7 +170,7 @@ function recentCard(recent) {
     : empty({ glyph: 'runs', title: '还没有执行记录' });
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
-      h('div', { class: 'grow' }, h('h2', {}, '最近执行'), h('p', { class: 'sub' }, `范围内共 ${recent.total} 次`)),
+      h('h2', { class: 'grow' }, '最近执行'),
       recent.total > 0 && h('a', { class: 'card-link', href: href('runs') }, '全部', icon('right'))),
     body);
 }

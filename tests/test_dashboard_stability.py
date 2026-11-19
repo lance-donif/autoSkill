@@ -223,6 +223,14 @@ class DashboardStabilityTests(unittest.TestCase):
         expect(cards).to_have_count(4)
         self.assertEqual(cards.locator(".kpi-label").evaluate_all("nodes => nodes.map(node => node.firstChild.textContent)"),
                          ["最近一批通过率", "用例总数", "通过", "失败"])
+        expect(cards.first.get_by_role("img", name="未执行 0，通过 2，失败 1")).to_be_visible()
+        expect(cards.first.locator(".kpi-value")).to_have_text("66.7%")
+        expect(cards.last.locator(".kpi-note")).to_have_count(0)
+        expect(self.page.locator(".page-head").get_by_role("link", name="选择用例重新运行")).to_have_count(0)
+        tasks = self.page.locator("#view section").filter(has=self.page.get_by_role("heading", name="定时任务", exact=True))
+        expect(tasks.locator(".card-head .sub")).to_have_text("启用 2 · 暂停 1")
+        expect(tasks.locator(".status.idle").filter(has_text="未执行").first).to_be_visible()
+        expect(self.page.locator("#view .card-head .sub")).to_have_count(1)
         recent = self.page.locator("#view section").filter(has=self.page.get_by_role("heading", name="最近执行", exact=True))
         expect(recent).to_be_visible()
         for phase in ("已结束", "阻塞"):

@@ -84,8 +84,8 @@ test('batch pass rate covers each accepted project and skipped items do not leav
   assert.equal(created.skipped[0].project_id, 'missing');
   assert.ok(created.batch_id);
   advanceRuns(db, Date.now() + 10000);
-  assert.deepEqual(request('/dashboard').summary.runs.latest_batch, { total: 2, passed: 1, pass_rate: 0.5 });
-  assert.deepEqual(request('/dashboard?projects=other-demo').summary.runs.latest_batch, { total: 1, passed: 1, pass_rate: 1 });
+  assert.deepEqual(request('/dashboard').summary.runs.latest_batch, { total: 2, passed: 1, failed: 1, not_run: 0, pass_rate: 0.5 });
+  assert.deepEqual(request('/dashboard?projects=other-demo').summary.runs.latest_batch, { total: 1, passed: 1, failed: 0, not_run: 0, pass_rate: 1 });
 });
 
 test('large simulated loads keep only case templates and generate any detail page with whole-run counts', () => {

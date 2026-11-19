@@ -335,14 +335,17 @@ def run_counts(scope: Scope) -> dict:
         latest = rows[:1]
         if latest and (batch_id := latest[0]["batch_id"]):
             latest = [row for row in rows if row["batch_id"] == batch_id]
-        passed = total = 0
+        passed = failed = total = 0
         for row in latest:
             targets = _children(scope, row, snap["connection"])
-            passed += sum(target["outcome"] == "pass" for target in targets)
+            counts = task_state.counts(targets)
+            passed += counts["passed"]
+            failed += counts["failed"]
             total += max(row["total"], row["done"], len(targets))
         return {"total": len(rows), "scheduled": sum(row["trigger"] == "schedule" for row in rows),
                 "active": sum(row["state"]["lifecycle"] in ("pending", "active") for row in rows), **_counts(rows),
-                "latest_batch": {"passed": passed, "total": total, "pass_rate": round(passed / total, 4) if total else None}}
+                "latest_batch": {"passed": passed, "failed": failed, "not_run": total - passed - failed, "total": total,
+                                 "pass_rate": round(passed / total, 4) if total else None}}
 
 
 def trend(scope: Scope, tz_minutes: int = 480) -> dict:

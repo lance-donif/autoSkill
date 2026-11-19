@@ -91,6 +91,8 @@
       },
       "latest_batch": {
         "passed": 2,
+        "failed": 1,
+        "not_run": 0,
         "total": 3,
         "pass_rate": 0.6667
       }
@@ -359,6 +361,8 @@
         },
         "latest_batch": {
           "passed": 2,
+          "failed": 1,
+          "not_run": 0,
           "total": 3,
           "pass_rate": 0.6667
         }
@@ -1183,6 +1187,8 @@
         },
         "latest_batch": {
           "passed": 2,
+          "failed": 1,
+          "not_run": 0,
           "total": 3,
           "pass_rate": 0.6667
         }

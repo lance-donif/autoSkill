@@ -323,15 +323,16 @@ class StateApiTests(unittest.TestCase):
     def test_latest_batch_counts_all_scoped_targets_across_projects(self):
         other = projects.create("第二个项目", "http://127.0.0.1:9", project_id="batch-other")["id"]
         stamp = "2025-02-01T00:00:"
-        for i in range(8):
+        for i, status in enumerate(["Pass", "Pass", "Fail"] + ["Queued"] * 5):
             project = self.pid if i % 2 == 0 else other
             run_id = f"batch-{i}"
             db.insert("runs", {"id": run_id, "batch_id": "combined", "project_id": project, "engine": "http",
-                               "status": "Pass" if i < 2 else "Queued", "total": 2 if i == 7 else 1,
-                               "done": int(i < 2), "created_at": stamp + f"{i:02}.000+00:00", "input_manifest": "fixture"})
-            if i < 2 or i == 7:
+                               "status": status, "total": 2 if i == 7 else 1,
+                               "done": int(i < 3), "created_at": stamp + f"{i:02}.000+00:00", "input_manifest": "fixture"})
+            if i < 3 or i == 7:
+                result = "Fail" if i == 2 else "Pass"
                 db.insert("results", {"run_id": run_id, "project_id": project, "case_id": "API", "case_title": "请求成功",
-                                      "kind": "api", "engine": "http", "status": "Pass", "detail": {"business_status": "Pass"},
+                                      "kind": "api", "engine": "http", "status": result, "detail": {"business_status": result},
                                       "started_at": stamp + f"{i:02}.000+00:00", "prerequisite": int(i == 7)})
         db.insert("runs", {"id": "other-batch", "batch_id": "separate", "project_id": self.pid, "engine": "http",
                            "status": "Queued", "total": 100, "created_at": stamp + "05.500+00:00"})
@@ -341,18 +342,18 @@ class StateApiTests(unittest.TestCase):
         with patch.object(task_state, "_evidence", return_value=True):
             dashboard = self.client.get("/api/dashboard?limit=6").json()
             self.assertEqual(len(dashboard["recent"]["items"]), 6)
-            self.assertEqual(dashboard["summary"]["runs"]["latest_batch"], {"passed": 2, "total": 9, "pass_rate": 0.2222})
+            self.assertEqual(dashboard["summary"]["runs"]["latest_batch"], {"passed": 2, "failed": 1, "not_run": 6, "total": 9, "pass_rate": 0.2222})
             subset = self.client.get("/api/summary", params={"projects": other, "start": stamp + "02+00:00"}).json()
-            self.assertEqual(subset["runs"]["latest_batch"], {"passed": 0, "total": 4, "pass_rate": 0.0})
+            self.assertEqual(subset["runs"]["latest_batch"], {"passed": 0, "failed": 0, "not_run": 4, "total": 4, "pass_rate": 0.0})
 
     def test_latest_unbatched_run_stands_alone_and_no_targets_has_no_rate(self):
-        empty = {"passed": 0, "total": 0, "pass_rate": None}
+        empty = {"passed": 0, "failed": 0, "not_run": 0, "total": 0, "pass_rate": None}
         self.assertEqual(metrics.run_counts(metrics.Scope())["latest_batch"], empty)
         for i, (batch_id, total) in enumerate((("previous", 50), (None, 3), ("", 1), (None, 0))):
             db.insert("runs", {"id": f"standalone-{i}", "batch_id": batch_id, "project_id": self.pid, "engine": "http",
                                "status": "Queued", "total": total, "created_at": f"2025-02-01T00:00:0{i}.000+00:00"})
             latest = metrics.run_counts(metrics.Scope())["latest_batch"]
-            self.assertEqual(latest, {"passed": 0, "total": total, "pass_rate": 0.0 if total else None})
+            self.assertEqual(latest, {"passed": 0, "failed": 0, "not_run": total, "total": total, "pass_rate": 0.0 if total else None})
 
     def test_response_snapshot_does_not_cache_a_later_evidence_change(self):
         run = self.measured()

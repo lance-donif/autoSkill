@@ -263,6 +263,7 @@ function dashboard(context) {
   const latest = runs[0];
   const batch = latest?.batch_id ? runs.filter((r) => r.batch_id === latest.batch_id) : runs.slice(0, 1);
   const passed = batch.reduce((sum, r) => sum + r.passed, 0);
+  const failed = batch.reduce((sum, r) => sum + r.failed, 0);
   const total = batch.reduce((sum, r) => sum + r.total, 0);
   const seen = new Set();
   const latestFailures = rows.filter((r) => {
@@ -279,7 +280,7 @@ function dashboard(context) {
     cases: { total: cases.length, ui: cases.filter((c) => c.kind === 'ui').length, api: cases.filter((c) => c.kind === 'api').length,
       added: cases.filter((c) => !params.has('start') || Date.parse(c.created_at) >= Date.parse(params.get('start'))).length },
     runs: { total: runs.length, scheduled: runs.filter((r) => r.trigger === 'schedule').length, active: runs.filter(active).length,
-      latest_batch: { passed, total, pass_rate: fraction(passed, total) } },
+      latest_batch: { passed, failed, not_run: total - passed - failed, total, pass_rate: fraction(passed, total) } },
     results: { executions: rows.length, passed: counts.pass, failed: counts.fail, not_run: counts.not_run, state_counts: counts,
       pass_rate: fraction(counts.pass, counts.pass + counts.fail), still_failing: latestFailures.length },
     trend: trend(rows, params),
