@@ -149,7 +149,8 @@ def _initialize() -> None:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
         for name, definition in (("headed", "INTEGER NOT NULL DEFAULT 0"), ("claim_token", "TEXT NOT NULL DEFAULT ''"),
                                  ("force_login", "INTEGER NOT NULL DEFAULT 0"), ("session_id", "TEXT NOT NULL DEFAULT ''"),
-                                 ("family", "TEXT NOT NULL DEFAULT 'replay'"), ("input_manifest", "TEXT NOT NULL DEFAULT ''"),
+                                 ("family", "TEXT NOT NULL DEFAULT 'replay'"), ("load_mode", "TEXT NOT NULL DEFAULT 'performance'"),
+                                 ("input_manifest", "TEXT NOT NULL DEFAULT ''"),
                                  ("input_hash", "TEXT NOT NULL DEFAULT ''"), ("plan_path", "TEXT NOT NULL DEFAULT ''"),
                                  ("delete_requested", "INTEGER NOT NULL DEFAULT 0"), ("deletion_error", "TEXT NOT NULL DEFAULT ''"),
                                  ("deletion_manifest", "TEXT NOT NULL DEFAULT ''"), ("owner_identity", "TEXT NOT NULL DEFAULT '{}'")):

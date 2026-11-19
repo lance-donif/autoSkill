@@ -1,4 +1,4 @@
-"""Native Python, collection CLI and JMeter adapters, preserving original files and invocation arguments."""
+"""Native Python and collection CLI adapters, preserving original files and invocation arguments."""
 from __future__ import annotations
 
 import contextlib
@@ -19,7 +19,6 @@ SPECS = {
     "selenium-unittest": ("Python / unittest 原项目", "AUTOSKILL_NATIVE_PYTHON", "python", "*.py"),
     "postman-newman": ("Postman / Newman", "AUTOSKILL_NEWMAN", "newman", "*.json"),
     "apifox": ("Apifox CLI", "AUTOSKILL_APIFOX", "apifox", "*.json"),
-    "jmeter": ("Apache JMeter", "AUTOSKILL_JMETER", "jmeter", "*.jmx"),
 }
 
 
@@ -47,12 +46,6 @@ def _runtime(engine: str, override: str | None = None) -> list[str]:
         return _npm_command(executable, "newman", "bin/newman.js")
     if engine == "apifox":
         return _npm_command(executable, "apifox-cli", "bin/cli.js")
-    if engine == "jmeter" and Path(executable).suffix.lower() in (".bat", ".cmd"):
-        java = shutil.which("java")
-        jar = Path(executable).parent / "ApacheJMeter.jar"
-        if not java or not jar.is_file():
-            raise ValueError("JMeter 需要 Java 和 bin/ApacheJMeter.jar，请检查原生安装")
-        return [java, "-Djava.awt.headless=true", "-jar", str(jar)]
     return [executable]
 
 
@@ -65,7 +58,7 @@ def _entry_args(argv: list[str], engine: str) -> list[str]:
         if first in ("pytest", "unittest"):
             return ["-m", first, *argv[1:]]
         return argv
-    launchers = {"newman", "apifox", "jmeter"}
+    launchers = {"newman", "apifox"}
     return argv[1:] if first in launchers else argv
 
 
@@ -82,7 +75,7 @@ def _mapped_args(argv: list[str], asset: dict, root: Path) -> list[str]:
     return mapped
 
 
-def _without_options(args: list[str], valued: tuple[str, ...], flags: tuple[str, ...] = ()) -> list[str]:
+def _without_options(args: list[str], valued: tuple[str, ...]) -> list[str]:
     """Replace reporting destinations, preserving every unrelated native option."""
     result, index = [], 0
     while index < len(args):
@@ -91,7 +84,7 @@ def _without_options(args: list[str], valued: tuple[str, ...], flags: tuple[str,
             index += 2
             continue
         attached = any(value.startswith(option + "=") or (len(option) == 2 and value.startswith(option) and len(value) > 2) for option in valued)
-        if value not in flags and not attached:
+        if not attached:
             result.append(value)
         index += 1
     return result
@@ -122,8 +115,6 @@ class NativeAdapter:
         try:
             command = _runtime(self.id, executable)
             args = ["-m", "pytest", "--version"] if self.id == "selenium-pytest" else ["--version"]
-            if self.id == "jmeter":
-                args = ["-j", os.devnull, "--version"]
             result = subprocess.run([*command, *args], capture_output=True, text=True, timeout=15, check=False)
             output = (result.stdout + result.stderr).strip()
             available = result.returncode == 0
@@ -136,7 +127,7 @@ class NativeAdapter:
         entry = Path(asset["argv"][0])
         explicit = entry.is_absolute() or entry.parent != Path(".")
         launcher = entry.stem.lower()
-        if explicit and (launcher.startswith("python") or launcher in ("newman", "apifox", "jmeter")):
+        if explicit and (launcher.startswith("python") or launcher in ("newman", "apifox")):
             if not entry.is_absolute():
                 entry = Path(asset["source_root"]) / asset["cwd"] / entry
             return self.probe(str(entry))
@@ -150,12 +141,11 @@ class NativeAdapter:
     def default_entry(self, files: list[str], cwd: str) -> list[str]:
         if self.id.startswith("selenium-"):
             return ["python", "-m", "pytest"] if self.id == "selenium-pytest" else ["python", "-m", "unittest", "discover"]
-        suffix = ".jmx" if self.id == "jmeter" else ".json"
-        choices = [name for name in files if name.endswith(suffix)]
+        choices = [name for name in files if name.endswith(".json")]
         if len(choices) != 1:
             raise ValueError("资产中有多个或没有入口文件，请显式提供原入口 argv")
         entry = os.path.relpath(choices[0], cwd).replace("\\", "/")
-        return ["jmeter", "-n", "-t", entry] if self.id == "jmeter" else ["newman" if self.id == "postman-newman" else "apifox", "run", entry]
+        return ["newman" if self.id == "postman-newman" else "apifox", "run", entry]
 
     def prepare(self, asset: dict, root: Path, evidence: Path, parameters: dict) -> dict:
         probe = asset.get("_runtime") or self.probe_asset(asset)
@@ -193,15 +183,9 @@ class NativeAdapter:
             report = evidence / "apifox.json"
             args = _reporters(_without_options(args, ("--out-dir", "--out-file")), ["cli", "json", "junit"])
             return [*runtime, *args, "--out-dir", str(evidence), "--out-file", "apifox"], report
-        if self.id == "postman-newman":
-            report = evidence / "report.json"
-            args = _reporters(_without_options(args, ("--reporter-json-export",)), ["cli", "json"])
-            return [*runtime, *args, "--reporter-json-export", str(report)], report
-        report = evidence / "samples.jtl"
-        args = _without_options(args, ("-l", "--logfile", "-j", "--jmeterlogfile", "-o", "--reportoutputfolder"), ("-e", "--reportatendofloadtests", "-n", "--nongui"))
-        return [*runtime, *args, "-n", "-l", str(report), "-j", str(evidence / "jmeter.log"), "-e", "-o", str(evidence / "html"),
-                "-Jjmeter.save.saveservice.output_format=csv", "-Jjmeter.save.saveservice.print_field_names=true",
-                "-Jjmeter.save.saveservice.assertion_results_failure_message=true"], report
+        report = evidence / "report.json"
+        args = _reporters(_without_options(args, ("--reporter-json-export",)), ["cli", "json"])
+        return [*runtime, *args, "--reporter-json-export", str(report)], report
 
     def execute(self, prepared: dict, *, cancelled=None, emit=None) -> dict:
         process = Process(prepared, emit)
@@ -212,22 +196,20 @@ class NativeAdapter:
 
     def collect(self, prepared: dict, raw: dict) -> dict:
         report, evidence = Path(prepared["report"]), Path(prepared["evidence"])
-        cases, metrics = [], {}
+        cases = []
         try:
             if self.id == "selenium-unittest" and (report.is_file() or report.with_suffix(".jsonl").is_file()):
                 cases = reports.unittest_report(report, raw.get("reason") or ("运行已取消" if raw.get("state") == "cancelled" else ""))
             elif report.is_file():
                 if self.id == "selenium-pytest":
                     cases = reports.junit(report)
-                elif self.id in ("postman-newman", "apifox"):
+                else:
                     cases = reports.newman(report)
                     if self.id == "apifox" and (evidence / "apifox.xml").is_file():
                         cases = [*reports.junit(evidence / "apifox.xml"), *(item for item in cases if item["status"] == "Blocked")]
-                else:
-                    cases, metrics = reports.jmeter(report, prepared["parameters"].get("thresholds", {}))
         except (OSError, ValueError, KeyError, TypeError, ET.ParseError) as error:
             raw = {**raw, "state": "blocked", "reason": "无法读取原生报告：" + str(error)}
-        return reports.summarize(cases, raw, evidence, metrics)
+        return reports.summarize(cases, raw, evidence)
 
     def cancel(self, prepared: dict) -> None:
         (Path(prepared["evidence"]) / "cancel").touch()

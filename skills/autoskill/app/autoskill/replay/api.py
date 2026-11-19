@@ -164,9 +164,9 @@ def run_case(client, case: dict, config: dict, variables: dict) -> dict:
                           **({"form": redact(filled["form"])} if "form" in filled else {})}
     if case.get("extensions", {}).get("traffic") == "resource":
         sent["timeout"] = float(config.get("page_load_seconds", 90))  # a page's own files may be as slow as the page
-    clock = time.monotonic()
     execution_inputs.mark_target_started()
     outcome["target_started"] = True
+    clock = time.monotonic()
     try:
         response = client.request(case["method"], url, **sent)
     except httpx.TimeoutException:

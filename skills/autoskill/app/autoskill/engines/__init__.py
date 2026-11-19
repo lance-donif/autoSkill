@@ -31,6 +31,6 @@ def discover(engine: str, root: str) -> list[dict]:
     return get(engine).discover(root)
 
 
-for _id in ("selenium-pytest", "selenium-unittest", "postman-newman", "apifox", "jmeter"):
+for _id in ("selenium-pytest", "selenium-unittest", "postman-newman", "apifox"):
     register(NativeAdapter(_id))
 register(AiEvaluationAdapter())

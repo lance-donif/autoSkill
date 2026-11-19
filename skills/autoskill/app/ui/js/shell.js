@@ -121,14 +121,15 @@ function buildSide(side) {
 export function renderSide() {
   const side = document.getElementById('side');
   if (!side.childElementCount) buildSide(side);
-  const current = route().page === 'native-runs' ? 'runs' : route().page;
+  const { page } = route();
+  const current = ['native-runs', 'load-tests'].includes(page) ? 'runs' : page;
   for (const link of side.querySelectorAll('nav a')) {
     link.href = href(link.dataset.page);
     if (link.dataset.page === current) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
   side.querySelector('.brand').href = href('dashboard');
-  side.querySelector('.nav-location').textContent = '当前位置：' + (PAGE_LABELS[current] || '总览');
+  side.querySelector('.nav-location').textContent = '当前位置：' + (PAGE_LABELS[page === 'load-tests' ? page : current] || '总览');
   const count = side.querySelector('.count');
   count.hidden = !state.active;
   count.textContent = String(state.active);
@@ -199,7 +200,7 @@ function replaceScope(bar, ...nodes) {
 }
 
 function pageScopeNote(page, id) {
-  if (id) return ['runs', 'native-runs', 'load-tests'].includes(page)
+  if (id) return ['runs', 'native-runs'].includes(page)
     ? '仅显示本次执行；返回列表可继续筛选。' : '使用当前页面选择的项目与内容。';
   const notes = {
     data: '设置保存在当前数据目录中',
@@ -216,8 +217,8 @@ export function renderScope() {
   const s = scope();
   const bar = document.getElementById('scope');
   const { page, id } = route();
-  // The case sheet owns its single project/session selector and its secondary settings.
-  bar.hidden = page === 'case-plans';
+  // The case sheet and load reports render their own controls.
+  bar.hidden = page === 'case-plans' || (page === 'load-tests' && !!id);
   if (bar.hidden) { replaceScope(bar); return; }
   // Background state changes must not dismiss an open scope picker or its date draft.
   if (bar.querySelector('.menu')) return;
@@ -272,5 +273,5 @@ export function renderScope() {
       onClick: () => setScope(timeless ? { projects: [] } : { projects: [], range: DEFAULT_RANGE, from: '', to: '' }),
     }, icon('reset'), '重置'),
     h('span', { class: 'grow' }),
-    runSettings());
+    page !== 'load-tests' && runSettings());
 }

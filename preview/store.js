@@ -1,6 +1,6 @@
 // Each document gets a fresh sample workspace. The hash router shares it across views.
 import { initCases, restoreCaseStates } from './cases-api.js';
-import { restoreRunVerdicts } from './runs-api.js';
+import { restoreRunVerdicts, seedLoadRuns } from './runs-api.js';
 import { initSchedules, validateTasks } from './schedules-api.js';
 
 let data;
@@ -13,6 +13,7 @@ export function startSession(fixtures) {
   const runs = fixtures['/runs'].items.map((entry) => structuredClone(fixtures['/runs/' + entry.id] || entry));
   data = { settings, runs };
   initCases(data, fixtures);
+  seedLoadRuns(data, fixtures);
   initSchedules(data, fixtures);
   revision = 1;
 }

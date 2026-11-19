@@ -27,7 +27,7 @@ class StaticFiles(SimpleHTTPRequestHandler):
         pass
 
 
-class PagesBrowserTests(unittest.TestCase):
+class PagesWorkspace(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         public_url = os.environ.get("AUTOSKILL_PAGES_URL")
@@ -88,6 +88,36 @@ class PagesBrowserTests(unittest.TestCase):
     def open(self, fragment):
         self.page.goto(self.preview + "#/" + fragment)
 
+    @contextmanager
+    def offline(self, run_id, *, report_selector=".run-summary"):
+        with self.page.expect_download() as event:
+            self.page.get_by_role("button", name="下载 HTML 报告", exact=True).click()
+        target = self.artifacts / (run_id + ".html")
+        event.value.save_as(target)
+        self.assertGreater(target.stat().st_size, 1000)
+        context = self.browser.new_context(viewport=self.viewport, offline=True)
+        context.tracing.start(screenshots=True, snapshots=True)
+        reader = context.new_page()
+        reader.on("pageerror", lambda error: self.errors.append(str(error)))
+        reader.on("request", lambda request: self.errors.append(request.url) if request.url.startswith(("http:", "https:")) else None)
+        try:
+            reader.set_content(target.read_text(encoding="utf-8"))
+            expect(reader.locator(report_selector)).to_be_visible()
+            assets = reader.locator('script[src], img[src], link[rel="stylesheet"][href]').evaluate_all(
+                "nodes => nodes.map(node => node.getAttribute('src') || node.getAttribute('href'))")
+            self.assertTrue(all(url.startswith("data:") for url in assets), assets)
+            yield reader
+        except Exception:
+            reader.screenshot(path=self.artifacts / (run_id + "-offline.png"))
+            context.tracing.stop(path=self.artifacts / (run_id + "-offline-trace.zip"))
+            raise
+        else:
+            context.tracing.stop()
+        finally:
+            context.close()
+
+
+class PagesBrowserTests(PagesWorkspace):
     def drawer(self, project, folder, title):
         self.open(f"cases?range=all&projects={project}")
         self.page.get_by_role("button", name=re.compile("^" + folder + "，")).click()
@@ -150,34 +180,6 @@ class PagesBrowserTests(unittest.TestCase):
         if head.get_attribute("aria-expanded") != "true":
             head.click()
         return result
-
-    @contextmanager
-    def offline(self, run_id):
-        with self.page.expect_download() as event:
-            self.page.get_by_role("button", name="下载 HTML 报告", exact=True).click()
-        target = self.artifacts / (run_id + ".html")
-        event.value.save_as(target)
-        self.assertGreater(target.stat().st_size, 1000)
-        context = self.browser.new_context(viewport=self.viewport, offline=True)
-        context.tracing.start(screenshots=True, snapshots=True)
-        reader = context.new_page()
-        reader.on("pageerror", lambda error: self.errors.append(str(error)))
-        reader.on("request", lambda request: self.errors.append(request.url) if request.url.startswith(("http:", "https:")) else None)
-        try:
-            reader.set_content(target.read_text(encoding="utf-8"))
-            expect(reader.locator(".run-summary")).to_be_visible()
-            assets = reader.locator('script[src], img[src], link[rel="stylesheet"][href]').evaluate_all(
-                "nodes => nodes.map(node => node.getAttribute('src') || node.getAttribute('href'))")
-            self.assertTrue(all(url.startswith("data:") for url in assets), assets)
-            yield reader
-        except Exception:
-            reader.screenshot(path=self.artifacts / (run_id + "-offline.png"))
-            context.tracing.stop(path=self.artifacts / (run_id + "-offline-trace.zip"))
-            raise
-        else:
-            context.tracing.stop()
-        finally:
-            context.close()
 
     def check_ui(self, result, timed_out):
         steps = result.get_by_role("list", name="操作步骤", exact=True).get_by_role("listitem")

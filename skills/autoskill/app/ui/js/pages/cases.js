@@ -97,12 +97,18 @@ export async function render(view, { isCurrent }) {
     return tree ? visible(project).filter((item) => (tree.assignments[item.case_id] || '') === folder) : [];
   }
 
+  function byProjectIds(items) {
+    const groups = new Map();
+    for (const item of items) groups.set(item.project_id, [...(groups.get(item.project_id) || []), item.case_id]);
+    return groups;
+  }
+
   function paintBar() {
     const items = [...selected.values()];
     bar.hidden = !items.length;
     if (!items.length) return;
-    const byProject = new Map();
-    for (const item of items) byProject.set(item.project_id, [...(byProject.get(item.project_id) || []), item.case_id]);
+    const byProject = byProjectIds(items);
+    const apiCases = byProjectIds(items.filter((item) => item.kind === 'api'));
     const visibleKeys = new Set(projects.flatMap(displayed).map(keyOf));
     const hidden = items.filter((item) => !visibleKeys.has(keyOf(item)));
     const scopeReady = items.every((item) => !trees.has(item.project_id) || trees.get(item.project_id).data);
@@ -113,7 +119,7 @@ export async function render(view, { isCurrent }) {
       h('button', { class: 'btn ghost', onClick: () => { selected.clear(); paint(); } }, '清除'),
       caseDeleteButton(items, { bulk: true }),
       h('button', { class: 'btn', disabled: !scopeReady, onClick: () => moveCases(items) }, icon('folder'), '移动到文件夹'),
-      loadTestButton('压测所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
+      apiCases.size > 0 && loadTestButton('压测所选', () => [...apiCases].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
       runButton(`运行所选 ${items.length} 条`, () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids,
         name: state.projects.find((project) => project.id === project_id)?.name || project_id })),
       { disabled: !scopeReady, title: scopeReady ? '运行所有勾选的用例，包含当前筛选隐藏的用例' : '文件夹范围尚未加载，请刷新后再运行' }));
@@ -176,7 +182,7 @@ function projectCard(project, items, repaint, folderResult, retry) {
     h('div', { class: 'grow' },
       h('h2', {}, project.name),
       h('p', { class: 'sub ellipsis' }, `${project.base_url} · 页面 ${project.cases.ui} · 接口 ${project.cases.api}`)),
-    project.cases.total > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
+    project.cases.api > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
     h('a', { class: 'btn sm', href: `/api/projects/${encodeURIComponent(project.id)}/folders/export`, download: '' }, icon('table'), '导出测试用例'),
     h('button', { class: 'btn sm icon', 'aria-label': `「${project.name}」设置`, title: '项目设置', onClick: () => projectSettings(project.id) }, icon('edit')));
 
@@ -215,7 +221,8 @@ function projectCard(project, items, repaint, folderResult, retry) {
           h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '编辑用例', 'aria-label': `编辑用例 ${item.case_id}`,
             onClick: (event) => { event.stopPropagation(); editCase(item.project_id, item.case_id); } }, icon('edit')),
             h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, disabled: !tree, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
-            loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }), run, caseDeleteButton([item], { small: true })));
+            item.kind === 'api' && loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }),
+            run, caseDeleteButton([item], { small: true })));
       })])));
   }
   return h('section', { class: 'card' }, head, banner,

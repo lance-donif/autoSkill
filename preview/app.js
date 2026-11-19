@@ -2,7 +2,6 @@
 import { setRunScreenshotResolver } from '../skills/autoskill/app/ui/js/pages/runs.js';
 import { casesApi } from './cases-api.js';
 import { advanceRuns, runsApi } from './runs-api.js';
-import { installLoadPages } from './load-pages.js';
 import { advanceTasks, schedulesApi } from './schedules-api.js';
 import { filesApi } from './files-api.js';
 import { commitData, currentData, getRevision, startSession } from './store.js';
@@ -156,7 +155,6 @@ async function start() {
   await import('../skills/autoskill/app/ui/js/main.js');
   const { showObservations } = await import('./observations.js');
   showObservations(fixtures['/observations/runoob']);
-  installLoadPages(currentData);
   const notice = document.createElement('span');
   notice.textContent = '预览操作仅在当前页面有效，刷新后还原';
   document.querySelector('.side-foot')?.prepend(notice);

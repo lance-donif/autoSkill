@@ -1,9 +1,7 @@
 """Normalize native reports without treating a successful launcher exit as a business assertion."""
 from __future__ import annotations
 
-import csv
 import json
-import math
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -97,47 +95,7 @@ def newman(file: Path) -> list[dict]:
     return cases
 
 
-def _percentile(values: list[float], quantile: float) -> float:
-    return sorted(values)[max(0, math.ceil(len(values) * quantile) - 1)] if values else 0.0
-
-
-def jmeter(file: Path, thresholds: dict) -> tuple[list[dict], dict]:
-    with file.open(encoding="utf-8-sig", newline="") as stream:
-        samples = list(csv.DictReader(stream))
-    cases, latencies, timestamps, endings, threads = [], [], [], [], []
-    for index, sample in enumerate(samples, 1):
-        elapsed = float(sample.get("elapsed") or 0)
-        timestamp = float(sample.get("timeStamp") or 0)
-        success = str(sample.get("success", "")).lower() == "true"
-        message = sample.get("failureMessage", "")
-        cases.append({"id": f"sample-{index}", "title": sample.get("label", str(index)),
-                      "status": "Pass" if success else "Fail", "reason": message or ("" if success else sample.get("responseMessage", "采样失败")),
-                      "duration_ms": elapsed, "target_started": True, "execution_only_pass": success and not message, "assertions": [_assertion("原生断言", False, message)] if message else [],
-                      "verdict_scope": "native_assertions" if message else "execution", "sample": sample})
-        latencies.append(elapsed)
-        timestamps.append(timestamp)
-        endings.append(timestamp + elapsed)
-        threads.append(int(sample.get("allThreads") or sample.get("grpThreads") or 0))
-    duration = (max(endings) - min(timestamps)) / 1000 if samples else 0
-    metrics = {"samples": len(samples), "failed_samples": sum(case["status"] != "Pass" for case in cases),
-               "elapsed_seconds": duration, "throughput_per_second": len(samples) / duration if duration > 0 else 0,
-               "p50_ms": _percentile(latencies, 0.5), "p95_ms": _percentile(latencies, 0.95),
-               "p99_ms": _percentile(latencies, 0.99), "max_threads": max(threads, default=0)}
-    metrics["error_rate"] = metrics["failed_samples"] / len(samples) if samples else 0
-    checks = []
-    for key, actual_key in (("max_p95_ms", "p95_ms"), ("max_error_rate", "error_rate")):
-        if key in thresholds:
-            checks.append(_assertion(key, metrics[actual_key] <= float(thresholds[key]), str(metrics[actual_key])))
-    if "min_throughput" in thresholds:
-        checks.append(_assertion("min_throughput", metrics["throughput_per_second"] >= float(thresholds["min_throughput"]), str(metrics["throughput_per_second"])))
-    if checks:
-        cases.append({"id": "performance-targets", "title": "性能目标", "status": "Pass" if all(item["passed"] for item in checks) else "Fail",
-                      "reason": "", "duration_ms": 0, "assertions": checks, "verdict_scope": "performance", "target_started": True,
-                      "execution_only_pass": bool(samples) and all(check["passed"] for check in checks)})
-    return cases, metrics
-
-
-def summarize(cases: list[dict], raw: dict, evidence: Path, metrics: dict | None = None) -> dict:
+def summarize(cases: list[dict], raw: dict, evidence: Path) -> dict:
     failures = any(item["status"] == "Fail" for item in cases)
     blocked = any(item["status"] == "Blocked" for item in cases)
     assertions = [check for item in cases for check in item.get("assertions", [])]
@@ -156,7 +114,7 @@ def summarize(cases: list[dict], raw: dict, evidence: Path, metrics: dict | None
     business_assertions = [check for item in business_cases for check in item.get("assertions", [])]
     business_failed = any(not check.get("passed") for check in business_assertions)
     verified = status == "Pass" and bool(business_assertions) and all(item.get("assertions") for item in cases) and not business_failed
-    return {"status": status, "reason": reason, "cases": cases, "metrics": metrics or {}, "process": raw,
+    return {"status": status, "reason": reason, "cases": cases, "metrics": {}, "process": raw,
             "execution_status": state, "business_status": "Fail" if business_failed else "Pass" if verified else "Unverified",
             "verification": "verified" if verified else "failed" if business_failed else "unverified",
             "verdict_scope": "native_assertions" if business_assertions else "performance" if assertions else "execution",

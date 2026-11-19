@@ -90,7 +90,7 @@ export async function render(view) {
   checkCard({ title: '运行环境', note: '检查 Python 依赖、浏览器、驱动与录制器；启动检查会实际打开浏览器完成本机探测。', mine,
     actions: [{ label: '检查运行环境', specification: () => ({ kind: 'doctor' }) },
       { label: '检查并启动浏览器', specification: () => ({ kind: 'doctor', launch: true }) }], renderResult: doctorResult }),
-  checkCard({ title: '原生执行器', note: '探测实际安装和版本。导入资产之前，可先确认 JMeter、Newman、Apifox 或 Python 执行器是否可用。', mine,
+  checkCard({ title: '原生执行器', note: '探测实际安装和版本。导入资产之前，可先确认 Newman、Apifox 或 Python 执行器是否可用。', mine,
     fields: h('div', { class: 'field' }, h('label', { for: 'diagnostic-engine' }, '选择执行器'), choice),
     actions: [{ label: '检查执行器', specification: () => ({ kind: 'engines', ...(choice.value ? { engine: choice.value } : {}) }) }],
     renderResult: (report) => engineResult(report, engines) }),

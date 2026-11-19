@@ -95,8 +95,9 @@ def build(assets: Path, output: Path, arch: str) -> dict:
     (package / "autoskill").chmod(0o755)
     (output / "setup-linux.sh").chmod(0o755)
     # Import-only assembly checks; no website access, browser regression or UOS acceptance claim.
-    environment = {**os.environ, "PYTHONPATH": str(package / "app"), "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1"}
-    subprocess.run([str(vendor / "python/bin/python3"), "-c", "import autoskill, playwright, selenium, cryptography, httpx, fastapi, uvicorn, openpyxl, jsonschema"],
+    environment = {**os.environ, "PYTHONPATH": str(package / "app"), "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
+                   "LOCUST_SKIP_MONKEY_PATCH": "1"}
+    subprocess.run([str(vendor / "python/bin/python3"), "-c", "import autoskill, playwright, selenium, cryptography, httpx, fastapi, uvicorn, openpyxl, jsonschema, locust"],
                    check=True, env=environment, cwd=output)
     common.plugin_check(output)
     files = {p.relative_to(vendor).as_posix(): common.sha256(p) for p in sorted(vendor.rglob("*")) if p.is_file()}

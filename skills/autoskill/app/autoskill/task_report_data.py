@@ -150,12 +150,14 @@ def _load(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
             continue
         detail = row.get("detail", {})
         observed[(row["case_id"], detail.get("load_iteration"))] = row
-    for iteration in range(1, manifest["load"]["iterations"] + 1):
-        for identity in manifest["selected"]:
-            result = observed.get((identity, iteration))
-            cases.append({"definition": manifest["cases"][identity], "result": result, "run_id": run["id"],
-                          "evidence_valid": bool(result) and execution_inputs.result_evidence(run, result),
-                          "note": f"压测第 {iteration} 次迭代没有此用例的实际结果；" + run["status"] if not result else ""})
+    rounds = manifest["load"].get("iterations")
+    entries = (((identity, i) for i in range(1, rounds + 1) for identity in manifest["selected"])
+               if rounds is not None else sorted(observed, key=lambda pair: (pair[1] or 0, pair[0])))
+    for identity, iteration in entries:
+        result = observed.get((identity, iteration))
+        cases.append({"definition": manifest["cases"][identity], "result": result, "run_id": run["id"],
+                      "evidence_valid": bool(result) and execution_inputs.result_evidence(run, result),
+                      "note": f"压测第 {iteration} 次迭代没有此用例的实际结果；" + run["status"] if not result else ""})
     sources["load"] = manifest["load"]
     notes.append("压测逐次保留全部目标执行，较早失败不会被后续成功覆盖；前置用例不计为压测目标。")
     return cases, sources, notes
