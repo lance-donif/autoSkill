@@ -2,7 +2,7 @@
 import { h, icon, replace, api, scope, route, go, href, refresh, attempt, fmtTime, statusPill, beforeRouteChange } from '../core.js';
 import { drawer, closeOverlay, empty } from '../ui.js';
 import { updateLiveView } from '../live-refresh.js';
-import { runSettings } from '../shell.js';
+import { projectIndex, runSettings } from '../shell.js';
 
 const url = (project, session, suffix = '') => `/case-plans/${encodeURIComponent(project)}${suffix}?session=${encodeURIComponent(session)}`;
 const readingPositions = new Map();
@@ -77,7 +77,7 @@ function preserveReadingPosition(view, data) {
 }
 
 export async function render(view) {
-  const projects = await api('/projects');
+  const projects = await projectIndex();
   const scoped = scope().projects;
   const params = route().params;
   const projectId = projects.find((item) => item.id === params.get('project'))?.id

@@ -109,23 +109,23 @@ class DashboardStabilityTests(unittest.TestCase):
 
     def test_failed_and_blocked_history_filters_keep_controls_and_back_navigation(self):
         self.page.goto("http://127.0.0.1:8787/#/runs?view=results&range=all")
-        expect(self.page.get_by_role("group", name="结果筛选")).to_be_visible()
+        expect(self.page.get_by_role("combobox", name="状态", exact=True)).to_be_visible()
         self.remember_regions(["#side", "#scope", "#view .page-head", "#view .toolbar", "#view section.card"])
-        filters = self.page.get_by_role("group", name="结果筛选")
-        for status, label in (("Fail", "失败"), ("Blocked", "阻塞")):
-            filters.get_by_role("button", name=label, exact=True).click()
+        filters = self.page.get_by_role("combobox", name="状态", exact=True)
+        for status in ("Fail", "Blocked"):
+            filters.select_option(status)
             expect(self.page.locator("#view .table tbody tr").first).to_contain_text(f"{status} case")
-            expect(filters.get_by_role("button", name=label, exact=True)).to_have_attribute("aria-pressed", "true")
+            expect(filters).to_have_value(status)
             self.assertIn(f"status={status}", self.page.url)
             self.assert_regions_unchanged()
         self.page.go_back()
         expect(self.page.locator("#view .table tbody tr").first).to_contain_text("Fail case")
-        expect(filters.get_by_role("button", name="失败", exact=True)).to_have_attribute("aria-pressed", "true")
+        expect(filters).to_have_value("Fail")
         self.assert_regions_unchanged()
 
     def test_slow_status_response_does_not_dim_and_latest_filter_wins(self):
         self.page.goto("http://127.0.0.1:8787/#/runs?view=results&range=all")
-        expect(self.page.get_by_role("group", name="结果筛选")).to_be_visible()
+        expect(self.page.get_by_role("combobox", name="状态", exact=True)).to_be_visible()
         self.page.evaluate("""() => {
             const fetchNow = window.fetch.bind(window);
             window.fetch = async (...args) => {
@@ -134,11 +134,11 @@ class DashboardStabilityTests(unittest.TestCase):
             };
         }""")
         self.remember_regions(["#side", "#scope", "#view .toolbar"])
-        filters = self.page.get_by_role("group", name="结果筛选")
-        filters.get_by_role("button", name="失败", exact=True).click()
+        filters = self.page.get_by_role("combobox", name="状态", exact=True)
+        filters.select_option("Fail")
         expect(self.page.locator("#view")).to_have_attribute("aria-busy", "true")
         self.assert_regions_unchanged()
-        filters.get_by_role("button", name="阻塞", exact=True).click()
+        filters.select_option("Blocked")
         expect(self.page.locator("#view .table tbody tr").first).to_contain_text("Blocked case")
         self.page.wait_for_function("document.getElementById('view').getAttribute('aria-busy') !== 'true'")
         self.assert_regions_unchanged()

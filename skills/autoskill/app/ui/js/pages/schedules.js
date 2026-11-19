@@ -1,4 +1,5 @@
 // Schedules: run chosen cases at fixed times. Create, edit, pause, delete, run now.
+import { projectIndex } from '../shell.js';
 import { ensurePreferences } from '../preferences.js';
 import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
 import { empty, errorState, drawer, closeOverlay, confirm, preferredHeaded } from '../ui.js';
@@ -10,7 +11,7 @@ const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai'
 
 export async function render(view) {
   let tasks, projects;
-  try { [tasks, projects] = await Promise.all([api('/tasks' + scopeQuery()), api('/projects')]); } catch (error) {
+  try { [tasks, projects] = await Promise.all([api('/tasks' + scopeQuery()), projectIndex()]); } catch (error) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }

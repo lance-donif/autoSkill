@@ -3,9 +3,10 @@ import { ensurePreferences } from '../preferences.js';
 import { h, icon, replace, api, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
 import { runtimeFields, credentialControls } from '../project-settings.js';
-import { state, refreshShell } from '../shell.js';
+import { state, caseProjects, refreshShell } from '../shell.js';
 import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
+import { updateLiveView } from '../live-refresh.js';
 import { editCase } from '../case-editor.js';
 import { primaryState, stateResults, stateDetails } from '../status-view.js';
 
@@ -23,23 +24,42 @@ const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'gl
 const caseFolder = (tree, id) => tree && Object.hasOwn(tree.assignments, id) ? folderPath(tree, tree.assignments[id]) : '';
 const searchText = (value) => value.trim().toLowerCase().replace(/\s*\/\s*/g, '/');
 
-export async function render(view) {
-  let data;
+export async function render(view, { isCurrent }) {
+  const scopeIds = scope().projects;
+  const trees = new Map();
+  const cards = new Map();
+  const byProject = new Map();
+  let data, projects;
+
+  async function loadTree(project) {
+    trees.set(project.id, {});
+    if (cards.has(project.id)) paintProject(project);
+    let result;
+    try { result = { data: await api(`/projects/${encodeURIComponent(project.id)}/folders`) }; }
+    catch (error) { result = { error }; }
+    if (!isCurrent()) return;
+    trees.set(project.id, result);
+    if (cards.has(project.id)) {
+      paintProject(project);
+      paintBar();
+    }
+  }
+
   try {
-    data = await api('/cases' + scopeQuery());
+    [data, projects] = await Promise.all([api('/cases' + scopeQuery()), caseProjects().then((all) => {
+      const scoped = scopeIds.length ? all.filter((project) => scopeIds.includes(project.id)) : all;
+      if (isCurrent()) for (const project of scoped) void loadTree(project);
+      return scoped;
+    })]);
   } catch (error) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
-  const s = scope();
-  const projects = s.projects.length ? state.projects.filter((p) => s.projects.includes(p.id)) : state.projects;
-  const trees = new Map();
-  await Promise.all(projects.map(async (project) => {
-    try { trees.set(project.id, { data: await api(`/projects/${encodeURIComponent(project.id)}/folders`) }); }
-    catch (error) { trees.set(project.id, { error }); }
-  }));
-  for (const item of data.items) item.folder_path = caseFolder(trees.get(item.project_id)?.data, item.case_id);
-
+  if (!isCurrent()) return;
+  for (const item of data.items) {
+    if (!byProject.has(item.project_id)) byProject.set(item.project_id, []);
+    byProject.get(item.project_id).push(item);
+  }
   const list = h('div', { class: 'stack' });
   const bar = h('div', { class: 'select-bar', hidden: true });
   const search = h('input', { class: 'input', type: 'search', placeholder: '搜索编号、标题、子项目或目录', value: query, 'aria-label': '搜索用例', style: 'width:280px',
@@ -52,15 +72,15 @@ export async function render(view) {
 
   function visible(project) {
     const text = searchText(query);
-    return data.items.filter((item) => item.project_id === project.id && (!kind || item.kind === kind)
+    return (byProject.get(project.id) || []).filter((item) => (!kind || item.kind === kind)
       && (!text || searchText([item.case_id, item.title, item.module, item.folder_path].join(' ')).includes(text)));
   }
 
   function displayed(project) {
     const folder = folderSelection.get(project.id) ?? ALL_FOLDERS;
     const tree = trees.get(project.id)?.data;
-    if (!tree) return [];
-    return visible(project).filter((item) => folder === ALL_FOLDERS || (tree.assignments[item.case_id] || '') === folder);
+    if (folder === ALL_FOLDERS) return visible(project);
+    return tree ? visible(project).filter((item) => (tree.assignments[item.case_id] || '') === folder) : [];
   }
 
   function paintBar() {
@@ -78,15 +98,25 @@ export async function render(view) {
       hidden.length > 0 && h('button', { class: 'btn', onClick: () => { for (const item of hidden) selected.delete(keyOf(item)); paint(); } }, `清除隐藏的 ${hidden.length} 条`),
       h('button', { class: 'btn ghost', onClick: () => { selected.clear(); paint(); } }, '清除'),
       caseDeleteButton(items, { bulk: true }),
-      h('button', { class: 'btn', onClick: () => moveCases(items) }, icon('folder'), '移动到文件夹'),
+      h('button', { class: 'btn', disabled: !scopeReady, onClick: () => moveCases(items) }, icon('folder'), '移动到文件夹'),
       loadTestButton('压测所选', () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
       runButton(`运行所选 ${items.length} 条`, () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids,
         name: state.projects.find((project) => project.id === project_id)?.name || project_id })),
       { disabled: !scopeReady, title: scopeReady ? '运行所有勾选的用例，包含当前筛选隐藏的用例' : '文件夹范围尚未加载，请刷新后再运行' }));
   }
 
+  function paintProject(project) {
+    const items = byProject.get(project.id) || [];
+    const result = trees.get(project.id);
+    for (const item of items) item.folder_path = caseFolder(result?.data, item.case_id);
+    const card = projectCard(project, displayed(project), items, paint, result, () => loadTree(project));
+    const current = cards.get(project.id);
+    if (current) updateLiveView(current, card);
+    else { cards.set(project.id, card); list.append(card); }
+  }
+
   function paint() {
-    replace(list, projects.map((project) => projectCard(project, displayed(project), data.items.filter((item) => item.project_id === project.id), paint, trees.get(project.id))));
+    for (const project of projects) paintProject(project);
     if (!projects.length) {
       replace(list, h('div', { class: 'card' }, empty({ glyph: 'folder', title: '没有符合筛选的项目', text: '换一个项目筛选查看已有用例。' })));
     }
@@ -116,7 +146,7 @@ export async function render(view) {
   }
 }
 
-function projectCard(project, items, projectItems, repaint, folderResult) {
+function projectCard(project, items, projectItems, repaint, folderResult, retry) {
   const tree = folderResult?.data;
   const folderId = folderSelection.get(project.id) ?? ALL_FOLDERS;
   const allKeys = items.map(keyOf);
@@ -148,7 +178,7 @@ function projectCard(project, items, projectItems, repaint, folderResult) {
     `子项目：${module}`, h('span', { class: 'muted' }, `　${items.filter((item) => item.module === module).length} 条`)));
   let body;
   if (!items.length) {
-    body = empty({ glyph: 'cases', title: tree ? '没有符合条件的用例' : '用例范围尚未加载', text: tree ? '换一个类型、搜索词或文件夹试试。' : '文件夹加载失败时不会扩大运行范围，请刷新后再试。' });
+    body = empty({ glyph: 'cases', title: tree ? '没有符合条件的用例' : '用例范围尚未加载', text: tree ? '换一个类型、搜索词或文件夹试试。' : '读取文件夹后显示当前范围的用例。' });
   } else {
     body = h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '子项目'),
@@ -169,12 +199,14 @@ function projectCard(project, items, projectItems, repaint, folderResult) {
           h('td', { class: 'sub' }, item.module),
           h('td', {}, caseStatus(item)),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
-          h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
+          h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, disabled: !tree, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
             loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }), run, caseDeleteButton([item], { small: true })));
       })])));
   }
   return h('section', { class: 'card' }, head, banner,
-    folderResult.error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${folderResult.error.message}`)),
+    !tree && !folderResult?.error && h('p', { class: 'card-body sub', role: 'status' }, '正在加载文件夹…'),
+    folderResult?.error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${folderResult.error.message}`,
+      h('button', { class: 'btn sm', onClick: retry }, '重试文件夹'))),
     h('div', { class: tree ? 'project-folders' : '' },
       tree && folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); }),
       h('div', { class: 'folder-content' }, tree && projectFolderTools(project, tree, folderId, items.length),
@@ -244,8 +276,10 @@ function caseDeletionNotice() {
 }
 
 async function projectSettings(projectId) {
+  const source = location.hash;
   let project;
   try { project = await api('/projects/' + projectId); } catch (error) { toast(error.message, { bad: true }); return; }
+  if (location.hash !== source) return;
   const name = h('input', { class: 'input', value: project.name, id: 'ps-name' });
   const category = h('input', { class: 'input', value: project.category, id: 'ps-cat' });
   const runtime = runtimeFields(project);
@@ -317,13 +351,15 @@ function caseOverview(item, folderLabel) {
 }
 
 async function caseDrawer(projectId, caseId, folderLabel) {
+  const source = location.hash;
   const project = '/projects/' + encodeURIComponent(projectId);
-  let item, location;
+  let item, folder;
   try {
-    [item, location] = await Promise.all([api(`${project}/cases/${encodeURIComponent(caseId)}`),
+    [item, folder] = await Promise.all([api(`${project}/cases/${encodeURIComponent(caseId)}`),
       folderLabel ?? api(project + '/folders').then((tree) => caseFolder(tree, caseId)).catch(() => '')]);
   } catch (error) { toast(error.message, { bad: true }); return; }
-  const body = caseOverview(item, location);
+  if (location.hash !== source) return;
+  const body = caseOverview(item, folder);
   if (item.kind === 'ui') {
     body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '回放步骤'),
       h('ol', { class: 'steps' },

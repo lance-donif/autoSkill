@@ -29,26 +29,14 @@ let token = 0;
 let viewKey = '';
 let lastScope = '';
 let loadingPage = false;
-let refreshingFrame = null;
 let initialRevision = null;
 let snapshotStarted = false;
-
-function projectSignature() {
-  return JSON.stringify(state.projects);
-}
-
-function refreshFrame() {
-  if (refreshingFrame) return refreshingFrame;
-  const before = projectSignature();
-  refreshingFrame = refreshShell(async () => {
-    if (projectSignature() !== before && ['cases', 'dashboard'].includes(route().page)) await show({ quiet: true });
-  }).finally(() => { refreshingFrame = null; });
-  return refreshingFrame;
-}
 
 async function show({ quiet = false } = {}) {
   const { page, id } = route();
   const mine = ++token;
+  const hash = location.hash;
+  const isCurrent = () => mine === token && hash === location.hash;
   if (!PAGES[page]) { location.hash = '#/dashboard'; return; }
   const key = page + '/' + (id || '');
   const changedPage = key !== viewKey;
@@ -69,17 +57,17 @@ async function show({ quiet = false } = {}) {
   view.setAttribute('aria-busy', 'true');
   try {
     const module = await PAGES[page]();
-    if (mine !== token) return;
+    if (!isCurrent()) return;
     const holder = document.createElement('div');
     snapshotStarted = true;
-    await module.render(holder, { id, quiet });
-    if (mine !== token) return;
+    await module.render(holder, { id, quiet, isCurrent });
+    if (!isCurrent()) return;
     if (!fresh && module.commit) module.commit(view, holder, { id, quiet });
     else if (quiet && !fresh) updateLiveView(view, holder);
     else view.replaceChildren(...holder.childNodes);
     if (fresh) window.scrollTo(0, 0);
   } catch (error) {
-    if (mine !== token) return;
+    if (!isCurrent()) return;
     replace(view, h('div', { class: 'card' }, errorState(error, () => show())));
   } finally {
     if (mine === token) {
@@ -93,7 +81,7 @@ async function show({ quiet = false } = {}) {
 applyTheme(preferredTheme());
 onPreferences(() => { applyTheme(preferredTheme()); renderSide(); renderScope(); });
 if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embed = 'true';
-if (!location.hash) location.hash = '#/dashboard';
+if (!location.hash) history.replaceState(history.state, '', '#/dashboard');
 
 // Metadata never gates the first view or its navigation.
 onChange(() => show());
@@ -102,7 +90,7 @@ void api('/state-revision').then((value) => {
 }).catch(() => undefined);
 const firstView = show();
 void loadPreferences().catch((error) => toast('偏好没能加载：' + error.message + '。刷新页面后重试。', { bad: true }));
-void refreshFrame();
+void refreshShell();
 await firstView;
 
 // A late baseline stays unknown, forcing a fresh snapshot for writes during startup.
@@ -111,9 +99,9 @@ const polling = revisionPoll({
   read: () => api('/state-revision'),
   changed: async () => {
     // Request-owned screens keep drafts and receipts until an explicit refresh.
+    // Start independent reads together so pages that need the project list can share it.
+    void refreshShell();
     if (!['data', 'diagnostics', 'conversations', 'project-materials'].includes(route().page)) await show({ quiet: true });
-    // Updating a run must not wait for slower project and runtime metadata reads.
-    void refreshFrame();
   },
   unavailable: () => { state.online = false; renderSide(); },
 });

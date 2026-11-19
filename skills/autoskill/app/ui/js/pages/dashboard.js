@@ -3,7 +3,6 @@ import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope,
   fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope, refresh } from '../core.js';
 import { definition, empty, errorState, skeletonRows } from '../ui.js';
 import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts.js';
-import { state } from '../shell.js';
 import { primaryState, stateResults } from '../status-view.js';
 
 const DEFINITIONS = {
@@ -41,7 +40,7 @@ export async function render(view) {
     return;
   }
   const r = summary.results, c = summary.cases, u = summary.runs;
-  if (!state.projects.length && !u.total && !r.executions) { replace(view, pageHead(null), firstUse()); return; }
+  if (isDefaultScope() && !c.total && !u.total && !r.executions) { replace(view, pageHead(null), firstUse()); return; }
   const s = scope();
   const { start, end } = bounds(s);
   const points = fillBuckets(summary.trend.points, summary.trend.unit, start, end);
@@ -106,10 +105,10 @@ function runAll(options = {}) {
   return h('a', { class: 'btn' + (options.primary === false ? '' : ' primary'), href: href('cases') }, icon('play'), '选择用例重新运行');
 }
 
-function pageHead() {
+function pageHead(summary) {
   return h('div', { class: 'page-head' },
     h('div', { class: 'grow' }, h('h1', {}, '总览'), h('p', { class: 'sub' }, '查看测试进度与结果，需要时重新运行已有用例。下方统计按上方项目与时间范围显示。')),
-    state.projects.some((p) => p.cases?.total) && runAll());
+    summary?.cases.total > 0 && runAll());
 }
 
 function tasksCard(tasks) {

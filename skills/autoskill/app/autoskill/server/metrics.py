@@ -73,7 +73,7 @@ def snapshot(scope: Scope):
         return
     with db.connect() as connection, task_state.projection():
         connection.execute("BEGIN")
-        current = {"connection": connection, "as_of": db.now(), "selected": {}, "results": {}, "runs": {}}
+        current = {"connection": connection, "as_of": db.now(), "selected": {}, "verdicts": {}, "children": {}, "parents": {}}
         scope._snapshot = current
         try:
             yield current
@@ -153,20 +153,40 @@ def _latest(scope: Scope) -> str:
             "AND x.case_id=r.case_id AND x.prerequisite=0 AND xu.trigger!='login' AND xu.family!='load' AND " + _cycle(scope, "xu") + ")")
 
 
-def _project_result(scope: Scope, row: dict, connection) -> dict:
-    cache = scope._snapshot["results"] if scope._snapshot else {}
+def _result_verdict(scope: Scope, row: dict, parent=None) -> dict:
+    cache = scope._snapshot["verdicts"]
     if row["id"] not in cache:
-        cache[row["id"]] = task_state.result(row, connection=connection)
+        if parent is None:
+            parents = scope._snapshot["parents"]
+            identity = row["run_id"]
+            if identity not in parents:
+                parents[identity] = _one(scope, "SELECT * FROM runs WHERE id=?", (identity,))
+            parent = parents[identity]
+        cache[row["id"]] = task_state.result_verdict(row, parent)
     return cache[row["id"]]
 
 
-def _project_run(scope: Scope, row: dict, connection) -> dict:
-    cache = scope._snapshot["runs"] if scope._snapshot else {}
+def _children(scope: Scope, row: dict, connection) -> list[dict]:
+    cache = scope._snapshot["children"]
     if row["id"] not in cache:
-        children = [dict(value) for value in connection.execute("SELECT * FROM results WHERE run_id=? AND prerequisite=0 ORDER BY id", (row["id"],))]
-        states = [_project_result(scope, child, connection) for child in children]
-        cache[row["id"]] = run_values(row, results=children, result_states=states, connection=connection)
+        rows = connection.execute("SELECT * FROM results WHERE run_id=? AND prerequisite=0 ORDER BY id", (row["id"],))
+        cache[row["id"]] = [_result_verdict(scope, dict(child), row) for child in rows]
     return cache[row["id"]]
+
+
+def _verdict(scope: Scope, entity: str, row: dict) -> dict:
+    connection = scope._snapshot["connection"]
+    if entity == "result":
+        return _result_verdict(scope, row)
+    return task_state.run_verdict(row, _children(scope, row, connection))
+
+
+def _history_item(scope: Scope, entity: str, row: dict) -> dict:
+    connection = scope._snapshot["connection"]
+    if entity == "run":
+        return run_values(row, result_states=_children(scope, row, connection), connection=connection)
+    state = task_state.result(row, connection=connection, verdict=_result_verdict(scope, row))
+    return {**{key: value for key, value in row.items() if key != "detail"}, "state": state}
 
 
 def _prefilter(scope: Scope, entity: str, status: str | None, where: str, args: list) -> tuple[str, list]:
@@ -174,6 +194,8 @@ def _prefilter(scope: Scope, entity: str, status: str | None, where: str, args: 
         return where, args
     if status == "active":
         where += " AND u.status IN ('Queued','Running')"
+    elif status == "Running":
+        where += " AND u.status = 'Running'"
     phases = {"queued": ("Queued",), "running": ("Running",), "blocked": ("Blocked",),
               "cancelled": ("Cancelled",), "settled": ("Pass", "Fail")}
     if phase := phases.get(scope.state_filters.get("phase")):
@@ -182,15 +204,7 @@ def _prefilter(scope: Scope, entity: str, status: str | None, where: str, args: 
     return where, args
 
 
-def _selected(scope: Scope, entity: str, *, status: str | None = None, trigger: str | None = None,
-              current_only: bool = False, run_time: bool = False, exclude_load: bool = False) -> list[dict]:
-    if scope._snapshot is None:
-        with snapshot(scope):
-            return _selected(scope, entity, status=status, trigger=trigger, current_only=current_only, run_time=run_time, exclude_load=exclude_load)
-    cache = scope._snapshot
-    key = (entity, status, trigger, current_only, run_time, exclude_load)
-    if key in cache["selected"]:
-        return cache["selected"][key]
+def _candidates(scope: Scope, entity: str, status, trigger, current_only, run_time, exclude_load):
     result = entity == "result"
     clock = "u.created_at" if not result or run_time else "r.started_at"
     where, args = scope.where(clock, "r.project_id" if result else "u.project_id")
@@ -206,20 +220,34 @@ def _selected(scope: Scope, entity: str, *, status: str | None = None, trigger: 
     source = RESULTS if result else "FROM runs u LEFT JOIN projects p ON p.id=u.project_id"
     alias = "r" if result else "u"
     order = "r.started_at DESC,r.id DESC" if result else "u.created_at DESC,u.id DESC"
-    with _connection(scope) as connection:
-        rows = connection.execute(f"SELECT {alias}.*,COALESCE(p.name,{alias}.project_id) project_name {source} WHERE {where} ORDER BY {order}", args)
-        items = []
-        for saved in rows:
-            item = dict(saved)
-            if result:
-                state = _project_result(scope, item, connection)
-            else:
-                item = _project_run(scope, item, connection)
-                state = item["state"]
-            selected = not status or (state["lifecycle"] in ("pending", "active") if status == "active" else state["outcome"] == status.lower())
-            if selected and _matches(state, scope.state_filters):
-                items.append({**item, "state": state})
-    cache["selected"][key] = items
+    return alias, f"{source} WHERE {where}", args, order
+
+
+def _selected(scope: Scope, entity: str, *, status: str | None = None, trigger: str | None = None,
+              current_only: bool = False, run_time: bool = False, exclude_load: bool = False) -> list[dict]:
+    if scope._snapshot is None:
+        with snapshot(scope):
+            return _selected(scope, entity, status=status, trigger=trigger, current_only=current_only, run_time=run_time, exclude_load=exclude_load)
+    cache = scope._snapshot["selected"]
+    key = (entity, status, trigger, current_only, run_time, exclude_load)
+    if key in cache:
+        return cache[key]
+    alias, source, args, order = _candidates(scope, entity, status, trigger, current_only, run_time, exclude_load)
+    rows = scope._snapshot["connection"].execute(f"SELECT {alias}.*,COALESCE(p.name,{alias}.project_id) project_name {source} ORDER BY {order}", args)
+    items = []
+    needs_delivery = bool(scope.state_filters.keys() & {"report", "delivery"})
+    for saved in rows:
+        row = dict(saved)
+        state = _history_item(scope, entity, row)["state"] if needs_delivery else _verdict(scope, entity, row)
+        if status == "active":
+            matched = state["lifecycle"] in ("pending", "active")
+        elif status == "Running" and entity == "run":
+            matched = state["phase"] == "running"
+        else:
+            matched = not status or state["outcome"] == status.lower()
+        if matched and _matches(state, scope.state_filters):
+            items.append({**row, "state": state})
+    cache[key] = items
     return items
 
 
@@ -284,6 +312,9 @@ def trend(scope: Scope, tz_minutes: int = 480) -> dict:
 
 
 def task_status(scope: Scope) -> dict:
+    if scope._snapshot is None:
+        with snapshot(scope):
+            return task_status(scope)
     where, args = scope.where(None, "t.project_id")
     tasks = _rows(scope,
         "SELECT t.id, t.title, t.project_id, COALESCE(p.name, t.project_id) project_name, t.enabled, t.next_due, "
@@ -295,8 +326,7 @@ def task_status(scope: Scope) -> dict:
     enabled = sum(1 for t in tasks if t["enabled"])
     for task in tasks[:5]:
         run = _one(scope, "SELECT * FROM runs WHERE id=?", (task["last_run_id"],)) if task["last_run_id"] else None
-        with _connection(scope) as connection:
-            task["last_run_state"] = _project_run(scope, run, connection)["state"] if run else None
+        task["last_run_state"] = _history_item(scope, "run", run)["state"] if run else None
     upcoming = [t for t in tasks if t["enabled"] and t["next_due"]]
     return {"total": len(tasks), "enabled": enabled, "paused": len(tasks) - enabled, "fired_in_range": fired,
             "next": upcoming[0] if upcoming else None, "tasks": tasks[:5]}
@@ -318,25 +348,51 @@ def dashboard(scope: Scope, tz_minutes: int = 480, *, current_only: bool = False
         recent = runs(scope, limit=limit, exclude_load=True)
         outcomes = ("fail",) if current_only else ("fail", "blocked")
         rows = [row for row in _selected(scope, "result", current_only=current_only) if row["state"]["outcome"] in outcomes]
-        items = [{key: value for key, value in row.items() if key != "detail"} for row in rows[:limit]]
+        items = [_history_item(scope, "result", row) for row in rows[:limit]]
         return {"summary": totals, "recent": recent, "failures": {"total": len(rows), "items": items}}
 
 
+def _history_page(scope: Scope, entity: str, status, limit, offset, *, trigger=None, current_only=False, exclude_load=False):
+    with snapshot(scope) as snap:
+        key = (entity, status, trigger, current_only, False, exclude_load)
+        sql_status = not status or (entity == "run" and status in ("active", "Running"))
+        if scope.state_filters or not sql_status or key in snap["selected"]:
+            selected = _selected(scope, entity, status=status, trigger=trigger, current_only=current_only, exclude_load=exclude_load)
+            rows = selected[offset:offset + limit]
+            total, counts = len(selected), _counts(selected)["state_counts"]
+        else:
+            alias, source, args, order = _candidates(scope, entity, status, trigger, current_only, False, exclude_load)
+            totals = _one(scope, f"SELECT COUNT(*) total, COUNT(*) FILTER (WHERE {alias}.status='Fail') failed {source}", args)
+            total = totals["total"]
+            rows = _rows(scope, f"SELECT {alias}.*,COALESCE(p.name,{alias}.project_id) project_name {source} ORDER BY {order} LIMIT ? OFFSET ?",
+                         [*args, limit, offset])
+            # A recorded failure always fails. Every other outcome still needs the shared verdict.
+            counts = _counts([])["state_counts"]
+            counts["fail"] = totals["failed"]
+            if total > counts["fail"]:
+                if len(rows) == total:
+                    remaining = (row for row in rows if row["status"] != "Fail")
+                else:
+                    candidates = snap["connection"].execute(f"SELECT {alias}.* {source} AND {alias}.status!='Fail'", args)
+                    remaining = map(dict, candidates)
+                for row in remaining:
+                    counts[_verdict(scope, entity, row)["outcome"]] += 1
+        return {"items": [_history_item(scope, entity, row) for row in rows], "total": total, "state_counts": counts}
+
+
 def runs(scope: Scope, trigger: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0, exclude_load: bool = False) -> dict:
-    with snapshot(scope):
-        rows = _selected(scope, "run", status=status, trigger=trigger, exclude_load=exclude_load)
-        return {"total": len(rows), "items": rows[int(offset):int(offset) + int(limit)], "state_counts": _counts(rows)["state_counts"]}
+    return _history_page(scope, "run", status, int(limit), int(offset), trigger=trigger, exclude_load=exclude_load)
 
 
 def results(scope: Scope, status: str | None = None, current_only: bool = False, limit: int = 50, offset: int = 0) -> dict:
-    """Filter central outcomes before paging; never infer a business pass from raw status."""
-    rows = _selected(scope, "result", status=status, current_only=current_only)
-    items = [{key: value for key, value in row.items() if key != "detail"} for row in rows[int(offset):int(offset) + int(limit)]]
-    return {"total": len(rows), "items": items, "state_counts": _counts(rows)["state_counts"]}
+    return _history_page(scope, "result", status, int(limit), int(offset), current_only=current_only)
 
 
 def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> dict:
     """Active cases as of the end of the range, each with its latest counted result."""
+    if scope._snapshot is None:
+        with snapshot(scope):
+            return cases(scope, kind, added_only)
     where, args = scope.where(None, "c.project_id")
     moment = scope.as_of()
     where += " AND c.created_at < ? AND (c.archived_at IS NULL OR c.archived_at >= ?)"

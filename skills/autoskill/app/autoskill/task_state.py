@@ -28,7 +28,7 @@ def projection():
     if _projection.get() is not None:
         yield
         return
-    token = _projection.set({"root": paths.workspace(), "paths": {}, "json": {}, "reports": {}})
+    token = _projection.set({"root": paths.workspace(), "paths": {}, "json": {}, "reports": {}, "current_projects": set()})
     try:
         yield
     finally:
@@ -135,6 +135,11 @@ def _state(lifecycle: str, phase: str, outcome: str, *, scope: dict, reason: str
 
 def watch_current(project_id: str) -> None:
     """Observe live definitions separately from immutable execution evidence."""
+    current = _projection.get()
+    if current is not None:
+        if project_id in current["current_projects"]:
+            return
+        current["current_projects"].add(project_id)
     folder = paths.projects_dir() / project_id
     _watch(paths.local() / "credentials.json")
     for file in (folder, folder / "project.json", folder / "qa-config.json", folder / "auth.json", folder / "testcases", folder / "domain" / "HEAD.json"):
@@ -262,21 +267,12 @@ def _evidence(run_row: dict, row: dict, detail: dict) -> bool:
         return False
 
 
-@_projected
-def result(row: dict, detail=None, *, connection=None) -> dict:
-    """Project a case result, retaining failed attempts independently of the last one."""
-    if connection is None:
-        with db.connect() as current:
-            return result(row, detail, connection=current)
-    row = dict(row)
+def result_verdict(row: dict, run_row: dict | None, detail=None) -> dict:
+    """Evaluate the business, performance and evidence axes without opening delivery reports."""
     details = _json(row.get("detail") if detail is None else detail)
-    run_rows = _rows(connection, "SELECT * FROM runs WHERE id = ?", (row.get("run_id"),))
-    attempts = details.get("attempts")
-    attempts = attempts if isinstance(attempts, list) else []
-    if attempts and isinstance(attempts[-1], dict):
-        row["attempt_id"] = attempts[-1].get("id")
+    attempts = _object_rows(details.get("attempts"))
     business = _axis(details.get("business_status"))
-    if any(_axis(attempt.get("business_status")) == "fail" for attempt in attempts if isinstance(attempt, dict)):
+    if any(_axis(attempt.get("business_status")) == "fail" for attempt in attempts):
         business = "fail"
     performance_rows = _object_rows(details.get("performance_assertions"))
     performance_rows += [item for item in _object_rows(details.get("assertions")) if item.get("scope") == "performance" or item.get("source") == "performance_target"]
@@ -285,9 +281,9 @@ def result(row: dict, detail=None, *, connection=None) -> dict:
     if details.get("verdict_scope") == "performance":
         performance_rows.extend(_object_rows(details.get("assertions")))
     performance = _axis(details.get("performance_status"), default="not_applicable") if details.get("performance_status") != "Unverified" else "not_applicable"
-    if not performance_rows and details.get("performance_status") == "Unverified" and run_rows and run_rows[0].get("family") != "native":
+    if not performance_rows and details.get("performance_status") == "Unverified" and run_row and run_row.get("family") != "native":
         try:
-            manifest = watch_json(_resolve(run_rows[0]["input_manifest"]))
+            manifest = watch_json(_resolve(run_row["input_manifest"]))
             frozen = manifest.get("cases", {}).get(row.get("case_id"), {})
             if "max_ms" in frozen.get("assertions", {}):
                 performance = "unverified"
@@ -304,7 +300,7 @@ def result(row: dict, detail=None, *, connection=None) -> dict:
     blocked = status == "blocked" or bool(details.get("execution_blocker"))
     lifecycle = "cancelled" if status == "cancelled" else "completed"
     phase = "blocked" if blocked else "cancelled" if status == "cancelled" else "settled"
-    evidence = "valid" if run_rows and _evidence(run_rows[0], row, details) else "invalid"
+    evidence = "valid" if run_row and run_row.get("input_manifest") and _evidence(run_row, row, details) else "invalid"
     checks = {"business": business, "performance": performance, "quality": quality}
     if status == "fail" or "fail" in checks.values():
         outcome = "fail"
@@ -314,25 +310,33 @@ def result(row: dict, detail=None, *, connection=None) -> dict:
         outcome = "cancelled"
     else:
         outcome = "pass" if business == "pass" and evidence == "valid" else "unverified"
-    receipt = report("run_" + row["run_id"], run_row=run_rows[0] if run_rows else None) if row.get("run_id") else {}
-    return _state(lifecycle, phase, outcome, scope=_scope(row, connection), reason=row.get("reason", ""),
-                  checks=checks, evidence=evidence, report=receipt.get("status", "not_generated"),
-                  last_attempt_outcome=_axis(details.get("last_attempt_status"), default=status))
+    return {"lifecycle": lifecycle, "phase": phase, "outcome": outcome, "checks": checks, "evidence": evidence,
+            "last_attempt_outcome": _axis(details.get("last_attempt_status"), default=status)}
 
 
 @_projected
-def run(row: dict, *, results=None, result_states=None, connection=None) -> dict:
-    """Aggregate all target cases; prerequisites cannot establish task success."""
+def result(row: dict, detail=None, *, connection=None, verdict=None) -> dict:
+    """Add the report and execution scope to the same verdict used for list counts."""
     if connection is None:
         with db.connect() as current:
-            return run(row, results=results, result_states=result_states, connection=current)
+            return result(row, detail, connection=current, verdict=verdict)
     row = dict(row)
-    identity = row["id"]
+    details = _json(row.get("detail") if detail is None else detail)
+    run_rows = _rows(connection, "SELECT * FROM runs WHERE id = ?", (row.get("run_id"),))
+    run_row = run_rows[0] if run_rows else None
+    facts = verdict if verdict is not None else result_verdict(row, run_row, details)
+    attempts = details.get("attempts")
+    if isinstance(attempts, list) and attempts and isinstance(attempts[-1], dict):
+        row["attempt_id"] = attempts[-1].get("id")
+    receipt = report("run_" + row["run_id"], run_row=run_row) if row.get("run_id") else {}
+    return _state(**facts, scope=_scope(row, connection), reason=row.get("reason", ""), report=receipt.get("status", "not_generated"))
+
+
+def run_verdict(row: dict, states: list[dict]) -> dict:
+    """Aggregate target verdicts independently of report and host delivery metadata."""
     stored = str(row.get("status", "Unknown")).lower()
     phases = {"queued": ("pending", "queued"), "running": ("active", "running"), "cancelled": ("cancelled", "cancelled"), "blocked": ("completed", "blocked")}
     lifecycle, phase = phases.get(stored, ("completed", "settled") if stored in ("pass", "fail") else ("unknown", "unknown"))
-    rows = results if results is not None else _rows(connection, "SELECT * FROM results WHERE run_id = ? AND prerequisite = 0 ORDER BY id", (identity,))
-    states = result_states if result_states is not None else [result(value, connection=connection) for value in rows if not value.get("prerequisite")]
     checks = {axis: _aggregate([value["checks"][axis] for value in states], "unverified" if axis == "business" else "not_applicable") for axis in ("business", "performance", "quality")}
     unfinished = len(states) < max(row.get("total", 0), row.get("done", 0)) or not states
     if unfinished:
@@ -349,14 +353,31 @@ def run(row: dict, *, results=None, result_states=None, connection=None) -> dict
         outcome = "blocked"
     else:
         outcome = "pass" if checks["business"] == "pass" and evidence == "valid" else "unverified"
+    return {"lifecycle": lifecycle, "phase": phase, "outcome": outcome, "checks": checks, "evidence": evidence}
+
+
+def _target_verdicts(row, results, connection):
+    rows = results if results is not None else _rows(connection, "SELECT * FROM results WHERE run_id=? AND prerequisite=0 ORDER BY id", (row["id"],))
+    return [result_verdict(value, row) for value in rows if not value.get("prerequisite")]
+
+
+@_projected
+def run(row: dict, *, results=None, result_states=None, connection=None) -> dict:
+    """Aggregate all target cases; prerequisites cannot establish task success."""
+    if connection is None:
+        with db.connect() as current:
+            return run(row, results=results, result_states=result_states, connection=current)
+    row = dict(row)
+    identity = row["id"]
+    states = result_states if result_states is not None else _target_verdicts(row, results, connection)
     delivery = "not_applicable"
     if row.get("task_id") and _has(connection, "host_outbox"):
         delivered = _rows(connection, "SELECT o.state FROM host_outbox o JOIN schedule_occurrences s ON s.id=o.occurrence_id WHERE s.run_id=? ORDER BY o.updated_at DESC LIMIT 1", (identity,))
         if delivered:
             delivery = delivered[0]["state"]
     receipt = report("run_" + identity, run_row=row)
-    return _state(lifecycle, phase, outcome, scope=_scope({**row, "run_id": identity}, connection), checks=checks,
-                  evidence=evidence, report=receipt["status"], delivery=delivery, reason=row.get("reason", ""))
+    return _state(**run_verdict(row, states), scope=_scope({**row, "run_id": identity}, connection),
+                  report=receipt["status"], delivery=delivery, reason=row.get("reason", ""))
 
 
 def counts(states: list[dict]) -> dict:
@@ -376,11 +397,10 @@ def run_values(row: dict, *, results=None, result_states=None, connection=None) 
         with db.connect() as current:
             return run_values(row, results=results, result_states=result_states, connection=current)
     row = dict(row)
-    rows = results if results is not None else _rows(connection, "SELECT * FROM results WHERE run_id=? AND prerequisite=0 ORDER BY id", (row["id"],))
-    states = result_states if result_states is not None else [result(value, connection=connection) for value in rows]
-    state = run(row, results=rows, result_states=states, connection=connection)
+    states = result_states if result_states is not None else _target_verdicts(row, results, connection)
+    state = run(row, result_states=states, connection=connection)
     totals = counts(states)
-    missing = max(0, max(row.get("total", 0), row.get("done", 0)) - len(rows))
+    missing = max(0, max(row.get("total", 0), row.get("done", 0)) - len(states))
     key = "pending" if state["lifecycle"] in ("pending", "active") else "cancelled" if state["lifecycle"] == "cancelled" else "unverified"
     totals[key] += missing
     totals["state_counts"][key] += missing

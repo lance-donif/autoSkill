@@ -1,19 +1,19 @@
 // Inspect preserved native assets and follow their project execution history.
+import { projectIndex } from '../shell.js';
 import { h, replace, api, route, scope, go, href, refresh } from '../core.js';
-import { empty, errorState } from '../ui.js';
-
-const projectOptions = (projects, value) => projects.map((project) => h('option', { value: project.id, selected: project.id === value }, project.name));
+import { filterSelect, empty, errorState } from '../ui.js';
 
 export async function render(view, { id }) {
   let projects;
-  try { projects = await api('/projects'); }
+  try { projects = await projectIndex(); }
   catch (error) { replace(view, errorState(error, refresh)); return; }
   const projectId = route().params.get('project') || scope().projects[0] || projects[0]?.id;
   const selected = projects.find((project) => project.id === projectId);
-  const select = h('select', { class: 'select', 'aria-label': '原生资产项目', onChange: () => go('native-assets', { project: select.value, cursor: null }) }, projectOptions(projects, projectId));
+  const select = filterSelect('项目', projectId, projects.map((item) => [item.id, item.name]),
+    (value) => go('native-assets', { project: value, cursor: null }), '原生资产项目');
   replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '原生资产'),
     h('p', { class: 'sub' }, '查看已保存脚本、集合、负载计划和多轮对话。新增或调整测试请在 DSH 对话中交给 autoSkill。'))),
-  projects.length ? h('div', { class: 'toolbar' }, h('label', {}, '项目'), select,
+  projects.length ? h('div', { class: 'toolbar' }, select,
     h('a', { class: 'btn', href: href('diagnostics') }, '检查执行器'), h('a', { class: 'btn', href: href('runs', { projects: projectId, range: 'all' }) }, '执行记录')) : null);
   if (!selected) { view.append(h('section', { class: 'card' }, empty({ title: '还没有原生资产', text: '在 DSH 对话中交给 autoSkill 使用已有测试项目；保存后可在这里查看。' }))); return; }
   if (id) { await detail(view, projectId, id); return; }

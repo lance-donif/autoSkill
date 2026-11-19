@@ -3,6 +3,7 @@ import { ensurePreferences } from '../preferences.js';
 import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toast,
   fmtTime, fmtDuration, fmtNumber, fmtPercent, refresh, live } from '../core.js';
 import { drawer, closeOverlay, empty, errorState, definition, preferredEngine, preferredHeaded } from '../ui.js';
+import { returnToRuns } from './run-actions.js';
 import { downloadRunHtml } from './run-export.js';
 import { primaryState, stateResults, stateDetails } from '../status-view.js';
 
@@ -158,7 +159,8 @@ async function report(view, id) {
   } }, icon('stop'), run.cancel ? '正在停止' : '停止压测');
   const download = h('button', { class: 'btn', onClick: () => attempt(() => downloadRunHtml(run,
     h('main', { class: 'stack' }, reportSummary(run), metricCards(run), resultTable(run))), download) }, icon('table'), '导出报告');
-  replace(view, h('a', { class: 'back', href: href('load-tests') }, icon('right'), '压测记录'),
+  const fromHistory = /^#\/runs(?:\?|$)/.test(route().params.get('return') || '');
+  replace(view, h('a', { class: 'back', href: fromHistory ? returnToRuns() : href('load-tests') }, icon('right'), fromHistory ? '返回执行记录' : '压测记录'),
     reportSummary(run, active(run) ? cancel : loadTestButton('再次压测', () => [{ project_id: run.project_id, case_ids: run.case_ids }]), download),
     taskReportLinks(run), metricCards(run), resultTable(run));
 }

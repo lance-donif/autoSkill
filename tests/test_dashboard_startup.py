@@ -46,6 +46,29 @@ class DashboardStartupTests(unittest.TestCase):
         self.page.get_by_role('link', name='执行记录', exact=True).click()
         expect(self.page.locator('#view .table tbody')).to_contain_text('Original project', timeout=5000)
 
+    def test_retry_after_project_index_failure_reads_projects_again(self):
+        self.page.route('**/api/projects', lambda route: route.fulfill(status=503, body='unavailable'))
+        self.page.goto('http://127.0.0.1:8787/#/cases')
+        retry = self.page.get_by_role('button', name='重试', exact=True)
+        expect(retry).to_be_visible()
+        self.page.unroute('**/api/projects')
+        retry.click()
+        expect(self.page.locator('#view .table tbody')).to_contain_text('Example case')
+
+    def test_slow_folder_allows_search_and_late_response_cannot_repaint_history(self):
+        self.hold_request('/api/projects/review/folders')
+        self.open_cases()
+        search = self.page.get_by_role('searchbox', name='搜索用例')
+        search.fill('Example')
+        expect(self.page.get_by_text('Example case', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('button', name='运行当前显示的 1 条')).to_be_disabled()
+        self.page.get_by_role('link', name='执行记录', exact=True).click()
+        expect(self.page.locator('#view h1')).to_have_text('执行记录')
+        with self.page.expect_response(lambda response: response.url.endswith('/review/folders')):
+            self.page.evaluate('window.releaseRequest()')
+        expect(self.page.locator('#view h1')).to_have_text('执行记录')
+        expect(search).to_have_count(0)
+
     def test_fresh_navigation_replaces_old_run_controls_while_destination_is_pending(self):
         self.hold_request('/api/runs', limit='50')
         self.open_cases()

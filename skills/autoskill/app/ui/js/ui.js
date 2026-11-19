@@ -61,6 +61,13 @@ export function confirm({ title, text, action, danger }) {
   });
 }
 
+/** A compact, labelled select for list toolbars. */
+export function filterSelect(label, value, options, onChange, name = label) {
+  return h('label', { class: 'filter-field' }, h('span', { class: 'sub' }, label),
+    h('select', { class: 'select', 'aria-label': name, onChange: (event) => onChange(event.currentTarget.value) },
+      options.map(([key, text]) => h('option', { value: key, selected: key === value }, text))));
+}
+
 /** A button that opens a popover menu; closes on outside click or Escape. */
 export function menuButton(trigger, build, alignRight = false) {
   const wrap = h('div', { class: 'pop' }, trigger);

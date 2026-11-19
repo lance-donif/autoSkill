@@ -1,13 +1,14 @@
 // Inspect captured dialogue sources and the assets and evidence saved by the host.
+import { projectIndex } from '../shell.js';
 import { h, icon, api, replace, route, scope, go, href, fmtTime, refresh } from '../core.js';
-import { empty, errorState } from '../ui.js';
+import { filterSelect, empty, errorState } from '../ui.js';
 
 const path = (projectId, captureId = '') => '/conversations/' + encodeURIComponent(projectId) + (captureId ? '/' + encodeURIComponent(captureId) : '');
 const json = (value) => JSON.stringify(value, null, 2);
 
 export async function render(view, { id }) {
   let projects;
-  try { projects = (await api('/projects')).filter((item) => !item.broken); }
+  try { projects = (await projectIndex()).filter((item) => !item.broken); }
   catch (error) { replace(view, h('section', { class: 'card' }, errorState(error, refresh))); return; }
   const projectId = route().params.get('project') || scope().projects[0] || projects[0]?.id;
   const project = projects.find((item) => item.id === projectId);
@@ -25,12 +26,12 @@ async function overview(view, projects, project) {
   const offset = Math.max(0, Number(route().params.get('offset') || 0));
   try { [captures, assets] = await Promise.all([api(path(project.id) + `?limit=50&offset=${offset}`), api('/assets/' + encodeURIComponent(project.id) + '?all=1')]); }
   catch (error) { replace(view, h('section', { class: 'card' }, errorState(error, refresh))); return; }
-  const picker = h('select', { class: 'select', 'aria-label': '对话所属项目', onChange: (event) => go('conversations', { project: event.target.value }) },
-    projects.map((item) => h('option', { value: item.id, selected: item.id === project.id }, item.name)));
+  const picker = filterSelect('项目', project.id, projects.map((item) => [item.id, item.name]),
+    (value) => go('conversations', { project: value }), '对话所属项目');
   const existing = assets.assets.filter((item) => item.engine === 'ai-eval');
   replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '多轮对话'),
     h('p', { class: 'sub' }, '查看真实请求来源与已保存的多轮验证资产；新增或调整测试请在 DSH 对话中交给 autoSkill。'))),
-  h('div', { class: 'toolbar' }, h('span', { class: 'sub' }, '项目'), picker),
+  h('div', { class: 'toolbar' }, picker),
   h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', {}, '捕获来源')),
     captures.items.length ? captureTable(project, captures.items) : empty({ glyph: 'api', title: '还没有对话来源',
       text: 'autoSkill 保存的业务对话请求会显示在这里。' }),

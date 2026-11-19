@@ -30,20 +30,47 @@ const NAV = [...PRIMARY, OVERVIEW, ...GROUPS.flatMap(([, , entries]) => entries)
 let lastSidePage = null;
 export const state = { projects: [], allProjects: [], status: null, active: 0, online: true };
 
-export async function refreshShell(onProjects) {
-  const reads = await Promise.allSettled([
-    api('/projects').then(async (projects) => {
+let frameVersion = 0;
+let projectRead = null;
+let projectsLoaded = false;
+let runtimeRead = null;
+
+function readProjects() {
+  const request = api('/projects').then((projects) => {
+    if (projectRead === request) {
       state.allProjects = projects.filter((p) => !p.broken);
       state.projects = state.allProjects.filter((p) => p.cases?.total);
+      projectsLoaded = true;
       renderScope();
-      await onProjects?.();
-    }),
-    api('/status').then((status) => { state.status = status; renderSide(); }),
-    api('/runs?limit=1&status=active').then((active) => { state.active = active.total; renderSide(); }),
+    }
+    return projects;
+  }).finally(() => { if (projectRead === request) projectRead = null; });
+  projectsLoaded = false;
+  projectRead = request;
+  return request;
+}
+
+// Share an in-flight read. An explicit workspace refresh starts a newer snapshot.
+export function projectIndex() { return projectRead ?? readProjects(); }
+export function caseProjects() {
+  if (projectsLoaded) return Promise.resolve(state.projects);
+  return projectIndex().then(() => projectsLoaded ? state.projects : caseProjects());
+}
+
+export async function refreshShell() {
+  const version = ++frameVersion;
+  const projects = readProjects();
+  runtimeRead ??= api('/status').finally(() => { runtimeRead = null; });
+  const reads = await Promise.allSettled([
+    projects,
+    runtimeRead.then((status) => { if (version === frameVersion) { state.status = status; renderSide(); } }),
+    api('/runs?limit=1&status=active').then((active) => { if (version === frameVersion) { state.active = active.total; renderSide(); } }),
   ]);
-  state.online = reads.every((read) => read.status === 'fulfilled');
-  renderSide();
-  renderScope();
+  if (version === frameVersion) {
+    state.online = reads.every((item) => item.status === 'fulfilled');
+    renderSide();
+    renderScope();
+  }
 }
 
 function theme() { return document.documentElement.dataset.theme || 'light'; }

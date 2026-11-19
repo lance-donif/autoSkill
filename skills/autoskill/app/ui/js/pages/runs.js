@@ -1,7 +1,7 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
 import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
-import { empty, errorState, confirm } from '../ui.js';
+import { empty, errorState, confirm, filterSelect } from '../ui.js';
 import { splitBar } from '../charts.js';
 import { refreshShell } from '../shell.js';
 import { downloadRunHtml } from './run-export.js';
@@ -21,6 +21,8 @@ let deletionTimer = null;
 let checkingDeletions = false;
 const deleting = (run) => !!run.delete_requested && !run.deletion_error;
 const changeHistory = (patch) => go('runs', { ...Object.fromEntries(route().params), ...patch, offset: null });
+const stateAxes = { phase: '执行阶段', outcome: '综合结果', business: '业务验证', performance: '性能目标',
+  quality: '质量', evidence: '证据', report: '报告交付', delivery: '投递' };
 const historyPositions = new Map();
 let focusedResult = '';
 
@@ -42,9 +44,9 @@ function restoreHistoryPosition() {
 }
 
 // biome-ignore lint/suspicious/useAwait: Preserve the asynchronous render contract and its existing promise adoption.
-export async function render(view, { id }) {
-  if (id) return report(view, id);
-  return history(view);
+export async function render(view, { id, isCurrent }) {
+  if (id) return report(view, id, isCurrent);
+  return history(view, isCurrent);
 }
 
 /** Keep the history controls mounted when only their result list changes. */
@@ -52,71 +54,65 @@ export function commit(view, next, { id }) {
   const current = view.querySelector('[data-history-region="content"]');
   const incoming = next.querySelector('[data-history-region="content"]');
   if (id || !current || !incoming) { updateLiveView(view, next); return; }
+  const filters = view.querySelector('[data-history-region="filters"]');
+  const removingFilter = filters.contains(document.activeElement);
   const oldToolbar = view.querySelector('[data-history-region="toolbar"]');
   const newToolbar = next.querySelector('[data-history-region="toolbar"]');
   if (oldToolbar.dataset.historyMode === newToolbar.dataset.historyMode) {
-    const pressed = new Map([...newToolbar.querySelectorAll('button')].map((button) => [button.textContent, button.getAttribute('aria-pressed')]));
-    for (const button of oldToolbar.querySelectorAll('button')) button.setAttribute('aria-pressed', pressed.get(button.textContent));
-  } else oldToolbar.replaceWith(newToolbar);
+    for (const select of oldToolbar.querySelectorAll('select')) {
+      const incomingSelect = newToolbar.querySelector(`select[aria-label="${select.getAttribute('aria-label')}"]`);
+      const value = incomingSelect.value;
+      if (select.length !== incomingSelect.length || ![...select.options].some((option) => option.value === value)) {
+        select.replaceChildren(...incomingSelect.childNodes);
+      }
+      select.value = value;
+    }
+  } else {
+    const focused = oldToolbar.contains(document.activeElement) ? document.activeElement : null;
+    oldToolbar.replaceWith(newToolbar);
+    if (focused?.tagName === 'BUTTON') newToolbar.querySelector('button[aria-pressed="true"]').focus({ preventScroll: true });
+  }
   view.querySelector('.page-head p').textContent = next.querySelector('.page-head p').textContent;
-  updateLiveView(view.querySelector('[data-history-region="filters"]'), next.querySelector('[data-history-region="filters"]'));
-  for (const name of ['notices', 'content', 'selection']) {
+  for (const name of ['filters', 'notices', 'content', 'selection']) {
     updateLiveView(view.querySelector(`[data-history-region="${name}"]`), next.querySelector(`[data-history-region="${name}"]`));
+  }
+  if (removingFilter && !filters.contains(document.activeElement)) {
+    (filters.querySelector('button') || view.querySelector('select[aria-label="状态"]')).focus({ preventScroll: true });
   }
 }
 
 // ---- lists: runs, or individual case results (the drill-down behind the dashboard figures) ----
-async function history(view) {
+async function history(view, isCurrent) {
   const { params } = route();
   const mode = params.get('view') === 'results' ? 'results' : 'runs';
   const status = params.get('status') || '';
-  const stateFilters = Object.fromEntries(['phase', 'outcome', 'business', 'performance', 'report'].map((key) => [key, params.get(key) || '']));
-  stateFilters.cycle = params.get('cycle') || 'current';
+  const stateFilters = Object.fromEntries(Object.keys(stateAxes).filter((key) => params.get(key)).map((key) => [key, params.get(key)]));
+  const cycle = params.get('cycle') || 'current';
   const offset = Number(params.get('offset') || 0);
   let data;
   try {
-    data = await api((mode === 'results' ? '/results' : '/runs') + scopeQuery({ status, ...stateFilters, limit: PAGE, offset }));
+    data = await api((mode === 'results' ? '/results' : '/runs') + scopeQuery({ status, cycle, ...stateFilters, limit: PAGE, offset }));
   } catch (error) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
+  if (!isCurrent()) return;
   if (offset > 0 && offset >= data.total) {
     go('runs', { ...Object.fromEntries(params), offset: Math.max(0, Math.floor((data.total - 1) / PAGE) * PAGE) || null });
     return;
   }
   updateSelection(data.items, params, mode);
-  const tabs = h('div', { class: 'seg', role: 'group', 'aria-label': '查看方式' },
-    h('button', { 'aria-pressed': String(mode === 'runs'), onClick: () => changeHistory({ view: null, status: null }) }, '按运行'),
-    h('button', { 'aria-pressed': String(mode === 'results'), onClick: () => changeHistory({ view: 'results', status: null }) }, '按用例结果'));
-  const options = mode === 'results'
-    ? [['', '全部结果'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞']]
-    : [['', '全部状态'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞'], ['Running', '执行中'], ['Cancelled', '已取消']];
-  const filter = h('div', { class: 'seg', role: 'group', 'aria-label': '结果筛选' }, options.map(([value, label]) => h('button', {
-    'aria-pressed': String(status === value), onClick: () => changeHistory({ view: mode === 'results' ? 'results' : null, status: value || null }),
-  }, label)));
-
+  const chips = appliedFilters(stateFilters);
   let body;
   let selectionBar;
   if (!data.items.length) {
-    body = empty({ glyph: 'runs', title: status ? '没有符合条件的记录' : '这个范围内还没有执行',
-      text: status ? '换一个结果筛选，或调整上方的项目与时间范围。' : '首次测试请在 DSH 对话中让 autoSkill 生成用例 Excel 并执行；已有用例可在「可复用用例」重新运行，也可调整上方范围查找历史记录。',
-      actions: h('a', { class: 'btn', href: href('cases') }, '查看可复用用例') });
+    body = emptyHistory(status || chips.length);
   } else if (mode === 'runs') {
     const list = runList(data.items, params);
     body = list.table;
     selectionBar = list.bar;
   } else {
-    body = h('table', { class: 'table' },
-      h('thead', {}, h('tr', {}, ['结果', '用例', '类型', '项目', '原因', '时间', '耗时'].map((t) => h('th', {}, t)))),
-      h('tbody', {}, data.items.map((item) => h('tr', {},
-        h('td', {}, primaryState(item), stateResults(item)),
-        h('td', {}, historyLink(item.case_title, href('runs/' + item.run_id, { ...Object.fromEntries(params), case: 'result:' + item.id, return: location.hash }), 'result:' + item.id), h('div', { class: 'sub mono' }, item.case_id)),
-        h('td', {}, kindTag(item.kind)),
-        h('td', { class: 'sub' }, item.project_name),
-        h('td', { class: 'sub', style: 'max-width:340px' }, item.state?.outcome === 'pass' ? '—'
-          : h('div', { class: 'ellipsis', title: item.reason }, h('b', {}, CATEGORY[item.category] || '未分类'), item.reason ? '：' + item.reason : '')),
-        h('td', { class: 'sub num' }, fmtTime(item.started_at)),
-        h('td', { class: 'sub num' }, fmtDuration(item.duration_ms))))));
+    body = resultTable(data.items, params);
   }
   const pager = data.total > PAGE && h('div', { class: 'card-body row', style: 'justify-content:flex-end' },
     h('span', { class: 'sub num' }, `${offset + 1}–${Math.min(offset + PAGE, data.total)} / ${data.total}`),
@@ -126,8 +122,8 @@ async function history(view) {
   replace(view,
     h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '执行记录'),
       h('p', { class: 'sub' }, mode === 'results' ? `范围内共 ${data.total} 条用例结果（不含自动执行的前置）` : `范围内共 ${data.total} 次运行`))),
-    h('div', { class: 'toolbar wrap', dataset: { historyRegion: 'toolbar', historyMode: mode } }, tabs, filter),
-    h('div', { dataset: { historyRegion: 'filters' } }, stateFilterControls(params, stateFilters)),
+    historyToolbar(mode, status, cycle),
+    h('div', { dataset: { historyRegion: 'filters' } }, chips.length > 0 && h('div', { class: 'toolbar', role: 'group', 'aria-label': '已应用的筛选' }, chips)),
     h('div', { dataset: { historyRegion: 'notices' } }, deletionNotice()),
     h('section', { class: 'card', dataset: { historyRegion: 'content' } },
       h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': '执行记录表格' }, body), pager),
@@ -135,21 +131,45 @@ async function history(view) {
   restoreHistoryPosition();
 }
 
-function stateFilterControls(params, filters) {
-  const choices = {
-    cycle: ['周期', [['current', '当前周期'], ['all', '包含历史周期']]],
-    phase: ['执行阶段', [['', '全部阶段'], ['queued', '排队中'], ['running', '执行中'], ['awaiting_host', '等待宿主'],
-      ['waiting_execution', '等待执行'], ['recovering', '恢复中'], ['blocked', '阻塞'], ['settled', '已结束'], ['cancelled', '已取消']]],
-    outcome: ['综合结果', [['', '全部结果'], ['pending', '待处理'], ['pass', '通过'], ['fail', '失败'], ['blocked', '阻塞'], ['unverified', '未验证'], ['cancelled', '已取消']]],
-    business: ['业务验证', [['', '全部业务结果'], ['pass', '通过'], ['fail', '失败'], ['unverified', '未验证']]],
-    performance: ['性能目标', [['', '全部性能结果'], ['pass', '通过'], ['fail', '失败'], ['unverified', '未验证'], ['not_applicable', '不适用']]],
-    report: ['报告交付', [['', '全部报告状态'], ['ready', '已就绪'], ['failed', '失败'], ['pending', '待生成'], ['generating', '生成中'], ['not_generated', '尚未生成']]],
-  };
-  return h('div', { class: 'toolbar wrap', 'aria-label': '状态分类筛选' }, Object.entries(choices).map(([key, [title, options]]) =>
-    h('label', { class: 'row', style: 'gap:6px' }, h('span', { class: 'sub' }, title),
-      h('select', { class: 'select', value: filters[key], 'aria-label': title, style: 'width:auto', onChange: (event) => {
-        go('runs', { ...Object.fromEntries(params), [key]: event.target.value || null, offset: null });
-      } }, options.map(([value, text]) => h('option', { value, selected: value === filters[key] }, text))))));
+function emptyHistory(filtered) {
+  return empty({ glyph: 'runs', title: filtered ? '没有符合条件的记录' : '这个范围内还没有执行',
+      text: filtered ? '调整筛选条件、项目或时间范围后再试。' : '首次测试请在 DSH 对话中让 autoSkill 生成用例 Excel 并执行；已有用例可在「可复用用例」重新运行，也可调整上方范围查找历史记录。',
+      actions: h('a', { class: 'btn', href: href('cases') }, '查看可复用用例') });
+}
+
+function resultTable(items, params) {
+  return h('table', { class: 'table' },
+      h('thead', {}, h('tr', {}, ['结果', '用例', '类型', '项目', '原因', '时间', '耗时'].map((t) => h('th', {}, t)))),
+      h('tbody', {}, items.map((item) => h('tr', {},
+        h('td', {}, primaryState(item), stateResults(item)),
+        h('td', {}, historyLink(item.case_title, href((item.kind === 'native' ? 'native-runs/' : 'runs/') + item.run_id, { ...Object.fromEntries(params), case: 'result:' + item.id, return: location.hash }), 'result:' + item.id), h('div', { class: 'sub mono' }, item.case_id)),
+        h('td', {}, kindTag(item.kind)),
+        h('td', { class: 'sub' }, item.project_name),
+        h('td', { class: 'sub', style: 'max-width:340px' }, item.state?.outcome === 'pass' ? '—'
+          : h('div', { class: 'ellipsis', title: item.reason }, h('b', {}, CATEGORY[item.category] || '未分类'), item.reason ? '：' + item.reason : '')),
+        h('td', { class: 'sub num' }, fmtTime(item.started_at)),
+        h('td', { class: 'sub num' }, fmtDuration(item.duration_ms))))));
+}
+
+function historyToolbar(mode, status, cycle) {
+  const tabs = h('div', { class: 'seg', role: 'group', 'aria-label': '查看方式' },
+    h('button', { 'aria-pressed': String(mode === 'runs'), onClick: () => changeHistory({ view: null, status: null }) }, '按运行'),
+    h('button', { 'aria-pressed': String(mode === 'results'), onClick: () => changeHistory({ view: 'results', status: null }) }, '按用例结果'));
+  const options = mode === 'results'
+    ? [['', '全部结果'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞']]
+    : [['', '全部状态'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞'], ['Running', '执行中'], ['Cancelled', '已取消']];
+  if (status && !options.some(([value]) => value === status)) options.push([status, stateLabel(status.toLowerCase())]);
+  const statusSelect = filterSelect('状态', status, options, (value) => changeHistory({ status: value || null }));
+  const cycleSelect = filterSelect('周期', cycle, [['current', '当前周期'], ['all', '包含历史周期']],
+    (value) => changeHistory({ cycle: value === 'current' ? null : value }));
+  return h('div', { class: 'toolbar', dataset: { historyRegion: 'toolbar', historyMode: mode } }, tabs, statusSelect, cycleSelect);
+}
+
+function appliedFilters(stateFilters) {
+  return Object.entries(stateFilters).map(([key, value]) => {
+    const label = stateAxes[key] + '：' + stateLabel(value);
+    return h('button', { class: 'btn sm', 'aria-label': '清除' + label, onClick: () => changeHistory({ [key]: null }) }, label, icon('x'));
+  });
 }
 
 function updateSelection(items, params, mode) {
@@ -198,9 +218,10 @@ function historyRow(run, params, repaint) {
     } });
   const note = run.deletion_error || (deleting(run) ? '正在取消并删除，等待执行器退出及清理完成' :
     active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
+  const destination = ({ load: 'load-tests', native: 'native-runs' })[run.family] || 'runs';
   return h('tr', { class: selected.has(run.id) ? 'selected' : '' },
     h('td', {}, box), h('td', {}, primaryState(run), stateResults(run)),
-    h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href((run.family === 'load' ? 'load-tests/' : 'runs/') + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
+    h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href(destination + '/' + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
     h('td', { style: 'min-width:170px' }, active(run)
       ? h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })), h('span', { class: 'sub num' }, `${run.done}/${run.total}`))
       : h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run), h('span', { class: 'sub num' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞 · ${run.unverified || 0} 未验证`))),
@@ -254,7 +275,7 @@ async function deleteRuns(runs, button, bulk) {
 function returnToHistory(deletedIds) {
   const current = route();
   if (current.page === 'runs' && deletedIds.includes(current.id)) {
-    go('runs', { ...Object.fromEntries(current.params), case: null });
+    location.hash = returnToRuns();
   }
 }
 
@@ -324,7 +345,7 @@ function deletionNotice() {
 const rowVisibility = new Map();
 let reportFor = null;
 
-async function report(view, runId) {
+async function report(view, runId, isCurrent) {
   let run;
   try { run = await api('/runs/' + runId); } catch (error) {
     if (pendingDeletions.has(runId)) {
@@ -334,7 +355,8 @@ async function report(view, runId) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
   }
-  if (run.family === 'load') { go('load-tests/' + runId); return; }
+  if (!isCurrent()) return;
+  if (run.family === 'load') { go('load-tests/' + runId, Object.fromEntries(route().params)); return; }
   if (run.family === 'native') { go('native-runs/' + runId, Object.fromEntries(route().params)); return; }
   watchDeletion(run);
   const focus = route().params.get('case');

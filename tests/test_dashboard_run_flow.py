@@ -81,9 +81,12 @@ class RunFlowDashboardTests(DashboardWorkspace):
         requests = self.track_starts()
         self.page.route("**/api/projects/*/folders", lambda route: route.fulfill(status=500, json={"detail": "fixture folder unavailable"}))
         self.page.reload()
-        expect(self.page.get_by_role("button", name="运行当前显示的 0 条", exact=True)).to_be_disabled()
+        expect(self.page.get_by_role("button", name="运行当前显示的 5 条", exact=True)).to_be_disabled()
         expect(self.page.get_by_role("button", name="运行项目全部 5 条", exact=True)).to_be_disabled()
         expect(self.page.locator("#view")).to_contain_text("文件夹加载失败")
+        self.page.unroute("**/api/projects/*/folders")
+        self.page.get_by_role("button", name="重试文件夹").click()
+        expect(self.page.get_by_role("button", name="运行当前显示的 5 条", exact=True)).to_be_enabled()
         self.assertEqual(requests, [])
 
     def test_partial_receipt_retries_only_rejected_project_and_preserves_unknown_after_reload(self):

@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 from fastapi.testclient import TestClient
 
-from autoskill import builder, data_refs, db, load_testing, projects, report_locations, runner, workflow_state
+from autoskill import builder, data_refs, db, load_testing, projects, report_locations, runner, task_state, workflow_state
 from autoskill.server import metrics
 from autoskill.server.app import create_app
 
@@ -126,6 +126,19 @@ class StateApiTests(unittest.TestCase):
         slow = next(row for row in detail["results"] if row["case_id"] == "TC-API-003")
         self.assertEqual((slow["state"]["checks"]["business"], slow["state"]["checks"]["performance"]), ("pass", "fail"))
         self.assertEqual(slow["state"]["outcome"], "fail")
+
+    def test_history_page_counts_offscreen_outcomes_without_opening_their_reports(self):
+        self.measured()
+        self.queued("active-extra")
+        db.update("runs", "active-extra", {"status": "Running"})
+        for entity, total, failed in (("results", 3, 2), ("runs", 2, 1)):
+            with self.subTest(entity=entity), patch.object(task_state, "report", wraps=task_state.report) as reports:
+                page = self.client.get(f"/api/{entity}?limit=1&offset=1").json()
+                self.assertEqual((page["total"], len(page["items"]), page["state_counts"]["fail"]), (total, 1, failed))
+                self.assertEqual(sum(page["state_counts"].values()), total)
+                self.assertEqual(reports.call_count, 1)
+        running = self.client.get("/api/runs?status=Running").json()
+        self.assertEqual([row["id"] for row in running["items"]], ["active-extra"])
 
     def test_get_run_never_generates_missing_report_or_retries_failed_report(self):
         run = self.measured()

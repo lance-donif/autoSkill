@@ -1,6 +1,6 @@
 // Authoritative project knowledge, case files, reports and portable share packages.
 import { h, icon, replace, api, scope, go, route, refresh, attempt, toast, fmtNumber } from '../core.js';
-import { drawer, closeOverlay, confirm, empty, errorState, skeletonRows } from '../ui.js';
+import { drawer, closeOverlay, confirm, filterSelect, empty, errorState, skeletonRows } from '../ui.js';
 import { refreshShell } from '../shell.js';
 
 const TABS = [['knowledge', '知识库'], ['testcases', '用例文件'], ['reports', '报告'], ['share', '分享与导入']];
@@ -24,8 +24,8 @@ export async function render(view) {
     if (selected && index.projects.some((project) => project.id === selected)) data = await api('/project-materials/' + encodeURIComponent(selected));
   } catch (error) { replace(view, h('div', { class: 'card' }, errorState(error, refresh))); return; }
   const projectId = data?.project.id;
-  const project = h('select', { class: 'select', 'aria-label': '资料所属项目', onChange: () => go('project-materials', { project: project.value, tab }) },
-    index.projects.map((item) => h('option', { value: item.id, selected: item.id === projectId }, item.name)));
+  const project = filterSelect('项目', projectId, index.projects.map((item) => [item.id, item.name]),
+    (value) => go('project-materials', { project: value, tab }), '资料所属项目');
   const tabs = h('div', { class: 'seg', role: 'group', 'aria-label': '项目资料分类' }, TABS.map(([key, label]) => h('button', {
     'aria-pressed': String(key === tab), onClick: () => go('project-materials', { project: projectId, tab: key }),
   }, label)));
