@@ -159,4 +159,4 @@ python scripts/build-windows-bundle.py --assets <目录> --output <新目录> --
 
 Linux / UOS 安装与 DSH Web 接入见 [Linux-DSH.md](docs/Linux-DSH.md)，仪表盘入口为 `autoskill/autoskill dashboard`。站点白名单与浏览器代理围栏已按使用者要求移除，旧配置不再限制网络访问。
 
-下载：[最新 Release](https://github.com/lance-donif/autoSkill/releases/latest)。`.github/workflows/release.yml` 在三个原生平台上组装包，核对全部附件 ZIP 结构、CRC、上传大小与 SHA-256 后一起发布。当前按维护者要求跳过完整功能回归与浏览器启动测试。状态见 `reports/release-status.json`。
+`.github/workflows/release.yml` 在三个原生平台上组装包，核对全部附件的 ZIP 结构、CRC、上传大小与 SHA-256 后一起发布。两个 Linux 构建均验证安装配置，Linux x64 还使用包内运行时执行浏览器、中断恢复和接口压测回归。构建状态见 `reports/release-status.json`。 [最新 Release](https://github.com/lance-donif/autoSkill/releases/latest)

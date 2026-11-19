@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -51,6 +52,16 @@ class LinuxPlatformTests(unittest.TestCase):
     def test_mismatched_driver_is_not_accepted(self):
         with patch.object(platforms, "binary_status", side_effect=[{"ok": True, "major": 156}, {"ok": True, "major": 157}]):
             self.assertFalse(platforms.browser_pair("chrome", "driver")["ok"])
+
+    def test_packaged_chrome_for_testing_matches_the_packaged_driver(self):
+        versions = [
+            subprocess.CompletedProcess(["chrome", "--version"], 0, "Google Chrome for Testing 157.0.8103.78\n", ""),
+            subprocess.CompletedProcess(["driver", "--version"], 0, "ChromeDriver 157.0.8103.78 (release)\n", ""),
+        ]
+        with patch.object(platforms.subprocess, "run", side_effect=versions):
+            pair = platforms.browser_pair("chrome", "driver")
+        self.assertTrue(pair["ok"], pair)
+        self.assertEqual((pair["chrome"]["major"], pair["chromedriver"]["major"]), (157, 157))
 
     def test_old_uos_can_select_system_browser_and_persist_it(self):
         with tempfile.TemporaryDirectory() as folder:

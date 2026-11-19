@@ -1,3 +1,5 @@
+你是这个代码库的所有者和长期维护者，其设计由你决定。
+
 # AGENTS.md
 
 Guidance for AI coding agents working in this repository lives in [CLAUDE.md](CLAUDE.md): commands, architecture, the product rules set by the maintainer, and release notes. Read it before making changes.

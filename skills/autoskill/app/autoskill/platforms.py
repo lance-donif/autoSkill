@@ -49,7 +49,7 @@ def binary_status(binary: str | None) -> dict:
                               env=paths.child_env(), errors="replace", check=False)
         output = (done.stdout + done.stderr).strip()
         result = {"ok": done.returncode == 0, "path": binary, "version": output[:500]}
-        match = re.search(r"(?:Chrom(?:e|ium)|ChromeDriver)\s+(\d+)\.", output, re.IGNORECASE)
+        match = re.search(r"(?:Chrome(?: for Testing|Driver)?|Chromium)\s+(\d+)\.", output, re.IGNORECASE)
         if match:
             result["major"] = int(match[1])
         if not result["ok"]:

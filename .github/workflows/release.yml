@@ -102,6 +102,8 @@ jobs:
         run: |
           python scripts/fetch-linux-assets.py --assets "$RUNNER_TEMP/autoskill-linux/assets" --arch '${{ matrix.arch }}'
           python scripts/build-linux-bundle.py --assets "$RUNNER_TEMP/autoskill-linux/assets" --output "$RUNNER_TEMP/autoskill-linux/package" --arch '${{ matrix.arch }}' --zip
+      - name: Verify Linux package configuration with the bundled browser and driver
+        run: AUTOSKILL_WORKSPACE="$RUNNER_TEMP/autoskill-linux-config-check" sh "$RUNNER_TEMP/autoskill-linux/package/setup-linux.sh"
       - name: Require real Linux x64 browser and knowledge validation
         if: matrix.arch == 'x64'
         shell: bash
@@ -139,7 +141,7 @@ jobs:
                   raise SystemExit("Required bundled runtime missing: " + name)
               subprocess.run([str(executable), "--version"], check=True, timeout=15)
           suite = unittest.TestSuite()
-          for pattern in ("test_knowledge_browser.py", "test_native_evidence.py"):
+          for pattern in ("test_knowledge_browser.py", "test_native_evidence.py", "test_load_modes.py"):
               if not (Path("tests") / pattern).is_file():
                   raise SystemExit("Missing release validation suite: " + pattern)
               found = unittest.defaultTestLoader.discover("tests", pattern=pattern)
