@@ -40,7 +40,7 @@ class NativeDashboardTests(unittest.TestCase):
         expect(self.page.locator("#view")).to_contain_text(asset["asset_version"])
         self.page.get_by_role("link", name="查看项目执行记录", exact=True).click()
         expect(self.page.locator("#view h1")).to_have_text("执行记录")
-        self.page.locator('#view a[href^="#/runs/' + prepared["id"] + '"]').click()
+        self.page.locator(f'[data-history-id="run:{prepared["id"]}"]').click()
         expect(self.page.locator("nav a[aria-current='page']")).to_have_attribute("data-page", "runs")
         expect(self.page.get_by_role("button", name="筛选项目", exact=True)).to_have_count(0)
         expect(self.page.locator("#view h1")).to_have_text("执行报告")
