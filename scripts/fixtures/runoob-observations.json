@@ -1,0 +1,547 @@
+{
+  "project_id": "runoob",
+  "project_name": "菜鸟教程",
+  "base_url": "https://www.runoob.com",
+  "cases": [
+    {
+      "source_kind": "live",
+      "source_url": "https://www.runoob.com/",
+      "case_id": "RN-HOME-PYTHON3",
+      "revision": 2,
+      "title": "首页提供 Python3 教程入口",
+      "url": "https://www.runoob.com/",
+      "steps": [
+        "打开 https://www.runoob.com/",
+        "检查 Python3 教程入口是否可见"
+      ],
+      "expected": "首页可见指向 Python3 教程的链接。",
+      "actual": "浏览器在 30 秒内未完成页面导航，未到达内容检查。",
+      "outcome": "fail",
+      "category": "timeout",
+      "checks": [],
+      "engine": "playwright",
+      "run_id": "run-72801c4e4083",
+      "started_at": "2026-11-19T12:36:28.037+00:00",
+      "duration_ms": 30042,
+      "checked_at": "2026-11-19T12:36:59.641+00:00",
+      "automation": {
+        "actions": [],
+        "assertions": [
+          {
+            "assertion": "visible",
+            "locators": [
+              {
+                "by": "css",
+                "value": "a[href*=\"/python3/python3-tutorial.html\"]"
+              }
+            ],
+            "name": "Python3 教程入口可见"
+          }
+        ],
+        "start_url": "https://www.runoob.com/"
+      },
+      "artifact_hashes": {
+        "attempt_sha256": "4fdfacfd224d520d25fd29b2fe95f23134def0f3c861e2ce72ef5deb877a01c3",
+        "case_sha256": "b239eee98dcca38ed20537191bee0a268d8bee6f8919b8cd65d79c5ee050a1e6"
+      }
+    },
+    {
+      "source_kind": "live",
+      "source_url": "https://www.runoob.com/python3/python3-tutorial.html",
+      "case_id": "RN-PYTHON3-INTRO",
+      "revision": 3,
+      "title": "Python3 教程显示课程标题",
+      "url": "https://www.runoob.com/python3/python3-tutorial.html",
+      "steps": [
+        "打开 https://www.runoob.com/python3/python3-tutorial.html",
+        "读取页面主标题并核对课程名称"
+      ],
+      "expected": "页面主标题可见，并含有 Python 和“教程”。",
+      "actual": "1 个步骤完成，3 条断言通过",
+      "outcome": "pass",
+      "category": "",
+      "checks": [
+        {
+          "name": "课程主标题可见",
+          "passed": true,
+          "expected": true,
+          "actual": "可见"
+        },
+        {
+          "name": "主标题标明 Python",
+          "passed": true,
+          "expected": "Python",
+          "actual": "Python3.x\nPython 3 教程"
+        },
+        {
+          "name": "主标题标明教程",
+          "passed": true,
+          "expected": "教程",
+          "actual": "Python3.x\nPython 3 教程"
+        }
+      ],
+      "engine": "playwright",
+      "run_id": "run-1aaaae14ae84",
+      "started_at": "2026-11-19T12:37:58.350+00:00",
+      "duration_ms": 3006,
+      "checked_at": "2026-11-19T12:38:02.456+00:00",
+      "automation": {
+        "actions": [],
+        "assertions": [
+          {
+            "assertion": "visible",
+            "locators": [
+              {
+                "by": "css",
+                "value": "#content h1"
+              }
+            ],
+            "name": "课程主标题可见"
+          },
+          {
+            "assertion": "contains",
+            "expected": "Python",
+            "locators": [
+              {
+                "by": "css",
+                "value": "#content h1"
+              }
+            ],
+            "name": "主标题标明 Python"
+          },
+          {
+            "assertion": "contains",
+            "expected": "教程",
+            "locators": [
+              {
+                "by": "css",
+                "value": "#content h1"
+              }
+            ],
+            "name": "主标题标明教程"
+          }
+        ],
+        "start_url": "https://www.runoob.com/python3/python3-tutorial.html"
+      },
+      "artifact_hashes": {
+        "attempt_sha256": "b9e0298e154a26976df5797b83f3c1a6e6cc21d42c9184c87fc66b6e238032cc",
+        "case_sha256": "90875b28fd3c0966e5da9fdcf21d2f5c016134ff4265761e2b8150b456f56010",
+        "screenshot_sha256": "3de3309c465648ccf75ad6d9b4599d8f28b30272dd77c2ad559627336bbfaa80"
+      }
+    },
+    {
+      "source_kind": "historical",
+      "source_url": "reports/evidence/2026-11-13-dsh-live/runoob-jcyf-final/summary.json",
+      "case_id": "TC-UI-004",
+      "revision": 1,
+      "title": "读者从首页进入Python3基础语法章节",
+      "url": "https://www.runoob.com/",
+      "steps": [
+        "打开菜鸟教程首页，选择 Python3 教程。",
+        "在章节导航选择“Python3 基础语法”。",
+        "阅读章节标题和正文。"
+      ],
+      "expected": "2. 进入 Python3 教程页面，页面展示 Python3 教程的章节导航与教程内容。\n3. 打开「Python3 基础语法」章节页面，页面标题包含「Python3 基础语法」。\n4. 正文呈现 Python3 基础语法的内容，包括「编码」「标识符」「Python 保留关键字」等小节。",
+      "actual": "3 个步骤完成，6 条断言通过",
+      "outcome": "pass",
+      "checks": [
+        {
+          "name": "地址包含「/python3/python3-tutorial.html」",
+          "expected": "/python3/python3-tutorial.html",
+          "actual": "https://www.runoob.com/python3/python3-tutorial.html",
+          "passed": true
+        },
+        {
+          "name": "选择器 #leftcolumn 文本包含「Python3 基础语法」",
+          "expected": "Python3 基础语法",
+          "actual": "ython3 VScode\nPython3 基础语法\nPython3 基本数",
+          "passed": true
+        },
+        {
+          "name": "heading「Python3.xPython3 基础语法」 文本包含「Python3 基础语法」",
+          "expected": "Python3 基础语法",
+          "actual": "Python3 基础语法",
+          "passed": true
+        },
+        {
+          "name": "选择器 #content 文本包含「编码」",
+          "expected": "编码",
+          "actual": "Python3 基础语法\n编码\n\n默认情况下，Pyth",
+          "passed": true
+        },
+        {
+          "name": "选择器 #content 文本包含「标识符」",
+          "expected": "标识符",
+          "actual": "顿语、俄语、塞尔维亚语。\n\n标识符\n第一个字符必须以字母（",
+          "passed": true
+        },
+        {
+          "name": "选择器 #content 文本包含「Python 保留关键字」",
+          "expected": "Python 保留关键字",
+          "actual": "2\"))  # True\n\nPython 保留关键字\n\n保留字即关键字，我们",
+          "passed": true
+        }
+      ],
+      "engine": "playwright",
+      "run_id": "run-83be44ec7c93",
+      "started_at": "2026-11-13T11:42:19.367+00:00",
+      "duration_ms": 14655,
+      "checked_at": "2026-11-13T11:42:34.022+00:00",
+      "automation": {
+        "actions": [
+          {
+            "action": "click",
+            "locators": [
+              {
+                "by": "role",
+                "name": "【学习 Python】 Python3 是当前主流 Python 版本。",
+                "role": "link"
+              },
+              {
+                "by": "css",
+                "value": "div.container.main:nth-of-type(4) > div.row > div.col.middle-column-home:nth-of-type(2) > div.codelist.codelist-desktop:nth-of-type(1) > a.item-top.item-1:nth-of-type(1)"
+              }
+            ]
+          },
+          {
+            "assertion": "url_contains",
+            "expected": "/python3/python3-tutorial.html",
+            "oracle": {
+              "declared_at": "2026-11-13T11:42:08.531+00:00",
+              "source": "explicit"
+            }
+          },
+          {
+            "assertion": "contains",
+            "expected": "Python3 基础语法",
+            "locators": [
+              {
+                "by": "css",
+                "value": "#leftcolumn"
+              }
+            ],
+            "oracle": {
+              "declared_at": "2026-11-13T11:42:08.943+00:00",
+              "source": "explicit"
+            }
+          },
+          {
+            "action": "click",
+            "locators": [
+              {
+                "by": "role",
+                "name": "Python3 基础语法",
+                "role": "link"
+              },
+              {
+                "by": "css",
+                "value": "#leftcolumn > a:nth-of-type(6)"
+              }
+            ]
+          }
+        ],
+        "assertions": [
+          {
+            "assertion": "contains",
+            "expected": "Python3 基础语法",
+            "locators": [
+              {
+                "by": "role",
+                "name": "Python3.xPython3 基础语法",
+                "role": "heading"
+              },
+              {
+                "by": "css",
+                "value": "#content > h1"
+              }
+            ],
+            "oracle": {
+              "declared_at": "2026-11-13T11:42:14.163+00:00",
+              "source": "explicit"
+            }
+          },
+          {
+            "assertion": "contains",
+            "expected": "编码",
+            "locators": [
+              {
+                "by": "css",
+                "value": "#content"
+              }
+            ],
+            "oracle": {
+              "declared_at": "2026-11-13T11:42:14.609+00:00",
+              "source": "explicit"
+            }
+          },
+          {
+            "assertion": "contains",
+            "expected": "标识符",
+            "locators": [
+              {
+                "by": "css",
+                "value": "#content"
+              }
+            ],
+            "oracle": {
+              "declared_at": "2026-11-13T11:42:15.073+00:00",
+              "source": "explicit"
+            }
+          },
+          {
+            "assertion": "contains",
+            "expected": "Python 保留关键字",
+            "locators": [
+              {
+                "by": "css",
+                "value": "#content"
+              }
+            ],
+            "oracle": {
+              "declared_at": "2026-11-13T11:42:15.461+00:00",
+              "source": "explicit"
+            }
+          }
+        ],
+        "start_url": "/"
+      },
+      "artifact_hashes": {
+        "workbook_sha256": "de412ddef31efbb94f72c900f6aa5bff3c6990859912e6e33d33f4e1513a6911",
+        "screenshot_sha256": "7b5077ec9bdc3926e768806ebbf1605920cc2cc0a9580f5af4b481a8d9ac90ed",
+        "summary_sha256": "7233906ea1ec24914c1d8d34e2d00e14ebd650a5de65a415b2ecf9f5653f25e0"
+      }
+    }
+  ],
+  "previous_cases": [
+    {
+      "source_kind": "live",
+      "source_url": "https://www.runoob.com/",
+      "case_id": "RN-HOME-PYTHON3",
+      "revision": 1,
+      "title": "首页提供 Python3 教程入口",
+      "url": "https://www.runoob.com/",
+      "steps": [
+        "打开 https://www.runoob.com/",
+        "检查 Python3 教程入口是否可见"
+      ],
+      "expected": "首页可见指向 Python3 教程的链接。",
+      "actual": "浏览器在 30 秒内未完成页面导航，未到达内容检查。",
+      "outcome": "fail",
+      "category": "timeout",
+      "checks": [],
+      "engine": "playwright",
+      "run_id": "run-e175fa4b5bb7",
+      "started_at": "2026-11-19T12:35:01.315+00:00",
+      "duration_ms": 30009,
+      "checked_at": "2026-11-19T12:35:32.864+00:00",
+      "automation": {
+        "actions": [],
+        "assertions": [
+          {
+            "assertion": "visible",
+            "locators": [
+              {
+                "by": "css",
+                "value": "a[href*=\"/python3/python3-tutorial.html\"]:visible"
+              }
+            ],
+            "name": "Python3 教程入口可见"
+          }
+        ],
+        "start_url": "https://www.runoob.com/"
+      },
+      "artifact_hashes": {
+        "attempt_sha256": "a4a50ec18185d1b57070bf187a3fd5abcd51b4becf0a8e88e5d13aac73563ab7",
+        "case_sha256": "b259b26fceb242e9d9d4068360a752fc385682addaeca7d14dc84e0775270f7b"
+      }
+    },
+    {
+      "source_kind": "live",
+      "source_url": "https://www.runoob.com/python3/python3-tutorial.html",
+      "case_id": "RN-PYTHON3-INTRO",
+      "revision": 1,
+      "title": "Python3 教程显示课程标题",
+      "url": "https://www.runoob.com/python3/python3-tutorial.html",
+      "steps": [
+        "打开 https://www.runoob.com/python3/python3-tutorial.html",
+        "读取页面主标题并核对课程名称"
+      ],
+      "expected": "页面主标题可见，并含有 Python 和“教程”。",
+      "actual": "课程主标题可见：读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector.；主标题标明 Python：读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector.；主标题标明教程：读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Do",
+      "outcome": "fail",
+      "category": "assertion_failed",
+      "checks": [
+        {
+          "name": "课程主标题可见",
+          "passed": false,
+          "expected": true,
+          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector."
+        },
+        {
+          "name": "主标题标明 Python",
+          "passed": false,
+          "expected": "Python",
+          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector."
+        },
+        {
+          "name": "主标题标明教程",
+          "passed": false,
+          "expected": "教程",
+          "actual": "读取失败：定位读取失败：ElementHandle.evaluate_handle: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'h1:visible' is not a valid selector."
+        }
+      ],
+      "engine": "playwright",
+      "run_id": "run-e175fa4b5bb7",
+      "started_at": "2026-11-19T12:35:32.876+00:00",
+      "duration_ms": 29039,
+      "checked_at": "2026-11-19T12:36:02.171+00:00",
+      "automation": {
+        "actions": [],
+        "assertions": [
+          {
+            "assertion": "visible",
+            "locators": [
+              {
+                "by": "css",
+                "value": "h1:visible"
+              }
+            ],
+            "name": "课程主标题可见"
+          },
+          {
+            "assertion": "contains",
+            "expected": "Python",
+            "locators": [
+              {
+                "by": "css",
+                "value": "h1:visible"
+              }
+            ],
+            "name": "主标题标明 Python"
+          },
+          {
+            "assertion": "contains",
+            "expected": "教程",
+            "locators": [
+              {
+                "by": "css",
+                "value": "h1:visible"
+              }
+            ],
+            "name": "主标题标明教程"
+          }
+        ],
+        "start_url": "https://www.runoob.com/python3/python3-tutorial.html"
+      },
+      "artifact_hashes": {
+        "attempt_sha256": "1b5fc5481d508d7dc22524a59651a78c9c3f52ba88c8dcf0db272df5e467c5ea",
+        "case_sha256": "4287ae72bd1be136dbca6c2b72d67c6548a010ffc45cc44b854e67e56c23bb60",
+        "screenshot_sha256": "92baf5845172d2f0d1398dc6fcc38e66f459871c9f6d43f2c9026afa2abc85f9"
+      }
+    },
+    {
+      "source_kind": "live",
+      "source_url": "https://www.runoob.com/python3/python3-tutorial.html",
+      "case_id": "RN-PYTHON3-INTRO",
+      "revision": 2,
+      "title": "Python3 教程显示课程标题",
+      "url": "https://www.runoob.com/python3/python3-tutorial.html",
+      "steps": [
+        "打开 https://www.runoob.com/python3/python3-tutorial.html",
+        "读取页面主标题并核对课程名称"
+      ],
+      "expected": "页面主标题可见，并含有 Python 和“教程”。",
+      "actual": "主标题标明 Python：菜鸟教程 -- 学的不仅是技术，更是梦想！",
+      "outcome": "fail",
+      "category": "assertion_failed",
+      "checks": [
+        {
+          "name": "课程主标题可见",
+          "passed": true,
+          "expected": true,
+          "actual": "可见"
+        },
+        {
+          "name": "主标题标明 Python",
+          "passed": false,
+          "expected": "Python",
+          "actual": "菜鸟教程 -- 学的不仅是技术，更是梦想！"
+        },
+        {
+          "name": "主标题标明教程",
+          "passed": true,
+          "expected": "教程",
+          "actual": "菜鸟教程 -- 学的不仅是技术，更是梦想！"
+        }
+      ],
+      "engine": "playwright",
+      "run_id": "run-72801c4e4083",
+      "started_at": "2026-11-19T12:36:59.654+00:00",
+      "duration_ms": 11907,
+      "checked_at": "2026-11-19T12:37:11.762+00:00",
+      "automation": {
+        "actions": [],
+        "assertions": [
+          {
+            "assertion": "visible",
+            "locators": [
+              {
+                "by": "css",
+                "value": "h1"
+              }
+            ],
+            "name": "课程主标题可见"
+          },
+          {
+            "assertion": "contains",
+            "expected": "Python",
+            "locators": [
+              {
+                "by": "css",
+                "value": "h1"
+              }
+            ],
+            "name": "主标题标明 Python"
+          },
+          {
+            "assertion": "contains",
+            "expected": "教程",
+            "locators": [
+              {
+                "by": "css",
+                "value": "h1"
+              }
+            ],
+            "name": "主标题标明教程"
+          }
+        ],
+        "start_url": "https://www.runoob.com/python3/python3-tutorial.html"
+      },
+      "artifact_hashes": {
+        "attempt_sha256": "52f8da2a0708be9b181d8142d80835a7d8437695a29c81c882ee1d8e0fea65ff",
+        "case_sha256": "b225b270d29a267301206282a1420b6cd2c45baf99dbaf1be23bd4543037e830",
+        "screenshot_sha256": "cb2d5810209602ff22a375f0e32ad798a1d2895900f83a76376177126702a1bb"
+      }
+    }
+  ],
+  "previous_attempts": [
+    {
+      "run_id": "run-e175fa4b5bb7",
+      "checked_at": "2026-11-19T12:36:03.878+00:00",
+      "source_kind": "live",
+      "outcomes": {
+        "RN-HOME-PYTHON3": "fail",
+        "RN-PYTHON3-INTRO": "fail"
+      },
+      "actual": "首页导航超时；教程页使用了驱动不支持的 :visible CSS 定位器。复测已改用标准 CSS，检查预期相同。"
+    },
+    {
+      "run_id": "run-72801c4e4083",
+      "checked_at": "2026-11-19T12:37:13.426+00:00",
+      "case_id": "RN-PYTHON3-INTRO",
+      "source_kind": "live",
+      "outcome": "fail",
+      "actual": "首个 h1 是站点标语“菜鸟教程 -- 学的不仅是技术，更是梦想！”。复测把选择范围限定在课程正文，标题预期保持相同。"
+    }
+  ]
+}

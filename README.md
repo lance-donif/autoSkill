@@ -6,7 +6,7 @@
 
 它是一个 Skill：任何能读文件、能执行命令的 AI 智能体都可以使用，不绑定某个平台。提供 Windows x64、Linux x64、Linux ARM64（统信 UOS ARM64）三个运行时包。Linux 需要浏览器依赖的系统共享库；UOS 真机尚未验收，见 [平台与第三方支持](docs/平台与第三方支持.md)。
 
-[查看仪表盘界面预览（示例数据）](https://lance-donif.github.io/autoSkill/preview/)
+在 GitHub Pages 中可以查看用例、模拟运行和修改设置。操作仅在当前页面有效，刷新后恢复示例数据。[打开交互预览](https://lance-donif.github.io/autoSkill/preview/dashboard.html)
 
 ## 它解决什么
 
