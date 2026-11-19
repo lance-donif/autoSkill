@@ -45,6 +45,7 @@ Browser tests need a runtime named by `AUTOSKILL_CHROMIUM`, `AUTOSKILL_CHROMEDRI
 
 - Do not weaken `ruff.toml` or `biome.json`, and do not add blanket suppressions. When a rule is wrong for one line, suppress that line with the rule name and a reason (`# noqa: T201  # the command's JSON output`, `// biome-ignore lint/<group>/<rule>: <reason>`).
 - Neither tool formats this code base; do not run `ruff format` or `biome format` over existing files.
+- Landmines runs all ten upstream rules on every PR and push to `main`. Install the development tools with `npm ci --prefix .github/landmines --offline=false --include=dev --ignore-scripts --no-audit --no-fund` using Node 22.18+ on the 22.x line or Node 24.11+. Run `npm run lint:landmines` at the repository root. Warnings appear in the report. Configuration and syntax errors fail the job. The Actions summary lists the counts for each rule and the `landmines-report` artifact contains all file and line locations. Use `npm run lint:landmines -- --deny-warnings` for strict local checks.
 - `tests/test_conventions.py` holds the rules a general linter cannot see: colours only in `ui/css/tokens.css`, every `var(--token)` defined there, every IR action and assertion named and handled by both script generators, every CLI command documented in `SKILL.md` or `references/commands.md`, English code comments, LF and no tabs.
 
 ## Layout

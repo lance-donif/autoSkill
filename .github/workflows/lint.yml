@@ -6,6 +6,30 @@ on:
 permissions:
   contents: read
 jobs:
+  landmines:
+    name: Landmines
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: .github/landmines/package-lock.json
+      - name: Install locked analysis tools
+        run: npm ci --prefix .github/landmines --offline=false --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Scan JavaScript and TypeScript
+        id: scan
+        run: npm run --silent lint:landmines -- --format json > "$RUNNER_TEMP/landmines.json"
+      - name: Summarize findings
+        if: ${{ !cancelled() && steps.scan.outcome != 'skipped' }}
+        run: python scripts/landmines_summary.py "$RUNNER_TEMP/landmines.json" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.scan.outcome != 'skipped' }}
+        with:
+          name: landmines-report
+          path: ${{ runner.temp }}/landmines.json
+          if-no-files-found: error
   lint:
     runs-on: ubuntu-24.04
     steps:

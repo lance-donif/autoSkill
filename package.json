@@ -37,6 +37,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "lint:landmines": "node .github/landmines/node_modules/oxlint/bin/oxlint .",
     "test": "node --test tests/plugin.test.mjs"
   }
 }

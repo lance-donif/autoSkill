@@ -1,0 +1,15 @@
+{
+  "extends": ["./.github/landmines/node_modules/@interfere/landmines/configs/recommended.json"],
+  "rules": {
+    "landmines-testing/no-fixed-sleep": "warn",
+    "landmines-testing/no-flake-masking": "warn",
+    "landmines-testing/no-test-doubles": "warn",
+    "landmines-testing/no-unsignaled-poll": "warn",
+    "landmines-testing/strict-msw": "warn",
+    "landmines-style/no-comments": "warn",
+    "landmines-structure/colocated-tests": "warn",
+    "landmines-structure/package-exports": "warn",
+    "landmines-structure/test-file-names": "warn",
+    "landmines-types/no-explicit-return-types": "warn"
+  }
+}
