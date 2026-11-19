@@ -1,14 +1,13 @@
 // The interactive Pages demo generates documents from the browser's current sample data.
 import { casesApi } from './cases-api.js';
 import { runPage } from './runs-api.js';
+import { folderPath, functionalWorkbook } from './workbook.js';
 import { validateTasks } from './schedules-api.js';
 import { previewZip, readPreviewEntry } from './preview-zip.js';
 
 export { previewZip };
 const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const verdicts = { pass: '通过', fail: '失败', not_run: '未执行', Pass: '通过', Fail: '失败', NotRun: '未执行' };
-const headers = ['用例标识', '用例名称', '功能需求追踪', '测试说明', '前置条件', '测试步骤', '预期结果', '用例编制人', '实际结果', '测试结论', '测试执行人', '验证环境', '备注', '截图'];
-const xml = (value) => String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 const asText = (value) => value == null ? '' : typeof value === 'string' ? value : JSON.stringify(value);
 const mimeJson = 'application/json; charset=utf-8';
 const notFound = (message) => Response.json({ detail: message }, { status: 404 });
@@ -16,25 +15,6 @@ const conflict = (message) => Response.json({ detail: message }, { status: 409 }
 
 function file(content, filename, type) {
   return new Response(content, { headers: { 'Content-Type': type, 'Content-Disposition': "attachment; filename*=UTF-8''" + encodeURIComponent(filename) } });
-}
-
-function workbook(sheets) {
-  const office = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-  const rels = 'http://schemas.openxmlformats.org/package/2006/relationships';
-  const main = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-  const contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.';
-  const files = [
-    ['[Content_Types].xml', `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${contentType}sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="${contentType}worksheet+xml"/>`).join('')}</Types>`],
-    ['_rels/.rels', `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${office}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
-    ['xl/workbook.xml', `<workbook xmlns="${main}" xmlns:r="${office}"><sheets>${sheets.map(([name], i) => `<sheet name="${xml(name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`],
-    ['xl/_rels/workbook.xml.rels', `<Relationships xmlns="${rels}">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${office}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}</Relationships>`],
-  ];
-  sheets.forEach(([, rows], index) => {
-    const cols = rows[0].map((_, i) => `<col min="${i + 1}" max="${i + 1}" width="${i === 5 || i === 6 ? 52 : 25}" customWidth="1"/>`).join('');
-    const body = rows.map((row, i) => `<row r="${i + 1}">${row.map((value, j) => `<c r="${String.fromCharCode(65 + j)}${i + 1}" t="inlineStr"><is><t xml:space="preserve">${xml(asText(value).slice(0, 32767))}</t></is></c>`).join('')}</row>`).join('');
-    files.push([`xl/worksheets/sheet${index + 1}.xml`, `<worksheet xmlns="${main}"><cols>${cols}</cols><sheetData>${body}</sheetData></worksheet>`]);
-  });
-  return previewZip(files);
 }
 
 function readCase(ctx, path, params = {}) {
@@ -64,8 +44,6 @@ function summary(rows) {
 function reportFile(name, rows, format, run) {
   const counts = run ? [['结果', '用例数'], ['通过', run.passed], ['失败', run.failed], ['未执行', run.not_run]] : summary(rows);
   const scope = run ? `共 ${run.total} 条，列出前 ${rows.length} 条执行明细。` : '';
-  const overview = scope ? [...counts, ['明细范围', scope]] : counts;
-  if (format === 'excel') return file(workbook([['功能测试用例', [headers, ...rows]], ['概览', overview]]), name + '.xlsx', MIME);
   const failures = rows.filter((row) => row[9] === '失败');
   const lines = format === 'bugs' ? [`# ${name} · Bug 清单`, '', ...(scope ? [scope, `全部执行中共有 ${run.failed} 条失败。`, ''] : []),
     ...(failures.length ? failures.map((row) => `- ${row[0]} ${row[1]}　${row[8] || '执行失败'}`) : [scope ? '所列明细中没有失败用例。' : '本次没有失败用例。'])]
@@ -80,7 +58,8 @@ function findRun(ctx, reportId) {
 
 async function projectData(ctx, projectId) {
   const prefix = '/projects/' + encodeURIComponent(projectId);
-  const list = await readCase(ctx, '/cases', { projects: projectId, range: 'all', limit: '10000' });
+  const list = await readCase(ctx, '/cases', { projects: projectId, range: 'all' });
+  if (list.total !== list.items?.length) throw new Error('导出用例清单不完整，请刷新重试');
   const items = (list.items || []).filter((item) => item.project_id === projectId);
   return { prefix, items, definitions: await Promise.all(items.map(async (item) => {
     const record = await readCase(ctx, '/case-definitions/' + encodeURIComponent(projectId) + '/' + encodeURIComponent(item.case_id));
@@ -208,6 +187,71 @@ function uiScript(ctx, project, row, engine) {
   return file(base ? code.replace(JSON.stringify(base), JSON.stringify(project.base_url)) : code, fname + '_' + engine + '.py', 'text/x-python; charset=utf-8');
 }
 
+function seededWorkbook(ctx, project, definitions, tree) {
+  const { fixtures, db } = ctx;
+  const seeded = fixtures['/projects/' + project.id];
+  if (!seeded || project.name !== seeded.name || project.base_url !== seeded.base_url
+      || tree.revision !== fixtures['/projects/' + project.id + '/folders']?.revision) return null;
+  const initial = fixtures['/cases'].items.filter((item) => item.project_id === project.id);
+  if (definitions.length !== initial.length || definitions.some((item) =>
+    JSON.stringify(item) !== JSON.stringify(fixtures['/case-definitions/' + project.id + '/' + item.id]?.case))) return null;
+  const sameProject = (run) => run.project_id === project.id && run.trigger !== 'login' && run.family !== 'load';
+  const runs = (db.runs || []).filter(sameProject);
+  const originals = fixtures['/runs'].items.filter(sameProject);
+  if (db.runs && (runs.length !== originals.length || runs.some((r) => JSON.stringify(r) !== JSON.stringify(fixtures['/runs/' + r.id])))) return null;
+  return fixtureFile(fixtures[ctx.path] || fixtures['/projects/' + project.id + '/report']);
+}
+
+async function projectWorkbook(ctx, project, data, selection) {
+  const tree = await readCase(ctx, data.prefix + '/folders');
+  const clean = !selection && seededWorkbook(ctx, project, data.definitions, tree);
+  if (clean) return clean;
+  const runs = ctx.db.runs || ctx.fixtures['/runs'].items.map((r) => ctx.fixtures['/runs/' + r.id]);
+  const byId = new Map(runs.map((r) => [r.id, r]));
+  const records = data.definitions.flatMap((definition, index) => {
+    if (selection && !selection.has(definition.id)) return [];
+    const item = data.items[index];
+    const run = item.current && byId.get(item.state?.scope?.run_id);
+    const result = run?.results?.find((row) => row.case_id === definition.id && !row.prerequisite);
+    return [{ definition, folder: folderPath(project, tree, definition.id), observations: result ? [result] : [] }];
+  });
+  const bytes = await functionalWorkbook({ fixtures: ctx.fixtures, project, records, taskId: 'export-' + crypto.randomUUID() });
+  return file(bytes, project.id + (ctx.path.endsWith('/report') ? '-测试报告' : '-测试用例') + '.xlsx', MIME);
+}
+
+async function runWorkbook(ctx, run) {
+  const project = run.report_project || ctx.fixtures['/projects/' + run.project_id] || { id: run.project_id, name: run.project_name };
+  const detail = runPage(run);
+  const records = new Map();
+  // Compacted load runs have an exact count for every selected case plus a bounded detail page.
+  for (const [index, row] of (run.load_templates || detail.results || []).entries()) {
+    if (row.prerequisite || records.has(row.case_id)) continue;
+    let definition = run.report_definitions?.[row.case_id];
+    if (!definition) {
+      const key = run.project_id + '/' + row.case_id;
+      const candidates = [ctx.fixtures['/case-definitions/' + key]?.case, ctx.db.caseLibrary?.definitions[key]?.case];
+      definition = candidates.find((item) => item && item.revision === row.case_revision);
+    }
+    if (!definition) throw new Error('此旧运行缺少用例 ' + row.case_id + ' 的冻结版本，无法生成可追溯的 Excel');
+    const record = { definition, observations: [] };
+    if (run.load_templates) {
+      const count = run.load_templates.length;
+      const observed = Math.floor(run.done / count) + Number(index < run.done % count);
+      const interrupted = run.cancelled_index != null && run.cancelled_index % count === index;
+      const failed = row.simulateFailure ? observed : Number(interrupted);
+      const passed = observed - failed;
+      const notRun = run.load.iterations - observed;
+      record.status = failed ? 'Fail' : notRun ? 'NotRun' : 'Pass';
+      record.aggregate = '浏览器模拟，共 ' + run.load.iterations + ' 轮；通过 ' + passed + '，失败 ' + failed + '，未执行 ' + notRun + '。';
+    }
+    records.set(row.case_id, record);
+  }
+  for (const row of detail.results || []) if (!row.prerequisite) records.get(row.case_id).observations.push(row);
+  const detailScope = detail.result_page ? '共 ' + run.total + ' 条执行记录，展示前 ' + detail.results.length + ' 条明细；汇总涵盖全部执行。' : '';
+  const bytes = await functionalWorkbook({ fixtures: ctx.fixtures, project, records: [...records.values()], taskId: run.id, run, detailScope });
+  return file(bytes, run.id + (run.simulated ? '-浏览器模拟' : '') + '.xlsx', MIME);
+}
+
 function fixtureFile(value) {
   if (!value?.base64) return null;
   return file(Uint8Array.from(atob(value.base64), (letter) => letter.charCodeAt(0)), value.filename, value.media_type);
@@ -219,12 +263,17 @@ export async function filesApi(ctx) {
   if (resource === 'case-plans' && section === 'excel' && method === 'GET') return fixtureFile(fixtures[path]) || notFound('用例设计表不存在');
   if (resource === 'task-reports') {
     const run = findRun(ctx, pid);
-    if (!run) return notFound('执行报告不存在');
+    if (!run) {
+      const design = Object.entries(fixtures).some(([key, entry]) => key.startsWith('/case-plans/') && entry.test_report?.report_id === pid);
+      if (design && section === 'excel' && method === 'GET') return fixtureFile(fixtures[path]) || notFound('设计报告不存在');
+      return notFound('执行报告不存在');
+    }
     if (!section || section === 'retry') return run.test_report;
     if (method !== 'GET' || !['excel', 'markdown', 'bugs'].includes(section)) return;
     if (run.test_report?.status !== 'ready') return conflict('报告尚未就绪');
     const captured = fixtureFile(fixtures[path]);
     if (captured) return captured;
+    if (section === 'excel') return runWorkbook(ctx, run);
     const sampled = Boolean(run.load_templates);
     const { results } = runPage(run);
     const rows = (results || []).filter((row) => !row.prerequisite).map((row) => reportRow(row));
@@ -246,8 +295,9 @@ export async function filesApi(ctx) {
     }
     const selection = await folderSelection(ctx, prefix);
     if (selection instanceof Response) return selection;
+    if (params.get('part') !== 'markdown') return projectWorkbook(ctx, project, { prefix, definitions, items }, selection);
     const rows = definitions.flatMap((row, i) => !selection || selection.has(row.id) ? [reportRow(row, items[i])] : []);
-    return reportFile(pid + (section === 'report' ? '-测试报告' : '-测试用例'), rows, params.get('part') === 'markdown' ? 'markdown' : 'excel');
+    return reportFile(pid + (section === 'report' ? '-测试报告' : '-测试用例'), rows, 'markdown');
   }
   if (resource === 'diagnostics' && method === 'POST') {
     const reason = 'GitHub Pages 在浏览器中运行，未连接本机 autoSkill 服务。';

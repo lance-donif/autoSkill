@@ -233,12 +233,15 @@ class DashboardDeletionTests(unittest.TestCase):
         self.assertEqual((query["projects"], query["range"], query["status"]), (["one"], ["all"], ["Pass"]))
         self.assertEqual(self.mutations, [("POST", "/api/runs/delete", {"run_ids": ["run-101", "run-102"]})])
 
-    def test_completed_run_detail_delete_returns_to_filtered_history(self):
+    def test_completed_run_deletion_from_filtered_history_after_viewing_report(self):
         self.open("runs?projects=one&range=all&status=Pass")
         history_url = self.page.url
         self.page.get_by_role("link", name="Project one", exact=True).first.click()
         expect(self.page.locator("#view h1")).to_have_text("Project one")
-        self.page.get_by_role("button", name="删除运行", exact=True).click()
+        expect(self.page.get_by_role("button", name="删除运行", exact=True)).to_have_count(0)
+        self.page.get_by_role("link", name="返回执行记录", exact=True).click()
+        expect(self.page).to_have_url(history_url)
+        self.page.get_by_role("button", name="删除运行 run-1", exact=True).click()
         self.confirm("删除运行")
         expect(self.page.locator("#view h1")).to_have_text("执行记录")
         expect(self.page.locator("#view .table tbody tr")).to_have_count(1)
@@ -286,19 +289,24 @@ class DashboardDeletionTests(unittest.TestCase):
 
     def test_running_report_waits_for_removal_before_returning_to_history(self):
         self.runs[0] = self.make_run("run-1", "Running")
-        self.open("runs/run-1?projects=one&range=all")
-        self.page.get_by_role("button", name="取消并删除", exact=True).click()
+        self.open("runs?projects=one&range=all")
+        action = self.page.get_by_role("button", name="取消并删除 run-1", exact=True)
+        action.click()
         self.confirm("取消")
         self.assertEqual(self.mutations, [])
-        self.page.get_by_role("button", name="取消并删除", exact=True).click()
+        action.click()
         self.confirm("取消并删除")
-        expect(self.page.get_by_role("button", name="正在取消并删除", exact=True)).to_be_disabled()
+        pending = self.page.get_by_role("button", name="正在取消并删除 run-1", exact=True)
+        expect(pending).to_be_disabled()
+        self.page.get_by_role("row").filter(has=pending).get_by_role("link", name="Project one", exact=True).click()
         expect(self.page.locator("#view h1")).to_have_text("Project one")
+        expect(self.page.get_by_role("button", name="取消并删除", exact=True)).to_have_count(0)
         expect(self.page.locator("#toasts")).not_to_contain_text("已删除")
         self.finish_deleting.add("run-1")
         expect(self.page.locator("#view h1")).to_have_text("执行记录", timeout=6000)
         expect(self.page.locator("#view .table tbody tr")).to_have_count(1)
         self.assertIn("projects=one&range=all", self.page.url)
+        self.assertEqual(self.mutations, [("DELETE", "/api/runs/run-1", None)])
 
     def test_reloaded_pending_run_resumes_observation_without_new_delete_request(self):
         self.runs[0].update(delete_requested=1, status="Cancelled")

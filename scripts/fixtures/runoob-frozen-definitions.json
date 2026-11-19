@@ -1,0 +1,373 @@
+{
+  "run-1aaaae14ae84": {
+    "workbook_sha256": "0b6f9d60ccddf09b3a04ab4ba1a48cfad8cd9870ebe005b437c83bb22f2aa581",
+    "definitions": [
+      {
+        "expected": "页面主标题可见，并含有 Python 和“教程”。",
+        "extensions": {
+          "automation": {
+            "actions": [],
+            "assertions": [
+              {
+                "assertion": "visible",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "#content h1"
+                  }
+                ],
+                "name": "课程主标题可见"
+              },
+              {
+                "assertion": "contains",
+                "expected": "Python",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "#content h1"
+                  }
+                ],
+                "name": "主标题标明 Python"
+              },
+              {
+                "assertion": "contains",
+                "expected": "教程",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "#content h1"
+                  }
+                ],
+                "name": "主标题标明教程"
+              }
+            ],
+            "start_url": "https://www.runoob.com/python3/python3-tutorial.html"
+          },
+          "test_case_document": {
+            "business_path": [
+              "菜鸟教程",
+              "Python3"
+            ],
+            "description": "Python3 教程显示课程标题",
+            "expected": "页面主标题可见，并含有 Python 和“教程”。",
+            "id": "RN-PYTHON3-INTRO",
+            "module": "Python3",
+            "preconditions": "可以匿名访问菜鸟教程网页",
+            "source": "https://www.runoob.com/python3/python3-tutorial.html",
+            "steps": [
+              "打开 https://www.runoob.com/python3/python3-tutorial.html",
+              "读取页面主标题并核对课程名称"
+            ],
+            "title": "Python3 教程显示课程标题"
+          }
+        },
+        "id": "RN-PYTHON3-INTRO",
+        "kind": "ui",
+        "lifecycle": "active",
+        "module": "Python3",
+        "preconditions": "可以匿名访问菜鸟教程网页",
+        "priority": "P1",
+        "requirement_ids": [
+          "REQ-RECORDED"
+        ],
+        "revision": 3,
+        "risk": "read",
+        "schema_version": "1.1.0",
+        "source": "https://www.runoob.com/python3/python3-tutorial.html",
+        "steps": [
+          "打开 https://www.runoob.com/python3/python3-tutorial.html",
+          "读取页面主标题并核对课程名称"
+        ],
+        "tags": [],
+        "test_data": "仅合成数据；凭据以 ${ENV:名称} 引用",
+        "title": "Python3 教程显示课程标题"
+      }
+    ]
+  },
+  "run-72801c4e4083": {
+    "workbook_sha256": "1d4aec6bb7a0050dc10a20cee58c0b66ba74481df1d4ff77626a324d02da7986",
+    "definitions": [
+      {
+        "expected": "首页可见指向 Python3 教程的链接。",
+        "extensions": {
+          "automation": {
+            "actions": [],
+            "assertions": [
+              {
+                "assertion": "visible",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "a[href*=\"/python3/python3-tutorial.html\"]"
+                  }
+                ],
+                "name": "Python3 教程入口可见"
+              }
+            ],
+            "start_url": "https://www.runoob.com/"
+          },
+          "test_case_document": {
+            "business_path": [
+              "菜鸟教程",
+              "Python3"
+            ],
+            "description": "首页提供 Python3 教程入口",
+            "expected": "首页可见指向 Python3 教程的链接。",
+            "id": "RN-HOME-PYTHON3",
+            "module": "Python3",
+            "preconditions": "可以匿名访问菜鸟教程网页",
+            "source": "https://www.runoob.com/",
+            "steps": [
+              "打开 https://www.runoob.com/",
+              "检查 Python3 教程入口是否可见"
+            ],
+            "title": "首页提供 Python3 教程入口"
+          }
+        },
+        "id": "RN-HOME-PYTHON3",
+        "kind": "ui",
+        "lifecycle": "active",
+        "module": "Python3",
+        "preconditions": "可以匿名访问菜鸟教程网页",
+        "priority": "P1",
+        "requirement_ids": [
+          "REQ-RECORDED"
+        ],
+        "revision": 2,
+        "risk": "read",
+        "schema_version": "1.1.0",
+        "source": "https://www.runoob.com/",
+        "steps": [
+          "打开 https://www.runoob.com/",
+          "检查 Python3 教程入口是否可见"
+        ],
+        "tags": [],
+        "test_data": "仅合成数据；凭据以 ${ENV:名称} 引用",
+        "title": "首页提供 Python3 教程入口"
+      },
+      {
+        "expected": "页面主标题可见，并含有 Python 和“教程”。",
+        "extensions": {
+          "automation": {
+            "actions": [],
+            "assertions": [
+              {
+                "assertion": "visible",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "h1"
+                  }
+                ],
+                "name": "课程主标题可见"
+              },
+              {
+                "assertion": "contains",
+                "expected": "Python",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "h1"
+                  }
+                ],
+                "name": "主标题标明 Python"
+              },
+              {
+                "assertion": "contains",
+                "expected": "教程",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "h1"
+                  }
+                ],
+                "name": "主标题标明教程"
+              }
+            ],
+            "start_url": "https://www.runoob.com/python3/python3-tutorial.html"
+          },
+          "test_case_document": {
+            "business_path": [
+              "菜鸟教程",
+              "Python3"
+            ],
+            "description": "Python3 教程显示课程标题",
+            "expected": "页面主标题可见，并含有 Python 和“教程”。",
+            "id": "RN-PYTHON3-INTRO",
+            "module": "Python3",
+            "preconditions": "可以匿名访问菜鸟教程网页",
+            "source": "https://www.runoob.com/python3/python3-tutorial.html",
+            "steps": [
+              "打开 https://www.runoob.com/python3/python3-tutorial.html",
+              "读取页面主标题并核对课程名称"
+            ],
+            "title": "Python3 教程显示课程标题"
+          }
+        },
+        "id": "RN-PYTHON3-INTRO",
+        "kind": "ui",
+        "lifecycle": "active",
+        "module": "Python3",
+        "preconditions": "可以匿名访问菜鸟教程网页",
+        "priority": "P1",
+        "requirement_ids": [
+          "REQ-RECORDED"
+        ],
+        "revision": 2,
+        "risk": "read",
+        "schema_version": "1.1.0",
+        "source": "https://www.runoob.com/python3/python3-tutorial.html",
+        "steps": [
+          "打开 https://www.runoob.com/python3/python3-tutorial.html",
+          "读取页面主标题并核对课程名称"
+        ],
+        "tags": [],
+        "test_data": "仅合成数据；凭据以 ${ENV:名称} 引用",
+        "title": "Python3 教程显示课程标题"
+      }
+    ]
+  },
+  "run-e175fa4b5bb7": {
+    "workbook_sha256": "824ef2e9ebaac0057e2ea2f8aeb30af8cda828cf0f5b9cd1331bcf527abaaa48",
+    "definitions": [
+      {
+        "expected": "首页可见指向 Python3 教程的链接。",
+        "extensions": {
+          "automation": {
+            "actions": [],
+            "assertions": [
+              {
+                "assertion": "visible",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "a[href*=\"/python3/python3-tutorial.html\"]:visible"
+                  }
+                ],
+                "name": "Python3 教程入口可见"
+              }
+            ],
+            "start_url": "https://www.runoob.com/"
+          },
+          "test_case_document": {
+            "business_path": [
+              "菜鸟教程",
+              "Python3"
+            ],
+            "description": "首页提供 Python3 教程入口",
+            "expected": "首页可见指向 Python3 教程的链接。",
+            "id": "RN-HOME-PYTHON3",
+            "module": "Python3",
+            "preconditions": "可以匿名访问菜鸟教程网页",
+            "source": "https://www.runoob.com/",
+            "steps": [
+              "打开 https://www.runoob.com/",
+              "检查 Python3 教程入口是否可见"
+            ],
+            "title": "首页提供 Python3 教程入口"
+          }
+        },
+        "id": "RN-HOME-PYTHON3",
+        "kind": "ui",
+        "lifecycle": "active",
+        "module": "Python3",
+        "preconditions": "可以匿名访问菜鸟教程网页",
+        "priority": "P1",
+        "requirement_ids": [
+          "REQ-RECORDED"
+        ],
+        "revision": 1,
+        "risk": "read",
+        "schema_version": "1.1.0",
+        "source": "https://www.runoob.com/",
+        "steps": [
+          "打开 https://www.runoob.com/",
+          "检查 Python3 教程入口是否可见"
+        ],
+        "tags": [],
+        "test_data": "仅合成数据；凭据以 ${ENV:名称} 引用",
+        "title": "首页提供 Python3 教程入口"
+      },
+      {
+        "expected": "页面主标题可见，并含有 Python 和“教程”。",
+        "extensions": {
+          "automation": {
+            "actions": [],
+            "assertions": [
+              {
+                "assertion": "visible",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "h1:visible"
+                  }
+                ],
+                "name": "课程主标题可见"
+              },
+              {
+                "assertion": "contains",
+                "expected": "Python",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "h1:visible"
+                  }
+                ],
+                "name": "主标题标明 Python"
+              },
+              {
+                "assertion": "contains",
+                "expected": "教程",
+                "locators": [
+                  {
+                    "by": "css",
+                    "value": "h1:visible"
+                  }
+                ],
+                "name": "主标题标明教程"
+              }
+            ],
+            "start_url": "https://www.runoob.com/python3/python3-tutorial.html"
+          },
+          "test_case_document": {
+            "business_path": [
+              "菜鸟教程",
+              "Python3"
+            ],
+            "description": "Python3 教程显示课程标题",
+            "expected": "页面主标题可见，并含有 Python 和“教程”。",
+            "id": "RN-PYTHON3-INTRO",
+            "module": "Python3",
+            "preconditions": "可以匿名访问菜鸟教程网页",
+            "source": "https://www.runoob.com/python3/python3-tutorial.html",
+            "steps": [
+              "打开 https://www.runoob.com/python3/python3-tutorial.html",
+              "读取页面主标题并核对课程名称"
+            ],
+            "title": "Python3 教程显示课程标题"
+          }
+        },
+        "id": "RN-PYTHON3-INTRO",
+        "kind": "ui",
+        "lifecycle": "active",
+        "module": "Python3",
+        "preconditions": "可以匿名访问菜鸟教程网页",
+        "priority": "P1",
+        "requirement_ids": [
+          "REQ-RECORDED"
+        ],
+        "revision": 1,
+        "risk": "read",
+        "schema_version": "1.1.0",
+        "source": "https://www.runoob.com/python3/python3-tutorial.html",
+        "steps": [
+          "打开 https://www.runoob.com/python3/python3-tutorial.html",
+          "读取页面主标题并核对课程名称"
+        ],
+        "tags": [],
+        "test_data": "仅合成数据；凭据以 ${ENV:名称} 引用",
+        "title": "Python3 教程显示课程标题"
+      }
+    ]
+  }
+}

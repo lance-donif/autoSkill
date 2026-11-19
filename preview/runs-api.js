@@ -86,6 +86,11 @@ function start(context, projectId, ids, body, batch, load) {
   const all = new Map(cases.map((item) => [item.case_id, item]));
   const chosen = ids?.length ? [...new Set(ids)] : [...all.keys()];
   if (!chosen.length || chosen.some((id) => !all.has(id))) throw new Error('用例不存在或已删除');
+  const definitions = Object.fromEntries(chosen.map((caseId) => {
+    const definition = db.caseLibrary.definitions[projectId + '/' + caseId]?.case;
+    if (!definition) throw new Error('缺少用例定义：' + caseId);
+    return [caseId, structuredClone(definition)];
+  }));
   const iterations = load?.iterations ?? 1;
   const total = chosen.length * iterations;
   if (!Number.isSafeInteger(total)) throw new Error('目标总条数超出浏览器可精确计数的整数范围');
@@ -93,6 +98,7 @@ function start(context, projectId, ids, body, batch, load) {
   const id = 'demo-' + crypto.randomUUID();
   const run = { id, family: load ? 'load' : 'replay', simulated: true, trigger: body.trigger || 'manual', task_id: body.task_id || null,
     project_id: projectId, project_name: project.name + ' · 浏览器模拟', case_ids: chosen, batch_id: batch, engine: body.engine || 'playwright',
+    report_project: { id: projectId, name: project.name, base_url: project.base_url }, report_definitions: definitions,
     headed: body.headed, status: 'Queued', created_at: stamp(now), started_at: null, finished_at: null,
     current: '预览模拟：等待开始', reason: '', total, done: 0, results: [] };
   if (load) run.load = load;
@@ -236,7 +242,7 @@ function historyRows(runs, params) {
 }
 
 function runList(runs) {
-  return runs.map(({ results, ...r }) => ({ ...r, history_status: outcomeStatus[r.state?.outcome || 'not_run'] }));
+  return runs.map(({ results, report_definitions, load_templates, ...r }) => ({ ...r, history_status: outcomeStatus[r.state?.outcome || 'not_run'] }));
 }
 
 function trend(rows, params) {

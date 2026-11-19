@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 import re
+import shutil
 import uuid
 from pathlib import Path
 
@@ -76,9 +77,6 @@ def build(project_id: str, out: str | None = None) -> dict:
 
 
 def _build(project_id: str, out: str | None = None) -> dict:
-    from openpyxl import load_workbook
-    from openpyxl.styles import Font
-
     info = projects.get(project_id)
     rows = _rows(project_id)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f") + "-" + uuid.uuid4().hex[:6]  # noqa: DTZ005  # Local display time plus unique identity prevents concurrent overwrites.
@@ -89,30 +87,8 @@ def _build(project_id: str, out: str | None = None) -> dict:
 
     functional = export_cases(project_id, [case["id"] for case in projects.cases(project_id)])
     exported = Path(functional["excel"])
-    book = load_workbook(exported)
-
-    overview = book.create_sheet("概览")
-    lines = [("项目", info["name"]), ("被测地址", info["base_url"]),
-             ("生成时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),  # noqa: DTZ005  # Report text preserves local wall-clock time.
-             ("用例总数", len(rows)), ("通过", counts["Pass"]), ("失败", counts["Fail"]),
-             ("未执行", counts["NotRun"]), ("通过率", f"{counts['Pass'] / judged:.1%}" if judged else "—"),
-             ("口径", "每条用例取最近一次回放结果；通过率 = 通过 ÷（通过 + 失败），未执行不计入。")]
-    for label, value in lines:
-        overview.append([label, value])
-        if isinstance(value, str):
-            overview.cell(overview.max_row, 2).data_type = "s"
-        for cell in overview[overview.max_row]:
-            cell.font = Font(name="宋体", size=11)
-    overview.column_dimensions["A"].width, overview.column_dimensions["B"].width = 14, 70
-    for cell in overview["A"]:
-        cell.font = Font(name="宋体", size=11, bold=True)
-
     xlsx = folder / f"{project_id}-测试报告-{stamp}.xlsx"
-    try:
-        book.save(xlsx)
-    finally:
-        book.close()
-        exported.unlink(missing_ok=True)
+    shutil.move(exported, xlsx)
 
     def cell(text) -> str:
         return str(text).replace("|", "\\|").replace("\n", " ")
@@ -324,11 +300,14 @@ def write_task(snapshot: dict, destination: Path) -> dict:
     """Render the supplied case-document template and retain complete frozen execution evidence."""
     from openpyxl import Workbook
 
+    from . import workbook_overview
+
     book = Workbook()
     book.remove(book.active)
     long_text = []
     rows = [_task_row(item) for item in snapshot["cases"]]
     functional = task_workbook.render(book, snapshot, _append_cells, _table, long_text)
+    workbook_overview.render(book, snapshot, functional)
     summary = task_report_data.task_summary(snapshot)
     overview = [{"key": key, "value": value} for key, value in {
         "任务类型": snapshot["kind"], "任务标识": snapshot["task_id"], "项目": snapshot["project"]["name"],
@@ -425,7 +404,7 @@ def export_cases(project_id: str, case_ids: list[str], *, organization: dict | N
                     "status": "Exported", "session_id": "", "run_ids": list(dict.fromkeys(run_ids)), "cases": items, "results": results,
                     "sources": {"organization": organization, "report_business_paths": display_paths},
                     "notes": ["仅导出所选范围的当前用例定义；包含从未执行的用例，不自动加入范围外的依赖，也不重新执行测试。"],
-                    "metadata": {"case_ids": selected, "organization": organization or {}}}
+                    "metadata": {"case_ids": selected, "organization": organization or {}, "generated_at": db.now()}}
         destination = projects.path(project_id) / "reports" / f"{identity}.xlsx"
         receipt = write_task(snapshot, destination)
         return {**receipt, "excel": str(destination), "case_ids": selected}

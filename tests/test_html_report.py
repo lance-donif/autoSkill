@@ -104,7 +104,7 @@ class HtmlReportTests(unittest.TestCase):
                 entity["state"] = {
                     "lifecycle": "active" if status == "Running" else "completed",
                     "phase": "running" if status == "Running" else "blocked" if status == "Blocked" else "settled",
-                    "outcome": "pending" if status == "Running" else status.lower(),
+                    "outcome": {"Running": "pending", "NotRun": "not_run", "Blocked": "not_run"}.get(status, status.lower()),
                     "checks": {"business": "unverified" if status in ("Running", "Blocked") else status.lower(),
                                "performance": "not_applicable", "quality": "not_applicable"},
                     "evidence": "unverified" if status == "Running" else "valid", "report": "pending" if status == "Running" else "ready",
@@ -146,7 +146,15 @@ class HtmlReportTests(unittest.TestCase):
 
     def test_download_has_same_styles_all_details_and_no_online_dependencies(self):
         self.open()
-        expect(self.page.get_by_role("link", name="下载 Markdown 汇总", exact=True)).to_have_attribute("href", "/api/task-reports/r/markdown")
+        summary = self.page.locator(".run-summary")
+        expect(summary.get_by_role("button")).to_have_count(1)
+        expect(summary.get_by_role("link")).to_have_count(0)
+        expect(summary.get_by_role("button", name="下载 HTML 报告", exact=True)).to_be_visible()
+        expect(summary.get_by_text("执行与技术详情", exact=True)).to_have_count(0)
+        expect(summary.locator(".stats")).to_be_visible()
+        expect(summary.locator(".stat-label")).to_have_text(["通过", "失败", "未执行", "用例", "总耗时"])
+        expect(summary.locator(".stat-value").nth(0)).to_have_text("1")
+        expect(summary.locator(".stat-value").nth(1)).to_have_text("1")
         expect(self.page.locator(".report-heading")).to_be_visible()
         width = self.page.evaluate("document.querySelector('.report-heading').getBoundingClientRect().width")
         self.assertGreaterEqual(width, 280)
@@ -154,6 +162,9 @@ class HtmlReportTests(unittest.TestCase):
         online_style = self.report_style(self.page)
         file = self.download()
         page, requests = self.offline(file)
+        for document in (self.page, page):
+            expect(document.locator(".result-body .state-details")).to_have_count(0)
+            expect(document.locator(".result[data-result='2'] .result-head .status")).to_have_count(1)
         self.assertEqual(self.report_style(page), online_style)
         expect(page.locator(".result-body")).to_have_count(3)
         expect(page.locator(".result[data-result='1'] .steps")).to_contain_text("Save the value")
@@ -181,6 +192,14 @@ class HtmlReportTests(unittest.TestCase):
         self.assertTrue(all(url.startswith(("file:", "data:")) for url in requests), requests)
         self.assertNotIn('src="/api/', file.read_text(encoding="utf-8"))
 
+    def test_summary_badge_distinguishes_pass_failure_and_unexecuted_runs(self):
+        for status, passed, failed, not_run, label in (("Pass", 3, 0, 0, "通过"), ("Fail", 1, 1, 1, "不通过"),
+                                                      ("Running", 0, 1, 0, "执行中"), ("NotRun", 0, 0, 3, "未执行")):
+            with self.subTest(status=status):
+                self.run.update(status=status, passed=passed, failed=failed, not_run=not_run)
+                self.page.goto(f"http://127.0.0.1:8787/?snapshot={status}#/runs/run-report")
+                expect(self.page.locator(".run-summary .status").first).to_have_text(label)
+
     def test_missing_screenshot_is_disclosed_in_download_and_other_details_survive(self):
         self.image_status = 404
         self.open()
@@ -200,7 +219,7 @@ class HtmlReportTests(unittest.TestCase):
         page, requests = self.offline(file)
         expect(page.locator("header")).to_contain_text("导出时任务尚未完成")
         expect(page.locator(".run-summary")).to_contain_text("执行中")
-        expect(page.locator(".run-summary")).to_contain_text("执行引擎 ai-eval")
+        expect(page.locator(".run-summary .stats")).to_be_visible()
         expect(page.locator("#view")).to_contain_text("正在准备")
         expect(page.get_by_role("button", name="取消运行", exact=True)).to_have_count(0)
         self.assertTrue(all(url.startswith("file:") for url in requests), requests)

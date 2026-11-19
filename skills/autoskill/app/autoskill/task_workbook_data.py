@@ -73,9 +73,11 @@ def _paths(groups: list[dict], project: dict, display_paths: dict | None = None)
                 group["gaps"].append("业务层级使用原功能设计；文件夹完整组织路径另见编号映射，不将组织标签冒认为业务功能。")
     roots = {group["business_path"][0] for group in groups}
     if len(roots) > 1:
+        project_root = project.get("name") or "【待确认：业务系统】"
         for group in groups:
-            group["business_path"].insert(0, project.get("name") or "【待确认：业务系统】")
-            group["gaps"].append("项目包含多个已声明业务根，统一置于本项目归属下，原始完整路径见编号映射。")
+            if group["business_path"][0] != project_root:
+                group["business_path"].insert(0, project_root)
+                group["gaps"].append("项目包含多个已声明业务根，统一置于本项目归属下，原始完整路径见编号映射。")
     parents = {tuple(group["business_path"][:depth]) for group in groups for depth in range(1, len(group["business_path"]))}
     for group in groups:
         path = group["business_path"]

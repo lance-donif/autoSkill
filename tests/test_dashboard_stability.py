@@ -91,7 +91,7 @@ class DashboardStabilityTests(unittest.TestCase):
         self.assertEqual(sum(path == "/api/summary" for path, _ in self.requests), summaries)
         self.assertEqual(sum(path == "/api/runs" for path, _ in self.requests), runs)
         self.assertEqual(sum(path == "/api/dashboard" for path, _ in self.requests), bundles + 1)
-        self.page.get_by_role("button", name="范围内全部", exact=True).click()
+        self.page.get_by_role("button", name="全部", exact=True).click()
         expect(self.page.locator("[data-dashboard-failures] .list-row")).to_have_count(6)
         self.assert_regions_unchanged()
         self.assertEqual(sum(path == "/api/dashboard" for path, _ in self.requests), bundles + 2)
@@ -288,6 +288,22 @@ class DashboardStabilityTests(unittest.TestCase):
         expect(title).to_be_visible()
         expect(self.page.get_by_role("button", name=edited, exact=True)).to_have_count(0)
 
+    def test_case_filters_stick_below_the_visible_header(self):
+        self.open_static_preview("#/cases?range=all")
+        filters = self.page.locator(".case-filters")
+        expect(filters.get_by_role("searchbox", name="搜索用例")).to_be_visible()
+        for width, header in ((1440, "#scope"), (390, "#side")):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": 720})
+                self.page.evaluate("window.scrollTo(0, 550)")
+                expect(filters).to_be_in_viewport()
+                self.page.wait_for_function("""selector => Math.abs(document.querySelector('.case-filters').getBoundingClientRect().top
+                    - document.querySelector(selector).getBoundingClientRect().bottom) < 2""", arg=header)
+                filters.get_by_role("button", name="接口", exact=True).click()
+                expect(filters.get_by_role("button", name="接口")).to_have_attribute("aria-pressed", "true")
+                filters.get_by_role("button", name="全部", exact=True).click()
+                self.page.evaluate("window.scrollTo(0, 0)")
+
     def test_static_observed_cases_link_to_timestamped_public_evidence(self):
         sample = self.open_static_preview("#/cases?range=all&projects=runoob")
         records = sample["/observations/runoob"]["cases"]
@@ -303,7 +319,8 @@ class DashboardStabilityTests(unittest.TestCase):
             expect(source.get_by_role("link", name="打开目标页")).to_have_attribute("href", record["url"])
             source.locator("time").click()
             expect(panel).to_be_hidden()
-            report = self.page.locator(".run-summary").get_by_role("region", name=source_name)
+            expect(self.page.locator(".run-summary").get_by_role("region", name=source_name)).to_have_count(0)
+            report = self.page.locator(".result-body").get_by_role("region", name=source_name).filter(has_text=record["case_id"])
             expect(report).to_contain_text(record["actual"])
             expect(report.locator(f'time[datetime="{record["checked_at"]}"]')).to_be_visible()
             receipt = report.get_by_role("link", name="打开原始报告" if kind == "historical" else "打开回执摘要 JSON").first
@@ -321,7 +338,7 @@ class DashboardStabilityTests(unittest.TestCase):
         self.page.get_by_role("dialog").get_by_role("button", name="运行这条用例", exact=True).click()
         self.page.wait_for_url("**/#/runs/demo-*")
         expect(self.page.locator(".run-summary h1")).to_contain_text("浏览器模拟")
-        expect(self.page.locator(".run-summary").get_by_role("region", name=source_name)).to_have_count(0)
+        expect(self.page.locator("#view").get_by_role("region", name=source_name)).to_have_count(0)
 
 
 if __name__ == "__main__":

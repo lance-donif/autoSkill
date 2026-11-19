@@ -88,7 +88,7 @@ function commonEditor(draft, touch) {
   ];
   const metadata = [
     textField(draft, 'title', '用例标题', touch, { required: true }),
-    textField(draft, 'module', '业务模块', touch, { required: true }),
+    textField(draft, 'module', '菜单名', touch, { required: true }),
     selectField(draft, 'priority', '优先级', ['P0', 'P1', 'P2'], touch),
     boundValue(draft, 'requirement_ids', '需求 ID', { types: ['array'], defaultValue: [], onChange: touch }),
     boundValue(draft, 'test_data', '测试数据', { types: ['string', 'object'], defaultValue: '', onChange: touch }),

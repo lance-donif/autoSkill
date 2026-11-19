@@ -19,8 +19,6 @@ class ResultsUxTests(unittest.TestCase):
         self.post_count = 0
         self.post_status = 200
         self.post_body = {"id": "run-next", "total": 1, "dropped": 2}
-        self.download_status = 200
-        self.report_status = "ready"
         self.revision = "results-ux-1"
         self.native = self.native_fixture()
         self.native_requests = []
@@ -53,8 +51,6 @@ class ResultsUxTests(unittest.TestCase):
             result["id"] = "run-next"
             result["status"] = self.next_status
             return result
-        if path == "/api/task-reports/r":
-            return {**self.run["test_report"], "report_id": "r", "status": self.report_status, "error": "报告文件校验失败"}
         return html_fixture.HtmlReportTests.api(self, path)
 
     def route(self, request):
@@ -75,15 +71,17 @@ class ResultsUxTests(unittest.TestCase):
                 result["results"] = [row]
                 result["case"] = {"state": row["state"], "assertions": [{"name": "SLA", "passed": row["id"] != 70, "expected": "100 ms", "actual": "250 ms"}]}
                 result["page"] = {"has_more": False}
+            elif query.get("all") == ["1"]:
+                for row in result["results"]:
+                    row["detail"] = {"assertions": [{"name": "SLA", "expected": "100 ms", "actual": "250 ms",
+                                                     "passed": row["id"] != 70}]}
+                result["page"] = {"has_more": False}
             else:
                 start = 50 if query.get("cursor") else 0
                 limit = int(query.get("limit", [50])[0])
                 result["results"] = result["results"][start:start + limit]
                 result["page"] = {"has_more": start + limit < 70, "next_cursor": "second"}
             request.fulfill(content_type="application/json", body=json.dumps(result))
-        elif url.path in ("/api/task-reports/r/markdown", "/api/task-reports/r/bugs"):
-            request.fulfill(status=self.download_status, content_type="text/markdown" if self.download_status == 200 else "application/json",
-                            body="# 本次结果\n\n业务失败仍保留" if self.download_status == 200 else json.dumps({"detail": "报告文件校验失败"}))
         else:
             html_fixture.HtmlReportTests.route(self, request)
 
@@ -100,85 +98,66 @@ class ResultsUxTests(unittest.TestCase):
         target = self.page.get_by_role("region", name="定位的执行结果")
         expect(target).to_contain_text("SLA")
         expect(target).to_contain_text("250 ms")
-        expect(self.page.locator("#view")).to_contain_text("性能目标未通过")
+        expect(self.page.locator(".report-summary .status").first).to_have_text("不通过")
+        expect(target.locator(".state-details")).to_have_count(0)
         self.assertTrue(any(q.get("case") == ["result:70"] for q in self.native_requests))
         self.assertFalse(any("case" in q and "cursor" in q for q in self.native_requests))
         self.page.get_by_role("link", name="返回执行记录", exact=True).click()
         expect(self.page).to_have_url("http://127.0.0.1:8787/" + original)
         expect(self.page.get_by_role("link", name="Native result 70", exact=True)).to_be_focused()
 
+    def test_native_html_contains_every_page_and_its_evidence(self):
+        self.page.goto("http://127.0.0.1:8787/#/native-runs/native-70")
+        summary = self.page.locator(".report-summary")
+        expect(summary.get_by_role("button")).to_have_count(1)
+        expect(summary.locator("details")).to_have_count(0)
+        expect(summary.locator(".stats")).to_be_visible()
+        expect(self.page.locator(".result")).to_have_count(50)
+        with self.page.expect_download() as download:
+            summary.get_by_role("button", name="下载 HTML 报告", exact=True).click()
+        offline = self.browser.new_context(offline=True)
+        self.addCleanup(offline.close)
+        reader = offline.new_page()
+        reader.set_content(download.value.path().read_text(encoding="utf-8"))
+        expect(reader.locator(".result")).to_have_count(70)
+        final = reader.locator(".result").last
+        expect(final.locator(".result-head")).to_contain_text("Native result 70")
+        expect(final.locator(".result-head .status")).to_have_count(1)
+        expect(final.locator(".result-body .checks")).to_contain_text("250 ms")
+        expect(reader.locator(".result-body .state-details")).to_have_count(0)
+        self.assertEqual(self.post_count, 0)
+
     def test_later_problem_and_duplicate_legacy_link_are_explicit(self):
         self.page.goto("http://127.0.0.1:8787/#/native-runs/native-70")
-        self.page.get_by_role("button", name="查看本次所有失败结果", exact=True).click()
-        issues = self.page.locator('[aria-label="本次失败结果"]')
-        expect(issues).to_contain_text("Native result 70")
-        expect(issues).not_to_contain_text("Native result 69")
+        self.page.get_by_role("link", name="下一页", exact=True).click()
+        expect(self.page.locator(".result-list")).to_contain_text("Native result 70")
         self.page.goto("http://127.0.0.1:8787/#/native-runs/native-70?case=duplicate&cursor=second")
         expect(self.page.get_by_role("link", name="查看结果 69", exact=False)).to_be_visible()
         expect(self.page.get_by_role("link", name="查看结果 70", exact=False)).to_be_visible()
         expect(self.page.get_by_role("region", name="定位的执行结果")).to_have_count(0)
         self.assertFalse(any("case" in q and "cursor" in q for q in self.native_requests))
 
-    def test_cancel_rejection_and_unknown_never_claim_success(self):
-        self.run.update(status="Running", cancel=0)
-        self.post_status = 409
-        self.post_body = {"detail": "执行器拒绝取消"}
+    def test_html_export_still_works_when_excel_generation_failed(self):
+        self.run["test_report"] = {"status": "failed", "error": "原工作簿校验失败"}
         self.open()
-        self.page.get_by_role("button", name="取消运行", exact=True).click()
-        expect(self.page.get_by_role("alertdialog")).to_have_count(0)
-        expect(self.page.locator("#view")).to_contain_text("请求被拒绝：执行器拒绝取消")
-        expect(self.page.locator("#view")).not_to_contain_text("取消已申请")
-        self.post_status = 500
-        self.post_body = {"detail": "连接已中断"}
-        self.page.get_by_role("button", name="取消运行", exact=True).click()
-        expect(self.page.locator("#view")).to_contain_text("操作可能已经生效")
-        expect(self.page.get_by_role("button", name="取消运行", exact=True)).to_be_enabled()
-        self.redraw()
-        expect(self.page.locator("#view")).to_contain_text("操作可能已经生效")
-        self.assertEqual(self.post_count, 2)
-
-    def test_cancel_waiting_and_already_finished_are_distinct(self):
-        self.run.update(status="Running", cancel=0)
-        self.post_body = {"id": "run-report", "status": "Running", "cancel": 1}
-        self.open()
-        self.page.get_by_role("button", name="取消运行", exact=True).click()
-        expect(self.page.locator("#view")).to_contain_text("取消已申请，正在等待")
-        expect(self.page.get_by_role("button", name="等待取消结果", exact=True)).to_be_disabled()
-        self.run.update(status="Cancelled", cancel=1)
-        self.redraw()
-        expect(self.page.locator("#view")).to_contain_text("本次运行已取消；已产生的结果仍然保留")
-        expect(self.page.locator("#view")).not_to_contain_text("取消已申请，正在等待")
-        self.run.update(status="Running", cancel=0)
-        self.page.reload()
-        self.post_body = {"id": "run-report", "status": "Fail", "cancel": 0}
-        self.page.get_by_role("button", name="取消运行", exact=True).click()
-        expect(self.page.locator("#view")).to_contain_text("已经结束，取消没有改变")
-
-    def test_download_failure_persists_and_retry_returns_real_file(self):
-        self.run["test_report"]["report_id"] = "r"
-        self.download_status = 404
-        self.open()
-        self.page.get_by_role("link", name="下载 Markdown 汇总", exact=True).click()
-        expect(self.page.locator('[aria-label="本次报告"]')).to_contain_text("下载失败：报告文件校验失败")
-        self.redraw()
-        expect(self.page.locator('[aria-label="本次报告"]')).to_contain_text("下载失败：报告文件校验失败")
-        self.download_status = 200
+        report = self.page.get_by_role("region", name="本次报告")
+        expect(report.get_by_role("link")).to_have_count(0)
+        expect(report.get_by_role("button")).to_have_count(1)
         with self.page.expect_download() as download:
-            self.page.get_by_role("link", name="下载 Markdown 汇总", exact=True).click()
-        path = self.folder / 'report.md'
-        download.value.save_as(path)
-        self.assertIn("业务失败仍保留", path.read_text())
-        self.download_status = 404
-        self.page.get_by_role("link", name="下载 Bug 清单", exact=True).click()
-        expect(self.page.locator('[aria-label="本次报告"]')).to_contain_text("下载失败：报告文件校验失败")
-        expect(self.page.locator('[aria-label="本次报告"]')).not_to_contain_text("文件已取回")
+            report.get_by_role("button", name="下载 HTML 报告", exact=True).click()
+        self.assertIn("Later failed attempt", download.value.path().read_text(encoding="utf-8"))
         self.assertEqual(self.post_count, 0)
 
-    def test_rerun_receipt_names_current_scope_and_dropped_count(self):
+    def failed_case(self):
+        return self.page.locator(".result[data-result='2']")
+
+    def test_case_rerun_receipt_names_only_the_selected_case_and_new_run(self):
         self.open()
-        self.page.get_by_role("button", name="按当前用例重新运行", exact=True).click()
+        with self.page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/rerun")) as sent:
+            self.failed_case().get_by_role("button", name="只重跑这一条", exact=True).click()
+        self.assertEqual(sent.value.post_data_json["case_id"], "TC-001")
         expect(self.page).to_have_url("http://127.0.0.1:8787/#/runs/run-next")
-        expect(self.page.locator("#view")).to_contain_text("有 2 条用例已不存在，本次跳过")
+        expect(self.page.locator("#view")).to_contain_text("已使用当前用例定义提交重新运行，运行编号 run-next")
         self.assertEqual(self.post_count, 1)
 
     def test_redraw_cannot_duplicate_an_inflight_rerun(self):
@@ -190,7 +169,7 @@ class ResultsUxTests(unittest.TestCase):
 
         self.page.route('**/api/runs/run-report/rerun', hold)
         self.open()
-        self.page.get_by_role('button', name='按当前用例重新运行', exact=True).click()
+        self.failed_case().get_by_role('button', name='只重跑这一条', exact=True).click()
         expect(self.page.get_by_role('button', name='正在提交…', exact=True)).to_be_disabled()
         self.redraw()
         self.page.get_by_role('button', name='正在提交…', exact=True).dispatch_event('click')
@@ -199,52 +178,21 @@ class ResultsUxTests(unittest.TestCase):
         expect(self.page).to_have_url('http://127.0.0.1:8787/#/runs/run-next')
         self.assertEqual(self.post_count, 1)
 
-    def test_candidate_zero_prepared_keeps_reason_and_does_not_claim_a_run(self):
-        self.run['publication'] = {'candidate_id': 'candidate-local'}
-        self.post_body = {'id': None, 'total': 0, 'candidate_id': 'candidate-local', 'run_ids': [],
-                          'publication': {'complete': True, 'status': 'complete', 'published_ids': [],
-                                          'unpublished': {'API-1': '缺少登录凭据'}}}
+    def test_candidate_publication_receipt_remains_readable_without_starting_another_run(self):
+        self.run["publication"] = {"candidate_id": "candidate-local", "complete": True, "published_ids": [],
+                                   "unpublished": {"API-1": "缺少登录凭据"}}
         self.open()
-        self.page.get_by_role('button', name='按本次候选版本再次验证', exact=True).click()
-        expect(self.page.locator('#view')).to_contain_text('本次没有候选加入执行队列')
-        expect(self.page.locator('#view')).to_contain_text('API-1：缺少登录凭据')
-        expect(self.page.locator('#view')).not_to_contain_text('已加入执行队列')
-        expect(self.page).to_have_url('http://127.0.0.1:8787/#/runs/run-report')
-        self.redraw()
-        expect(self.page.locator('#view')).to_contain_text('缺少登录凭据')
-        expect(self.page.get_by_role('button', name='按本次候选版本再次验证', exact=True)).to_be_enabled()
-        self.assertEqual(self.post_count, 1)
-
-    def test_candidate_partial_preparation_lists_real_runs_and_missing_targets(self):
-        self.run['publication'] = {'candidate_id': 'candidate-local'}
-        self.next_status = 'Queued'
-        self.post_body = {'id': 'run-next', 'total': 2, 'candidate_id': 'candidate-local', 'run_ids': ['run-next', 'run-other'],
-                          'publication': {'complete': False, 'status': 'pending', 'published_ids': [], 'unpublished': {}},
-                          'preparation_errors': {'API-3': '前置用例不存在'}}
-        self.open()
-        self.page.get_by_role('button', name='按本次候选版本再次验证', exact=True).click()
-        expect(self.page).to_have_url('http://127.0.0.1:8787/#/runs/run-next')
-        expect(self.page.locator('#view')).to_contain_text('使用本次候选版本')
-        expect(self.page.locator('#view')).to_contain_text('已加入执行队列')
-        expect(self.page.locator('#view')).to_contain_text('API-3：前置用例不存在')
-        expect(self.page.get_by_role('link', name='查看运行 run-other', exact=True)).to_have_attribute('href', '#/runs/run-other')
-        self.next_status = 'Running'
-        self.redraw()
-        expect(self.page.locator('#view')).to_contain_text('本次运行正在执行')
-        expect(self.page.locator('#view')).not_to_contain_text('已加入执行队列')
-        self.next_status = 'Pass'
-        self.redraw()
-        expect(self.page.locator('#view')).to_contain_text('本次运行已结束')
-        expect(self.page.locator('#view')).not_to_contain_text('已加入执行队列')
-        expect(self.page.locator('#view')).to_contain_text('API-3：前置用例不存在')
-        expect(self.page.get_by_role('link', name='查看运行 run-other', exact=True)).to_be_visible()
-        self.assertEqual(self.post_count, 1)
+        receipt = self.page.locator('[aria-label="本批候选入库结果"]')
+        receipt.get_by_text("查看未入库原因", exact=True).click()
+        expect(receipt).to_contain_text("API-1：缺少登录凭据")
+        expect(self.page.get_by_role("button", name="按本次候选版本再次验证", exact=True)).to_have_count(0)
+        self.assertEqual(self.post_count, 0)
 
     def test_workflow_result_returns_to_its_task_without_detached_rerun(self):
         self.run['workflow_id'] = 'workflow-original'
         self.run['publication'] = {'candidate_id': 'candidate-local'}
         self.open()
-        expect(self.page.get_by_role('link', name='返回原测试任务', exact=True)).to_have_attribute('href', '#/workflows/workflow-original')
+        expect(self.failed_case().get_by_role('link', name='返回原测试任务', exact=True)).to_have_attribute('href', '#/workflows/workflow-original')
         expect(self.page.get_by_role('button', name='按本次候选版本再次验证', exact=True)).to_have_count(0)
         expect(self.page.get_by_role('button', name='按当前用例重新运行', exact=True)).to_have_count(0)
         self.assertEqual(self.post_count, 0)

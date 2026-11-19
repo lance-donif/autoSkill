@@ -1,5 +1,4 @@
 """The dashboard inspects host-created native assets and retains reports, reruns and schedules."""
-import json
 import os
 import sys
 import unittest
@@ -38,7 +37,6 @@ class NativeDashboardTests(unittest.TestCase):
         expect(self.page.get_by_text("Native smoke", exact=True)).to_be_visible()
         expect(self.page.get_by_role("button", name="导入原生资产", exact=True)).to_have_count(0)
         expect(self.page.get_by_role("button", name="运行资产", exact=True)).to_have_count(0)
-        expect(self.page.locator("#view")).to_contain_text("DSH 对话")
         expect(self.page.locator("#view")).to_contain_text(asset["asset_version"])
         self.page.get_by_role("link", name="查看项目执行记录", exact=True).click()
         expect(self.page.locator("#view h1")).to_have_text("执行记录")
@@ -47,17 +45,18 @@ class NativeDashboardTests(unittest.TestCase):
         expect(self.page.get_by_role("button", name="筛选项目", exact=True)).to_have_count(0)
         expect(self.page.locator("#view h1")).to_have_text("执行报告")
         summary = self.page.locator("#view section").first
-        expect(summary.locator(".status").first).to_have_text("已结束", timeout=30000)
-        expect(summary.locator(".state-details")).to_contain_text("综合：通过", timeout=30000)
-        expect(summary.locator(".state-details")).to_contain_text("业务：通过")
+        expect(summary.locator(".status").first).to_have_text("通过", timeout=30000)
         self.page.locator(".result-head").first.click()
         expect(self.page.locator(".result-body .checks")).to_be_visible()
+        expect(self.page.locator(".result-body .state-details")).to_have_count(0)
         with self.page.expect_download() as event:
-            self.page.get_by_role("link", name="下载原生汇总 JSON", exact=True).click()
-        download = event.value
-        data = json.loads(Path(download.path()).read_text(encoding="utf-8"))
-        self.assertEqual(data["status"], "Pass")
-        self.assertEqual(len(data["cases"]), 1)
+            summary.get_by_role("button", name="下载 HTML 报告", exact=True).click()
+        exported = self.page.context.new_page()
+        self.addCleanup(exported.close)
+        exported.set_content(event.value.path().read_text(encoding="utf-8"))
+        expect(exported.locator(".result")).to_have_count(1)
+        expect(exported.locator(".result")).to_contain_text("test_expected")
+        expect(exported.locator(".result-body .state-details")).to_have_count(0)
         self.page.get_by_role("button", name="列出报告与证据附件", exact=True).click()
         attachment = self.page.get_by_role("link", name="unittest.json", exact=True)
         expect(attachment).to_be_visible()
@@ -65,10 +64,7 @@ class NativeDashboardTests(unittest.TestCase):
         change_project_and_wait_for_ui(self, self.project_id)
         expect(attachment).to_be_visible()
         expect(attachment).to_be_focused()
-        first = self.page.url
-        self.page.get_by_role("button", name="按原版本再次运行", exact=True).click()
-        expect(self.page).not_to_have_url(first)
-        expect(self.page.locator("#view h1")).to_have_text("执行报告")
+        expect(self.page.get_by_role("button", name="按原版本再次运行", exact=True)).to_have_count(0)
 
     def test_native_and_maintenance_targets_are_saved_and_delivery_is_not_a_fake_run(self):
         asset = native_assets.import_asset(self.project_id, str(self.source), "selenium-unittest", name="Scheduled native")
@@ -117,7 +113,7 @@ class NativeDashboardTests(unittest.TestCase):
         self.page.set_content('<iframe name="host" style="width:390px;height:500px;border:0" src="' + destination + '"></iframe>')
         reader = self.page.frame(name="host")
         expect(reader.locator("#view h1")).to_have_text("执行报告")
-        expect(reader.locator("#view section").first.locator(".status").first).to_have_text("已结束", timeout=30000)
+        expect(reader.locator("#view section").first.locator(".status").first).to_have_text("不通过", timeout=30000)
         failing = reader.locator(".result").filter(has_text=long_name)
         failing.locator(".result-head").click()
         complete = failing.locator("summary").filter(has_text="完整用例结果")
@@ -135,9 +131,12 @@ class NativeDashboardTests(unittest.TestCase):
         self.assertTrue(complete.locator('..').evaluate('node => node.open'))
         self.assertEqual(reader.evaluate("scrollY"), position)
         with self.page.expect_download() as event:
-            reader.get_by_role("link", name="下载原生汇总 JSON", exact=True).click()
-        self.assertEqual(len(json.loads(Path(event.value.path()).read_text(encoding="utf-8"))["cases"]), 70)
-        expect(reader.get_by_text("文件已取回，浏览器下载已开始；请在下载列表查看。", exact=True)).to_be_visible()
+            reader.get_by_role("button", name="下载 HTML 报告", exact=True).click()
+        exported = self.page.context.new_page()
+        self.addCleanup(exported.close)
+        exported.set_content(event.value.path().read_text(encoding="utf-8"))
+        expect(exported.locator(".result")).to_have_count(70)
+        expect(exported.locator(".result").last).to_contain_text("test_069")
         self.assertEqual(reader.evaluate("scrollX"), 0)
         geometry = reader.evaluate("({width:innerWidth, document:document.documentElement.scrollWidth})")
         self.assertLessEqual(geometry['document'], geometry['width'], geometry)

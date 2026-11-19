@@ -298,6 +298,18 @@ class LoadDashboardTests(DashboardWorkspace):
         self.assertIn("原始断言先失败后通过", exported)
         self.assertIn("失败", exported)
         self.assertIn("P95", exported)
+        offline = self.browser.new_context(offline=True)
+        self.addCleanup(offline.close)
+        reader = offline.new_page()
+        reader.set_content(exported)
+        for document in (self.page, reader):
+            expect(document.locator(".report-heading").locator("..").locator(".status")).to_have_text("不通过")
+            rows = document.locator(".load-table-wrap tbody tr")
+            expect(rows.locator("td:first-child .status")).to_have_text(["失败", "通过"])
+            details = rows.first.locator("details")
+            details.evaluate("node => { node.open = true }")
+            expect(details.locator(".status")).to_have_count(0)
+            expect(details.locator("li").first).to_be_visible()
         receipt = self.client.get("/api/runs/" + run_id).json()["test_report"]
         self.assertEqual(receipt["status"], "ready", receipt)
         workbook = openpyxl.load_workbook(io.BytesIO(self.client.get(receipt["download_url"]).content))

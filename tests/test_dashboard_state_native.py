@@ -1,4 +1,5 @@
 """A native-only project with real execution history must retain dashboard visibility."""
+import io
 import os
 import sys
 import tempfile
@@ -68,14 +69,14 @@ class NativeStateDashboardTests(unittest.TestCase):
             time.sleep(0.05)
 
     def test_native_history_is_visible_without_any_ir_cases(self):
-        service, page, _run = self.native_fixture('import unittest\nclass Original(unittest.TestCase):\n def test_ok(self): self.assertTrue(True)\n', 'Pass')
+        service, page, run = self.native_fixture('import unittest\nclass Original(unittest.TestCase):\n def test_ok(self): self.assertTrue(True)\n', 'Pass')
         requests = []
         page.on('request', lambda request: requests.append(urlsplit(request.url).path))
         page.goto(service.origin + '/#/dashboard?range=all')
         expect(page.get_by_role('heading', name='最近执行', exact=True)).to_be_visible()
         expect(page.locator('#view')).to_contain_text('Native-only project')
         expect(page.get_by_text('还没有项目', exact=True)).to_have_count(0)
-        expect(page.locator('#view')).to_contain_text('已结束')
+        expect(page.locator(f'.list-row[href*="{run["id"]}"] .status')).to_have_text('通过')
         self.assertIn('/api/dashboard', requests)
         self.assertNotIn('/api/summary', requests)
         self.assertNotIn('/api/results', requests)
@@ -83,7 +84,7 @@ class NativeStateDashboardTests(unittest.TestCase):
                                   and parse_qs(urlsplit(response.url).query).get('current') == ['true']):
             page.get_by_role('button', name='当前仍失败', exact=True).click()
 
-    def test_native_detail_offers_only_full_asset_rerun_and_keeps_original_results(self):
+    def test_native_rerun_api_keeps_frozen_asset_and_original_results(self):
         source = ('import os, unittest\nclass Original(unittest.TestCase):\n'
                   ' def test_ok(self): self.assertEqual(os.environ["FROZEN"], "original")\n'
                   ' def test_bad(self): self.assertEqual("actual", "expected")\n')
@@ -94,19 +95,12 @@ class NativeStateDashboardTests(unittest.TestCase):
         changed = native_assets.import_asset('native-only', str(self.native_source), 'selenium-unittest', asset_id=frozen['asset_id'])
         self.assertNotEqual(changed['asset_version'], frozen['asset_version'])
         page.goto(service.origin + '/#/runs/' + old['id'] + '?range=all')
-        rerun = page.get_by_role('button', name='按原版本再次运行', exact=True)
-        expect(rerun).to_be_visible()
-        expect(page.locator('#view .state-details')).to_contain_text('综合：失败')
+        expect(page.locator('.report-summary .status').first).to_have_text('不通过')
+        expect(page.get_by_role('button', name='按原版本再次运行', exact=True)).to_have_count(0)
         expect(page.get_by_role('button', name='只重跑这一条', exact=True)).to_have_count(0)
-        expect(page.get_by_role('button', name='只重跑未通过的', exact=False)).to_have_count(0)
-        with page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/rerun')) as response:
-            rerun.click()
-        created = response.value.json()
-        self.assertEqual(response.value.status, 200, created)
-        self.assertEqual(response.value.request.post_data_json, {})
+        created = service.api('/runs/' + old['id'] + '/rerun', method='POST', body={})
         self.assertNotEqual(created['id'], old['id'])
         self.assertEqual(created['family'], 'native')
-        expect(page).to_have_url(service.origin + '/#/native-runs/' + created['id'] + '?range=all')
         repeated = native_run._frozen(native_run.get(created['id']))
         self.assertEqual((repeated['asset_id'], repeated['head'], repeated['asset_version'], repeated['parameters']),
                          (frozen['asset_id'], frozen['head'], frozen['asset_version'], parameters))
@@ -133,35 +127,26 @@ class NativeStateDashboardTests(unittest.TestCase):
         original_results = [row['id'] for row in before['results']]
         page.goto(service.origin + '/#/native-runs/' + run['id'])
         report = page.locator('[aria-label="本次报告"]')
-        expect(report.get_by_role('link', name='下载本次用例 Excel', exact=True)).to_be_visible()
-        corrupt_next = [True]
-
-        def damage_at_download(request):
-            if corrupt_next[0]:
-                Path(before['test_report']['excel']).write_bytes(b'broken workbook')
-                corrupt_next[0] = False
-            request.continue_()
-
-        page.route('**' + before['test_report']['download_url'], damage_at_download)
-        report.get_by_role('link', name='下载本次用例 Excel', exact=True).focus()
-        report.get_by_role('link', name='下载本次用例 Excel', exact=True).press('Enter')
-        expect(report).to_contain_text('下载失败')
-        report.get_by_role('button', name='重试导出报告', exact=True).click()
-        expect(report).to_contain_text('本次报告已生成，可以下载', timeout=30000)
-        for label, suffix in [('下载本次用例 Excel', 'xlsx'), ('下载 Markdown 汇总', 'md'), ('下载 Bug 清单', 'bugs.md')]:
-            with page.expect_download() as waiting:
-                report.get_by_role('link', name=label, exact=True).click()
-            destination = self.native_source.parent / ('download.' + suffix)
-            waiting.value.save_as(destination)
-            if suffix == 'xlsx':
-                book = load_workbook(destination)
+        expect(report.get_by_role('button', name='下载 HTML 报告', exact=True)).to_be_visible()
+        expect(report.get_by_role('link')).to_have_count(0)
+        receipt = before['test_report']
+        Path(receipt['excel']).write_bytes(b'broken workbook')
+        damaged = page.request.get(service.origin + receipt['download_url'])
+        self.assertFalse(damaged.ok)
+        restored = service.api('/task-reports/' + receipt['report_id'] + '/retry', method='POST', body={})
+        self.assertEqual(restored['status'], 'ready')
+        for field in ('download_url', 'markdown_download_url', 'bugs_download_url'):
+            response = page.request.get(service.origin + restored[field])
+            self.assertTrue(response.ok)
+            if field == 'download_url':
+                book = load_workbook(io.BytesIO(response.body()))
                 try:
                     self.assertEqual(book['功能测试用例'].max_column, 14)
                     self.assertIn('失败', str(list(book['功能测试用例'].values)))
                 finally:
                     book.close()
             else:
-                self.assertIn('失败', destination.read_text(encoding='utf-8'))
+                self.assertIn('失败', response.text())
         after = service.api('/runs/' + run['id'])
         self.assertEqual([row['id'] for row in after['results']], original_results)
         self.assertEqual(service.api('/runs?cycle=all')['total'], 1)

@@ -1,4 +1,4 @@
-"""Unpublished candidates can be verified again from their real historical dashboard result."""
+"""Candidate retests retain their history in the dashboard and their frozen API inputs."""
 import json
 import os
 import sys
@@ -108,7 +108,7 @@ class CandidateRerunDashboardTests(unittest.TestCase):
             timeline.focus()
             before = reader.evaluate('scrollY')
             timeline.press('Enter')
-            expect(reader.locator('#view')).to_contain_text('本次综合通过')
+            expect(reader.locator('.run-summary .status').first).to_have_text('通过')
             reader.evaluate('history.back()')
             expect(row).to_be_visible()
             expect(timeline).to_be_focused()
@@ -121,19 +121,15 @@ class CandidateRerunDashboardTests(unittest.TestCase):
         original_results = db.rows('SELECT id, status, detail FROM results WHERE run_id = ?', (old_id,))
         frozen = execution_inputs.load(db.one('SELECT * FROM runs WHERE id = ?', (old_id,)))['cases']
         self.page.goto(self.service.origin + '/#/runs/' + old_id)
-        expect(self.page.get_by_role('button', name='按本次候选版本再次验证', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('button', name='按本次候选版本再次验证', exact=True)).to_have_count(0)
         expect(self.page.get_by_role('button', name='按当前用例重新运行', exact=True)).to_have_count(0)
-        expect(self.page.locator('#view')).to_contain_text('本次综合失败')
+        expect(self.page.locator('.run-summary .status').first).to_have_text('不通过')
         self.target.passing = True
-        with self.page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/rerun')) as response:
-            self.page.get_by_role('button', name='再次验证失败的 1 条候选', exact=True).click()
-        created = response.value.json()
-        self.assertEqual(response.value.status, 200, created)
+        created = self.service.api('/runs/' + old_id + '/rerun', method='POST', body={'failed_only': True})
         self.assertEqual(created['candidate_id'], self.candidate['id'])
         self.assertEqual(created['run_ids'], [created['id']])
         self.assertNotEqual(created['id'], old_id)
-        expect(self.page).to_have_url(self.service.origin + '/#/runs/' + created['id'])
-        expect(self.page.locator('#view')).to_contain_text('使用本次候选版本')
+        self.page.goto(self.service.origin + '/#/runs/' + created['id'])
         deadline = time.monotonic() + 25
         while time.monotonic() < deadline:
             current = self.service.api('/runs/' + created['id'])
@@ -149,7 +145,7 @@ class CandidateRerunDashboardTests(unittest.TestCase):
         expect(self.page.get_by_role('link', name='查看本项目测试用例', exact=True)).to_have_attribute('href', '#/cases?projects=' + self.pid)
         expect(self.page.locator('#view')).not_to_contain_text('已加入执行队列')
         expect(self.page.locator('#view')).not_to_contain_text('入队不等于验证通过')
-        self.assertEqual(len(self.rerun_requests), 1)
+        self.assertEqual(len(self.rerun_requests), 0)
 
         repeated = execution_inputs.load(db.one('SELECT * FROM runs WHERE id = ?', (created['id'],)))
         self.assertEqual(repeated['cases'], frozen)
@@ -157,7 +153,7 @@ class CandidateRerunDashboardTests(unittest.TestCase):
         self.assertEqual(db.rows('SELECT id, status, detail FROM results WHERE run_id = ?', (old_id,)), original_results)
         self.assertEqual(self.service.api('/runs/' + old_id)['status'], 'Fail')
         self.page.goto(self.service.origin + '/#/runs/' + old_id)
-        expect(self.page.locator('#view')).to_contain_text('本次综合失败')
+        expect(self.page.locator('.run-summary .status').first).to_have_text('不通过')
         self.assertGreaterEqual(self.target.calls, 2)
         destination = self.service.origin + '/?embed=1#/case-plans?project=' + self.pid + '&session=candidate-rerun'
         self.page.goto(destination.replace('/?embed=1#/', '/#/'))
@@ -212,8 +208,8 @@ class CandidateRerunDashboardTests(unittest.TestCase):
         expect(history_link).to_have_attribute('href', '#/runs/' + linked['id'] + '?case=result%3A' + str(latest['result_id']))
         expect(row.get_by_role('link', name='查看原失败', exact=True)).to_be_visible()
         history_link.click()
-        expect(reader.locator('#view')).to_contain_text('本次综合通过')
-        self.assertEqual(len(self.rerun_requests), 1)
+        expect(reader.locator('.run-summary .status').first).to_have_text('通过')
+        self.assertEqual(len(self.rerun_requests), 0)
 
     def test_first_ui_candidate_retest_uses_server_headless_default_without_saving_it(self):
         settings = self.service.api('/settings')
@@ -237,13 +233,10 @@ class CandidateRerunDashboardTests(unittest.TestCase):
             self.fail('Original UI failure did not finish')
         self.assertEqual(first['status'], 'Fail', first)
         self.page.goto(self.service.origin + '/#/runs/' + queued['run_id'])
-        expect(self.page.locator('#view')).to_contain_text('本次综合失败')
+        expect(self.page.locator('.run-summary .status').first).to_have_text('不通过')
         self.target.passing = True
-        with self.page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/rerun')) as response:
-            self.page.get_by_role('button', name='再次验证失败的 1 条候选', exact=True).click()
-        self.assertEqual(response.value.request.post_data_json, {'headed': False, 'failed_only': True})
-        created = response.value.json()
-        self.assertEqual(response.value.status, 200, created)
+        created = self.service.api('/runs/' + first['id'] + '/rerun', method='POST', body={'failed_only': True})
+        self.page.goto(self.service.origin + '/#/runs/' + created['id'])
         deadline = time.monotonic() + 25
         while time.monotonic() < deadline:
             current = self.service.api('/runs/' + created['id'])
@@ -254,14 +247,14 @@ class CandidateRerunDashboardTests(unittest.TestCase):
             self.fail('First UI retest did not finish')
         self.assertEqual(current['status'], 'Pass', current)
         self.assertEqual(current['publication']['published_ids'], ['UI-DEFAULT'])
-        expect(self.page.locator('#view')).to_contain_text('本次综合通过')
+        expect(self.page.locator('.run-summary .status').first).to_have_text('通过')
         self.assertFalse(db.one('SELECT headed FROM runs WHERE id = ?', (created['id'],))['headed'])
-        self.assertEqual(len(self.rerun_requests), 1)
+        self.assertEqual(len(self.rerun_requests), 0)
         self.assertEqual(self.service.api('/settings')['dashboard'], {})
         if output := os.environ.get('AUTOSKILL_VALIDATION_OUTPUT'):
             Path(output).mkdir(parents=True, exist_ok=True)
             (Path(output) / 'first-ui-retest-default.json').write_text(json.dumps({
-                'post_count': len(self.rerun_requests), 'body': response.value.request.post_data_json,
+                'dashboard_rerun_requests': len(self.rerun_requests),
                 'old_status': first['status'], 'new_status': current['status'], 'publication': current['publication'],
                 'settings': self.service.api('/settings')}, ensure_ascii=False, indent=2), encoding='utf-8')
         self.service.api('/settings', method='PUT', body={'dashboard': {'headed': True}, 'expected_data_id': settings['data_id']})

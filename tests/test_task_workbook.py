@@ -46,11 +46,62 @@ class TaskWorkbookTests(unittest.TestCase):
         self.addCleanup(book.close)
         self.assertTrue(receipt["validation"]["structure"]["ok"], receipt)
         self.assertEqual(receipt["template_id"], "test-cases-14-column-v1")
-        self.assertEqual(book.sheetnames[0], "功能测试用例")
-        sheet = book.worksheets[0]
+        self.assertEqual(book.sheetnames[:2], ["概览", "功能测试用例"])
+        self.assertEqual(book.active.title, "概览")
+        sheet = book["功能测试用例"]
         grouped = {number for merged in sheet.merged_cells.ranges for number in range(merged.min_row, merged.max_row + 1)}
         rows = [row for number, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), 2) if number not in grouped and row[0]]
         return book, rows, receipt
+
+    def test_dashboard_chart_sources_match_frozen_cases_and_group_counts(self):
+        tried = [observation(definition(), "Fail"), observation(definition(), "Pass", "retry")]
+        other = definition("TC-UI-002")
+        other["module"] = "报表"
+        tried.append(observation(other, "Pass", "another"))
+        never = definition("TC-UI-003")
+        never["module"] = "报表"
+        tried.append({"definition": never, "result": None, "run_id": None, "evidence_valid": False})
+        book, _, _ = self.render(snapshot(tried))
+        overview = book.active
+        self.assertEqual([overview[pos].value for pos in ("A8", "D8", "G8", "J8")], [3, 1, 1, 0.5])
+        self.assertEqual([overview.cell(i, 2).value for i in range(25, 28)], [1, 1, 1])
+        ring, bars = overview._charts
+        self.assertEqual(ring.series[0].cat.strRef.f, "'概览'!$A$25:$A$27")
+        self.assertEqual(ring.series[0].val.numRef.f, "'概览'!$B$25:$B$27")
+        self.assertEqual([point.v for point in ring.series[0].val.numRef.numCache.pt], [1, 1, 1])
+        self.assertEqual([point.v for point in bars.series[0].cat.strRef.strCache.pt], ["报表", "个人工作台"])
+        self.assertEqual([s.val.numRef.f for s in bars.series], [f"'概览'!${col}$25:${col}$26" for col in "HIJ"])
+        self.assertEqual([[p.v for p in s.val.numRef.numCache.pt] for s in bars.series], [[1, 0], [1, 0], [0, 1]])
+        self.assertEqual([s.title.strRef.strCache.pt[0].v for s in bars.series], ["未执行", "通过", "失败"])
+        self.assertIn("任务概览", book.sheetnames)
+        ring.series[0].val.numRef.numCache.pt[0].v = 17
+        with self.assertRaisesRegex(ValueError, "图表引用或缓存"):
+            task_workbook.verify(book, task_workbook_data.rows(snapshot(tried))[0])
+
+    def test_module_chart_limits_only_the_plot_and_retains_source_rows(self):
+        cases = []
+        for i in range(10):
+            case = definition(f"TC-UI-{i:03}")
+            case["module"] = f"模块 {i:02}"
+            if i == 0:
+                case["module"] = "未分组"
+            cases.append({"definition": case, "result": None, "run_id": None, "evidence_valid": False})
+        data = snapshot(cases)
+        data["kind"] = "design"
+        book, _, _ = self.render(data)
+        sheet = book.active
+        self.assertEqual(sheet["A1"].value, "测试用例设计概览")
+        self.assertIn("8", sheet["F10"].value)
+        self.assertEqual(sheet["F25"].value, "1.1 个人工作台")
+        self.assertEqual(sheet["F34"].value, "模块 09")
+        self.assertEqual(sheet._charts[1].series[0].cat.strRef.f, "'概览'!$F$25:$F$32")
+
+    def test_empty_overview_preserves_zero_counts_without_a_fictitious_chart(self):
+        book, _, _ = self.render(snapshot([]))
+        self.assertEqual(book.active["A8"].value, 0)
+        self.assertEqual(book.active["J8"].value, "—")
+        self.assertEqual(book.active["A14"].value, "暂无测试用例")
+        self.assertFalse(book.active._charts)
 
     def test_real_hierarchy_canonical_fields_and_failure_history(self):
         case = definition()
@@ -76,12 +127,12 @@ class TaskWorkbookTests(unittest.TestCase):
         self.assertIsNone(row[10])
         self.assertEqual(book["编号映射"].cell(2, 2).value, "TC-UI-001")
         self.assertIn("attempt-1.json", book["执行明细"].cell(2, 6).value)
-        self.assertIsNone(book.worksheets[0].cell(6, 14).hyperlink)
+        self.assertIsNone(book["功能测试用例"].cell(6, 14).hyperlink)
         self.assertIn("/synthetic/failure.png", row[13])
         self.assertIn("未随 Excel 嵌入", row[13])
-        self.assertEqual(next(iter(book.worksheets[0].values)), tuple(task_workbook.HEADERS))
-        self.assertEqual({str(value) for value in book.worksheets[0].merged_cells.ranges}, {"A2:L2", "A3:L3", "A4:L4", "A5:L5"})
-        self.assertEqual([book.worksheets[0].cell(row, 1).fill.fgColor.rgb[-6:] for row in range(2, 6)], task_workbook.COLORS)
+        self.assertEqual(next(iter(book["功能测试用例"].values)), tuple(task_workbook.HEADERS))
+        self.assertEqual({str(value) for value in book["功能测试用例"].merged_cells.ranges}, {"A2:L2", "A3:L3", "A4:L4", "A5:L5"})
+        self.assertEqual([book["功能测试用例"].cell(row, 1).fill.fgColor.rgb[-6:] for row in range(2, 6)], task_workbook.COLORS)
         for sheet in book:
             for cells in sheet:
                 for cell in cells:
@@ -226,15 +277,15 @@ class TaskWorkbookTests(unittest.TestCase):
         self.assertEqual(len(rows), 1001)
         self.assertEqual(rows[-1][0], "FT-SSLS-1001")
         self.assertEqual(receipt["validation"]["structure"]["functionItemCount"], 1)
-        self.assertEqual(book.worksheets[0].cell(10, 1).comment.text, "autoskill:business-level=9")
-        self.assertEqual(book.worksheets[0].cell(10, 1).fill.fgColor.rgb[-6:], "BFBFBF")
+        self.assertEqual(book["功能测试用例"].cell(10, 1).comment.text, "autoskill:business-level=9")
+        self.assertEqual(book["功能测试用例"].cell(10, 1).fill.fgColor.rgb[-6:], "BFBFBF")
 
     def test_empty_blocked_scope_has_no_fabricated_case(self):
         book, rows, receipt = self.render(snapshot([]))
         self.assertFalse(rows)
         self.assertEqual(receipt["cases"], 0)
         self.assertEqual(receipt["validation"]["structure"]["rootCount"], 1)
-        self.assertIn("尚未形成用例", book.worksheets[0].cell(2, 13).value)
+        self.assertIn("尚未形成用例", book["功能测试用例"].cell(2, 13).value)
 
     def test_large_procedures_and_literal_formula_text_keep_full_data(self):
         case = definition()
@@ -243,7 +294,7 @@ class TaskWorkbookTests(unittest.TestCase):
         case["expected"] = "2000. 最后一项符合独立判据。"
         book, rows, _ = self.render(snapshot([observation(case)]))
         self.assertIn("完整操作链", rows[0][5])
-        self.assertEqual(book.worksheets[0].cell(6, 4).data_type, "s")
+        self.assertEqual(book["功能测试用例"].cell(6, 4).data_type, "s")
         restored = "".join(str(row[1]) for row in book["测试数据"].iter_rows(min_row=2, values_only=True) if row[0].endswith("/完整步骤"))
         self.assertIn("2000. 输入第 1999 项", restored)
         self.assertTrue(all(row.height < 409 for row in book["测试数据"].row_dimensions.values()))
@@ -257,12 +308,12 @@ class TaskWorkbookTests(unittest.TestCase):
         item["result"]["detail"]["screenshots"] = ["attempt-failure.png"]
         book, rows, _ = self.render(snapshot([item]))
         self.assertIn("完整操作链", rows[0][5])
-        self.assertLess(book.worksheets[0].row_dimensions[6].height, 409)
+        self.assertLess(book["功能测试用例"].row_dimensions[6].height, 409)
         restored = "".join(row[1] for row in book["测试数据"].iter_rows(min_row=2, values_only=True) if row[0].endswith("/完整步骤"))
         self.assertEqual(restored, "\n".join(f"{number}. {step}" for number, step in enumerate(case["steps"], 1)))
         self.assertTrue(all(row.height < 409 for row in book["测试数据"].row_dimensions.values()))
         self.assertIn("/synthetic/workspace/.local/runs/run-a/attempt-failure.png", rows[0][13])
-        self.assertIsNone(book.worksheets[0].cell(6, 14).hyperlink)
+        self.assertIsNone(book["功能测试用例"].cell(6, 14).hyperlink)
 
     def test_real_group_name_starting_with_ft_is_not_a_case_identifier(self):
         case = definition()

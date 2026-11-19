@@ -119,7 +119,7 @@ function installReportInteractions() {
 export async function downloadRunHtml(run, content) {
   const styles = captureStyles();
   const warnings = await embedScreenshots(content);
-  const output = document.implementation.createHTMLDocument(`${run.project_name} · autoSkill 执行报告`);
+  const output = document.implementation.createHTMLDocument(`${run.project_name || run.project_id} · autoSkill 执行报告`);
   output.documentElement.lang = 'zh-CN';
   output.documentElement.dataset.theme = document.documentElement.dataset.theme || 'light';
   output.head.prepend(h('meta', { charset: 'utf-8' }));

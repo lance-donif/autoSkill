@@ -139,18 +139,19 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.assertEqual({row["case_id"] for row in run["results"] if not row["prerequisite"]}, {"TC-CHECK", "TC-SLOW"})
         self.assertEqual({row["case_id"] for row in run["results"] if row["prerequisite"]}, {"TC-BEGIN"})
         self.open("cases?range=all")
+        self.page.get_by_role("checkbox", name="选择「页面压测验收」当前显示的 5 条用例", exact=True).check()
         with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/runs")) as all_started:
-            self.page.get_by_role("button", name="运行项目全部 5 条", exact=True).click()
+            self.page.get_by_role("button", name="运行所选 5 条", exact=True).click()
         self.assertEqual(all_started.value.status, 200, all_started.value.text())
         original_id = all_started.value.json()["runs"][0]["id"]
         original = self.wait_run(original_id)
         self.assertEqual((original["status"], original["total"], original["passed"], original["failed"]), ("Fail", 5, 4, 1), original)
         self.assertEqual({row["case_id"] for row in original["results"] if not row["prerequisite"]}, {"TC-BEGIN", "TC-CHECK", "TC-SLOW", "TC-CHANGING", "TC-UI"})
-        expect(self.page.get_by_role("button", name="重跑失败的 1 条", exact=True)).to_be_visible(timeout=15000)
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/rerun")) as retried:
-            self.page.get_by_role("button", name="重跑失败的 1 条", exact=True).click()
-        self.assertEqual(retried.value.status, 200, retried.value.text())
-        repeated = self.wait_run(retried.value.json()["id"])
+        expect(self.page.locator(".run-summary .status").first).to_have_text("不通过", timeout=15000)
+        expect(self.page.get_by_role("button", name="重跑失败的 1 条", exact=True)).to_have_count(0)
+        retried = self.client.post(f"/api/runs/{original_id}/rerun", json={"failed_only": True, "headed": False})
+        self.assertEqual(retried.status_code, 200, retried.text)
+        repeated = self.wait_run(retried.json()["id"])
         self.assertEqual((repeated["status"], repeated["total"], repeated["passed"]), ("Pass", 1, 1), repeated)
         self.assertEqual([row["case_id"] for row in repeated["results"] if not row["prerequisite"]], ["TC-CHANGING"])
         self.assertEqual(self.client.get("/api/runs/" + original_id).json()["failed"], 1)
@@ -247,7 +248,7 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.assertEqual(consumer.api("/projects")[0]["cases"]["total"], 5)
         self.assertFalse(list((consumer.root / ".local/share-imports").glob("*.zip")))
 
-    def test_native_cancel_button_preserves_completed_case_and_unfinished_denominator(self):
+    def test_native_cancellation_preserves_completed_case_and_unfinished_denominator(self):
         target = ThreadingHTTPServer(("127.0.0.1", 0), CancelTarget)
         target.completed, target.slow_started, target.release = threading.Event(), threading.Event(), threading.Event()
         threading.Thread(target=target.serve_forever, daemon=True).start()
@@ -272,10 +273,9 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.assertTrue(target.slow_started.wait(timeout=10), "The second native conversation never reached the blocking service")
         owner = db.one("SELECT pid,owner_identity FROM runs WHERE id = ?", (run_id,))
         self.assertTrue(runtime_identity.owns(owner["pid"], owner["owner_identity"]))
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/api/native-runs/" + run_id + "/cancel")) as cancelled:
-            self.page.get_by_role("button", name="取消运行", exact=True).click()
-        self.assertEqual(cancelled.value.status, 200, cancelled.value.text())
-        expect(self.page.get_by_role("alertdialog")).to_have_count(0)
+        expect(self.page.get_by_role("button", name="取消运行", exact=True)).to_have_count(0)
+        cancelled = self.client.post(f"/api/native-runs/{run_id}/cancel", json={})
+        self.assertEqual(cancelled.status_code, 200, cancelled.text)
         run = self.wait_run(run_id, "native-runs")
         self.assertEqual(run["status"], "Cancelled", run)
         deadline = time.monotonic() + 10
@@ -290,7 +290,7 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.assertEqual((completed[0]["status"], completed[0]["detail"]["business_status"]), ("Pass", "Pass"))
         self.assertEqual(completed[0]["detail"]["turns"][0]["answer"], "done")
         self.assertFalse(any(item["case_id"] == "not-started:1" for item in run["results"]))
-        expect(self.page.locator("#view section .status").first).to_have_text("已取消", timeout=15000)
+        expect(self.page.locator("#view section .status").first).to_have_text("不通过", timeout=15000)
         self.page.reload()
         expect(self.page.get_by_role("button", name="取消运行", exact=True)).to_have_count(0)
         expect(self.page.locator(".result-head").filter(has_text="已经完成的对话")).to_be_visible()
@@ -303,7 +303,7 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         self.open("cases?range=all")
         self.page.get_by_role("button", name="离线报告目录，0 条用例", exact=True).click()
         scoped = self.download(self.page.get_by_role("link", name="导出文件夹 Excel", exact=True))
-        full = self.download(self.page.get_by_role("link", name="导出 Excel", exact=True))
+        full = self.download(self.page.get_by_role("link", name="导出测试用例", exact=True))
         with contextlib.ExitStack() as stack:
             folder_book = stack.enter_context(contextlib.closing(openpyxl.load_workbook(io.BytesIO(scoped))))
             project_book = stack.enter_context(contextlib.closing(openpyxl.load_workbook(io.BytesIO(full))))
@@ -317,7 +317,7 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         run_id = started.value.json()["runs"][0]["id"]
         run = self.wait_run(run_id)
         self.assertEqual((run["status"], run["passed"], run["total"]), ("Pass", 1, 1), run)
-        expect(self.page.get_by_role("link", name="下载本次用例 Excel", exact=True)).to_be_visible(timeout=15000)
+        expect(self.page.locator(".run-summary .status").first).to_have_text("通过", timeout=15000)
         html = self.download(self.page.get_by_role("button", name="下载 HTML 报告", exact=True))
         self.assertIn(b"data:image/png;base64,", html)
         offline_file = self.folder / "standalone-report.html"

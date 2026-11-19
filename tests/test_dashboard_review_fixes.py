@@ -125,7 +125,7 @@ class DashboardReviewTests(unittest.TestCase):
     def test_empty_history_also_recovers_from_a_saved_page_offset(self):
         self.empty_history = True
         self.open_history("projects=review&range=all&offset=50")
-        expect(self.page.get_by_text("这个范围内还没有执行", exact=True)).to_be_visible()
+        expect(self.page.get_by_text("暂无执行记录", exact=True)).to_be_visible()
         self.assertNotIn("offset", parse_qs(urlsplit(self.page.url).fragment.partition("?")[2]))
 
     def test_saved_project_name_appears_immediately_without_a_category_tag(self):
@@ -150,7 +150,7 @@ class DashboardReviewTests(unittest.TestCase):
     def test_idle_external_completion_updates_within_one_second(self):
         self.empty_history = True
         self.open_history('projects=review&range=all')
-        expect(self.page.get_by_text('这个范围内还没有执行', exact=True)).to_be_visible()
+        expect(self.page.get_by_text('暂无执行记录', exact=True)).to_be_visible()
         self.run['state'] = {'lifecycle': 'completed', 'phase': 'settled', 'outcome': 'fail',
                              'checks': {'business': 'pass', 'performance': 'fail', 'quality': 'not_applicable'},
                              'evidence': 'valid', 'report': 'failed', 'delivery': 'pending'}
@@ -256,21 +256,25 @@ class DashboardReviewTests(unittest.TestCase):
         expect(self.page.locator('#view')).to_contain_text('synthetic-runtime')
         self.assertEqual(commands, [{'kind': 'doctor'}])
 
-    def test_raw_pass_with_evidence_failure_keeps_ir_subset_and_single_case_rerun_visible(self):
+    def test_raw_pass_with_failed_evidence_shows_failed_verdict_and_visible_counts(self):
         state = {'phase': 'settled', 'lifecycle': 'completed', 'outcome': 'fail',
                  'checks': {'business': 'unverified', 'performance': 'not_applicable', 'quality': 'not_applicable'}}
-        self.run.update(family='replay', project_id='review', state=state, results=[{
+        self.run.update(family='replay', project_id='review', history_status='Fail', state=state, passed=0, failed=1, results=[{
             **self.result, 'id': 1, 'state': state, 'detail': {}, 'prerequisite': False,
             'category': '', 'reason': '执行证据缺失', 'actual': ''}])
         self.page.goto('http://127.0.0.1:8787/#/runs/run-1?range=all')
-        expect(self.page.get_by_role('button', name='重跑失败的 1 条', exact=True)).to_be_visible()
-        expect(self.page.get_by_role('button', name='只重跑这一条', exact=True)).to_be_visible()
-        expect(self.page.get_by_role('button', name='按当前用例重新运行', exact=True)).to_be_visible()
+        summary = self.page.locator('.run-summary')
+        expect(summary.locator('.status').first).to_have_text('不通过')
+        expect(summary.locator('.stat.fail .stat-value')).to_be_visible()
+        expect(summary.locator('.stat.fail .stat-value')).to_have_text('1')
+        expect(summary.get_by_role('button')).to_have_text(['下载 HTML 报告'])
+        expect(self.page.locator('[data-case="TC-UI-001"] .result-body')).to_contain_text('执行证据缺失')
+        expect(self.page.locator('[data-case="TC-UI-001"]').get_by_role('button', name='只重跑这一条', exact=True)).to_be_visible()
 
     def test_primary_results_do_not_wait_for_slow_runtime_metadata(self):
         self.empty_history = True
         self.open_history('projects=review&range=all')
-        expect(self.page.get_by_text('这个范围内还没有执行', exact=True)).to_be_visible()
+        expect(self.page.get_by_text('暂无执行记录', exact=True)).to_be_visible()
         self.page.evaluate('''() => {
             const original = window.fetch;
             window.fetch = (url, options) => String(url) === '/api/status'

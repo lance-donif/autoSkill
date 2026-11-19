@@ -6,7 +6,7 @@ import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts
 import { primaryState, stateResults } from '../status-view.js';
 
 const DEFINITIONS = {
-  rate: '当前筛选范围内，最近一批运行通过的目标用例数 ÷ 该批目标用例数。',
+  rate: '最近一批运行通过的目标用例数 ÷ 该批目标用例数。',
   cases: '截至所选时间范围结束时仍然有效（未归档）的用例数。',
   passed: '全部步骤成功且所有适用断言通过的用例条次。没有断言时按步骤执行结果判断。',
   failed: '已开始执行后步骤、断言或结果校验失败的用例条次。',
@@ -66,7 +66,7 @@ export async function render(view) {
       h('h2', { class: 'grow row' }, '执行趋势', definition(DEFINITIONS.trend)),
       !none && legend(), !none && toggle),
     none
-      ? empty({ glyph: 'runs', title: '这个范围内还没有执行',
+      ? empty({ glyph: 'runs', title: '暂无执行记录',
         text: isDefaultScope(s) ? '运行一次用例，这里就会出现趋势。' : '换一个时间范围或项目，或者现在运行一次。',
         actions: [h('a', { class: 'btn primary', href: href('cases') }, icon('play'), '选择用例重新运行'),
           !isDefaultScope(s) && h('button', { class: 'btn', onClick: () => setScope({ projects: [], range: DEFAULT_RANGE, from: '', to: '' }) }, icon('reset'), '重置筛选')] })
@@ -148,7 +148,7 @@ function failuresCard(failures) {
     }
   }
   const toggle = h('div', { class: 'seg', role: 'group', 'aria-label': '失败列表范围' },
-    h('button', { 'aria-pressed': String(!currentOnly), onClick: () => choose(false) }, '范围内全部'),
+    h('button', { 'aria-pressed': String(!currentOnly), onClick: () => choose(false) }, '全部'),
     h('button', { 'aria-pressed': String(currentOnly), onClick: () => choose(true) }, '当前仍失败'));
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },

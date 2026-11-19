@@ -26,6 +26,11 @@ test('demo history filters canonical outcomes and dashboard reflects simulated r
   const selected = request('/results?status=Pass&projects=' + project_id).items[0].case_id;
   const { runs } = request('/runs', 'POST', { items: [{ project_id, case_ids: [selected] }] });
   const path = '/runs/' + runs[0].id;
+  const definition = db.caseLibrary.definitions[project_id + '/' + selected].case;
+  const original = structuredClone(definition);
+  definition.title += '（运行后编辑）';
+  assert.deepEqual(request(path).report_definitions[selected], original);
+  assert.equal(request('/runs').items[0].report_definitions, undefined);
   assert.equal(request(path).status, 'Queued');
   const start = Date.parse(request(path).created_at);
   assert.equal(advanceRuns(db, start + 700), true);
@@ -77,6 +82,7 @@ test('batch pass rate covers each accepted project and skipped items do not leav
   const failing = request('/results?status=Fail&projects=' + project_id).items[0].case_id;
   db.caseLibrary.projects.push({ ...db.caseLibrary.projects[0], id: 'other-demo', name: '第二个示例项目' });
   db.caseLibrary.items.push({ ...cases.find((c) => c.case_id === passing), project_id: 'other-demo' });
+  db.caseLibrary.definitions['other-demo/' + passing] = structuredClone(db.caseLibrary.definitions[project_id + '/' + passing]);
   const created = request('/runs', 'POST', { items: [
     { project_id, case_ids: [failing] }, { project_id: 'other-demo', case_ids: [passing] }, { project_id: 'missing' },
   ] });

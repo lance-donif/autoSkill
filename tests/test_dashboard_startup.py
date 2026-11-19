@@ -61,7 +61,8 @@ class DashboardStartupTests(unittest.TestCase):
         search = self.page.get_by_role('searchbox', name='搜索用例')
         search.fill('Example')
         expect(self.page.get_by_text('Example case', exact=True)).to_be_visible()
-        expect(self.page.get_by_role('button', name='运行当前显示的 1 条')).to_be_disabled()
+        self.page.get_by_role('checkbox', name='选择 TC-UI-001', exact=True).check()
+        expect(self.page.get_by_role('button', name='运行所选 1 条', exact=True)).to_be_disabled()
         self.page.get_by_role('link', name='执行记录', exact=True).click()
         expect(self.page.locator('#view h1')).to_have_text('执行记录')
         with self.page.expect_response(lambda response: response.url.endswith('/review/folders')):
@@ -72,7 +73,7 @@ class DashboardStartupTests(unittest.TestCase):
     def test_fresh_navigation_replaces_old_run_controls_while_destination_is_pending(self):
         self.hold_request('/api/runs', limit='50')
         self.open_cases()
-        action = self.page.get_by_role('button', name='运行当前显示的 1 条', exact=True)
+        action = self.page.get_by_role('button', name='运行', exact=True)
         history = self.page.get_by_role('link', name='执行记录', exact=True)
         expect(action).to_be_visible()
         old_action = action.element_handle()
@@ -100,7 +101,7 @@ class DashboardStartupTests(unittest.TestCase):
     def test_slow_preferences_do_not_hide_cases_and_launch_waits_for_saved_values(self):
         self.hold_request('/api/settings')
         self.open_cases()
-        self.page.get_by_role('button', name='运行当前显示的 1 条', exact=True).click()
+        self.page.get_by_role('button', name='运行', exact=True).click()
         expect(self.page.get_by_role('button', name='正在启动', exact=True)).to_be_disabled()
         self.assertEqual(self.started, [])
         self.page.evaluate('window.releaseRequest()')
@@ -112,7 +113,7 @@ class DashboardStartupTests(unittest.TestCase):
         self.hold_request('/api/state-revision')
         self.empty_history = True
         self.page.goto('http://127.0.0.1:8787/#/runs?range=all', wait_until='domcontentloaded')
-        expect(self.page.get_by_text('这个范围内还没有执行', exact=True)).to_be_visible(timeout=5000)
+        expect(self.page.get_by_text('暂无执行记录', exact=True)).to_be_visible(timeout=5000)
         self.empty_history = False
         self.revision = 'written-during-startup'
         self.page.evaluate('window.releaseRequest()')

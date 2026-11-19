@@ -1,6 +1,7 @@
 """Build the Pages application entries and their isolated, browser-local sample data."""
 from __future__ import annotations
 
+import argparse
 import base64
 import datetime
 import hashlib
@@ -294,6 +295,9 @@ def render(root: Path, pages: dict, observed: dict | None) -> None:
         data = fixtures(client)
     if observed:
         add_observations(data, observed)
+    from preview_workbooks import enrich_workbooks
+
+    enrich_workbooks(data)
     # Distribute only portable sample paths, including paths inside serialized JSON strings.
     bundle = json.dumps(data, ensure_ascii=False, indent=2).replace(str(root), "/示例/autoSkill")
     bundle = bundle.replace(str(ROOT), "/示例/程序").replace(str(Path.home()), "/示例")
@@ -319,6 +323,16 @@ def render(root: Path, pages: dict, observed: dict | None) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--workbooks-only", action="store_true", help="Update reports from existing fixtures, preserving sample IDs and clocks.")
+    if parser.parse_args().workbooks_only:
+        from preview_workbooks import enrich_workbooks
+
+        path = ROOT / "preview/fixtures.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        enrich_workbooks(data)
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return
     with TemporaryDirectory() as temporary, ExitStack() as resources:
         root = Path(temporary)
         resources.enter_context(patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(root / "data"), "AUTOSKILL_CASE_SKILL": str(root / "design"),

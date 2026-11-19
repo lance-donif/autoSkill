@@ -4,6 +4,7 @@ import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toa
   fmtTime, fmtDuration, fmtNumber, fmtPercent, refresh, live } from '../core.js';
 import { drawer, closeOverlay, empty, errorState, definition, preferredEngine, preferredHeaded } from '../ui.js';
 import { returnToRuns } from './run-actions.js';
+import { reportVerdict } from './report-controls.js';
 import { downloadRunHtml } from './run-export.js';
 import { primaryState, stateResults, stateDetails } from '../status-view.js';
 
@@ -181,8 +182,8 @@ function taskReportLinks(run) {
 function reportSummary(run, action, download) {
   const config = run.load;
   return h('section', { class: 'card' }, h('div', { class: 'card-body' },
-    h('div', { class: 'row wrap' }, primaryState(run), h('div', { class: 'grow report-heading' }, h('h1', {}, `${run.project_name} · 压测`),
-      h('p', { class: 'sub' }, `${config.concurrency} 并发 · ${config.iterations} 次迭代 · 渐增 ${config.ramp_up_seconds} 秒 · ${fmtTime(run.created_at)}`)), download, action),
+    h('div', { class: 'row wrap' }, h('div', { class: 'grow report-heading' }, h('h1', {}, `${run.project_name} · 压测`),
+      h('p', { class: 'sub' }, `${config.concurrency} 并发 · ${config.iterations} 次迭代 · 渐增 ${config.ramp_up_seconds} 秒 · ${fmtTime(run.created_at)}`)), reportVerdict(run), download, action),
     h('div', { class: 'stack', style: 'gap:8px;margin-top:16px' },
       h('div', { class: 'progress', role: 'progressbar', 'aria-label': '压测进度', 'aria-valuemin': 0, 'aria-valuemax': run.total, 'aria-valuenow': run.done },
         h('i', { style: `width:${run.total ? Math.min(100, run.done / run.total * 100) : 0}%` })),
@@ -230,7 +231,6 @@ function resultDetails(row) {
   const assertions = row.detail.assertions || [];
   const show = (value) => value == null ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value);
   return h('details', { class: 'more' }, h('summary', {}, row.reason || '查看断言与业务结论'),
-    stateDetails(row),
     assertions.length ? h('ul', {}, assertions.map((check) => h('li', {},
       `${check.passed ? '通过' : '失败'} · ${check.name || check.label} · 期望 ${show(check.expected)} · 实际 ${show(check.actual)}`)))
       : h('p', { class: 'sub' }, '本次没有业务断言结果。'));

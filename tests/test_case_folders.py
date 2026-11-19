@@ -200,7 +200,7 @@ class CaseFolderTests(unittest.TestCase):
         receipt = reporting.export_cases(PID, selected["case_ids"], organization=selected)
         book = load_workbook(receipt["excel"], data_only=False)
         self.addCleanup(book.close)
-        self.assertEqual(book.worksheets[0].max_column, 14)
+        self.assertEqual(book["功能测试用例"].max_column, 14)
         self.assertEqual({row[1] for row in book["编号映射"].iter_rows(min_row=2, values_only=True)}, {self.cases[1]["id"], "TC-API-003"})
         paths = {row[1]: json.loads(row[3]) for row in book["编号映射"].iter_rows(min_row=2, values_only=True)}
         self.assertEqual(paths[self.cases[1]["id"]], ["Folders", "待导出", "【本级用例】"])
@@ -231,13 +231,34 @@ class CaseFolderTests(unittest.TestCase):
         self.assertEqual({row[2] for row in mapping.values()}, {execution_inputs.content_hash(case) for case in original.values()})
         self.assertTrue(all(json.loads(row[4]) == ["Folders", "同一业务模块"] for row in mapping.values()))
         self.assertEqual(before, {file.name: file.read_bytes() for file in (projects.path(PID) / "testcases").iterdir()})
-        self.assertEqual(book.worksheets[0].max_column, 14)
+        self.assertEqual(book["功能测试用例"].max_column, 14)
         selected = case_folders.selection(PID, first)
         subtree = reporting.export_cases(PID, selected["case_ids"], organization=selected)
         child_book = load_workbook(subtree["excel"], data_only=False)
         self.addCleanup(child_book.close)
         child_mapping = {row[1]: json.loads(row[3]) for row in child_book["编号映射"].iter_rows(min_row=2, values_only=True)}
         self.assertEqual(child_mapping, {identity: expected[identity] for identity in ("TC-API-001", "TC-API-002")})
+
+    def test_http_export_preserves_declared_business_paths_with_mixed_roots(self):
+        declared = [["Folders", "销售", "订单查询"], ["售后", "退款查询"]]
+        for case, path, prefix in zip(self.cases, declared, ("DDCX", "TKCX"), strict=True):
+            case["extensions"]["test_case_document"] = {"business_path": path, "prefix": prefix}
+        projects.save_cases(PID, self.cases)
+        sales = next(folder["id"] for folder in self.snapshot()["folders"] if folder["name"] == "销售")
+        expected_names = ["Folders-销售-订单查询", "Folders-售后-退款查询"]
+        client = TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787")
+        for scope, params, count in (("project", {}, 2), ("sales", {"folder_id": sales}, 1)):
+            with self.subTest(scope=scope):
+                response = client.get(f"/api/projects/{PID}/folders/export", params=params)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.headers["X-AutoSkill-Cases"], str(count))
+                book = load_workbook(io.BytesIO(response.content))
+                self.addCleanup(book.close)
+                rows = [row for row in book["功能测试用例"].values if str(row[0]).startswith("FT-")]
+                self.assertEqual([row[1] for row in rows], expected_names[:count])
+                self.assertEqual([row[2] for row in rows], [path[-1] for path in declared[:count]])
+                mapping = list(book["编号映射"].iter_rows(min_row=2, values_only=True))
+                self.assertEqual([json.loads(row[4]) for row in mapping], declared[:count])
 
     def test_empty_folder_export_is_readable_and_root_http_exports_entire_project(self):
         current, empty = self.create("空表")
@@ -248,8 +269,8 @@ class CaseFolderTests(unittest.TestCase):
         self.assertEqual(response.headers["X-AutoSkill-Cases"], "0")
         book = load_workbook(io.BytesIO(response.content), data_only=False)
         self.addCleanup(book.close)
-        self.assertEqual(book.worksheets[0].max_column, 14)
-        self.assertIn("空范围不表示覆盖或测试通过", str(book.worksheets[0].cell(2, 13).value))
+        self.assertEqual(book["功能测试用例"].max_column, 14)
+        self.assertEqual(book["功能测试用例"].cell(2, 13).value, "本次导出没有用例；空范围不表示覆盖或测试通过。")
         entire = client.get(path)
         self.assertEqual(entire.status_code, 200)
         self.assertEqual(entire.headers["X-AutoSkill-Cases"], "2")

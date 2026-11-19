@@ -100,8 +100,9 @@ def render(book, snapshot: dict, append_cells, table, long_text: list) -> list[d
         sheet.column_dimensions[sheet.cell(1, index).column_letter].width = width
     _write_tree(sheet, _tree(rows), 1, append_cells, long_text)
     if not rows:
+        scope = "本次导出没有用例" if snapshot["kind"] == "project_export" else "本任务尚未形成用例"
         _group(sheet, snapshot["project"].get("name") or "【待确认：业务系统】", 1, append_cells, long_text,
-               note="本任务尚未形成用例；空范围不表示覆盖或测试通过。")
+               note=f"{scope}；空范围不表示覆盖或测试通过。")
     sheet.freeze_panes = "D2"
     sheet.sheet_view.zoomScale = 80
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
@@ -138,9 +139,12 @@ def _validator():
 
 
 def verify(book, rows: list[dict]) -> dict:
+    from . import workbook_overview
+
     sheet = book["功能测试用例"]
-    if book.sheetnames[0] != sheet.title or sheet.max_column != 14:
+    if book.sheetnames[:2] != ["概览", sheet.title] or book.active.title != "概览" or sheet.max_column != 14:
         raise ValueError("测试用例工作簿主表或 14 列结构不匹配")
+    workbook_overview.verify(book.active, rows)
     result = _validator().validate_sheet(sheet, expected_cases=len(rows))
     result["caseGroupDepths"] = {str(depth): count for depth, count in result["caseGroupDepths"].items()}
     if not result["ok"]:

@@ -136,10 +136,10 @@ class PlanReviewTests(unittest.TestCase):
         made = reporting.build(self.pid)
         book = load_workbook(made["excel"])
         self.addCleanup(book.close)
-        for sheet, coordinate, value in (("概览", "B1", "=1+1"), ("用例与结果", "D2", "=2+2"), ("用例与结果", "J2", "=6+6")):
+        for sheet, coordinate, value in (("概览", "D2", "=1+1"), ("用例与结果", "D2", "=2+2"), ("用例与结果", "J2", "=6+6")):
             cell = book[sheet][coordinate]
             self.assertEqual((cell.value, cell.data_type), (value, "s"))
-        self.assertEqual(book["概览"]["B4"].data_type, "n")
+        self.assertEqual(book["概览"]["A8"].data_type, "n")
 
 
 if __name__ == "__main__":

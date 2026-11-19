@@ -58,8 +58,9 @@ class FunctionalCaseDocumentsTests(unittest.TestCase):
     def assert_functional_content(self, file):
         book = load_workbook(file, data_only=False)
         self.addCleanup(book.close)
-        self.assertEqual(book.sheetnames[0], "功能测试用例")
-        self.assertEqual(book.worksheets[0].max_column, 14)
+        self.assertEqual(book.sheetnames[:2], ["概览", "功能测试用例"])
+        self.assertEqual(book.active.title, "概览")
+        self.assertEqual(book["功能测试用例"].max_column, 14)
         rows = functional_rows(book)
         mappings = {row[1]: row for row in book["编号映射"].iter_rows(min_row=2, values_only=True)}
         for identity, kind in (("TC-UI-001", "ui"), ("TC-API-001", "api")):

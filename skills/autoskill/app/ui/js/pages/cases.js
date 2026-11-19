@@ -24,6 +24,16 @@ const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'gl
 const caseFolder = (tree, id) => tree && Object.hasOwn(tree.assignments, id) ? folderPath(tree, tree.assignments[id]) : '';
 const searchText = (value) => value.trim().toLowerCase().replace(/\s*\/\s*/g, '/');
 
+// The scope bar sticks on desktop. Compact and embedded layouts keep the navigation bar on top instead.
+const scopeBar = document.getElementById('scope');
+const sideBar = document.getElementById('side');
+const headerSizes = new ResizeObserver(() => {
+  const header = getComputedStyle(scopeBar).position === 'sticky' ? scopeBar : sideBar;
+  document.getElementById('view').style.setProperty('--case-filter-top', header.getBoundingClientRect().height + 'px');
+});
+headerSizes.observe(scopeBar, { box: 'border-box' });
+headerSizes.observe(sideBar, { box: 'border-box' });
+
 export async function render(view, { isCurrent }) {
   const scopeIds = scope().projects;
   const trees = new Map();
@@ -66,7 +76,7 @@ export async function render(view, { isCurrent }) {
   }
   const list = h('div', { class: 'stack' });
   const bar = h('div', { class: 'select-bar', hidden: true });
-  const search = h('input', { class: 'input', type: 'search', placeholder: '搜索编号、标题、子项目或目录', value: query, 'aria-label': '搜索用例', style: 'width:280px',
+  const search = h('input', { class: 'input', type: 'search', placeholder: '搜索编号、标题、菜单名或目录', value: query, 'aria-label': '搜索用例', style: 'width:280px',
     onInput: (event) => { query = event.currentTarget.value; paint(); } });
   const kinds = h('div', { class: 'seg', role: 'group', 'aria-label': '用例类型' },
     [['', '全部'], ['ui', '页面'], ['api', '接口']].map(([value, label]) => h('button', {
@@ -113,7 +123,7 @@ export async function render(view, { isCurrent }) {
     const items = byProject.get(project.id) || [];
     const result = trees.get(project.id);
     for (const item of items) item.folder_path = caseFolder(result?.data, item.case_id);
-    const card = projectCard(project, displayed(project), items, paint, result, () => loadTree(project));
+    const card = projectCard(project, displayed(project), paint, result, () => loadTree(project));
     const current = cards.get(project.id);
     if (current) updateLiveView(current, card);
     else { cards.set(project.id, card); list.append(card); }
@@ -131,7 +141,7 @@ export async function render(view, { isCurrent }) {
     h('div', { class: 'page-head' },
       h('div', { class: 'grow' }, h('h1', {}, '测试用例'),
         h('p', { class: 'sub' }, `${projects.length} 个项目 · ${data.total} 条用例`))),
-    state.projects.length ? h('div', { class: 'toolbar' }, kinds, search) : null,
+    state.projects.length ? h('div', { class: 'toolbar case-filters' }, kinds, search) : null,
     caseDeletionNotice(), list, bar);
   if (!state.projects.length) {
     replace(list, h('div', { class: 'card' }, empty({
@@ -150,7 +160,7 @@ export async function render(view, { isCurrent }) {
   }
 }
 
-function projectCard(project, items, projectItems, repaint, folderResult, retry) {
+function projectCard(project, items, repaint, folderResult, retry) {
   const tree = folderResult?.data;
   const folderId = folderSelection.get(project.id) ?? ALL_FOLDERS;
   const allKeys = items.map(keyOf);
@@ -167,8 +177,7 @@ function projectCard(project, items, projectItems, repaint, folderResult, retry)
       h('h2', {}, project.name),
       h('p', { class: 'sub ellipsis' }, `${project.base_url} · 页面 ${project.cases.ui} · 接口 ${project.cases.api}`)),
     project.cases.total > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
-    h('a', { class: 'btn sm', href: `/api/projects/${encodeURIComponent(project.id)}/folders/export`, download: '' }, icon('table'), '导出 Excel'),
-    projectRunButtons(project, items, projectItems, tree),
+    h('a', { class: 'btn sm', href: `/api/projects/${encodeURIComponent(project.id)}/folders/export`, download: '' }, icon('table'), '导出测试用例'),
     h('button', { class: 'btn sm icon', 'aria-label': `「${project.name}」设置`, title: '项目设置', onClick: () => projectSettings(project.id) }, icon('edit')));
 
   const banner = missing.length ? h('div', { class: 'card-body', style: 'padding-bottom:0' }, h('div', { class: 'banner' }, icon('lock'),
@@ -178,13 +187,13 @@ function projectCard(project, items, projectItems, repaint, folderResult, retry)
   // sub-projects: the areas of one site, taken from each case's module
   const modules = [...new Set(items.map((item) => item.module))];
   const groupRow = (module) => modules.length > 1 && h('tr', { class: 'group' }, h('td', { colSpan: 7 },
-    `子项目：${module}`, h('span', { class: 'muted' }, `　${items.filter((item) => item.module === module).length} 条`)));
+    `菜单名：${module}`, h('span', { class: 'muted' }, `　${items.filter((item) => item.module === module).length} 条`)));
   let body;
   if (!items.length) {
     body = empty({ glyph: 'cases', title: tree ? '没有符合条件的用例' : '用例范围尚未加载', text: tree ? '换一个类型、搜索词或文件夹试试。' : '读取文件夹后显示当前范围的用例。' });
   } else {
     body = h('table', { class: 'table' },
-      h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '子项目'),
+      h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '菜单名'),
         h('th', {}, '当前结果'), h('th', {}, '最近执行'), h('th', { class: 'actions' }, ''))),
       h('tbody', {}, modules.map((module) => [groupRow(module), items.filter((item) => item.module === module).map((item) => {
         const key = keyOf(item);
@@ -198,8 +207,7 @@ function projectCard(project, items, projectItems, repaint, folderResult, retry)
           h('td', {}, box),
           h('td', {}, h('button', { class: 'title case-title', type: 'button', 'aria-haspopup': 'dialog',
             onClick: (event) => { event.stopPropagation(); openDetail(); } }, item.title),
-            h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : ''),
-            folderId === ALL_FOLDERS && item.folder_path && h('div', { class: 'sub' }, item.folder_path)),
+            h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : '')),
           h('td', {}, kindTag(item.kind)),
           h('td', { class: 'sub' }, item.module),
           h('td', {}, caseStatus(item)),
@@ -216,13 +224,6 @@ function projectCard(project, items, projectItems, repaint, folderResult, retry)
       tree && folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); }),
       h('div', { class: 'folder-content' }, tree && projectFolderTools(project, tree, folderId, items.length),
         h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': `${project.name}用例表格` }, body))));
-}
-
-function projectRunButtons(project, items, all, tree) {
-  const targets = (cases) => [{ project_id: project.id, case_ids: cases.map((item) => item.case_id), name: project.name }];
-  return h('div', { class: 'case-scope-actions' },
-    runButton(`运行当前显示的 ${items.length} 条`, () => targets(items), { small: true, disabled: !tree || !items.length }),
-    runButton(`运行项目全部 ${all.length} 条`, () => targets(all), { small: true, primary: false, disabled: !tree || !all.length }));
 }
 
 function projectFolderTools(project, tree, folderId, count) {
@@ -388,7 +389,7 @@ async function caseDrawer(projectId, caseId, folderLabel) {
   }
   const run = h('button', { class: 'btn primary' }, icon('play'), '运行这条用例');
   run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId], name: state.projects.find((project) => project.id === projectId)?.name }], run); if (started) closeOverlay(); });
-  const subtitle = `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · 子项目 ${item.module} · 第 ${item.revision} 版`;
+  const subtitle = `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · 菜单名 ${item.module} · 第 ${item.revision} 版`;
   drawer({ title: item.title, subtitle, body, wide: true,
     foot: [caseDeleteButton([{ project_id: projectId, case_id: caseId, title: item.title }], { detail: true }),
       h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'),

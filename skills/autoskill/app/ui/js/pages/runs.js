@@ -5,10 +5,10 @@ import { empty, errorState, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
 import { refreshShell } from '../shell.js';
 import { downloadRunHtml } from './run-export.js';
-import { primaryState, stateResults, stateDetails, statePill, stateLabel } from '../status-view.js';
+import { primaryState, stateResults, statePill, stateLabel } from '../status-view.js';
 import { updateLiveView } from '../live-refresh.js';
-import { cancelButton, rerunButton, runActionFeedback, resultConclusion, recoveryActions, returnToRuns } from './run-actions.js';
-import { reportControls, setReportFeedback } from './report-controls.js';
+import { rerunCaseButton, runActionFeedback, recoveryActions, returnToRuns } from './run-actions.js';
+import { reportControls, reportStats, reportVerdict } from './report-controls.js';
 
 const PAGE = 50;
 const HISTORY_STATUSES = { NotRun: 'not_run', Pass: 'pass', Fail: 'fail' };
@@ -124,7 +124,7 @@ async function history(view, isCurrent) {
 
   replace(view,
     h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '执行记录'),
-      h('p', { class: 'sub', 'aria-live': 'polite' }, '范围内共 ', h('span', { dataset: { historyCount: '' } }, data.total),
+      h('p', { class: 'sub', 'aria-live': 'polite' }, '共 ', h('span', { dataset: { historyCount: '' } }, data.total),
         mode === 'results' ? ' 条用例结果（不含自动执行的前置）' : ' 次运行'))),
     historyToolbar(mode, status),
     h('div', { dataset: { historyRegion: 'filters' } }, chips.length > 0 && h('div', { class: 'toolbar', role: 'group', 'aria-label': '已应用的筛选' }, chips)),
@@ -136,7 +136,7 @@ async function history(view, isCurrent) {
 }
 
 function emptyHistory(filtered) {
-  return empty({ glyph: 'runs', title: filtered ? '没有符合条件的记录' : '这个范围内还没有执行',
+  return empty({ glyph: 'runs', title: filtered ? '没有符合条件的记录' : '暂无执行记录',
       text: filtered ? '调整筛选条件、项目或时间范围后再试。' : '首次测试请在 DSH 对话中让 autoSkill 生成用例 Excel 并执行；已有用例可在「测试用例」重新运行，也可调整上方范围查找历史记录。',
       actions: h('a', { class: 'btn', href: href('cases') }, '查看测试用例') });
 }
@@ -394,23 +394,13 @@ async function report(view, runId, isCurrent) {
   }
   const running = active(run);
   if (running) live.until = Date.now() + 8000;
-  const counted = run.results.filter((row) => !row.prerequisite);
-  const spent = run.results.reduce((sum, row) => sum + (row.duration_ms || 0), 0);
-  const failedCount = counted.filter((row) => row.state?.outcome === 'fail').length;
-
-  const again = rerunButton(run);
-  const retry = rerunButton(run, { failedOnly: true, count: failedCount });
-  const stop = cancelButton(run);
-
-  const summary = runSummary(run, running, stop, again, failedCount, retry, spent, runDeleteButton([run]));
-
   const rows = reportRows(run, false, focus);
 
   replace(view,
     h('a', { class: 'back', href: returnToRuns() }, icon('right'), '返回执行记录'),
     deletionNotice(),
     run.deletion_error && h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `删除未完成：${run.deletion_error}。可以重试删除。`),
-    summary, runActionFeedback(run), focusNotice(run, focus), rows);
+    runSummary(run), runActionFeedback(run), focusNotice(run, focus), rows);
   if (focus && focusedResult !== runId + '/' + focus && (focus.startsWith('result:') || run.results.filter((row) => row.case_id === focus).length === 1)) {
     focusedResult = runId + '/' + focus;
     requestAnimationFrame(() => {
@@ -444,52 +434,25 @@ function focusNotice(run, focus) {
       `结果 ${row.id} · ${stateLabel(row.state?.outcome)}`)));
 }
 
-function firstIssueLink(run) {
-  const row = run.results.find((entry) => !entry.prerequisite && entry.state?.outcome === 'fail');
-  return row && h('a', { class: 'btn', href: href('runs/' + run.id, { ...Object.fromEntries(route().params), case: 'result:' + row.id }) }, '查看首条失败结果');
-}
-
-function htmlReportControl(run) {
-  const button = h('button', { class: 'btn', onClick: async () => {
-    const result = await attempt(async () => {
-      try { return await downloadRunHtml(run, offlineReport(run)); }
-      catch (error) { setReportFeedback(run, 'html', 'HTML 报告下载失败：' + error.message, true); throw error; }
-    }, button);
-    if (result) toast(result.warnings.length ? `HTML 已生成，${result.warnings.length} 张截图未能嵌入，原因已写入报告` : 'HTML 报告已生成，可离线查看全部明细', { bad: result.warnings.length > 0 });
-    if (result) setReportFeedback(run, 'html', result.warnings.length ? `HTML 已生成，${result.warnings.length} 张截图未能嵌入，原因已写入报告。`
-      : 'HTML 报告已生成，浏览器下载已开始。', result.warnings.length > 0);
-  } }, icon('globe'), '下载 HTML 报告');
-  return button;
-}
-
 function offlineReport(run) {
-  const spent = run.results.reduce((sum, row) => sum + (row.duration_ms || 0), 0);
-  return h('main', { class: 'view report-document', id: 'view' },
-    runSummary(run, active(run), null, null, 0, null, spent, null, true), reportRows(run, true));
+  return h('main', { class: 'view report-document', id: 'view' }, runSummary(run, true), reportRows(run, true));
 }
 
-function runSummary(run, running, stop, again, failedCount, retry, spent, remove, offline = false) {
+function runSummary(run, offline = false) {
+  const spent = run.results.reduce((sum, row) => sum + (row.duration_ms || 0), 0);
   return h('section', { class: 'card run-summary' },
     h('div', { class: 'card-body stack report-summary' },
       h('div', { class: 'row wrap', style: 'gap:16px' },
         h('div', { class: 'grow report-heading' }, h('h1', {}, run.project_name),
-          h('p', { class: 'sub' }, `${fmtTime(run.created_at)} · ${run.total} 条用例`)), primaryState(run)),
-      resultConclusion(run),
+          h('p', { class: 'sub' }, `${fmtTime(run.created_at)} · ${run.total} 条用例`)), reportVerdict(run)),
       publicationSummary(run, offline),
-      running && h('div', { class: 'stack', style: 'gap:8px' },
+      active(run) && h('div', { class: 'stack', style: 'gap:8px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
           h('div', { class: 'row sub' }, h('i', { class: 'spin' }), run.status === 'Queued' ? '排队中，等待前一个运行结束' : `正在执行：${run.current || '准备中'}`,
             h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`))),
       run.reason && h('div', { class: 'banner bad' }, icon('warn'), run.reason),
-      !offline && reportControls(run, htmlReportControl(run)),
-      !offline && h('div', { class: 'row wrap' }, !deleting(run) && (running ? stop : [firstIssueLink(run), again, failedCount > 0 && retry]), remove),
-      !offline && recoveryActions(run),
-      h('details', { class: 'more report-technical', open: offline }, h('summary', {}, '执行与技术详情'),
-        h('p', { class: 'sub' }, `${TRIGGER[run.trigger] || run.trigger}触发 · 执行引擎 ${ENGINE[run.engine] || run.engine || '未记录'}`),
-        stateDetails(run), h('div', { class: 'stats' },
-          stat('通过', run.passed, 'pass'), stat('失败', run.failed, 'fail'), stat('未执行', run.not_run || 0),
-          stat('用例', run.total), stat('总耗时', fmtDuration(spent))),
-        !offline && h('p', { class: 'sub' }, '重新运行会保留本次记录；使用的版本和范围以上方操作说明为准。'))));
+      reportStats(run, spent),
+      !offline && reportControls(() => downloadRunHtml(run, offlineReport(run)))));
 }
 
 function publicationSummary(run, offline) {
@@ -504,10 +467,6 @@ function publicationSummary(run, offline) {
       !offline && published.length > 0 && [' · ', h('a', { href: href('cases', { projects: run.project_id }) }, '查看本项目测试用例')]),
     unpublished.length > 0 && h('details', { class: 'more' }, h('summary', {}, '查看未入库原因'),
       unpublished.map(([id, reason]) => h('p', { class: 'sub' }, `${id}：${reason}`))));
-}
-
-function stat(label, value, tone) {
-  return h('div', { class: 'stat' + (tone ? ' ' + tone : '') }, h('span', { class: 'stat-value' }, String(value)), h('span', { class: 'stat-label' }, label));
 }
 
 function resultRow(run, row, offline, focus) {
@@ -532,7 +491,7 @@ function resultRow(run, row, offline, focus) {
 
 function resultBody(run, row, offline = false) {
   const d = row.detail;
-  const parts = [stateDetails(row), attemptHistory(d)];
+  const parts = [attemptHistory(d)];
   if (!offline) parts.push(recoveryActions(run, row));
   if (row.state?.outcome !== 'pass') {
     parts.push(h('div', { class: 'banner ' + (row.state?.outcome === 'fail' ? 'bad' : '') }, icon(row.state?.outcome === 'fail' ? 'x' : 'warn'),
@@ -561,9 +520,9 @@ function resultBody(run, row, offline = false) {
 
 function caseRetryControl(run, row) {
   if (run.family === 'native' || row.state?.outcome === 'pass' || row.prerequisite) return null;
-  if (run.workflow_id) return h('p', { class: 'sub' }, '此结果属于原测试任务，请用上方“返回原测试任务”继续处理。');
-  if (run.publication?.candidate_id) return h('p', { class: 'sub' }, '请使用上方候选验证操作再次验证本次版本；通过后才会入库。');
-  return h('div', { class: 'row' }, rerunButton(run, { caseId: row.case_id }));
+  if (run.workflow_id) return h('a', { class: 'btn sm', href: href('workflows/' + run.workflow_id) }, '返回原测试任务');
+  if (run.publication?.candidate_id) return null;
+  return h('div', { class: 'row' }, rerunCaseButton(run, row.case_id));
 }
 
 function attemptHistory(detail) {

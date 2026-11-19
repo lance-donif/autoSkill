@@ -111,7 +111,7 @@ def workbook_rows(file):
 
     with Path(file).open("rb") as stream:
         book = load_workbook(stream, data_only=False)
-        sheet = book.active
+        sheet = book["功能测试用例"]
         headers = [cell.value for cell in sheet[1]]
         rows = [list(row) for row in sheet.iter_rows(values_only=True) if str(row[0] or "").startswith("FT-")]
         fonts = {cell.font.name for row in sheet for cell in row if cell.value is not None}

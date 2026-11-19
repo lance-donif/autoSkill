@@ -1,14 +1,14 @@
 // Native reports keep business quality, performance and each conversation turn visible.
 import { h, icon, replace, api, go, href, route, live, refresh, statusPill, fmtTime, fmtDuration, fmtPercent, fmtNumber } from '../core.js';
 import { empty, errorState } from '../ui.js';
-import { primaryState, stateDetails, stateResults } from '../status-view.js';
+import { stateResults } from '../status-view.js';
+import { downloadRunHtml } from './run-export.js';
 import { updateLiveView } from '../live-refresh.js';
 
-import { cancelButton, rerunButton, runActionFeedback, resultConclusion, recoveryActions, returnToRuns } from './run-actions.js';
-import { reportControls, reportDownloadLink } from './report-controls.js';
+import { returnToRuns } from './run-actions.js';
+import { reportControls, reportStats, reportVerdict } from './report-controls.js';
 
 const expanded = new Map();
-const issueResults = new Map();
 const pendingDetails = new WeakMap();
 const evidenceFiles = new Map();
 const show = (value) => value == null ? '—' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
@@ -67,22 +67,34 @@ function focusedPanel(run, focus, target) {
     caseRow(run, row, target.data.case), h('p', { class: 'sub mono' }, '结果标识：' + focus));
 }
 
-function issuesPanel(run) {
-  const entry = issueResults.get(run.id);
-  const button = h('button', { class: 'btn', disabled: entry?.loading, onClick: async () => {
-    issueResults.set(run.id, { loading: true }); refresh();
-    try {
-      const rows = (await allSummaries(run.id)).filter((row) => row.state?.outcome === 'fail');
-      issueResults.set(run.id, { rows });
-    } catch (error) { issueResults.set(run.id, { error: error.message }); }
-    refresh();
-  } }, entry?.loading ? '正在查找本次问题结果…' : '查看本次所有失败结果');
-  return h('div', { class: 'stack' }, button,
-    entry?.error && h('p', { class: 'error', role: 'status' }, entry.error),
-    entry?.rows && h('div', { class: 'stack', 'aria-label': '本次失败结果' },
-      h('p', { class: 'sub' }, `共 ${entry.rows.length} 条失败结果。`),
-      entry.rows.map((row) => h('a', { class: 'card-link', href: href('native-runs/' + run.id, { ...Object.fromEntries(route().params), case: 'result:' + row.id }) },
-        row.case_title, ' · ', stateResults(row), row.state?.reason || ''))));
+function nativeSummary(run, offline = false) {
+  const metrics = run.outcome?.metrics || {};
+  const elapsed = Date.parse(run.finished_at) - Date.parse(run.started_at);
+  const duration = metrics.elapsed_ms ?? (metrics.elapsed_seconds != null ? Math.round(metrics.elapsed_seconds * 1000)
+    : Number.isFinite(elapsed) ? Math.max(0, elapsed) : null);
+  return h('section', { class: 'card card-body stack report-summary' },
+    h('div', { class: 'row wrap' }, h('div', { class: 'grow report-heading' }, h('h1', {}, '执行报告'),
+      h('p', { class: 'sub' }, runIdentity(run))), reportVerdict(run)),
+    ['Running', 'Queued'].includes(run.status) && h('p', { class: 'sub' },
+      `${run.done || 0} / ${run.planned_unknown ? '目标数待执行器发现' : run.total} 已记录`),
+    outcomeReason(run), reportStats(run, duration),
+    !offline && reportControls(() => downloadNativeReport(run.id)));
+}
+
+async function downloadNativeReport(id) {
+  const run = await api('/native-runs/' + encodeURIComponent(id) + '?all=1');
+  const rows = run.results;
+  if (!Array.isArray(rows) || run.page?.has_more || rows.some((row) => !row.detail)) {
+    throw new Error('未取回本次原生运行的完整结果，请重新下载报告');
+  }
+  const evidence = run.outcome?.evidence || [];
+  const content = h('main', { class: 'view report-document', id: 'view' }, nativeSummary(run, true),
+    h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', {}, '用例与多轮结果')),
+      rows.length ? h('div', { class: 'result-list' }, rows.map((row) => caseRow(run, row, row.detail, true)))
+        : h('p', { class: 'card-body sub' }, '没有用例结果')),
+    evidence.length > 0 && h('section', { class: 'card card-body' }, h('h2', {}, '证据附件'),
+      h('ul', {}, evidence.map((entry) => h('li', { class: 'mono' }, entry.path, entry.sha256 && ' · SHA-256 ' + entry.sha256)))));
+  return downloadRunHtml(run, content);
 }
 
 export async function render(view, { id }) {
@@ -102,20 +114,7 @@ export async function render(view, { id }) {
   const rows = run.results || [];
   replace(view,
     h('a', { class: 'back', href: returnToRuns() }, icon('right'), '返回执行记录'),
-    h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '执行报告'),
-      h('p', { class: 'sub' }, runIdentity(run)))),
-    h('section', { class: 'card card-body stack report-summary' }, resultConclusion(run),
-      h('div', { class: 'row wrap' }, primaryState(run),
-        h('span', { class: 'sub' }, `${run.done || 0} / ${run.planned_unknown ? '目标数待执行器发现' : run.total} 已记录`)),
-      outcomeReason(run),
-      reportControls(run, run.report?.available && reportDownloadLink({ key: (run.test_report?.report_id || run.id) + ':native',
-        url: fileUrl(run.id, 'outcome.json'), label: '下载原生汇总 JSON', filename: 'outcome.json' })),
-      h('div', { class: 'row wrap' }, running ? cancelButton(run) : rerunButton(run)),
-      recoveryActions(run), runActionFeedback(run), issuesPanel(run),
-      h('details', { class: 'more report-technical' }, h('summary', {}, '执行与技术详情'),
-        h('p', { class: 'sub mono' }, `${run.id} · ${run.engine} · 资产 ${run.asset_id} · 版本 ${run.asset_version}`),
-        stateDetails(run), metricsTable(outcome.metrics || {}),
-        h('p', { class: 'sub' }, '重新运行沿用本次资产版本和参数，并保留本次结果。'))),
+    nativeSummary(run),
     focusedPanel(run, focus, target),
     h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例与多轮结果'),
       h('p', { class: 'sub' }, '展开用例核对问题、实际回答、断言和耗时。'))),
@@ -160,22 +159,26 @@ function turnBody(turn) {
       h('pre', { class: 'code' }, show(turn.judgement))));
 }
 
-function caseRow(run, row, initial = null) {
+function caseDetails(detail) {
+  return [detail.reason && h('p', { class: 'error' }, detail.reason),
+    detail.turns?.length ? detail.turns.map(turnBody) : checksTable(detail.assertions, '原生断言'),
+    h('details', { class: 'more' }, h('summary', {}, '完整用例结果'), h('pre', { class: 'code' }, show(detail)))];
+}
+
+function caseRow(run, row, initial = null, offline = false) {
   const key = run.id + '/' + row.id;
-  const body = h('div', { class: 'result-body', hidden: !expanded.get(key) });
-  let loaded = false;
+  const open = offline || !!expanded.get(key);
+  const body = h('div', { class: 'result-body', hidden: !open }, initial && caseDetails(initial));
+  let loaded = !!initial;
   async function load() {
     replace(body, h('p', { class: 'sub' }, '正在读取完整结果…'));
     try {
-      const detail = initial || (await api(`/native-runs/${encodeURIComponent(run.id)}?case=${encodeURIComponent('result:' + row.id)}`)).case;
-      replace(body, stateDetails({ state: detail.state || row.state }), h('span', { class: 'sub' }, fmtDuration(row.duration_ms)),
-        detail.reason && h('p', { class: 'error' }, detail.reason),
-        detail.turns?.length ? detail.turns.map(turnBody) : checksTable(detail.assertions, '原生断言'),
-        h('details', { class: 'more' }, h('summary', {}, '完整用例结果'), h('pre', { class: 'code' }, show(detail))));
+      const detail = (await api(`/native-runs/${encodeURIComponent(run.id)}?case=${encodeURIComponent('result:' + row.id)}`)).case;
+      replace(body, caseDetails(detail));
       loaded = true;
     } catch (error) { replace(body, errorState(error, load)); }
   }
-  const button = h('button', { class: 'result-head', 'aria-expanded': String(!!expanded.get(key)), onClick: () => {
+  const button = h('button', { class: 'result-head', 'aria-expanded': String(open), onClick: () => {
     const open = body.hidden;
     expanded.set(key, open);
     body.hidden = !open;
@@ -184,8 +187,8 @@ function caseRow(run, row, initial = null) {
   } }, icon('right', 'icon-svg caret'),
   h('span', { class: 'grow' }, h('b', {}, row.case_title), h('span', { class: 'sub mono' }, '　' + row.case_id),
     stateResults(row), row.state?.outcome !== 'pass' && h('span', { class: 'sub' }, row.state?.reason || '展开查看实际结果与未通过原因')),
-  h('span', { class: 'sub' }, `${row.turn_count || 0} 轮 · ${fmtDuration(row.duration_ms)}`));
-  if (expanded.get(key)) pendingDetails.set(body, load());
+  h('span', { class: 'sub' }, `${row.turn_count ?? initial?.turns?.length ?? 0} 轮 · ${fmtDuration(row.duration_ms)}`));
+  if (open && !loaded) pendingDetails.set(body, load());
   return h('div', { class: 'result', dataset: { result: String(row.id) } }, button, body);
 }
 

@@ -183,9 +183,9 @@ class CasePlanDashboardTests(DashboardWorkspace):
             before = reader.evaluate("scrollY")
             self.assertGreater(before, 0)
             evidence.press("Enter")
-            expect(reader.get_by_text("本次综合失败", exact=False)).to_be_visible()
-            expect(reader.get_by_role("link", name="下载本次用例 Excel", exact=True)).to_be_visible()
-            self.assertFalse(reader.locator(".report-technical").evaluate('node => node.open'))
+            expect(reader.locator(".run-summary .status").first).to_have_text("不通过")
+            expect(reader.get_by_role("button", name="下载 HTML 报告", exact=True)).to_be_visible()
+            expect(reader.locator(".report-technical")).to_have_count(0)
             reader.evaluate("history.back()")
             expect(reader.get_by_role("heading", name="测试用例表", exact=True)).to_be_visible()
             expect(evidence).to_be_focused()
@@ -196,7 +196,7 @@ class CasePlanDashboardTests(DashboardWorkspace):
             expect(summary).to_be_focused()
         self.evidence("f2-case-plans-evidence-return.png")
         evidence.press("Enter")
-        expect(reader.get_by_text("本次综合失败", exact=False)).to_be_visible()
+        expect(reader.locator(".run-summary .status").first).to_have_text("不通过")
         with patch.dict(os.environ, {"AUTOSKILL_CASE_SKILL": str(self.folder / "sheet"), "AUTOSKILL_SESSION": "完整订单用例表"}):
             prior = plan.show()["task_id"]
             replacement = plan.write(project, str(source))
