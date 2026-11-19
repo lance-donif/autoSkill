@@ -197,7 +197,9 @@ class PagesBrowserTests(unittest.TestCase):
             expect(evidence).to_contain_text("Python 保留关键字")
 
     def check_historical_screenshot(self, result, *, offline=False):
-        image = result.locator(".shot img")
+        shot = result.locator(".shot")
+        shot.scroll_into_view_if_needed()
+        image = shot.locator("img")
         expect(image).to_be_visible()
         image.scroll_into_view_if_needed()
         expect(image).to_be_in_viewport()
