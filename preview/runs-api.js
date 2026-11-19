@@ -109,7 +109,10 @@ function aggregate(run, phase) {
     const apiCount = compact?.requests ?? run.results.filter((r) => r.kind === 'api' && r.started_at).length;
     const targets = run.load_templates || run.results;
     const aborted = run.cancelled_index != null && plannedOutcome(run, targets[run.cancelled_index % targets.length]) !== 'not_run';
-    const percentile = (p) => Math.ceil(p * judged) > Number(aborted) ? 180 : 0;
+    const percentile = (p) => {
+      if (!judged) return null;
+      return Math.ceil(p * judged) > Number(aborted) ? 180 : 0;
+    };
     const elapsed = run.started_at && run.finished_at ? (Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000 : 0;
     run.metrics = { latency_samples: judged, request_count: apiCount, throughput_per_second: fraction(judged, elapsed),
       error_rate: fraction(run.failed, judged), p50_ms: percentile(0.5), p95_ms: percentile(0.95), p99_ms: percentile(0.99) };

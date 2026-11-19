@@ -109,6 +109,7 @@ test('large simulated loads keep only case templates and generate any detail pag
   assert.equal(raw.load_templates.length, 2);
   const total = iterations * 2;
   assert.equal(request(path).not_run, total);
+  assert.equal(request(path).metrics.p95_ms, null);
   advanceRuns(db, Date.parse(raw.created_at) + 9000);
   const first = request(path);
   assert.deepEqual(first.result_page, { offset: 0, end: 200, total });

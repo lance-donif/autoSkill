@@ -17,11 +17,13 @@ MENUS = ("总览", "测试用例", "执行记录", "定时任务", "数据管理
 PALETTES = {
     "light": {
         "plane": "#f4f4f1", "surface": "#fcfcfb", "ink": "#0b0b0b", "secondary": "#52514e",
+        "line": "#e1e0d9", "warning": ("#7a4e00", "#fdf1d3"),
         "side": "#17191c", "accent": "#2a78d6", "active": "#1c5cab", "selected": "#e6f0fc",
         "pass": ("#006300", "#e4f5e4"), "fail": ("#a82424", "#fbe6e6"), "idle": ("#52514e", "#eeede8"),
     },
     "dark": {
         "plane": "#0d0d0d", "surface": "#1a1a19", "ink": "#f0efec", "secondary": "#c3c2b7",
+        "line": "#2c2c2a", "warning": ("#fab219", "#2e2610"),
         "side": "#111112", "accent": "#3987e5", "active": "#86b6ef", "selected": "#16263a",
         "pass": ("#4cc24c", "#13281a"), "fail": ("#ee7a7a", "#331a1a"), "idle": ("#c3c2b7", "#262625"),
     },
@@ -72,6 +74,9 @@ class DashboardPaletteTests(unittest.TestCase):
             entry = self.fixtures.get(key + "?" + url.query, self.fixtures.get(key))
             if entry is None:
                 self.fail(f"Missing dashboard fixture: {url.path}")
+            if key == "/projects":
+                # Exercise the real missing-credential banner without modifying the shared sample data.
+                entry = [{**entry[0], "missing_secrets": ["EXAMPLE_TOKEN"]}, *entry[1:]]
             route.fulfill(json=entry)
         else:
             file = UI / (url.path.lstrip("/") or "index.html")
@@ -100,6 +105,8 @@ class DashboardPaletteTests(unittest.TestCase):
             expect(active_link).to_have_attribute("aria-label", label)
             expect(active_link).to_have_css("color", rgb("#ffffff"))
             expect(page.locator(".side")).to_have_css("background-color", rgb(palette["side"]))
+            expect(page.locator(".nav a:not([aria-current])").first).to_have_css("color", rgb("#9a9993"))
+            expect(page.locator("#scope")).to_have_css("border-bottom-color", rgb(palette["line"]))
             self.check_text(page.locator("body"), palette["ink"], palette["plane"])
             expect(page.locator("#view .card").first).to_have_css("background-color", rgb(palette["surface"]))
             if label == "总览":
@@ -112,6 +119,7 @@ class DashboardPaletteTests(unittest.TestCase):
                 self.assertCountEqual(bars, [rgb(colour) for colour in SERIES.values()])
             elif label == "测试用例":
                 self.check_text(page.locator(".folder-item.selected").first, palette["active"], palette["selected"])
+                self.check_text(page.locator("#view .banner").filter(has_text="EXAMPLE_TOKEN"), *palette["warning"])
             elif label == "执行记录":
                 for kind in ("pass", "fail", "idle"):
                     self.check_text(page.locator(f"#view .status.{kind}").first, *palette[kind])
