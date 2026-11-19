@@ -164,6 +164,9 @@ class PagesBrowserTests(unittest.TestCase):
         try:
             reader.set_content(target.read_text(encoding="utf-8"))
             expect(reader.locator(".run-summary")).to_be_visible()
+            assets = reader.locator('script[src], img[src], link[rel="stylesheet"][href]').evaluate_all(
+                "nodes => nodes.map(node => node.getAttribute('src') || node.getAttribute('href'))")
+            self.assertTrue(all(url.startswith("data:") for url in assets), assets)
             yield reader
         except Exception:
             reader.screenshot(path=self.artifacts / (run_id + "-offline.png"))
