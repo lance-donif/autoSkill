@@ -1,46 +1,9 @@
 {
-  "tag": "v2.4.0",
-  "source_commit": "b9290351dab0fed5faa8d422c04c058e7f57d1f2",
-  "status": "published",
-  "run_id": "44196976222",
-  "recorded_at": "2026-11-17T23:18:42.371888+00:00",
-  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/44196976222",
-  "bytes": 327370691,
-  "sha256": "cfe216938464fe5c4e9013971c08b35ee442a7ae272bf26643399d8c03b7f85c",
-  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.4.0",
-  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Windows-x64-Offline.zip",
-  "asset_id": 761031011,
-  "verification": {
-    "mode": "archive-only",
-    "functional_tests_run": false,
-    "zip_crc_ok": true,
-    "uploaded_digest_verified": true
-  },
-  "packages": [
-    {
-      "target": "windows-x64",
-      "file": "autoSkill-Windows-x64-Offline.zip",
-      "bytes": 327370691,
-      "sha256": "cfe216938464fe5c4e9013971c08b35ee442a7ae272bf26643399d8c03b7f85c",
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Windows-x64-Offline.zip",
-      "asset_id": 761031011
-    },
-    {
-      "target": "linux-x64",
-      "file": "autoSkill-Linux-x64-Offline.zip",
-      "bytes": 410795984,
-      "sha256": "68c136d4f88093ad16b411fe2c0cb4a9123549b1eff8767c1a1f99273edf77ed",
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Linux-x64-Offline.zip",
-      "asset_id": 761031588
-    },
-    {
-      "target": "linux-arm64",
-      "file": "autoSkill-Linux-arm64-Offline.zip",
-      "bytes": 385071858,
-      "sha256": "f799d05620a4f1017a1568113c371f25fed2f9efde64ffe013a413eef7bf92a8",
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.4.0/autoSkill-Linux-arm64-Offline.zip",
-      "asset_id": 761032203
-    }
-  ],
-  "package_count": 3
+  "tag": "v2.5.0",
+  "source_commit": "2dc77b7a5a8df5d4fbaf276340085ebb17c86784",
+  "status": "running",
+  "stage": "building",
+  "run_id": "44635212839",
+  "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/44635212839",
+  "recorded_at": "2026-11-19T23:10:29.837910+00:00"
 }
