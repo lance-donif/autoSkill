@@ -2,6 +2,7 @@
 import sys
 import unittest
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from playwright.sync_api import expect
 
@@ -26,12 +27,14 @@ class DashboardStabilityTests(unittest.TestCase):
         if query.get("status") == ["active"]:
             return {"total": 0, "items": []}
         status = query.get("status", ["Fail"])[0]
+        if status == "NotPassed":
+            status = "Fail"
         record = self.result if path == "/api/results" else self.run
         count = 1 if query.get("current") else 4
         state = {"lifecycle": "completed", "phase": "blocked" if status == "Blocked" else "settled", "outcome": status.lower(),
                  "checks": {"business": "fail" if status == "Fail" else "unverified", "performance": "not_applicable", "quality": "not_applicable"},
                  "evidence": "valid", "report": "not_generated", "delivery": "not_applicable"}
-        return {"total": count, "items": [{**record, "id": f"run-{status}-{i}", "status": status,
+        return {"total": count, "items": [{**record, "id": f"run-{status}-{i}", "status": status, "history_status": "Pass" if status == "Pass" else "NotPassed",
                                             "state": state, "case_title": f"{status} case {i}", "reason": status} for i in range(count)]}
 
     def dashboard_response(self, query):
@@ -107,41 +110,102 @@ class DashboardStabilityTests(unittest.TestCase):
         self.assert_regions_unchanged()
         self.assertEqual(sum(path == "/api/dashboard" for path, _ in self.requests), bundles + 2)
 
-    def test_failed_and_blocked_history_filters_keep_controls_and_back_navigation(self):
+    def test_binary_history_filters_keep_controls_and_back_navigation(self):
         self.page.goto("http://127.0.0.1:8787/#/runs?view=results&range=all")
-        expect(self.page.get_by_role("combobox", name="状态", exact=True)).to_be_visible()
+        choices = self.page.get_by_role("group", name="用例结果", exact=True)
+        expect(choices.get_by_role("button")).to_have_count(2)
         self.remember_regions(["#side", "#scope", "#view .page-head", "#view .toolbar", "#view section.card"])
-        filters = self.page.get_by_role("combobox", name="状态", exact=True)
-        for status in ("Fail", "Blocked"):
-            filters.select_option(status)
-            expect(self.page.locator("#view .table tbody tr").first).to_contain_text(f"{status} case")
-            expect(filters).to_have_value(status)
+        for status, name, title in (("Pass", "通过", "Pass case"), ("NotPassed", "不通过", "Fail case")):
+            button = choices.get_by_role("button", name=name, exact=True)
+            button.click()
+            expect(self.page.locator("#view .table tbody tr").first).to_contain_text(title)
+            expect(button).to_have_attribute("aria-pressed", "true")
+            expect(button).to_be_focused()
             self.assertIn(f"status={status}", self.page.url)
             self.assert_regions_unchanged()
         self.page.go_back()
-        expect(self.page.locator("#view .table tbody tr").first).to_contain_text("Fail case")
-        expect(filters).to_have_value("Fail")
+        expect(self.page.locator("#view .table tbody tr").first).to_contain_text("Pass case")
+        passed = choices.get_by_role("button", name="通过", exact=True)
+        expect(passed).to_have_attribute("aria-pressed", "true")
         self.assert_regions_unchanged()
+        passed.press("Space")
+        expect(choices.locator('[aria-pressed="true"]')).to_have_count(0)
+        self.assertNotIn("status=", self.page.url)
 
     def test_slow_status_response_does_not_dim_and_latest_filter_wins(self):
         self.page.goto("http://127.0.0.1:8787/#/runs?view=results&range=all")
-        expect(self.page.get_by_role("combobox", name="状态", exact=True)).to_be_visible()
+        choices = self.page.get_by_role("group", name="用例结果", exact=True)
+        expect(choices).to_be_visible()
         self.page.evaluate("""() => {
             const fetchNow = window.fetch.bind(window);
             window.fetch = async (...args) => {
-                if (String(args[0]).includes('status=Fail')) await new Promise(resolve => setTimeout(resolve, 300));
+                if (String(args[0]).includes('status=Pass')) await new Promise(resolve => setTimeout(resolve, 300));
                 return fetchNow(...args);
             };
         }""")
         self.remember_regions(["#side", "#scope", "#view .toolbar"])
-        filters = self.page.get_by_role("combobox", name="状态", exact=True)
-        filters.select_option("Fail")
+        choices.get_by_role("button", name="通过", exact=True).click()
         expect(self.page.locator("#view")).to_have_attribute("aria-busy", "true")
         self.assert_regions_unchanged()
-        filters.select_option("Blocked")
-        expect(self.page.locator("#view .table tbody tr").first).to_contain_text("Blocked case")
+        choices.get_by_role("button", name="不通过", exact=True).click()
+        expect(self.page.locator("#view .table tbody tr").first).to_contain_text("Fail case")
+        expect(choices.get_by_role("button", name="不通过", exact=True)).to_have_attribute("aria-pressed", "true")
         self.page.wait_for_function("document.getElementById('view').getAttribute('aria-busy') !== 'true'")
         self.assert_regions_unchanged()
+
+    def test_static_preview_filters_examples_and_returns_to_the_same_result_list(self):
+        origin = "http://preview.test/autoSkill/"
+        requests, errors = [], []
+        self.page.on("request", lambda request: requests.append((request.resource_type, request.url)))
+        self.page.on("pageerror", lambda error: errors.append(str(error)))
+
+        def serve_file(route):
+            path = fixtures.ROOT / urlsplit(route.request.url).path.removeprefix("/autoSkill/")
+            if path.is_dir():
+                path = path / "index.html"
+            if path.is_file():
+                route.fulfill(path=path)
+            else:
+                route.fulfill(status=404)
+
+        self.page.route(origin + "**", serve_file)
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.goto(origin + "preview/")
+        toolbar = self.page.locator('[data-history-region="toolbar"]')
+        rows = self.page.locator("#view tbody tr:visible")
+        passed = toolbar.get_by_role("button", name="通过", exact=True)
+        other = toolbar.get_by_role("button", name="不通过", exact=True)
+        expect(toolbar.get_by_role("group", name="运行状态").get_by_role("button")).to_have_count(2)
+        expect(toolbar.get_by_text("周期", exact=True)).to_have_count(0)
+        expect(rows).to_have_count(3)
+        passed.click()
+        expect(rows).to_have_count(1)
+        toolbar.get_by_role("button", name="按用例结果").click()
+        expect(passed).to_have_attribute("aria-pressed", "true")
+        expect(rows).to_have_count(2)
+        expect(self.page.locator("[data-history-count]")).to_have_text("2")
+        rows.locator('a[href*="run-fail.html"]').click()
+        target = self.page.locator(".result:has(.result-head:target)")
+        head = target.locator(".result-head")
+        expect(head).to_be_focused()
+        expect(head).to_have_attribute("aria-expanded", "true")
+        head.click()
+        expect(target.locator(".result-body")).to_be_hidden()
+        head.press("Enter")
+        expect(target.locator(".result-body")).to_be_visible()
+        self.page.get_by_role("link", name="返回执行记录").click()
+        expect(passed).to_have_attribute("aria-pressed", "true")
+        expect(rows).to_have_count(2)
+        other.click()
+        expect(rows.locator("td:first-child .status")).to_have_text(["不通过", "不通过"])
+        other.click()
+        expect(rows).to_have_count(4)
+        self.page.go_back()
+        expect(other).to_have_attribute("aria-pressed", "true")
+        expect(rows).to_have_count(2)
+        self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+        self.assertEqual(errors, [])
+        self.assertFalse(any(kind in ("fetch", "xhr") or "/api/" in url for kind, url in requests))
 
 
 if __name__ == "__main__":

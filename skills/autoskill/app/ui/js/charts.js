@@ -156,12 +156,12 @@ export function sparkline(points) {
 }
 
 /** One whole split into outcomes, thin, no text: the figures sit beside it. */
-export function splitBar(counts) {
+export function splitBar(counts, series = SERIES) {
   const bar = h('div', { class: 'split', role: 'img',
-    'aria-label': SERIES.map((s) => `${s.label} ${counts[s.key] || 0}`).join('，') });
-  for (const series of SERIES) {
-    if (!counts[series.key]) continue;
-    bar.append(h('i', { style: `flex:${counts[series.key]};background:${series.color}`, title: `${series.label} ${counts[series.key]}` }));
+    'aria-label': series.map((s) => `${s.label} ${counts[s.key] || 0}`).join('，') });
+  for (const item of series) {
+    if (!counts[item.key]) continue;
+    bar.append(h('i', { style: `flex:${counts[item.key]};background:${item.color}`, title: `${item.label} ${counts[item.key]}` }));
   }
   return bar;
 }

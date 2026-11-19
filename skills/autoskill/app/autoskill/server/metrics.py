@@ -181,6 +181,13 @@ def _verdict(scope: Scope, entity: str, row: dict) -> dict:
     return task_state.run_verdict(row, _children(scope, row, connection))
 
 
+def _history_status(state: dict) -> str | None:
+    """Only settled executions have a binary history verdict. Keep the original outcome for details."""
+    if state["lifecycle"] not in ("completed", "cancelled"):
+        return None
+    return "Pass" if state["outcome"] == "pass" else "NotPassed"
+
+
 def _history_item(scope: Scope, entity: str, row: dict) -> dict:
     connection = scope._snapshot["connection"]
     if entity == "run":
@@ -243,6 +250,8 @@ def _selected(scope: Scope, entity: str, *, status: str | None = None, trigger: 
             matched = state["lifecycle"] in ("pending", "active")
         elif status == "Running" and entity == "run":
             matched = state["phase"] == "running"
+        elif status == "NotPassed":
+            matched = _history_status(state) == "NotPassed"
         else:
             matched = not status or state["outcome"] == status.lower()
         if matched and _matches(state, scope.state_filters):
@@ -377,7 +386,10 @@ def _history_page(scope: Scope, entity: str, status, limit, offset, *, trigger=N
                     remaining = map(dict, candidates)
                 for row in remaining:
                     counts[_verdict(scope, entity, row)["outcome"]] += 1
-        return {"items": [_history_item(scope, entity, row) for row in rows], "total": total, "state_counts": counts}
+        items = [_history_item(scope, entity, row) for row in rows]
+        for item in items:
+            item["history_status"] = _history_status(item["state"])
+        return {"items": items, "total": total, "state_counts": counts}
 
 
 def runs(scope: Scope, trigger: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0, exclude_load: bool = False) -> dict:

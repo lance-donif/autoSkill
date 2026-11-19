@@ -140,6 +140,24 @@ class StateApiTests(unittest.TestCase):
         running = self.client.get("/api/runs?status=Running").json()
         self.assertEqual([row["id"] for row in running["items"]], ["active-extra"])
 
+    def test_binary_history_filters_use_the_run_or_the_individual_result_before_pagination(self):
+        mixed = self.measured()["id"]
+        passed = runner.execute(runner.create(self.pid, ["TC-API-001"])["id"])["id"]
+        for identity, status in (("waiting", "Running"), ("stopped", "Cancelled"), ("blocked", "Blocked")):
+            self.queued(identity)
+            db.update("runs", identity, {"status": status})
+        runs = self.client.get("/api/runs?status=NotPassed").json()
+        self.assertEqual({row["id"] for row in runs["items"]}, {mixed, "stopped", "blocked"})
+        self.assertEqual({row["history_status"] for row in runs["items"]}, {"NotPassed"})
+        self.assertEqual({row["state"]["outcome"] for row in runs["items"]}, {"fail", "cancelled", "blocked"})
+        self.assertEqual([row["id"] for row in self.client.get("/api/runs?status=Pass").json()["items"]], [passed])
+        self.assertIsNone(self.client.get("/api/runs?status=Running").json()["items"][0]["history_status"])
+        results = self.client.get("/api/results?status=Pass").json()["items"]
+        self.assertEqual({row["run_id"] for row in results}, {mixed, passed})
+        self.assertTrue(all(row["history_status"] == "Pass" for row in results))
+        page = self.client.get("/api/results?status=NotPassed&limit=1&offset=1").json()
+        self.assertEqual((page["total"], len(page["items"]), page["items"][0]["run_id"]), (2, 1, mixed))
+
     def test_get_run_never_generates_missing_report_or_retries_failed_report(self):
         run = self.measured()
         receipt = report_locations.folder("run_" + run["id"]) / "receipt.json"
@@ -182,6 +200,7 @@ class StateApiTests(unittest.TestCase):
         self.assertIsNone(summary["results"]["pass_rate"])
         self.assertEqual(self.client.get("/api/results?status=Pass").json()["total"], 0)
         self.assertEqual(self.client.get("/api/results?status=Unverified").json()["total"], 1)
+        self.assertEqual(self.client.get("/api/results?status=NotPassed").json()["items"][0]["state"]["outcome"], "unverified")
         row = self.client.get("/api/runs").json()["items"][0]
         self.assertEqual((row["passed"], row["unverified"], row["recorded_counts"]["passed"]), (0, 1, 1))
 

@@ -1,7 +1,7 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
 import { h, icon, replace, api, scopeQuery, go, href, route, statusPill, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
-import { empty, errorState, confirm, filterSelect } from '../ui.js';
+import { empty, errorState, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
 import { refreshShell } from '../shell.js';
 import { downloadRunHtml } from './run-export.js';
@@ -11,6 +11,11 @@ import { cancelButton, rerunButton, runActionFeedback, resultConclusion, recover
 import { reportControls, setReportFeedback } from './report-controls.js';
 
 const PAGE = 50;
+const HISTORY_STATUSES = [
+  { value: 'Pass', key: 'passed', label: '通过', color: 'var(--good)' },
+  { value: 'NotPassed', key: 'notPassed', label: '不通过', color: 'var(--bad)' },
+];
+const isHistoryStatus = (value) => HISTORY_STATUSES.some((option) => option.value === value);
 const kindTag = (value) => h('span', { class: 'tag' }, icon(value === 'ui' ? 'globe' : 'api'), value === 'native' ? '原生' : value === 'ui' ? '页面' : '接口');
 const active = (run) => ['Queued', 'Running'].includes(run.status);
 const selected = new Map();
@@ -59,25 +64,22 @@ export function commit(view, next, { id }) {
   const oldToolbar = view.querySelector('[data-history-region="toolbar"]');
   const newToolbar = next.querySelector('[data-history-region="toolbar"]');
   if (oldToolbar.dataset.historyMode === newToolbar.dataset.historyMode) {
-    for (const select of oldToolbar.querySelectorAll('select')) {
-      const incomingSelect = newToolbar.querySelector(`select[aria-label="${select.getAttribute('aria-label')}"]`);
-      const value = incomingSelect.value;
-      if (select.length !== incomingSelect.length || ![...select.options].some((option) => option.value === value)) {
-        select.replaceChildren(...incomingSelect.childNodes);
-      }
-      select.value = value;
+    for (const button of oldToolbar.querySelectorAll('[data-history-status]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.historyStatus === newToolbar.dataset.selectedStatus));
     }
+    oldToolbar.dataset.selectedStatus = newToolbar.dataset.selectedStatus;
   } else {
     const focused = oldToolbar.contains(document.activeElement) ? document.activeElement : null;
     oldToolbar.replaceWith(newToolbar);
-    if (focused?.tagName === 'BUTTON') newToolbar.querySelector('button[aria-pressed="true"]').focus({ preventScroll: true });
+    if (focused?.dataset.historyStatus) newToolbar.querySelector(`[data-history-status="${focused.dataset.historyStatus}"]`).focus({ preventScroll: true });
+    else if (focused) newToolbar.querySelector('[data-history-view][aria-pressed="true"]').focus({ preventScroll: true });
   }
-  view.querySelector('.page-head p').textContent = next.querySelector('.page-head p').textContent;
+  view.querySelector('.page-head p').replaceChildren(...next.querySelector('.page-head p').childNodes);
   for (const name of ['filters', 'notices', 'content', 'selection']) {
     updateLiveView(view.querySelector(`[data-history-region="${name}"]`), next.querySelector(`[data-history-region="${name}"]`));
   }
   if (removingFilter && !filters.contains(document.activeElement)) {
-    (filters.querySelector('button') || view.querySelector('select[aria-label="状态"]')).focus({ preventScroll: true });
+    (filters.querySelector('button') || view.querySelector('[data-history-status]')).focus({ preventScroll: true });
   }
 }
 
@@ -87,11 +89,10 @@ async function history(view, isCurrent) {
   const mode = params.get('view') === 'results' ? 'results' : 'runs';
   const status = params.get('status') || '';
   const stateFilters = Object.fromEntries(Object.keys(stateAxes).filter((key) => params.get(key)).map((key) => [key, params.get(key)]));
-  const cycle = params.get('cycle') || 'current';
   const offset = Number(params.get('offset') || 0);
   let data;
   try {
-    data = await api((mode === 'results' ? '/results' : '/runs') + scopeQuery({ status, cycle, ...stateFilters, limit: PAGE, offset }));
+    data = await api((mode === 'results' ? '/results' : '/runs') + scopeQuery({ status, cycle: params.get('cycle'), ...stateFilters, limit: PAGE, offset }));
   } catch (error) {
     replace(view, h('div', { class: 'card' }, errorState(error, () => refresh())));
     return;
@@ -103,6 +104,10 @@ async function history(view, isCurrent) {
   }
   updateSelection(data.items, params, mode);
   const chips = appliedFilters(stateFilters);
+  if (status && !isHistoryStatus(status)) {
+    const label = '状态：' + stateLabel(status.toLowerCase());
+    chips.push(h('button', { class: 'btn sm', 'aria-label': '清除' + label, onClick: () => changeHistory({ status: null }) }, label, icon('x')));
+  }
   let body;
   let selectionBar;
   if (!data.items.length) {
@@ -121,8 +126,9 @@ async function history(view, isCurrent) {
 
   replace(view,
     h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '执行记录'),
-      h('p', { class: 'sub' }, mode === 'results' ? `范围内共 ${data.total} 条用例结果（不含自动执行的前置）` : `范围内共 ${data.total} 次运行`))),
-    historyToolbar(mode, status, cycle),
+      h('p', { class: 'sub', 'aria-live': 'polite' }, '范围内共 ', h('span', { dataset: { historyCount: '' } }, data.total),
+        mode === 'results' ? ' 条用例结果（不含自动执行的前置）' : ' 次运行'))),
+    historyToolbar(mode, status),
     h('div', { dataset: { historyRegion: 'filters' } }, chips.length > 0 && h('div', { class: 'toolbar', role: 'group', 'aria-label': '已应用的筛选' }, chips)),
     h('div', { dataset: { historyRegion: 'notices' } }, deletionNotice()),
     h('section', { class: 'card', dataset: { historyRegion: 'content' } },
@@ -137,11 +143,21 @@ function emptyHistory(filtered) {
       actions: h('a', { class: 'btn', href: href('cases') }, '查看可复用用例') });
 }
 
+function historyVerdict(item) {
+  const value = item.history_status;
+  const title = stateLabel(value ? item.state?.outcome : item.state?.phase);
+  if (!value) return h('span', { class: 'sub', title, 'aria-label': title }, '—');
+  const passed = value === 'Pass';
+  const pill = statePill(passed ? 'pass' : 'fail', '', passed ? '通过' : '不通过');
+  pill.title = item.state?.scope?.historical ? '历史执行 · ' + title : title;
+  return pill;
+}
+
 function resultTable(items, params) {
   return h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, ['结果', '用例', '类型', '项目', '原因', '时间', '耗时'].map((t) => h('th', {}, t)))),
-      h('tbody', {}, items.map((item) => h('tr', {},
-        h('td', {}, primaryState(item), stateResults(item)),
+      h('tbody', {}, items.map((item) => h('tr', { dataset: { historyVerdict: item.history_status || '', historyOutcome: item.state?.outcome || '' } },
+        h('td', {}, historyVerdict(item)),
         h('td', {}, historyLink(item.case_title, href((item.kind === 'native' ? 'native-runs/' : 'runs/') + item.run_id, { ...Object.fromEntries(params), case: 'result:' + item.id, return: location.hash }), 'result:' + item.id), h('div', { class: 'sub mono' }, item.case_id)),
         h('td', {}, kindTag(item.kind)),
         h('td', { class: 'sub' }, item.project_name),
@@ -151,18 +167,19 @@ function resultTable(items, params) {
         h('td', { class: 'sub num' }, fmtDuration(item.duration_ms))))));
 }
 
-function historyToolbar(mode, status, cycle) {
+function historyToolbar(mode, status) {
   const tabs = h('div', { class: 'seg', role: 'group', 'aria-label': '查看方式' },
-    h('button', { 'aria-pressed': String(mode === 'runs'), onClick: () => changeHistory({ view: null, status: null }) }, '按运行'),
-    h('button', { 'aria-pressed': String(mode === 'results'), onClick: () => changeHistory({ view: 'results', status: null }) }, '按用例结果'));
-  const options = mode === 'results'
-    ? [['', '全部结果'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞']]
-    : [['', '全部状态'], ['Pass', '通过'], ['Fail', '失败'], ['Blocked', '阻塞'], ['Running', '执行中'], ['Cancelled', '已取消']];
-  if (status && !options.some(([value]) => value === status)) options.push([status, stateLabel(status.toLowerCase())]);
-  const statusSelect = filterSelect('状态', status, options, (value) => changeHistory({ status: value || null }));
-  const cycleSelect = filterSelect('周期', cycle, [['current', '当前周期'], ['all', '包含历史周期']],
-    (value) => changeHistory({ cycle: value === 'current' ? null : value }));
-  return h('div', { class: 'toolbar', dataset: { historyRegion: 'toolbar', historyMode: mode } }, tabs, statusSelect, cycleSelect);
+    [['runs', '按运行'], ['results', '按用例结果']].map(([value, label]) => h('button', {
+      dataset: { historyView: value }, 'aria-pressed': String(mode === value),
+      onClick: () => changeHistory({ view: value === 'runs' ? null : value }),
+    }, label)));
+  const label = mode === 'runs' ? '运行状态' : '用例结果';
+  const choices = h('div', { class: 'seg', role: 'group', 'aria-label': label }, HISTORY_STATUSES.map(({ value, label: text }) => h('button', {
+    dataset: { historyStatus: value }, 'aria-pressed': String(status === value), title: '再次点击可清除筛选',
+    onClick: () => changeHistory({ status: route().params.get('status') === value ? null : value }),
+  }, text)));
+  return h('div', { class: 'toolbar', dataset: { historyRegion: 'toolbar', historyMode: mode, selectedStatus: status } },
+    tabs, h('div', { class: 'filter-field' }, h('span', { class: 'sub' }, label), choices));
 }
 
 function appliedFilters(stateFilters) {
@@ -210,6 +227,17 @@ function runList(items, params) {
   return { table, bar };
 }
 
+function runProgress(run) {
+  if (active(run)) {
+    const width = run.total ? (run.done / run.total) * 100 : 0;
+    return h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${width}%` })),
+      h('span', { class: 'sub num' }, `${run.done}/${run.total}`));
+  }
+  const counts = { passed: run.passed ?? 0, notPassed: (run.failed ?? 0) + (run.blocked ?? 0) + (run.cancelled ?? 0) + (run.unverified ?? 0) };
+  return h('div', { class: 'stack', style: 'gap:4px' }, splitBar(counts, HISTORY_STATUSES),
+    h('span', { class: 'sub num' }, `${counts.passed} 通过 · ${counts.notPassed} 不通过`));
+}
+
 function historyRow(run, params, repaint) {
   const box = h('input', { class: 'check', type: 'checkbox', checked: selected.has(run.id), disabled: deleting(run),
     'aria-label': `选择运行 ${run.id}`, onClick: (event) => event.stopPropagation(), onChange: () => {
@@ -219,12 +247,10 @@ function historyRow(run, params, repaint) {
   const note = run.deletion_error || (deleting(run) ? '正在取消并删除，等待执行器退出及清理完成' :
     active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
   const destination = ({ load: 'load-tests', native: 'native-runs' })[run.family] || 'runs';
-  return h('tr', { class: selected.has(run.id) ? 'selected' : '' },
-    h('td', {}, box), h('td', {}, primaryState(run), stateResults(run)),
+  return h('tr', { class: selected.has(run.id) ? 'selected' : '', dataset: { historyVerdict: run.history_status || '', historyOutcome: run.state?.outcome || '' } },
+    h('td', {}, box), h('td', {}, historyVerdict(run)),
     h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href(destination + '/' + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
-    h('td', { style: 'min-width:170px' }, active(run)
-      ? h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })), h('span', { class: 'sub num' }, `${run.done}/${run.total}`))
-      : h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run), h('span', { class: 'sub num' }, `${run.passed} 通过 · ${run.failed} 失败 · ${run.blocked} 阻塞 · ${run.unverified || 0} 未验证`))),
+    h('td', { style: 'min-width:170px' }, runProgress(run)),
     h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine] || run.engine || '未记录'),
     h('td', { class: 'sub num' }, fmtTime(run.created_at)),
     h('td', { class: 'sub num' }, run.finished_at && run.started_at ? fmtDuration(new Date(run.finished_at) - new Date(run.started_at)) : '—'),

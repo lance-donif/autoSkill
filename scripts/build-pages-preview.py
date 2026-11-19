@@ -1,6 +1,7 @@
 """Render the dashboard into static HTML for the Pages preview using only a temporary sample project."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -20,8 +21,8 @@ PAGES = {"runs": "index", "runs?view=results": "results", **{name: name for name
     "dashboard", "cases", "case-plans", "workflows", "native-assets", "conversations", "schedules",
     "project-materials", "load-tests", "diagnostics", "data")}}
 
-# Serialize the rendered controls as HTML. Only navigable previews and appearance controls stay interactive.
-SNAPSHOT = """async (pages) => {
+# Capture the dashboard with enough state for local filtering and result disclosures.
+SNAPSHOT = """async ({pages, openResults, version}) => {
   const entry = document.querySelector('script[type=module][src]').src;
   const { icon } = await import(new URL('./core.js', entry));
   const root = document.documentElement.cloneNode(true);
@@ -34,7 +35,7 @@ SNAPSHOT = """async (pages) => {
   policy.content = "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'";
   root.querySelector('head').prepend(policy);
   const script = document.createElement('script');
-  script.src = 'navigation.js';
+  script.src = 'navigation.js?v=' + version;
   script.defer = true;
   root.querySelector('head').append(script);
   const style = document.createElement('style');
@@ -49,23 +50,37 @@ SNAPSHOT = """async (pages) => {
   for (const link of root.querySelectorAll('a')) {
     const url = link.getAttribute('href') || '';
     const [path, query] = url.slice(2).split('?');
-    const mode = path === 'runs' && new URLSearchParams(query).get('view') === 'results' ? 'runs?view=results' : path;
+    const params = new URLSearchParams(query);
+    const mode = path === 'runs' && params.get('view') === 'results' ? 'runs?view=results' : path;
     if (url.startsWith('#/') && Object.hasOwn(pages, mode)) {
-      link.setAttribute('href', pages[mode] + '.html');
+      const focus = params.get('case');
+      const result = focus?.startsWith('result:') ? '#result-' + encodeURIComponent(focus.slice(7)) : '';
+      const previewParams = new URLSearchParams({v: version});
+      if (path === 'runs' && params.has('status')) previewParams.set('status', params.get('status'));
+      link.setAttribute('href', pages[mode] + '.html?' + previewParams + result);
     } else {
       link.removeAttribute('download'); link.removeAttribute('href');
       link.setAttribute('aria-disabled', 'true'); link.title = '仅供界面预览';
     }
   }
-  const tabs = root.querySelector('[aria-label="查看方式"]');
-  if (tabs) [...tabs.children].forEach((tab, index) => { tab.dataset.previewHref = index ? 'results.html' : 'index.html'; });
+  for (const result of root.querySelectorAll('.result[data-result]')) {
+    const open = openResults.includes(result.dataset.result);
+    result.classList.toggle('open', open);
+    const button = result.querySelector('.result-head');
+    button.id = 'result-' + result.dataset.result;
+    const body = result.querySelector('.result-body');
+    body.id = button.id + '-body';
+    body.hidden = !open;
+    button.setAttribute('aria-controls', body.id);
+    button.setAttribute('aria-expanded', String(open));
+  }
   const liveOptions = document.querySelectorAll('option');
   [...root.querySelectorAll('option')].forEach((option, index) => option.toggleAttribute('selected', liveOptions[index].selected));
   for (const input of root.querySelectorAll('input')) {
     if (input.value && input.type !== 'password') input.setAttribute('value', input.value);
     if (input.type === 'password') input.removeAttribute('value');
   }
-  for (const control of root.querySelectorAll('button:not(.theme-toggle,.nav-toggle,[data-preview-href]), select, input, textarea')) {
+  for (const control of root.querySelectorAll('button:not(.theme-toggle,.nav-toggle,[data-history-view],[data-history-status],.result-head), select, input, textarea')) {
     if (!control.disabled) control.setAttribute('data-preview-only', '');
     control.disabled = true;
   }
@@ -90,11 +105,11 @@ def seed(root: Path, example_url: str) -> dict:
     source.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
     plan.write(project, str(source))
     details = {}
-    for case_id, expected in [("TC-API-008", "Blocked"), ("TC-API-007", "Fail"), ("TC-API-006", "Pass")]:
-        run = runner.create(project, [case_id], headed=False)
+    for case_ids, expected in [(["TC-API-008"], "Blocked"), (["TC-API-006", "TC-API-007"], "Fail"), (["TC-API-006"], "Pass")]:
+        run = runner.create(project, case_ids, headed=False)
         result = runner.execute(run["id"])
         if result["status"] != expected:
-            raise RuntimeError(f"Sample {case_id} produced {result['status']}, expected {expected}")
+            raise RuntimeError(f"Sample {case_ids} produced {result['status']}, expected {expected}")
         details["runs/" + run["id"]] = "run-" + expected.lower()
     return details
 
@@ -115,6 +130,7 @@ def render(root: Path, example_url: str, pages: dict) -> None:
             route.fulfill(status=response.status_code, body=response.content, content_type=response.headers.get("content-type", "text/plain"))
         page.route("**/*", serve)
         output = ROOT / "preview"
+        version = hashlib.sha256((output / "navigation.js").read_bytes()).hexdigest()[:12]
         for route, name in pages.items():
             page.goto("about:blank")
             page.goto(ORIGIN + "/#/" + route)
@@ -125,7 +141,15 @@ def render(root: Path, example_url: str, pages: dict) -> None:
             expect(page.get_by_role("heading", name="没能加载", exact=True)).to_have_count(0)
             if route == "cases":
                 expect(page.locator(".folder-tree")).to_be_visible()
-            html = page.evaluate(SNAPSHOT, pages).replace(example_url, "https://tickets.example.invalid").replace(str(root), "/示例/autoSkill")
+            open_results = page.locator(".result.open").evaluate_all("(rows) => rows.map(row => row.dataset.result)")
+            # Opening a result rerenders the list. Locate it by its stable result ID.
+            closed = page.locator(".result:not(.open)").evaluate_all("(rows) => rows.map(row => row.dataset.result)")
+            for result_id in closed:
+                result_row = page.locator(f'.result[data-result="{result_id}"]')
+                result_row.locator(".result-head").click()
+                expect(result_row.locator(".result-body")).to_be_visible()
+            html = page.evaluate(SNAPSHOT, {"pages": pages, "openResults": open_results, "version": version})
+            html = html.replace(example_url, "https://tickets.example.invalid").replace(str(root), "/示例/autoSkill")
             html = "\n".join(line.rstrip() for line in html.split("\n"))
             (output / (name + ".html")).write_text(html, encoding="utf-8")
         browser.close()
