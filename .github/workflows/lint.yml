@@ -9,6 +9,10 @@ on:
         description: Diagnose the sample group with the highest CLS using Chrome DevTools MCP
         type: boolean
         default: false
+      windows_release_smoke:
+        description: Install the published Windows x64 ZIP and verify its local business flow and report recovery
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -167,6 +171,10 @@ jobs:
           pwsh.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
           $suite = 'test_windows_report_delivery.ReportDeliveryTests'
           python -m unittest -v "$suite.test_windows_powershell_51_cmd_with_direct_recording" "$suite.test_powershell_7_cmd_through_http_bridge" "$suite.test_v251_recording_and_run_reports_retry_without_replay"
+      - name: Verify the published Windows x64 offline installation
+        if: github.event_name == 'workflow_dispatch' && inputs.windows_release_smoke
+        timeout-minutes: 15
+        run: python tests/windows_release_smoke.py
   dashboard-e2e:
     name: Dashboard E2E
     runs-on: ubuntu-24.04
