@@ -13,6 +13,10 @@ on:
         description: Install the published Windows x64 ZIP and verify its local business flow and report recovery
         type: boolean
         default: false
+      linux_arm64_release_smoke:
+        description: Install the v2.5.2 Linux ARM64 ZIP and verify both browsers, the local API and report recovery
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -175,6 +179,49 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.windows_release_smoke
         timeout-minutes: 15
         run: python tests/windows_release_smoke.py
+  linux-arm64-release:
+    name: Published Linux ARM64 ZIP
+    if: github.event_name == 'workflow_dispatch' && inputs.linux_arm64_release_smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tests
+          persist-credentials: false
+      - name: Prepare the virtual display for the bundled browsers
+        run: |
+          if ! command -v Xvfb || ! command -v xauth || ! command -v xwininfo; then
+            sudo apt-get -o Acquire::Retries=3 update -qq
+            sudo apt-get -y install --no-install-recommends xvfb xauth x11-utils
+          fi
+      - name: Verify the published Ubuntu ARM64 installation with both browsers under Xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d "$RUNNER_TEMP/autoskill-arm64.XXXXXXXX")
+          policy=$(mktemp "$RUNNER_TEMP/autoskill-arm64-profile.XXXXXXXX")
+          loaded=0
+          cleanup() {
+            if [[ "$loaded" == 1 ]]; then sudo apparmor_parser -R "$policy"; fi
+            rm -f "$policy"
+            rm -rf "$work"
+          }
+          trap cleanup EXIT
+          # Ubuntu's user namespace restriction needs the same per-executable permission as the Linux release check.
+          if [[ -r /proc/sys/kernel/apparmor_restrict_unprivileged_userns && "$(< /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" == 1 ]]; then
+            chrome="$work/bundle/autoskill/vendor/linux-arm64/chrome/chrome-linux-arm64/chrome"
+            cat > "$policy" <<PROFILE
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile autoskill-release-arm64-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT "$chrome" flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+            sudo apparmor_parser -a "$policy"
+            loaded=1
+          fi
+          xvfb-run -a -s '-screen 0 1600x900x24' python3 tests/published_release_smoke.py --target linux-arm64 --release-tag v2.5.2 --work-dir "$work"
   dashboard-e2e:
     name: Dashboard E2E
     runs-on: ubuntu-24.04
