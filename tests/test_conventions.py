@@ -3,6 +3,7 @@ import argparse
 import io
 import re
 import sys
+import tempfile
 import tokenize
 import unittest
 from pathlib import Path
@@ -11,6 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 UI = APP / "ui"
 sys.path.insert(0, str(APP))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from review_rules import compact_navigation
 
 from autoskill import cli
 from autoskill.replay import codegen, ir
@@ -87,6 +91,89 @@ class ConventionTests(unittest.TestCase):
             for token in tokenize.generate_tokens(io.StringIO(read(file)).readline):
                 if token.type == tokenize.COMMENT:
                     self.assertIsNone(CJK.search(token.string), f"{file.name}:{token.start[0]}: comments are written in English")
+
+
+class CompactNavigationTests(unittest.TestCase):
+    before = """.side { height: 100vh; }
+:root[data-embed="true"] .shell {
+  grid-template: auto 1fr / minmax(0, 1fr);
+}
+:root[data-embed="true"] .side { height: auto; }
+@media (max-width: 1100px) {
+  .shell {
+    grid-template: auto 1fr / minmax(0, 1fr);
+  }
+  .side { height: auto; /* min-height: 49px; */ }
+  .side-panel { min-height: 49px; }
+}
+"""
+
+    def test_live_dashboard_and_pages_entries(self):
+        findings = compact_navigation.run(ROOT)
+        self.assertFalse(findings, "\n".join(f"{f['path']}:{f['line']}: {f['message']}" for f in findings))
+
+    def test_unreserved_rows_point_to_their_declarations(self):
+        sheets = [("base.css", self.before)]
+        self.assertEqual(compact_navigation.unreserved_rows(sheets), [("base.css", 3), ("base.css", 8)])
+        scoped = "@media (max-width: 1100px) { .side { block-size: 3rem; } }"
+        self.assertEqual(compact_navigation.unreserved_rows([*sheets, ("phone.css", scoped)]), [("base.css", 3)])
+        for invalid in ("0px", "auto", "min-content"):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(compact_navigation.unreserved_rows([*sheets, ("override.css", f".side {{ min-height: {invalid}; }}")]),
+                                 [("base.css", 3), ("base.css", 8)])
+
+    def test_explicit_side_sizes_and_reserved_grid_tracks(self):
+        for source in (self.before + ".side { min-block-size: calc(2rem + 1px); }",
+                       self.before + "#side { height: 49px; }",
+                       self.before.replace("auto 1fr /", "minmax(3rem, auto) 1fr /"),
+                       self.before.replace("auto 1fr /", "49px 1fr /")):
+            with self.subTest(source=source):
+                self.assertEqual(compact_navigation.unreserved_rows([("base.css", source)]), [])
+
+    def test_matching_ancestors_specificity_order_and_important(self):
+        sheets = [("base.css", self.before)]
+        bad = [("base.css", 3), ("base.css", 8)]
+        alternatives = (
+            ("#app > #side { min-block-size: 49px; }", []),
+            ("aside.side { min-block-size: 49px; }", []),
+            (".side { min-block-size: 49px !important; }", []),
+            ("#app > aside.side:empty { min-block-size: 49px; }", []),
+            ("aside.side { min-height: 49px; } .side { min-height: 0; }", []),
+            (".side { min-height: 49px !important; } #side { min-height: 0; }", []),
+            ("#other > #side { min-height: 49px; } div.side { min-height: 49px; }", bad),
+            (".side { min-height: 49px; } .side { min-height: 0; }", bad),
+            (".side { min-height: 0 !important; } #app > #side { min-height: 49px; }", bad),
+        )
+        for css, expected in alternatives:
+            with self.subTest(css=css):
+                self.assertEqual(compact_navigation.unreserved_rows([*sheets, ("overrides.css", css)]), expected)
+
+    def test_only_entries_with_an_empty_navigation_slot_require_the_css_reservation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ui = root / compact_navigation.UI
+            ui.mkdir(parents=True)
+            stylesheet = ui / "shell.css"
+            stylesheet.write_text(self.before, encoding="utf-8")
+            html = '<link rel="stylesheet" href="/shell.css"><div id="app" class="shell"><aside id="side" class="side"><button>Menu</button></aside></div>'
+            (ui / "index.html").write_text(html, encoding="utf-8")
+            self.assertEqual(compact_navigation.run(root), [])
+            preview = root / "preview"
+            preview.mkdir()
+            entry = preview / "cases.html"
+            empty = html.replace('href="/shell.css"', f'href="../{stylesheet.relative_to(root).as_posix()}"').replace("<button>Menu</button>", "<!-- nav -->")
+            entry.write_text(empty, encoding="utf-8")
+            self.assertEqual([(f["path"], f["line"]) for f in compact_navigation.run(root)],
+                             [(stylesheet.relative_to(root).as_posix(), line) for line in (3, 8)])
+            (preview / "override.css").write_text(".side { min-height: 49px; }", encoding="utf-8")
+            entry.write_text(empty + '<link rel="stylesheet" href="override.css">', encoding="utf-8")
+            self.assertEqual(compact_navigation.run(root), [])
+            entry.write_text(empty + '<link rel="stylesheet" href="override.css" media="print">', encoding="utf-8")
+            self.assertEqual([f["line"] for f in compact_navigation.run(root)], [3, 8])
+            entry.write_text(empty + '<style>aside.side { min-height: 49px; }</style>', encoding="utf-8")
+            self.assertEqual(compact_navigation.run(root), [])
+            entry.write_text(empty.replace('id="side"', 'id="side" style="min-height:49px"'), encoding="utf-8")
+            self.assertEqual(compact_navigation.run(root), [])
 
 
 if __name__ == "__main__":

@@ -225,18 +225,19 @@ function projectCard(project, items, repaint, folderResult, retry) {
             run, caseDeleteButton([item], { small: true })));
       })])));
   }
+  const error = folderResult?.error;
   return h('section', { class: 'card' }, head, banner,
-    !tree && !folderResult?.error && h('p', { class: 'card-body sub', role: 'status' }, '正在加载文件夹…'),
-    folderResult?.error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${folderResult.error.message}`,
+    error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${error.message}`,
       h('button', { class: 'btn sm', onClick: retry }, '重试文件夹'))),
-    h('div', { class: tree ? 'project-folders' : '' },
-      tree && folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); }),
-      h('div', { class: 'folder-content' }, tree && projectFolderTools(project, tree, folderId, items.length),
+    h('div', { class: error ? '' : 'project-folders' },
+      tree ? folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); })
+        : !error && h('div', { class: 'folder-tree' }, h('p', { class: 'sub', role: 'status' }, '正在加载文件夹…')),
+      h('div', { class: 'folder-content' }, !error && (tree || folderId === ALL_FOLDERS) && projectFolderTools(project, tree, folderId, items.length),
         h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': `${project.name}用例表格` }, body))));
 }
 
 function projectFolderTools(project, tree, folderId, count) {
-  const folder = tree.folders.find((item) => item.id === folderId);
+  const folder = tree?.folders.find((item) => item.id === folderId);
   return h('div', { class: 'folder-toolbar row wrap' }, h('div', { class: 'grow' },
     h('h3', {}, folderId === ALL_FOLDERS ? '全部用例' : folderPath(tree, folderId)),
     h('p', { class: 'sub' }, `${count} 条用例`)),
@@ -244,7 +245,7 @@ function projectFolderTools(project, tree, folderId, count) {
   folderId !== ALL_FOLDERS && h('a', { class: 'btn sm', download: '', title: '包含当前文件夹及全部子文件夹的用例',
     href: `/api/projects/${encodeURIComponent(project.id)}/folders/export?folder_id=${encodeURIComponent(folderId || 'root')}&recursive=true&expected_revision=${encodeURIComponent(tree.revision)}` },
   icon('table'), '导出文件夹 Excel'),
-  h('button', { class: 'btn sm', onClick: () => folderEditor(project, tree, folderId === ALL_FOLDERS ? null : folderId) }, icon('plus'), '新建文件夹'));
+  h('button', { class: 'btn sm', disabled: !tree, onClick: () => folderEditor(project, tree, folderId === ALL_FOLDERS ? null : folderId) }, icon('plus'), '新建文件夹'));
 }
 
 function caseDeleteButton(items, { bulk = false, small = false } = {}) {

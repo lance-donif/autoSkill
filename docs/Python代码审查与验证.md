@@ -55,3 +55,35 @@ python scripts/validate_review.py --python-test test_api_execution_inputs.py --n
 每个子检查通过列表参数和 `shell=False` 启动。执行结束后继续收集其余检查，逐项保留原始退出码；总退出码取首个失败，信号退出转换为 `128 + 信号号`。缺少工具为 127，超时为 124；`--timeout` 控制单项秒数。POSIX 超时会终止该项进程组，防止遗留测试服务。工具不格式化源码，也不放宽现有 lint 配置。
 
 CI 使用相同入口，并预置 Ruff 0.17.4 / Biome 2.6.7。选定 Python 契约依赖取自项目现有版本锁定；CI 显式启用 `--show-logs`，完整日志与最终摘要保留在 Actions 步骤日志中，不依赖 artifact 存储额度。Linux x64 发布浏览器门禁仍使用刚构建的运行时，要求真实执行且不允许跳过；普通 host 契约不能代替真实 DSH SDK 或宿主文件卡验收。
+
+## Dashboard 布局稳定性试行
+
+PR 和 `main` 上的 `Layout stability (advisory)` 使用与 `Dashboard E2E` 相同的 Playwright 和 Chromium。在临时工作区的本地 Dashboard 和以静态文件提供的 Pages 示例中，各测量总览、用例列表和性能测试报告三条路径。每条路径在 1440 px、390 px 视口各测量 5 次，每次打开新的浏览器上下文，设备像素比为 1，共 60 次。测试固定本地数据和响应延迟，并等待目标内容渲染。已有 `Dashboard E2E` 继续验证操作步骤、详情抽屉、报表、离线下载、配色和两种压测模式。
+
+本地复现使用已装好 Dashboard E2E 锁定依赖的 Python 3.12 环境。以下命令在仓库根目录执行。
+
+```bash
+python -m playwright install chromium
+export AUTOSKILL_CHROMIUM="$(python - <<'PY'
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    print(p.chromium.executable_path)
+PY
+)"
+export AUTOSKILL_VALIDATION_OUTPUT="$(mktemp -d)"
+PYTHONPATH=tests python -m unittest -v test_dashboard_cls
+```
+
+`summary.md` 按页面来源、场景和宽度列出最小值、中位数和最大值。`report.json` 记录有效次数、期望次数、超出参考值的次数和错误。任一样本 CLS 大于 0.1 会在 Actions 中提示，缺失样本会单独提示。CI 在检查页面展示摘要，`dashboard-cls-<运行尝试次数>` 制品保留 7 天。`revision.txt` 标识所测提交，每次有效测量有元素归因和位移坐标。每组首轮和首次超出参考值时保存 Chromium trace 与视口截图，异常时也会尝试保存。可在 DevTools 的 **Performance → Layout shifts** 轨道查看具体移动元素。[CLS 的会话窗口与 0.1 指引](https://web.dev/articles/cls) · [在 DevTools 中打开 trace](https://developer.chrome.com/docs/devtools/performance/save-trace)
+
+出现超出参考值的样本，或手动运行 `Static checks` 时勾选 `cls_devtools`，CI 会用官方 Chrome DevTools MCP 重新打开最高分所在的场景，并在 `devtools/` 中保存这次诊断的结果。开发时可在完成上述测量后，使用 Node 24 和同一输出目录复现。
+
+```bash
+tool_dir="$(mktemp -d)"
+npm install --offline=false --prefix "$tool_dir" --ignore-scripts --no-audit --no-fund chrome-devtools-mcp@1.13.0
+PYTHONPATH=tests python tests/dashboard_cls_mcp.py --cli "$tool_dir/node_modules/.bin/chrome-devtools"
+```
+
+试行期间用同版本浏览器、相同数据和延迟对照同一组的历史 `main` 与 PR 样本。累积多次 CI 运行后，根据各组的基线波动复核相对回归阈值，再决定哪些场景适合设为必需检查。
+
+紧凑导航的首屏占位由现有 `conventions` 检查执行。单独运行 `python scripts/code_review.py check --rule compact_navigation` 可定位窄屏或嵌入布局中未预留高度的空导航。实际位移由上述 Chromium 测量验证。

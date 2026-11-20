@@ -33,6 +33,8 @@ button:disabled { cursor: not-allowed; }
 .side {
   position: sticky; top: 0; height: 100vh; background: var(--side); color: var(--side-ink); border-right: 1px solid var(--line);
   display: flex; flex-direction: column; padding: var(--s-5) var(--s-3) var(--s-4); overflow-y: auto;
+  /* Reserve the compact navigation button, its two insets and its border before startup. */
+  min-block-size: calc(var(--s-8) + 2 * var(--s-2) + 1px);
 }
 .brand { display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-2) var(--s-6); }
 .brand-mark {

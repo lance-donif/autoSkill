@@ -3,6 +3,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      cls_devtools:
+        description: Diagnose the sample group with the highest CLS using Chrome DevTools MCP
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -103,7 +109,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install the pinned browser and local dashboard dependencies
+      - &dashboard-browser
+        name: Install the pinned browser and local dashboard dependencies
         run: |
           python - <<'PY'
           import re
@@ -134,4 +141,78 @@ jobs:
         with:
           name: dashboard-e2e-diagnostics
           path: ${{ runner.temp }}/dashboard-e2e
+          if-no-files-found: warn
+  layout-stability:
+    name: Layout stability (advisory)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    continue-on-error: true
+    env:
+      AUTOSKILL_BRIDGE: 'off'
+      AUTOSKILL_HEADED: '0'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - *dashboard-browser
+      - name: Measure three dashboard and Pages flows at desktop and phone widths
+        id: measure
+        timeout-minutes: 15
+        shell: bash
+        env:
+          AUTOSKILL_VALIDATION_OUTPUT: ${{ runner.temp }}/dashboard-cls
+        run: |
+          mkdir -p "$AUTOSKILL_VALIDATION_OUTPUT"
+          git rev-parse HEAD > "$AUTOSKILL_VALIDATION_OUTPUT/revision.txt"
+          PYTHONPATH=tests python -m unittest -v test_dashboard_cls 2>&1 | tee "$AUTOSKILL_VALIDATION_OUTPUT/harness.log"
+      - name: Publish the measurements and flag incomplete evidence
+        id: summary
+        if: ${{ !cancelled() }}
+        env:
+          MEASURE_OUTCOME: ${{ steps.measure.outcome }}
+          REQUEST_DEVTOOLS: ${{ inputs.cls_devtools || false }}
+        run: |
+          evidence="$RUNNER_TEMP/dashboard-cls"
+          if [[ -s "$evidence/summary.md" ]]; then
+            cat "$evidence/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$MEASURE_OUTCOME" != success || ! -s "$evidence/summary.md" ]] || ! jq -e '.complete == true and .expected_runs == 60 and .completed_runs == 60' "$evidence/report.json" > /dev/null; then
+            echo '::warning title=Incomplete CLS evidence::The pilot did not produce all 60 measurements. See the logs and available artifacts.'
+            echo '采样未完成，请查看运行日志和已生成的证据。' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -s "$evidence/report.json" ]] && jq -e '.over_budget_runs > 0' "$evidence/report.json" > /dev/null; then
+            echo '::warning title=CLS above 0.1::See the affected samples in the job summary and inspect their traces.'
+            echo 'devtools=true' >> "$GITHUB_OUTPUT"
+          elif [[ "$REQUEST_DEVTOOLS" == true && -s "$evidence/report.json" ]] && jq -e '.completed_runs > 0' "$evidence/report.json" > /dev/null; then
+            echo 'devtools=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        id: devtools-node
+        if: ${{ !cancelled() && steps.summary.outputs.devtools == 'true' }}
+        with:
+          node-version: '24'
+      - name: Diagnose one measured flow with Chrome DevTools MCP
+        id: devtools
+        if: ${{ !cancelled() && steps.devtools-node.outcome == 'success' }}
+        timeout-minutes: 4
+        shell: bash
+        env:
+          AUTOSKILL_VALIDATION_OUTPUT: ${{ runner.temp }}/dashboard-cls
+        run: |
+          npm install --offline=false --prefix "$RUNNER_TEMP/cls-devtools" --ignore-scripts --no-audit --no-fund chrome-devtools-mcp@1.13.0
+          PYTHONPATH=tests python tests/dashboard_cls_mcp.py --cli "$RUNNER_TEMP/cls-devtools/node_modules/.bin/chrome-devtools" 2>&1 | tee "$AUTOSKILL_VALIDATION_OUTPUT/devtools.log"
+          echo 'Chrome DevTools MCP 复验的 trace 和诊断结果见制品中的 `devtools/`。' >> "$GITHUB_STEP_SUMMARY"
+      - name: Flag missing DevTools evidence
+        if: ${{ !cancelled() && steps.summary.outputs.devtools == 'true' && steps.devtools.outcome != 'success' }}
+        run: |
+          echo '::warning title=Incomplete DevTools diagnostic::See the diagnostic step log and available artifacts.'
+          echo '本次 DevTools 诊断未完成，已采样的 CLS 和原始 trace 仍可查看。' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: dashboard-cls-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/dashboard-cls
+          retention-days: 7
           if-no-files-found: warn

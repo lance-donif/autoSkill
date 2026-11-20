@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -38,11 +38,14 @@ def mount_ui(app: FastAPI, directory: Path) -> str | None:
     prefix = "/_ui/" + revision
     html = (directory / "index.html").read_text(encoding="utf-8")
     html = html.replace('href="/css/', f'href="{prefix}/css/').replace('src="/js/', f'src="{prefix}/js/')
+    embedded_html = html.replace("<html ", '<html data-embed="true" ', 1)
 
     @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
     @app.api_route("/index.html", methods=["GET", "HEAD"], include_in_schema=False)
-    def index():
-        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+    def index(request: Request):
+        # Match URLSearchParams.get() so the intended shell is present on the first paint.
+        embedded = request.query_params.getlist("embed")[:1] == ["1"]
+        return HTMLResponse(embedded_html if embedded else html, headers={"Cache-Control": "no-store"})
 
     app.mount(prefix, FreshStaticFiles(directory=directory), name="ui-version")
     # Keep old entry URLs usable while preventing their stale conditional responses.
