@@ -1,8 +1,8 @@
 {
   "/status": {
     "name": "autoSkill",
-    "version": "2.5.0",
-    "ui_revision": "87a1be4b0ae98a21f671eca4989bd149b69ced1c61c6cadcca623a005d29d1a4",
+    "version": "2.5.1",
+    "ui_revision": "32300a4fc08205c9a09a8a361ae91a3b8343f2a6ad055394c9feee192d583ad2",
     "projects": 3,
     "runtime": {
       "bundled": false,
