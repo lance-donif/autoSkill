@@ -253,6 +253,22 @@ class DataStoreTests(unittest.TestCase):
                 with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Windows"):
                     data_transfer.relative_name(name)
 
+    def test_archive_permissions_match_files_implicit_parents_and_declared_directories(self):
+        name = "projects/case.json"
+        member = zipfile.ZipInfo("data/" + name)
+        member.create_system = 3
+        member.external_attr = (stat.S_IFREG | 0o640) << 16
+        entries = {member.filename: member}
+        permissions = {name: 0o640, "projects": 0o750, "empty": 0o700}
+        manifest = {"files": {name: {}}, "directories": ["empty"], "modes": permissions}
+
+        _, directories, modes = data_transfer._archive_contents(entries, "data/", manifest)
+        self.assertEqual(directories, {"projects", "empty"})
+        self.assertEqual(modes, permissions)
+        for path, mode in (("absent", 0o640), (name, 0o600), ("projects", True), ("empty", 0o10000), ("empty", -1)):
+            with self.subTest(path=path, mode=mode), self.assertRaisesRegex(ValueError, "权限清单无效"):
+                data_transfer._archive_contents(entries, "data/", {**manifest, "modes": {path: mode}})
+
     def test_archive_rejects_traversal_absolute_links_and_unlisted_files(self):
         for index, name in enumerate(("../escape", "/absolute", "C:/absolute", "data/../../escape", "data//double")):
             with self.subTest(name=name):

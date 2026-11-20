@@ -162,13 +162,19 @@ class CasePlanTests(unittest.TestCase):
             self.assertEqual(version[key], original[key])
         self.assertEqual(applied["rows"][0]["status"], "NotRun")
         old_result = db.one("SELECT * FROM results WHERE run_id = ?", (first["id"],))
+        self.assertEqual(old_result["case_content_hash"], execution_inputs.content_hash(original))
         self.assertFalse(execution_inputs.result_current(self.pid, version, old_result))
         with patch("autoskill.server.jobs.ensure_worker", return_value={"status": "test"}):
             second = case_plans.run(self.pid, ["API-001"])
         self.assertEqual(runner.execute(second["id"])["status"], "Pass")
-        self.assertEqual(case_plans.get(self.pid)["rows"][0]["status"], "Fail")
-        outcome = json.loads(db.one("SELECT detail FROM results WHERE run_id = ?", (second["id"],))["detail"])
-        self.assertEqual(outcome["business_status"], "Unverified")
+        row = case_plans.get(self.pid)["rows"][0]
+        evidence = row["evidence"]
+        result = evidence["result"]
+        self.assertEqual((row["status"], evidence["run_id"], result["run_id"]), ("Pass", second["id"], second["id"]))
+        self.assertTrue(evidence["evidence_valid"])
+        self.assertNotEqual(result["case_content_hash"], old_result["case_content_hash"])
+        self.assertEqual(result["case_content_hash"], execution_inputs.content_hash(version))
+        self.assertEqual((result["detail"]["business_status"], result["detail"]["execution_only_pass"]), ("Unverified", True))
         frozen = execution_inputs.load(db.one("SELECT * FROM runs WHERE id = ?", (second["id"],)))
         self.assertEqual(frozen["cases"]["API-001"]["steps"], document["steps"])
         with plan.use_folder(applied["folder"]):

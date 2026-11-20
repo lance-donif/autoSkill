@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 from fastapi.testclient import TestClient
 
-from autoskill import builder, data_refs, db, load_testing, projects, report_locations, runner, task_state, workflow_state
+from autoskill import builder, data_refs, db, load_testing, projects, report_locations, runner, task_reports, task_state, workflow_state
 from autoskill.server import metrics
 from autoskill.server.app import create_app
 
@@ -225,6 +225,66 @@ class StateApiTests(unittest.TestCase):
         history = self.client.get("/api/runs/" + run["id"]).json()
         result = next(row for row in history["results"] if row["case_id"] == "TC-API-001")
         self.assertEqual(result["state"]["outcome"], "pass")
+
+    def test_nested_postcondition_receipt_and_attachment_invalidate_dashboard_and_report(self):
+        cases = []
+        for name, parent in (("ACTION", None), ("CHECK", "ACTION"), ("VERIFY", "CHECK")):
+            cases.append(builder.api_case(name, name, "GET", "/" + name, {"status": 200, "json_equals": {"/ok": True}},
+                                          depends_on=[parent] if parent else []))
+            if parent:
+                cases[-2]["extensions"]["postconditions"] = [name]
+        projects.save_cases(self.pid, cases)
+        run = runner.create(self.pid, ["ACTION"])
+        register = runner._register_screenshots
+
+        def attach(folder, outcome):
+            if (outcome.get("request") or {}).get("url", "").endswith("/VERIFY"):
+                (folder / "observation.png").write_bytes(b"fixture image")
+                outcome["screenshots"] = ["observation.png"]
+            return register(folder, outcome)
+
+        with patch.object(runner, "_register_screenshots", side_effect=attach), patch.object(task_reports, "for_run", return_value={"status": "pending"}):
+            self.assertEqual(runner.execute(run["id"])["status"], "Pass")
+
+        def projected():
+            response = self.client.get("/api/runs/" + run["id"])
+            self.assertEqual(response.status_code, 200)
+            return {row["case_id"]: (row["state"]["evidence"], row["state"]["outcome"]) for row in response.json()["results"]}
+
+        passed = dict.fromkeys(("ACTION", "CHECK", "VERIFY"), ("valid", "pass"))
+        failed = dict.fromkeys(passed, ("invalid", "fail"))
+        self.assertEqual(projected(), passed)
+        deepest = db.one("SELECT detail FROM results WHERE run_id=? AND case_id='VERIFY'", (run["id"],))
+        receipt = data_refs.resolve(json.loads(deepest["detail"])["attempts"][0]["path"])
+        artifact = receipt.parent.parent / "observation.png"
+        revision = self.client.get("/api/state-revision").json()["revision"]
+        original_receipt = receipt.read_bytes()
+        receipt.unlink()
+        self.assertNotEqual(self.client.get("/api/state-revision").json()["revision"], revision)
+        self.assertEqual(projected(), failed)
+        receipt.write_bytes(original_receipt)
+        self.assertEqual(projected(), passed)
+        artifact.write_bytes(b"changed image")
+        self.assertEqual(projected(), failed)
+        report = task_reports.for_run(run["id"])
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["summary_counts"], {"Pass": 0, "Fail": 1, "NotRun": 0})
+        self.assertIn("| 失败 | 1 |", Path(report["markdown"]).read_text(encoding="utf-8"))
+        artifact.write_bytes(b"fixture image")
+        self.assertEqual(projected(), passed)
+        self.assertEqual(task_reports.for_run(run["id"])["source_hash"], report["source_hash"])
+        if os.name != "nt":
+            original, changed = artifact.with_name("original.png"), artifact.with_name("changed.png")
+            artifact.rename(original)
+            changed.write_bytes(b"changed image")
+            artifact.symlink_to(original.name)
+            self.assertEqual(projected(), passed)
+            artifact.unlink()
+            artifact.symlink_to(changed.name)
+            self.assertEqual(projected(), failed)
+            artifact.unlink()
+            artifact.symlink_to(original.name)
+            self.assertEqual(projected(), passed)
 
     def test_load_runs_preserve_verified_business_and_performance_and_stay_out_of_functional_counts(self):
         cases = [builder.api_case("TC-LOAD-001", "负载业务通过", "GET", "/", {"status": 200, "json_equals": {"/ok": True}, "max_ms": 10000}),

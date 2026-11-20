@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -11,8 +12,8 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
-from autoskill import db, projects
-from autoskill.server import scheduler
+from autoskill import builder, data_refs, db, execution_inputs, projects
+from autoskill.server import jobs, scheduler
 
 
 class ScheduleTransactions(unittest.TestCase):
@@ -96,6 +97,10 @@ class ScheduleTransactions(unittest.TestCase):
         self.assertEqual(released["token"], "")
 
     def _prepared(self, task, trigger):
+        # A separate writer must be able to proceed while replay or native inputs are frozen.
+        with db.connect() as other:
+            other.execute("PRAGMA busy_timeout=100")
+            other.execute("BEGIN IMMEDIATE")
         return {"id": db.new_id("run"), "project_id": self.pid, "engine": "playwright", "status": "Queued",
                 "case_ids": [], "created_at": db.now(), "task_id": task["id"], "trigger": trigger}
 
@@ -137,6 +142,43 @@ class ScheduleTransactions(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertIn("skipped", {row["status"] for row in rows})
         self.assertEqual(scheduler.pending_deliveries()["total"], 1)
+
+    def test_competing_ticks_and_retried_manual_requests_freeze_only_enqueued_runs(self):
+        case = builder.api_case("PING", "本机回放", "GET", "/ping", {"status": 200})
+        projects.save_cases(self.pid, [case])
+        task = scheduler.create({**self.spec, "kind": "replay", "case_ids": ["PING"]})
+
+        def concurrent(operation):
+            gate = threading.Barrier(3)
+
+            def invoke(_index):
+                gate.wait(timeout=10)
+                return operation()
+
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                return list(pool.map(invoke, range(3)))
+
+        manual = concurrent(lambda: scheduler.run_now(task["id"], idempotency_key="one-click"))
+        self.assertEqual(len({row["id"] for row in manual}), 1)
+        first_due = datetime.datetime.fromisoformat(task["next_due"])
+        self.assertFalse(any(concurrent(lambda: scheduler.tick(first_due))))
+        jobs.cancel(manual[0]["id"])
+        second_due = first_due + datetime.timedelta(minutes=5)
+        self.assertEqual(sum(map(len, concurrent(lambda: scheduler.tick(second_due)))), 1)
+        occurrences = db.rows("SELECT status, run_id FROM schedule_occurrences ORDER BY rowid")
+        self.assertEqual([row["status"] for row in occurrences], ["Queued", "skipped", "Queued"])
+        runs = db.rows("SELECT * FROM runs")
+        self.assertEqual({row["id"] for row in runs}, {row["run_id"] for row in occurrences if row["run_id"]})
+        files = {data_refs.resolve(row["input_manifest"]) for row in runs}
+        self.assertEqual(set((Path(self.tmp.name) / ".local/execution-inputs").glob("*.json")), files)
+        for row in runs:
+            self.assertEqual(execution_inputs.load(row)["selected"], ["PING"])
+        scheduler.set_enabled(task["id"], False)
+        with patch.object(scheduler, "_prepare") as prepare:
+            with self.assertRaisesRegex(ValueError, "其他会话修改"):
+                scheduler.fire(task, idempotency_key="stale-request")
+            self.assertEqual(scheduler.tick(second_due + datetime.timedelta(minutes=5)), [])
+            prepare.assert_not_called()
 
     def test_pagination_and_long_intervals_do_not_restrict_user_tasks(self):
         scheduler.create({**self.spec, "rule": {"kind": "interval", "minutes": 43200}, "title": "巡检" * 80})

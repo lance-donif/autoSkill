@@ -171,6 +171,86 @@ class PagesBrowserTests(PagesWorkspace):
                 confirm.get_by_role("button", name="删除用例", exact=True).click()
                 expect(self.page.get_by_role("button", name="登录库存系统", exact=True)).to_have_count(0)
 
+    def test_keyboard_case_selection_keeps_rows_across_projects(self):
+        with self.session(390):
+            self.open("cases?range=all")
+            first = self.page.get_by_role("region", name="菜鸟教程用例表格")
+            second = self.page.get_by_role("region", name="示例库存中心用例表格")
+            master = first.locator("thead input")
+            one = first.get_by_role("checkbox", name="选择 RN-HOME-PYTHON3", exact=True)
+            other = second.get_by_role("checkbox", name="选择 ST-API-006", exact=True)
+            expect(self.page.locator("nav.folder-tree")).to_have_count(3)
+            originals = [control.element_handle() for control in (one, master, other)]
+            one.press("Space")
+            expect(one).to_be_focused()
+            self.assertTrue(master.evaluate("node => node.indeterminate"))
+            other.press("Space")
+            bar = self.page.locator(".select-bar")
+            expect(bar).to_contain_text("已选 2 条用例 · 2 个项目")
+            master.press("Space")
+            expect(master).to_be_checked()
+            expect(master).to_be_focused()
+            expect(first.locator("tr.selected")).to_have_count(3)
+            master.press("Space")
+            expect(first.locator("tr.selected")).to_have_count(0)
+            expect(other).to_be_checked()
+            master.press("Space")
+            self.assertTrue(all(control.evaluate("node => node.isConnected") for control in originals))
+
+            self.page.get_by_role("searchbox", name="搜索用例").fill("ST-API-006")
+            bar.get_by_role("button", name="清除隐藏的 3 条", exact=True).press("Enter")
+            expect(bar).to_contain_text("已选 1 条用例")
+            clear = bar.get_by_role("button", name="清除", exact=True)
+            expect(clear).to_be_focused()
+            clear.press("Space")
+            expect(other).not_to_be_checked()
+            expect(second.locator("thead input")).not_to_be_checked()
+            expect(bar).to_be_hidden()
+            expect(self.page.get_by_role("group", name="用例类型").get_by_role("button", name="全部", exact=True)).to_be_focused()
+
+    def test_report_toggles_work_while_a_new_revision_is_loading(self):
+        with self.session(1360):
+            self.open("runs/run-demo-04?range=all")
+            rows = self.page.locator(".result")
+            head = rows.first.locator(".result-head")
+            body = rows.first.locator(".result-body")
+            expect(head).to_have_attribute("aria-expanded", "false")
+            sibling = rows.nth(1).element_handle()
+            self.page.evaluate("""() => {
+                const read = window.fetch.bind(window);
+                const gate = new Promise(resolve => { window.releaseReport = resolve; });
+                window.reportReads = 0;
+                window.fetch = async (...args) => {
+                    const response = await read(...args);
+                    if (new URL(args[0], location.href).pathname === '/api/runs/run-demo-04') {
+                        window.reportReads++;
+                        await gate;
+                    }
+                    return response;
+                };
+            }""")
+            head.press("Enter")
+            expect(body).to_be_visible()
+            head.press("Space")
+            expect(body).to_be_hidden()
+            self.assertEqual(self.page.evaluate("window.reportReads"), 0)
+            self.assertTrue(sibling.evaluate("node => node.isConnected"))
+
+            self.page.evaluate("""async () => {
+                const response = await fetch('/api/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({dashboard: {headed: false}}) });
+                if (!response.ok) throw new Error('Failed to update the sample workspace');
+            }""")
+            expect(self.page.locator("#view")).to_have_attribute("aria-busy", "true")
+            head.press("Space")
+            expect(body).to_be_visible()
+            self.page.evaluate("window.releaseReport()")
+            expect(self.page.locator("#view")).not_to_have_attribute("aria-busy", "true")
+            expect(head).to_have_attribute("aria-expanded", "true")
+            expect(body).to_be_visible()
+            expect(head).to_be_focused()
+            self.assertEqual(self.page.evaluate("window.reportReads"), 1)
+
     def open_result(self, run_id, case_id):
         self.open("runs?range=all")
         self.page.locator(f'[data-history-id="run:{run_id}"]').click()

@@ -12,6 +12,7 @@ import threading
 import time
 import unittest
 import uuid
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -132,6 +133,52 @@ class TaskReportTests(unittest.TestCase):
         self.assertNotEqual(second["test_report"]["excel"], report["excel"])
         self.assertEqual(task_reports.for_run(first["id"]), report)
         self.assertEqual(Path(report["excel"]).read_bytes(), old_bytes)
+
+    def test_snapshot_reads_shared_inputs_once_and_checks_individual_receipts(self):
+        source = projects.path(self.pid) / "analysis" / "source.bin"
+        source.parent.mkdir(exist_ok=True)
+        source.write_bytes(b"shared requirements")
+        prerequisite = builder.api_case("SETUP", "Prepare", "GET", "/priority", {"status": 200})
+        self.case["extensions"]["depends_on"] = [prerequisite["id"]]
+        projects.save_cases(self.pid, [prerequisite, self.case])
+        run = runner.create(self.pid, [self.case["id"], "TC-API-002"])
+        runner.execute(run["id"])
+        manifest = data_refs.resolve(run["input_manifest"])
+        source_hash = json.loads(manifest.read_bytes())["sources"]["files"]["analysis/source.bin"]["sha256"]
+        frozen = manifest.parent / "objects" / source_hash
+        reads = Counter()
+        read = Path.read_bytes
+
+        def counted(file):
+            reads[file] += 1
+            return read(file)
+
+        with patch.object(Path, "read_bytes", counted):
+            captured = task_report_data.run_snapshot(run)
+        self.assertEqual((reads[manifest], reads[frozen]), (1, 1))
+        self.assertTrue(all(item["evidence_valid"] for item in captured["cases"]))
+        self.assertTrue(next(row for row in captured["results"] if row["prerequisite"])["evidence_valid"])
+        receipt = data_refs.resolve(captured["cases"][0]["result"]["detail"]["attempts"][0]["path"])
+        original = receipt.read_bytes()
+        receipt.unlink()
+        self.assertEqual([item["evidence_valid"] for item in task_report_data.run_snapshot(run)["cases"]], [False, True])
+        receipt.write_bytes(original)
+        mismatched = {**run, "case_ids": ["TC-API-002"]}
+        self.assertFalse(task_report_data.run_snapshot(mismatched)["cases"][0]["evidence_valid"])
+
+        def replace_after_read(file):
+            content = read(file)
+            if file == frozen:
+                frozen.write_bytes(b"different source")
+            return content
+
+        with patch.object(Path, "read_bytes", replace_after_read):
+            changed = task_report_data.run_snapshot(run)
+        self.assertFalse(any(item["evidence_valid"] for item in changed["cases"]))
+        self.assertFalse(next(row for row in changed["results"] if row["prerequisite"])["evidence_valid"])
+        self.assertFalse(any(item["evidence_valid"] for item in task_report_data.run_snapshot(run)["cases"]))
+        frozen.write_bytes(source.read_bytes())
+        self.assertTrue(all(item["evidence_valid"] for item in task_report_data.run_snapshot(run)["cases"]))
 
     def test_blocked_and_cancelled_tasks_have_real_not_run_rows(self):
         run = runner.create(self.pid, [self.case["id"]])

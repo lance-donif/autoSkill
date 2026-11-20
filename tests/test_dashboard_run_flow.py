@@ -4,7 +4,7 @@ import re
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
-from autoskill import builder, projects, runner
+from autoskill import builder, deletion, projects, runner
 
 
 class RunFlowDashboardTests(DashboardWorkspace):
@@ -38,11 +38,17 @@ class RunFlowDashboardTests(DashboardWorkspace):
         case = builder.api_case("TC-LIVE-FAIL", "持续更新的断言失败", "GET", "/slow",
                                 {"status": 200, "json_equals": {"/ok": False}}, params={"label": "{{label}}"})
         projects.save_cases(self.pid, [case])
-        first = runner.create(self.pid, [case["id"]], api_only=True, session_id="live-report", inputs={"label": "fixed"})
-        run_id = first["id"]
+        # Occupy this project's replay slot until the browser has seen the queued target.
+        ahead = runner.prepare(self.pid, ["TC-SLOW"], api_only=True)
+        with deletion.execution_guard(ahead["id"]):
+            runner.enqueue(ahead)
+            self.open("runs/" + ahead["id"])
+            expect(self.page.locator(".run-summary")).to_contain_text("正在执行")
+            first = runner.create(self.pid, [case["id"]], api_only=True, session_id="live-report", inputs={"label": "fixed"})
+            run_id = first["id"]
+            self.open("runs/" + run_id)
+            expect(self.page.locator(".run-summary")).to_contain_text("排队中")
         result = self.page.locator('[data-case="TC-LIVE-FAIL"]')
-        self.open("runs/" + run_id)
-        expect(self.page.locator(".run-summary")).to_contain_text("排队中")
         self.assertEqual(runner.execute(run_id)["status"], "Fail")
         head = result.locator(".result-head")
         expect(head).to_have_attribute("aria-expanded", "true")

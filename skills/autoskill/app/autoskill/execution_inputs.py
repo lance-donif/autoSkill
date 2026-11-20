@@ -340,17 +340,27 @@ def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_
         return {"input_manifest": str(file), "input_hash": digest}, manifest
 
 
-def load(run: dict, *, check_engine: bool = False) -> dict:
+def _read_bytes(file: Path, observe, *, within: Path | None = None) -> bytes:
+    if observe is not None:
+        observe(file)
+    if within is not None:
+        file = file.resolve()
+        if not file.is_relative_to(within):
+            raise ValueError("执行证据不在本次运行目录内")
+    return file.read_bytes()
+
+
+def load(run: dict, *, check_engine: bool = False, _observe=None) -> dict:
     """Reject missing or altered evidence; a hash alone never proves that execution happened."""
     try:
-        manifest = json.loads(data_refs.resolve(run["input_manifest"]).read_bytes())
+        manifest = json.loads(_read_bytes(data_refs.resolve(run["input_manifest"]), _observe))
         if content_hash(manifest) != run["input_hash"] or manifest["project_id"] != run["project_id"]:
             raise ValueError("执行输入摘要不匹配")
         chosen = json.loads(run["case_ids"]) if isinstance(run.get("case_ids"), str) else run.get("case_ids")
         if chosen is not None and chosen != manifest["selected"]:
             raise ValueError("运行选择的用例与冻结输入不一致")
         for ref in manifest["sources"]["files"].values():
-            data = (_folder() / "objects" / ref["sha256"]).read_bytes()
+            data = _read_bytes(_folder() / "objects" / ref["sha256"], _observe)
             if len(data) != ref["size"] or hashlib.sha256(data).hexdigest() != ref["sha256"]:
                 raise ValueError("执行来源证据已损坏")
         if check_engine:
@@ -363,10 +373,10 @@ def load(run: dict, *, check_engine: bool = False) -> dict:
         raise ValueError("执行输入或来源证据缺失，不能将旧历史作为当前验证") from error
 
 
-def _execution_interval(references: list[dict]):
+def _execution_interval(references: list[dict], observe):
     from datetime import datetime
 
-    actual = [json.loads(data_refs.resolve(reference["path"]).read_bytes()) for reference in references
+    actual = [json.loads(_read_bytes(data_refs.resolve(reference["path"]), observe)) for reference in references
               if reference.get("kind") in {"case", "relogin_retry"}]
     if not actual:
         return None
@@ -376,114 +386,130 @@ def _execution_interval(references: list[dict]):
     return min(start for start, _ in intervals), max(finish for _, finish in intervals)
 
 
-def _postcondition_order(source: list[dict], targets: list[dict], outcome: dict) -> bool:
-    original = _execution_interval(source)
+def _postcondition_order(source: list[dict], targets: list[dict], outcome: dict, observe) -> bool:
+    original = _execution_interval(source, observe)
     following = []
     for target in targets:
         detail = json.loads(target["detail"]) if isinstance(target["detail"], str) else target["detail"]
-        following.append(_execution_interval(detail["attempts"]))
+        following.append(_execution_interval(detail["attempts"], observe))
     if outcome.get("business_status") == "Pass" and (original is None or any(interval is None for interval in following)):
         return False
     return original is None or all(interval is None or interval[0] >= original[1] for interval in following)
 
 
-def _postcondition_evidence(run: dict, case: dict, manifest: dict, outcome: dict, references: list[dict],
-                            outcomes: list[dict], seen: frozenset[str]) -> bool:
-    from . import runner
+class ReplayEvidence:
+    """Verify each receipt against the frozen inputs of exactly one replay or load run."""
 
-    declared = case.get("extensions", {}).get("postconditions")
-    targets = outcome.get("postcondition_results")
-    source = outcome.get("postcondition_source")
-    if not declared or not outcomes or not isinstance(source, dict) or not isinstance(targets, list):
-        return False
-    if any(not isinstance(target, dict) for target in targets) or [target.get("case_id") for target in targets] != declared:
-        return False
-    runner.validate_postconditions(manifest["cases"], selected=[case["id"]])
-    attempts = [{"ref": reference, "outcome": previous} for reference, previous in zip(references, outcomes)]
-    expected_source = runner.summarize_outcomes(case, attempts, outcomes[-1])
-    if content_hash(source) != content_hash(expected_source):
-        return False
-    if any(not result_evidence(run, target, manifest["cases"][target["case_id"]], _seen=seen) for target in targets):
-        return False
-    return (_postcondition_order(references, targets, outcome)
-            and content_hash(outcome) == content_hash(runner.postcondition_outcome(case, source, targets)))
+    def __init__(self, run: dict, *, observe_inputs=None, observe_receipt=None):
+        self.run = {key: run.get(key) for key in ("id", "project_id", "input_manifest", "input_hash", "case_ids")}
+        self.manifest = load(self.run, _observe=observe_inputs)
+        self._observe = observe_receipt
 
+    def _postcondition_evidence(self, case: dict, outcome: dict, references: list[dict],
+                                outcomes: list[dict], seen: frozenset[str]) -> bool:
+        from . import runner
 
-def _attempt_outcomes(run: dict, result: dict, manifest: dict, attempts: list[dict], seen: frozenset[str]) -> list[dict]:
-    frozen = manifest["cases"][result["case_id"]]
-    folder = (paths.local() / "runs" / run["id"]).resolve()
-    outcomes = []
-    for position, ref in enumerate(attempts):
-        file = data_refs.resolve(ref["path"])
-        if not file.resolve().is_relative_to(folder / "attempts"):
-            return []
-        receipt = json.loads(file.read_bytes())
-        if not isinstance(receipt, dict):
-            return []
-        if (content_hash(receipt) != ref["sha256"] or receipt["run_id"] != run["id"] or receipt["id"] != ref["id"]
-                or receipt["input_hash"] != run["input_hash"] or receipt["case_content_hash"] != result["case_content_hash"]
-                or receipt["case_id"] != result["case_id"] or receipt["state"] != "completed"
-                or receipt.get("case_scope_hash") != manifest["scope_hashes"][result["case_id"]]):
-            return []
-        outcome = receipt["outcome"]
-        if not isinstance(outcome, dict):
-            return []
-        if (ref.get("status") != outcome.get("status") or ref.get("business_status") != outcome.get("business_status")
-                or ref.get("kind") != receipt.get("kind")):
-            return []
-        if receipt.get("kind") == "postcondition":
-            if not _postcondition_evidence(run, frozen, manifest, outcome, attempts[:position], outcomes, seen):
+        declared = case.get("extensions", {}).get("postconditions")
+        targets = outcome.get("postcondition_results")
+        source = outcome.get("postcondition_source")
+        if not declared or not outcomes or not isinstance(source, dict) or not isinstance(targets, list):
+            return False
+        if any(not isinstance(target, dict) for target in targets) or [target.get("case_id") for target in targets] != declared:
+            return False
+        runner.validate_postconditions(self.manifest["cases"], selected=[case["id"]])
+        attempts = [{"ref": reference, "outcome": previous} for reference, previous in zip(references, outcomes)]
+        expected_source = runner.summarize_outcomes(case, attempts, outcomes[-1])
+        if content_hash(source) != content_hash(expected_source):
+            return False
+        if any(not self.result(target, _seen=seen) for target in targets):
+            return False
+        return (_postcondition_order(references, targets, outcome, self._observe)
+                and content_hash(outcome) == content_hash(runner.postcondition_outcome(case, source, targets)))
+
+    def _attempt_outcomes(self, result: dict, attempts: list[dict], seen: frozenset[str]) -> list[dict]:
+        run, manifest = self.run, self.manifest
+        frozen = manifest["cases"][result["case_id"]]
+        folder = paths.local() / "runs" / run["id"]
+        resolved_folder = folder.resolve()
+        outcomes = []
+        for position, ref in enumerate(attempts):
+            file = data_refs.resolve(ref["path"])
+            receipt = json.loads(_read_bytes(file, self._observe, within=resolved_folder / "attempts"))
+            if not isinstance(receipt, dict):
                 return []
-        elif "postcondition_source" in outcome or "postcondition_results" in outcome:
-            return []
-        outcomes.append(outcome)
-        for artifact in receipt.get("artifacts", []):
-            file = (folder / artifact["path"]).resolve()
-            if not file.is_relative_to(folder) or hashlib.sha256(file.read_bytes()).hexdigest() != artifact["sha256"]:
+            if (content_hash(receipt) != ref["sha256"] or receipt["run_id"] != run["id"] or receipt["id"] != ref["id"]
+                    or receipt["input_hash"] != run["input_hash"] or receipt["case_content_hash"] != result["case_content_hash"]
+                    or receipt["case_id"] != result["case_id"] or receipt["state"] != "completed"
+                    or receipt.get("case_scope_hash") != manifest["scope_hashes"][result["case_id"]]):
                 return []
-    return outcomes
+            outcome = receipt["outcome"]
+            if not isinstance(outcome, dict):
+                return []
+            if (ref.get("status") != outcome.get("status") or ref.get("business_status") != outcome.get("business_status")
+                    or ref.get("kind") != receipt.get("kind")):
+                return []
+            if receipt.get("kind") == "postcondition":
+                if not self._postcondition_evidence(frozen, outcome, attempts[:position], outcomes, seen):
+                    return []
+            elif "postcondition_source" in outcome or "postcondition_results" in outcome:
+                return []
+            outcomes.append(outcome)
+            for artifact in receipt.get("artifacts", []):
+                file = folder / artifact["path"]
+                if hashlib.sha256(_read_bytes(file, self._observe, within=resolved_folder)).hexdigest() != artifact["sha256"]:
+                    return []
+        return outcomes
+
+    def result(self, result: dict, case: dict | None = None, *, _seen: frozenset[str] = frozenset()) -> bool:
+        """Verify actual local attempt receipts, including candidate runs before their cases are published."""
+        run, manifest = self.run, self.manifest
+        try:
+            if result.get("run_id") != run["id"] or not result.get("input_hash") or result["input_hash"] != run["input_hash"]:
+                return False
+            frozen = manifest["cases"][result["case_id"]]
+            if result["case_id"] in _seen:
+                return False
+            seen = _seen | {result["case_id"]}
+            if result.get("case_content_hash") != content_hash(case or frozen) or content_hash(frozen) != result["case_content_hash"]:
+                return False
+            detail = json.loads(result["detail"]) if isinstance(result["detail"], str) else result["detail"]
+            if not isinstance(detail, dict):
+                return False
+            if detail.get("case_scope_hash") != manifest["scope_hashes"][result["case_id"]]:
+                return False
+            attempts = detail.get("attempts", [])
+            if not isinstance(attempts, list) or not attempts or any(not isinstance(ref, dict) for ref in attempts):
+                return False
+            outcomes = self._attempt_outcomes(result, attempts, seen)
+            if not outcomes:
+                return False
+            failed = next((outcome for outcome in outcomes if outcome.get("business_status") == "Fail"), None)
+            last = outcomes[-1]
+            selected = failed or last
+            expected_status = "Fail" if failed else last.get("status")
+            expected_business = "Fail" if failed else last.get("business_status", "Unverified")
+            return (result.get("status") == expected_status and detail.get("business_status") == expected_business
+                    and detail.get("business_verified") == (expected_business == "Pass")
+                    and detail.get("execution_status") == last.get("execution_status")
+                    and detail.get("target_started") == last.get("target_started")
+                    and detail.get("execution_only_pass") == last.get("execution_only_pass")
+                    and (last.get("target_started") is None or all(detail.get(key) == (last.get(key) or None)
+                         for key in ("steps", "request", "response")))
+                    and detail.get("performance_status") == last.get("performance_status")
+                    and detail.get("assertions", []) == selected.get("assertions", [])
+                    and detail.get("performance_assertions", []) == last.get("performance_assertions", [])
+                    and all(content_hash(detail.get(key)) == content_hash(last.get(key))
+                            for key in ("postcondition_source", "postcondition_results", "setup_cases")))
+        except (ValueError, KeyError, OSError, TypeError):
+            return False
 
 
-def result_evidence(run: dict, result: dict, case: dict | None = None, *, _seen: frozenset[str] = frozenset()) -> bool:
-    """Verify actual local attempt receipts, including candidate runs before their cases are published."""
+def result_evidence(run: dict, result: dict, case: dict | None = None, *, observe=None) -> bool:
+    """Verify one retained result and all of its evidence from disk."""
     try:
         if result.get("run_id") != run["id"] or not result.get("input_hash") or result["input_hash"] != run["input_hash"]:
             return False
-        manifest = load(run)
-        frozen = manifest["cases"][result["case_id"]]
-        if result["case_id"] in _seen:
-            return False
-        seen = _seen | {result["case_id"]}
-        if result.get("case_content_hash") != content_hash(case or frozen) or content_hash(frozen) != result["case_content_hash"]:
-            return False
-        detail = json.loads(result["detail"]) if isinstance(result["detail"], str) else result["detail"]
-        if not isinstance(detail, dict):
-            return False
-        if detail.get("case_scope_hash") != manifest["scope_hashes"][result["case_id"]]:
-            return False
-        attempts = detail.get("attempts", [])
-        if not isinstance(attempts, list) or not attempts or any(not isinstance(ref, dict) for ref in attempts):
-            return False
-        outcomes = _attempt_outcomes(run, result, manifest, attempts, seen)
-        if not outcomes:
-            return False
-        failed = next((outcome for outcome in outcomes if outcome.get("business_status") == "Fail"), None)
-        last = outcomes[-1]
-        selected = failed or last
-        expected_status = "Fail" if failed else last.get("status")
-        expected_business = "Fail" if failed else last.get("business_status", "Unverified")
-        return (result.get("status") == expected_status and detail.get("business_status") == expected_business
-                and detail.get("business_verified") == (expected_business == "Pass")
-                and detail.get("execution_status") == last.get("execution_status")
-                and detail.get("target_started") == last.get("target_started")
-                and detail.get("execution_only_pass") == last.get("execution_only_pass")
-                and (last.get("target_started") is None or all(detail.get(key) == (last.get(key) or None)
-                     for key in ("steps", "request", "response")))
-                and detail.get("performance_status") == last.get("performance_status")
-                and detail.get("assertions", []) == selected.get("assertions", [])
-                and detail.get("performance_assertions", []) == last.get("performance_assertions", [])
-                and all(content_hash(detail.get(key)) == content_hash(last.get(key))
-                        for key in ("postcondition_source", "postcondition_results", "setup_cases")))
+        return ReplayEvidence(run, observe_inputs=observe, observe_receipt=observe).result(result, case)
     except (ValueError, KeyError, OSError, TypeError):
         return False
 

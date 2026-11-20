@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, open, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { HostService } from '../plugin/host-service.mjs';
@@ -216,6 +216,71 @@ test('explicit source files retain bytes in the selected data directory and unre
   assert.equal(await readFile(output.spec.sources[0].file, 'utf8'), '保留原始事实\n第二行');
   assert.equal(output.spec.sources[0].uri, input);
   assert.equal(output.spec.custom.file, 'business data');
+});
+
+function rangedFilesystem() {
+  const fs = filesystem();
+  fs.readBytes = () => assert.fail('range-capable hosts must not buffer the whole file');
+  fs.readByteRange = async (path, { offset, length }) => {
+    assert.ok(length > 0 && length <= 1024 * 1024);
+    const file = await open(path, 'r');
+    try {
+      const bytes = Buffer.alloc(length);
+      const { bytesRead } = await file.read(bytes, 0, length, offset);
+      return bytes.subarray(0, bytesRead);
+    } finally { await file.close(); }
+  };
+  return fs;
+}
+
+test('bounded host reads verify and stage the exact bytes across window boundaries and at EOF', async (t) => {
+  const { workspace } = await fixture(t);
+  const fs = rangedFilesystem();
+  const input = join(workspace, '原始.xlsx');
+  const folder = join(workspace, 'inputs');
+  for (const size of [0, 2 * 1024 * 1024, 2 * 1024 * 1024 + 17]) {
+    const bytes = Buffer.alloc(size, 'ABCDEFG');
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    await writeFile(input, bytes);
+    const receipt = { status: 'ready', kind: 'design', task_id: 'A', initial_excel: input, delivery_excel: input + '.final', sha256 };
+    const read = await reportFiles(receipt, { fs, cwd: workspace }, { delivery: 'initial' });
+    assert.equal(read.status, 'verified');
+    assert.equal(read.presented, false);
+    const payload = { spec: { artifacts: [{ file: input, uri: 'artifact:original' }] } };
+    const staged = await prepareSources(payload, { fs, cwd: workspace, folder });
+    const [artifact] = staged.spec.artifacts;
+    assert.equal(artifact.uri, 'artifact:original');
+    assert.equal(artifact.file, join(folder, sha256, '原始.xlsx'));
+    assert.deepEqual(await readFile(artifact.file), bytes);
+    assert.equal(payload.spec.artifacts[0].file, input);
+  }
+});
+
+test('short reads, changed versions and cancellation leave no staged partial file', async (t) => {
+  const { workspace } = await fixture(t);
+  const input = join(workspace, 'source');
+  await writeFile(input, Buffer.alloc(2 * 1024 * 1024 + 17, 'abc'));
+  for (const failure of ['short', 'changed', 'aborted']) {
+    const fs = rangedFilesystem();
+    const controller = new AbortController();
+    const folder = join(workspace, failure);
+    const read = fs.readByteRange;
+    const statFile = fs.stat;
+    let version = 'v1';
+    fs.stat = async (...args) => ({ ...await statFile(...args), version });
+    fs.readByteRange = async (path, range, signal) => {
+      const bytes = await read(path, range, signal);
+      if (range.offset > 0) {
+        if (failure === 'short') return bytes.subarray(0, 1);
+        if (failure === 'aborted') controller.abort(new Error('cancelled transfer'));
+        if (failure === 'changed') version = 'v2';
+      }
+      return bytes;
+    };
+    await assert.rejects(prepareSources({ spec: { sources: [{ file: input }] } },
+      { fs, cwd: workspace, folder, signal: controller.signal }), failure === 'aborted' ? /cancelled transfer/ : /文件已变化/);
+    assert.deepEqual(await readdir(folder), []);
+  }
 });
 
 test('same-origin routes pass explicit session identity and expose no arbitrary URL proxy', async () => {

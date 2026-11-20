@@ -1,5 +1,6 @@
 """Publication ordering: never replace an existing asset before digest verification."""
 import importlib.util
+import io
 import json
 import os
 import tempfile
@@ -15,6 +16,29 @@ spec.loader.exec_module(publisher)
 
 
 class ReleasePublishingTests(unittest.TestCase):
+    def test_streamed_request_declares_length_and_closes_after_receiving_the_response(self):
+        with tempfile.TemporaryDirectory() as folder:
+            archive = Path(folder) / 'archive.zip'
+            size = 4 * 1024 * 1024 + 17
+            with archive.open('wb') as stream:
+                stream.truncate(size)
+            request_sizes = []
+
+            def local_response(request, timeout):
+                self.assertEqual(int(request.get_header('Content-length')), size)
+                self.assertEqual(request.get_header('Content-type'), 'application/zip')
+                self.assertIs(request.data, stream)
+                while chunk := request.data.read(65536):
+                    request_sizes.append(len(chunk))
+                return io.BytesIO(b'{"id": 7}')
+
+            with (archive.open('rb') as stream, patch.dict(os.environ, {'GH_TOKEN': 'fixture', 'RELEASE_REPOSITORY': 'fixture/repo'}),
+                  patch('urllib.request.urlopen', local_response)):
+                self.assertEqual(publisher.api('POST', 'https://uploads.invalid/fixture', binary=stream), {'id': 7})
+            self.assertTrue(stream.closed)
+            self.assertGreater(len(request_sizes), 1)
+            self.assertEqual(sum(request_sizes), size)
+
     def test_bad_digest_keeps_old_asset_and_release_unpublished(self):
         with tempfile.TemporaryDirectory() as folder:
             base = Path(folder)

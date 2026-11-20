@@ -335,7 +335,7 @@ class BusinessRecordingTests(unittest.TestCase):
                         ambiguous = subprocess.run([sys.executable, '-I', str(file)], cwd=folder, env=environment,
                                                    capture_output=True, text=True, timeout=45, check=False)
                         self.assertNotEqual(ambiguous.returncode, 0, ambiguous.stdout + ambiguous.stderr)
-                        self.assertIn('XPath 结果必须是当前上下文内的元素', ambiguous.stdout + ambiguous.stderr)
+                        self.assertIn('业务目标不唯一：', ambiguous.stdout + ambiguous.stderr)
                         self.assertEqual(site.hits[before:], [])
                         site.rows = retained
                 finally:

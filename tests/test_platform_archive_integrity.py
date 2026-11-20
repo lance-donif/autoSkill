@@ -2,10 +2,13 @@
 import hashlib
 import importlib.util
 import json
+import struct
 import tempfile
 import unittest
 import zipfile
+from collections import Counter
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("archive_publisher", ROOT / "scripts/publish-release.py")
@@ -37,10 +40,37 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
 
     def test_complete_inventory_is_verified_before_release(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = self.archive(folder)
-            result = publisher.describe_archive(path, "2.2.0")
+            path = self.archive(folder, additional={"vendor/large.bin": b"Z" * (3 * 1024 * 1024)})
+            with zipfile.ZipFile(path, "a") as bundle:
+                bundle.writestr("optional/", b"")
+                members = bundle.namelist()
+            reads = Counter()
+            open_member = zipfile.ZipFile.open
+
+            def tracked(bundle, member, *args, **kwargs):
+                reads[member.filename if isinstance(member, zipfile.ZipInfo) else member] += 1
+                return open_member(bundle, member, *args, **kwargs)
+
+            with patch.object(zipfile.ZipFile, "open", tracked):
+                result = publisher.describe_archive(path, "2.2.0")
+            self.assertEqual(reads, Counter(members))
             self.assertEqual(result["bytes"], path.stat().st_size)
             self.assertEqual(result["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
+
+    def test_invalid_crc_in_a_regular_file_or_directory_is_rejected(self):
+        for name in ("plugin/index.mjs", "optional/", "package-manifest.json"):
+            with self.subTest(member=name), tempfile.TemporaryDirectory() as folder:
+                path = self.archive(folder)
+                with zipfile.ZipFile(path, "a") as bundle:
+                    bundle.writestr("optional/", b"directory payload")
+                    offset = bundle.getinfo(name).header_offset
+                with path.open("r+b") as stream:
+                    stream.seek(offset + 26)
+                    name_size, extra_size = struct.unpack("<HH", stream.read(4))
+                    stream.seek(offset + 30 + name_size + extra_size)
+                    stream.write(b"!")
+                with self.assertRaisesRegex(ValueError, "ZIP CRC failure"):
+                    publisher.describe_archive(path, "2.2.0")
 
     def test_modified_program_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder, self.assertRaisesRegex(ValueError, "digest mismatch"):

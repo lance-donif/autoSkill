@@ -11,7 +11,7 @@ import threading
 from collections import Counter
 from contextlib import contextmanager
 from contextvars import ContextVar
-from functools import wraps
+from functools import partial, wraps
 from pathlib import Path
 
 from . import data_refs, db, execution_inputs, paging, paths
@@ -76,6 +76,16 @@ def _stamp(file: Path) -> tuple:
         return str(file), stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino
     except OSError:
         return str(file), None
+
+
+def observe_stamp(stamps: dict, file: Path) -> None:
+    """Record metadata before reading, including attempts to read a missing file."""
+    if file not in stamps:
+        stamps[file] = _stamp(file)
+
+
+def stamps_unchanged(stamps) -> bool:
+    return all(_stamp(Path(stamp[0])) == stamp for stamp in stamps)
 
 
 def watch_json(file: Path) -> dict:
@@ -219,51 +229,61 @@ def report(report_id: str, *, run_row: dict | None = None) -> dict:
         return {"report_id": report_id, "status": "failed", "retryable": True, "error": "报告文件或收据无法核验"}
 
 
-def _evidence(run_row: dict, row: dict, detail: dict) -> bool:
-    files = set()
-    try:
-        files.add(_resolve(run_row["input_manifest"]))
-        manifest = watch_json(_resolve(run_row["input_manifest"]))
-        documents = [manifest]
-        if run_row.get("family") == "native":
-            from . import native_run, task_report_data
+def _save_check(key: str, signature: tuple, valid: bool) -> None:
+    with _lock:
+        if len(_checks) >= 4096:
+            _checks.clear()
+        _checks[key] = (signature, valid)
 
-            manifest = native_run._frozen(run_row, manifest=manifest)
-            folder = _local() / "runs" / run_row["id"] / "native"
-            outcome = watch_json(folder / "outcome.json")
-            documents.append(outcome)
-            files.add(folder / "outcome.json")
-            files.update(_local() / "native-inputs" / "objects" / ref["sha256"] for ref in manifest.get("frozen_files", []))
-            files.update(_resolve(ref["path"]) if data_refs.is_absolute(ref["path"]) else folder / ref["path"] for ref in outcome.get("evidence", []))
-            def verify():
-                return task_report_data._native_evidence(run_row, manifest, outcome, [{**row, "detail": detail}])
-        else:
-            files.update(_local() / "execution-inputs" / "objects" / ref["sha256"] for ref in manifest.get("sources", {}).get("files", {}).values())
-            for attempt in detail.get("attempts", []):
-                receipt_path = _resolve(attempt["path"])
-                files.add(receipt_path)
-                receipt = watch_json(receipt_path)
-                documents.append(receipt)
-                files.update(_local() / "runs" / run_row["id"] / artifact["path"] for artifact in receipt.get("artifacts", []))
-            def verify():
-                return execution_inputs.result_evidence(run_row, {**row, "detail": detail})
+
+def _replay_evidence(run: dict, row: dict, detail: dict) -> bool:
+    result = {**row, "detail": detail}
+    scope = [run.get(field) for field in ("id", "project_id", "input_manifest", "input_hash", "case_ids")]
+    key = paging.revision([str(_root()), scope, result])
+    with _lock:
+        cached = _checks.get(key)
+    if cached and stamps_unchanged(cached[0]):
+        return cached[1]
+    # Relocated historical references can change their destination through this file.
+    mapping = _root() / "data-root.json"
+    stamps = {mapping: _stamp(mapping)}
+    valid = execution_inputs.result_evidence(run, result, observe=partial(observe_stamp, stamps))
+    for file in stamps:
+        _watch(file)
+    signature = tuple(stamps.values())
+    if not stamps_unchanged(signature):
+        return False
+    if valid:
+        _save_check(key, signature, valid)
+    return valid
+
+
+def _evidence(run_row: dict, row: dict, detail: dict) -> bool:
+    try:
+        if run_row.get("family") != "native":
+            return _replay_evidence(run_row, row, detail)
+        from . import native_run, task_report_data
+
+        file = _resolve(run_row["input_manifest"])
+        manifest = native_run._frozen(run_row, manifest=watch_json(file))
+        folder = _local() / "runs" / run_row["id"] / "native"
+        outcome = watch_json(folder / "outcome.json")
+        files = {file, folder / "outcome.json"}
+        files.update(_local() / "native-inputs" / "objects" / ref["sha256"] for ref in manifest.get("frozen_files", []))
+        files.update(_resolve(ref["path"]) if data_refs.is_absolute(ref["path"]) else folder / ref["path"] for ref in outcome.get("evidence", []))
         for file in files:
             _watch(file)
         signature = tuple(sorted(_stamp(file) for file in files))
         # Bind cached proof to the contents actually read, even if a writer
         # replaces an artifact before its metadata signature is sampled.
-        key = paging.revision([str(_root()), run_row.get("input_hash"), row, documents])
+        key = paging.revision([str(_root()), run_row.get("input_hash"), row, [manifest, outcome]])
         with _lock:
             cached = _checks.get(key)
         if cached and cached[0] == signature:
             return cached[1]
-        valid = bool(verify())
-        if signature != tuple(sorted(_stamp(file) for file in files)):
-            return valid
-        with _lock:
-            if len(_checks) >= 4096:
-                _checks.clear()
-            _checks[key] = (signature, valid)
+        valid = task_report_data._native_evidence(run_row, manifest, outcome, [{**row, "detail": detail}])
+        if signature == tuple(sorted(_stamp(file) for file in files)):
+            _save_check(key, signature, valid)
         return valid
     except (OSError, KeyError, ValueError, TypeError):
         return False

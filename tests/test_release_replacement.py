@@ -44,8 +44,9 @@ class ReleaseAPI:
         if method == "POST":
             asset_id = max(self.assets, default=19) + 1
             name = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)["name"][0]
-            self.assets[asset_id] = {"id": asset_id, "name": name, "size": len(binary),
-                                     "digest": "sha256:" + hashlib.sha256(binary).hexdigest()}
+            payload = binary.read()
+            self.assets[asset_id] = {"id": asset_id, "name": name, "size": len(payload),
+                                     "digest": "sha256:" + hashlib.sha256(payload).hexdigest()}
             return dict(self.assets[asset_id])
         if path == "/releases/1":
             self.release.update(body)
@@ -161,7 +162,7 @@ class ReleaseReplacementTests(unittest.TestCase):
     def test_legacy_publisher_uses_the_same_rollback(self):
         remote = ReleaseAPI(self.files[:1])
         name = self.files[0][0].name
-        staged = remote("POST", "https://uploads.example.invalid/release?name=staged.zip", binary=b"new")
+        staged = remote("POST", "https://uploads.example.invalid/release?name=staged.zip", binary=io.BytesIO(b"new"))
         remote.fail = lambda method, path, body: method == "PATCH" and path == f"/releases/assets/{staged['id']}" and body["name"] == name
         with patch.object(publisher.legacy, "api", remote), self.assertRaises(OSError):
             publisher.legacy.replace_assets(dict(remote.release), list(remote.old.values()), [(staged, {"file": name})], {"body": "new notes"})

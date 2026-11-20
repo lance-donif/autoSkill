@@ -5,6 +5,7 @@ import contextlib
 import copy
 import hashlib
 import json
+from functools import partial
 from pathlib import Path, PurePosixPath
 
 from . import data_refs, db, execution_inputs, paths, task_state
@@ -116,33 +117,44 @@ def _project(project_id: str) -> dict:
 
 
 def _replay(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
-    notes = []
+    notes, stamps = [], {}
     try:
-        manifest = execution_inputs.load(run)
+        evidence = execution_inputs.ReplayEvidence(run, observe_inputs=partial(task_state.observe_stamp, stamps))
+        manifest = evidence.manifest
     except (OSError, ValueError):
+        evidence = None
         manifest = {"selected": _json(run.get("case_ids"), []), "cases": {}, "sources": {}}
         notes.append("冻结输入或来源证据不可用；只列本次选择与保留结果，不用当前项目定义替代历史输入。")
-    selected = manifest["selected"]
-    by_case = {row["case_id"]: row for row in results if not row["prerequisite"]}
-    cases = []
-    for identity in selected:
-        result = by_case.get(identity)
-        definition = manifest["cases"].get(identity, {"id": identity, "title": result["case_title"] if result else identity})
-        valid = bool(result) and execution_inputs.result_evidence(run, result)
-        cases.append({"definition": definition, "result": result, "run_id": run["id"], "evidence_valid": valid,
-                      "note": "任务结束时没有此用例的实际结果；" + (run.get("reason") or run["status"]) if not result else ""})
     sources = {**manifest.get("sources", {}), "execution_environment": {
         "base_url": manifest.get("config", {}).get("base_url"), "engine": manifest.get("engine", {}).get("adapter"),
         "python": manifest.get("engine", {}).get("python")}}
+    if evidence and run.get("family") == "load":
+        cases = _load(run, results, evidence)
+        sources["load"] = manifest["load"]
+        notes.append("压测逐次保留全部目标执行，较早失败不会被后续成功覆盖；前置用例不计为压测目标。")
+    else:
+        by_case = {row["case_id"]: row for row in results if not row["prerequisite"]}
+        cases = []
+        for identity in manifest["selected"]:
+            result = by_case.get(identity)
+            definition = manifest["cases"].get(identity, {"id": identity, "title": result["case_title"] if result else identity})
+            cases.append({"definition": definition, "result": result, "run_id": run["id"], "evidence_valid": bool(evidence and result and evidence.result(result)),
+                          "note": "任务结束时没有此用例的实际结果；" + (run.get("reason") or run["status"]) if not result else ""})
+    for row in results:
+        if row.get("prerequisite"):
+            row["evidence_valid"] = bool(evidence and evidence.result(row))
+    if evidence and not task_state.stamps_unchanged(stamps.values()):
+        notes.append("采集报告期间冻结输入或来源证据发生变化，本次无法确认执行证据。")
+        for item in cases:
+            item["evidence_valid"] = False
+        for row in results:
+            if row.get("prerequisite"):
+                row["evidence_valid"] = False
     return cases, sources, notes
 
 
-def _load(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
-    cases, sources, notes = _replay(run, results)
-    try:
-        manifest = execution_inputs.load(run)
-    except (OSError, ValueError):
-        return cases, sources, notes
+def _load(run: dict, results: list[dict], evidence: execution_inputs.ReplayEvidence) -> list[dict]:
+    manifest = evidence.manifest
     cases = []
     observed = {}
     for row in results:
@@ -156,11 +168,9 @@ def _load(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
     for identity, iteration in entries:
         result = observed.get((identity, iteration))
         cases.append({"definition": manifest["cases"][identity], "result": result, "run_id": run["id"],
-                      "evidence_valid": bool(result) and execution_inputs.result_evidence(run, result),
+                      "evidence_valid": bool(result and evidence.result(result)),
                       "note": f"压测第 {iteration} 次迭代没有此用例的实际结果；" + run["status"] if not result else ""})
-    sources["load"] = manifest["load"]
-    notes.append("压测逐次保留全部目标执行，较早失败不会被后续成功覆盖；前置用例不计为压测目标。")
-    return cases, sources, notes
+    return cases
 
 
 def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]]:
@@ -179,6 +189,9 @@ def _native(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
     outcome = json.loads(outcome_file.read_bytes()) if outcome_file.is_file() else {}
     files_valid = _native_files_evidence(run, manifest, outcome)
     validity = {row["id"]: files_valid and _native_row_evidence(run, outcome, row) for row in results}
+    for row in results:
+        if row.get("prerequisite"):
+            row["evidence_valid"] = execution_inputs.result_evidence(run, row)
     if not files_valid or not all(validity.values()):
         notes.append("原生输入或引用证据未通过完整性检查；执行器保留结果仍展示，不能据此宣称业务已验证。")
     designed = _ai_definitions(manifest) if run["engine"] == "ai-eval" and manifest else {}
@@ -281,16 +294,13 @@ def _ai_definitions(manifest: dict) -> dict:
 
 def run_snapshot(run: dict) -> dict:
     results = _rows(run["id"])
-    capture = {"native": _native, "load": _load}.get(run.get("family"), _replay)
+    capture = _native if run.get("family") == "native" else _replay
     cases, sources, notes = capture(run, results)
     labels = {"base_url": "被测地址", "engine": "任务引擎", "python": "Python", "runtime_version": "运行时版本"}
     environment = [labels[key] + "：" + str(value) for key, value in sources.get("execution_environment", {}).items() if value]
     for item in cases:
         item["environment"] = environment
         item["evidence_directory"] = data_refs.store(paths.local() / "runs" / run["id"])
-    for row in results:
-        if row.get("prerequisite"):
-            row["evidence_valid"] = execution_inputs.result_evidence(run, row)
     metadata = {key: run.get(key) for key in ("id", "family", "engine", "trigger", "task_id", "created_at", "started_at",
                                            "finished_at", "reason", "total", "done", "input_hash", "input_manifest")}
     if metadata.get("input_manifest"):

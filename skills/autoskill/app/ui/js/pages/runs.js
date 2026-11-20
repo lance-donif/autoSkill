@@ -474,10 +474,7 @@ function resultRow(run, row, offline, focus) {
   const key = resultKey(row);
   const selected = focus === (focus?.startsWith('result:') ? 'result:' + key : row.case_id);
   const open = offline || (rowVisibility.get(key) ?? (focus ? selected : !row.prerequisite && row.state?.outcome !== 'pass'));
-  const head = h('button', { class: 'result-head', 'aria-expanded': String(open), onClick: () => {
-    rowVisibility.set(key, !open);
-    refresh();
-  } },
+  const head = h('button', { class: 'result-head', 'aria-expanded': String(open) },
   icon('right', 'icon-svg caret'),
   h('span', { class: 'grow' }, h('span', { class: 'title' }, row.case_title),
     h('span', { class: 'sub' }, `　${row.case_id}`),
@@ -487,7 +484,15 @@ function resultRow(run, row, offline, focus) {
     row.detail.fallbacks ? h('span', { class: 'tag', style: 'margin-left:6px', title: '首选定位没有匹配，用了备选定位' }, '定位已降级') : null,
     stateResults(row)),
   kindTag(row.kind), h('span', { class: 'sub num', style: 'min-width:72px;text-align:right' }, fmtDuration(row.duration_ms)));
-  return h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id, result: key } }, head, open && resultBody(run, row, offline));
+  const result = h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id, result: key } }, head, open && resultBody(run, row, offline));
+  if (!offline) head.addEventListener('click', () => {
+    const expanded = result.classList.toggle('open');
+    head.setAttribute('aria-expanded', String(expanded));
+    rowVisibility.set(key, expanded);
+    if (expanded) result.append(resultBody(run, row));
+    else result.querySelector('.result-body').remove();
+  });
+  return result;
 }
 
 function resultBody(run, row, offline = false) {

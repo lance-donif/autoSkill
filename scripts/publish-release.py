@@ -22,8 +22,8 @@ TARGETS = {
 }
 
 
-def verify_inventory(bundle: zipfile.ZipFile, version: str) -> None:
-    """Require the complete program inventory before an archive becomes a public release."""
+def verify_inventory(bundle: zipfile.ZipFile, version: str, metadata: dict[str, bytes]) -> dict[str, str]:
+    """Reading each member to EOF checks its ZIP CRC as well as the manifest digest."""
     manifest = json.loads(bundle.read("package-manifest.json"))
     files = {item.filename for item in bundle.infolist() if not item.is_dir()}
     expected = manifest.get("files", {})
@@ -31,11 +31,18 @@ def verify_inventory(bundle: zipfile.ZipFile, version: str) -> None:
         raise ValueError("Invalid program package manifest")
     if files - {"package-manifest.json"} != set(expected):
         raise ValueError("Incomplete program package inventory")
-    for name, digest in expected.items():
-        with bundle.open(name) as source:
-            actual = hashlib.file_digest(source, "sha256").hexdigest()
-        if actual != digest:
+    for member in bundle.infolist():
+        name = member.filename
+        if name == "package-manifest.json":
+            continue
+        if name in metadata:
+            actual = hashlib.sha256(metadata[name]).hexdigest()
+        else:
+            with bundle.open(member) as source:
+                actual = hashlib.file_digest(source, "sha256").hexdigest()
+        if not member.is_dir() and actual != expected[name]:
             raise ValueError("Program package digest mismatch: " + name)
+    return expected
 
 
 def _excluded_member(name: str) -> bool:
@@ -58,32 +65,35 @@ def describe_archive(archive: Path, version: str) -> dict:
         names = bundle.namelist()
         if len(names) != len(set(names)) or not required.issubset(names) or any(_excluded_member(name) for name in names):
             raise ValueError("Incorrect package layout or excluded files included: " + archive.name)
-        if bundle.testzip() is not None:
-            raise ValueError("ZIP CRC failure: " + archive.name)
-        manifest = json.loads(bundle.read("autoskill/offline-manifest.json"))
-        if manifest.get("autoskill") != version or json.loads(bundle.read("package.json")).get("version") != version:
+        try:
+            metadata = {name: bundle.read(name) for name in ("package.json", "autoskill/offline-manifest.json")}
+            verified = verify_inventory(bundle, version, metadata)
+        except zipfile.BadZipFile as error:
+            raise ValueError("ZIP CRC failure: " + archive.name) from error
+        manifest = json.loads(metadata["autoskill/offline-manifest.json"])
+        if manifest.get("autoskill") != version or json.loads(metadata["package.json"]).get("version") != version:
             raise ValueError("Archive version mismatch: " + archive.name)
         if target.startswith("linux") and manifest.get("target") != target:
             raise ValueError("Archive architecture mismatch: " + archive.name)
-        verify_inventory(bundle, version)
-        ui_files = verify_ui_source(bundle)
+        ui_files = verify_ui_source(verified)
     with archive.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
     return {**manifest, "target": target, "file": archive.name, "bytes": archive.stat().st_size, "sha256": digest, "ui_files": ui_files,
             "verification": {"mode": "archive-only", "functional_tests_run": False, "zip_crc_ok": True, "ui_source_verified": True}}
 
 
-def verify_ui_source(bundle: zipfile.ZipFile) -> dict:
+def verify_ui_source(verified: dict[str, str]) -> dict:
     """Check every shipped UI byte against the tag checkout, including the Apple-style dashboard."""
     source = ROOT / "skills/autoskill/app/ui"
     files = {"autoskill/app/ui/" + file.relative_to(source).as_posix(): file for file in source.rglob("*") if file.is_file()}
-    actual = {name for name in bundle.namelist() if name.startswith("autoskill/app/ui/") and not name.endswith("/")}
+    actual = {name for name in verified if name.startswith("autoskill/app/ui/")}
     if actual != set(files):
         raise ValueError("UI file inventory differs from the release source")
     digests = {}
     for name, file in files.items():
-        digest = hashlib.sha256(file.read_bytes()).hexdigest()
-        if hashlib.sha256(bundle.read(name)).hexdigest() != digest:
+        with file.open("rb") as source:
+            digest = hashlib.file_digest(source, "sha256").hexdigest()
+        if verified[name] != digest:
             raise ValueError("UI source digest mismatch: " + name)
         digests[name] = digest
     return digests
@@ -105,7 +115,8 @@ def publish(files: list[tuple[Path, dict]], notes: str, tag: str, commit: str) -
         for asset in old:
             if asset["name"] == temporary:
                 api("DELETE", f"/releases/assets/{asset['id']}")
-        item = api("POST", release["upload_url"].split("{")[0] + "?name=" + urllib.parse.quote(temporary), binary=path.read_bytes())
+        with path.open("rb") as stream:
+            item = api("POST", release["upload_url"].split("{")[0] + "?name=" + urllib.parse.quote(temporary), binary=stream)
         item["name"] = temporary
         checked = api("GET", f"/releases/assets/{item['id']}")
         if checked["size"] != local["bytes"] or checked.get("digest") != "sha256:" + local["sha256"]:

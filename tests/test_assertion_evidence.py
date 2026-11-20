@@ -101,10 +101,13 @@ class AssertionEvidenceTests(unittest.TestCase):
         self.assertEqual([(a['expected'], a['actual']) for a in result['assertions']], [('high', 'medium')])
         self.assertEqual(result['business_status'], 'Fail')
 
-    def test_action_only_execution_is_compatible_but_unverified(self):
+    def test_action_only_execution_passes_with_a_completed_navigation_record(self):
         case = builder.ui_case('TC-UI-001', '打开页面', {'start_url': '/', 'actions': []})
-        result = ui.run_case(Probe(), case, self.config, Path(self.tmp.name), 'open.png')
-        self.assertEqual((result['status'], result['verification'], result['business_status']), ('Pass', 'unverified', 'Unverified'))
+        probe = Probe()
+        result = ui.run_case(probe, case, self.config, Path(self.tmp.name), 'open.png')
+        self.assertEqual(probe.url(), 'https://example.test/')
+        self.assertEqual([(step['index'], step['status']) for step in result['steps']], [(0, 'done')])
+        self.assertEqual((result['status'], result['verification'], result['business_status']), ('Pass', 'verified', 'Pass'))
         self.assertEqual(result['assertions'], [])
 
     def test_wait_longer_than_five_seconds_and_dynamic_zero_count(self):
