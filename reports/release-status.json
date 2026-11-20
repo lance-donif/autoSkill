@@ -1,9 +1,46 @@
 {
   "tag": "v2.5.3",
   "source_commit": "e6483c77b9791f7c2efabc0d6a64297b2ecc6684",
-  "status": "running",
-  "stage": "publishing",
+  "status": "published",
   "run_id": "44771861453",
+  "recorded_at": "2026-11-20T16:24:15.646304+00:00",
   "run_url": "https://github.com/lance-donif/autoSkill/actions/runs/44771861453",
-  "recorded_at": "2026-11-20T16:22:50.651860+00:00"
+  "bytes": 342206468,
+  "sha256": "4847c0938bccc432320677b2ec0d4f9d246a975875f9ca1003184af97fb0139c",
+  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.5.3",
+  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.3/autoSkill-Windows-x64-Offline.zip",
+  "asset_id": 772500692,
+  "verification": {
+    "mode": "archive-only",
+    "functional_tests_run": false,
+    "zip_crc_ok": true,
+    "uploaded_digest_verified": true
+  },
+  "packages": [
+    {
+      "target": "windows-x64",
+      "file": "autoSkill-Windows-x64-Offline.zip",
+      "bytes": 342206468,
+      "sha256": "4847c0938bccc432320677b2ec0d4f9d246a975875f9ca1003184af97fb0139c",
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.3/autoSkill-Windows-x64-Offline.zip",
+      "asset_id": 772500692
+    },
+    {
+      "target": "linux-x64",
+      "file": "autoSkill-Linux-x64-Offline.zip",
+      "bytes": 420973736,
+      "sha256": "d14f8336a5f417ca1f837dd20f85297629fa19a612a2260fea187caace4da010",
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.3/autoSkill-Linux-x64-Offline.zip",
+      "asset_id": 772501388
+    },
+    {
+      "target": "linux-arm64",
+      "file": "autoSkill-Linux-arm64-Offline.zip",
+      "bytes": 394800744,
+      "sha256": "2a0fa3194893284d90ac599b9cc4be0d8d2bfcbac172a22b4094fa1c42022998",
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.3/autoSkill-Linux-arm64-Offline.zip",
+      "asset_id": 772502192
+    }
+  ],
+  "package_count": 3
 }
