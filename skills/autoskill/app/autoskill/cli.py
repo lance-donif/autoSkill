@@ -9,11 +9,27 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import command_input, context_service, db, demo, paths, projects, runner, secrets, sessions, task_context, task_state
+from . import command_input, db, demo, paths, projects, secrets, sessions, task_context
 from .locking import session_lock
 from .replay import ir
 
 STATUS_TEXT = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消"}
+
+
+# These modules were available as CLI attributes before dispatch became lazy.
+_LEGACY_MODULES = ("context_service", "runner", "task_state")
+
+
+def __getattr__(name: str):
+    if name in _LEGACY_MODULES:
+        from importlib import import_module
+
+        return import_module("." + name, __package__)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()).union(_LEGACY_MODULES))
 
 
 class CommandParser(argparse.ArgumentParser):
@@ -74,6 +90,8 @@ def context(project_id: str) -> dict:
 
 
 def run_summary(run: dict, *, brief: bool = False) -> dict:
+    from . import task_state
+
     rows = None if brief else db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
     totals = task_state.run_values(run, results=rows)
     summary = {
@@ -336,7 +354,7 @@ def _delete_commands(sub) -> None:
     runs.add_argument("run_ids", nargs="+")
 
 
-def parser() -> argparse.ArgumentParser:
+def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     top = CommandParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
     top.add_argument("--session", help="AI 测试会话标识；同一任务每条命令使用同一个值，也可设 AUTOSKILL_SESSION")
     top.add_argument("--runtime-context", help="插件提供的工作区与服务绑定；沿用注册 Skill 中的前缀")
@@ -416,7 +434,11 @@ def parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run", help="回放用例；前置用例（如登录）自动先执行")
     run.add_argument("project")
     run.add_argument("--case", action="append", dest="cases", help="用例编号，可重复；省略则回放全部")
-    run.add_argument("--engine", choices=runner.ENGINES, default="playwright")
+    engine = run.add_argument("--engine", default="playwright")
+    if include_run_engines:
+        from .runner import ENGINES
+
+        engine.choices = ENGINES
     run.add_argument("--kind", choices=("ui", "api"), help="只回放某一类")
     run.add_argument("--candidate", help="验证 record stop 或工作流返回的候选任务标识，通过后发布可复用用例")
     run.add_argument("--api-only", action="store_true", help="独立 HTTP 冷启动；不借用浏览器或已保存登录")
@@ -480,6 +502,7 @@ def parser() -> argparse.ArgumentParser:
 def export_postman(project_id: str, out: str | None) -> dict:
     from pathlib import Path
 
+    from . import runner
     from .replay import postman
 
     cases = {c["id"]: c for c in projects.cases(project_id)}
@@ -610,11 +633,15 @@ def _dispatch_project(args) -> tuple[dict, int]:
 
 def _dispatch_context(args) -> tuple[dict, int]:
     """Keep the legacy Python API while making command responses explicitly paginated."""
+    from . import context_service
+
     return context_service.context(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items,
                                    knowledge_limit=args.knowledge_limit, knowledge_cursor=args.knowledge_cursor), 0
 
 
 def _dispatch_cases(args) -> tuple[dict, int]:
+    from . import context_service
+
     if args.case_id:
         return context_service.case(args.project, args.case_id), 0
     return context_service.cases(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items,
@@ -630,7 +657,7 @@ def _dispatch_delete(args) -> tuple[dict, int]:
 
 
 def _dispatch_knowledge(args) -> tuple[dict, int]:
-    from . import knowledge_entries, knowledge_transfer
+    from . import context_service, knowledge_entries, knowledge_transfer
 
     if args.action == "read":
         return context_service.read_knowledge(args.project, args.file, offset=args.offset, length=args.length,
@@ -967,6 +994,8 @@ def _dispatch_dashboard(args) -> tuple[dict, int]:
 
 def _dispatch_execution(args) -> tuple[dict, int]:
     """Handle the execution command without changing its result contract."""
+    from . import runner
+
     command = args.command
     if command == "run" and args.candidate:
         return _dispatch_candidate_run(args)
@@ -997,7 +1026,7 @@ def _dispatch_execution(args) -> tuple[dict, int]:
 
 
 def _dispatch_candidate_run(args) -> tuple[dict, int]:
-    from . import candidate_publication
+    from . import candidate_publication, runner
 
     task = candidate_publication.read(args.candidate)
     if task["project_id"] != args.project:
@@ -1020,7 +1049,7 @@ def _dispatch_candidate_run(args) -> tuple[dict, int]:
 
 
 def _dispatch_run_status(args) -> tuple[dict, int]:
-    from . import task_reports
+    from . import runner, task_reports
 
     run = db.one("SELECT * FROM runs WHERE id = ?", (args.run_id,))
     if not run:
@@ -1135,7 +1164,8 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
     argv = list(sys.argv[1:] if argv is None else argv)
     try:
-        args = parser().parse_args(argv)
+        # Only the run subparser reads engine choices. Direct parser() callers get the full parser.
+        args = parser(include_run_engines="run" in argv).parse_args(argv)
         undo_msys(args)
         command_input.runtime_context(args.runtime_context or os.environ.get("AUTOSKILL_RUNTIME_CONTEXT"))
         if args.host_session is not None:
@@ -1196,6 +1226,9 @@ def _main(args, argv: list[str]) -> int:
             message = f"autoSkill 内部错误：{type(error).__name__}: {error}（详细信息在标准错误输出里）"
         return emit({"error": message[:600]}, 2)
     return emit(result, code)
+
+
+__all__ = tuple(name for name in __dir__() if not name.startswith("_"))
 
 
 if __name__ == "__main__":
