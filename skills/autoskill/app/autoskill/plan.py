@@ -121,13 +121,17 @@ def _file() -> Path:
     return found[0] if found else folder / "cases.xlsx"
 
 
+def _missing_sheet() -> ValueError:
+    return ValueError(f"还没有用例表；先用 autoskill plan write <项目> --file <用例.json> 生成，或把用例 Excel 放到 {_folder()}")
+
+
 def _open():
     """(workbook, sheet, {field: column number}); missing result columns are added so any sheet can take verdicts."""
     from openpyxl import load_workbook
 
     file = _file()
     if not file.is_file():
-        raise ValueError(f"还没有用例表；先用 autoskill plan write <项目> --file <用例.json> 生成，或把用例 Excel 放到 {_folder()}")
+        raise _missing_sheet()
     book = load_workbook(file)
     sheet = book.worksheets[0]
     labels = {label: key for key, label, _ in COLUMNS}
@@ -328,8 +332,14 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
             "next": _delivery_next(published["test_report"]) if delivery else "可在在线设计用例表下载正式 14 列 Excel。"}
 
 
-@_sheet_locked
 def show() -> dict:
+    if not _folder().is_dir():
+        raise _missing_sheet()
+    return _read_sheet()
+
+
+@_sheet_locked
+def _read_sheet() -> dict:
     from . import plan_execution
 
     book, sheet, columns = _open()

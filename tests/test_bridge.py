@@ -28,6 +28,17 @@ def free_port() -> int:
         return probe.getsockname()[1]
 
 
+def completed_recording_run(read_status, run_id):
+    deadline = time.monotonic() + 90
+    while True:
+        run = read_status(run_id)
+        if run["status"] not in ("Queued", "Running") and run["publication"]["complete"]:
+            return run
+        if time.monotonic() >= deadline:
+            raise AssertionError(f"Recording validation has not settled: {run}")
+        time.sleep(.2)
+
+
 class Sandbox(unittest.TestCase):
     """Use an explicit bridge request without pretending a fake home is an OS sandbox."""
 

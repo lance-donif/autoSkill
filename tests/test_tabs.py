@@ -13,7 +13,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'skills/autoskill/app'))
 __import__("os").environ.setdefault("AUTOSKILL_HEADED", "0")  # tests never open browser windows
-from test_bridge import Sandbox
+from test_bridge import Sandbox, completed_recording_run
 
 from autoskill import conversation_capture, paths, projects
 from autoskill.recorder import session
@@ -237,17 +237,27 @@ class TabBridgeTests(Sandbox):
     def test_sandboxed_cli_records_switches_and_replays_through_service(self):
         # Sandbox.setUp reserves self.server for the autoSkill service process.
         self.start_service()
+        def command(*args):
+            code, out, err = self.cli(*args)
+            self.assertEqual(code, 0, str(args) + out + err)
+            return json.loads(out)
+
         commands = [
             ['project', 'create', '--name', 'Bridge tabs', '--url', self.base, '--id', 'bridge-tabs'],
             ['record', 'start', 'bridge-tabs'], ['browser', 'click', '#blank'],
             ['check', 'contains', 'h1', 'Child page'], ['browser', 'tab', 't1'],
             ['check', 'contains', 'h1', 'Parent page'], ['browser', 'tab', 't2'],
             ['browser', 'tab', 'close'], ['check', 'contains', 'h1', 'Parent page'],
-            ['record', 'stop', '--title', '后台跨标签页'],
-            ['run', 'bridge-tabs', '--engine', 'playwright'], ['run', 'bridge-tabs', '--engine', 'selenium'],
         ]
         for args in commands:
-            code, out, err = self.cli(*args)
-            self.assertEqual(code, 0, str(args) + out + err)
-            if args[0] == 'run':
-                self.assertEqual(json.loads(out)['status'], 'Pass', out)
+            command(*args)
+        stopped = command('record', 'stop', '--title', '后台跨标签页')
+        ui_id = stopped['ui_case']['id']
+        self.assertTrue(stopped['run_ids'], stopped)
+        for run_id in stopped['run_ids']:
+            run = completed_recording_run(lambda identity: command('run-status', identity, '--brief'), run_id)
+            self.assertEqual(run['status'], 'Pass', run)
+            self.assertIn(ui_id, run['publication']['published_ids'])
+        for engine in ('playwright', 'selenium'):
+            run = command('run', 'bridge-tabs', '--case', ui_id, '--engine', engine)
+            self.assertEqual(run['status'], 'Pass', run)
