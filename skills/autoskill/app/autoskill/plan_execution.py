@@ -356,12 +356,30 @@ def _legacy_initial_report(value: dict) -> str | None:
     return matches.pop() if len(matches) == 1 else None
 
 
+def _selected_report(value: dict) -> dict | None:
+    """The selected export can outlive a writer that never updated the task binding."""
+    recorded = value.get("report_id")
+    try:
+        head = task_reports._design_head(_task_file(value["task_id"]).with_name("delivery-head.json"))
+    except (OSError, ValueError):
+        head = {}
+    if head and head["report_id"] != recorded and (not recorded or head.get("previous_report_id") == recorded):
+        try:
+            selected = task_reports.get(head["report_id"])
+        except (OSError, ValueError) as error:
+            return {"report_id": head["report_id"], "status": "failed", "retryable": True, "error": str(error)}
+        if selected.get("task_id") != value["task_id"] or selected.get("project_id") != value["project_id"]:
+            return {"report_id": head["report_id"], "status": "failed", "retryable": False, "error": "设计表报告与原任务不匹配"}
+        return selected
+    return task_reports.get(recorded) if recorded else None
+
+
 def describe() -> dict:
     value = _read()
     if not value:
         return {}
     try:
-        report = task_reports.get(value["report_id"]) if value.get("report_id") else None
+        report = _selected_report(value)
     except ValueError as error:
         report = {"status": "failed", "error": str(error), "report_id": value.get("report_id")}
     return _delivery_view(value, report)
@@ -376,11 +394,12 @@ def previous_deliveries(project_id: str, session: str) -> list[dict]:
         if value.get("project_id") != project_id or value.get("session") != session or (active and value.get("task_id") == active["task_id"]):
             continue
         report_id = value.get("report_id")
-        if not report_id:
-            continue
         title = None
         try:
-            report = task_reports.get(report_id)
+            report = _selected_report(value)
+            if not report:
+                continue
+            report_id = report["report_id"]
             snapshot = json.loads((task_reports._folder(report_id) / "snapshot.json").read_bytes())
             if report.get("task_id") != value["task_id"] or snapshot.get("task_id") != value["task_id"] or snapshot.get("project_id") != project_id:
                 raise ValueError("报告归属与原设计任务不一致，未提供其他任务的文件")
