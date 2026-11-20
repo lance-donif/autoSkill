@@ -786,8 +786,9 @@ def _targeted_step(rec: dict, command: str, rest: list[str], argv: list[str]) ->
             raise RecordError(f"{command} 需要内容")
         typed, step["value"] = _secret_value(rec, _plain(rest[1]), bool(found.get("secret")) and command != "select")
         send = [command, rest[0], typed]
-    early_change = (_scoped_act(rec, command, found["locators"][0], send[2] if len(send) > 2 else None)
-                    if rec.get("context") or _rich_target(rest[0]) else _act(rec, send))
+    locator = found["locators"][0]
+    early_change = (_scoped_act(rec, command, locator, send[2] if len(send) > 2 else None)
+                    if rec.get("context") or _rich_target(rest[0]) or locator.get("unique") else _act(rec, send))
     return step, early_change
 
 
@@ -867,7 +868,7 @@ def browser(argv: list[str]) -> dict:
         return {"element": found.get("tag"), "role": found.get("role"), "name": found.get("name"),
                 "locators": [ir.describe_locator(loc) for loc in found["locators"]],
                 "locator_definitions": found["locators"], "context": rec.get("context", []),
-                "use_as_target": [_as_target(loc) for loc in found["locators"] if not loc.get("xpath_anchor") and not loc.get("nth")]}
+                "use_as_target": [_as_target(loc.get("anchor", loc)) for loc in found["locators"] if not loc.get("xpath_anchor") and not loc.get("nth")]}
     if command in ("get", "is", "wait", "screenshot", "scroll", "scrollintoview", "dialog"):
         is_targeted = ((command in ("get", "is") and rest and rest[0] not in ("url", "title", "cdp-url"))
                        or command == "scrollintoview" or (command == "wait" and rest and not rest[0].isdigit()))

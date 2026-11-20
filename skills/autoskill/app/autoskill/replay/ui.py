@@ -36,6 +36,26 @@ def check_cancel(driver) -> None:
         raise StepError("cancelled", "运行已取消")
 
 
+def _recorded_field(candidates: list[dict]):
+    """Recover a labelled field's recorded role from the older recorder's fallback list."""
+    if len(candidates) < 3 or candidates[0]["by"] != "label" or candidates[-1]["by"] != "xpath":
+        return None
+    xpath = candidates[-1]
+    if not (xpath["value"].startswith((".//*[@id=", ".//*[@data-testid=")) or
+            (xpath.get("fragile") and "local-name()" in xpath["value"])):
+        return None
+    label = candidates[0]
+    role = next((loc for loc in candidates if loc["by"] == "role" and loc.get("name") == label["value"]), None)
+    css = next((loc for loc in candidates if loc["by"] == "css"), None)
+    if not role or not css:
+        return None
+    guarded = {**role, "unique": True}
+    guarded.pop("nth", None)
+    if not css.get("nth") and css["value"].startswith("#") and " > " not in css["value"]:
+        guarded["anchor"] = {"by": "css", "value": css["value"]}
+    return {**label, "conflict_role": role["role"]}, guarded
+
+
 def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     """Return (locator, index) of the first candidate that matches; index > 0 means a fallback was used."""
     candidates = ir.expand(ir.locators(step))
@@ -43,11 +63,21 @@ def choose_locator(driver, step: dict, timeout: float, need: bool = True):
         candidates = [{**candidate, "context": ir.expand(step["context"])} for candidate in candidates]
     if not candidates:
         return None, 0
+    field = _recorded_field(candidates)
     start = time.monotonic()
     last_error = None
     while True:
         check_cancel(driver)
         elapsed = time.monotonic() - start
+        if field:
+            try:
+                if driver.count(field[0]):
+                    candidates, field = [field[1]], None
+            except StepError:
+                if not need or elapsed >= timeout:
+                    raise
+                time.sleep(POLL)
+                continue
         pool = candidates[:1] if need and elapsed < PRIMARY_GRACE else candidates
         for index, locator in enumerate(pool):
             try:

@@ -32,6 +32,8 @@ class LocatorModelTests(unittest.TestCase):
         for changes in ({"context": {}}, {"context": [{"kind": "closed", "locators": [locator]}]},
                         {"context": [{"kind": "frame", "locators": []}]},
                         {"locators": [{"by": "xpath", "value": "//input", "xpath_anchor": "#form"}]},
+                        {"locators": [{"by": "role", "role": "checkbox", "name": "通知", "unique": True, "nth": 1}]},
+                        {"locators": [{"by": "role", "role": "checkbox", "name": "通知", "unique": True, "anchor": {"by": "text", "value": "通知"}}]},
                         {"locators": [{"by": "css", "value": "#name", "context": context}]}):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 ir.validate({"start_url": "/", "assertions": [{**step, **changes}]})
@@ -72,6 +74,34 @@ class ContextBrowserMixin:
         self.driver.goto(self.site.base_url + "/mixed")
         checked = ui.check(self.driver, {"assertion": "visible", "selector": "#present", "context": self.site.context}, 3)
         self.assertTrue(checked["passed"], checked)
+
+    def test_shared_label_reorder_keeps_the_recorded_role_and_rejects_ambiguous_controls(self):
+        self.driver.goto(self.site.base_url)
+        recorded = self.script("""
+root.body.innerHTML = '<label><input type="checkbox">通知</label><button role="switch" aria-label="通知" aria-checked="false">状态</button>';
+const toggle = root.querySelector('button');
+toggle.onclick = () => toggle.setAttribute('aria-checked', 'true');
+const field = root.querySelector('input');
+const locators = dom.describe(field).locators;
+root.body.prepend(toggle);
+return locators;
+""", [])
+        old_xpath = "".join(f"/*[local-name()='{tag}'][1]" for tag in ("html", "body", "label", "input"))
+        legacy = [{"by": "label", "value": "通知"}, {"by": "role", "role": "checkbox", "name": "通知"},
+                  {"by": "css", "value": "label > input"}, {"by": "xpath", "value": old_xpath, "fragile": True}]
+        for locators in (recorded, legacy):
+            self.script("root.querySelector('input').checked = false;", [])
+            ui.perform(self.driver, {"action": "check", "locators": locators}, "", [], 1)
+            self.assertTrue(self.driver.read({"by": "role", "role": "checkbox", "name": "通知"}, "checked"))
+            self.assertFalse(self.driver.read({"by": "role", "role": "switch", "name": "通知"}, "checked"))
+        self.script("root.querySelector('input').checked=false; const row=root.querySelector('label'); root.body.append(row.cloneNode(true));", [])
+        for locators in (recorded, legacy):
+            with self.assertRaisesRegex(ui.StepError, "业务目标不唯一"):
+                ui.perform(self.driver, {"action": "check", "locators": locators}, "", [], 0)
+            self.assertFalse(ui.check(self.driver, {"assertion": "hidden", "locators": locators}, 0)["passed"])
+        self.assertEqual(self.script("return root.querySelectorAll('input:checked').length;", []), 0)
+        ui.perform(self.driver, {"action": "check", "locators": [{"by": "label", "value": "通知", "nth": 2}]}, "", [], 0)
+        self.assertEqual(self.script("return [...root.querySelectorAll('input')].map(el => el.checked);", []), [False, True])
 
     def test_mixed_cross_origin_xpath_fallback_changes_only_leaf(self):
         before = len(self.site.hits)

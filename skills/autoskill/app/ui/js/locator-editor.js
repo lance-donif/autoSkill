@@ -28,6 +28,10 @@ function locatorControl(value, label, touch) {
     else { result.value = input.value; Reflect.deleteProperty(result, 'role'); Reflect.deleteProperty(result, 'name'); }
     if (!Number.isInteger(nth.valueAsNumber) || nth.valueAsNumber < 1) throw new Error(label + '的匹配序号需要从 1 开始');
     if (nth.valueAsNumber > 1 || Object.hasOwn(original, 'nth')) result.nth = nth.valueAsNumber - 1;
+    if (original.unique && (result.by !== original.by || result.role !== original.role || result.name !== original.name || result.nth !== original.nth)) {
+      Reflect.deleteProperty(result, 'unique');
+      Reflect.deleteProperty(result, 'anchor');
+    }
     if (kind.value === 'xpath' && anchor.value) {
       if (!input.value.startsWith('.')) throw new Error(label + '带元素锚点的 XPath 需要以 . 开头');
       result.xpath_anchor = anchor.value;
