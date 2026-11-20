@@ -13,7 +13,7 @@ from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 
-from . import __version__, data_refs, db, paths, projects, secrets, sessions
+from . import __version__, data_refs, db, file_changes, paths, projects, secrets, sessions
 from .core import store
 from .locking import named_lock, project_lock
 from .replay import ir
@@ -350,7 +350,25 @@ def _read_bytes(file: Path, observe, *, within: Path | None = None) -> bytes:
     return file.read_bytes()
 
 
-def load(run: dict, *, check_engine: bool = False, _observe=None) -> dict:
+def _source_matches(file: Path, reference: dict, cache: dict | None) -> bool:
+    """Reuse a content check only while the observed object and expected bytes still match."""
+    stamp = file_changes.file_stamp(file) if cache is not None else ()
+    can_share = cache is not None and file_changes.reusable(stamp)
+    if can_share:
+        key = (stamp, reference["sha256"], reference["size"])
+        saved = cache.get(file)
+        if saved is not None and saved[0] == key:
+            return saved[1]
+    data = file.read_bytes()
+    valid = len(data) == reference["size"] and hashlib.sha256(data).hexdigest() == reference["sha256"]
+    if can_share:
+        if file_changes.file_stamp(file) != stamp:
+            return False
+        cache[file] = (key, valid)
+    return valid
+
+
+def load(run: dict, *, check_engine: bool = False, _observe=None, _source_checks: dict | None = None) -> dict:
     """Reject missing or altered evidence; a hash alone never proves that execution happened."""
     try:
         manifest = json.loads(_read_bytes(data_refs.resolve(run["input_manifest"]), _observe))
@@ -360,8 +378,10 @@ def load(run: dict, *, check_engine: bool = False, _observe=None) -> dict:
         if chosen is not None and chosen != manifest["selected"]:
             raise ValueError("运行选择的用例与冻结输入不一致")
         for ref in manifest["sources"]["files"].values():
-            data = _read_bytes(_folder() / "objects" / ref["sha256"], _observe)
-            if len(data) != ref["size"] or hashlib.sha256(data).hexdigest() != ref["sha256"]:
+            file = _folder() / "objects" / ref["sha256"]
+            if _observe is not None:
+                _observe(file)
+            if not _source_matches(file, ref, _source_checks):
                 raise ValueError("执行来源证据已损坏")
         if check_engine:
             current = engine_identity(run["engine"], any(case["kind"] == "ui" for case in manifest["cases"].values()))
@@ -400,10 +420,18 @@ def _postcondition_order(source: list[dict], targets: list[dict], outcome: dict,
 class ReplayEvidence:
     """Verify each receipt against the frozen inputs of exactly one replay or load run."""
 
-    def __init__(self, run: dict, *, observe_inputs=None, observe_receipt=None):
+    def __init__(self, run: dict, *, observe_inputs=None, observe_receipt=None, source_checks: dict | None = None):
         self.run = {key: run.get(key) for key in ("id", "project_id", "input_manifest", "input_hash", "case_ids")}
-        self.manifest = load(self.run, _observe=observe_inputs)
+        self._observe_inputs = observe_inputs
         self._observe = observe_receipt
+        self._share_inputs = True
+
+        def observe(file):
+            stamp = observe_inputs(file) if observe_inputs is not None else None
+            if self._share_inputs:
+                self._share_inputs = file_changes.reusable(stamp if isinstance(stamp, tuple) else file_changes.file_stamp(file))
+
+        self.manifest = load(self.run, _observe=observe, _source_checks=source_checks)
 
     def _postcondition_evidence(self, case: dict, outcome: dict, references: list[dict],
                                 outcomes: list[dict], seen: frozenset[str]) -> bool:
@@ -460,12 +488,15 @@ class ReplayEvidence:
                     return []
         return outcomes
 
-    def result(self, result: dict, case: dict | None = None, *, _seen: frozenset[str] = frozenset()) -> bool:
+    def result(self, result: dict, case: dict | None = None, *, _seen: frozenset[str] = frozenset(), _fresh: bool = False) -> bool:
         """Verify actual local attempt receipts, including candidate runs before their cases are published."""
         run, manifest = self.run, self.manifest
         try:
             if result.get("run_id") != run["id"] or not result.get("input_hash") or result["input_hash"] != run["input_hash"]:
                 return False
+            if not _fresh and not self._share_inputs:
+                # Recheck from disk for every row and nested postcondition on unsupported volumes.
+                load(run, _observe=self._observe_inputs)
             frozen = manifest["cases"][result["case_id"]]
             if result["case_id"] in _seen:
                 return False
@@ -504,12 +535,12 @@ class ReplayEvidence:
             return False
 
 
-def result_evidence(run: dict, result: dict, case: dict | None = None, *, observe=None) -> bool:
+def result_evidence(run: dict, result: dict, case: dict | None = None, *, observe=None, source_checks: dict | None = None) -> bool:
     """Verify one retained result and all of its evidence from disk."""
     try:
         if result.get("run_id") != run["id"] or not result.get("input_hash") or result["input_hash"] != run["input_hash"]:
             return False
-        return ReplayEvidence(run, observe_inputs=observe, observe_receipt=observe).result(result, case)
+        return ReplayEvidence(run, observe_inputs=observe, observe_receipt=observe, source_checks=source_checks).result(result, case, _fresh=True)
     except (ValueError, KeyError, OSError, TypeError):
         return False
 

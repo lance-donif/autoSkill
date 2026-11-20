@@ -26,6 +26,7 @@ APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
 from autoskill import builder, data_refs, db, deletion, native_assets, native_reader, native_run, plan, projects, reporting, runner, runtime_identity, task_report_data, task_reports, workflow
+from autoskill.file_changes import file_stamp, reusable
 from autoskill.server import jobs
 from autoskill.server.app import create_app
 
@@ -144,8 +145,9 @@ class TaskReportTests(unittest.TestCase):
         run = runner.create(self.pid, [self.case["id"], "TC-API-002"])
         runner.execute(run["id"])
         manifest = data_refs.resolve(run["input_manifest"])
-        source_hash = json.loads(manifest.read_bytes())["sources"]["files"]["analysis/source.bin"]["sha256"]
-        frozen = manifest.parent / "objects" / source_hash
+        sources = json.loads(manifest.read_bytes())["sources"]["files"]
+        objects = [manifest.parent / "objects" / item["sha256"] for item in sources.values()]
+        frozen = manifest.parent / "objects" / sources["analysis/source.bin"]["sha256"]
         reads = Counter()
         read = Path.read_bytes
 
@@ -155,7 +157,8 @@ class TaskReportTests(unittest.TestCase):
 
         with patch.object(Path, "read_bytes", counted):
             captured = task_report_data.run_snapshot(run)
-        self.assertEqual((reads[manifest], reads[frozen]), (1, 1))
+        expected = 1 if all(reusable(file_stamp(file)) for file in [manifest, *objects]) else 4
+        self.assertEqual((reads[manifest], reads[frozen]), (expected, expected))
         self.assertTrue(all(item["evidence_valid"] for item in captured["cases"]))
         self.assertTrue(next(row for row in captured["results"] if row["prerequisite"])["evidence_valid"])
         receipt = data_refs.resolve(captured["cases"][0]["result"]["detail"]["attempts"][0]["path"])

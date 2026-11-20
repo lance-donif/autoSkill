@@ -135,6 +135,12 @@ jobs:
         run: |
           $suite = 'test_windows_report_delivery.ReportDeliveryTests'
           python -m unittest -v "$suite.test_native_descriptor_access_modes" "$suite.test_existing_v251_report_retries_after_upgrade" "$suite.test_direct_and_http_bridge_create_readable_designs" "$suite.test_windows_acl_and_open_workbook_allow_retry_on_same_id"
+      - name: Verify shared evidence reads and same-size changes on Windows
+        env:
+          AUTOSKILL_EXPECT_NTFS_CHANGE_TIME: '1'
+        run: |
+          $suite = 'test_state_api.StateApiTests'
+          python -m unittest -v "$suite.test_history_and_dashboard_check_each_distinct_source_once_per_cold_response" "$suite.test_source_replaced_between_result_verdicts_is_rechecked_within_one_response" "$suite.test_same_size_source_edit_with_restored_mtime_rechecks_dashboard_and_report"
       - name: Prepare the pinned recorder and Python driver for the local fixture
         run: |
           $pins = (Select-String -Path requirements.txt -Pattern '^(playwright|selenium|pillow)==').Line

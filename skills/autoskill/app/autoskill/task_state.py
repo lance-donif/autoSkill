@@ -14,7 +14,8 @@ from contextvars import ContextVar
 from functools import partial, wraps
 from pathlib import Path
 
-from . import data_refs, db, execution_inputs, paging, paths
+from . import data_refs, db, execution_inputs, file_changes, paging, paths
+from .file_changes import file_stamp as _stamp
 
 CASE_STATUS = {"pass": "Pass", "fail": "Fail", "not_run": "NotRun"}
 
@@ -30,7 +31,7 @@ def projection():
     if _projection.get() is not None:
         yield
         return
-    token = _projection.set({"root": paths.workspace(), "paths": {}, "json": {}, "reports": {}, "current_projects": set()})
+    token = _projection.set({"root": paths.workspace(), "paths": {}, "json": {}, "reports": {}, "source_checks": {}, "current_projects": set()})
     try:
         yield
     finally:
@@ -70,18 +71,11 @@ def _watch(file: Path) -> Path:
     return file
 
 
-def _stamp(file: Path) -> tuple:
-    try:
-        stat = file.stat()
-        return str(file), stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino
-    except OSError:
-        return str(file), None
-
-
-def observe_stamp(stamps: dict, file: Path) -> None:
+def observe_stamp(stamps: dict, file: Path) -> tuple:
     """Record metadata before reading, including attempts to read a missing file."""
     if file not in stamps:
         stamps[file] = _stamp(file)
+    return stamps[file]
 
 
 def stamps_unchanged(stamps) -> bool:
@@ -247,13 +241,15 @@ def _replay_evidence(run: dict, row: dict, detail: dict) -> bool:
     # Relocated historical references can change their destination through this file.
     mapping = _root() / "data-root.json"
     stamps = {mapping: _stamp(mapping)}
-    valid = execution_inputs.result_evidence(run, result, observe=partial(observe_stamp, stamps))
+    current = _projection.get()
+    valid = execution_inputs.result_evidence(run, result, observe=partial(observe_stamp, stamps),
+                                             source_checks=current["source_checks"] if current is not None else None)
     for file in stamps:
         _watch(file)
     signature = tuple(stamps.values())
     if not stamps_unchanged(signature):
         return False
-    if valid:
+    if valid and all(len(stamp) == 2 or file_changes.reusable(stamp) for stamp in signature):
         _save_check(key, signature, valid)
     return valid
 
