@@ -220,16 +220,17 @@ class ReportDeliveryTests(Sandbox):
         from PIL import Image
 
         session = hashlib.sha256(mode.encode()).hexdigest()[:32]
-        folder = self.workspace / ".local/recordings" / session / "screenshots"
+        canonical_root = self.workspace.resolve()
+        folder = canonical_root / ".local/recordings" / session / "screenshots"
         explicit = self.workspace / "显式截图 (result).png"
         for args in (["#result"], [str(explicit)]):
             receipt = self.command(mode, "browser", "screenshot", *args)["result"]
             file = Path(receipt["path"])
-            self.assertEqual(receipt["reference"], file.relative_to(self.workspace).as_posix())
+            self.assertEqual(receipt["reference"], file.relative_to(canonical_root).as_posix())
             if args == ["#result"]:
                 self.assertEqual(file.parent, folder)
             else:
-                self.assertEqual(file, explicit)
+                self.assertEqual(file, explicit.resolve())
             self.assertEqual((receipt["sha256"], receipt["size"]), (hashlib.sha256(file.read_bytes()).hexdigest(), file.stat().st_size))
             with Image.open(file) as screenshot:
                 self.assertEqual(screenshot.format, "PNG")
