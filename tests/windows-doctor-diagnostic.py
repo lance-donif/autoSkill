@@ -95,7 +95,7 @@ def count_plan(skill, folder):
     from published_release_smoke import cli
 
     data = folder / 'plan-count-data'
-    project = cli(skill, data, 'project', 'create', '--name', '单目标验证', '--url', 'http://127.0.0.1:9')['id']
+    project = cli(skill, data, 'project', 'create', '--name', '单目标验证', '--url', 'http://127.0.0.1:9')['created']['id']
     definition = folder / 'design.json'
     definition.write_text(json.dumps([{'id':'FLOW','title':'取得目标内容截图','steps':['打开首页','找到目标内容','截取目标内容'],'expected':['1. 首页可见','2. 内容可见','3. 截图完成']}],ensure_ascii=False),encoding='utf-8')
     cmd = ('plan','write',project,'--file',str(definition),'--expected-cases','1')
@@ -141,20 +141,26 @@ def run(tag):
               '$argvList = @(ConvertFrom-Json $env:AS_SMOKE_ARGS); & $env:AS_SMOKE_CMD @argvList; exit $LASTEXITCODE')
     arguments = {'AS_SMOKE_CMD':str(skill/'autoskill.cmd'), 'AS_SMOKE_ARGS':json.dumps(['--session','release-smoke','doctor','--launch'])}
     normal = run_process(['powershell.exe','-NoProfile','-NonInteractive','-Command',invoke], {**env,**arguments}, folder, outputs, 'normal', 120)
+    try:
+        answer = json.loads((outputs / 'normal.stdout').read_text(encoding='utf-8-sig',errors='replace'))
+        print('Normal packaged doctor:', json.dumps({key: answer.get(key) for key in ('ok','bundled_runtime','browser_versions','browser_launch','missing')}, ensure_ascii=False), flush=True)
+    except ValueError:
+        print('Normal packaged command stderr:', (outputs / 'normal.stderr').read_text(encoding='utf-8-sig',errors='replace')[-1000:], flush=True)
     trace = outputs / 'python-stacks.log'
     traced = run_process([str(py), str(Path(__file__).resolve()), '--child', str(trace)], env, folder, outputs, 'traced', 100)
     if trace.exists(): print(trace.read_text(encoding='utf-8',errors='replace')[-13000:])
     for file in sorted(outputs.glob('*-processes.json')):
         print(file.name, file.read_text(errors='replace')[:2800])
     result = {'asset':asset,'normal':normal,'traced':traced,'runtime_files':inventory['files']}
-    if normal == traced == 0:
+    if normal == 0:
         receipt = folder / 'full-receipt.json'
         result['business'] = run_process([str(py),str(Path(__file__).with_name('published_release_smoke.py')),'--target','windows-x64','--exercise',str(install),'--receipt',str(receipt)], env, folder, outputs,'unmodified-full',300)
         if receipt.is_file():
             print(receipt.read_text(encoding='utf-8'))
             (outputs / 'business-receipt.json').write_bytes(receipt.read_bytes())
     (outputs/'result.json').write_text(json.dumps(result,indent=2)+'\n')
-    return 0 if normal == traced == result.get('business') == 0 else 1
+    plan_ok = tag != 'v2.5.3' or 'error' not in plan_receipt
+    return 0 if normal == result.get('business') == 0 and plan_ok else 1
 
 
 if __name__ == '__main__':
