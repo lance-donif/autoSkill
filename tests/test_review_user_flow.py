@@ -367,11 +367,14 @@ class UserFlowAcceptance(unittest.TestCase):
     async def live_sheet(self):
         from playwright.async_api import async_playwright
 
-        from autoskill import task_context
+        from autoskill import plan, task_context
 
         with task_context.use_session("visible-sheet"):
             project = self.project()
             self.design(project)
+            marked = plan.mark("TC-001", "阻塞", "独立验收：订单凭据尚未提供。")
+            self.assertEqual(marked["status"], "未执行")
+            queued = self.queue(project, [self.candidate("TC-001", "TC-API-IFRAME-001")], "embedded-order")
             async with async_playwright() as playwright:
                 context = await self.browser(playwright, "visible-sheet")
                 page = await context.new_page()
@@ -384,8 +387,14 @@ class UserFlowAcceptance(unittest.TestCase):
                     self.assertEqual(await page.locator("h1").inner_text(), "业务工作台")
                     row = frame.locator('[data-case="TC-001"]')
                     self.assertIn("查询订单甲", await row.inner_text())
-                    propagation = await self.observe_state_commit(row)
+                    self.assertEqual(await row.locator(".status").inner_text(), "未执行")
+                    document = await frame.locator("html").element_handle()
+                    propagation = await self.observe_state_commit(row, queued)
                     self.assertLessEqual(propagation, 1.0)
+                    self.assertEqual(await row.locator(".status").inner_text(), "通过")
+                    self.assertTrue(await document.evaluate("root => root === document.documentElement && root.isConnected"))
+                    evidence = row.get_by_role("link", name="查看真实执行证据", exact=True)
+                    self.assertIn("/runs/" + queued["run_id"], await evidence.get_attribute("href"))
                     await page.screenshot(path=str(self.evidence / "embedded-desktop.png"), full_page=True)
                     await page.set_viewport_size({"width": 390, "height": 844})
                     await page.screenshot(path=str(self.evidence / "embedded-mobile.png"), full_page=True)
@@ -395,28 +404,27 @@ class UserFlowAcceptance(unittest.TestCase):
                 finally:
                     await context.close()
 
-    async def observe_state_commit(self, row):
-        from autoskill import plan
+    async def observe_state_commit(self, row, queued):
+        from autoskill import db
 
         committed = []
-        save = plan._save
+        insert = db.insert
 
-        def save_and_timestamp(*args, **kwargs):
-            result = save(*args, **kwargs)
-            if not committed:
+        def insert_and_timestamp(table, values):
+            insert(table, values)
+            if table == "results" and values["run_id"] == queued["run_id"]:
                 committed.append(time.monotonic())
-            return result
 
-        with patch.object(plan, "_save", side_effect=save_and_timestamp):
-            mutation = asyncio.create_task(asyncio.to_thread(plan.mark, "TC-001", "阻塞", "独立验收：订单凭据尚未提供。"))
+        with patch.object(db, "insert", side_effect=insert_and_timestamp):
+            mutation = asyncio.create_task(asyncio.to_thread(self.execute, queued))
             try:
                 while not committed and not mutation.done():
                     await asyncio.sleep(0.005)
                 if not committed:
                     await mutation
-                    self.fail("The mutation did not commit a workbook")
+                    self.fail("The replay did not commit the target result")
                 budget = max(1, round((1 - (time.monotonic() - committed[0])) * 1000))
-                await row.locator(".status").filter(has_text="阻塞").wait_for(timeout=budget)
+                await row.locator(".status").filter(has_text="通过").wait_for(timeout=budget)
                 return time.monotonic() - committed[0]
             finally:
                 await mutation
