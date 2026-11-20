@@ -149,7 +149,7 @@ function save(ctx, tasks, current) {
     if (body.expected_revision != null && body.expected_revision !== current.revision) return Response.json({ detail: '任务已变更，请重新打开后重试' }, { status: 409 });
   }
   validateTask(task, new Set(library.projects.map((item) => item.id)));
-  if (Object.hasOwn(body, 'case_ids')) {
+  if (Object.hasOwn(body, 'case_ids') || body.enabled === true) {
     const available = new Set(library.items.filter((row) => row.project_id === task.project_id && row.replayable && row.lifecycle !== 'archived').map((row) => row.case_id));
     check(task.case_ids.every((id) => available.has(id)), '所选用例已删除或不可回放');
   }

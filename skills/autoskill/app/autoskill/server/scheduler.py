@@ -56,7 +56,8 @@ def next_due(rule: dict, now: datetime.datetime, previous: datetime.datetime | N
                 raise ValueError("每周任务至少选择一天")
         hour, minute = map(int, clock.split(":"))
         today = now.astimezone(zone).date()
-        for offset in range(9):
+        # A weekly wall time may not exist next week. Include the following week's occurrence.
+        for offset in range(2 * 7 + 1):
             day = today + datetime.timedelta(days=offset)
             if day.weekday() not in days:
                 continue
@@ -267,6 +268,9 @@ def _update_definition(task_id: str, spec: dict, values: dict, expected: int) ->
 def update(task_id: str, spec: dict) -> dict:
     with named_lock("schedule-occurrence", task_id):
         current = get(task_id)
+        expected = spec.get("expected_revision", current["revision"])
+        if spec.get("enabled") is False and set(spec) <= {"enabled", "expected_revision", "idempotency_key"}:
+            return _update_definition(task_id, spec, {"enabled": 0, "next_due": None, "updated_at": db.now()}, expected)
         merged = _clean({**current, **spec})
         values = {**merged, "updated_at": db.now()}
         enabled = bool(spec.get("enabled", current["enabled"]))
@@ -274,7 +278,7 @@ def update(task_id: str, spec: dict) -> dict:
         timing_changed = merged["rule"] != current["rule"] or enabled != current["enabled"]
         if timing_changed:
             values["next_due"] = _stamp(next_due(merged["rule"], datetime.datetime.now(UTC))) if enabled else None
-        return _update_definition(task_id, spec, values, spec.get("expected_revision", current["revision"]))
+        return _update_definition(task_id, spec, values, expected)
 
 
 def set_enabled(task_id: str, enabled: bool, expected_revision: int | None = None) -> dict:

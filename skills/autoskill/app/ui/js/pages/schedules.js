@@ -9,6 +9,10 @@ import { primaryState, stateResults } from '../status-view.js';
 const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
 
+function calendarZone(rule) {
+  return ['daily', 'weekly'].includes(rule.kind) ? rule.timezone || 'Asia/Shanghai' : null;
+}
+
 export async function render(view) {
   let tasks, projects;
   try { [tasks, projects] = await Promise.all([api('/tasks' + scopeQuery()), projectIndex()]); } catch (error) {
@@ -26,6 +30,7 @@ export async function render(view) {
     body = h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, ['启用', '任务', '执行规则', '下次执行', '上次结果', ''].map((t, i) => h('th', { class: i === 5 ? 'actions' : '' }, t)))),
       h('tbody', {}, tasks.map((task) => {
+        const zone = calendarZone(task.rule);
         const toggle = h('button', { class: 'switch', role: 'switch', 'aria-checked': String(task.enabled), 'aria-label': `${task.enabled ? '暂停' : '启用'}「${task.title}」` });
         toggle.addEventListener('click', async (event) => {
           event.stopPropagation();
@@ -52,7 +57,7 @@ export async function render(view) {
           h('td', { style: 'width:56px' }, toggle),
           h('td', {}, h('div', { class: 'title' }, task.title),
             h('div', { class: 'sub' }, taskDescription(task))),
-          h('td', {}, task.rule_text),
+          h('td', {}, task.rule_text, zone && zone !== ZONE && h('div', { class: 'sub' }, zone)),
           h('td', { class: 'sub num' }, task.enabled ? [fmtUntil(task.next_due), h('div', { class: 'muted' }, fmtTime(task.next_due))] : '已暂停'),
           h('td', {}, task.last_status
             ? h('a', { href: href('runs/' + task.last_run_id), onClick: (event) => event.stopPropagation(), class: 'stack' },
@@ -96,7 +101,9 @@ async function editor(task, done, projects) {
   const allCases = h('input', { class: 'check', type: 'checkbox', checked: !picked.size, id: 'tk-all' });
   const error = h('p', { class: 'error', role: 'alert', hidden: true });
   const current = { kind: rule.kind, time: rule.time || '09:00', days: new Set(rule.days || [0, 1, 2, 3, 4]), minutes: rule.minutes || 60,
+    timezone: (task && calendarZone(rule)) || ZONE,
     at: rule.at ? new Date(rule.at) : new Date(Date.now() + 3600000) };
+  const initialRule = task ? JSON.stringify(scheduleRule(current)) : null;
   const replayFields = h('div', { class: 'stack' },
     h('div', { class: 'field' }, h('span', { class: 'label' }, '执行哪些用例'),
       h('label', { class: 'row', for: 'tk-all' }, allCases, '全部用例（以后新增的用例也会包含）'), caseBox,
@@ -130,6 +137,7 @@ async function editor(task, done, projects) {
       replace(detail, h('div', { class: 'row' }, '在', h('input', { class: 'input', type: 'datetime-local', value: local, style: 'width:230px', 'aria-label': '执行时间',
         onChange: (event) => { current.at = new Date(event.target.value); } }), '执行一次'));
     }
+    if (current.kind !== 'interval') detail.append(h('span', { class: 'hint' }, `执行时区为 ${current.kind === 'at' ? ZONE : current.timezone}`));
   }
   function paintCases() {
     caseBox.hidden = allCases.checked;
@@ -155,7 +163,7 @@ async function editor(task, done, projects) {
       const selected = target.read();
       const body = { title: title.value, project_id: project.value, ...selected, engine: selected.kind === 'replay' ? engine.value : 'native',
         case_ids: selected.kind === 'replay' && !allCases.checked ? [...picked] : [], headed: headed.checked,
-        rule: scheduleRule(current), ...(task ? { expected_revision: task.revision } : {}) };
+        ...ruleChange(current, initialRule), ...(task ? { expected_revision: task.revision } : {}) };
       save.disabled = true;
       const saved = await api(task ? '/tasks/' + task.id : '/tasks', { method: task ? 'PATCH' : 'POST', body });
       closeOverlay();
@@ -166,7 +174,7 @@ async function editor(task, done, projects) {
 
   paintRule();
   drawer({
-    title: task ? '编辑定时任务' : '新建定时任务', subtitle: `时间按这台电脑的时区（${ZONE}）计算。`,
+    title: task ? '编辑定时任务' : '新建定时任务',
     body: [
       h('div', { class: 'field' }, h('label', { for: 'tk-title' }, '任务名称'), title),
       h('div', { class: 'field' }, h('label', { for: 'tk-project' }, '项目'), project),
@@ -181,9 +189,14 @@ async function editor(task, done, projects) {
 }
 
 function scheduleRule(current) {
-  if (current.kind === 'at' && !Number.isFinite(current.at.getTime())) throw new Error('请选择有效的执行时间');
-  return current.kind === 'daily' ? { kind: 'daily', time: current.time, timezone: ZONE }
-    : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort(), timezone: ZONE }
+  return current.kind === 'daily' ? { kind: 'daily', time: current.time, timezone: current.timezone }
+    : current.kind === 'weekly' ? { kind: 'weekly', time: current.time, days: [...current.days].sort(), timezone: current.timezone }
       : current.kind === 'interval' ? { kind: 'interval', minutes: current.minutes }
-        : { kind: 'at', at: current.at.toISOString() };
+        : { kind: 'at', at: current.at.toJSON() };
+}
+
+function ruleChange(current, initialRule) {
+  const rule = scheduleRule(current);
+  if (rule.kind === 'at' && !rule.at) throw new Error('请选择有效的执行时间');
+  return JSON.stringify(rule) === initialRule ? {} : { rule };
 }

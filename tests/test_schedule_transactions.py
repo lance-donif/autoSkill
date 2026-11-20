@@ -10,10 +10,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 from autoskill import builder, data_refs, db, execution_inputs, projects
 from autoskill.server import jobs, scheduler
+from autoskill.server.app import create_app
 
 
 class ScheduleTransactions(unittest.TestCase):
@@ -50,6 +53,26 @@ class ScheduleTransactions(unittest.TestCase):
         self.assertEqual(scheduler.update(first["id"], spec), second)
         with self.assertRaisesRegex(ValueError, "其他会话修改"):
             scheduler.update(first["id"], {"title": "过期覆盖", "expected_revision": first["revision"]})
+
+    def test_weekly_http_tasks_skip_the_spring_gap_and_fire_once_during_the_fall_fold(self):
+        cases = [("02:30", "2027-03-07T06:00Z", "2027-03-07T07:30Z", "2027-03-14T07:30Z", "2027-03-21T06:30Z"),
+                 ("01:30", "2027-11-07T04:00Z", "2027-11-07T05:30Z", "2027-11-07T06:30Z", "2027-11-14T06:30Z")]
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1") as client, patch.object(jobs, "ensure_worker", return_value={}):
+            for hour, start, first, missed, following in cases:
+                with self.subTest(hour=hour):
+                    rule = {"kind": "weekly", "days": [6], "time": hour, "timezone": "America/New_York"}
+                    with patch.object(scheduler, "datetime", wraps=datetime) as clock:
+                        clock.datetime.now.return_value = datetime.datetime.fromisoformat(start)
+                        response = client.post("/api/tasks", json={**self.spec, "rule": rule})
+                    response.raise_for_status()
+                    task = response.json()
+                    self.assertEqual(datetime.datetime.fromisoformat(task["next_due"]), datetime.datetime.fromisoformat(first))
+                    scheduler.tick(datetime.datetime.fromisoformat(first))
+                    scheduler.tick(datetime.datetime.fromisoformat(missed))
+                    latest = client.get("/api/tasks/" + task["id"]).json()
+                    self.assertEqual(datetime.datetime.fromisoformat(latest["next_due"]), datetime.datetime.fromisoformat(following))
+                    self.assertEqual([row["due_at"] for row in db.rows("SELECT due_at FROM schedule_occurrences WHERE task_id=?", (task["id"],))], [task["next_due"]])
+                    scheduler.set_enabled(task["id"], False)
 
     def test_one_clock_creates_one_outbox_and_delivery_is_not_business_completion(self):
         task = scheduler.create(self.spec)
