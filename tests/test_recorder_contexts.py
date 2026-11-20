@@ -37,6 +37,19 @@ def context_site():
                   '<section id="panel"><iframe id="inner" src="http://localhost:{port}/middle"></iframe></section>';
                 document.querySelector('#closed').attachShadow({{mode:'closed'}}).innerHTML = '<button>封闭按钮</button>';
                 </script>'''
+            elif self.path == "/notifications":
+                html = '''<!doctype html><meta charset="utf-8">
+                <span id="name">订单通知</span>
+                <input type="checkbox" aria-labelledby="name" aria-checked="false" checked>
+                <button role="switch" aria-labelledby="name" aria-checked="false">通知开关</button>
+                <output aria-label="变更次数">0</output>
+                <script>
+                const toggle = document.querySelector('button'), count = document.querySelector('output');
+                toggle.onclick = () => {
+                    toggle.setAttribute('aria-checked', String(toggle.getAttribute('aria-checked') !== 'true'));
+                    count.textContent = String(Number(count.textContent) + 1);
+                };
+                </script>'''
             elif self.path == "/middle":
                 html = f'''<!doctype html><title>跨域页面</title><input id="name" data-testid="entry"><div id="card"></div>
                 <script>document.querySelector('#card').attachShadow({{mode:'open'}}).innerHTML =
@@ -98,6 +111,31 @@ class RecorderContextTests(unittest.TestCase):
     def enter_leaf(self):
         for command, target in (("shadow", "#outer"), ("frame", "#inner"), ("shadow", "#card"), ("frame", "#leaf")):
             session.browser([command, target])
+
+    def test_checked_false_fails_on_an_enabled_aria_switch(self):
+        session.browser(["open", "/notifications"])
+        target = "role=switch:订单通知"
+        session.browser(["click", target])
+        wrong = session.check("checked", target, "false", timeout_seconds=0)
+        self.assertEqual((wrong["passed"], wrong["expected"], wrong["actual"]), (False, False, True))
+
+    def test_aria_switch_state_and_idempotent_actions_match_recording_and_replay(self):
+        session.browser(["open", "/notifications"])
+        target = "role=switch:订单通知"
+        ref = next(key for key, item in session.current()["refs"].items() if item.get("role") == "switch")
+        session.browser(["check", "@" + ref])
+        self.assertTrue(session.browser(["is", "checked", target])["result"]["checked"])
+        for action, expected, changes in (("check", "true", "1"), ("uncheck", "false", "2"), ("uncheck", "false", "2")):
+            session.browser([action, target])
+            self.assertTrue(session.check("checked", target, expected, timeout_seconds=0)["passed"])
+            self.assertTrue(session.check("text", "label=变更次数", changes, timeout_seconds=0)["passed"])
+        self.assertTrue(session.check("checked", "role=checkbox:订单通知", "true", timeout_seconds=0)["passed"])
+        with patch("autoskill.server.jobs.ensure_worker"):
+            saved = session.stop("反复设置通知开关")
+        self.assertEqual(runner.execute(saved["run_id"])["status"], "Pass")
+        if paths.chromedriver():
+            run = runner.create(self.project, [saved["ui_case"]["id"]], "selenium")
+            self.assertEqual(runner.execute(run["id"])["status"], "Pass")
 
     def test_record_save_and_replay_cross_origin_mixed_context_without_a_second_browser(self):
         session.browser(["fill", "xpath=//input[@id='name']", "主文档"])

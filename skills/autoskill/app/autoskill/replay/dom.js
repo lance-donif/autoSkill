@@ -27,6 +27,12 @@
     if (el.tagName === 'SELECT') return el.multiple || el.size > 1 ? 'listbox' : 'combobox';
     return TAG_ROLES[el.tagName] || null;
   }
+  function checkedState(el) {
+    // A native control's live property takes precedence over a redundant ARIA attribute.
+    if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) return el.checked;
+    if (['checkbox', 'radio', 'switch'].includes(role(el))) return el.getAttribute('aria-checked') === 'true';
+    return null;
+  }
   function labelText(el) {
     const ids = el.getAttribute('aria-labelledby');
     if (ids) {
@@ -269,7 +275,7 @@
       // Once identity is known, a global ordinal fallback could silently act on a different row.
       locators: business ? [business] : out, tag: el.tagName.toLowerCase(), role: r, name: name.slice(0, 80), type,
       editable: (el.tagName === 'INPUT' && !/^(button|submit|reset|checkbox|radio|file|image|hidden)$/.test(type)) || el.tagName === 'TEXTAREA' || el.isContentEditable,
-      checkable: el.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio') || /^(checkbox|radio|switch)$/.test(r || ''),
+      checkable: checkedState(el) !== null,
       secret: type === 'password' || /password|one-time-code|^cc-/.test(auto),
     };
   }
@@ -297,10 +303,10 @@
     if (!el) return null;
     const visible = rendered(el) && getComputedStyle(el).visibility !== 'hidden';
     if (what === 'visible') return visible;
-    if (what === 'checked') return !!el.checked;
+    if (what === 'checked') return checkedState(el) ?? !!el.checked;
     if (what === 'value') return el.value == null ? null : String(el.value);
     if (what === 'attribute') return el.getAttribute(arg);
     return el.innerText == null ? el.textContent || '' : el.innerText;
   }
-  return { find, target, read, describe };
+  return { find, target, read, describe, checkedState };
 })

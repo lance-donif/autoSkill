@@ -201,12 +201,16 @@ class SeleniumDriver:
     def count(self, locator: dict) -> int:
         return len(self._all(locator))
 
+    def _checked(self, node) -> bool:
+        state = self.wd.execute_script("return (" + DOM_JS + ")().checkedState(arguments[0]);", node)
+        return node.is_selected() if state is None else state
+
     def read(self, locator: dict, what: str, arg: str | None = None):
         node = self._one(locator)
         if what == "visible":
             return node.is_displayed()
         if what == "checked":
-            return node.is_selected()
+            return self._checked(node)
         if what == "value":
             return node.get_property("value")
         if what == "attribute":
@@ -252,7 +256,7 @@ class SeleniumDriver:
         elif op == "hover":
             ActionChains(self.wd).move_to_element(node).perform()
         elif op in ("check", "uncheck"):
-            if node.is_selected() != (op == "check"):
+            if self._checked(node) != (op == "check"):
                 node.click()
         else:
             raise ValueError("不支持的动作：" + op)
