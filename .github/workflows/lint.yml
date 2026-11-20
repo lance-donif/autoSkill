@@ -14,7 +14,7 @@ on:
         type: boolean
         default: false
       linux_arm64_release_smoke:
-        description: Install the v2.5.2 Linux ARM64 ZIP and verify both browsers, the local API and report recovery
+        description: Install the published Linux ARM64 ZIP and verify both browsers, the local API and report recovery
         type: boolean
         default: false
 permissions:
@@ -183,7 +183,9 @@ jobs:
       - name: Verify the published Windows x64 offline installation
         if: github.event_name == 'workflow_dispatch' && inputs.windows_release_smoke
         timeout-minutes: 15
-        run: python tests/windows_release_smoke.py
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          python tests/windows_release_smoke.py --release-tag "v$version"
   linux-arm64-release:
     name: Published Linux ARM64 ZIP
     if: github.event_name == 'workflow_dispatch' && inputs.linux_arm64_release_smoke
@@ -226,7 +228,8 @@ jobs:
             sudo apparmor_parser -a "$policy"
             loaded=1
           fi
-          xvfb-run -a -s '-screen 0 1600x900x24' python3 tests/published_release_smoke.py --target linux-arm64 --release-tag v2.5.2 --work-dir "$work"
+          release_tag=$(jq -er '"v" + .version' package.json)
+          xvfb-run -a -s '-screen 0 1600x900x24' python3 tests/published_release_smoke.py --target linux-arm64 --release-tag "$release_tag" --work-dir "$work"
   dashboard-e2e:
     name: Dashboard E2E
     runs-on: ubuntu-24.04

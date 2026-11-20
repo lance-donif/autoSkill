@@ -1,3 +1,3 @@
 """autoSkill: record browser sessions once, replay them without AI."""
 
-__version__ = "2.5.2"
+__version__ = "2.5.3"
