@@ -100,7 +100,7 @@ export class HostService {
       data = await this.readRun(identity, query, signal, query.family ?? known?.family);
     }
     else data = await this.request(route, { signal, identity });
-    if (args.resource === 'report') data = { ...data, host_files: await reportFiles(data, await this.filesContext(agent, signal)) };
+    if (args.resource === 'report') data = { ...data, host_files: await reportFiles(data, await this.filesContext(agent, signal), query) };
     return envelope(args.resource, null, identity, data);
   }
 

@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import contextlib
+import errno
 import hashlib
 import json
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -11,6 +13,13 @@ from urllib.parse import quote
 
 from . import data_refs, db, execution_inputs, report_locations, reporting, task_bugs, task_markdown, task_report_data
 from .locking import named_lock, project_lock
+
+
+class DeliveryConflictError(ValueError):
+    """A public workbook differs from the last copy delivered by this task."""
+
+    def __init__(self):
+        super().__init__("交付位置的 Excel 已被编辑或无法确认来源，已保留现有文件。可使用本次报告原件，或移开现有文件后按原报告标识重试。")
 
 
 def _folder(report_id: str) -> Path:
@@ -49,7 +58,7 @@ def _saved(report_id: str) -> dict | None:
 
 
 def _public(receipt: dict) -> dict:
-    value = {key: item for key, item in receipt.items() if key not in ("_retained_excel", "_retained_artifacts")}
+    value = {key: item for key, item in receipt.items() if key not in ("_retained_excel", "_retained_artifacts", "_pending_design_head")}
     for artifact in ("excel", "markdown", "bugs"):
         if value.get(artifact):
             value[artifact] = str(data_refs.resolve(value[artifact]))
@@ -58,14 +67,39 @@ def _public(receipt: dict) -> dict:
     for artifact in ("delivery_excel", "initial_excel"):
         if value.get(artifact):
             value[artifact] = str(plan_folder(value[artifact]))
+    if value.get("code") == "delivery_conflict":
+        retained = receipt.get("_retained_artifacts") or receipt
+        originals = {}
+        for artifact in ("excel", "markdown", "bugs"):
+            if _available(retained, artifact):
+                prefix = "" if artifact == "excel" else artifact + "_"
+                originals[artifact] = {"path": str(data_refs.resolve(retained[artifact])),
+                                       "sha256": retained[prefix + "sha256"], "size": retained[prefix + "size"]}
+        if len(originals) == 3:
+            value["report_artifacts"] = originals
     return value
 
 
-def _unavailable(receipt: dict, message: str) -> dict:
+def _unavailable(receipt: dict, message: str, **details) -> dict:
     artifact_fields = ("excel", "download_url", "sha256", "size", "markdown", "markdown_download_url", "markdown_sha256", "markdown_size",
                        "bugs", "bugs_download_url", "bugs_sha256", "bugs_size")
-    return {**{key: value for key, value in _public(receipt).items() if key not in artifact_fields},
+    return {**{key: value for key, value in _public({**receipt, **details}).items() if key not in artifact_fields},
             "status": "failed", "error": message, "retryable": True}
+
+
+def _failure_details(error: Exception) -> dict:
+    details = {"stage": getattr(error, "report_stage", "report")}
+    for key in ("errno", "winerror"):
+        value = getattr(error, key, None)
+        if value is not None:
+            details[key] = value
+    if isinstance(error, DeliveryConflictError):
+        details["code"] = "delivery_conflict"
+    elif details.get("winerror") in (32, 33) or details.get("errno") == errno.EBUSY:
+        details["code"] = "file_in_use"
+    elif details.get("errno") in (errno.EACCES, errno.EPERM):
+        details["code"] = "permission_denied"
+    return details
 
 
 def _available(receipt: dict, artifact: str) -> bool:
@@ -90,8 +124,11 @@ def _validate(receipt: dict) -> dict:
         return _public(receipt)
     if not all(_available(receipt, artifact) for artifact in ("excel", "markdown", "bugs")):
         return _unavailable(receipt, "Excel、Markdown 或 Bug 清单文件缺失或内容已变化，请从冻结快照重试生成。")
-    if receipt["kind"] == "design" and not _design_copy_available(receipt):
-        return _unavailable(receipt, "正式用例 Excel 或初始副本缺失或内容已变化，请从冻结快照重试导出。")
+    if receipt["kind"] == "design":
+        try:
+            _check_design_copy(receipt)
+        except (OSError, ValueError) as error:
+            return _unavailable(receipt, "正式用例 Excel 或初始副本无法核验：" + str(error), **_failure_details(error))
     if receipt["kind"] == "workflow":
         for run_id in receipt.get("run_ids", []):
             run = db.one("SELECT delete_requested FROM runs WHERE id = ?", (run_id,))
@@ -122,7 +159,9 @@ def peek(report_id: str) -> dict:
 
 def _persist_failure(base: dict, error: Exception, generation, *, save: bool = True) -> dict:
     receipt = {**base, "status": "failed", "error": "测试报告生成失败：" + str(error), "retryable": True,
-               "generation": generation, "updated_at": db.now()}
+               **_failure_details(error), "generation": generation, "updated_at": db.now()}
+    if hasattr(error, "pending_design_head"):
+        receipt["_pending_design_head"] = error.pending_design_head
     if not save:
         return {**_public(receipt), "receipt_saved": False}
     try:
@@ -203,23 +242,28 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
     folder = _folder(base["report_id"])
     digest = execution_inputs.content_hash(snapshot)
     snapshot_file = folder / "snapshot.json"
-    if not snapshot_file.is_file() or execution_inputs.content_hash(json.loads(snapshot_file.read_bytes())) != digest:
-        execution_inputs.write_json(snapshot_file, snapshot)
+    with reporting.report_stage("snapshot"):
+        if not snapshot_file.is_file() or execution_inputs.content_hash(json.loads(snapshot_file.read_bytes())) != digest:
+            execution_inputs.write_json(snapshot_file, snapshot)
     file = folder / ("测试用例-" + digest[:16] + ".xlsx")
     if existing and existing.get("source_hash") == digest and _available(existing, "excel"):
         file = data_refs.resolve(existing["excel"])
         built = {key: existing[key] for key in ("renderer", "template_id", "validation", "cases", "execution_rows") if key in existing}
     else:
-        built = reporting.write_task(snapshot, file)
-    _read_workbook(file)
+        with reporting.report_stage("workbook_write"):
+            built = reporting.write_task(snapshot, file)
+    with reporting.report_stage("workbook_validate"):
+        _read_workbook(file)
     partial = {**base, "status": "generating", "generation": generation, "source_hash": digest, "excel": data_refs.store(file),
                "sha256": _hash(file), "size": file.stat().st_size, **built}
     execution_inputs.write_json(folder / "receipt.json", partial)
     excel_link = quote(file.name, safe="")
-    markdown, brief = _markdown_artifact(snapshot, folder, digest, excel_link, "markdown", existing)
+    with reporting.report_stage("markdown"):
+        markdown, brief = _markdown_artifact(snapshot, folder, digest, excel_link, "markdown", existing)
     partial.update(markdown=data_refs.store(markdown), markdown_sha256=_hash(markdown), markdown_size=markdown.stat().st_size)
     execution_inputs.write_json(folder / "receipt.json", partial)
-    bugs, issues = _markdown_artifact(snapshot, folder, digest, excel_link, "bugs", existing)
+    with reporting.report_stage("bugs"):
+        bugs, issues = _markdown_artifact(snapshot, folder, digest, excel_link, "bugs", existing)
     validation = {**built.get("validation", {}), "workbook_readable": True, "markdown_readable": True, "bugs_readable": True}
     receipt = {**base, "status": "ready", "excel": data_refs.store(file),
                "download_url": "/api/task-reports/" + quote(base["report_id"], safe="") + "/excel",
@@ -232,36 +276,56 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
                "generation": generation, "generated_at": db.now(), "retryable": False,
                "run_ids": snapshot.get("run_ids", []), "cases": len(snapshot["cases"]), **built, **brief, **issues, "validation": validation}
     if base["kind"] == "design":
-        receipt.update(_publish_design_copy(base, file))
+        partial.update(bugs=receipt["bugs"], bugs_sha256=receipt["bugs_sha256"], bugs_size=receipt["bugs_size"])
+        execution_inputs.write_json(folder / "receipt.json", partial)
+        receipt.update(_publish_design_copy(receipt, file))
     execution_inputs.write_json(folder / "receipt.json", receipt)
     return receipt
 
 
-def _copy_workbook(source: Path, destination: Path) -> None:
+def _digest_if_present(file: Path) -> str | None:
+    try:
+        return _hash(file)
+    except FileNotFoundError:
+        return None
+
+
+def _copy_workbook(source: Path, destination: Path, digest: str, previous: str | None = None) -> None:
+    def needs_copy():
+        current = _digest_if_present(destination)
+        if current == digest:
+            return False
+        if current is not None and current != previous:
+            raise DeliveryConflictError()
+        return True
+
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.is_file() and _hash(destination) == _hash(source):
+    if not needs_copy():
         return
     temporary = destination.with_name(".plan-delivery-" + uuid.uuid4().hex + ".xlsx")
     try:
         shutil.copyfile(source, temporary)
         _read_workbook(temporary)
-        temporary.replace(destination)
+        if _hash(temporary) != digest:
+            raise ValueError("报告 Excel 复制校验失败，请从冻结快照重试")
+        if needs_copy():
+            temporary.replace(destination)
     finally:
         temporary.unlink(missing_ok=True)
 
 
-def _design_copy_available(receipt: dict) -> bool:
+def _check_design_copy(receipt: dict) -> None:
     from .runner import plan_folder
 
-    try:
+    with reporting.report_stage("design_initial"):
         if receipt.get("initial_excel") and _hash(plan_folder(receipt["initial_excel"])) != receipt["sha256"]:
-            return False
-        if not receipt.get("delivery_excel"):
-            return True
-        head = json.loads(plan_folder(receipt["delivery_head"]).read_bytes())
-        return head.get("report_id") != receipt["report_id"] or _hash(plan_folder(receipt["delivery_excel"])) == receipt["sha256"]
-    except (OSError, ValueError):
-        return False
+            raise DeliveryConflictError()
+    if not receipt.get("delivery_excel"):
+        return
+    with reporting.report_stage("design_delivery"):
+        head = _design_head(plan_folder(receipt["delivery_head"]))
+        if head["report_id"] == receipt["report_id"] and _hash(plan_folder(receipt["delivery_excel"])) != receipt["sha256"]:
+            raise DeliveryConflictError()
 
 
 def _restore_design_artifact(receipt: dict) -> None:
@@ -275,25 +339,74 @@ def _restore_design_artifact(receipt: dict) -> None:
             continue
         file = plan_folder(receipt[key])
         if file.is_file() and _hash(file) == receipt["sha256"]:
-            _copy_workbook(file, data_refs.resolve(receipt["excel"]))
+            canonical = data_refs.resolve(receipt["excel"])
+            _copy_workbook(file, canonical, receipt["sha256"], _digest_if_present(canonical))
             return
 
 
-def _publish_design_copy(base: dict, file: Path) -> dict:
+def _publish_design_copy(receipt: dict, file: Path) -> dict:
     """Update the selected sheet only; retrying an older snapshot cannot overwrite its successor."""
     from .runner import plan_folder
 
-    if base.get("initial_excel"):
-        initial = plan_folder(base["initial_excel"])
-        _copy_workbook(file, initial)
-    if not base.get("delivery_excel"):
+    digest = receipt["sha256"]
+    if receipt.get("initial_excel"):
+        with reporting.report_stage("design_initial"):
+            _copy_workbook(file, plan_folder(receipt["initial_excel"]), digest)
+    if not receipt.get("delivery_excel"):
         return {}
-    head = plan_folder(base["delivery_head"])
-    selected = json.loads(head.read_bytes()) if head.is_file() else {}
-    if selected.get("report_id") != base["report_id"]:
-        return {"delivery_updated": False}
-    _copy_workbook(file, plan_folder(base["delivery_excel"]))
-    return {"delivery_updated": True}
+    with reporting.report_stage("design_delivery"):
+        head = plan_folder(receipt["delivery_head"])
+        selected = _design_head(head)
+        if selected["report_id"] != receipt["report_id"]:
+            return {"delivery_updated": False}
+        _copy_workbook(file, plan_folder(receipt["delivery_excel"]), digest, selected.get("delivered_sha256"))
+        if selected.get("delivered_sha256") != digest:
+            execution_inputs.write_json(head, {**selected, "delivered_sha256": digest})
+        return {"delivery_updated": True}
+
+
+def _design_head(file: Path) -> dict:
+    selected = json.loads(file.read_bytes())
+    if not isinstance(selected, dict) or not re.fullmatch(r"design_[a-f0-9]{64}", str(selected.get("report_id", ""))):
+        raise ValueError("设计表交付记录无效，现有文件已保留")
+    return selected
+
+
+def _select_design(base: dict, saved: dict | None, capture, retry: bool) -> bool:
+    """Select a new revision under the project lock and carry forward its last delivered hash."""
+    from .runner import plan_folder
+
+    if retry:
+        if not saved or "_pending_design_head" not in saved:
+            return False
+        with reporting.report_stage("snapshot"):
+            _snapshot(base, saved)
+    elif not saved:
+        with reporting.report_stage("snapshot"):
+            execution_inputs.write_json(_folder(base["report_id"]) / "snapshot.json", capture())
+    with reporting.report_stage("design_delivery"):
+        head = plan_folder(base["delivery_head"])
+        try:
+            selected = _design_head(head)
+        except FileNotFoundError:
+            selected = {}
+        previous_head_hash = execution_inputs.content_hash(selected)
+        if retry and previous_head_hash != saved["_pending_design_head"]:
+            return False
+        updated = {**selected, "report_id": base["report_id"]}
+        if selected and "delivered_sha256" not in selected:
+            previous = _saved(selected["report_id"])
+            if (previous and previous.get("status") == "ready" and previous.get("delivery_updated") is not False
+                    and previous.get("sha256") and previous.get("task_id") == base["task_id"] and previous.get("delivery_excel")
+                    and plan_folder(previous["delivery_excel"]) == plan_folder(base["delivery_excel"])):
+                updated["delivered_sha256"] = previous["sha256"]
+        if selected != updated:
+            try:
+                execution_inputs.write_json(head, updated)
+            except OSError as error:
+                error.pending_design_head = previous_head_hash
+                raise
+        return selected.get("report_id") != base["report_id"]
 
 
 def for_design(snapshot: dict, destination: Path, head: Path, *, initial: Path | None = None) -> dict:
@@ -305,14 +418,34 @@ def for_design(snapshot: dict, destination: Path, head: Path, *, initial: Path |
             "delivery_excel": plan_reference(destination), "delivery_head": plan_reference(head)}
     if initial is not None:
         base["initial_excel"] = plan_reference(initial)
-    execution_inputs.write_json(head, {"report_id": base["report_id"]})
-    result = _ensure(base, digest, lambda: snapshot, False)
-    if result["status"] == "ready":
-        try:
-            result.update(_publish_design_copy(base, Path(result["excel"])))
-        except OSError as error:
-            return _persist_failure({**base, "source_hash": digest, "_retained_artifacts": _retained_artifacts(result, digest)}, error, digest)
-    return result
+    return _ensure(base, digest, lambda: snapshot, False)
+
+
+def _reuse_report(saved: dict, retry: bool, selected_design: bool) -> dict | None:
+    if saved["kind"] == "design" and saved["status"] == "ready" and (retry or selected_design):
+        if retry:
+            with reporting.report_stage("snapshot"):
+                _snapshot(saved, saved)
+            _restore_design_artifact(saved)
+        if all(_available(saved, artifact) for artifact in ("excel", "markdown", "bugs")):
+            try:
+                updated = _publish_design_copy(saved, data_refs.resolve(saved["excel"]))
+            except (OSError, ValueError) as error:
+                return _unavailable(saved, "测试报告生成失败：" + str(error), **_failure_details(error))
+            return {**_validate(saved), **updated}
+    if not retry and (saved["status"] != "ready" or (saved.get("markdown") and saved.get("bugs"))):
+        return _validate(saved)
+    return None
+
+
+def _failed_export(base: dict, error: Exception, generation) -> dict:
+    saved = _saved(base["report_id"])
+    if saved and saved.get("status") == "ready" and getattr(error, "report_stage", "") in ("design_initial", "design_delivery"):
+        return _unavailable(saved, "测试报告生成失败：" + str(error), **_failure_details(error))
+    retained = _retained_artifacts(saved, base.get("source_hash"))
+    if retained:
+        base = {**base, "_retained_artifacts": retained}
+    return _persist_failure(base, error, generation)
 
 
 def _ensure(base: dict, generation, capture, retry: bool) -> dict:
@@ -323,6 +456,12 @@ def _ensure(base: dict, generation, capture, retry: bool) -> dict:
             failure_base = base
             try:
                 saved = _saved(base["report_id"])
+                selected_design = False
+                if base["kind"] == "design":
+                    failure_base = {**base, "source_hash": generation}
+                    if saved and "_pending_design_head" in saved:
+                        failure_base["_pending_design_head"] = saved["_pending_design_head"]
+                    selected_design = _select_design(base, saved, capture, retry)
                 if saved and saved.get("status") == "failed" and not retry:
                     return _validate(saved)
                 same_generation = saved and saved.get("generation") == generation
@@ -333,8 +472,8 @@ def _ensure(base: dict, generation, capture, retry: bool) -> dict:
                     retained = _retained_artifacts(saved, saved.get("source_hash"))
                     if retained:
                         failure_base["_retained_artifacts"] = retained
-                if same_generation and not retry and (saved.get("status") != "ready" or (saved.get("markdown") and saved.get("bugs"))):
-                    return _validate(saved)
+                    if (available := _reuse_report(saved, retry, selected_design)) is not None:
+                        return available
                 snapshot = _snapshot(base, saved) if same_generation else None
                 if snapshot is None:
                     snapshot = capture()
@@ -344,10 +483,7 @@ def _ensure(base: dict, generation, capture, retry: bool) -> dict:
                     failure_base["_retained_artifacts"] = retained
                 return _validate(_render(base, snapshot, generation, retained))
             except Exception as error:  # noqa: BLE001  # Keep failure publication in the same lock as successful delivery.
-                retained = _retained_artifacts(_saved(base["report_id"]), failure_base.get("source_hash"))
-                if retained:
-                    failure_base["_retained_artifacts"] = retained
-                return _persist_failure(failure_base, error, generation)
+                return _failed_export(failure_base, error, generation)
     except Exception as error:  # noqa: BLE001  # Report delivery must not erase a completed execution or saved recording.
         return _persist_failure(base, error, generation, save=False)
 
@@ -493,7 +629,6 @@ def retry(report_id: str) -> dict:
     if saved["kind"] == "run":
         return for_run(saved["task_id"], retry=True)
     if saved["kind"] == "design":
-        _restore_design_artifact(saved)
         base = {**_base("design", saved["task_id"], report_id, saved.get("project_id")),
                 **{key: saved[key] for key in ("delivery_excel", "delivery_head", "initial_excel") if key in saved}}
         return _ensure(base, saved["generation"], lambda: _snapshot(base, saved), True)

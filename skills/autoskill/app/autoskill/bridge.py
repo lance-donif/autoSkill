@@ -130,10 +130,16 @@ def check(argv: list[str]) -> None:
         raise ValueError("pack --full 需要在沙箱外直接运行（它要把文件写到 autoSkill 目录之外）")
     if args.command == "pack" and getattr(args, "include_secrets", False):
         raise ValueError("带凭据的分享包需要在沙箱外直接运行 autoskill pack --include-secrets")
+    root = paths.workspace().resolve()
     outputs = [args.out] if getattr(args, "out", None) else []
     if args.command == "browser" and args.args[:1] == ["screenshot"]:
-        outputs += [a for a in args.args[1:] if not a.startswith("-")]
-    root = paths.workspace().resolve()
+        from .recorder import screenshots
+
+        _, positional, directory = screenshots.arguments(args.args[1:])
+        for output in positional:
+            screenshots.output_path(output, root)
+        if directory:
+            screenshots.output_path(directory, root)
     for out in outputs:
         if not (root / out).resolve().is_relative_to(root):
             raise ValueError(f"通过后台服务执行时，输出位置必须在 autoSkill 数据目录内（{root}）；省略输出位置即可使用默认位置")
@@ -146,7 +152,8 @@ def execute(argv: list[str], stdin_text: str | None = None, msys_root: str | Non
     check(argv)
     if session_id is not None and not isinstance(session_id, str):
         raise ValueError("会话标识需要是文字")
-    extra = {"AUTOSKILL_BRIDGE": "off", "AUTOSKILL_WORKSPACE": str(paths.workspace()), "AUTOSKILL_SESSION": session_id or ""}
+    extra = {"AUTOSKILL_BRIDGE": "off", "AUTOSKILL_WORKSPACE": str(paths.workspace()), "AUTOSKILL_SESSION": session_id or "",
+             "AUTOSKILL_BRIDGE_OUTPUT_ROOT": str(paths.workspace().resolve())}
     if workflow_binding is not None and not isinstance(workflow_binding, str):
         raise ValueError("工作流绑定需要是文字")
     extra["AUTOSKILL_WORKFLOW_BINDING"] = workflow_binding or ""

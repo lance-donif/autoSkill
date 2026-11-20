@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 from . import db, projects, task_report_data, task_workbook, task_workbook_data
@@ -296,6 +297,17 @@ def _stable_workbook(file: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+@contextmanager
+def report_stage(name: str):
+    """Keep the original exception and record only the innermost report operation."""
+    try:
+        yield
+    except Exception as error:
+        if not hasattr(error, "report_stage"):
+            error.report_stage = name
+        raise
+
+
 def write_task(snapshot: dict, destination: Path) -> dict:
     """Render the supplied case-document template and retain complete frozen execution evidence."""
     from openpyxl import Workbook
@@ -323,16 +335,19 @@ def write_task(snapshot: dict, destination: Path) -> dict:
     if long_text:
         _table(book, "长文本", [("ref", "原单元格", 38), ("part", "片段顺序", 12), ("text", "全文片段", 110)],
                [{"ref": ref, "part": part, "text": text} for ref, part, text in long_text], [])
-    destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name("." + destination.name + "." + uuid.uuid4().hex + ".tmp")
     try:
-        book.save(temporary)
-        _stable_workbook(temporary)
-        with temporary.open("rb") as stream:
+        with report_stage("workbook_write"):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            book.save(temporary)
+            _stable_workbook(temporary)
+        with report_stage("workbook_sync"), temporary.open("r+b") as stream:
             os.fsync(stream.fileno())
-        validation = _verify_task_workbook(temporary, rows, functional)
-        if not _same_workbook(temporary, destination):
-            temporary.replace(destination)
+        with report_stage("workbook_validate"):
+            validation = _verify_task_workbook(temporary, rows, functional)
+        with report_stage("workbook_replace"):
+            if not _same_workbook(temporary, destination):
+                temporary.replace(destination)
     finally:
         book.close()
         temporary.unlink(missing_ok=True)

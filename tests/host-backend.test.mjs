@@ -180,6 +180,33 @@ test('report parameters require actual host-readable bytes and never claim prese
   assert.equal(unavailable.present_input, undefined);
 });
 
+test('initial delivery reads only the immutable workbook named by the original task receipt', async (t) => {
+  const { workspace } = await fixture(t);
+  const first = join(workspace, 'initial.xlsx');
+  const current = join(workspace, 'current.xlsx');
+  const bytes = Buffer.from('first complete design');
+  await writeFile(first, bytes);
+  await writeFile(current, 'results added later');
+  const receipt = { kind: 'design', task_id: 'plan-A', status: 'ready', initial_excel: first,
+    delivery_excel: current, sha256: createHash('sha256').update(bytes).digest('hex') };
+  const host = { fs: filesystem(), cwd: workspace };
+  const initial = { delivery: 'initial', task_id: 'plan-A' };
+  const result = await reportFiles(receipt, host, { ...initial, path: current });
+  assert.equal(result.status, 'verified');
+  assert.equal(result.presented, false);
+  assert.deepEqual(result.present_input.files.map((file) => file.path), [first]);
+  assert.equal((await reportFiles(receipt, host)).status, 'unavailable', 'the final delivery still requires all three files');
+  await assert.rejects(reportFiles(receipt, host, { ...initial, task_id: 'plan-B' }), /任务编号/);
+  await assert.rejects(reportFiles(receipt, host, { delivery: '../current.xlsx' }), /交付阶段/);
+  for (const variant of [{ kind: 'recording' }, { initial_excel: undefined }, { status: 'failed' }, { initial_excel: current }, { delivery_excel: first }]) {
+    const denied = await reportFiles({ ...receipt, ...variant }, host, initial);
+    assert.equal(denied.presented, false);
+    assert.equal(denied.present_input, undefined);
+  }
+  await rm(first);
+  assert.equal((await reportFiles(receipt, host, initial)).status, 'unavailable');
+});
+
 test('explicit source files retain bytes in the selected data directory and unrelated file keys stay unchanged', async (t) => {
   const { workspace } = await fixture(t);
   const input = join(workspace, '原始需求.txt');

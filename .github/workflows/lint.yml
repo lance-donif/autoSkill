@@ -78,7 +78,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install selected contract dependencies from project pins
+      - &contract-dependencies
+        name: Install selected contract dependencies from project pins
+        shell: bash
         run: |
           python - <<'PY'
           import re
@@ -100,6 +102,59 @@ jobs:
         run: |
           PYTHONPATH=tests python -m unittest -v test_preview_observation_steps test_report_step_definitions test_api_http_lifecycle test_load_testing test_load_report_evidence test_load_modes
           node --test tests/preview-runs.test.mjs tests/load-dashboard.test.mjs
+  windows-report:
+    name: Windows reports and PowerShell
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: candidate (Windows)
+    env:
+      AUTOSKILL_HEADED: '0'
+      AUTOSKILL_REPORT_BASELINE: '${{ github.workspace }}\control (v2.5.1)\skills\autoskill\app'
+      PYTHONPATH: tests
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate (Windows)
+          sparse-checkout: |
+            skills/autoskill
+            tests
+      - uses: actions/checkout@v4
+        with:
+          ref: ad795dd1837bc2103704bdff713bf70cb780411b
+          path: control (v2.5.1)
+          sparse-checkout: skills/autoskill
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - *contract-dependencies
+      - name: Compare native file handles, v2.5.1 receipts, HTTP bridge and Windows permissions
+        run: |
+          $suite = 'test_windows_report_delivery.ReportDeliveryTests'
+          python -m unittest -v "$suite.test_native_descriptor_access_modes" "$suite.test_existing_v251_report_retries_after_upgrade" "$suite.test_direct_and_http_bridge_create_readable_designs" "$suite.test_windows_acl_and_open_workbook_allow_retry_on_same_id"
+      - name: Prepare the pinned recorder and Python driver for the local fixture
+        run: |
+          $pins = (Select-String -Path requirements.txt -Pattern '^(playwright|selenium|pillow)==').Line
+          python -m pip install --disable-pip-version-check @pins
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $prefix = Join-Path $env:RUNNER_TEMP 'report-browser'
+          npm install --prefix $prefix --offline=false --ignore-scripts --no-audit --no-fund '@agent-browser/cli-win32-x64-msvc@0.43.0'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $binary = (Get-Item "$prefix\node_modules\@agent-browser\cli-win32-x64-msvc\bin\agent-browser.exe").FullName
+          $chrome = (Get-Item "$env:ProgramFiles\Google\Chrome\Application\chrome.exe").FullName
+          & $binary --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "AUTOSKILL_AGENT_BROWSER=$binary" >> $env:GITHUB_ENV
+          "AUTOSKILL_CHROMIUM=$chrome" >> $env:GITHUB_ENV
+      - name: Test the documented arguments, recording and report delivery in both native shells
+        run: |
+          powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          pwsh.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          $suite = 'test_windows_report_delivery.ReportDeliveryTests'
+          python -m unittest -v "$suite.test_windows_powershell_51_cmd_with_direct_recording" "$suite.test_powershell_7_cmd_through_http_bridge" "$suite.test_v251_recording_and_run_reports_retry_without_replay"
   dashboard-e2e:
     name: Dashboard E2E
     runs-on: ubuntu-24.04

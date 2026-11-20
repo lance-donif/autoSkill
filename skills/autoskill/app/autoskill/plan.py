@@ -40,7 +40,7 @@ description: autoSkill 内部读取的测试用例表（Excel），由同一技�
 执行本目录的用例表时，把当前任务进程的 `AUTOSKILL_CASE_SKILL` 设置为本 `SKILL.md` 所在目录，确保读取的是这一份表。
 正在使用命名会话时，下面每条命令都继续使用相同的 `--session` 标识；不要切换到另一个任务的录制。以下示例省略了该全局前缀。
 
-1. `autoskill plan show` 读出全部用例。
+1. `autoskill plan show` 读出全部用例及初版报告编号。首份正式表按该回执的 SHA-256 核对，先交付独立的初版 Excel，再执行各行。
 2. 按用例逐条执行：`autoskill record start <项目>` → 按「操作步骤」操作页面 → 用 `autoskill check` 写上「预期结果」→
    `autoskill record stop --title <用例标题> --subproject <子项目> --plan <用例编号>`。
 3. 普通 `record stop --plan` 会安排候选验证；用 `autoskill run-status <运行ID>` 等待实际结果。正式14列 Excel 与内部结果同步回填，失败不因未入库而消失。
@@ -192,13 +192,13 @@ def _set_status(sheet, columns, number: int, status: str, note: str | None = Non
         sheet.cell(number, columns["note"], note).data_type = "s"
 
 
-def _delivery(project_id: str, info: dict, items: list[dict], folder: Path) -> str:
+def _delivery(project_id: str, info: dict, items: list[dict], folder: Path) -> dict:
     """Freeze the initial complete design before any candidate execution is bound."""
     from . import plan_execution
 
     identity = execution_inputs.content_hash(items)
     destination = folder / "exports" / ("functional-design-" + identity[:16] + "-" + uuid.uuid4().hex[:8] + ".xlsx")
-    return plan_execution.initialize(project_id, info, items, destination)["delivery_excel"]
+    return plan_execution.initialize(project_id, info, items, destination)
 
 
 def _source_hash(row: dict) -> str:
@@ -247,6 +247,33 @@ def _design_text(item: dict) -> dict:
     return value
 
 
+def _design_rows(items) -> list[dict]:
+    """Resolve public row IDs once, before replacing any existing design."""
+    if not isinstance(items, list) or not items or not all(isinstance(item, dict) and item.get("title") for item in items):
+        raise ValueError("用例文件需要是数组，每条至少有 title；可用字段：id module title type priority preconditions steps expected")
+    numbers = {}
+    rows = []
+    for number, item in enumerate(items, 1):
+        identity = item.get("id") or f"TC-{number:03d}"
+        if not isinstance(identity, str) or not identity.strip():
+            raise ValueError(f"第 {number} 行的用例编号需要是非空文字，省略 id 可按行自动编号")
+        if identity in numbers:
+            raise ValueError(f"用例编号 {identity} 重复，设计文件第 {numbers[identity]} 行和第 {number} 行需要不同编号")
+        numbers[identity] = number
+        rows.append({**_design_text(item), "id": identity})
+    return rows
+
+
+def _delivery_next(report: dict) -> str:
+    if report["status"] == "ready":
+        return ("请先按本次报告的 sha256 核对初版正式 14 列 Excel，用 initial_excel 交付独立副本。"
+                "宿主交付成功后沿用本次会话，按 autoskill plan show 逐条执行，录制结束时加 --plan <用例编号>。")
+    recovery = ("保留手工修改的 Excel，按回执核对 report_artifacts 中的冻结原件，处理文件冲突后"
+                if report.get("code") == "delivery_conflict" else "请先按回执中的错误修复导出条件，再")
+    return (f"首份正式 14 列 Excel 尚待交付。{recovery}执行 autoskill task-report {report['report_id']} --retry，"
+            "从原任务快照恢复文件。回执为 ready 后核对 SHA-256 并交付初版，再继续执行本任务。")
+
+
 def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
     """Turn designed cases (a JSON array) into the Excel case sheet and its skill."""
     from openpyxl import Workbook
@@ -260,9 +287,7 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
         items = json.loads(Path(file).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as error:
         raise ValueError(f"读不了用例文件 {file}：{error}") from None
-    if not isinstance(items, list) or not items or not all(isinstance(i, dict) and i.get("title") for i in items):
-        raise ValueError("用例文件需要是数组，每条至少有 title；可用字段：id module title type priority preconditions steps expected")
-    items = [_design_text(item) for item in items]
+    items = _design_rows(items)
     folder = _folder()
     folder.mkdir(parents=True, exist_ok=True)
     book = Workbook()
@@ -270,9 +295,9 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
     sheet.title = "用例"
     sheet.append([label for _, label, _ in COLUMNS])
     source_rows = {}
-    for number, item in enumerate(items, 1):
+    for item in items:
         steps = item.get("steps", "")
-        row = {**item, "id": item.get("id") or f"TC-{number:03d}", "module": item.get("module") or "未分组", "steps": steps,
+        row = {**item, "module": item.get("module") or "未分组", "steps": steps,
                "priority": item.get("priority") or "P1", "status": "未执行", "note": "", "replay": ""}
         sheet.append([str(row.get(key, "") or "") for key, _, _ in COLUMNS])
         source_rows[str(row["id"])] = {"row_hash": _source_hash(row), "document": {key: item[key] for key in FUNCTIONAL_FIELDS if key in item}}
@@ -293,13 +318,14 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
         metadata = folder / "design.json"
         revision = execution_inputs.content_hash(json.loads(metadata.read_bytes())) if metadata.is_file() else None
         execution_inputs.write_json(folder / "functional-design.json", {"schema": 1, "online_revision": revision, "rows": source_rows})
-    public_file = _delivery(project_id, info, items, folder) if delivery else None
+    published = _delivery(project_id, info, items, folder) if delivery else _delivery_status()
+    public_file = published.get("delivery_excel") if delivery else None
     (folder / "SKILL.md").write_text(SKILL_TEXT.format(file=Path(saved).name, count=len(items), project=f"，项目 {project_id}",
                                                      delivery=public_file or "在线设计用例表的「下载 14 列 Excel」"), encoding="utf-8")
     return {"skill": str(folder), "excel": saved, "cases": len(items), "project": project_id,
             "excel_role": "内部编辑表（11 列），非用户交付 Excel", "delivery_excel": public_file,
-            **_delivery_status(),
-            "next": "向用户提供 delivery_excel 正式 14 列设计文档；excel 仅供内部编辑。按 autoskill plan show 逐条执行，录制结束时加 --plan <用例编号>"}
+            **published,
+            "next": _delivery_next(published["test_report"]) if delivery else "可在在线设计用例表下载正式 14 列 Excel。"}
 
 
 @_sheet_locked
