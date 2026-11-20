@@ -290,9 +290,14 @@ function createLoadRenderer(aggregate) {
       swatch.style.background = palette[i % palette.length];
       return element('li', {}, swatch, seriesLabel(id, group.label));
     }));
-    const rows = series.flatMap((group) => group.data.map(([x, y]) => [seriesLabel(id, group.label), frame.formatX(x), format(y)]));
-    panel.append(frame.node, legend, element('details', { class: 'more' }, element('summary', {}, '查看图表数据'),
-      table(name + '数据', ['系列', xTitle, yTitle], rows)));
+    const details = element('details', { class: 'more' }, element('summary', {}, '查看图表数据'));
+    details.addEventListener('toggle', function showData() {
+      if (!details.open) return;
+      const rows = series.flatMap((group) => group.data.map(([x, y]) => [seriesLabel(id, group.label), frame.formatX(x), format(y)]));
+      details.append(table(name + '数据', ['系列', xTitle, yTitle], rows));
+      details.removeEventListener('toggle', showData);
+    });
+    panel.append(frame.node, legend, details);
     return panel;
   }
   return function render(run, options = {}) {
