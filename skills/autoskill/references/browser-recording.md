@@ -60,6 +60,8 @@ iframe 和 Shadow DOM 按当前区域逐层进入，`snapshot`、`describe`、�
 
 每项业务预期都要有对应检查。选择能验证直接结果的稳定断言，按需求覆盖本次操作的全部验收点。
 
+验证方向键移动 DOM 焦点时，在按 Enter 前检查目标选项已获得焦点。例如，页面用 `data-channel="短信"` 标识该选项，按方向键后执行 `autoskill check count 'css=[data-channel="短信"]:focus' 1`，再按 Enter 验证最终选择。
+
 - 断言自己造的数据：列表里 `contains` 刚新增的那个名字、成功提示、跳转后的 `url_contains`。
 - 不断言会随数据或环境变化的东西：总条数（用 `min_count`）、排序位置、时间、自增 ID、分页、别人的数据、整段文案。
 - 目标优先用 `testid=`、`label=`、`role=`；不要用带层级和序号的长 CSS（`div:nth-of-type(4) > span`）。

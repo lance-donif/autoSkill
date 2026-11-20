@@ -123,7 +123,7 @@ AI 问数默认顺序是：**页面真实体验一遍对话 → 保存录制捕�
 
 ## 同一对话中的命令示例
 
-`plan write` 的设计文件是 UTF-8 JSON，顶层为非空数组，每个对象代表一行，至少包含 `title`。执行方按此格式直接写入需求中的编号、目录、步骤和预期。例如：
+`plan write` 的设计文件是 UTF-8 JSON，顶层为非空数组，每个对象代表一行，至少包含 `title`。多步用例的 `expected` 每项以对应步骤号开头，例如 `2. 已创建工单。`。未编号的预期会写在 Excel 的最后一步。
 
 ```json
 [
@@ -132,8 +132,8 @@ AI 问数默认顺序是：**页面真实体验一遍对话 → 保存录制捕�
     "title": "新建工单",
     "business_path": ["订单中心", "工单"],
     "preconditions": "已登录且有新建权限",
-    "steps": ["填写工单标题并提交"],
-    "expected": ["显示“已创建”"],
+    "steps": ["打开新建工单表单", "填写标题并点击【保存】"],
+    "expected": ["1. 显示标题输入框。", "2. 显示“已创建”提示。"],
     "source": "本轮新建工单需求"
   }
 ]
@@ -147,13 +147,15 @@ autoskill context <项目>
 autoskill plan write <项目> --file <完整设计文件>
 ```
 
-先交付上一步正式设计表的冻结初版 `initial_excel`，然后逐条按表执行。使用当次快照给出的元素编号。
+先交付上一步正式设计表的冻结初版 `initial_excel`，然后逐条按表执行。根据当前页面核对控件名称与测试标识。
 
 ```
 autoskill plan show
 autoskill record start <项目>
-autoskill browser click "@e5"
-autoskill browser fill "@e7" "工单-{{RAND}}"
+autoskill browser click "role=button:新建工单"
+autoskill check visible "label=标题"
+autoskill browser fill "label=标题" "工单-{{RAND}}"
+autoskill browser click "role=button:保存"
 autoskill check contains testid=toast "已创建"
 autoskill record stop --title "新建工单" --subproject "工单" --plan TC-001
 autoskill run-status <返回的运行ID> --brief
