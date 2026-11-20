@@ -378,7 +378,8 @@ def _register_overview_routes(app: FastAPI) -> None:
 
     @app.get("/api/cases")
     def cases(request: Request, kind: str | None = None, added: bool = False):
-        return metrics.cases(scope_of(request), kind, added)
+        with data_store.selected_workspace() as identity:
+            return {**metrics.cases(scope_of(request), kind, added), "workspace_identity": identity}
 
 
 def _register_project_routes(app: FastAPI, state: dict) -> None:
@@ -599,16 +600,20 @@ def _register_run_detail_routes(app: FastAPI) -> None:
 
 
 def _register_deletion_routes(app: FastAPI) -> None:
+    def delete_selected_cases(items: list, expected_workspace: str | None) -> dict:
+        with data_store.selected_workspace(expected_workspace):
+            return deletion.delete_cases(items)
+
     @app.delete("/api/projects/{project_id}/cases/{case_id}")
-    def delete_case(project_id: str, case_id: str):
-        return deletion.delete_cases([{"project_id": project_id, "case_id": case_id}])
+    def delete_case(project_id: str, case_id: str, expected_workspace: str | None = None):
+        return delete_selected_cases([{"project_id": project_id, "case_id": case_id}], expected_workspace)
 
     @app.post("/api/cases/delete")
-    async def delete_cases(request: Request):
+    async def delete_cases(request: Request, expected_workspace: str | None = None):
         body = await request.json()
         if not isinstance(body, dict) or not isinstance(body.get("items"), list):
             raise ValueError("items 必须是包含 project_id、case_id 的数组")
-        return await asyncio.to_thread(deletion.delete_cases, body["items"])
+        return await asyncio.to_thread(delete_selected_cases, body["items"], expected_workspace)
 
     @app.delete("/api/runs/{run_id}")
     def delete_run(run_id: str):

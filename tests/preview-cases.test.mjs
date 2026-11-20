@@ -62,6 +62,18 @@ test('folder operations use fresh revisions, reject cycles, and keep membership 
   assert.equal(request('/projects/' + project_id).cases.total, countBefore - 1);
 });
 
+test('case deletion uses the workspace from the list shown at selection', () => {
+  const request = visit();
+  const { items, workspace_identity } = request('/cases');
+  const { project_id, case_id } = items[0];
+  const path = '/projects/' + project_id + '/cases/' + case_id;
+  assert.equal(request(path + '?expected_workspace=previous', 'DELETE').status, 409);
+  assert.equal(request('/cases/delete?expected_workspace=previous', 'POST', { items: [{ project_id, case_id }] }).status, 409);
+  assert.equal(request(path).id, case_id);
+  const done = request(path + '?expected_workspace=' + encodeURIComponent(workspace_identity), 'DELETE');
+  assert.equal(done.deleted[0].case_id, case_id);
+});
+
 test('project settings and credentials update within the visit', () => {
   const request = visit();
   const project = request('/projects')[0];

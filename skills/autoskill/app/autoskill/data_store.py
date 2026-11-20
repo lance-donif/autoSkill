@@ -13,7 +13,7 @@ import uuid
 import zipfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
-from . import data_refs, data_runtime, data_transfer, maintenance, paths
+from . import data_refs, data_runtime, data_transfer, maintenance, paths, runtime_identity
 from .locking import named_lock
 
 
@@ -36,6 +36,19 @@ def _metadata(root: Path) -> dict:
     if not isinstance(value, dict) or value.get("schema_version") != 1 or not isinstance(value.get("data_id"), str) or not value["data_id"]:
         raise DataError("invalid_data", "数据根标识无效，未覆盖原文件")
     return value
+
+
+@contextlib.contextmanager
+def selected_workspace(expected: str | None = None):
+    """Keep a request on the dataset and location from which its selection was read."""
+    root = paths.workspace()
+    with maintenance.access(root):
+        data_id = _metadata(root).get("data_id")
+        # A copied workspace retains its data_id and can then be edited independently.
+        identity = f"{data_id}:{runtime_identity.location_id(root)}" if data_id else None
+        if expected is not None and expected != identity:
+            raise DataError("data_changed", "数据目录已变化，请刷新页面后重新选择要删除的用例")
+        yield identity
 
 
 def _source(source: Path) -> tuple[Path, Path | None]:
@@ -171,8 +184,6 @@ def ensure_initialized(root: Path | None = None) -> dict:
     root = (root or paths.workspace()).resolve()
     metadata = _metadata(root)
     marker = data_transfer.read_json(root / ".local/runtime-location.json")
-    from . import runtime_identity
-
     if not metadata and runtime_identity.is_local(marker, root):
         with maintenance.access(root), named_lock("data-root", "metadata"):
             metadata = _metadata(root) or _new_metadata(root)

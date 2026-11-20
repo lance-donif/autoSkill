@@ -14,13 +14,15 @@ import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
-from autoskill import paths
+from autoskill import builder, paths, projects
 
 SERVER = """
 import json, socket, sys
@@ -232,6 +234,60 @@ class DataDashboardTests(unittest.TestCase):
         self.assertEqual(change.value.status, 409)
         expect(browser).to_have_attribute("aria-checked", previous)
         self.assertEqual(saved_file.read_bytes() if saved_file.exists() else None, before)
+        self.assertEqual(self.page_errors, [])
+
+    def test_case_delete_confirmations_cannot_follow_the_server_to_another_workspace(self):
+        targets = ["TC-1", "TC-2", "TC-3", "KEEP"]
+        for name in ("original", "replacement"):
+            with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.folder / name)}):
+                projects.create(name, "http://example.invalid", project_id="shared")
+                projects.save_cases("shared", [builder.api_case(cid, f"{name} {cid}", "GET", "/" + name, {"status": 200})
+                                               for cid in targets])
+
+        def choose(page, bulk):
+            if bulk:
+                for cid in ("TC-2", "TC-3"):
+                    page.get_by_role("checkbox", name="选择 " + cid, exact=True).check()
+                page.get_by_role("button", name="删除所选", exact=True).click()
+            else:
+                page.get_by_role("button", name="删除用例 TC-1", exact=True).click()
+            return page.get_by_role("alertdialog")
+
+        def confirm(page, bulk):
+            with page.expect_response(lambda r: r.request.method == ("POST" if bulk else "DELETE")
+                                      and urlsplit(r.url).path == ("/api/cases/delete" if bulk else "/api/projects/shared/cases/TC-1")) as saved:
+                page.get_by_role("alertdialog").get_by_role("button", name="删除所选" if bulk else "删除用例", exact=True).click()
+            return saved.value
+
+        first = self.server("original")
+        selection = first.api("/cases")["workspace_identity"]
+        windows = [(self.page, False), (self.context.new_page(), True)]
+        for page, bulk in windows:
+            page.goto(first.origin + "/#/cases?projects=shared&range=all")
+            expect(page.get_by_role("button", name="original TC-1", exact=True)).to_be_visible()
+            expect(choose(page, bulk)).to_be_visible()
+        port = first.port
+        first.close()
+        self.servers.remove(first)
+        second = self.server("replacement", port)
+        snapshot = second.api("/cases")
+        self.assertNotEqual(snapshot["workspace_identity"], selection)
+        for page, bulk in windows:
+            refused = confirm(page, bulk)
+            self.assertEqual(parse_qs(urlsplit(refused.url).query)["expected_workspace"], [selection])
+            self.assertEqual((refused.status, refused.json()["code"]), (409, "data_changed"))
+            expect(page.locator("#toasts")).to_contain_text("数据目录已变化，请刷新页面后重新选择")
+        self.assertEqual(second.api("/cases"), snapshot)
+        for page, bulk in windows:
+            page.reload()
+            expect(page.get_by_role("button", name="replacement KEEP", exact=True)).to_be_visible()
+            choose(page, bulk)
+            done = confirm(page, bulk)
+            self.assertEqual(done.status, 200)
+            self.assertEqual(len(done.json()["deleted"]), 2 if bulk else 1)
+        self.assertEqual([row["case_id"] for row in second.api("/cases")["items"]], ["KEEP"])
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(first.root)}):
+            self.assertEqual({case["id"] for case in projects.cases("shared")}, set(targets))
         self.assertEqual(self.page_errors, [])
 
     def test_save_and_import_errors_are_visible_and_keep_the_previous_state(self):

@@ -35,6 +35,21 @@ class DataStoreTests(unittest.TestCase):
         file.write_bytes(value)
         return file
 
+    def test_a_copy_of_the_same_dataset_has_an_independent_workspace_identity(self):
+        data_store.ensure_initialized()
+        with data_store.selected_workspace() as original:
+            self.assertIsNotNone(original)
+        target = self.folder / "copy"
+        data_store.import_data(self.root, target)
+        self.assertEqual(json.loads((self.root / "data-root.json").read_bytes())["data_id"],
+                         json.loads((target / "data-root.json").read_bytes())["data_id"])
+        with (patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(target)}),
+              self.assertRaises(data_store.DataError) as raised, data_store.selected_workspace(original)):
+            self.fail("A selection from another copy must expire")
+        self.assertEqual(raised.exception.code, "data_changed")
+        with data_store.selected_workspace(original) as reopened:
+            self.assertEqual(reopened, original)
+
     def source(self, name="old"):
         root = self.folder / name
         self.put(root, "projects/p/testcases/TC-API-001.json", b'{"id":"TC-API-001","assertions":{"status":200}}')

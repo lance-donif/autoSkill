@@ -116,7 +116,7 @@ class DashboardDeletionTests(unittest.TestCase):
         if path == "/api/cases/delete":
             return 200, self.delete_cases(request.post_data_json["items"])
         if path == "/api/cases":
-            return 200, {"items": self.cases, "total": len(self.cases)}
+            return 200, {"items": self.cases, "total": len(self.cases), "workspace_identity": "fixture-workspace"}
         parts = path.split("/")
         project_id, case_id = unquote(parts[3]), unquote(parts[5])
         if request.method == "DELETE":
