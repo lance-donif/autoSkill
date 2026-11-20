@@ -2,11 +2,15 @@
 import hashlib
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 import warnings
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -135,10 +139,135 @@ class ArtifactShareTests(unittest.TestCase):
             self.assertGreater((projects.path(PID) / "input/large.bin").stat().st_size, 5 * 1024 * 1024)
             self.assertTrue((projects.path(PID) / "scripts/run.cmd").is_file())
 
-    def test_pack_inside_project_does_not_include_itself(self):
-        package = share.pack([PID], str(self.folder / "shared.zip"))["file"]
-        with zipfile.ZipFile(package) as archive:
-            self.assertNotIn(f"projects/{PID}/shared.zip", archive.namelist())
+    def test_failed_project_pack_preserves_the_delivered_file_and_leaves_no_partial_output(self):
+        deliveries = self.root / "交接"
+        target = deliveries / "project.zip"
+        share.pack([PID], str(target))
+        original = target.read_bytes()
+        for destination in (target, deliveries / "first-attempt.zip"):
+            with self.subTest(destination=destination), self.assertRaisesRegex(ValueError, "不存在"):
+                share.pack([PID, "deleted-project"], str(destination))
+            self.assertEqual(list(deliveries.iterdir()), [target])
+            self.assertEqual(target.read_bytes(), original)
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.root / "receiver")}):
+            self.assertEqual([p["id"] for p in share.import_pack(str(target))["imported"]], [PID])
+
+    def test_exports_inside_a_project_include_attachments_and_exclude_output_and_staging(self):
+        skill = self.root / "skill"
+        skill.mkdir()
+        self.enterContext(patch.object(paths, "SKILL", skill))
+        for name in ("attachment.zip", ".autoskill-pack-notes.tmp"):
+            (self.folder / name).write_bytes(b"keep")
+        target = self.folder / "交接.zip"
+        for export in (share.pack, share.pack_full):
+            for _ in range(2):
+                result = export(out=str(target))
+                self.assertEqual(result["bytes"], target.stat().st_size)
+                with zipfile.ZipFile(target) as archive:
+                    self.assertIsNone(archive.testzip())
+                    names = {Path(name).name for name in archive.namelist()}
+                    self.assertNotIn(target.name, names)
+                    self.assertIn("attachment.zip", names)
+                    self.assertEqual({name for name in names if name.endswith(".tmp")}, {".autoskill-pack-notes.tmp"})
+
+    def test_failed_full_pack_keeps_the_previous_archive_until_the_source_is_repaired(self):
+        skill = self.root / "skill"
+        skill.mkdir()
+        (skill / "SKILL.md").write_bytes(b"skill")
+        self.enterContext(patch.object(paths, "SKILL", skill))
+        target = self.root / "交接" / "full.zip"
+        domain.commit(PID, {"sources/order.txt": b"original"}, None)
+        file = self.folder / "domain/objects" / domain.file_ref(PID, "sources/order.txt")["sha256"]
+        share.pack_full(str(target))
+        original = target.read_bytes()
+        file.write_bytes(b"corrupt!")
+        with self.assertRaisesRegex(ValueError, "哈希"):
+            share.pack_full(str(target))
+        self.assertEqual(target.read_bytes(), original)
+        self.assertEqual(list(target.parent.iterdir()), [target])
+        file.write_bytes(b"original")
+        (skill / "SKILL.md").write_bytes(b"updated skill")
+        share.pack_full(str(target))
+        with zipfile.ZipFile(target) as archive:
+            self.assertEqual(archive.read("autoskill/SKILL.md"), b"updated skill")
+
+    def test_another_export_can_read_the_previous_delivery_while_replacement_is_in_progress(self):
+        target = self.folder / "delivered.zip"
+        share.pack([PID], str(target))
+        original = target.read_bytes()
+        (self.folder / "new.txt").write_bytes(b"new")
+        started, resume = threading.Event(), threading.Event()
+        archive_project = share._archive_project
+
+        def pause(archive, project, entries, needed, destination):
+            if destination == target:
+                started.set()
+                self.assertTrue(resume.wait(timeout=15))
+            return archive_project(archive, project, entries, needed, destination)
+
+        with patch.object(share, "_archive_project", pause), ThreadPoolExecutor(max_workers=1) as pool:
+            writing = pool.submit(share.pack, [PID], str(target))
+            try:
+                self.assertTrue(started.wait(timeout=15))
+                self.assertEqual(target.read_bytes(), original)
+                other = share.pack([PID], str(self.root / "other.zip"))
+                with zipfile.ZipFile(other["file"]) as archive:
+                    self.assertEqual(archive.read(f"projects/{PID}/delivered.zip"), original)
+                    self.assertFalse(any(name.endswith(".tmp") for name in archive.namelist()))
+            finally:
+                resume.set()
+            writing.result(timeout=15)
+        with zipfile.ZipFile(target) as archive:
+            self.assertEqual(archive.read(f"projects/{PID}/new.txt"), b"new")
+
+    @unittest.skipIf(os.name == "nt", "Unix file mode and symbolic links")
+    def test_replacing_an_output_link_preserves_its_target_permissions(self):
+        target = self.root / "delivered.zip"
+        target.write_bytes(b"previous")
+        target.chmod(0o640)
+        link = self.root / "latest.zip"
+        link.symlink_to(target)
+        result = share.pack([PID], str(link))
+        self.assertEqual(result["file"], str(link))
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(target.stat().st_mode & 0o777, 0o640)
+        with zipfile.ZipFile(target) as archive:
+            self.assertIn(share.MANIFEST, archive.namelist())
+
+    @unittest.skipUnless(sys.platform == "linux" and shutil.which("setfacl"), "Linux POSIX ACL tools required")
+    def test_replacement_preserves_named_access_and_excludes_unrelated_inherited_acl(self):
+        folder = self.root / "deliveries"
+        folder.mkdir()
+        a, b = folder / "named.zip", folder / "plain.zip"
+        for target in (a, b):
+            share.pack([PID], str(target))
+        set_named = subprocess.run(["setfacl", "-m", "u:60001:r", str(a)], capture_output=True, check=False)
+        if set_named.returncode and b"not supported" in set_named.stderr.lower():
+            self.skipTest("temporary filesystem does not support POSIX ACLs")
+        set_named.check_returncode()
+        acl = "system.posix_acl_access"
+        original = os.getxattr(a, acl)
+        subprocess.run(["setfacl", "-dm", "u:60002:r", str(folder)], check=True)
+        for target in (a, b):
+            share.pack([PID], str(target))
+        self.assertEqual(os.getxattr(a, acl), original)
+        self.assertNotIn(acl, os.listxattr(b))
+
+    @unittest.skipUnless(os.name == "nt", "native Windows file DACL and file sharing required")
+    def test_replacement_preserves_windows_dacl_and_open_readers(self):
+        target = self.root / "delivered.zip"
+        share.pack([PID], str(target))
+        subprocess.run(["icacls", str(target), "/deny", "*S-1-5-32-546:(R)"], check=True)
+        acl = subprocess.check_output(["icacls", str(target)])
+        with target.open("rb") as previous:
+            original = previous.read()
+            with self.assertRaises(PermissionError):
+                share.pack([PID], str(target))
+            self.assertEqual(target.read_bytes(), original)
+        share.pack([PID], str(target))
+        self.assertEqual(subprocess.check_output(["icacls", str(target)]), acl)
+        with zipfile.ZipFile(target) as archive:
+            self.assertIn(share.MANIFEST, archive.namelist())
 
     def test_full_pack_includes_native_assets_and_domain_objects(self):
         self.create_assets()
