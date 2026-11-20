@@ -1,5 +1,7 @@
 """Task Excel delivery reads real workbooks and isolates real HTTP/CLI executions."""
 import copy
+import errno
+import hashlib
 import io
 import json
 import os
@@ -22,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import builder, data_refs, db, deletion, native_assets, native_reader, native_run, projects, reporting, runner, runtime_identity, task_report_data, task_reports, workflow
+from autoskill import builder, data_refs, db, deletion, native_assets, native_reader, native_run, plan, projects, reporting, runner, runtime_identity, task_report_data, task_reports, workflow
 from autoskill.server import jobs
 from autoskill.server.app import create_app
 
@@ -84,6 +86,11 @@ class TaskReportTests(unittest.TestCase):
         book = load_workbook(receipt["excel"], data_only=False)
         self.addCleanup(book.close)
         return book
+
+    def write_design(self):
+        source = self.folder / "design.json"
+        source.write_text(json.dumps([{"id": "TC-001", "title": "核对状态", "steps": "1. 读取订单状态。", "expected": "1. 订单处于待审核状态。"}]), encoding="utf-8")
+        return plan.write(self.pid, str(source))
 
     @staticmethod
     def rows(book, sheet="用例与结果"):
@@ -150,6 +157,156 @@ class TaskReportTests(unittest.TestCase):
         receipt = task_reports.retry(failed["report_id"])
         self.assertEqual(self.rows(self.workbook(receipt))[0]["本次结果"], "失败")
         self.assertEqual(db.one("SELECT COUNT(*) n FROM runs")["n"], before)
+
+    def test_workbook_sync_uses_a_writable_descriptor_and_retry_keeps_frozen_inputs(self):
+        opened, modes = [], []
+        original_open, original_fsync = Path.open, os.fsync
+        simulate_disk_full = True
+
+        def track_workbooks(path, *args, **kwargs):
+            stream = original_open(path, *args, **kwargs)
+            if path.name.startswith(".测试用例-") and path.suffix == ".tmp":
+                opened.append(stream)
+            return stream
+
+        def check_sync(descriptor):
+            for stream in opened:
+                if not stream.closed and stream.fileno() == descriptor:
+                    modes.append(stream.writable())
+                    if not stream.writable():
+                        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
+                    if simulate_disk_full:
+                        raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+            return original_fsync(descriptor)
+
+        recording = {"started_at": db.now(), "session_id": "text-only", "rand": "report"}
+        with patch.object(Path, "open", track_workbooks), patch.object(os, "fsync", check_sync):
+            written = self.write_design()
+            failed = [written["test_report"], task_reports.for_recording(self.pid, recording, [self.case])]
+            self.assertTrue(Path(written["excel"]).is_file())
+            self.assertFalse(Path(written["delivery_excel"]).parent.exists())
+            simulate_disk_full = False
+            for receipt in failed:
+                self.assertTrue(receipt["retryable"])
+                self.assertEqual((receipt["status"], receipt["stage"], receipt["errno"]), ("failed", "workbook_sync", errno.ENOSPC))
+                self.assertEqual(receipt["error"], "测试报告生成失败：" + str(OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))))
+                self.assertNotIn("download_url", receipt)
+                snapshot = task_reports._folder(receipt["report_id"]) / "snapshot.json"
+                frozen = snapshot.read_bytes()
+                ready = task_reports.retry(receipt["report_id"])
+                self.assertEqual((ready["report_id"], ready["task_id"], ready["source_hash"]), (receipt["report_id"], receipt["task_id"], receipt["source_hash"]))
+                self.assertEqual(self.workbook(ready)["功能测试用例"].max_column, 14)
+                for key in ("excel", "markdown", "bugs"):
+                    digest = hashlib.sha256(Path(ready[key]).read_bytes()).hexdigest()
+                    self.assertEqual(digest, ready["sha256" if key == "excel" else key + "_sha256"])
+                self.assertEqual(snapshot.read_bytes(), frozen)
+        self.assertEqual(modes, [True] * 4)
+        self.assertEqual(db.one("SELECT COUNT(*) n FROM runs")["n"], 0)
+        self.assertEqual(db.one("SELECT COUNT(*) n FROM results")["n"], 0)
+
+    def test_real_unusable_export_directory_is_retryable_after_fix(self):
+        exports = self.folder / "plan" / "exports"
+        exports.parent.mkdir(parents=True, exist_ok=True)
+        exports.write_bytes(b"existing unrelated file")
+        written = self.write_design()
+        receipt = written["test_report"]
+        self.assertEqual((receipt["status"], receipt["stage"]), ("failed", "design_initial"))
+        self.assertIn("errno", receipt)
+        self.assertNotIn("download_url", receipt)
+        self.assertEqual(task_reports.retry(receipt["report_id"])["status"], "failed")
+        self.assertEqual(exports.read_bytes(), b"existing unrelated file")
+        exports.rename(exports.with_suffix(".saved"))
+        delivery = Path(written["delivery_excel"])
+        delivery.parent.mkdir()
+        delivery.write_bytes(b"unrecognized workbook at the requested path")
+        conflict = task_reports.retry(receipt["report_id"])
+        self.assertEqual(conflict["code"], "delivery_conflict")
+        self.assertEqual(delivery.read_bytes(), b"unrecognized workbook at the requested path")
+        delivery.rename(delivery.with_suffix(".saved"))
+        ready = task_reports.retry(receipt["report_id"])
+        self.assertEqual(ready["status"], "ready", ready)
+        self.assertEqual(Path(ready["initial_excel"]).read_bytes(), Path(ready["delivery_excel"]).read_bytes())
+
+    def test_retry_recovers_interrupted_head_selection_only_while_it_is_current(self):
+        write_json = task_reports.execution_inputs.write_json
+
+        def deny_head(file, value):
+            if file.name == "delivery-head.json":
+                raise PermissionError(errno.EACCES, os.strerror(errno.EACCES))
+            write_json(file, value)
+
+        with patch.object(task_reports.execution_inputs, "write_json", deny_head):
+            first = self.write_design()["test_report"]
+        self.assertEqual((first["code"], first["stage"], first["errno"]), ("permission_denied", "design_delivery", errno.EACCES))
+        self.assertNotIn("_pending_design_head", first)
+        repaired = task_reports.retry(first["report_id"])
+        self.assertEqual((repaired["status"], repaired["delivery_updated"]), ("ready", True))
+        with patch.object(task_reports.execution_inputs, "write_json", deny_head):
+            skipped = plan.mark("TC-001", "未执行", "第一次变更")["test_report"]
+        current = plan.mark("TC-001", "未执行", "第二次变更")["test_report"]
+        self.assertEqual(current["status"], "ready", current)
+        delivery = Path(current["delivery_excel"])
+        head = runner.plan_folder(current["delivery_head"])
+        before = (delivery.read_bytes(), head.read_bytes())
+        historical = task_reports.retry(skipped["report_id"])
+        self.assertEqual((historical["status"], historical["delivery_updated"]), ("ready", False))
+        self.assertEqual((delivery.read_bytes(), head.read_bytes()), before)
+
+    def test_user_edits_survive_new_revision_and_late_retry_of_a_ready_design(self):
+        written = self.write_design()
+        first = written["test_report"]
+        previous_receipt = task_reports._folder(first["report_id"]) / "receipt.json"
+        original_receipt = previous_receipt.read_bytes()
+        delivery = Path(written["delivery_excel"])
+        initial = Path(written["initial_excel"]).read_bytes()
+        book = load_workbook(delivery)
+        try:
+            book["功能测试用例"]["M1"] = "用户维护的备注"
+            book.save(delivery)
+        finally:
+            book.close()
+        edited = delivery.read_bytes()
+        # A pre-upgrade head has only the selected report identity.
+        head = runner.plan_folder(first["delivery_head"])
+        head.write_text(json.dumps({"report_id": first["report_id"]}), encoding="utf-8")
+        current = plan.mark("TC-001", "未执行", "等待新输入")["test_report"]
+        self.assertNotEqual(current["report_id"], first["report_id"])
+        self.assertEqual((current["status"], current["code"], current["stage"]), ("failed", "delivery_conflict", "design_delivery"))
+        self.assertNotIn("excel", current)
+        for key in ("excel", "markdown", "bugs"):
+            original = current["report_artifacts"][key]
+            data = Path(original["path"]).read_bytes()
+            self.assertEqual((len(data), hashlib.sha256(data).hexdigest()), (original["size"], original["sha256"]))
+        newest_head = head.read_bytes()
+        self.assertFalse(task_reports.retry(first["report_id"])["delivery_updated"])
+        self.assertEqual(task_reports.retry(current["report_id"])["code"], "delivery_conflict")
+        self.assertEqual((delivery.read_bytes(), previous_receipt.read_bytes(), head.read_bytes()), (edited, original_receipt, newest_head))
+        delivery.rename(delivery.with_suffix(".edited.xlsx"))
+        ready = task_reports.retry(current["report_id"])
+        self.assertEqual(ready["status"], "ready", ready)
+        self.assertEqual(delivery.read_bytes(), Path(ready["excel"]).read_bytes())
+        self.assertEqual(Path(written["initial_excel"]).read_bytes(), initial)
+        self.assertEqual(db.one("SELECT COUNT(*) n FROM runs")["n"], 0)
+
+    def test_unrecognized_head_or_changed_initial_copy_preserves_ready_files(self):
+        written = self.write_design()
+        first = written["test_report"]
+        head = runner.plan_folder(first["delivery_head"])
+        canonical = Path(first["excel"]).read_bytes()
+        delivery = Path(first["delivery_excel"])
+        original_head = head.read_bytes()
+        for invalid in ({}, []):
+            head.write_text(json.dumps(invalid), encoding="utf-8")
+            for observed in (task_reports.get(first["report_id"]), task_reports.retry(first["report_id"])):
+                self.assertEqual((observed["status"], observed["stage"]), ("failed", "design_delivery"))
+            self.assertEqual(delivery.read_bytes(), canonical)
+        head.write_bytes(original_head)
+        initial = Path(first["initial_excel"])
+        initial.write_bytes(b"retained hand edit")
+        conflict = task_reports.retry(first["report_id"])
+        self.assertEqual((conflict["stage"], conflict["code"]), ("design_initial", "delivery_conflict"))
+        self.assertEqual(initial.read_bytes(), b"retained hand edit")
+        self.assertEqual((Path(first["excel"]).read_bytes(), delivery.read_bytes()), (canonical, canonical))
 
     def test_recording_snapshot_failure_is_reported_without_throwing_and_definitions_are_not_run(self):
         recording = {"started_at": db.now(), "session_id": "recording session", "rand": "synthetic"}
