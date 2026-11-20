@@ -251,6 +251,17 @@ def _design_text(item: dict) -> dict:
     return value
 
 
+def validate_case_count(items, expected: int) -> None:
+    if expected < 1:
+        raise ValueError("--expected-cases 需要填写根据验收目标确定的正整数")
+    if not isinstance(items, list):
+        raise ValueError("用例文件需要是 JSON 数组，每项代表一条用例")
+    if len(items) != expected:
+        guidance = ("请把通往同一目标的连续操作写进一条用例的 steps，把对应的检查写进 expected。"
+                    if expected == 1 else "请按可独立验收的目标核对每条用例，然后重新提交。")
+        raise ValueError(f"本次计划期望 {expected} 条用例，设计文件实际有 {len(items)} 条。{guidance}")
+
+
 def _design_rows(items) -> list[dict]:
     """Resolve public row IDs once, before replacing any existing design."""
     if not isinstance(items, list) or not items or not all(isinstance(item, dict) and item.get("title") for item in items):

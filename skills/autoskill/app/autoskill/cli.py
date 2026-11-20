@@ -485,6 +485,7 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     writer = plan.add_parser("write", help="把根据需求文档设计的用例写成 Excel 用例表")
     writer.add_argument("project")
     writer.add_argument("--file", required=True, help="用例 JSON 文件（数组）")
+    writer.add_argument("--expected-cases", type=int, help="按独立验收目标预先确定的用例数；单一连续流程填 1")
     plan.add_parser("show", help="读出用例表：要执行哪些用例、各自的结果")
     linker = plan.add_parser("link", help="把当前用例表的一行关联到同项目已有用例；随后回放才写入真实结果")
     linker.add_argument("case", help="本次设计表中的用例编号")
@@ -927,6 +928,10 @@ def _dispatch_plan(args) -> tuple[dict, int]:
 
     if action == "write":
         payload = _input_json(args)
+        expected = getattr(args, "expected_cases", None)
+        if expected is not None:
+            plan.validate_case_count(payload, expected)
+            _initialize_workspace()
         with tempfile.TemporaryDirectory(prefix="autoskill-plan-") as folder:
             source = Path(folder) / "cases.json"
             source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -1183,6 +1188,13 @@ def main(argv: list[str] | None = None) -> int:
         return _main(args, argv)
 
 
+def _initialize_workspace() -> None:
+    from . import data_store
+
+    data_store.ensure_initialized()
+    db.init()
+
+
 def _main(args, argv: list[str]) -> int:
     """Execute one command after the caller's session identity has been selected."""
     if getattr(args, "headless", False) or getattr(args, "headed", False):
@@ -1199,11 +1211,10 @@ def _main(args, argv: list[str]) -> int:
             reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
             if reason:
                 return delegate(args, argv, reason)
-        if args.command != "data":
-            from . import data_store
-
-            data_store.ensure_initialized()
-            db.init()
+        # A counted plan validates its input before creating any workspace or sheet.
+        counted_plan = args.command == "plan" and args.action == "write" and args.expected_cases is not None
+        if args.command != "data" and not counted_plan:
+            _initialize_workspace()
         if args.command != "dashboard":  # the dashboard is long-running and talks to a person
             sys.stdout = sys.stderr  # anything a library prints goes to stderr; stdout carries the JSON only
         try:
