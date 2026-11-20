@@ -95,7 +95,17 @@ def _sample_error(outcome, code):
     return _ERRORS.get(outcome.get("category"), "执行失败")
 
 
-def _sample(case, outcome, *, legacy):
+def _postcondition_verdict(row, attempts):
+    """Bind the downstream verdict to the last request in its verified source."""
+    if attempts and attempts[-1].get("kind") == "postcondition":
+        verdict = task_state.attempt_record(attempts[-1], result=row)
+        source = (verdict or {}).get("postcondition_source") or {}
+        if requests := source.get("attempts"):
+            return requests[-1], verdict
+    return None, None
+
+
+def _sample(case, outcome, verdict, *, legacy):
     timing = outcome.get("load_sample")
     stage = None
     if isinstance(timing, dict):
@@ -108,7 +118,7 @@ def _sample(case, outcome, *, legacy):
             return None
     else:
         return None
-    success = task_state.case_outcome(outcome, outcome, evidence_valid=True) == "pass"
+    success = task_state.case_outcome(verdict, verdict, evidence_valid=True) == "pass"
     sample = {"label": case["id"], "kind": case["kind"], "start_ms": start, "elapsed_ms": elapsed, "success": success}
     if _nonnegative(stage) and stage > 0:
         sample["stage"] = stage
@@ -117,7 +127,7 @@ def _sample(case, outcome, *, legacy):
     if type(code) is int and 100 <= code <= 599:
         sample["code"] = code
     if not success:
-        sample["error"] = _sample_error(outcome, sample.get("code"))
+        sample["error"] = _sample_error(verdict, sample.get("code"))
     return sample
 
 
@@ -136,12 +146,14 @@ def project(run: dict, rows: list, manifest: dict) -> dict:
         detail = row["detail"]
         if isinstance(detail, str):
             detail = json.loads(detail)
-        for ref in detail.get("attempts", []):
+        attempts = detail.get("attempts", [])
+        checked_request, verdict = _postcondition_verdict(row, attempts)
+        for ref in attempts:
             if ref.get("kind") not in ("case", "captcha_retry", "relogin_retry") or ref.get("id") in seen:
                 continue
             outcome = task_state.attempt_record(ref, result=row)
             if outcome is not None:
-                sample = _sample(case, outcome, legacy=legacy)
+                sample = _sample(case, outcome, verdict if ref == checked_request else outcome, legacy=legacy)
                 if sample is not None:
                     samples.append(sample)
                     seen.add(ref["id"])

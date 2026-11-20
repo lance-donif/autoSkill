@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
-from autoskill import builder, db, load_testing, projects, runner
+from autoskill import builder, data_refs, db, load_testing, projects, runner
 from autoskill.server import jobs
 from autoskill.server.app import create_app
 
@@ -90,20 +90,46 @@ class LocustModes(unittest.TestCase):
             self.assertLessEqual(sample["start_ms"], slot["end_ms"] + 5)
         self.assertEqual(len(samples), sum(path == "/login" for path, _, _ in self.server.seen))
 
-    def test_automatic_postcondition_is_evidence_only_and_never_sent_after_the_budget(self):
+    def configure_postcondition(self, token="{{token}}"):
         target = projects.case("load", "TARGET")
         target["extensions"]["postconditions"] = ["VERIFY"]
         check = builder.api_case("VERIFY", "后置", "GET", "/verify", {"status": 200, "json_equals": {"/value": 42}},
-                                 headers={"X-Token": "{{token}}"}, depends_on=["TARGET"])
+                                 headers={"X-Token": token}, depends_on=["TARGET"])
         projects.save_cases("load", [target, check])
-        detail = self.execute(mode="performance", concurrency=1, target_requests=2)
+
+    def test_automatic_postcondition_is_evidence_only_and_never_sent_after_the_budget(self):
+        self.configure_postcondition()
+        detail = self.execute(mode="performance", concurrency=1, target_requests=2, duration_seconds=10)
         self.assertEqual([path for path, _, _ in self.server.seen], ["/login", "/target", "/verify", "/login", "/target"])
         targets = [r for r in detail["results"] if r["case_id"] == "TARGET"]
         self.assertEqual([row["state"]["outcome"] for row in targets], ["pass", "fail"])
         self.assertTrue(all(row["state"]["evidence"] == "valid" for row in targets))
         self.assertIn("后置", targets[1]["reason"])
-        self.assertEqual(detail["metrics"]["request_count"], 2)
-        self.assertEqual(len(detail["load_report"]["samples"]), 2)
+        samples = detail["load_report"]["samples"]
+        self.assertEqual([(s["label"], s["code"], s["success"]) for s in samples], [("TARGET", 200, True), ("TARGET", 200, False)])
+        self.assertEqual((detail["metrics"]["request_count"], detail["metrics"]["error_rate"]), (2, .5))
+        for sample, target in zip(samples, targets):
+            dispatch = target["detail"]["attempts"][0]["load_sample"]
+            self.assertEqual((sample["start_ms"], sample["elapsed_ms"]), (dispatch["start_ms"], dispatch["elapsed_ms"]))
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787") as client:
+            history = client.get("/api/load-tests", params={"mode": "performance"}).json()["items"]
+            self.assertEqual(history[0]["metrics"]["error_rate"], .5)
+
+        verification = next(r for r in detail["results"] if r["case_id"] == "VERIFY")
+        data_refs.resolve(verification["detail"]["attempts"][0]["path"]).unlink()
+        missing = load_testing.get(detail["id"])
+        self.assertEqual((missing["metrics"]["request_count"], missing["metrics"]["error_rate"]), (1, 1))
+        self.assertEqual(missing["load_report"]["samples"], [samples[1]])
+
+    def test_rejected_postcondition_marks_the_original_http_sample(self):
+        self.configure_postcondition(token="{{RAND}}")
+        detail = self.execute(mode="performance", concurrency=1, target_requests=2)
+        verification = next(r for r in detail["results"] if r["case_id"] == "VERIFY")
+        self.assertEqual(verification["detail"]["response"]["status"], 401)
+        samples = detail["load_report"]["samples"]
+        self.assertEqual([(s["label"], s["code"], s["success"]) for s in samples], [("TARGET", 200, False)] * 2)
+        self.assertEqual(samples[0]["error"], "后置验证 VERIFY")
+        self.assertEqual(detail["metrics"]["error_rate"], 1)
 
     def test_unreachable_count_stops_with_prerequisite_evidence(self):
         login = projects.case("load", "LOGIN")

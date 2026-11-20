@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
+from test_bridge import completed_recording_run
+
 from autoskill import bridge, builder, cli, data_store, locking, paths, plan, projects, task_context
 from autoskill.recorder import agent, session
 from autoskill.replay import codegen, ir
@@ -335,16 +337,37 @@ class ConcurrentRecordingTests(unittest.TestCase):
         saved = self.together(finish)
         ids = [item["ui_case"]["id"] for item in saved]
         self.assertEqual(len(set(ids)), 2)
+
+        def validate(index):
+            recording = saved[index]
+            name = ("alpha", "beta")[index]
+            capture = call(index, "conversation", "show", pid, recording["conversation_captures"]["id"])
+            posts = [entry for entry in capture["requests"] if entry["request"]["method"] == "POST"]
+            self.assertEqual([entry["request"]["url"] for entry in posts], [self.origin + "/api/save/" + name])
+            value = posts[0]["body_json"]["value"]
+            self.assertTrue(value.startswith(name + "-"))
+            self.assertNotIn("{{RAND}}", value)
+            self.assertEqual(posts[0]["response_json"], {"value": value, "status": "saved"})
+            self.assertEqual(len(recording["api_cases"]), 1)
+            api_id = recording["api_cases"][0]["id"]
+            targets = []
+            for run_id in recording["run_ids"]:
+                run = completed_recording_run(lambda identity: call(index, "run-status", identity), run_id)
+                self.assertEqual(run["status"], "Pass", run)
+                self.assertEqual(run["publication"]["published_ids"], [ids[index]])
+                self.assertIn("独立业务预期", run["publication"]["unpublished"][api_id])
+                targets.extend((row["case_id"], row["status"]) for row in run["results"] if not row["prerequisite"])
+            self.assertCountEqual(targets, [(ids[index], "Pass"), (api_id, "Pass")])
+            return api_id
+
+        self.assertEqual(len(set(self.together(validate))), 2)
         cases = self.command(None, "cases", pid)["cases"]
-        self.assertEqual({case["id"] for case in cases if case["kind"] == "ui"}, set(ids))
-        self.assertEqual(sum(case["kind"] == "api" for case in cases), 2)
+        self.assertCountEqual([(case["id"], case["kind"]) for case in cases], [(identity, "ui") for identity in ids])
         self.assertFalse(any(file.name in ("recording.json", "recording.har", "recording-state.json")
                              for file in Path(self.env["AUTOSKILL_WORKSPACE"]).rglob("*")))
 
         results = self.together(lambda index: call(index, "run", pid, "--case", ids[index], "--headless"))
         self.assertEqual([item["status"] for item in results], ["Pass", "Pass"], results)
-        api_result = self.command(None, "run", pid, "--kind", "api", "--headless", via_bridge=True)
-        self.assertEqual(api_result["status"], "Pass", api_result)
 
     @unittest.skipUnless(paths.chrome(), "browser runtime required")
     def test_exported_scripts_replay_rand_after_context_local_random_state(self):

@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 from autoskill import builder, data_refs, db, domain, execution_inputs, paths, plan, projects, reporting, runner, secrets
 from autoskill.core import store
+from autoskill.server.app import result_view
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -286,6 +287,7 @@ class ExecutionInputTests(unittest.TestCase):
             (folder / screenshot).write_bytes(b"true" if passed else b"false")
             return {"status": "Pass" if passed else "Fail", "category": "" if passed else "assertion_failed",
                     "reason": "" if passed else "Expected high, observed medium", "screenshots": [screenshot],
+                    "steps": [{"text": "Check priority", "status": "done" if passed else "failed"}],
                     "assertions": [{"name": "Priority", "passed": passed, "expected": "high", "actual": "high" if passed else "medium"}]}
         with patch.object(runner, "make_driver", return_value=driver), patch.object(runner.ui, "run_case", side_effect=replay):
             final, results = self.execute(prepared)
@@ -295,6 +297,14 @@ class ExecutionInputTests(unittest.TestCase):
         shots = [json.loads(data_refs.resolve(ref["path"]).read_bytes())["outcome"]["screenshots"][0] for ref in detail["attempts"]]
         self.assertEqual(len(set(shots)), 2)
         self.assertTrue(execution_inputs.result_evidence(final, results[0]))
+        attempts = result_view(results[0])["detail"]["attempts"]
+        self.assertEqual([(item["ui"]["steps"][0]["status"], item["ui"]["assertions"][0]["actual"], item["ui"]["screenshots"]) for item in attempts],
+                         [("failed", "medium", shots[:1]), ("done", "high", shots[1:])])
+        # An unbound reference cannot supply UI details, even if its saved result contains a cached copy.
+        detail["attempts"][0].update(case_id="other-case", ui=attempts[1]["ui"])
+        projected = result_view({**results[0], "detail": json.dumps(detail)})["detail"]["attempts"]
+        self.assertNotIn("ui", projected[0])
+        self.assertEqual(projected[1]["ui"], attempts[1]["ui"])
 
     def test_worker_syncs_original_plan_and_preserves_observation_only_check_provenance(self):
         source = self.folder / "design.json"

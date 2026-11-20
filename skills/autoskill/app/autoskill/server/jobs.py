@@ -247,8 +247,27 @@ def start_queued() -> None:
         cancelled = connection.execute("UPDATE runs SET status = 'Cancelled', finished_at = ? WHERE status = 'Queued' AND cancel = 1 RETURNING id", (db.now(),)).fetchall()
     for run in cancelled:
         task_reports.for_run(run["id"])
-    for run in db.rows("SELECT id FROM runs WHERE status = 'Queued' ORDER BY created_at"):
-        runner.spawn(run["id"])
+
+    with db.connect() as connection:
+        connection.execute("BEGIN")
+        active = connection.execute("SELECT family, project_id FROM runs WHERE status = 'Running'").fetchall()
+        slots = runner.parallel_limit() - len(active)
+        if slots <= 0:
+            return
+        replay_projects = {row["project_id"] for row in active if row["family"] == "replay"}
+        candidates = []
+        for row in connection.execute("SELECT id, family, project_id FROM runs WHERE status = 'Queued' "
+                                      "AND cancel = 0 AND delete_requested = 0 ORDER BY created_at, rowid"):
+            if row["family"] == "replay":
+                if row["project_id"] in replay_projects:
+                    continue
+                replay_projects.add(row["project_id"])
+            candidates.append(row["id"])
+            if len(candidates) == slots:
+                break
+    # A CLI caller or another dispatcher can take a slot after this snapshot.
+    for run_id in candidates:
+        runner.spawn(run_id)
 
 
 def cancel(run_id: str) -> dict:

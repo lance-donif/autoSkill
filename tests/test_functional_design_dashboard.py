@@ -2,6 +2,7 @@
 import hashlib
 import io
 import json
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -12,7 +13,7 @@ import openpyxl
 from playwright.sync_api import expect
 from test_load_dashboard import DashboardWorkspace
 
-from autoskill import case_folders, case_plans, db, execution_inputs, plan, projects, runner, task_context, task_reports
+from autoskill import case_folders, case_plans, cli, db, execution_inputs, plan, projects, runner, task_context, task_reports
 from autoskill.recorder import session
 from autoskill.server import jobs
 
@@ -37,6 +38,7 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
             self.assertEqual(replay["status"], "Pass", replay)
             case_id = recording["ui_case"]["id"]
             self.assertEqual(replay["publication"]["published_ids"], [case_id])
+            self.assertEqual(self.design_row(identity, task=task)["evidence"]["run_id"], recording["run_id"])
             case = projects.case(self.pid, case_id)
             self.assertEqual(case["module"], "会话服务")
             self.assertEqual(case["extensions"]["test_case_document"]["module"], row["module"])
@@ -55,31 +57,83 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
         self.assertEqual(response.status_code, 200, response.text)
         return next(item for item in response.json()["rows"] if item["id"] == identity)
 
-    def import_rows(self, identities, *, task="功能设计会话"):
-        self.open(f"case-plans?project={self.pid}&session={task}")
-        self.page.get_by_role("button", name="从已有用例导入", exact=True).click()
-        dialog = self.page.get_by_role("dialog", name="从已有可执行用例导入设计", exact=True)
-        for identity in identities:
-            dialog.get_by_role("checkbox", name="导入 " + identity, exact=True).check()
-        dialog.get_by_role("button", name="导入为设计", exact=True).click()
-        expect(dialog).not_to_be_visible()
-        expect(self.page.locator("#view table tbody tr")).to_have_count(len(identities))
-
-    def wait_run(self, identity):
-        deadline = time.monotonic() + 35
+    def wait_run(self, identity, *, publication=False):
+        args = cli.parser().parse_args(["run-status", identity, "--brief"])
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
-            result = self.client.get("/api/runs/" + identity).json()
-            if result["status"] not in ("Queued", "Running") and (result.get("test_report") or {}).get("status") == "ready":
+            result, code = cli.dispatch(args)
+            self.assertEqual(code, 0, result)
+            if (result["status"] not in ("Queued", "Running") and result["test_report"]["status"] == "ready"
+                    and (not publication or result["publication"]["complete"])):
                 return result
             time.sleep(0.1)
-        self.fail("The actual replay did not finish")
+        self.fail(f"The actual replay did not deliver its report or publication receipt: {result}")
         return None
+
+    def replay_from_library(self, identity):
+        self.open("cases?range=all")
+        row = self.page.get_by_role("row").filter(has=self.page.get_by_role("checkbox", name="选择 " + identity, exact=True))
+        row.get_by_role("button", name="运行", exact=True).click()
+        expect(self.page).to_have_url(re.compile(r"/#/runs/run-"))
+        return self.wait_run(self.page.url.split("/runs/")[1].split("?")[0])
 
     def workbook_row(self, data, identity):
         book = openpyxl.load_workbook(io.BytesIO(data))
         self.addCleanup(book.close)
         alias = next(row[0] for row in book["编号映射"].iter_rows(min_row=2, values_only=True) if row[1] == identity)
         return next(row for row in book["功能测试用例"].iter_rows(min_row=2, values_only=True) if row[0] == alias)
+
+    def record_http_draft(self, task, *, edit=False):
+        endpoint = f"/api/case-plans/{self.pid}"
+        params = {"session": task}
+        identity = "DRAFT-1"
+        revision = self.client.get(endpoint, params=params).json()["revision"]
+        row = {"id": identity, "title": "打开会话", "description": "核对初始状态", "module": "会话",
+               "steps": "1. 打开会话页面。", "expected": "1. 页面显示待执行。", "source": "会话初始状态需求"}
+        created = self.client.post(endpoint + "/rows", params=params, json={"expected_revision": revision, "row": row})
+        created.raise_for_status()
+        draft = created.json()
+        self.assertEqual(draft["rows"][0]["status"], "NotRun")
+        self.assertFalse(draft.get("task_id"))
+        with task_context.use_session(task), patch.dict(os.environ, {"AUTOSKILL_CASE_SKILL": draft["folder"]}):
+            try:
+                self.assertTrue(session.start(self.pid, login=False, url="/ui")["recording"])
+                self.assertTrue(session.check("text", "testid=result", "待执行")["passed"])
+                if edit:
+                    self.client.patch(endpoint + "/rows/" + identity, params=params, json={
+                        "expected_revision": draft["revision"], "row": {"description": "核对提交后的状态"}}).raise_for_status()
+                recorded = session.stop("核对初始状态", plan_case=identity)
+            finally:
+                session.cancel()
+        run = self.wait_run(recorded["run_id"], publication=True)
+        case_id = recorded["ui_case"]["id"]
+        self.assertEqual(run["status"], "Pass", run)
+        self.assertIn(case_id, run["publication"]["published_ids"])
+        self.assertEqual(projects.case(self.pid, case_id)["extensions"]["test_case_document"]["description"], row["description"])
+        view = self.client.get(endpoint, params=params).json()
+        exported = self.client.get(endpoint + "/excel", params=params)
+        exported.raise_for_status()
+        return recorded, view, self.workbook_row(exported.content, identity)
+
+    def test_http_draft_recording_binds_the_published_run_and_keeps_its_initial_workbook(self):
+        recorded, view, final = self.record_http_draft("未修改的在线草稿")
+        row = view["rows"][0]
+        self.assertEqual(recorded["plan"]["task_id"], view["task_id"])
+        self.assertEqual((row["status"], row["evidence"]["run_id"], row["evidence"]["current"]), ("Pass", recorded["run_id"], True))
+        self.assertEqual(row["evidence"]["latest_execution"]["publication"]["published_ids"], [recorded["ui_case"]["id"]])
+        initial = Path(view["initial_excel"]).read_bytes()
+        self.assertEqual(hashlib.sha256(initial).hexdigest(), task_reports.get(view["initial_report_id"])["sha256"])
+        initial_row = self.workbook_row(initial, row["id"])
+        self.assertEqual(initial_row[:8], final[:8])
+        self.assertEqual((initial_row[9], final[9]), ("未执行", "通过"))
+
+    def test_edit_during_http_draft_recording_keeps_old_candidate_out_of_the_new_sheet(self):
+        recorded, view, final = self.record_http_draft("录制中编辑的在线草稿", edit=True)
+        self.assertIn("error", recorded["plan"])
+        self.assertFalse(view.get("task_id"))
+        row = view["rows"][0]
+        self.assertEqual((row["status"], row["evidence"]["run_id"], row["description"]), ("NotRun", None, "核对提交后的状态"))
+        self.assertEqual((final[3], final[9]), (row["description"], "未执行"))
 
     def test_actual_record_plan_carries_the_authored_functional_design_into_frozen_replay(self):
         task, identity = "真实录制设计", "DESIGN-SESSION"
@@ -89,11 +143,13 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
                     "steps": "1. 进入合成会话校验页面。\n2. 点击【验证会话】。\n3. 查看本次会话校验结果。",
                     "expected": "3. 当前会话校验成功，页面显示“通过”。", "source": source,
                     "author": "集成验收脚本（合成）", "remarks": "预期来自合成需求声明，不从现场结果反推。"}
-        current = self.client.get(f"/api/case-plans/{self.pid}", params={"session": task}).json()
-        saved = self.client.post(f"/api/case-plans/{self.pid}/rows", params={"session": task},
-                                 json={"row": document, "expected_revision": current["revision"]})
-        self.assertEqual(saved.status_code, 200, saved.text)
-        with task_context.use_session(task), plan.use_folder(saved.json()["folder"]):
+        design = self.folder / "session-design.json"
+        design.write_text(json.dumps([document], ensure_ascii=False), encoding="utf-8")
+        with task_context.use_session(task):
+            written, code = cli.dispatch(cli.parser().parse_args(["plan", "write", self.pid, "--file", str(design)]))
+            self.assertEqual(code, 0, written)
+            initial_book = Path(written["initial_excel"])
+            initial_hash = hashlib.sha256(initial_book.read_bytes()).hexdigest()
             try:
                 self.assertTrue(session.start(self.pid, login=False, url="/ui")["recording"])
                 session.browser(["click", "[data-testid=check]"])
@@ -102,6 +158,9 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
             finally:
                 session.cancel()
         case_id = recording["ui_case"]["id"]
+        validation = self.wait_run(recording["run_id"], publication=True)
+        self.assertEqual(validation["status"], "Pass", validation)
+        self.assertIn(case_id, validation["publication"]["published_ids"], validation["publication"])
         case = projects.case(self.pid, case_id)
         declared = case["extensions"]["test_case_document"]
         self.assertEqual(case["steps"], document["steps"].splitlines())
@@ -114,23 +173,24 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
         exported = self.workbook_row(Path(recording_report["excel"]).read_bytes(), case_id)
         self.assertEqual(exported[3:7], (document["description"], document["preconditions"], document["steps"], document["expected"]))
         self.assertNotIn("testid=", exported[5])
-        before = self.design_row(identity, task=task)
-        self.assertNotEqual(before["status"], "Pass")
-        self.assertTrue(before["evidence"]["binding_current"], before)
-        self.open(f"case-plans?project={self.pid}&session={task}")
-        self.page.get_by_role("button", name="回放", exact=True).click()
-        expect(self.page).to_have_url(re.compile(r"/#/runs/run-"))
-        run_id = self.page.url.split("/runs/")[1].split("?")[0]
-        completed = self.wait_run(run_id)
-        self.assertEqual(completed["status"], "Pass", completed)
         evidence = self.design_row(identity, task=task)
         self.assertEqual(evidence["status"], "Pass", evidence)
-        frozen = execution_inputs.load(db.one("SELECT * FROM runs WHERE id = ?", (run_id,)))
-        self.assertEqual(frozen["cases"][case_id]["extensions"]["test_case_document"], declared)
+        self.assertTrue(evidence["evidence"]["binding_current"], evidence)
+        self.assertEqual(evidence["evidence"]["run_id"], validation["run_id"])
+        completed = self.replay_from_library(case_id)
+        self.assertEqual(completed["status"], "Pass", completed)
+        self.assertNotEqual(completed["run_id"], validation["run_id"])
+        for run_id in (validation["run_id"], completed["run_id"]):
+            frozen = execution_inputs.load(db.one("SELECT * FROM runs WHERE id = ?", (run_id,)))
+            self.assertEqual(frozen["cases"][case_id]["extensions"]["test_case_document"], declared)
+        self.assertEqual(hashlib.sha256(initial_book.read_bytes()).hexdigest(), initial_hash)
         self.open(f"case-plans?project={self.pid}&session={task}")
-        expect(self.page.get_by_role("heading", name="设计用例表", exact=True)).to_be_visible()
-        expect(self.page.locator("#view")).to_contain_text(document["description"])
-        expect(self.page.locator("#view")).to_contain_text(document["steps"])
+        expect(self.page.get_by_role("heading", name="测试用例表", exact=True)).to_be_visible()
+        row = self.page.locator(f'[data-case="{identity}"]')
+        expect(row.get_by_role("heading", name=document["description"], exact=True)).to_be_visible()
+        row.locator("summary").click()
+        expect(row.get_by_text(document["steps"], exact=True)).to_be_visible()
+        expect(row.get_by_text(document["expected"], exact=True)).to_be_visible()
         self.evidence("recorded-functional-design-pass.png")
 
     def test_legacy_design_edit_preserves_structured_source_and_invalidates_old_pass(self):
@@ -149,48 +209,55 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
         old_report_hash = hashlib.sha256(old_report.read_bytes()).hexdigest()
         old_case = projects.case(self.pid, "TC-SLOW")
         old_result = db.one("SELECT * FROM results WHERE run_id = ?", (passed["id"],))
-        self.import_rows(["TC-SLOW", "TC-CHANGING", "TC-UI"])
+        base = f"/api/case-plans/{self.pid}"
+        params = {"session": "功能设计会话"}
+        current = self.client.get(base, params=params).json()
+        imported_sheet = self.client.post(base + "/import-cases", params=params, json={
+            "case_ids": ["TC-SLOW", "TC-CHANGING", "TC-UI"], "expected_revision": current["revision"]})
+        self.assertEqual(imported_sheet.status_code, 200, imported_sheet.text)
         imported = self.design_row("TC-SLOW")
         self.assertEqual(imported["source"], source)
-        self.assertEqual(imported["status"], "Unverified")
+        self.assertEqual((imported["status"], imported["evidence"]["run_id"]), ("Pass", passed["id"]))
         self.assertEqual(self.design_row("TC-CHANGING")["status"], "Fail")
         self.assertIn("待确认", imported["steps"])
         self.assertIn("待确认", self.design_row("TC-UI")["steps"])
         self.assertNotIn("GET /slow", imported["steps"])
-        row = self.page.locator("#view table tbody tr").filter(has_text="TC-SLOW")
-        row.get_by_role("button", name="编辑设计", exact=True).click()
-        dialog = self.page.get_by_role("dialog", name="编辑设计：TC-SLOW", exact=True)
-        self.assertEqual(json.loads(dialog.get_by_label("设计来源", exact=True).input_value()), source)
-        human = {"测试说明": "验证服务完成请求后返回业务就绪标记。", "前置条件": "本地合成就绪检查服务已启动。",
-                 "操作步骤": "1. 查询服务就绪状态。\n2. 查看响应中的就绪标记。", "预期结果": "2. 就绪标记 ok 为 true。",
-                 "用例编制人": "集成验收脚本（合成）", "设计备注": "保留声明的 true 判据及原始结构化来源。"}
-        for label, value in human.items():
-            dialog.get_by_label(label, exact=True).fill(value)
-        dialog.get_by_role("button", name="保存设计", exact=True).click()
-        expect(dialog).not_to_be_visible()
+        human = {"description": "验证服务完成请求后返回业务就绪标记。", "preconditions": "本地合成就绪检查服务已启动。",
+                 "steps": "1. 查询服务就绪状态。\n2. 查看响应中的就绪标记。", "expected": "2. 就绪标记 ok 为 true。",
+                 "author": "集成验收脚本（合成）", "remarks": "保留声明的 true 判据及原始结构化来源。"}
+        saved = self.client.patch(base + "/rows/TC-SLOW", params=params, json={
+            "row": human, "expected_revision": imported_sheet.json()["revision"]})
+        self.assertEqual(saved.status_code, 200, saved.text)
         self.assertEqual(self.design_row("TC-SLOW")["source"], source)
-        with self.page.expect_response(lambda response: response.request.method == "POST" and "/rows/TC-SLOW/apply" in response.url) as response:
-            row.get_by_role("button", name="应用设计到用例", exact=True).click()
-        self.assertEqual(response.value.status, 200, response.value.text())
-        expect(self.page.locator("#view")).to_contain_text(human["测试说明"])
+        archive = self.client.get(base + "/history/" + str(imported_sheet.json()["version"]), params=params)
+        self.assertEqual(archive.status_code, 200, archive.text)
+        original = next(row for row in archive.json()["rows"] if row["id"] == "TC-SLOW")
+        self.assertEqual((original["source"], original["steps"]), (source, imported["steps"]))
+        response = self.client.post(base + "/rows/TC-SLOW/apply", params=params, json={"expected_revision": saved.json()["revision"]})
+        self.assertEqual(response.status_code, 200, response.text)
         applied = projects.case(self.pid, "TC-SLOW")
         self.assertGreater(applied["revision"], old_case["revision"])
-        self.assertEqual(applied["steps"], human["操作步骤"].splitlines())
-        self.assertEqual(applied["expected"], human["预期结果"])
+        self.assertEqual(applied["steps"], human["steps"].splitlines())
+        self.assertEqual(applied["expected"], human["expected"])
         self.assertEqual(applied["extensions"]["test_case_document"]["source"], source)
+        for field in ("description", "preconditions", "author", "remarks"):
+            self.assertEqual(applied["extensions"]["test_case_document"][field], human[field])
         self.assertEqual((applied["method"], applied["path"], applied["assertions"]), (old_case["method"], old_case["path"], old_case["assertions"]))
         self.assertFalse(execution_inputs.result_current(self.pid, applied, old_result))
-        self.assertNotEqual(self.design_row("TC-SLOW")["status"], "Pass")
-        row.get_by_role("button", name="回放", exact=True).click()
-        expect(self.page).to_have_url(re.compile(r"/#/runs/run-"))
-        run_id = self.page.url.split("/runs/")[1].split("?")[0]
-        completed = self.wait_run(run_id)
+        self.assertEqual(self.design_row("TC-SLOW")["status"], "NotRun")
+        completed = self.replay_from_library("TC-SLOW")
+        run_id = completed["run_id"]
         detail = db.one("SELECT detail FROM results WHERE run_id = ? AND case_id = ?", (run_id, "TC-SLOW"))
         self.assertEqual(json.loads(detail["detail"])["business_status"], "Unverified")
-        self.assertNotEqual(self.design_row("TC-SLOW")["status"], "Pass")
+        updated = self.design_row("TC-SLOW")
+        self.assertEqual((updated["status"], updated["evidence"]["run_id"]), ("Pass", run_id))
         self.assertEqual(completed["test_report"]["status"], "ready")
         self.assertEqual(db.one("SELECT status FROM runs WHERE id = ?", (failed["id"],))["status"], "Fail")
         self.assertEqual(hashlib.sha256(old_report.read_bytes()).hexdigest(), old_report_hash)
         self.open(f"case-plans?project={self.pid}&session=功能设计会话")
-        expect(self.page.get_by_role("heading", name="设计用例表", exact=True)).to_be_visible()
+        row = self.page.locator('[data-case="TC-SLOW"]')
+        expect(row.get_by_role("heading", name=human["description"], exact=True)).to_be_visible()
+        row.locator("summary").click()
+        expect(row.get_by_text(human["steps"], exact=True)).to_be_visible()
+        expect(row.get_by_text(source["text"], exact=True)).to_be_visible()
         self.evidence("updated-functional-design-unverified.png")

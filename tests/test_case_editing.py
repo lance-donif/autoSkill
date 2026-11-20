@@ -170,7 +170,7 @@ class CaseEditingTests(unittest.TestCase):
             candidate = copy.deepcopy(current["case"])
             candidate["extensions"]["depends_on"] = dependencies
             invalid.append(candidate)
-        for assertions in ({"status": 200}, {"status": 200, "json_equals": {"not-a-pointer": True}}, {"status": 200, "schema": {"$ref": "https://example.invalid/schema"}}):
+        for assertions in ({"status": 200, "json_equals": {"not-a-pointer": True}}, {"status": 200, "schema": {"$ref": "https://example.invalid/schema"}}):
             candidate = copy.deepcopy(current["case"])
             candidate["assertions"] = assertions
             invalid.append(candidate)
@@ -180,6 +180,12 @@ class CaseEditingTests(unittest.TestCase):
                 response = self.edit(current, candidate)
                 self.assertEqual(response.status_code, 400, response.text)
                 self.assertEqual(self.project_bytes(), before)
+
+        candidate = copy.deepcopy(current["case"])
+        candidate["assertions"] = {"status": 200}
+        response = self.edit(current, candidate)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.read()["case"]["assertions"], {"status": 200})
 
     def test_action_identities_reject_add_delete_duplicate_and_swap_even_with_same_action_kind(self):
         current = self.read("UI")

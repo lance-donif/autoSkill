@@ -9,19 +9,26 @@ from __future__ import annotations
 
 import base64
 import datetime
+import errno
 import hashlib
 import hmac
 import json
 import os
+import re
+import shutil
+import stat
+import uuid
 import zipfile
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
-from . import __version__, db, domain, paths, projects, secrets
-from .locking import project_lock
+from . import __version__, db, domain, paths, projects, report_locations, secrets
+from .locking import named_lock, project_lock
 
 MANIFEST = "autoskill-pack.json"
 SECRETS = "secrets.sealed.json"
 SKIP_DIRS = {"execution", "output", "staging", "__pycache__"}
+PACK_TEMP = re.compile(r"\.autoskill-pack-[0-9a-f]{32}\.tmp")
 ROUNDS = 240_000
 
 
@@ -57,13 +64,102 @@ def decrypt(box: dict, passphrase: str) -> bytes:
 
 
 # --- pack ---
-def _files(folder: Path):
+def _copy_windows_dacl(source: Path, target: Path) -> None:
+    """Apply the delivered file's DACL to the staging file before it contains any data."""
+    import ctypes
+    from ctypes import wintypes
+
+    security = ctypes.WinDLL("advapi32", use_last_error=True)
+    dacl = 0x4  # DACL_SECURITY_INFORMATION
+    get = security.GetFileSecurityW
+    get.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD))
+    needed = wintypes.DWORD()
+    get(str(source), dacl, None, 0, ctypes.byref(needed))
+    if not needed.value:
+        error = ctypes.get_last_error()
+        if error in (1, 50):  # The destination volume does not support ACLs.
+            return
+        raise ctypes.WinError(error)
+    descriptor = ctypes.create_string_buffer(needed.value)
+    if not get(str(source), dacl, descriptor, len(descriptor), ctypes.byref(needed)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    control, revision = wintypes.WORD(), wintypes.DWORD()
+    if not security.GetSecurityDescriptorControl(descriptor, ctypes.byref(control), ctypes.byref(revision)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    inherited = 0x20000000 if not control.value & 0x1000 else 0x80000000  # Preserve SE_DACL_PROTECTED.
+    set_security = security.SetFileSecurityW
+    set_security.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.LPVOID)
+    if not set_security(str(target), dacl | inherited, descriptor):
+        error = ctypes.get_last_error()
+        if error not in (1, 50):
+            raise ctypes.WinError(error)
+
+
+def _copy_pack_permissions(source: Path, temporary: Path, metadata: os.stat_result) -> None:
+    if os.name == "nt":
+        _copy_windows_dacl(source, temporary)
+        return
+    current = temporary.stat()
+    if (current.st_uid, current.st_gid) != (metadata.st_uid, metadata.st_gid):
+        os.chown(temporary, metadata.st_uid, metadata.st_gid)
+    temporary.chmod(metadata.st_mode & 0o777)
+    if hasattr(os, "listxattr"):
+        # Linux ACLs can distinguish users with the same group-class mode bits.
+        acl = "system.posix_acl_access"
+        try:
+            existing = os.listxattr(source)
+        except OSError as error:
+            if error.errno == errno.ENOTSUP:
+                return
+            raise
+        if acl in existing:
+            os.setxattr(temporary, acl, os.getxattr(source, acl))
+        elif acl in os.listxattr(temporary):
+            os.removexattr(temporary, acl)
+
+
+@contextmanager
+def _pack_output(target: Path):
+    """Publish a closed archive on the same filesystem, preserving an existing output on failure."""
+    try:
+        metadata = target.stat()
+    except FileNotFoundError:
+        metadata = None
+    else:
+        if not stat.S_ISREG(metadata.st_mode):
+            raise PermissionError(f"无法写入分享包：{target}")
+        # Directory replacement rights alone do not authorize writing the existing file.
+        os.close(os.open(target, os.O_WRONLY))
+    temporary = target.with_name(f".autoskill-pack-{uuid.uuid4().hex}.tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    descriptor = os.open(temporary, flags, 0o666 if metadata is None else 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            if metadata is not None:
+                _copy_pack_permissions(target, temporary, metadata)
+            yield output
+            output.flush()
+            os.fsync(output.fileno())
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _pack_artifact(file: Path, target: Path) -> bool:
+    """Keep the output and concurrent exporters' staging files out of project attachments."""
+    return file == target or PACK_TEMP.fullmatch(file.name) is not None
+
+
+def _files(folder: Path, target: Path):
+    root = folder.resolve()
     for file in sorted(folder.rglob("*")):
         relative = file.relative_to(folder)
         if file.is_file() and relative.parts[0] not in SKIP_DIRS:
-            if not file.resolve().is_relative_to(folder.resolve()):
+            resolved = file.resolve()
+            if not resolved.is_relative_to(root):
                 raise ValueError(f"项目附件指向项目目录以外：{relative.as_posix()}")
-            yield relative, file
+            if not _pack_artifact(resolved, target):
+                yield relative, file
 
 
 def _archive_file(archive: zipfile.ZipFile, file: Path, name: str) -> dict:
@@ -79,13 +175,11 @@ def _archive_file(archive: zipfile.ZipFile, file: Path, name: str) -> dict:
     return {"sha256": digest.hexdigest(), "size": size, "mode": file.stat().st_mode & 0o777}
 
 
-def _archive_project(archive: zipfile.ZipFile, project_id: str, entries: dict, needed: set) -> dict:
+def _archive_project(archive: zipfile.ZipFile, project_id: str, entries: dict, needed: set, target: Path) -> dict:
     with project_lock(project_id):
         folder, info = projects.path(project_id), projects.get(project_id)
         domain.validate_project(folder)
-        for relative, file in _files(folder):
-            if file.resolve() == Path(archive.filename).resolve():
-                continue
+        for relative, file in _files(folder, target):
             name = f"projects/{project_id}/{relative.as_posix()}"
             entries[name] = _archive_file(archive, file, name)
         for case in projects.cases(project_id):
@@ -106,19 +200,22 @@ def pack(project_ids: list[str] | None = None, out: str | None = None, passphras
         target = target / f"autoskill-share-{stamp}.zip"
     target.parent.mkdir(parents=True, exist_ok=True)
     listed, needed, entries = [], set(), {}
-    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
-        listed.extend(_archive_project(archive, project_id, entries, needed) for project_id in dict.fromkeys(chosen))
-        included = []
-        if passphrase is not None:
-            values = {name: secrets.get_secret(name) for name in sorted(needed) if secrets.get_secret(name) is not None}
-            included = sorted(values)
-            archive.writestr(SECRETS, json.dumps(encrypt(json.dumps(values, ensure_ascii=False).encode("utf-8"), passphrase)))
-        manifest = {"format": 2, "autoskill": __version__, "created_at": db.now(), "projects": listed, "files": entries,
-                    "secrets_needed": sorted(needed), "secrets_included": included,
-                    "history_origin": "imported", "includes_local_verification": False}
-        archive.writestr(MANIFEST, json.dumps(manifest, ensure_ascii=False, indent=2))
+    destination = target.resolve()
+    with _pack_output(destination) as output:
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+            listed.extend(_archive_project(archive, project_id, entries, needed, destination) for project_id in dict.fromkeys(chosen))
+            included = []
+            if passphrase is not None:
+                values = {name: secrets.get_secret(name) for name in sorted(needed) if secrets.get_secret(name) is not None}
+                included = sorted(values)
+                archive.writestr(SECRETS, json.dumps(encrypt(json.dumps(values, ensure_ascii=False).encode("utf-8"), passphrase)))
+            manifest = {"format": 2, "autoskill": __version__, "created_at": db.now(), "projects": listed, "files": entries,
+                        "secrets_needed": sorted(needed), "secrets_included": included,
+                        "history_origin": "imported", "includes_local_verification": False}
+            archive.writestr(MANIFEST, json.dumps(manifest, ensure_ascii=False, indent=2))
+        size = output.tell()
     missing = sorted(needed - set(included))
-    return {"file": str(target), "bytes": target.stat().st_size, "projects": listed,
+    return {"file": str(target), "bytes": size, "projects": listed,
             "secrets_included": included, "secrets_not_included": missing,
             "note": "分享包包含项目及原始来源、报告附件；来源文件中的认证信息按原文保留；不另外导出保存的登录态、本机运行索引和独立执行证据。"
                     + ("单独导出的本机凭据已用口令加密；把口令通过另一个渠道告诉对方" if included else
@@ -137,7 +234,8 @@ def pack_full(out: str | None = None) -> dict:
     target = Path(out) if out else paths.SKILL.parent / f"autoskill-full-{stamp}.zip"
     if target.suffix.lower() != ".zip":  # a folder, existing or not
         target = target / f"autoskill-full-{stamp}.zip"
-    if target.resolve().is_relative_to(paths.SKILL.resolve()):
+    destination = target.resolve()
+    if destination.is_relative_to(paths.SKILL.resolve()):
         raise ValueError("完整包不能输出到 Skill 目录内部，请用 --out 指定其他位置")
     target.parent.mkdir(parents=True, exist_ok=True)
     workspace = paths.workspace()
@@ -153,28 +251,31 @@ def pack_full(out: str | None = None) -> dict:
         values = {name: value for name in sorted(set(secrets.names()) | needed) if (value := secrets.get_secret(name)) is not None}
     saved = {file.stem: state for file in sorted((workspace / ".local" / "sessions").glob("*.json"))
              if (state := sessions.load(file.stem))}
-    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-        for file in sorted(paths.SKILL.rglob("*")):
-            if not file.is_file() or "__pycache__" in file.parts or file.suffix in (".pyc", ".pyo"):
-                continue
-            if any(file.resolve().is_relative_to(folder) for folder in excluded):
-                continue  # actual data is added below at the standard unpacked workspace location
-            archive.write(file, (Path("autoskill") / file.relative_to(paths.SKILL)).as_posix())
+    with _pack_output(destination) as output:
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+            for file in sorted(paths.SKILL.rglob("*")):
+                if not file.is_file() or "__pycache__" in file.parts or file.suffix in (".pyc", ".pyo"):
+                    continue
+                resolved = file.resolve()
+                if _pack_artifact(resolved, destination) or any(resolved.is_relative_to(folder) for folder in excluded):
+                    continue  # actual data is added below at the standard unpacked workspace location
+                archive.write(file, (Path("autoskill") / file.relative_to(paths.SKILL)).as_posix())
+                count += 1
+            for project in listed:
+                with project_lock(project["id"]):
+                    folder = projects.path(project["id"])
+                    domain.validate_project(folder)
+                    for relative, file in _files(folder, destination):
+                        archive.write(file, f"autoskill/workspace/projects/{project['id']}/{relative.as_posix()}")
+                        count += 1
+            archive.writestr("autoskill/workspace/.local/credentials.json", json.dumps(values, ensure_ascii=False, indent=2) + "\n")
             count += 1
-        for project in listed:
-            with project_lock(project["id"]):
-                folder = projects.path(project["id"])
-                domain.validate_project(folder)
-                for relative, file in _files(folder):
-                    archive.write(file, f"autoskill/workspace/projects/{project['id']}/{relative.as_posix()}")
-                    count += 1
-        archive.writestr("autoskill/workspace/.local/credentials.json", json.dumps(values, ensure_ascii=False, indent=2) + "\n")
-        count += 1
-        for project_id, state in saved.items():
-            archive.writestr(f"autoskill/workspace/.local/sessions/{project_id}.json", json.dumps(state, ensure_ascii=False, indent=2) + "\n")
-            count += 1
+            for project_id, state in saved.items():
+                archive.writestr(f"autoskill/workspace/.local/sessions/{project_id}.json", json.dumps(state, ensure_ascii=False, indent=2) + "\n")
+                count += 1
+        size = output.tell()
     missing = sorted(needed - set(values))
-    return {"file": str(target), "bytes": target.stat().st_size, "files": count, "projects": listed,
+    return {"file": str(target), "bytes": size, "files": count, "projects": listed,
             "includes_runtime": paths.VENDOR.is_dir(), "secrets_included": sorted(values), "sessions_included": sorted(saved), "secrets_not_included": missing,
             "note": ("对方解压后即可使用，不需要安装任何东西。" if paths.VENDOR.is_dir() else
                      "这份 Skill 目录里没有随包运行时（不是从完整离线包运行的），对方需要自备运行环境。")
@@ -273,8 +374,6 @@ def _validate_import(staging: Path) -> None:
 
 def _rollback_import(target: Path, backup: Path, installed: bool) -> None:
     """Keep the original backup available if the filesystem also refuses rollback."""
-    import shutil
-
     try:
         if installed:
             shutil.rmtree(target)
@@ -287,8 +386,6 @@ def _rollback_import(target: Path, backup: Path, installed: bool) -> None:
 
 def _install_import(project_id: str, staging: Path, backup: Path) -> dict:
     """Replace files reversibly; reindex commits its own transaction only after every row succeeds."""
-    import shutil
-
     target = paths.projects_dir() / project_id
     installed, committed = False, False
     try:
@@ -306,9 +403,42 @@ def _install_import(project_id: str, staging: Path, backup: Path) -> dict:
     return info
 
 
+def _link_or_copy_report(source, target):
+    try:
+        os.link(source, target)
+    except OSError:
+        shutil.copy2(source, target)
+
+
+@contextmanager
+def _keep_local_reports(target: Path, staging: Path):
+    """Preserve this workspace's indexed task files through the reversible project swap."""
+    current, incoming = target / "reports", staging / "reports"
+    names = {entry.name for folder in (current, incoming) if folder.is_dir() for entry in folder.iterdir()}
+    indexes = paths.local() / "task-report-locations"
+    with ExitStack() as locks:
+        for name in sorted(names):
+            original, replacement = current / name, incoming / name
+            if not (indexes / (name + ".json")).is_file() or report_locations.folder(name) != original:
+                continue
+            # Other exports and run deletion already hold the project lock; workflows render separately.
+            if name.startswith("workflow_"):
+                locks.enter_context(named_lock("test-report", name))
+            if replacement.is_dir():
+                shutil.rmtree(replacement)
+            else:
+                replacement.unlink(missing_ok=True)
+            if original.is_symlink() or original.is_file():
+                incoming.mkdir(exist_ok=True)
+                shutil.copy2(original, replacement, follow_symlinks=False)
+            elif original.is_dir():
+                incoming.mkdir(exist_ok=True)
+                shutil.copytree(original, replacement, symlinks=True, copy_function=_link_or_copy_report)
+        yield
+
+
 def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo], overwrite: bool) -> dict | None:
     """Use a private staging directory so failures cannot remove another import's files."""
-    import shutil
     import tempfile
 
     target = paths.projects_dir() / project_id
@@ -333,7 +463,8 @@ def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zip
         with project_lock(project_id):
             if target.exists() and not overwrite:
                 return None
-            return _install_import(project_id, staging, backup)
+            with _keep_local_reports(target, staging):
+                return _install_import(project_id, staging, backup)
     finally:
         if not backup.exists():
             shutil.rmtree(work, ignore_errors=True)
@@ -359,10 +490,11 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
         grouped = _safe_members(archive)
         errors = _manifest_errors(archive, manifest, grouped)
         if errors:
-            return {"imported": [], "skipped": [{"id": project_id, "reason": reason} for project_id, reason in sorted(errors.items())],
+            failed = [{"id": project_id, "reason": reason} for project_id, reason in sorted(errors.items())]
+            return {"imported": [], "skipped": failed, "errors": failed,
                     "secrets_restored": [], "missing_secrets": [], "next": "分享包未通过完整性校验，请重新导出后重试"}
         restored = _restore_pack_secrets(archive, passphrase)
-        imported, skipped = [], []
+        imported, skipped, failed = [], [], []
         for project_id, members in grouped.items():
             try:
                 info = _import_project(archive, project_id, members, overwrite)
@@ -371,11 +503,17 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
                 else:
                     imported.append(info)
             except (ValueError, KeyError, OSError, TypeError, AttributeError, sqlite3.Error) as error:
-                skipped.append({"id": project_id, "reason": "内容没有通过校验：" + str(error)[:200]})
+                issue = {"id": project_id, "reason": "项目导入失败，" + str(error)}
+                failed.append(issue)
+                skipped.append(issue)
     missing = sorted({name for info in imported for name in info["missing_secrets"]})
     hint = ""
     if missing:
         hint = ("分享包里带有加密的凭据：加上 --passphrase 重新导入即可恢复" if manifest.get("secrets_included") and not passphrase
                 else "还需要设置凭据：" + "；".join(f"autoskill secret set {name}" for name in missing))
-    return {"imported": imported, "skipped": skipped,
+    if failed:
+        hint = "请处理失败项目的错误后重试。" + hint
+    elif skipped and not imported:
+        hint = "已保留本机同名项目。如需替换，请明确选择覆盖后重新导入。"
+    return {"imported": imported, "skipped": skipped, "errors": failed,
             "secrets_restored": sorted(restored), "missing_secrets": missing, "next": hint or "可以直接运行：autoskill run <项目>"}

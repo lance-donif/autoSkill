@@ -33,7 +33,7 @@
 
 导入资产保留原文件与入口，不承诺把任意脚本无损改写成页面步骤。需要宿主判断的对话默认异步运行，宿主继续处理 `judge` 队列；确定性回放和定时执行不需要额外配置一套模型。
 
-## 目录
+## 源码目录
 
 | 路径 | 内容 |
 | --- | --- |
@@ -86,7 +86,7 @@ autoskill --session "订单测试" run-status <record stop 返回的运行编号
 
 Bootstrap 实测覆盖多智能体从对话生成用例、两层前置接续和从目录手动回放。[DSH 首轮协作与链式回放验收](reports/DSH首轮协作与链式回放验收.md) · [DSH 对话协作与可见窗口验收](reports/DSH对话协作与可见窗口验收.md)
 
-全部命令见 [`skills/autoskill/references/commands.md`](skills/autoskill/references/commands.md)。
+命令参数和更多示例见 [命令手册](skills/autoskill/references/commands.md)。
 
 问数测试默认按“页面体验 → 真实请求捕获 → 接口多轮验证 → 并发运行”推进。录制会分别保存原 HAR 与 CDP 来源，包含实际请求认证、会话字段和已捕获的流式正文；HTTP 200 或页面出现文本不等于答案正确。可用 [Ticket Desk 日常提示词](skills/autoskill/examples/ticket-desk/ACCEPTANCE.md) 练习这条流程。
 

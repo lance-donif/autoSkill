@@ -1,29 +1,58 @@
 // Verify host-visible artifacts through the owning DSH filesystem, without presenting them.
-import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, open, rename, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { problem } from './host-operations.mjs';
 
 export const REPORT_FORMATS = ['excel', 'markdown', 'bugs'];
 const descriptions = { initial_excel: '本任务首次交付的 14 列用例设计', excel: '本次测试用例与真实结果', markdown: '本次测试简报', bugs: '本轮测试 Bug 清单' };
-const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const READ_WINDOW = 1024 * 1024;
 
-async function bytesAt(fs, path, cwd, signal) {
+async function* chunksAt(fs, target, size, signal) {
+  if (typeof fs.readByteRange !== 'function') {
+    yield await fs.readBytes(target, signal, size);
+    return;
+  }
+  for (let offset = 0; ; offset += READ_WINDOW) {
+    signal?.throwIfAborted();
+    const length = size === undefined ? READ_WINDOW : Math.min(READ_WINDOW, size - offset + 1);
+    const bytes = await fs.readByteRange(target, { offset, length }, signal);
+    if (bytes.byteLength > length) throw problem('file_changed', '宿主返回的文件片段超过请求范围');
+    yield bytes;
+    if (bytes.byteLength < length) return;
+  }
+}
+
+async function hashHostFile(path, { fs, cwd, signal }, output) {
+  signal?.throwIfAborted();
   const entry = await fs.lstat(path, { cwd }, signal);
   if (entry?.type !== 'file') throw problem('file_unavailable', '宿主无法读取这个普通文件：' + path);
   const target = await fs.resolve(path, { cwd, signal });
   const info = await fs.stat(target, signal);
   if (info?.type !== 'file') throw problem('file_unavailable', '宿主文件已不可用：' + path);
-  const bytes = await fs.readBytes(target, signal, info.size);
-  return { bytes, path: fs.processPath(target) };
+  const digest = createHash('sha256');
+  let size = 0;
+  for await (const bytes of chunksAt(fs, target, info.size, signal)) {
+    signal?.throwIfAborted();
+    size += bytes.byteLength;
+    if (info.size !== undefined && size > info.size) throw problem('file_changed', '读取期间宿主文件已增长：' + path);
+    digest.update(bytes);
+    if (output) await output.writeFile(bytes);
+  }
+  const after = await fs.stat(target, signal);
+  signal?.throwIfAborted();
+  if (after?.type !== 'file' || after.version !== info.version || (info.size !== undefined && size !== info.size) || (after.size !== undefined && size !== after.size)) {
+    throw problem('file_changed', '读取期间宿主文件已变化：' + path);
+  }
+  return { sha256: digest.digest('hex'), path: fs.processPath(target) };
 }
 
-async function verifiedReportFile(receipt, format, { fs, cwd, signal }) {
-  const mapped = fs.processPathFromHostPath(receipt[format]);
+async function verifiedReportFile(receipt, format, context) {
+  const mapped = context.fs.processPathFromHostPath(receipt[format]);
   if (!mapped) throw problem('file_unavailable', '报告路径不在当前宿主文件系统中');
-  const actual = await bytesAt(fs, mapped, cwd, signal);
+  const actual = await hashHostFile(mapped, context);
   const checksum = format === 'initial_excel' || format === 'excel' ? 'sha256' : format + '_sha256';
-  if (digest(actual.bytes) !== receipt[checksum]) throw problem('file_changed', '宿主读取的报告与本次报告校验值不符');
+  if (actual.sha256 !== receipt[checksum]) throw problem('file_changed', '宿主读取的报告与本次报告校验值不符');
   return { path: actual.path, description: descriptions[format] };
 }
 
@@ -49,21 +78,37 @@ export async function reportFiles(receipt, context, { delivery = 'final', task_i
   }
 }
 
-export async function prepareSources(payload, { fs, cwd, folder, signal }) {
+async function stageSource(path, context) {
+  const { folder, signal } = context;
+  await mkdir(folder, { recursive: true });
+  const temporary = join(folder, randomUUID() + '.tmp');
+  const output = await open(temporary, 'wx');
+  try {
+    let loaded;
+    try { loaded = await hashHostFile(path, context, output); }
+    finally { await output.close(); }
+    const directory = join(folder, loaded.sha256);
+    const destination = join(directory, basename(loaded.path));
+    await mkdir(directory, { recursive: true });
+    signal?.throwIfAborted();
+    await rename(temporary, destination);
+    return destination;
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
+export async function prepareSources(payload, context) {
   const result = structuredClone(payload);
   for (const group of ['sources', 'artifacts']) {
     for (const item of result.spec?.[group] ?? []) {
       if (typeof item.file !== 'string') continue;
-      if (!fs) throw problem('file_unavailable', '宿主未提供文件读取能力；可以使用来源 text 或原 CLI 文件输入');
+      if (!context.fs) throw problem('file_unavailable', '宿主未提供文件读取能力；可以使用来源 text 或原 CLI 文件输入');
       const original = item.file;
-      const loaded = await bytesAt(fs, original, cwd, signal);
-      const directory = join(folder, digest(loaded.bytes));
-      await mkdir(directory, { recursive: true });
-      const destination = join(directory, basename(loaded.path));
-      await writeFile(destination, loaded.bytes);
+      item.file = await stageSource(original, context);
       item.uri ??= original;
-      item.file = destination;
     }
   }
-  return { ...result, base_dir: cwd };
+  return { ...result, base_dir: context.cwd };
 }

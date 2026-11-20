@@ -94,6 +94,15 @@ export async function api(path, options = {}) {
   return data;
 }
 
+export function deleteSelection(path, items, options = {}) {
+  const workspace = items[0]?.workspace_identity;
+  if (!workspace || items.some((item) => item.workspace_identity !== workspace)) {
+    throw new Error('无法确认所选内容的数据目录，请刷新页面后重新选择');
+  }
+  const query = new URLSearchParams({ expected_workspace: workspace });
+  return api(path + '?' + query, { method: 'DELETE', ...options });
+}
+
 const STATUS = {
   NotRun: ['idle', '未执行', 'info'],
   Pass: ['pass', '通过', 'check'],

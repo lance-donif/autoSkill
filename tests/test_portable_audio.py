@@ -111,6 +111,10 @@ class PortableAudioTests(unittest.TestCase):
         row = db.one("SELECT * FROM results WHERE run_id = ?", (run["id"],))
         detail = json.loads(row["detail"])
         detail.update(documents[1]["cases"][0], evidence=[reference])
+        self.assertFalse(task_report_data._native_row_evidence(run, documents[1], {**row, "detail": detail}))
+        # Absolute audio paths predate the index and digest that bind modern rows to an exact case.
+        detail.pop("native_case_index")
+        detail.pop("native_case_hash")
         db.update("results", row["id"], {"detail": detail})
         marker = self.a / "data-root.json"
         metadata = json.loads(marker.read_bytes()) if marker.is_file() else {"schema_version": 1, "data_id": "portable-voice"}

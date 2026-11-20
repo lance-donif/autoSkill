@@ -19,7 +19,7 @@
 | `project show <项目>` | 单个项目的设置 |
 | `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
-| `plan write <项目> --file 用例.json` / `plan show` / `plan mark <编号> 通过\|失败\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、按设计版本、候选和指定运行回填完整表，保留未执行及失败；`initial_excel` 是最初副本。用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
+| `plan write <项目> --file 用例.json [--expected-cases 数量]` / `plan show` / `plan mark <编号> 通过\|失败\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、按设计版本、候选和指定运行回填完整表，保留未执行及失败；`initial_excel` 是最初副本。用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
 | `plan link <设计行编号> <可复用用例编号>` | 将当前会话设计行关联到同项目已有用例，不执行、不复用旧通过。先确认操作与独立断言符合本行预期，再保持相同 `--session` 执行 `run <项目> --case <可复用用例编号>`；API 流程可带 `--api-only --inputs <参数文件>`。本次真实结果回填原表，自动前置只回填表内已有明确关联的行，不增加运行报告的显式目标数 |
 | `context <项目> [--limit 50] [--cursor 游标] [--knowledge-limit 5] [--knowledge-cursor 游标] [--all]` | 登录、缺少的凭据、用例与知识预览；`page.cases`、`page.knowledge` 分别标明总数、剩余页及内容版本 |
 | `cases <项目> [--limit 数量] [--cursor 游标] [--all] [--kind] [--module] [--requirement] [--query]` | 分页用例摘要；`page` 返回 `total/returned/has_more/next_cursor/content_revision`，内容或查询改变会报 `cursor_expired` |
@@ -36,6 +36,8 @@
 分页没有项目或用例总数量上限。`--all` 读取全部条目，不能与 cursor 同用；知识正文的 `--all` 从指定 offset 读到末尾。原 Python `cli.context(project)` 仍返回全量，`cli.knowledge(project, limit=2400)` 仍表示每个文件的字符数。
 
 `context` 保留旧 `knowledge`，另提供 `knowledge_entries`。搜索页绑定参与项目的版本、知识设置与旧文件内容；变化后 `cursor_expired`，从首页重读。`--team` 只查询配置了完全相同非空 `team_id/business_scope` 的项目；未配置时返回当前项目及 `scope_note: project_only_unconfigured`，条目标签不能代替项目设置。搜索命中不表示适用或事实已证实。新知识接口错误返回 `code/error/details`，退出 2；完整提交、状态和导入语义见 [诊断与知识闭环](diagnosis-knowledge.md)。
+
+用户目标明确了可独立验收的用例数时，先按该目标确定数量，再将它传给 `plan write --expected-cases`。只需完成一个连续流程时传 `--expected-cases 1`，把过程写进同一行的 `steps` 和 `expected`。数量不符会在写初版前返回期望数与实际数。
 
 功能设计字段为 `description/preconditions/steps/expected/source`，以及已确认的 `business_path/prefix/author/remarks`。`plan write` 保留这些来源字段供 `plan show` 和同一会话的 `record stop --plan <编号>` 使用；可执行用例将其保存在 `extensions.test_case_document`。主表使用真实业务操作及对应预期，HTTP 请求、选择器和浏览器 IR 留在技术附表。只改功能文字或重新关联旧检查不能证明新预期已验证；需要按来源录制独立检查，或通过工作流提交明确对应新预期的候选断言并真实回归。
 

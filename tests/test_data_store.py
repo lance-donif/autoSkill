@@ -35,6 +35,21 @@ class DataStoreTests(unittest.TestCase):
         file.write_bytes(value)
         return file
 
+    def test_a_copy_of_the_same_dataset_has_an_independent_workspace_identity(self):
+        data_store.ensure_initialized()
+        with data_store.selected_workspace() as original:
+            self.assertIsNotNone(original)
+        target = self.folder / "copy"
+        data_store.import_data(self.root, target)
+        self.assertEqual(json.loads((self.root / "data-root.json").read_bytes())["data_id"],
+                         json.loads((target / "data-root.json").read_bytes())["data_id"])
+        with (patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(target)}),
+              self.assertRaises(data_store.DataError) as raised, data_store.selected_workspace(original)):
+            self.fail("A selection from another copy must expire")
+        self.assertEqual(raised.exception.code, "data_changed")
+        with data_store.selected_workspace(original) as reopened:
+            self.assertEqual(reopened, original)
+
     def source(self, name="old"):
         root = self.folder / name
         self.put(root, "projects/p/testcases/TC-API-001.json", b'{"id":"TC-API-001","assertions":{"status":200}}')
@@ -252,6 +267,22 @@ class DataStoreTests(unittest.TestCase):
             for name in ("projects/p/10:30.md", "projects/p/AUX.txt", "projects/p/trailing.", "projects/p/part\\file"):
                 with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Windows"):
                     data_transfer.relative_name(name)
+
+    def test_archive_permissions_match_files_implicit_parents_and_declared_directories(self):
+        name = "projects/case.json"
+        member = zipfile.ZipInfo("data/" + name)
+        member.create_system = 3
+        member.external_attr = (stat.S_IFREG | 0o640) << 16
+        entries = {member.filename: member}
+        permissions = {name: 0o640, "projects": 0o750, "empty": 0o700}
+        manifest = {"files": {name: {}}, "directories": ["empty"], "modes": permissions}
+
+        _, directories, modes = data_transfer._archive_contents(entries, "data/", manifest)
+        self.assertEqual(directories, {"projects", "empty"})
+        self.assertEqual(modes, permissions)
+        for path, mode in (("absent", 0o640), (name, 0o600), ("projects", True), ("empty", 0o10000), ("empty", -1)):
+            with self.subTest(path=path, mode=mode), self.assertRaisesRegex(ValueError, "权限清单无效"):
+                data_transfer._archive_contents(entries, "data/", {**manifest, "modes": {path: mode}})
 
     def test_archive_rejects_traversal_absolute_links_and_unlisted_files(self):
         for index, name in enumerate(("../escape", "/absolute", "C:/absolute", "data/../../escape", "data//double")):

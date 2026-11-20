@@ -5,6 +5,8 @@ import { simulateCase, pendingDetails, completedDetails, actualText } from './si
 import { schedulesApi } from './schedules-api.js';
 import { restoreResult, verdictStatus as outcomeStatus } from './verdicts.js';
 
+import { workspaceConflict, workspaceIdentity } from './workspace.js';
+
 export const LOAD_PAGE_SIZE = 200;
 const active = (run) => run.status === 'Queued' || run.status === 'Running';
 const stamp = (time) => new Date(time).toISOString();
@@ -472,7 +474,7 @@ export function runsApi(context) {
     return path === '/summary' ? value.summary : value;
   }
   if (method === 'GET' && path === '/results') return paginate(historyRows(all, params).filter((r) => matches(r, params)), params);
-  if (method === 'POST' && path === '/runs/delete') return removeRuns(db, body.run_ids);
+  if (method === 'POST' && path === '/runs/delete') return workspaceConflict(context) ?? removeRuns(db, body.run_ids);
   if (path === '/load-tests/options') {
     const items = apiLoadCases(context, scoped(caseRows(context), params, null));
     const projects = casesApi({ ...context, path: '/projects', method: 'GET' }).filter((p) => items.some((c) => c.project_id === p.id));
@@ -487,6 +489,7 @@ export function runsApi(context) {
       if (path === '/load-tests' && params.get('include_metrics') === 'false') {
         for (const run of page.items) delete run.metrics;
       }
+      if (path === '/runs') page.workspace_identity = workspaceIdentity(context);
       return page;
     }
     if (method !== 'POST') return undefined;
@@ -507,7 +510,7 @@ export function runsApi(context) {
   const run = all.find((r) => r.id === id);
   if (!run || (family === 'load-tests' && run.family !== 'load')) return problem('运行不存在', 404);
   if (method === 'GET' && !action) return runPage(run, params.get('detail_offset'));
-  if (method === 'DELETE' && !action) return removeRuns(db, [id]);
+  if (method === 'DELETE' && !action) return workspaceConflict(context) ?? removeRuns(db, [id]);
   if (method !== 'POST') return undefined;
   if (action === 'cancel') {
     if (active(run)) {

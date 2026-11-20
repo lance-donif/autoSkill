@@ -270,6 +270,23 @@ class ExecutionReviewTests(unittest.TestCase):
             site.release.set()
         self.assertEqual([self.final(run["id"])["status"] for run in runs], ["Pass", "Pass"])
 
+    def test_dispatch_limits_claims_and_keeps_the_oldest_eligible_replay(self):
+        first, waiting, last = [self.queued() for _ in range(3)]
+        other = self.queued(1)
+        with patch.object(db, "claim_run", wraps=db.claim_run) as claim:
+            jobs.start_queued()
+            self.assertTrue(all(site.entered.wait(10) for site in self.sites[:2]))
+            jobs.start_queued()
+            self.assertEqual([call.args[0] for call in claim.call_args_list], [first["id"], other["id"]])
+            self.sites[0].release.set()
+            self.assertEqual(self.final(first["id"])["status"], "Pass")
+            jobs.start_queued()
+            self.assertEqual(claim.call_args_list[-1].args[0], waiting["id"])
+            self.assertEqual(self.final(waiting["id"])["status"], "Pass")
+            self.assertEqual(db.one("SELECT status FROM runs WHERE id = ?", (last["id"],))["status"], "Queued")
+            self.sites[1].release.set()
+            self.assertEqual(self.final(other["id"])["status"], "Pass")
+
     def test_resource_budget_can_be_increased_for_three_projects(self):
         os.environ["AUTOSKILL_MAX_PARALLEL"] = "3"
         runs = [self.queued(index) for index in range(3)]

@@ -25,6 +25,8 @@ python scripts/code_review.py check --rule repository
 
 `severity` 为 `error`、`warning` 或 `info`，`line` 为正整数。`check --rule <名称>` 可重复指定；省略时运行现有规则。检查使用结构、语义或隔离的本地契约，不以“源码包含某段字面量”替代行为验证。仓库规则检查本地 Python/ES 模块依赖、发布版本、包导出、CI 测试引用和依赖版本锁定。它不代替 Ruff、Biome、领域回归或真实设备验收。
 
+`python scripts/code_review.py check --rule archive_export` 检查项目包和完整包是否在交付前以 `ZipFile(..., "w")` 截断回执 `file` 指向的正式文件。规则追踪显式 `out`、标准库导入别名、简单路径赋值以及 `Path`、`str`、`expanduser()`、`resolve()` 转换。经其他函数或运行时模式间接写入时，由 `test_artifact_share.py` 的失败重试和并发读取用例验证原有交付仍可打开。
+
 没有 error finding 时退出 0；发现 error 时退出 1；规则不存在、返回值错误、导入或执行异常时退出 2，并在 `rule_errors` 记录原因。一个规则失败后仍收集其他规则结果。规则必须保持只读或使用私有临时数据；不要访问真实用户数据，不要修改业务预期、联网安装或把大套验收隐含在一次静态检查中。
 
 ## 显式验证范围

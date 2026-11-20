@@ -4,6 +4,7 @@ import { runPage, compactCaseCounts } from './runs-api.js';
 import { folderPath, functionalWorkbook } from './workbook.js';
 import { validateTasks } from './schedules-api.js';
 import { previewZip, readPreviewEntry } from './preview-zip.js';
+import { workspaceConflict, workspaceIdentity } from './workspace.js';
 
 export { previewZip };
 const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -248,7 +249,7 @@ async function runWorkbook(ctx, run) {
 }
 
 function fixtureFile(value) {
-  if (!value?.base64) return null;
+  if (typeof value?.base64 !== 'string') return null;
   return file(Uint8Array.from(atob(value.base64), (letter) => letter.charCodeAt(0)), value.filename, value.media_type);
 }
 
@@ -319,26 +320,59 @@ function archiveLink(bytes, name, note) {
   return { download_url: '/api' + path, bytes: bytes.length, archive: name, note };
 }
 
+const caseFileKinds = new Map([['api-cases.json', 'api'], ['functional-cases.json', 'ui']]);
+
+async function updatedCaseFile(ctx, pid, item, definitions) {
+  const source = fixtureFile(ctx.fixtures[item.download_url.slice(4)]);
+  if (!source) return null;
+  const original = await source.json();
+  const saved = new Map(definitions.map((row) => [row.id, row]));
+  const rows = [];
+  for (const row of original) {
+    if (saved.has(row.id)) {
+      rows.push(saved.get(row.id));
+      saved.delete(row.id);
+    } else if (!ctx.fixtures['/case-definitions/' + pid + '/' + row.id]) {
+      rows.push(row);
+    }
+  }
+  rows.push(...saved.values());
+  return JSON.stringify(rows) === JSON.stringify(original) ? null : bytesOf(JSON.stringify(rows, null, 2) + '\n');
+}
+
 async function materialIndex(ctx, pid) {
   const key = '/project-materials/' + encodeURIComponent(pid);
   const base = ctx.fixtures[key];
   if (!base) return null;
+  const project = await readCase(ctx, '/projects/' + encodeURIComponent(pid));
+  const library = ctx.db.caseLibrary;
+  const definitions = library.items.filter((row) => row.project_id === pid)
+    .map((row) => library.definitions[pid + '/' + row.case_id].case);
   const edited = ctx.db.knowledgeFiles?.[pid] || {};
   const items = base.items.filter((item) => item.category !== 'knowledge' || !Object.hasOwn(edited, item.name));
+  const files = new Map();
+  for (const [index, item] of items.entries()) {
+    const kind = item.category === 'testcases' && caseFileKinds.get(item.name);
+    if (!kind) continue;
+    const bytes = await updatedCaseFile(ctx, pid, item, definitions.filter((row) => row.kind === kind));
+    if (bytes) {
+      files.set(item.id, file(bytes, item.name, mimeJson));
+      items[index] = { ...item, bytes: bytes.length, sha256: await digest(bytes) };
+    }
+  }
   for (const [name, record] of Object.entries(edited)) {
     if (record === null) continue;
     const id = await digest(bytesOf('knowledge/' + name));
+    files.set(id, file(record.content, name.split('/').at(-1), 'text/markdown; charset=utf-8'));
     items.push({ id, name, category: 'knowledge', text: true, bytes: bytesOf(record.content).length, sha256: record.hash,
       download_url: '/api' + key + '/files/' + id, reference: 'projects/' + pid + '/knowledge/' + name });
   }
-  return { ...base, items, project: await readCase(ctx, '/projects/' + encodeURIComponent(pid)) };
+  return { index: { ...base, items, project }, files, definitions };
 }
 
-function materialFile(ctx, item, pid) {
+function materialFile(ctx, item, files) {
   if (!item) return notFound('项目文件不存在');
-  const edited = ctx.db.knowledgeFiles?.[pid]?.[item.name];
-  if (item.category === 'knowledge' && edited) return file(edited.content, item.name.split('/').at(-1), 'text/markdown; charset=utf-8');
-  return fixtureFile(ctx.fixtures[item.download_url.slice(4)]) || notFound('没有找到文件原件');
+  return files.get(item.id) || fixtureFile(ctx.fixtures[item.download_url.slice(4)]) || notFound('没有找到文件原件');
 }
 
 async function projectShare(ctx) {
@@ -447,27 +481,31 @@ async function materialsApi(ctx) {
     return archive ? file(archive.bytes, archive.name, 'application/zip') : notFound('下载已过期，请重新导出');
   }
   if (!pid) return { projects: await readCase(ctx, '/projects') };
-  const project = await materialIndex(ctx, pid);
-  if (!project) return notFound('项目不存在');
-  if (!section && method === 'GET') return project;
-  if (section === 'files' && method === 'GET') return materialFile(ctx, project.items.find((item) => item.id === id), pid);
+  const materials = await materialIndex(ctx, pid);
+  if (!materials) return notFound('项目不存在');
+  const { index, files, definitions } = materials;
+  if (!section && method === 'GET') return { ...index, workspace_identity: workspaceIdentity(ctx) };
+  if (section === 'files' && method === 'GET') return materialFile(ctx, index.items.find((item) => item.id === id), files);
   if (section === 'export' && method === 'POST') {
     const entries = [];
-    for (const item of project.items) {
-      const response = materialFile(ctx, item, pid);
+    for (const item of index.items) {
+      const response = materialFile(ctx, item, files);
       if (!response.ok) return response;
       entries.push([item.category + '/' + item.name, new Uint8Array(await response.arrayBuffer())]);
     }
-    const data = await projectData(ctx, pid);
-    entries.push(['cases.json', JSON.stringify(data.definitions, null, 2)]);
+    entries.push(['cases.json', JSON.stringify(definitions, null, 2)]);
     return archiveLink(previewZip(entries), pid + '-materials.zip', '项目资料包含当前浏览器保存的知识文件和用例。');
   }
   if (section === 'knowledge') {
+    if (method === 'DELETE') {
+      const changed = workspaceConflict(ctx);
+      if (changed) return changed;
+    }
     const name = method === 'GET' ? params.get('file') : body.file;
     if (!name || name.split(/[\\/]/).some((part) => !part || part === '.' || part === '..' || ['__proto__', 'constructor', 'prototype'].includes(part))) throw new Error('请输入有效的知识文件名');
-    const item = project.items.find((entry) => entry.category === 'knowledge' && entry.name === name);
+    const item = index.items.find((entry) => entry.category === 'knowledge' && entry.name === name);
     if (method === 'GET') {
-      const response = materialFile(ctx, item, pid);
+      const response = materialFile(ctx, item, files);
       return response.ok ? { file: name, content: await response.text(), content_revision: item.sha256 } : response;
     }
     if ((item?.sha256 || null) !== (body.expected_hash || null)) return conflict('文件已更新，请重新打开');

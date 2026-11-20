@@ -109,8 +109,8 @@ def execution_sources(rows: list[dict]) -> dict[str, dict]:
             for row in rows if row["id"] in original and _design_hash(row) == original[row["id"]]["design_hash"]}
 
 
-def initialize(project_id: str, info: dict, items: list[dict], destination: Path) -> dict:
-    task_id = "plan-" + uuid.uuid4().hex
+def initialize(project_id: str, info: dict, items: list[dict], destination: Path, *, task_id: str | None = None) -> dict:
+    task_id = task_id or "plan-" + uuid.uuid4().hex
     initial = destination.with_name(destination.stem + "-initial-" + task_id[-8:] + ".xlsx")
     current = {row["id"]: row for row in plan.show()["cases"]}
     value = {"schema": 1, "task_id": task_id, "project_id": project_id, "session": task_context.session_id() or "",
@@ -160,8 +160,27 @@ def capture_linked(prepared: dict, manifest: dict) -> None:
         _save(value)
 
 
+def _check_source(declared, row: dict, shown: dict) -> None:
+    if not isinstance(declared, dict):
+        return
+    if declared.get("business_row_hash") and declared["business_row_hash"] != plan._source_hash(row):
+        raise ValueError("录制期间设计已经变化；保留候选和运行证据，不将旧结果套到新设计")
+    if declared.get("kind") != "case_plan":
+        return
+    if declared.get("case_id", row["id"]) != row["id"] or (declared.get("file") and runner.plan_folder(declared["file"]) != plan._file().resolve()):
+        raise ValueError("录制绑定的设计表或行与当前选择不同，未回填执行结果")
+    if declared.get("design_hash") and declared["design_hash"] != _design_hash(row):
+        raise ValueError("录制期间功能设计已经变化，未将旧候选绑定到新设计")
+    if "design_version" in declared and declared["design_version"] != shown.get("design_version"):
+        raise ValueError("录制期间在线设计版本已经变化，未将旧候选绑定到新版本")
+    if (declared.get("upstream") or None) != (row.get("source") or None):
+        raise ValueError("录制期间设计来源已经变化，未将旧候选绑定为当前设计结果")
+    if declared.get("task_id") != (shown.get("task_id") or shown.get("draft_task_id")):
+        raise ValueError("录制属于另一份设计任务；保留原候选和运行证据，不回填到当前新任务")
+
+
 def bind(plan_case: str, project_id: str, candidate_case: dict, run_id: str | None, *, candidate_id: str | None = None) -> dict:
-    shown = plan.show()
+    shown = plan.show(recording=True)
     if shown.get("project") != project_id:
         raise ValueError("用例设计表属于其他项目，未绑定执行")
     row = next((item for item in shown["cases"] if item["id"] == plan_case), None)
@@ -169,13 +188,8 @@ def bind(plan_case: str, project_id: str, candidate_case: dict, run_id: str | No
         raise ValueError("设计表中没有该用例，未绑定执行")
     declared = candidate_case.get("extensions", {}).get("test_case_document", {}).get("source", {})
     value = _read()
-    if isinstance(declared, dict) and declared.get("kind") == "case_plan" and value and declared.get("task_id") != value["task_id"]:
-        raise ValueError("录制属于另一份设计任务；保留原候选和运行证据，不回填到当前新任务")
-    if isinstance(declared, dict) and declared.get("business_row_hash") and declared["business_row_hash"] != plan._source_hash(row):
-        raise ValueError("录制期间设计已经变化；保留候选和运行证据，不将旧结果套到新设计")
-    if isinstance(declared, dict) and declared.get("kind") == "case_plan" and (declared.get("upstream") or None) != (row.get("source") or None):
-        raise ValueError("录制期间设计来源已经变化，未将旧候选绑定为当前设计结果")
     digest = execution_inputs.content_hash(candidate_case)
+    _check_source(declared, row, shown)
     if run_id:
         run = db.one("SELECT * FROM runs WHERE id = ?", (run_id,))
         if not run or run["project_id"] != project_id:
@@ -185,7 +199,7 @@ def bind(plan_case: str, project_id: str, candidate_case: dict, run_id: str | No
             raise ValueError("候选内容与指定运行的冻结输入不同，未绑定设计结果")
     if not value or value["project_id"] != project_id:
         destination = plan._folder() / "exports" / ("functional-design-" + uuid.uuid4().hex[:16] + ".xlsx")
-        initialize(project_id, projects.get(project_id), shown["cases"], destination)
+        initialize(project_id, projects.get(project_id), shown["cases"], destination, task_id=shown.get("draft_task_id"))
         value = _read()
     binding = _binding(value, row, candidate_case, run_id, candidate_id)
     identity = (plan_case, digest, run_id)
@@ -356,12 +370,30 @@ def _legacy_initial_report(value: dict) -> str | None:
     return matches.pop() if len(matches) == 1 else None
 
 
+def _selected_report(value: dict) -> dict | None:
+    """The selected export can outlive a writer that never updated the task binding."""
+    recorded = value.get("report_id")
+    try:
+        head = task_reports._design_head(_task_file(value["task_id"]).with_name("delivery-head.json"))
+    except (OSError, ValueError):
+        head = {}
+    if head and head["report_id"] != recorded and (not recorded or head.get("previous_report_id") == recorded):
+        try:
+            selected = task_reports.get(head["report_id"])
+        except (OSError, ValueError) as error:
+            return {"report_id": head["report_id"], "status": "failed", "retryable": True, "error": str(error)}
+        if selected.get("task_id") != value["task_id"] or selected.get("project_id") != value["project_id"]:
+            return {"report_id": head["report_id"], "status": "failed", "retryable": False, "error": "设计表报告与原任务不匹配"}
+        return selected
+    return task_reports.get(recorded) if recorded else None
+
+
 def describe() -> dict:
     value = _read()
     if not value:
         return {}
     try:
-        report = task_reports.get(value["report_id"]) if value.get("report_id") else None
+        report = _selected_report(value)
     except ValueError as error:
         report = {"status": "failed", "error": str(error), "report_id": value.get("report_id")}
     return _delivery_view(value, report)
@@ -376,11 +408,12 @@ def previous_deliveries(project_id: str, session: str) -> list[dict]:
         if value.get("project_id") != project_id or value.get("session") != session or (active and value.get("task_id") == active["task_id"]):
             continue
         report_id = value.get("report_id")
-        if not report_id:
-            continue
         title = None
         try:
-            report = task_reports.get(report_id)
+            report = _selected_report(value)
+            if not report:
+                continue
+            report_id = report["report_id"]
             snapshot = json.loads((task_reports._folder(report_id) / "snapshot.json").read_bytes())
             if report.get("task_id") != value["task_id"] or snapshot.get("task_id") != value["task_id"] or snapshot.get("project_id") != project_id:
                 raise ValueError("报告归属与原设计任务不一致，未提供其他任务的文件")

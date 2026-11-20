@@ -120,7 +120,7 @@ class UiCancelTests(unittest.TestCase):
         self.assertTrue(execution_inputs.result_evidence(finished[0], result))
         return finished[0], result, detail
 
-    def test_recorded_pass_cancelled_during_long_check_is_cancelled_in_original_sheet_and_report(self):
+    def test_cancelled_long_check_fails_the_started_case_in_its_original_sheet_and_report(self):
         written = self.write_plan("2. 工单状态变为已完成。")
         session.start(self.pid, login=False, url="/")
         session.browser(["click", "testid=complete"])
@@ -134,17 +134,21 @@ class UiCancelTests(unittest.TestCase):
         initial = Path(written["initial_excel"]).read_bytes()
         _run, result, detail = self.cancel_running(run_id)
         self.assertEqual(result["status"], "Cancelled")
+        self.assertTrue(detail["target_started"])
+        self.assertIn("取消", result["reason"])
         self.assertEqual(detail["business_status"], "Unverified")
         self.assertFalse(any(row.get("passed") is False for row in detail.get("assertions", [])))
         self.assertEqual(projects.cases(self.pid), [])
         shown = plan.show()
-        self.assertEqual(shown["cases"][0]["status"], "已取消")
-        self.assertEqual(shown["summary"]["已取消"], 1)
-        self.assertEqual(shown["test_report"]["summary_counts"]["Cancelled"], 1)
+        row = shown["cases"][0]
+        self.assertEqual((row["id"], row["status"]), ("DESIGN-CANCEL", "失败"))
+        self.assertIn(result["reason"], row["note"])
+        self.assertEqual(shown["summary"]["失败"], 1)
+        self.assertEqual(shown["test_report"]["summary_counts"]["Fail"], 1)
         self.assertEqual(shown["test_report"]["bugs_counts"]["business"], 0)
         self.assertEqual(Path(written["initial_excel"]).read_bytes(), initial)
         report = task_reports.for_run(run_id)
-        self.assertEqual(report["summary_counts"]["Cancelled"], 1)
+        self.assertEqual(report["summary_counts"]["Fail"], 1)
         self.assertEqual(report["bugs_counts"]["business"], 0)
 
     def test_failure_observed_before_cancel_remains_a_business_failure(self):

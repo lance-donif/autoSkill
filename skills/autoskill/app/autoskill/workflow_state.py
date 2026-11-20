@@ -71,6 +71,7 @@ def init() -> None:
     db.init()
     with db.connect() as connection:
         connection.executescript(SCHEMA)
+        connection.execute(db.WORKFLOW_RUN_INDEX)
         db.install_state_triggers(connection)
         connection.execute("BEGIN IMMEDIATE")
         columns = {record[1] for record in connection.execute("PRAGMA table_info(workflow_items)")}

@@ -35,6 +35,8 @@ autoskill/autoskill dashboard
 
 `setup-linux.sh` 修复解压丢失的执行权限、识别 CPU、检查浏览器与驱动主版本，并保存本机浏览器配置。`verify` 检查包内运行时 SHA-256；`doctor --launch` 在本机示例页实际启动 Playwright、Selenium，同时检查 agent-browser 能否运行。这些命令的真实结果才是目标电脑的验收结果。仪表盘：<http://127.0.0.1:8787>。如果文件系统以 `noexec` 挂载，请把目录放到允许执行程序的位置。
 
+若旧包的 Chrome 报 `Socket path too long`，给启动仪表盘或命令的进程设置较短的可写 `TMPDIR` 后重试。新版在 Linux 套接字地址超长时，为浏览器子进程创建仅当前用户可访问的短路径。临时文件仍存放在选定的目录，录制关闭或回放结束后清理短路径。
+
 ## UOS / 老系统的浏览器
 
 如果包内 Chrome 报 `GLIBC_* not found` 或缺少 `.so`，安装脚本尝试 PATH 中的系统 Chromium 与 chromedriver。也可以显式指定：
@@ -96,8 +98,8 @@ npm install --prefix ../autoskill-linux-tools --offline=false @deepseek-ai/dsh@0
 
 维护者的资源下载脚本分别获取核心资料包和目标 CPU 的原生包；组装时校验两者版本与平台，并用核心包重新生成离线技能文件和哈希。不会把 npm 安装器放进运行流程。
 
-## 验证边界
+## 离线包的验证记录
 
-Debian 13 x64 开发环境实际运行 agent-browser 0.42.0，`doctor --launch` 的 Playwright、Selenium 本机页面启动通过。历史公网只读录制、双引擎回放和真实 DSH Web 面板结果见 `reports/公网只读访问验证.md`、`plugin/COMPATIBILITY.md`。这些不等于新离线包或 UOS 的功能验收。
+v2.5.2 在 Linux x64 和 ARM64 的发布作业中都运行了 `setup-linux.sh`。Linux x64 还用包内运行时执行了 34 项测试，覆盖浏览器录制、回放、知识、原生执行证据和接口压测。三平台上传的 ZIP 已核对文件清单、CRC、大小和 SHA-256。[v2.5.2 发布验证](https://github.com/lance-donif/autoSkill/actions/runs/44668975158)
 
-Release 按使用者要求跳过完整功能回归、浏览器启动测试，只做组装导入、架构、ZIP 结构/CRC、大小、上传 SHA-256 检查。UOS ARM64 真机、各 UOS 版本、DSH 默认沙箱智能体执行均待验证。当前模型网关被环境代理 CONNECT 403 阻断，不能把模拟转交写成智能体验收通过。没有重新添加站点白名单或代理围栏。
+统信 UOS ARM64 真机仍待验收。在目标电脑上运行上文的 `verify` 和 `doctor --launch`，可分别核验本地运行时文件和浏览器启动结果。DSH 宿主的版本与实测范围见 [插件兼容记录](../plugin/COMPATIBILITY.md)。

@@ -84,39 +84,56 @@ def result_view(row: dict, *, connection=None) -> dict:
     state = task_state.result(row, detail, connection=connection)
     attempts = detail.get("attempts")
     if isinstance(attempts, list):
+        group_ui = row.get("kind") == "ui" and sum(isinstance(item, dict) and item.get("kind") != "postcondition" for item in attempts) > 1
         for attempt in attempts:
-            if isinstance(attempt, dict) and attempt.get("path"):
-                record = task_state.attempt_record(attempt, result=row)
-                attempt["outcome"] = task_state.case_outcome(record, record, evidence_valid=state["evidence"] == "valid") if record is not None else "fail"
-                for field in ("request", "response", "duration_ms"):
-                    attempt.pop(field, None)
-                # A postcondition reuses the source result without sending another HTTP request.
-                if record and attempt.get("kind") != "postcondition":
-                    for field in ("request", "response"):
-                        if isinstance(record.get(field), dict):
-                            attempt[field] = record[field]
-                    if ("request" in attempt or "response" in attempt) and record.get("duration_ms") is not None:
-                        attempt["duration_ms"] = record["duration_ms"]
-                with contextlib.suppress(ValueError):
-                    attempt["path"] = str(data_refs.resolve(attempt["path"]))
+            if not isinstance(attempt, dict):
+                continue
+            attempt.pop("ui", None)
+            if not attempt.get("path"):
+                continue
+            record = task_state.attempt_record(attempt, result=row)
+            attempt["outcome"] = task_state.case_outcome(record, record, evidence_valid=state["evidence"] == "valid") if record is not None else "fail"
+            for field in ("request", "response", "duration_ms"):
+                attempt.pop(field, None)
+            # A derived postcondition does not execute the source's HTTP exchange or UI actions again.
+            if record and attempt.get("kind") != "postcondition":
+                if group_ui:
+                    evidence = {key: record[key] for key in ("steps", "assertions", "screenshots", "setup_cases") if isinstance(record.get(key), list)}
+                    if any(evidence.values()):
+                        attempt["ui"] = evidence
+                for field in ("request", "response"):
+                    if isinstance(record.get(field), dict):
+                        attempt[field] = record[field]
+                if ("request" in attempt or "response" in attempt) and record.get("duration_ms") is not None:
+                    attempt["duration_ms"] = record["duration_ms"]
+            with contextlib.suppress(ValueError):
+                attempt["path"] = str(data_refs.resolve(attempt["path"]))
     return {**row, "detail": detail, "state": state}
 
 
 def _supplement_ui_steps(run: dict, results: list[dict]) -> None:
     """Project the run's frozen definition onto receipts which stopped before the final checks."""
-    candidates = [row for row in results if row.get("kind") == "ui" and _needs_step_definition(row["detail"])]
+    candidates = []
+    for row in results:
+        if row.get("kind") != "ui":
+            continue
+        detail = row["detail"]
+        attempts = detail.get("attempts")
+        observed = [detail]
+        if isinstance(attempts, list):
+            observed.extend(item["ui"] for item in attempts if isinstance(item, dict) and item.get("ui", {}).get("steps"))
+        candidates.extend((row, item) for item in observed if _needs_step_definition(item))
     if not candidates or not run.get("input_manifest"):
         return
     try:
         cases = execution_inputs.load(run)["cases"]
     except ValueError:
         return
-    for row in candidates:
+    for row, detail in candidates:
         case = cases.get(row["case_id"])
         if not case or row.get("case_content_hash") != execution_inputs.content_hash(case):
             continue
         definition = case.get("extensions", {}).get("automation", {})
-        detail = row["detail"]
         steps = detail.get("steps", [])
         actions = definition.get("actions", [])
         rules = definition.get("assertions", [])
@@ -374,11 +391,14 @@ def _register_overview_routes(app: FastAPI) -> None:
     @app.get("/api/runs")
     def runs(request: Request, trigger: str | None = None, status: str | None = None, exclude_load: bool = False):
         limit, offset = page(request)
-        return metrics.runs(scope_of(request), trigger, status, limit, offset, exclude_load=exclude_load)
+        with data_store.selected_workspace() as identity:
+            return {**metrics.runs(scope_of(request), trigger, status, limit, offset, exclude_load=exclude_load),
+                    "workspace_identity": identity}
 
     @app.get("/api/cases")
     def cases(request: Request, kind: str | None = None, added: bool = False):
-        return metrics.cases(scope_of(request), kind, added)
+        with data_store.selected_workspace() as identity:
+            return {**metrics.cases(scope_of(request), kind, added), "workspace_identity": identity}
 
 
 def _register_project_routes(app: FastAPI, state: dict) -> None:
@@ -599,27 +619,31 @@ def _register_run_detail_routes(app: FastAPI) -> None:
 
 
 def _register_deletion_routes(app: FastAPI) -> None:
+    def delete_selected(delete, items: list, expected_workspace: str | None) -> dict:
+        with data_store.selected_workspace(expected_workspace):
+            return delete(items)
+
     @app.delete("/api/projects/{project_id}/cases/{case_id}")
-    def delete_case(project_id: str, case_id: str):
-        return deletion.delete_cases([{"project_id": project_id, "case_id": case_id}])
+    def delete_case(project_id: str, case_id: str, expected_workspace: str | None = None):
+        return delete_selected(deletion.delete_cases, [{"project_id": project_id, "case_id": case_id}], expected_workspace)
 
     @app.post("/api/cases/delete")
-    async def delete_cases(request: Request):
+    async def delete_cases(request: Request, expected_workspace: str | None = None):
         body = await request.json()
         if not isinstance(body, dict) or not isinstance(body.get("items"), list):
             raise ValueError("items 必须是包含 project_id、case_id 的数组")
-        return await asyncio.to_thread(deletion.delete_cases, body["items"])
+        return await asyncio.to_thread(delete_selected, deletion.delete_cases, body["items"], expected_workspace)
 
     @app.delete("/api/runs/{run_id}")
-    def delete_run(run_id: str):
-        return deletion.delete_runs([run_id])
+    def delete_run(run_id: str, expected_workspace: str | None = None):
+        return delete_selected(deletion.delete_runs, [run_id], expected_workspace)
 
     @app.post("/api/runs/delete")
-    async def delete_runs(request: Request):
+    async def delete_runs(request: Request, expected_workspace: str | None = None):
         body = await request.json()
         if not isinstance(body, dict) or not isinstance(body.get("run_ids"), list):
             raise ValueError("run_ids 必须是运行标识数组")
-        return await asyncio.to_thread(deletion.delete_runs, body["run_ids"])
+        return await asyncio.to_thread(delete_selected, deletion.delete_runs, body["run_ids"], expected_workspace)
 
 
 def _register_task_report_routes(app: FastAPI) -> None:
@@ -651,10 +675,12 @@ def _register_schedule_routes(app: FastAPI) -> None:
     """Register schedule routes in their original order."""
     @app.get("/api/tasks")
     def tasks(request: Request):
-        if request.query_params.get("paged") == "1":
-            return scheduler.page(scope_of(request).projects, offset=int(request.query_params.get("offset", 0)),
-                                  limit=int(request.query_params.get("limit", 50)), all_items=request.query_params.get("all") == "1")
-        return scheduler.list_all(scope_of(request).projects)
+        with data_store.selected_workspace() as identity:
+            if request.query_params.get("paged") == "1":
+                tasks = scheduler.page(scope_of(request).projects, offset=int(request.query_params.get("offset", 0)),
+                                       limit=int(request.query_params.get("limit", 50)), all_items=request.query_params.get("all") == "1")
+                return {**tasks, "workspace_identity": identity}
+            return [{**task, "workspace_identity": identity} for task in scheduler.list_all(scope_of(request).projects)]
 
     @app.get("/api/tasks/{task_id}")
     def task(task_id: str):
@@ -676,8 +702,9 @@ def _register_schedule_routes(app: FastAPI) -> None:
         return {**scheduler.update(task_id, body), "queue_dispatcher": jobs.ensure_worker()}
 
     @app.delete("/api/tasks/{task_id}")
-    def delete_task(task_id: str):
-        scheduler.delete(task_id)
+    def delete_task(task_id: str, expected_workspace: str | None = None):
+        with data_store.selected_workspace(expected_workspace):
+            scheduler.delete(task_id)
         return {"deleted": task_id}
 
     @app.post("/api/tasks/{task_id}/run")

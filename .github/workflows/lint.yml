@@ -9,6 +9,14 @@ on:
         description: Diagnose the sample group with the highest CLS using Chrome DevTools MCP
         type: boolean
         default: false
+      windows_release_smoke:
+        description: Install the published Windows x64 ZIP and verify its local business flow and report recovery
+        type: boolean
+        default: false
+      linux_arm64_release_smoke:
+        description: Install the published Linux ARM64 ZIP and verify both browsers, the local API and report recovery
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -98,10 +106,17 @@ jobs:
       - name: Workflow, diagnosis, knowledge and host contracts
         if: always()
         run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts" --show-logs
+      - name: Verify design row counts through the CLI and host bridge
+        run: |
+          PYTHONPATH=tests python -m unittest -v \
+            test_context_cli_inputs.AgentReadTests.test_counted_plan_rejects_split_steps_before_creating_or_replacing_a_delivery \
+            test_context_cli_inputs.AgentReadTests.test_counted_plan_keeps_one_ordered_flow_and_accepts_independent_states_from_the_same_source
       - name: Check report evidence, load scheduling and JMeter statistics
         run: |
           PYTHONPATH=tests python -m unittest -v test_preview_observation_steps test_report_step_definitions test_api_http_lifecycle test_load_testing test_load_report_evidence test_load_modes
           node --test tests/preview-runs.test.mjs tests/load-dashboard.test.mjs
+      - name: Verify project archive replacement, offline inventories and Linux runtime paths
+        run: PYTHONPATH=tests python -m unittest -v test_artifact_share test_platform_archive_integrity test_linux_platforms
   windows-report:
     name: Windows reports and PowerShell
     runs-on: windows-latest
@@ -135,6 +150,16 @@ jobs:
         run: |
           $suite = 'test_windows_report_delivery.ReportDeliveryTests'
           python -m unittest -v "$suite.test_native_descriptor_access_modes" "$suite.test_existing_v251_report_retries_after_upgrade" "$suite.test_direct_and_http_bridge_create_readable_designs" "$suite.test_windows_acl_and_open_workbook_allow_retry_on_same_id"
+      - name: Preserve delivered project archives, Windows access control and open readers on retry
+        run: |
+          $suite = 'test_artifact_share.ArtifactShareTests'
+          python -m unittest -v "$suite.test_replacement_preserves_windows_dacl_and_open_readers" "$suite.test_failed_project_pack_preserves_the_delivered_file_and_leaves_no_partial_output" "$suite.test_failed_full_pack_keeps_the_previous_archive_until_the_source_is_repaired"
+      - name: Verify shared evidence reads and same-size changes on Windows
+        env:
+          AUTOSKILL_EXPECT_NTFS_CHANGE_TIME: '1'
+        run: |
+          $suite = 'test_state_api.StateApiTests'
+          python -m unittest -v "$suite.test_history_and_dashboard_check_each_distinct_source_once_per_cold_response" "$suite.test_source_replaced_between_result_verdicts_is_rechecked_within_one_response" "$suite.test_same_size_source_edit_with_restored_mtime_rechecks_dashboard_and_report"
       - name: Prepare the pinned recorder and Python driver for the local fixture
         run: |
           $pins = (Select-String -Path requirements.txt -Pattern '^(playwright|selenium|pillow)==').Line
@@ -155,6 +180,56 @@ jobs:
           pwsh.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
           $suite = 'test_windows_report_delivery.ReportDeliveryTests'
           python -m unittest -v "$suite.test_windows_powershell_51_cmd_with_direct_recording" "$suite.test_powershell_7_cmd_through_http_bridge" "$suite.test_v251_recording_and_run_reports_retry_without_replay"
+      - name: Verify the published Windows x64 offline installation
+        if: github.event_name == 'workflow_dispatch' && inputs.windows_release_smoke
+        timeout-minutes: 15
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          python tests/windows_release_smoke.py --release-tag "v$version"
+  linux-arm64-release:
+    name: Published Linux ARM64 ZIP
+    if: github.event_name == 'workflow_dispatch' && inputs.linux_arm64_release_smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tests
+          persist-credentials: false
+      - name: Prepare the virtual display for the bundled browsers
+        run: |
+          if ! command -v Xvfb || ! command -v xauth || ! command -v xwininfo; then
+            sudo apt-get -o Acquire::Retries=3 update -qq
+            sudo apt-get -y install --no-install-recommends xvfb xauth x11-utils
+          fi
+      - name: Verify the published Ubuntu ARM64 installation with both browsers under Xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d "$RUNNER_TEMP/autoskill-arm64.XXXXXXXX")
+          policy=$(mktemp "$RUNNER_TEMP/autoskill-arm64-profile.XXXXXXXX")
+          loaded=0
+          cleanup() {
+            if [[ "$loaded" == 1 ]]; then sudo apparmor_parser -R "$policy"; fi
+            rm -f "$policy"
+            rm -rf "$work"
+          }
+          trap cleanup EXIT
+          # Ubuntu's user namespace restriction needs the same per-executable permission as the Linux release check.
+          if [[ -r /proc/sys/kernel/apparmor_restrict_unprivileged_userns && "$(< /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" == 1 ]]; then
+            chrome="$work/bundle/autoskill/vendor/linux-arm64/chrome/chrome-linux-arm64/chrome"
+            cat > "$policy" <<PROFILE
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile autoskill-release-arm64-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT "$chrome" flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+            sudo apparmor_parser -a "$policy"
+            loaded=1
+          fi
+          release_tag=$(jq -er '"v" + .version' package.json)
+          xvfb-run -a -s '-screen 0 1600x900x24' python3 tests/published_release_smoke.py --target linux-arm64 --release-tag "$release_tag" --work-dir "$work"
   dashboard-e2e:
     name: Dashboard E2E
     runs-on: ubuntu-24.04

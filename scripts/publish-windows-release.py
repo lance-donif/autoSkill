@@ -19,6 +19,8 @@ def api(method, path, body=None, binary=None):
     data = binary if binary is not None else json.dumps(body).encode() if body is not None else None
     if data is not None:
         headers['Content-Type'] = 'application/zip' if binary is not None else 'application/json'
+    if hasattr(binary, 'read'):
+        headers['Content-Length'] = str(os.fstat(binary.fileno()).st_size - binary.tell())
     with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers, method=method), timeout=600) as response:
         raw = response.read()
         return json.loads(raw) if raw else None
@@ -116,8 +118,9 @@ def main():
     manifest = json.loads((args.build / 'package/autoskill/offline-manifest.json').read_text(encoding='utf-8'))
     if manifest.get('autoskill') != version:
         raise ValueError('Offline manifest version mismatch')
-    payload = archive.read_bytes()
-    digest, size = hashlib.sha256(payload).hexdigest(), len(payload)
+    with archive.open('rb') as stream:
+        digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        size = os.fstat(stream.fileno()).st_size
     args.proof.mkdir(parents=True, exist_ok=True)
     (args.proof / 'archive-check.json').write_text(json.dumps({
         'file': archive.name, 'bytes': size, 'sha256': digest, 'source_commit': commit,
@@ -142,7 +145,8 @@ def main():
     for asset in old:
         if asset['name'] == temporary:
             api('DELETE', f"/releases/assets/{asset['id']}")
-    uploaded = api('POST', release['upload_url'].split('{')[0] + '?name=' + urllib.parse.quote(temporary), binary=payload)
+    with archive.open('rb') as stream:
+        uploaded = api('POST', release['upload_url'].split('{')[0] + '?name=' + urllib.parse.quote(temporary), binary=stream)
     uploaded['name'] = temporary
     checked = api('GET', f"/releases/assets/{uploaded['id']}")
     if checked['size'] != size or checked.get('digest') != 'sha256:' + digest:

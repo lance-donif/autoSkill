@@ -51,6 +51,15 @@ def copy_tree(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination, ignore=ignore)
 
 
+def copy_package_docs(output: Path, version: str) -> None:
+    """Keep skill links local in the bundle; historical evidence lives in the tagged repository."""
+    shutil.copytree(ROOT / "docs", output / "docs")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    readme = readme.replace("](skills/autoskill/", "](autoskill/")
+    readme = readme.replace("](reports/", f"](https://github.com/lance-donif/autoSkill/blob/v{version}/reports/")
+    (output / "README.md").write_text(readme, encoding="utf-8", newline="\n")
+
+
 def write_package_manifest(output: Path) -> None:
     """Hash every immutable program file without bundling user data or migration helpers."""
     config = json.loads((output / "package.json").read_text(encoding="utf-8"))
@@ -199,10 +208,9 @@ def build(assets: Path, output: Path) -> dict:
     copy_tree(SKILL, package)
     # The package root is itself an installable DeepSeek Harness bundle: choose this folder in DSH.
     shutil.copytree(ROOT / "plugin", output / "plugin")
-    shutil.copytree(ROOT / "docs", output / "docs")
-    shutil.copy2(ROOT / "README.md", output / "README.md")
     shutil.copy2(ROOT / "cordis.patch.yml", output / "cordis.patch.yml")
     manifest_json = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    copy_package_docs(output, manifest_json["version"])
     manifest_json["files"] = ["plugin", "autoskill", "cordis.patch.yml", "docs", "README.md"]
     manifest_json.pop("scripts", None)
     (output / "package.json").write_text(json.dumps(manifest_json, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")

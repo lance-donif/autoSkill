@@ -1,5 +1,6 @@
 """Bounded agent reads and actual bridge commands preserve caller inputs and runtime identity."""
 import base64
+import hashlib
 import io
 import json
 import os
@@ -11,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
@@ -103,6 +105,71 @@ class AgentReadTests(unittest.TestCase):
             self.assertEqual(plan.show()["cases"][0]["title"], "第一行\n第二行 中文")
         code, result = self.command("plan", "write", self.pid, "--file", "-", stdin='[\n{"title":"从标准输入"}\n]')
         self.assertEqual((code, result["cases"]), (0, 1))
+
+    def test_counted_plan_rejects_split_steps_before_creating_or_replacing_a_delivery(self):
+        parts = [{"id": key, "title": title} for key, title in
+                 (("OPEN", "访问网站"), ("ARTICLE", "打开文章"), ("IMAGE", "定位流程图并截图"))]
+        design = json.dumps(parts, ensure_ascii=False)
+        write = ("plan", "write", self.pid, "--file", "-")
+        empty = self.root / "not-initialized"
+        new_sheet = self.root / "new-sheet"
+        for count, message in (("1", "实际有 3 条"), ("0", "正整数")):
+            code, rejected = self.command(*write, "--expected-cases", count, stdin=design,
+                                          extra={"AUTOSKILL_WORKSPACE": str(empty), "AUTOSKILL_CASE_SKILL": str(new_sheet)})
+            self.assertEqual((code, rejected["code"]), (2, "validation_error"))
+            self.assertIn(message, rejected["error"])
+        self.assertFalse(empty.exists())
+        self.assertFalse(new_sheet.exists())
+
+        # A legacy multi-row plan remains readable and editable after a rejected replacement.
+        code, original = self.command(*write, stdin=design)
+        self.assertEqual((code, original["cases"]), (0, 3))
+        roots = (self.root / "workspace", self.root / "sheet")
+
+        def contents():
+            return {path: hashlib.sha256(path.read_bytes()).digest() for root in roots for path in root.rglob("*") if path.is_file()}
+
+        before = contents()
+        code, rejected = self.command(*write, "--expected-cases", "1", stdin=design)
+        self.assertEqual((code, rejected["code"]), (2, "validation_error"))
+        for detail in ("期望 1 条", "实际有 3 条", "steps", "expected"):
+            self.assertIn(detail, rejected["error"])
+        self.assertEqual(contents(), before)
+        self.assertEqual(plan.show()["task_id"], original["task_id"])
+        code, marked = self.command("plan", "mark", "OPEN", "未执行", "--note", "等待资料")
+        self.assertEqual((code, marked["case"]), (0, "OPEN"))
+        self.assertEqual(plan.show()["cases"][0]["note"], "等待资料")
+
+    def test_counted_plan_keeps_one_ordered_flow_and_accepts_independent_states_from_the_same_source(self):
+        steps = ["访问网站", "打开指定文章", "定位指定内容", "截取目标内容"]
+        expected = ["1. 入口可见", "2. 标题匹配指定文章", "3. 目标段落可见", "4. 生成一张目标截图"]
+        flow = {"id": "ARTICLE", "title": "取得指定文章的内容截图", "steps": steps, "expected": expected}
+        source = self.root / "design.json"
+        source.write_text(json.dumps([flow], ensure_ascii=False), encoding="utf-8")
+        argv = ["plan", "write", self.pid, "--file", source.name, "--expected-cases", "1"]
+        args = cli.parser().parse_args(["--input-base", str(self.root), *argv])
+        forwarded, stdin, attachments = command_input.for_bridge(args, argv)
+        reply = bridge.execute(forwarded, stdin, caller_cwd=str(self.root), attachments=attachments)
+        self.assertEqual(reply["exit"], 0, reply)
+        made = json.loads(reply["stdout"])
+        self.assertEqual((made["cases"], made["test_report"]["status"]), (1, "ready"))
+        frozen = Path(made["initial_excel"]).read_bytes()
+        row, = plan.show()["cases"]
+        self.assertEqual(row["steps"].splitlines(), [f"{number}. {text}" for number, text in enumerate(steps, 1)])
+        self.assertEqual((row["id"], row["expected"].splitlines(), row["status"]), ("ARTICLE", expected, "未执行"))
+        book = load_workbook(made["initial_excel"], read_only=True)
+        self.addCleanup(book.close)
+        sheet = book["功能测试用例"]
+        self.assertEqual(sheet.max_column, 14)
+        self.assertEqual([cells[5:7] for cells in sheet.values if cells[9] == "未执行"], [(row["steps"], row["expected"])])
+
+        both = [{"id": key, "title": title, "source": "同一份访问要求", "requirement_ids": ["R-1"]}
+                for key, title in (("PUBLIC", "访客可查看公开稿"), ("PRIVATE", "访客打开私密稿被拒绝"))]
+        code, separate = self.command("plan", "write", self.pid, "--expected-cases", "2", "--file", "-",
+                                      stdin=json.dumps(both, ensure_ascii=False))
+        self.assertEqual((code, separate["cases"]), (0, 2))
+        self.assertEqual([item["id"] for item in plan.show()["cases"]], ["PUBLIC", "PRIVATE"])
+        self.assertEqual(Path(made["initial_excel"]).read_bytes(), frozen)
 
     def test_attachment_snapshot_survives_original_removal_and_preserves_binary(self):
         caller = self.root / "caller"

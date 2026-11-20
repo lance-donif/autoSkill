@@ -218,15 +218,15 @@ POLL, PRIMARY_GRACE, LOCATOR, STEP_TIMEOUT = 0.1, 1.5, "locator_not_found", "tim
 '''
     for function in (ir.locators, ir.absolute_url, ir.check_origin):
         support += "\n\n" + _standalone_source(function) + f"\nir.{function.__name__} = {function.__name__}"
-    for function in (ui.StepError, ui.check_cancel, ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion,
-                     ui._poll_assertion, ui.check, ui.navigate, ui.perform):
+    for function in (ui.StepError, ui.check_cancel, ui._recorded_field, ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion,
+                     ui._poll_assertion, ui.check, ui.navigate, ui._settle_focus, ui.perform):
         support += "\n\n" + _standalone_source(function)
     for name, value in vars(module).items():
         if name.isupper() and isinstance(value, (str, int, float, dict, list, tuple)):
             support += f"\n\n{name} = {value!r}"
     support += (f"\n\nclass AssertionDriver:\n    name = {engine!r}\n\n    def __init__(self, browser):\n"
                 f"        self.{field} = browser\n        self.timeout_ms = int(TIMEOUT * 1000)\n")
-    public = {"count", "read", "url", "title", "image", "act", "press"}
+    public = {"count", "read", "url", "title", "image", "act", "press", "focus_hint"}
     for name in driver.__dict__:
         if name in public or (name.startswith("_") and not name.startswith("__")):
             method = getattr(driver, name)

@@ -9,11 +9,27 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import command_input, context_service, db, demo, paths, projects, runner, secrets, sessions, task_context, task_state
+from . import command_input, db, demo, paths, projects, secrets, sessions, task_context
 from .locking import session_lock
 from .replay import ir
 
 STATUS_TEXT = {"Pass": "通过", "Fail": "失败", "Blocked": "阻塞", "Cancelled": "已取消"}
+
+
+# These modules were available as CLI attributes before dispatch became lazy.
+_LEGACY_MODULES = ("context_service", "runner", "task_state")
+
+
+def __getattr__(name: str):
+    if name in _LEGACY_MODULES:
+        from importlib import import_module
+
+        return import_module("." + name, __package__)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()).union(_LEGACY_MODULES))
 
 
 class CommandParser(argparse.ArgumentParser):
@@ -74,6 +90,8 @@ def context(project_id: str) -> dict:
 
 
 def run_summary(run: dict, *, brief: bool = False) -> dict:
+    from . import task_state
+
     rows = None if brief else db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
     totals = task_state.run_values(run, results=rows)
     summary = {
@@ -336,7 +354,7 @@ def _delete_commands(sub) -> None:
     runs.add_argument("run_ids", nargs="+")
 
 
-def parser() -> argparse.ArgumentParser:
+def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     top = CommandParser(prog="autoskill", description="录一次，到处回放：录制浏览器操作与接口，生成无需 AI 的回放用例。")
     top.add_argument("--session", help="AI 测试会话标识；同一任务每条命令使用同一个值，也可设 AUTOSKILL_SESSION")
     top.add_argument("--runtime-context", help="插件提供的工作区与服务绑定；沿用注册 Skill 中的前缀")
@@ -416,7 +434,11 @@ def parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run", help="回放用例；前置用例（如登录）自动先执行")
     run.add_argument("project")
     run.add_argument("--case", action="append", dest="cases", help="用例编号，可重复；省略则回放全部")
-    run.add_argument("--engine", choices=runner.ENGINES, default="playwright")
+    engine = run.add_argument("--engine", default="playwright")
+    if include_run_engines:
+        from .runner import ENGINES
+
+        engine.choices = ENGINES
     run.add_argument("--kind", choices=("ui", "api"), help="只回放某一类")
     run.add_argument("--candidate", help="验证 record stop 或工作流返回的候选任务标识，通过后发布可复用用例")
     run.add_argument("--api-only", action="store_true", help="独立 HTTP 冷启动；不借用浏览器或已保存登录")
@@ -463,6 +485,7 @@ def parser() -> argparse.ArgumentParser:
     writer = plan.add_parser("write", help="把根据需求文档设计的用例写成 Excel 用例表")
     writer.add_argument("project")
     writer.add_argument("--file", required=True, help="用例 JSON 文件（数组）")
+    writer.add_argument("--expected-cases", type=int, help="按独立验收目标预先确定的用例数；单一连续流程填 1")
     plan.add_parser("show", help="读出用例表：要执行哪些用例、各自的结果")
     linker = plan.add_parser("link", help="把当前用例表的一行关联到同项目已有用例；随后回放才写入真实结果")
     linker.add_argument("case", help="本次设计表中的用例编号")
@@ -480,6 +503,7 @@ def parser() -> argparse.ArgumentParser:
 def export_postman(project_id: str, out: str | None) -> dict:
     from pathlib import Path
 
+    from . import runner
     from .replay import postman
 
     cases = {c["id"]: c for c in projects.cases(project_id)}
@@ -610,11 +634,15 @@ def _dispatch_project(args) -> tuple[dict, int]:
 
 def _dispatch_context(args) -> tuple[dict, int]:
     """Keep the legacy Python API while making command responses explicitly paginated."""
+    from . import context_service
+
     return context_service.context(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items,
                                    knowledge_limit=args.knowledge_limit, knowledge_cursor=args.knowledge_cursor), 0
 
 
 def _dispatch_cases(args) -> tuple[dict, int]:
+    from . import context_service
+
     if args.case_id:
         return context_service.case(args.project, args.case_id), 0
     return context_service.cases(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items,
@@ -630,7 +658,7 @@ def _dispatch_delete(args) -> tuple[dict, int]:
 
 
 def _dispatch_knowledge(args) -> tuple[dict, int]:
-    from . import knowledge_entries, knowledge_transfer
+    from . import context_service, knowledge_entries, knowledge_transfer
 
     if args.action == "read":
         return context_service.read_knowledge(args.project, args.file, offset=args.offset, length=args.length,
@@ -900,6 +928,10 @@ def _dispatch_plan(args) -> tuple[dict, int]:
 
     if action == "write":
         payload = _input_json(args)
+        expected = getattr(args, "expected_cases", None)
+        if expected is not None:
+            plan.validate_case_count(payload, expected)
+            _initialize_workspace()
         with tempfile.TemporaryDirectory(prefix="autoskill-plan-") as folder:
             source = Path(folder) / "cases.json"
             source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -921,11 +953,12 @@ def _dispatch_plan(args) -> tuple[dict, int]:
 
 
 def _dispatch_import(args) -> tuple[dict, int]:
-    """Handle the import command without changing its result contract."""
+    """An existing project may be skipped normally; an unsuccessful import needs attention."""
     from . import share
 
     source = command_input.resolve_path(args.file, command_input.base_directory(args))
-    return share.import_pack(source, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite), 0
+    result = share.import_pack(source, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite)
+    return result, 2 if result["errors"] else 0
 
 
 def _dispatch_demo(args) -> tuple[dict, int]:
@@ -966,6 +999,8 @@ def _dispatch_dashboard(args) -> tuple[dict, int]:
 
 def _dispatch_execution(args) -> tuple[dict, int]:
     """Handle the execution command without changing its result contract."""
+    from . import runner
+
     command = args.command
     if command == "run" and args.candidate:
         return _dispatch_candidate_run(args)
@@ -996,7 +1031,7 @@ def _dispatch_execution(args) -> tuple[dict, int]:
 
 
 def _dispatch_candidate_run(args) -> tuple[dict, int]:
-    from . import candidate_publication
+    from . import candidate_publication, runner
 
     task = candidate_publication.read(args.candidate)
     if task["project_id"] != args.project:
@@ -1019,7 +1054,7 @@ def _dispatch_candidate_run(args) -> tuple[dict, int]:
 
 
 def _dispatch_run_status(args) -> tuple[dict, int]:
-    from . import task_reports
+    from . import runner, task_reports
 
     run = db.one("SELECT * FROM runs WHERE id = ?", (args.run_id,))
     if not run:
@@ -1134,7 +1169,8 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
     argv = list(sys.argv[1:] if argv is None else argv)
     try:
-        args = parser().parse_args(argv)
+        # Only the run subparser reads engine choices. Direct parser() callers get the full parser.
+        args = parser(include_run_engines="run" in argv).parse_args(argv)
         undo_msys(args)
         command_input.runtime_context(args.runtime_context or os.environ.get("AUTOSKILL_RUNTIME_CONTEXT"))
         if args.host_session is not None:
@@ -1150,6 +1186,13 @@ def main(argv: list[str] | None = None) -> int:
         scope = workflow.use_binding(binding)
     with task_context.use_session(identity), scope:
         return _main(args, argv)
+
+
+def _initialize_workspace() -> None:
+    from . import data_store
+
+    data_store.ensure_initialized()
+    db.init()
 
 
 def _main(args, argv: list[str]) -> int:
@@ -1168,11 +1211,10 @@ def _main(args, argv: list[str]) -> int:
             reason = "已设置 AUTOSKILL_BRIDGE=on" if mode == "on" else paths.restricted()
             if reason:
                 return delegate(args, argv, reason)
-        if args.command != "data":
-            from . import data_store
-
-            data_store.ensure_initialized()
-            db.init()
+        # A counted plan validates its input before creating any workspace or sheet.
+        counted_plan = args.command == "plan" and args.action == "write" and args.expected_cases is not None
+        if args.command != "data" and not counted_plan:
+            _initialize_workspace()
         if args.command != "dashboard":  # the dashboard is long-running and talks to a person
             sys.stdout = sys.stderr  # anything a library prints goes to stderr; stdout carries the JSON only
         try:
@@ -1195,6 +1237,9 @@ def _main(args, argv: list[str]) -> int:
             message = f"autoSkill 内部错误：{type(error).__name__}: {error}（详细信息在标准错误输出里）"
         return emit({"error": message[:600]}, 2)
     return emit(result, code)
+
+
+__all__ = tuple(name for name in __dir__() if not name.startswith("_"))
 
 
 if __name__ == "__main__":

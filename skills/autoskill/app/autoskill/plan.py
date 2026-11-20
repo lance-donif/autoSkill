@@ -121,13 +121,17 @@ def _file() -> Path:
     return found[0] if found else folder / "cases.xlsx"
 
 
+def _missing_sheet() -> ValueError:
+    return ValueError(f"还没有用例表；先用 autoskill plan write <项目> --file <用例.json> 生成，或把用例 Excel 放到 {_folder()}")
+
+
 def _open():
     """(workbook, sheet, {field: column number}); missing result columns are added so any sheet can take verdicts."""
     from openpyxl import load_workbook
 
     file = _file()
     if not file.is_file():
-        raise ValueError(f"还没有用例表；先用 autoskill plan write <项目> --file <用例.json> 生成，或把用例 Excel 放到 {_folder()}")
+        raise _missing_sheet()
     book = load_workbook(file)
     sheet = book.worksheets[0]
     labels = {label: key for key, label, _ in COLUMNS}
@@ -247,6 +251,17 @@ def _design_text(item: dict) -> dict:
     return value
 
 
+def validate_case_count(items, expected: int) -> None:
+    if expected < 1:
+        raise ValueError("--expected-cases 需要填写根据验收目标确定的正整数")
+    if not isinstance(items, list):
+        raise ValueError("用例文件需要是 JSON 数组，每项代表一条用例")
+    if len(items) != expected:
+        guidance = ("请把通往同一目标的连续操作写进一条用例的 steps，把对应的检查写进 expected。"
+                    if expected == 1 else "请按可独立验收的目标核对每条用例，然后重新提交。")
+        raise ValueError(f"本次计划期望 {expected} 条用例，设计文件实际有 {len(items)} 条。{guidance}")
+
+
 def _design_rows(items) -> list[dict]:
     """Resolve public row IDs once, before replacing any existing design."""
     if not isinstance(items, list) or not items or not all(isinstance(item, dict) and item.get("title") for item in items):
@@ -328,29 +343,44 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
             "next": _delivery_next(published["test_report"]) if delivery else "可在在线设计用例表下载正式 14 列 Excel。"}
 
 
+def show(*, recording: bool = False) -> dict:
+    if not _folder().is_dir():
+        raise _missing_sheet()
+    return _read_sheet(recording)
+
+
 @_sheet_locked
-def show() -> dict:
-    from . import plan_execution
+def _read_sheet(recording: bool) -> dict:
+    from . import case_plans, plan_execution, runner
 
     book, sheet, columns = _open()
     meta = book["信息"] if "信息" in book.sheetnames else None
     project = str(meta.cell(1, 2).value or "") if meta else ""
     rows = [row for _, row in _rows(sheet, columns)]
     metadata_file = _folder() / "design.json"
-    extra_rows = json.loads(metadata_file.read_bytes()).get("rows", {}) if metadata_file.is_file() else {}
+    metadata = json.loads(metadata_file.read_bytes()) if metadata_file.is_file() else None
+    extra_rows = metadata.get("rows", {}) if metadata is not None else {}
     for row in rows:
         extra = extra_rows.get(row["id"], {})
         row.update({key: extra[key] for key in FUNCTIONAL_FIELDS if key in extra})
     sources = _source_rows(rows)
+    online = metadata is not None and project and not (_folder() / "functional-design.json").is_file()
+    project_name = projects.meta(project)["name"] if online else None
     for row in rows:
         row.update(sources.get(row["id"], {}))
-        if metadata_file.is_file() and project and not plan_execution._file().is_file():
-            row.setdefault("business_path", [projects.meta(project)["name"], row.get("module") or "未分组"])
+        if project_name:
+            row.setdefault("business_path", [project_name, row.get("module") or "未分组"])
     sources = plan_execution.execution_sources(rows)
     for row in rows:
         if row["id"] in sources:
             row["execution_source"] = sources[row["id"]]
-    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None, "cases": rows, "summary": _summary(sheet, columns), **_delivery_status()}
+    draft = {"design_version": metadata["version"]} if recording and metadata is not None and "version" in metadata else {}
+    if recording and online and not plan_execution._file().is_file():
+        # Reserve the same identity for recordings of this exact draft, without creating a delivery on read.
+        revision = case_plans._revision(_folder(), metadata)
+        draft["draft_task_id"] = "plan-" + execution_inputs.content_hash({"file": runner.plan_reference(_file()), "revision": revision})[:32]
+    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None, "cases": rows,
+            "summary": _summary(sheet, columns), **draft, **_delivery_status()}
 
 
 def _delivery_status() -> dict:

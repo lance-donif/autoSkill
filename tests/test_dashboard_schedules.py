@@ -10,6 +10,7 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import httpx
 from playwright.sync_api import expect, sync_playwright
@@ -127,6 +128,52 @@ class DashboardScheduleTests(unittest.TestCase):
         dialog.get_by_label("间隔", exact=True).select_option("360")
         self.assertEqual(self.save(other, dialog).status, 200)
         return self.client.get("/api/tasks/" + self.task["id"]).json()
+
+    def test_renaming_foreign_zone_tasks_preserves_the_due_instant_and_edits_use_the_stored_zone(self):
+        path = '/api/tasks/' + self.task['id']
+        context = self.browser.new_context(timezone_id='UTC')
+        self.addCleanup(context.close)
+        page = context.new_page()
+        for rule, zone in (({'kind': 'weekly', 'days': [2, 0], 'time': '08:17', 'timezone': 'Asia/Tokyo'}, 'Asia/Tokyo'),
+                           ({'kind': 'daily', 'time': '08:17'}, 'Asia/Shanghai')):
+            with self.subTest(zone=zone):
+                created = self.client.patch(path, json={'title': 'Original task', 'rule': rule, 'enabled': True}).raise_for_status().json()
+                page.goto(self.origin + '/#/schedules')
+                page.reload()
+                expect(page.locator('tr').filter(has_text='Original task')).to_contain_text(zone)
+                dialog = self.edit(page)
+                expect(dialog).to_contain_text('执行时区为 ' + zone)
+                dialog.get_by_label('任务名称', exact=True).fill('New title')
+                renamed = self.save(page, dialog).json()
+                self.assertEqual((renamed['rule'], renamed['next_due']), (rule, created['next_due']))
+                page.reload()
+                edit = self.edit(page, 'New title')
+                edit.get_by_label('执行时间', exact=True).fill('10:42')
+                changed = self.save(page, edit).json()
+                self.assertEqual((changed['rule']['time'], changed['rule']['timezone']), ('10:42', zone))
+                self.assertEqual(datetime.datetime.fromisoformat(changed['next_due']).astimezone(ZoneInfo(zone)).strftime('%H:%M'), '10:42')
+
+    def test_deleted_target_can_be_paused_and_resume_requires_a_valid_replacement(self):
+        path = '/api/tasks/' + self.task['id']
+        enabled = self.client.patch(path, json={'enabled': True}).raise_for_status().json()
+        self.client.delete('/api/projects/' + self.project_id + '/cases/TC-API-001').raise_for_status()
+        self.page.reload()
+        with self.page.expect_response(lambda response: response.request.method == 'PATCH' and response.url.endswith(path)) as stopped:
+            self.page.get_by_role('switch', name='暂停「Original task」').click()
+        self.assertEqual(stopped.value.status, 200)
+        paused = stopped.value.json()
+        self.assertEqual((paused['enabled'], paused['next_due'], paused['revision']), (False, None, enabled['revision'] + 1))
+        with self.page.expect_response(lambda response: response.request.method == 'PATCH' and response.url.endswith(path)) as rejected:
+            self.page.get_by_role('switch', name='启用「Original task」').click()
+        self.assertEqual(rejected.value.status, 400)
+        self.assertIn('这些用例不存在', rejected.value.json()['detail'])
+        self.assertEqual(self.client.get(path).json()['revision'], paused['revision'])
+        altered = self.client.patch(path, json={'enabled': False, 'case_ids': ['missing'], 'expected_revision': paused['revision']})
+        self.assertEqual(altered.status_code, 400)
+        projects.save_cases(self.project_id, [builder.api_case('REPLACEMENT', 'Replacement case', 'GET', '/ok', {'status': 200})])
+        restored = self.client.patch(path, json={'case_ids': ['REPLACEMENT'], 'enabled': True, 'expected_revision': paused['revision']}).raise_for_status().json()
+        self.assertTrue(restored['enabled'] and restored['next_due'])
+        self.assertEqual(restored['case_ids'], ['REPLACEMENT'])
 
     def test_stale_edit_keeps_other_session_changes_and_can_reload_to_save(self):
         dialog = self.edit(self.page)

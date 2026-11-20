@@ -68,11 +68,10 @@ def build(assets: Path, output: Path, arch: str) -> dict:
     output.mkdir(parents=True)
     common.copy_tree(ROOT / "skills/autoskill", package)
     shutil.copytree(ROOT / "plugin", output / "plugin")
-    shutil.copytree(ROOT / "docs", output / "docs")
-    for name in ("README.md", "cordis.patch.yml"):
-        shutil.copy2(ROOT / name, output / name)
+    shutil.copy2(ROOT / "cordis.patch.yml", output / "cordis.patch.yml")
     shutil.copy2(ROOT / "scripts/setup-linux.sh", output / "setup-linux.sh")
     config = json.loads((ROOT / "package.json").read_text())
+    common.copy_package_docs(output, config["version"])
     config["files"] = ["plugin", "autoskill", "cordis.patch.yml", "setup-linux.sh", "docs", "README.md"]
     config.pop("scripts", None)
     (output / "package.json").write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

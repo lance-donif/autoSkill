@@ -202,8 +202,9 @@ def _archive_contents(entries: dict, prefix: str, manifest: dict | None) -> tupl
         if expected != set(files) or not directories.issubset(declared | parents):
             raise ValueError("数据包内容与完整清单不一致，未导入任何数据")
         directories.update(declared)
+        allowed_paths = expected | directories
         for name, mode in manifest.get("modes", {}).items():
-            if relative_name(name) not in expected | directories or type(mode) is not int or not 0 <= mode <= 0o7777 or (name in modes and modes[name] != mode):
+            if relative_name(name) not in allowed_paths or type(mode) is not int or not 0 <= mode <= 0o7777 or (name in modes and modes[name] != mode):
                 raise ValueError("数据包文件权限清单无效：" + name)
             modes[name] = mode
     if set(files) & directories:

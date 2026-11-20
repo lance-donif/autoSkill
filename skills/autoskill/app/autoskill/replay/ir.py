@@ -118,6 +118,8 @@ def describe(step: dict) -> str:
         if op in ("fill", "type", "select"):
             return f'在 {where} {text}「{step.get("value")}」'
         if op == "press":
+            if not where and step.get("key_target") == "active":
+                return f'{text} {step.get("key")}（当前焦点）'
             return f'{text} {step.get("key")}' + (f"（{where}）" if where else "")
         return f"{text} {where}".strip()
     op = step.get("assertion")
@@ -137,6 +139,18 @@ def _is_index(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
+def _check_field_identity(locator: dict, where: str) -> None:
+    if locator.get("unique") is not True or "nth" in locator:
+        raise ValueError(f"{where}：唯一控件定位需要带名称的角色，不能指定匹配序号")
+    if not isinstance(locator.get("name"), str) or not locator["name"]:
+        raise ValueError(f"{where}：唯一控件定位缺少名称")
+    if "anchor" in locator:
+        anchor = locator["anchor"]
+        if (not isinstance(anchor, dict) or set(anchor) != {"by", "value"} or anchor["by"] not in ("css", "testid")
+                or not isinstance(anchor["value"], str) or not anchor["value"]):
+            raise ValueError(f"{where}：唯一控件的锚点需要有效的 CSS 或测试标识")
+
+
 def _check_locator(locator: object, where: str) -> None:
     if not isinstance(locator, dict) or locator.get("by") not in LOCATOR_KINDS:
         raise ValueError(f"{where}：定位方式必须是 {' / '.join(LOCATOR_KINDS)} 之一")
@@ -149,6 +163,8 @@ def _check_locator(locator: object, where: str) -> None:
         raise ValueError(f"{where}：nth 必须是从 0 开始的整数")
     if "context" in locator:
         raise ValueError(f"{where}：context 应声明在步骤上，不能嵌入定位候选")
+    if locator["by"] == "role" and "unique" in locator and locator["unique"] is not False:
+        _check_field_identity(locator, where)
     if "xpath_anchor" in locator:
         if locator["by"] != "xpath" or not isinstance(locator["xpath_anchor"], str) or not locator["xpath_anchor"].strip():
             raise ValueError(f"{where}：xpath_anchor 必须是 XPath 的非空 CSS 元素锚点")

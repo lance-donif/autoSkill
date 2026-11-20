@@ -1,4 +1,5 @@
 """State projections, lifecycle filters and read-only polling share one scope."""
+import contextlib
 import json
 import os
 import sys
@@ -6,6 +7,7 @@ import tempfile
 import threading
 import time
 import unittest
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -16,7 +18,7 @@ sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
 from fastapi.testclient import TestClient
 
-from autoskill import builder, data_refs, db, load_testing, projects, report_locations, runner, task_state, workflow_state
+from autoskill import builder, data_refs, db, file_changes, load_testing, projects, report_locations, runner, task_report_data, task_reports, task_state, workflow_state
 from autoskill.server import metrics
 from autoskill.server.app import create_app
 
@@ -226,6 +228,66 @@ class StateApiTests(unittest.TestCase):
         result = next(row for row in history["results"] if row["case_id"] == "TC-API-001")
         self.assertEqual(result["state"]["outcome"], "pass")
 
+    def test_nested_postcondition_receipt_and_attachment_invalidate_dashboard_and_report(self):
+        cases = []
+        for name, parent in (("ACTION", None), ("CHECK", "ACTION"), ("VERIFY", "CHECK")):
+            cases.append(builder.api_case(name, name, "GET", "/" + name, {"status": 200, "json_equals": {"/ok": True}},
+                                          depends_on=[parent] if parent else []))
+            if parent:
+                cases[-2]["extensions"]["postconditions"] = [name]
+        projects.save_cases(self.pid, cases)
+        run = runner.create(self.pid, ["ACTION"])
+        register = runner._register_screenshots
+
+        def attach(folder, outcome):
+            if (outcome.get("request") or {}).get("url", "").endswith("/VERIFY"):
+                (folder / "observation.png").write_bytes(b"fixture image")
+                outcome["screenshots"] = ["observation.png"]
+            return register(folder, outcome)
+
+        with patch.object(runner, "_register_screenshots", side_effect=attach), patch.object(task_reports, "for_run", return_value={"status": "pending"}):
+            self.assertEqual(runner.execute(run["id"])["status"], "Pass")
+
+        def projected():
+            response = self.client.get("/api/runs/" + run["id"])
+            self.assertEqual(response.status_code, 200)
+            return {row["case_id"]: (row["state"]["evidence"], row["state"]["outcome"]) for row in response.json()["results"]}
+
+        passed = dict.fromkeys(("ACTION", "CHECK", "VERIFY"), ("valid", "pass"))
+        failed = dict.fromkeys(passed, ("invalid", "fail"))
+        self.assertEqual(projected(), passed)
+        deepest = db.one("SELECT detail FROM results WHERE run_id=? AND case_id='VERIFY'", (run["id"],))
+        receipt = data_refs.resolve(json.loads(deepest["detail"])["attempts"][0]["path"])
+        artifact = receipt.parent.parent / "observation.png"
+        revision = self.client.get("/api/state-revision").json()["revision"]
+        original_receipt = receipt.read_bytes()
+        receipt.unlink()
+        self.assertNotEqual(self.client.get("/api/state-revision").json()["revision"], revision)
+        self.assertEqual(projected(), failed)
+        receipt.write_bytes(original_receipt)
+        self.assertEqual(projected(), passed)
+        artifact.write_bytes(b"changed image")
+        self.assertEqual(projected(), failed)
+        report = task_reports.for_run(run["id"])
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["summary_counts"], {"Pass": 0, "Fail": 1, "NotRun": 0})
+        self.assertIn("| 失败 | 1 |", Path(report["markdown"]).read_text(encoding="utf-8"))
+        artifact.write_bytes(b"fixture image")
+        self.assertEqual(projected(), passed)
+        self.assertEqual(task_reports.for_run(run["id"])["source_hash"], report["source_hash"])
+        if os.name != "nt":
+            original, changed = artifact.with_name("original.png"), artifact.with_name("changed.png")
+            artifact.rename(original)
+            changed.write_bytes(b"changed image")
+            artifact.symlink_to(original.name)
+            self.assertEqual(projected(), passed)
+            artifact.unlink()
+            artifact.symlink_to(changed.name)
+            self.assertEqual(projected(), failed)
+            artifact.unlink()
+            artifact.symlink_to(original.name)
+            self.assertEqual(projected(), passed)
+
     def test_load_runs_preserve_verified_business_and_performance_and_stay_out_of_functional_counts(self):
         cases = [builder.api_case("TC-LOAD-001", "负载业务通过", "GET", "/", {"status": 200, "json_equals": {"/ok": True}, "max_ms": 10000}),
                  builder.api_case("TC-LOAD-002", "负载性能失败", "GET", "/", {"status": 200, "json_equals": {"/ok": True}, "max_ms": 1})]
@@ -354,6 +416,169 @@ class StateApiTests(unittest.TestCase):
                                "status": "Queued", "total": total, "created_at": f"2025-02-01T00:00:0{i}.000+00:00"})
             latest = metrics.run_counts(metrics.Scope())["latest_batch"]
             self.assertEqual(latest, {"passed": 0, "failed": 0, "not_run": total, "total": total, "pass_rate": 0.0 if total else None})
+
+    def run_with_source(self, content):
+        source = projects.path(self.pid) / "analysis" / "requirements.txt"
+        source.parent.mkdir(exist_ok=True)
+        source.write_bytes(content)
+        cases = [builder.api_case(name, name + " " + content.decode(), "GET", "/", {"status": 200, "json_equals": {"/ok": True}})
+                 for name in ("FIRST", "SECOND", "THIRD")]
+        projects.save_cases(self.pid, cases)
+        run = runner.create(self.pid, [case["id"] for case in cases])
+        self.assertEqual(runner.execute(run["id"])["status"], "Pass")
+        manifest = data_refs.resolve(run["input_manifest"])
+        reference = json.loads(manifest.read_bytes())["sources"]["files"]["analysis/requirements.txt"]
+        return run["id"], manifest.parent / "objects" / reference["sha256"]
+
+    def test_history_and_dashboard_check_each_distinct_source_once_per_cold_response(self):
+        first, old = self.run_with_source(b"old scope")
+        second, new = self.run_with_source(b"new scope")
+        self.assertNotEqual(old, new)
+        read = Path.read_bytes
+        reads = Counter()
+        cold = {file: 1 if file_changes.reusable(file_changes.file_stamp(file)) else 3 for file in (old, new)}
+
+        def counted(file):
+            if file in (old, new):
+                reads[file] += 1
+            return read(file)
+
+        for url in ("/api/results", "/api/dashboard"):
+            with self.subTest(url=url), patch.object(task_state, "_checks", {}), patch.object(Path, "read_bytes", counted):
+                reads.clear()
+                self.assertEqual(self.client.get(url).status_code, 200)
+                self.assertEqual(reads, cold)
+                # A volume can provide a reusable change time for some files and a coarse one for others.
+                cached = Counter(stamp[0] for signature, _valid in task_state._checks.values() for stamp in signature)
+                warm = {file: min(times, 3 - cached[str(file)]) for file, times in cold.items() if cached[str(file)] < 3}
+                reads.clear()
+                self.assertEqual(self.client.get(url).status_code, 200)
+                self.assertEqual(reads, warm)
+                reads.clear()
+                old.write_bytes(b"bad scope")
+                damaged = self.client.get(url).json()
+                self.assertEqual(reads, {**warm, old: 1 if file_changes.reusable(file_changes.file_stamp(old)) else 3})
+                if url == "/api/results":
+                    states = {(row["run_id"], row["state"]["outcome"]) for row in damaged["items"]}
+                    self.assertEqual(states, {(first, "fail"), (second, "pass")})
+                else:
+                    counts = damaged["summary"]["results"]
+                    self.assertEqual((counts["passed"], counts["failed"]), (3, 3))
+                old.write_bytes(b"old scope")
+                restored = self.client.get("/api/results").json()
+                self.assertEqual(restored["state_counts"], {"pass": 6, "fail": 0, "not_run": 0})
+
+    def test_source_replaced_between_result_verdicts_is_rechecked_within_one_response(self):
+        _run, frozen = self.run_with_source(b"original")
+        accepted, replaced = threading.Event(), threading.Event()
+        verdict = task_state.result_verdict
+
+        def after_first(*args, **kwargs):
+            result = verdict(*args, **kwargs)
+            if not accepted.is_set():
+                self.assertEqual(result["outcome"], "pass")
+                accepted.set()
+                self.assertTrue(replaced.wait(10))
+            return result
+
+        def replace_source():
+            self.assertTrue(accepted.wait(10))
+            temporary = frozen.with_suffix(".tmp")
+            temporary.write_bytes(b"modified")
+            temporary.replace(frozen)
+            replaced.set()
+
+        with patch.object(task_state, "_checks", {}), ThreadPoolExecutor(max_workers=1) as writer:
+            future = writer.submit(replace_source)
+            with patch.object(task_state, "result_verdict", side_effect=after_first):
+                mixed = self.client.get("/api/results").json()
+            future.result()
+            self.assertEqual(mixed["state_counts"], {"pass": 1, "fail": 2, "not_run": 0})
+            self.assertEqual(self.client.get("/api/results").json()["state_counts"]["fail"], 3)
+            frozen.write_bytes(b"original")
+            self.assertEqual(self.client.get("/api/results").json()["state_counts"]["pass"], 3)
+
+    def test_same_size_source_edit_with_restored_mtime_rechecks_dashboard_and_report(self):
+        run_id, frozen = self.run_with_source(b"original")
+        run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
+        original = frozen.stat()
+        read = Path.read_bytes
+
+        def overwrite(content):
+            with frozen.open("r+b") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.utime(frozen, ns=(original.st_atime_ns, original.st_mtime_ns))
+            saved = frozen.stat()
+            self.assertEqual((saved.st_size, saved.st_mtime_ns, saved.st_ino), (original.st_size, original.st_mtime_ns, original.st_ino))
+
+        for fallback in (False, True):
+            capability = patch.object(file_changes, "reusable", return_value=False) if fallback else contextlib.nullcontext()
+            with self.subTest(fallback=fallback), capability, patch.object(task_state, "_checks", {}):
+                before = file_changes.file_stamp(frozen)
+                if not fallback and os.environ.get("AUTOSKILL_EXPECT_NTFS_CHANGE_TIME") == "1":
+                    self.assertEqual(os.name, "nt")
+                    self.assertTrue(file_changes.reusable(before), "The native NTFS change-time check must run on this CI volume")
+                self.assertEqual(self.client.get("/api/results").json()["state_counts"]["pass"], 3)
+                overwrite(b"modified")
+                if file_changes.reusable(before):
+                    self.assertNotEqual(file_changes.file_stamp(frozen)[-1], before[-1])
+                self.assertEqual(self.client.get("/api/dashboard").json()["summary"]["results"]["failed"], 3)
+                self.assertFalse(any(row["evidence_valid"] for row in task_report_data.run_snapshot(run)["cases"]))
+                overwrite(b"original")
+                self.assertEqual(self.client.get("/api/results").json()["state_counts"]["pass"], 3)
+                self.assertTrue(all(row["evidence_valid"] for row in task_report_data.run_snapshot(run)["cases"]))
+
+                changed = False
+
+                def change_during_receipt(file):
+                    nonlocal changed
+                    if file.parent.name == "attempts" and not changed:
+                        changed = True
+                        overwrite(b"modified")
+                    return read(file)
+
+                with patch.object(Path, "read_bytes", change_during_receipt):
+                    captured = task_report_data.run_snapshot(run)
+                self.assertTrue(changed)
+                self.assertFalse(any(row["evidence_valid"] for row in captured["cases"][1:]))
+                if file_changes.reusable(before):
+                    self.assertFalse(captured["cases"][0]["evidence_valid"])
+                overwrite(b"original")
+
+    def test_overlapping_requests_for_distinct_runs_check_the_shared_object_independently(self):
+        first, frozen = self.run_with_source(b"shared")
+        boundary = db.now()
+        second, same = self.run_with_source(b"shared")
+        self.assertEqual(frozen, same)
+        checked, finish = threading.Event(), threading.Event()
+        opened = []
+        read, verdict = Path.read_bytes, task_state.result_verdict
+
+        def counted(file):
+            if file == frozen:
+                opened.append(file)
+            return read(file)
+
+        def hold_first(row, *args, **kwargs):
+            result = verdict(row, *args, **kwargs)
+            if row["run_id"] == first and not checked.is_set():
+                checked.set()
+                self.assertTrue(finish.wait(10))
+            return result
+
+        with patch.object(task_state, "_checks", {}), patch.object(Path, "read_bytes", counted), patch.object(task_state, "result_verdict", side_effect=hold_first), ThreadPoolExecutor(1) as client:
+            previous = client.submit(self.client.get, "/api/results", params={"end": boundary})
+            try:
+                self.assertTrue(checked.wait(10))
+                latest = self.client.get("/api/results", params={"start": boundary}).json()
+            finally:
+                finish.set()
+            earlier = previous.result().json()
+        self.assertEqual({r["run_id"] for r in earlier["items"]}, {first})
+        self.assertEqual({r["run_id"] for r in latest["items"]}, {second})
+        self.assertEqual(len(opened), 2 if file_changes.reusable(file_changes.file_stamp(frozen)) else 6)
 
     def test_response_snapshot_does_not_cache_a_later_evidence_change(self):
         run = self.measured()

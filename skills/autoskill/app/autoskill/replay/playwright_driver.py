@@ -1,9 +1,10 @@
 """Playwright driver for the shared UI replay loop."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from .. import paths
+from .. import browser_temp, paths
 from . import ir
 from .tabs import playwright_tabs
 
@@ -53,7 +54,12 @@ class PlaywrightDriver:
                         else (paths.chrome(), paths.chrome(bundled=True)))
         if chosen:
             options["executable_path"] = chosen
+        self._temp_folder = None
         try:
+            environment = dict(os.environ)
+            self._temp_folder = browser_temp.prepare(environment)
+            if self._temp_folder:
+                options["env"] = environment
             try:
                 self.browser = self._pw.chromium.launch(**options)
             except PlaywrightError:
@@ -61,7 +67,10 @@ class PlaywrightDriver:
                     raise
                 self.browser = self._pw.chromium.launch(**{**options, "executable_path": ours})  # the user's Chrome would not start
         except Exception:
-            self._pw.stop()
+            try:
+                self._pw.stop()
+            finally:
+                browser_temp.release(self._temp_folder)
             raise
         self.context = None
         self.page = None
@@ -105,7 +114,10 @@ class PlaywrightDriver:
                 self.context.close()
             self.browser.close()
         finally:
-            self._pw.stop()
+            try:
+                self._pw.stop()
+            finally:
+                browser_temp.release(self._temp_folder)
 
     # --- page --------------------------------------------------------
     def tab_action(self, step: dict, timeout: float) -> None:
@@ -257,6 +269,14 @@ class PlaywrightDriver:
                 getattr(node, op)()  # click, dblclick, hover, check, uncheck
         finally:
             node.dispose()
+
+    def focus_hint(self):
+        from playwright.sync_api import Error
+
+        try:
+            return self.page.evaluate("() => (" + DOM_JS + ")().focusHint()")
+        except Error:  # Navigation may temporarily replace the document being observed.
+            return None
 
     def press(self, locator: dict | None, key: str) -> None:
         if locator:

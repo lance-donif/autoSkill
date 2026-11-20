@@ -14,6 +14,9 @@ import uuid
 from . import maintenance, paths, runtime_identity
 from .locking import named_lock
 
+WORKFLOW_RUN_INDEX = ("CREATE INDEX IF NOT EXISTS workflow_items_by_run ON workflow_items(run_id, sequence DESC) "
+                      "WHERE run_id IS NOT NULL")
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS state_revision (
   id INTEGER PRIMARY KEY CHECK(id = 1), revision INTEGER NOT NULL DEFAULT 0);
@@ -157,6 +160,8 @@ def _initialize() -> None:
             if name not in columns:
                 conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
         conn.execute("CREATE INDEX IF NOT EXISTS runs_by_session ON runs(session_id,created_at,id)")
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workflow_items'").fetchone():
+            conn.execute(WORKFLOW_RUN_INDEX)
         task_columns = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
         for name, definition in (("kind", "TEXT NOT NULL DEFAULT 'replay'"), ("asset_id", "TEXT NOT NULL DEFAULT ''"),
                                  ("parameters", "TEXT NOT NULL DEFAULT '{}'"), ("workflow_id", "TEXT NOT NULL DEFAULT ''"),

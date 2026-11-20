@@ -1,5 +1,5 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
-import { h, icon, replace, api, scopeQuery, go, href, route, attempt, toast,
+import { h, icon, replace, api, deleteSelection, scopeQuery, go, href, route, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
 import { empty, errorState, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
@@ -100,7 +100,7 @@ async function history(view, isCurrent) {
     go('runs', { ...Object.fromEntries(params), offset: Math.max(0, Math.floor((data.total - 1) / PAGE) * PAGE) || null });
     return;
   }
-  updateSelection(data.items, params, mode);
+  updateSelection(data, params, mode);
   const chips = appliedFilters(stateFilters);
   if (status && !isHistoryStatus(status)) {
     const label = '状态：' + stateLabel(status.toLowerCase());
@@ -192,8 +192,8 @@ function appliedFilters(stateFilters) {
   });
 }
 
-function updateSelection(items, params, mode) {
-  const currentScope = params.toString();
+function updateSelection({ items, workspace_identity }, params, mode) {
+  const currentScope = JSON.stringify([workspace_identity, params.toString()]);
   if (selectionScope !== currentScope || mode !== 'runs') selected.clear();
   selectionScope = currentScope;
   const available = new Map(items.filter((run) => !deleting(run)).map((run) => [run.id, run]));
@@ -201,7 +201,10 @@ function updateSelection(items, params, mode) {
     if (available.has(id)) selected.set(id, available.get(id));
     else selected.delete(id);
   }
-  if (mode === 'runs') for (const run of items) watchDeletion(run);
+  if (mode === 'runs') for (const run of items) {
+    run.workspace_identity = workspace_identity;
+    watchDeletion(run);
+  }
 }
 
 function runList(items, params) {
@@ -280,8 +283,8 @@ async function deleteRuns(runs, button, bulk) {
     text: `将删除${bulk ? `所选的 ${runs.length} 次` : '这次'}运行记录、结果和附件。`
       + (cancelling ? '正在执行的运行会先取消，待执行器退出并完成清理后删除。' : ''), action, danger: true }))) return;
   const result = await attempt(() => bulk
-    ? api('/runs/delete', { method: 'POST', body: { run_ids: runs.map((run) => run.id) } })
-    : api('/runs/' + encodeURIComponent(runs[0].id), { method: 'DELETE' }), button);
+    ? deleteSelection('/runs/delete', runs, { method: 'POST', body: { run_ids: runs.map((run) => run.id) } })
+    : deleteSelection('/runs/' + encodeURIComponent(runs[0].id), runs), button);
   if (!result) return;
   selected.clear();
   deletionErrors = result.errors || [];
@@ -474,10 +477,7 @@ function resultRow(run, row, offline, focus) {
   const key = resultKey(row);
   const selected = focus === (focus?.startsWith('result:') ? 'result:' + key : row.case_id);
   const open = offline || (rowVisibility.get(key) ?? (focus ? selected : !row.prerequisite && row.state?.outcome !== 'pass'));
-  const head = h('button', { class: 'result-head', 'aria-expanded': String(open), onClick: () => {
-    rowVisibility.set(key, !open);
-    refresh();
-  } },
+  const head = h('button', { class: 'result-head', 'aria-expanded': String(open) },
   icon('right', 'icon-svg caret'),
   h('span', { class: 'grow' }, h('span', { class: 'title' }, row.case_title),
     h('span', { class: 'sub' }, `　${row.case_id}`),
@@ -487,7 +487,15 @@ function resultRow(run, row, offline, focus) {
     row.detail.fallbacks ? h('span', { class: 'tag', style: 'margin-left:6px', title: '首选定位没有匹配，用了备选定位' }, '定位已降级') : null,
     stateResults(row)),
   kindTag(row.kind), h('span', { class: 'sub num', style: 'min-width:72px;text-align:right' }, fmtDuration(row.duration_ms)));
-  return h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id, result: key } }, head, open && resultBody(run, row, offline));
+  const result = h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id, result: key } }, head, open && resultBody(run, row, offline));
+  if (!offline) head.addEventListener('click', () => {
+    const expanded = result.classList.toggle('open');
+    head.setAttribute('aria-expanded', String(expanded));
+    rowVisibility.set(key, expanded);
+    if (expanded) result.append(resultBody(run, row));
+    else result.querySelector('.result-body').remove();
+  });
+  return result;
 }
 
 function resultBody(run, row, offline = false) {
@@ -503,9 +511,14 @@ function resultBody(run, row, offline = false) {
   const exchanges = httpExchanges(d, row.duration_ms);
   parts.push(exchanges.map(({ label, line }) => line.length > 0 && h('div', { class: 'req-line' },
     label && h('b', {}, label), line)));
-  appendAssertionResults(parts, d);
-  parts.push(stepTimelines(d), httpDetails(exchanges, row));
-  appendScreenshots(parts, d, run, row);
+  const sections = uiAttemptSections(run, row);
+  if (sections) {
+    parts.push(sections, httpDetails(exchanges, row));
+  } else {
+    appendAssertionResults(parts, d);
+    parts.push(stepTimelines(d), httpDetails(exchanges, row));
+    appendScreenshots(parts, d, run, row);
+  }
   if (!offline) parts.push(caseRetryControl(run, row));
   return h('div', { class: 'result-body' }, parts);
 }
@@ -522,6 +535,39 @@ function attemptHistory(detail) {
   if (!attempts.length) return null;
   return h('ol', { class: 'steps timeline', 'aria-label': '尝试历史' }, attempts.map((entry, index) =>
     h('li', {}, h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.outcome && statePill(entry.outcome)))));
+}
+
+function uiAttemptSections(run, row) {
+  const detail = row.detail;
+  if (row.kind !== 'ui' || !Array.isArray(detail.attempts)) return null;
+  const attempts = detail.attempts;
+  const captures = attempts.filter((entry) => entry.kind !== 'postcondition');
+  if (captures.length < 2) return null;
+  const sections = [];
+  const attributed = new Set();
+  function section(label, evidence, number) {
+    const contents = [];
+    appendAssertionResults(contents, evidence);
+    contents.push(stepTimelines(evidence));
+    appendScreenshots(contents, evidence, run, row, number ? label : '');
+    return h('section', { class: 'stack', 'aria-label': label, dataset: number ? { attempt: number } : {} },
+      h('b', {}, label), contents);
+  }
+  attempts.forEach((entry, index) => {
+    if (!entry.ui || entry.kind === 'postcondition') return;
+    for (const name of entry.ui.screenshots || []) attributed.add(name);
+    sections.push(section(`第 ${index + 1} 次`, entry.ui, index + 1));
+  });
+  // Older or incomplete receipts may only have case-level facts. Their attempt is unknown.
+  const summary = { screenshots: (detail.screenshots || []).filter((name) => !attributed.has(name)) };
+  if (captures.some((entry) => entry.kind !== 'login_probe' && !entry.ui?.steps)) {
+    Object.assign(summary, { steps: detail.steps, pending_steps: detail.pending_steps, definition_steps: detail.definition_steps });
+  }
+  if (captures.some((entry) => !entry.ui?.assertions)) summary.assertions = detail.assertions;
+  if (['steps', 'pending_steps', 'definition_steps', 'assertions', 'screenshots'].some((key) => summary[key]?.length)) {
+    sections.push(section('用例结果', summary));
+  }
+  return sections;
 }
 
 const stepStates = { done: '已完成', pass: '已完成', failed: '失败', fail: '失败', running: '执行中', not_run: '未执行' };
@@ -626,13 +672,15 @@ export function setRunScreenshotResolver(resolve) {
   screenshotUrl = resolve;
 }
 
-function appendScreenshots(parts, d, run, row) {
+function appendScreenshots(parts, d, run, row, attemptLabel = '') {
   for (const name of d.screenshots || []) {
     const url = screenshotUrl(run, row, name);
     if (!url) continue;
+    const check = attemptLabel && d.assertions?.find((entry) => entry.passed === false && entry.screenshot === name);
+    const caption = (attemptLabel ? attemptLabel + ' · ' : '') + (check ? `断言「${check.name}」失败时的截图` : '结束时的页面截图');
     parts.push(h('a', { class: 'shot', href: url, target: '_blank', rel: 'noreferrer', title: '在新标签页查看原图' },
-      h('img', { src: url, alt: `${row.case_title} 结束时的页面截图`, loading: 'lazy' }),
-      h('span', { class: 'sub' }, icon('image'), '结束时的页面截图（密码输入框已遮盖）')));
+      h('img', { src: url, alt: `${row.case_title} ${caption}`, loading: 'lazy' }),
+      h('span', { class: 'sub' }, icon('image'), caption + '（密码输入框已遮盖）')));
   }
 }
 

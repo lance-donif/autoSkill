@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 from fastapi.testclient import TestClient
 
-from autoskill import builder, case_plans, db, execution_inputs, plan, project_materials, projects, runner, task_workbook
+from autoskill import builder, candidate_publication, case_plans, db, execution_inputs, plan, project_materials, projects, runner, task_context, task_workbook
+from autoskill.recorder import session
 from autoskill.server.app import create_app
 
 
@@ -99,6 +100,56 @@ class CasePlanTests(unittest.TestCase):
         self.assertEqual(len(projects.cases(self.pid)), 1)
         self.assertEqual(projects.cases(other), [])
 
+    def test_stop_does_not_bind_a_draft_created_after_the_recording_started(self):
+        task = "录制时没有设计"
+        with task_context.use_session(task):
+            session._save({"project_id": self.pid, "plan_at_start": None, "start_url": "/health", "secrets": [], "as_login": False, "used_login": False,
+                           "steps": [{"assertion": "text", "selector": "body", "expected": "true", "oracle": {"source": "explicit"}}]})
+            draft = self.save(session=task)
+            with plan.use_folder(draft["folder"]), patch.object(session.agent, "call", return_value=None), patch.object(session.capture, "stop", return_value={}), \
+                    patch("autoskill.server.jobs.ensure_worker", return_value={}):
+                stopped = session.stop("已有录制", plan_case=self.row["id"])
+        self.assertIn("开始录制时还没有设计表", stopped["plan"]["error"])
+        self.assertTrue(stopped["run_id"])
+        shown = case_plans.get(self.pid, task)
+        self.assertFalse(shown.get("task_id"))
+        self.assertEqual((shown["rows"][0]["status"], shown["rows"][0]["replay"]), ("NotRun", ""))
+
+    def test_two_recordings_of_one_draft_bind_only_their_own_rows_and_frozen_runs(self):
+        task = "共享草稿"
+        row = {**self.row, "requirement_ids": []}
+        first = self.save(row, session=task)
+        self.save({**row, "id": "PLAN-002"}, session=task)
+        other_sheet = self.save(row, session="另一个会话")
+        other_project = projects.create("另一服务", "http://127.0.0.1:9", project_id="other")["id"]
+        with task_context.use_session(task), plan.use_folder(first["folder"]):
+            candidates = []
+            for identity, expected_ok in (("PLAN-001", True), ("PLAN-002", False)):
+                rec = {"project_id": self.pid, "plan_at_start": plan.show(recording=True)}
+                self.assertIsNone(session._plan_design(rec, identity))
+                case = builder.api_case("API-" + identity, "服务状态", "GET", "/health", {"status": 200, "json_equals": {"/ok": expected_ok}},
+                                        test_case_document=rec["test_case_document"])
+                candidates.append((identity, case))
+            identity, case = candidates[0]
+            foreign = runner.create(other_project, [case["id"]], candidate_cases=[case])
+            different = runner.create(self.pid, [case["id"]], candidate_cases=[{**case, "title": "另一候选"}])
+            for bad_run in (foreign, different):
+                self.assertIn("error", plan.bind_execution(identity, self.pid, case, bad_run["id"]))
+            self.assertIn("error", plan.bind_execution(identity, self.pid, case, None, folder=other_sheet["folder"]))
+            self.assertNotIn("task_id", plan.show())
+            runs = []
+            for identity, case in candidates:
+                staged = candidate_publication.stage(self.pid, [case], {}, {"fixture": identity})
+                bound = plan.bind_execution(identity, self.pid, case, None, candidate_id=staged["id"])
+                self.assertNotIn("error", bound, bound)
+                self.assertEqual(bound["task_id"], case["extensions"]["test_case_document"]["source"]["task_id"])
+                queued = candidate_publication.queue(staged["id"], start=False)
+                runs.append(runner.execute(queued["run_id"]))
+        rows = case_plans.get(self.pid, task)["rows"]
+        self.assertEqual([(row["status"], row["evidence"]["run_id"]) for row in rows], [("Pass", runs[0]["id"]), ("Fail", runs[1]["id"])])
+        self.assertEqual([run["publication"]["published_ids"] for run in runs], [[candidates[0][1]["id"]], []], [run["publication"] for run in runs])
+        self.assertEqual(case_plans.get(self.pid, "另一个会话")["rows"][0]["status"], "NotRun")
+
     def test_cli_sheet_is_visible_without_manual_adoption_or_rewriting_bytes(self):
         source = Path(self.tmp.name) / "old-design.json"
         source.write_text('[{"id":"OLD-001","title":"既有设计","steps":"1. 检查","expected":"1. 符合需求"}]', encoding="utf-8")
@@ -162,13 +213,19 @@ class CasePlanTests(unittest.TestCase):
             self.assertEqual(version[key], original[key])
         self.assertEqual(applied["rows"][0]["status"], "NotRun")
         old_result = db.one("SELECT * FROM results WHERE run_id = ?", (first["id"],))
+        self.assertEqual(old_result["case_content_hash"], execution_inputs.content_hash(original))
         self.assertFalse(execution_inputs.result_current(self.pid, version, old_result))
         with patch("autoskill.server.jobs.ensure_worker", return_value={"status": "test"}):
             second = case_plans.run(self.pid, ["API-001"])
         self.assertEqual(runner.execute(second["id"])["status"], "Pass")
-        self.assertEqual(case_plans.get(self.pid)["rows"][0]["status"], "Fail")
-        outcome = json.loads(db.one("SELECT detail FROM results WHERE run_id = ?", (second["id"],))["detail"])
-        self.assertEqual(outcome["business_status"], "Unverified")
+        row = case_plans.get(self.pid)["rows"][0]
+        evidence = row["evidence"]
+        result = evidence["result"]
+        self.assertEqual((row["status"], evidence["run_id"], result["run_id"]), ("Pass", second["id"], second["id"]))
+        self.assertTrue(evidence["evidence_valid"])
+        self.assertNotEqual(result["case_content_hash"], old_result["case_content_hash"])
+        self.assertEqual(result["case_content_hash"], execution_inputs.content_hash(version))
+        self.assertEqual((result["detail"]["business_status"], result["detail"]["execution_only_pass"]), ("Unverified", True))
         frozen = execution_inputs.load(db.one("SELECT * FROM runs WHERE id = ?", (second["id"],)))
         self.assertEqual(frozen["cases"]["API-001"]["steps"], document["steps"])
         with plan.use_folder(applied["folder"]):

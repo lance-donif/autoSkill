@@ -1,6 +1,6 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
 import { ensurePreferences } from '../preferences.js';
-import { h, icon, replace, api, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
+import { h, icon, replace, api, deleteSelection, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
 import { runtimeFields, credentialControls } from '../project-settings.js';
 import { state, caseProjects, refreshShell } from '../shell.js';
@@ -70,7 +70,9 @@ export async function render(view, { isCurrent }) {
     return;
   }
   if (!isCurrent()) return;
+  if ([...selected.values()].some((item) => item.workspace_identity !== data.workspace_identity)) selected.clear();
   for (const item of data.items) {
+    item.workspace_identity = data.workspace_identity;
     if (!byProject.has(item.project_id)) byProject.set(item.project_id, []);
     byProject.get(item.project_id).push(item);
   }
@@ -99,37 +101,61 @@ export async function render(view, { isCurrent }) {
 
   function byProjectIds(items) {
     const groups = new Map();
-    for (const item of items) groups.set(item.project_id, [...(groups.get(item.project_id) || []), item.case_id]);
+    for (const item of items) {
+      if (!groups.has(item.project_id)) groups.set(item.project_id, []);
+      groups.get(item.project_id).push(item.case_id);
+    }
     return groups;
   }
 
   function paintBar() {
+    const previousFocus = bar.contains(document.activeElement) ? document.activeElement.textContent : null;
     const items = [...selected.values()];
     bar.hidden = !items.length;
-    if (!items.length) return;
+    if (!items.length) {
+      if (previousFocus !== null) kinds.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
+      return;
+    }
     const byProject = byProjectIds(items);
     const apiCases = byProjectIds(items.filter((item) => item.kind === 'api'));
     const visibleKeys = new Set(projects.flatMap(displayed).map(keyOf));
     const hidden = items.filter((item) => !visibleKeys.has(keyOf(item)));
     const scopeReady = items.every((item) => !trees.has(item.project_id) || trees.get(item.project_id).data);
+    const clear = h('button', { class: 'btn ghost', onClick: () => {
+      selected.clear();
+      for (const box of list.querySelectorAll('tbody .check:checked')) markCaseRow(box, false);
+      for (const master of list.querySelectorAll('thead .check')) {
+        master.checked = false;
+        master.indeterminate = false;
+      }
+      paintBar();
+    } }, '清除');
     replace(bar,
       h('span', { class: 'grow' }, h('b', {}, `已选 ${items.length} 条用例`), byProject.size > 1 ? ` · ${byProject.size} 个项目` : '',
         hidden.length > 0 && h('span', { class: 'muted' }, `　其中 ${hidden.length} 条不在当前显示范围，运行所选仍会包含它们。`)),
-      hidden.length > 0 && h('button', { class: 'btn', onClick: () => { for (const item of hidden) selected.delete(keyOf(item)); paint(); } }, `清除隐藏的 ${hidden.length} 条`),
-      h('button', { class: 'btn ghost', onClick: () => { selected.clear(); paint(); } }, '清除'),
+      hidden.length > 0 && h('button', { class: 'btn', onClick: () => { for (const item of hidden) selected.delete(keyOf(item)); paintBar(); } }, `清除隐藏的 ${hidden.length} 条`),
+      clear,
       caseDeleteButton(items, { bulk: true }),
       h('button', { class: 'btn', disabled: !scopeReady, onClick: () => moveCases(items) }, icon('folder'), '移动到文件夹'),
       apiCases.size > 0 && loadTestButton('压测所选', () => [...apiCases].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
       runButton(`运行所选 ${items.length} 条`, () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids,
         name: state.projects.find((project) => project.id === project_id)?.name || project_id })),
       { disabled: !scopeReady, title: scopeReady ? '运行所有勾选的用例，包含当前筛选隐藏的用例' : '文件夹范围尚未加载，请刷新后再运行' }));
+    if (previousFocus !== null) {
+      const matching = [...bar.querySelectorAll('button:not(:disabled)')].find((button) => button.textContent === previousFocus);
+      (matching || clear).focus({ preventScroll: true });
+    }
   }
 
   function paintProject(project) {
     const items = byProject.get(project.id) || [];
     const result = trees.get(project.id);
     for (const item of items) item.folder_path = caseFolder(result?.data, item.case_id);
-    const card = projectCard(project, displayed(project), paint, result, () => loadTree(project));
+    const card = projectCard(project, displayed(project), result, {
+      retry: () => loadTree(project),
+      chooseFolder: (id) => { folderSelection.set(project.id, id); paintProject(project); paintBar(); },
+      selectionChanged: paintBar,
+    });
     const current = cards.get(project.id);
     if (current) updateLiveView(current, card);
     else { cards.set(project.id, card); list.append(card); }
@@ -166,16 +192,25 @@ export async function render(view, { isCurrent }) {
   }
 }
 
-function projectCard(project, items, repaint, folderResult, retry) {
+function markCaseRow(box, checked) {
+  box.checked = checked;
+  box.closest('tr').classList.toggle('selected', checked);
+}
+
+function projectCard(project, items, folderResult, { retry, chooseFolder, selectionChanged }) {
   const tree = folderResult?.data;
   const folderId = folderSelection.get(project.id) ?? ALL_FOLDERS;
   const allKeys = items.map(keyOf);
-  const allOn = allKeys.length > 0 && allKeys.every((key) => selected.has(key));
-  const master = h('input', { class: 'check', type: 'checkbox', checked: allOn, 'aria-label': `选择「${project.name}」当前显示的 ${items.length} 条用例` });
-  master.indeterminate = !allOn && allKeys.some((key) => selected.has(key));
+  const master = h('input', { class: 'check', type: 'checkbox', 'aria-label': `选择「${project.name}」当前显示的 ${items.length} 条用例` });
+  function updateMaster() {
+    master.checked = allKeys.length > 0 && allKeys.every((key) => selected.has(key));
+    master.indeterminate = !master.checked && allKeys.some((key) => selected.has(key));
+  }
+  updateMaster();
   master.addEventListener('change', () => {
     for (const item of items) { if (master.checked) selected.set(keyOf(item), item); else selected.delete(keyOf(item)); }
-    repaint();
+    for (const box of master.closest('table').querySelectorAll('tbody .check')) markCaseRow(box, master.checked);
+    selectionChanged();
   });
   const missing = project.missing_secrets || [];
   const head = h('div', { class: 'card-head project-head' },
@@ -205,7 +240,12 @@ function projectCard(project, items, repaint, folderResult, retry) {
         const key = keyOf(item);
         const box = h('input', { class: 'check', type: 'checkbox', checked: selected.has(key), 'aria-label': `选择 ${item.case_id}` });
         box.addEventListener('click', (event) => event.stopPropagation());
-        box.addEventListener('change', () => { if (box.checked) selected.set(key, item); else selected.delete(key); repaint(); });
+        box.addEventListener('change', () => {
+          if (box.checked) selected.set(key, item); else selected.delete(key);
+          markCaseRow(box, box.checked);
+          updateMaster();
+          selectionChanged();
+        });
         const deps = JSON.parse(item.depends_on || '[]');
         const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([{ project_id: item.project_id, case_ids: [item.case_id], name: project.name }], run); } }, icon('play'), '运行');
         const openDetail = () => caseDrawer(item.project_id, item.case_id);
@@ -230,7 +270,7 @@ function projectCard(project, items, repaint, folderResult, retry) {
     error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${error.message}`,
       h('button', { class: 'btn sm', onClick: retry }, '重试文件夹'))),
     h('div', { class: error ? '' : 'project-folders' },
-      tree ? folderTree(project, tree, folderId, (id) => { folderSelection.set(project.id, id); repaint(); })
+      tree ? folderTree(project, tree, folderId, chooseFolder)
         : !error && h('div', { class: 'folder-tree' }, h('p', { class: 'sub', role: 'status' }, '正在加载文件夹…')),
       h('div', { class: 'folder-content' }, !error && (tree || folderId === ALL_FOLDERS) && projectFolderTools(project, tree, folderId, items.length),
         h('div', { class: 'table-scroll', role: 'region', tabindex: '0', 'aria-label': `${project.name}用例表格` }, body))));
@@ -265,8 +305,8 @@ async function deleteCases(items, button, bulk) {
     action: bulk ? '删除所选' : '删除用例', danger: true });
   if (!agreed) return;
   const result = await attempt(() => bulk
-    ? api('/cases/delete', { method: 'POST', body: { items: items.map(({ project_id, case_id }) => ({ project_id, case_id })) } })
-    : api(`/projects/${encodeURIComponent(first.project_id)}/cases/${encodeURIComponent(first.case_id)}`, { method: 'DELETE' }), button);
+    ? deleteSelection('/cases/delete', items, { method: 'POST', body: { items: items.map(({ project_id, case_id }) => ({ project_id, case_id })) } })
+    : deleteSelection(`/projects/${encodeURIComponent(first.project_id)}/cases/${encodeURIComponent(first.case_id)}`, items), button);
   if (!result) return;
   selected.clear();
   deletionErrors = result.errors || [];
@@ -298,9 +338,11 @@ async function projectSettings(projectId) {
 
   const save = h('button', { class: 'btn primary' }, '保存');
   save.addEventListener('click', async () => {
-    const done = await attempt(() => api('/projects/' + projectId, { method: 'PATCH', body: {
-      name: name.value, ...runtime.read(),
-    } }), save);
+    const done = await attempt(() => {
+      const changes = runtime.changes();
+      if (name.value.trim() !== project.name.trim()) changes.name = name.value.trim();
+      return Object.keys(changes).length ? api('/projects/' + projectId, { method: 'PATCH', body: changes }) : true;
+    }, save);
     if (done) { await refreshShell(); closeOverlay(); toast('已保存'); refresh(); }
   });
 

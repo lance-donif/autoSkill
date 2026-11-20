@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-from .. import paths
+from .. import browser_temp, paths
 from . import ir
 from .tabs import selenium_tabs
 
@@ -60,8 +60,18 @@ class SeleniumDriver:
             options.add_argument("--headless=new")
         if config.get("ignore_https_errors"):
             options.add_argument("--ignore-certificate-errors")
-        self.wd = webdriver.Chrome(options=options, service=Service(executable_path=chromedriver, env=paths.child_env()))
-        self.wd.set_page_load_timeout(float(config.get("page_load_seconds", 90)))
+        environment = paths.child_env()
+        self._temp_folder = browser_temp.prepare(environment)
+        try:
+            self.wd = webdriver.Chrome(options=options, service=Service(executable_path=chromedriver, env=environment))
+            self.wd.set_page_load_timeout(float(config.get("page_load_seconds", 90)))
+        except Exception:
+            try:
+                if hasattr(self, "wd"):
+                    self.wd.quit()
+            finally:
+                browser_temp.release(self._temp_folder)
+            raise
         self._seeds: dict[str, str] = {}
 
     # --- lifecycle ---------------------------------------------------
@@ -103,7 +113,10 @@ class SeleniumDriver:
         return {"cookies": cookies, "origins": [{"origin": ir.origin_of(self.wd.current_url), "localStorage": items}]}
 
     def close(self) -> None:
-        self.wd.quit()
+        try:
+            self.wd.quit()
+        finally:
+            browser_temp.release(self._temp_folder)
 
     # --- page --------------------------------------------------------
     def tab_action(self, step: dict, timeout: float) -> None:
@@ -201,12 +214,16 @@ class SeleniumDriver:
     def count(self, locator: dict) -> int:
         return len(self._all(locator))
 
+    def _checked(self, node) -> bool:
+        state = self.wd.execute_script("return (" + DOM_JS + ")().checkedState(arguments[0]);", node)
+        return node.is_selected() if state is None else state
+
     def read(self, locator: dict, what: str, arg: str | None = None):
         node = self._one(locator)
         if what == "visible":
             return node.is_displayed()
         if what == "checked":
-            return node.is_selected()
+            return self._checked(node)
         if what == "value":
             return node.get_property("value")
         if what == "attribute":
@@ -252,10 +269,19 @@ class SeleniumDriver:
         elif op == "hover":
             ActionChains(self.wd).move_to_element(node).perform()
         elif op in ("check", "uncheck"):
-            if node.is_selected() != (op == "check"):
+            if self._checked(node) != (op == "check"):
                 node.click()
         else:
             raise ValueError("不支持的动作：" + op)
+
+    def focus_hint(self):
+        from selenium.common.exceptions import WebDriverException
+
+        try:
+            self.wd.switch_to.default_content()
+            return self.wd.execute_script("return (" + DOM_JS + ")().focusHint();")
+        except WebDriverException:  # The page may be changing while focus is observed.
+            return None
 
     def press(self, locator: dict | None, key: str) -> None:
         from selenium.webdriver.common.action_chains import ActionChains
@@ -265,6 +291,7 @@ class SeleniumDriver:
         if locator:
             self._one(locator).send_keys(*keys)
             return
+        self.wd.switch_to.default_content()
         chain = ActionChains(self.wd)
         for modifier in keys[:-1]:
             chain.key_down(modifier)

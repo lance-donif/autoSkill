@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import tempfile
 import threading
 import unittest
@@ -15,8 +16,12 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urljoin
+from zipfile import ZipFile
 
 from playwright.sync_api import expect, sync_playwright
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills/autoskill/app"))
+from autoskill.core import store
 
 ROOT = Path(os.environ.get("AUTOSKILL_PAGES_ROOT", Path(__file__).resolve().parents[1]))
 WIDTHS = (1360, 390)
@@ -128,6 +133,87 @@ class PagesBrowserTests(PagesWorkspace):
         expect(drawer.get_by_role("button", name="删除用例")).to_have_count(0)
         return drawer
 
+    def download_case_materials(self, project):
+        self.open(f"project-materials?project={project}&tab=testcases")
+        folder = self.scratch / "testcases"
+        folder.mkdir(exist_ok=True)
+        for name in store.FILES.values():
+            row = self.page.get_by_role("row").filter(has=self.page.get_by_text(name, exact=True))
+            with self.page.expect_download() as event:
+                row.get_by_role("link", name="下载", exact=True).click()
+            self.assertEqual(event.value.suggested_filename, name)
+            target = folder / name
+            event.value.save_as(target)
+            self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(), row.locator("td[title]").get_attribute("title"))
+        return {case["id"]: case for case in store.load_cases(self.scratch)}
+
+    def material_archive(self):
+        self.page.get_by_role("button", name="导出全部项目资料", exact=True).click()
+        with self.page.expect_download() as event:
+            self.page.get_by_role("link", name="下载项目资料 ZIP", exact=True).click()
+        return ZipFile(event.value.path())
+
+    def test_case_file_downloads_and_archive_follow_edits_until_refresh(self):
+        case_id = "ST-API-006"
+        with self.session(1360):
+            before = self.download_case_materials("stock-room")
+            drawer = self.drawer("stock-room", "账户", "登录库存系统")
+            drawer.locator(".drawer-foot").get_by_role("button", name="关闭").click()
+            self.page.get_by_role("button", name=f"编辑用例 {case_id}", exact=True).click()
+            editor = self.page.get_by_role("dialog", name="编辑用例")
+            description = "核对本次导出的库存登录用例"
+            editor.get_by_label("功能描述", exact=True).fill(description)
+            editor.get_by_role("button", name="保存修改", exact=True).click()
+            expect(editor).to_be_hidden()
+            current = self.download_case_materials("stock-room")
+            self.assertEqual(current[case_id]["revision"], before[case_id]["revision"] + 1)
+            self.assertEqual(current[case_id]["extensions"]["test_case_document"]["description"], description)
+            self.assertEqual({**current, case_id: before[case_id]}, before)
+
+            with self.material_archive() as archive:
+                for name in store.FILES.values():
+                    self.assertEqual(archive.read("testcases/" + name), (self.scratch / "testcases" / name).read_bytes())
+                self.assertEqual({case["id"]: case for case in json.loads(archive.read("cases.json"))}, current)
+
+            self.open("cases?range=all&projects=stock-room")
+            self.page.get_by_role("button", name=f"删除用例 {case_id}", exact=True).click()
+            self.page.get_by_role("alertdialog").get_by_role("button", name="删除用例", exact=True).click()
+            expect(self.page.get_by_role("button", name=f"删除用例 {case_id}", exact=True)).to_have_count(0)
+            self.assertEqual(self.download_case_materials("stock-room"), {key: case for key, case in current.items() if key != case_id})
+            self.page.reload()
+            self.assertEqual(self.download_case_materials("stock-room"), before)
+
+    def test_material_archive_includes_empty_sources_and_rejects_missing_ones(self):
+        with self.session(1360):
+            missing = False
+            filename = ""
+
+            def serve_fixture(route):
+                nonlocal filename
+                sample = route.fetch().json()
+                item = next(item for item in sample["/project-materials/runoob"]["items"] if item["category"] == "knowledge")
+                filename = item["name"]
+                item.update(bytes=0, sha256=hashlib.sha256(b"").hexdigest())
+                path = item["download_url"].removeprefix("/api")
+                if missing:
+                    del sample[path]
+                else:
+                    sample[path]["base64"] = ""
+                route.fulfill(json=sample)
+
+            self.page.route("**/preview/fixtures.json", serve_fixture)
+            cases = self.download_case_materials("runoob")
+            with self.material_archive() as archive:
+                self.assertEqual(archive.read("knowledge/" + filename), b"")
+                for name in store.FILES.values():
+                    self.assertEqual(archive.read("testcases/" + name), (self.scratch / "testcases" / name).read_bytes())
+                self.assertEqual({case["id"]: case for case in json.loads(archive.read("cases.json"))}, cases)
+            missing = True
+            self.page.reload()
+            self.page.get_by_role("button", name="导出全部项目资料", exact=True).click()
+            expect(self.page.locator("#toasts")).to_contain_text("没有找到文件原件")
+            expect(self.page.get_by_role("link", name="下载项目资料 ZIP", exact=True)).to_have_count(0)
+
     def test_case_library_ui_and_api(self):
         for width in WIDTHS:
             with self.subTest(width=width), self.session(width):
@@ -170,6 +256,86 @@ class PagesBrowserTests(PagesWorkspace):
                 expect(confirm).to_contain_text("登录库存系统")
                 confirm.get_by_role("button", name="删除用例", exact=True).click()
                 expect(self.page.get_by_role("button", name="登录库存系统", exact=True)).to_have_count(0)
+
+    def test_keyboard_case_selection_keeps_rows_across_projects(self):
+        with self.session(390):
+            self.open("cases?range=all")
+            first = self.page.get_by_role("region", name="菜鸟教程用例表格")
+            second = self.page.get_by_role("region", name="示例库存中心用例表格")
+            master = first.locator("thead input")
+            one = first.get_by_role("checkbox", name="选择 RN-HOME-PYTHON3", exact=True)
+            other = second.get_by_role("checkbox", name="选择 ST-API-006", exact=True)
+            expect(self.page.locator("nav.folder-tree")).to_have_count(3)
+            originals = [control.element_handle() for control in (one, master, other)]
+            one.press("Space")
+            expect(one).to_be_focused()
+            self.assertTrue(master.evaluate("node => node.indeterminate"))
+            other.press("Space")
+            bar = self.page.locator(".select-bar")
+            expect(bar).to_contain_text("已选 2 条用例 · 2 个项目")
+            master.press("Space")
+            expect(master).to_be_checked()
+            expect(master).to_be_focused()
+            expect(first.locator("tr.selected")).to_have_count(3)
+            master.press("Space")
+            expect(first.locator("tr.selected")).to_have_count(0)
+            expect(other).to_be_checked()
+            master.press("Space")
+            self.assertTrue(all(control.evaluate("node => node.isConnected") for control in originals))
+
+            self.page.get_by_role("searchbox", name="搜索用例").fill("ST-API-006")
+            bar.get_by_role("button", name="清除隐藏的 3 条", exact=True).press("Enter")
+            expect(bar).to_contain_text("已选 1 条用例")
+            clear = bar.get_by_role("button", name="清除", exact=True)
+            expect(clear).to_be_focused()
+            clear.press("Space")
+            expect(other).not_to_be_checked()
+            expect(second.locator("thead input")).not_to_be_checked()
+            expect(bar).to_be_hidden()
+            expect(self.page.get_by_role("group", name="用例类型").get_by_role("button", name="全部", exact=True)).to_be_focused()
+
+    def test_report_toggles_work_while_a_new_revision_is_loading(self):
+        with self.session(1360):
+            self.open("runs/run-demo-04?range=all")
+            rows = self.page.locator(".result")
+            head = rows.first.locator(".result-head")
+            body = rows.first.locator(".result-body")
+            expect(head).to_have_attribute("aria-expanded", "false")
+            sibling = rows.nth(1).element_handle()
+            self.page.evaluate("""() => {
+                const read = window.fetch.bind(window);
+                const gate = new Promise(resolve => { window.releaseReport = resolve; });
+                window.reportReads = 0;
+                window.fetch = async (...args) => {
+                    const response = await read(...args);
+                    if (new URL(args[0], location.href).pathname === '/api/runs/run-demo-04') {
+                        window.reportReads++;
+                        await gate;
+                    }
+                    return response;
+                };
+            }""")
+            head.press("Enter")
+            expect(body).to_be_visible()
+            head.press("Space")
+            expect(body).to_be_hidden()
+            self.assertEqual(self.page.evaluate("window.reportReads"), 0)
+            self.assertTrue(sibling.evaluate("node => node.isConnected"))
+
+            self.page.evaluate("""async () => {
+                const response = await fetch('/api/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({dashboard: {headed: false}}) });
+                if (!response.ok) throw new Error('Failed to update the sample workspace');
+            }""")
+            expect(self.page.locator("#view")).to_have_attribute("aria-busy", "true")
+            head.press("Space")
+            expect(body).to_be_visible()
+            self.page.evaluate("window.releaseReport()")
+            expect(self.page.locator("#view")).not_to_have_attribute("aria-busy", "true")
+            expect(head).to_have_attribute("aria-expanded", "true")
+            expect(body).to_be_visible()
+            expect(head).to_be_focused()
+            self.assertEqual(self.page.evaluate("window.reportReads"), 1)
 
     def open_result(self, run_id, case_id):
         self.open("runs?range=all")

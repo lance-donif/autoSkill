@@ -76,7 +76,7 @@ class HtmlReportTests(unittest.TestCase):
 
     def route(self, route):
         path = urlsplit(route.request.url).path
-        if path == "/api/runs/run-report/files/evidence.png":
+        if path in {"/api/runs/run-report/files/evidence.png", "/api/runs/run-report/files/retried.png"}:
             route.fulfill(status=self.image_status, content_type="image/png", body=PIXEL if self.image_status == 200 else b"missing")
         elif path.startswith("/api/"):
             route.fulfill(content_type="application/json", body=json.dumps(self.api(path)))
@@ -252,6 +252,7 @@ class HtmlReportTests(unittest.TestCase):
         for document in (self.page, offline):
             with self.subTest(online=document == self.page):
                 result = document.locator("[data-result='1']")
+                expect(result.locator("[data-attempt]")).to_have_count(0)
                 timeline = result.get_by_role("list", name="操作步骤")
                 steps = timeline.get_by_role("listitem")
                 expect(steps).to_have_count(3)
@@ -267,6 +268,46 @@ class HtmlReportTests(unittest.TestCase):
                 expect(archive.get_by_role("heading", name="用例定义步骤")).to_be_visible()
                 expect(archive.get_by_role("list", name="用例定义步骤")).to_have_text("断言Read archived definition")
                 expect(archive.get_by_role("list", name="操作步骤")).to_have_count(0)
+
+    def test_retried_ui_keeps_each_timeline_check_and_image_with_its_receipt(self):
+        case = self.run["results"][0]
+        case.update(status="Fail", reason="Priority was medium")
+        captures = []
+        for passed, value, name in [(False, "medium", "evidence.png"), (True, "high", "retried.png")]:
+            check = {"name": "Priority", "passed": passed, "actual": value, "expected": "high"}
+            if not passed:
+                check["screenshot"] = name
+            captures.append({"kind": "case", "outcome": "pass" if passed else "fail", "ui": {
+                "steps": [{"text": "Inspect priority", "status": "done" if passed else "failed"}],
+                "assertions": [check], "screenshots": [name]}})
+        case["detail"].update(attempts=captures, steps=captures[1]["ui"]["steps"], assertions=captures[0]["ui"]["assertions"],
+                              screenshots=["evidence.png", "retried.png"])
+        archive = self.run["results"][2]
+        archive["kind"] = "ui"
+        archive["detail"].update(attempts=[{"kind": "case", "outcome": "fail", "ui": {"steps": [{"text": "Known navigation", "status": "failed"}]}},
+                                           {"kind": "case", "outcome": "pass"}],
+                                 steps=[{"text": "Archived navigation", "status": "done"}])
+        self.open()
+        offline, _ = self.offline(self.download())
+        for document in (self.page, offline):
+            with self.subTest(online=document == self.page):
+                result = document.locator("[data-result='1']")
+                for idx, (state, value, filename) in enumerate([("failed", "medium", "evidence.png"), ("done", "high", "retried.png")], 1):
+                    section = result.get_by_role("region", name=f"第 {idx} 次", exact=True)
+                    expect(section.locator(f".timeline li.{state}")).to_have_text(re.compile("Inspect priority"))
+                    expect(section.locator(".checks tbody tr td").last).to_have_text(value)
+                    expect(section.locator(".shot img")).to_have_count(1)
+                    if document == self.page:
+                        expect(section.locator(".shot")).to_have_attribute("href", re.compile(re.escape(filename) + "$"))
+                    else:
+                        expect(section.locator(".shot")).to_have_attribute("data-filename", filename)
+                        expect(section.locator(".shot img")).to_have_attribute("src", re.compile("^data:image/png"))
+                expect(result.locator(".shot")).to_have_count(2)
+                expect(result.get_by_text("第 1 次 · 断言「Priority」失败时的截图（密码输入框已遮盖）", exact=True)).to_be_visible()
+                older = document.locator("[data-result='3']")
+                expect(older.locator("[data-attempt]")).to_have_count(1)
+                expect(older.locator("[data-attempt]")).not_to_contain_text("Archived navigation")
+                expect(older.get_by_role("region", name="用例结果")).to_contain_text("Archived navigation")
 
     def test_status_only_empty_body_and_interrupted_http_attempts(self):
         detail = self.run["results"][1]["detail"]

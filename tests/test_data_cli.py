@@ -67,6 +67,41 @@ class DataCliTests(unittest.TestCase):
             self.assertEqual(connection.execute("SELECT status,failed FROM runs WHERE id='run-preserved'").fetchone(), ("Fail", 1))
             self.assertEqual(connection.execute("SELECT case_id FROM cases WHERE project_id='legacy'").fetchone(), ("TC-API-001",))
 
+    def test_light_cli_calls_and_embedded_parser_keep_their_import_contract(self):
+        # A fresh process reveals which subsystems a read-only command actually imports.
+        program = """
+import contextlib, io, json, sys
+from concurrent.futures import ThreadPoolExecutor
+from importlib import import_module
+from autoskill import cli
+
+names = ('runner', 'context_service', 'task_state')
+for _ in range(2):
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        assert cli.main(['data', 'status']) == 0
+    assert json.loads(output.getvalue())['data_id'] is None
+assert not any('autoskill.' + name in sys.modules for name in names)
+assert set(names) <= set(dir(cli))
+assert not hasattr(cli, 'unknown_cli_attribute')
+with ThreadPoolExecutor(max_workers=6) as workers:
+    names = names * 4
+    modules = list(workers.map(lambda name: getattr(cli, name), names))
+assert all(module is import_module('autoskill.' + name) for name, module in zip(names, modules))
+from autoskill.cli import *
+assert (runner, context_service, task_state) == (cli.runner, cli.context_service, cli.task_state)
+parser = cli.parser()
+for engine in cli.runner.ENGINES:
+    assert parser.parse_args(['run', 'example', '--engine', engine]).engine == engine
+output = io.StringIO()
+with contextlib.redirect_stdout(output):
+    assert cli.main(['--session', 'example', 'run', 'project', '--engine', 'invalid']) == 2
+assert json.loads(output.getvalue())['code'] == 'validation_error'
+"""
+        result = subprocess.run([sys.executable, "-B", "-c", program], env=self.environment, cwd=ROOT,
+                                capture_output=True, text=True, timeout=30, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_status_is_read_only_and_retired_upgrade_command_is_not_registered(self):
         status = self.command("data", "status")
         self.assertEqual(Path(status["root"]), self.workspace)

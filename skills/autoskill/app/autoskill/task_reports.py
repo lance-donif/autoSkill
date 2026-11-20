@@ -57,6 +57,41 @@ def _saved(report_id: str) -> dict | None:
     return json.loads(file.read_bytes()) if file.is_file() else None
 
 
+def _interrupted_design(report_id: str) -> dict | None:
+    """Recover a pre-receipt export only from its frozen design and original selected task."""
+    from . import plan, plan_execution, runner
+
+    if not report_id.startswith("design_"):
+        return None
+    file = _folder(report_id) / "snapshot.json"
+    if not file.is_file():
+        return None
+    snapshot = json.loads(file.read_bytes())
+    digest = report_id.removeprefix("design_")
+    if snapshot.get("kind") != "design" or execution_inputs.content_hash(snapshot) != digest:
+        return None
+    task_id, project_id = snapshot["task_id"], snapshot["project_id"]
+    _, registered = plan_execution.registered(project_id)
+    for folder in dict.fromkeys([plan._folder(), *(Path(row["folder"]) for row in registered)]):
+        with plan.use_folder(folder):
+            binding = plan_execution._task_file(task_id)
+        try:
+            value = json.loads(binding.read_bytes())
+            head = binding.with_name("delivery-head.json")
+            selected = _design_head(head)
+            recorded = value.get("report_id")
+            if (value.get("task_id") == task_id and value.get("project_id") == project_id and selected["report_id"] == report_id
+                    and recorded != report_id and (not recorded or selected.get("previous_report_id") == recorded)):
+                return {**_base("design", task_id, report_id, project_id), "delivery_excel": value["delivery_excel"],
+                        **({"initial_excel": value["initial_excel"]} if not recorded and not value.get("initial_report_id") else {}),
+                        "delivery_head": runner.plan_reference(head),
+                        "generation": digest, "source_hash": digest, "snapshot_required": True, "status": "failed",
+                        "retryable": True, "error": "用例报告导出已中断，请从此任务的冻结快照手动重试。"}
+        except FileNotFoundError:
+            continue
+    return None
+
+
 def _public(receipt: dict) -> dict:
     value = {key: item for key, item in receipt.items() if key not in ("_retained_excel", "_retained_artifacts", "_pending_design_head")}
     for artifact in ("excel", "markdown", "bugs"):
@@ -144,7 +179,7 @@ def get(report_id: str) -> dict:
         run = db.one("SELECT delete_requested FROM runs WHERE id = ?", (report_id.removeprefix("run_"),))
         if not run or run["delete_requested"]:
             raise ValueError("运行已删除或正在删除，测试报告不再提供下载")
-    saved = _saved(report_id)
+    saved = _saved(report_id) or _interrupted_design(report_id)
     if not saved:
         raise ValueError("测试报告不存在；任务尚未生成报告或记录已删除")
     return _validate(saved)
@@ -245,6 +280,9 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
     with reporting.report_stage("snapshot"):
         if not snapshot_file.is_file() or execution_inputs.content_hash(json.loads(snapshot_file.read_bytes())) != digest:
             execution_inputs.write_json(snapshot_file, snapshot)
+    partial = {**(existing or {}), **base, "status": "generating", "generation": generation, "source_hash": digest,
+               "snapshot_required": True}
+    execution_inputs.write_json(folder / "receipt.json", partial)
     file = folder / ("测试用例-" + digest[:16] + ".xlsx")
     if existing and existing.get("source_hash") == digest and _available(existing, "excel"):
         file = data_refs.resolve(existing["excel"])
@@ -254,8 +292,7 @@ def _render(base: dict, snapshot: dict, generation, existing: dict | None = None
             built = reporting.write_task(snapshot, file)
     with reporting.report_stage("workbook_validate"):
         _read_workbook(file)
-    partial = {**base, "status": "generating", "generation": generation, "source_hash": digest, "excel": data_refs.store(file),
-               "sha256": _hash(file), "size": file.stat().st_size, **built}
+    partial.update(excel=data_refs.store(file), sha256=_hash(file), size=file.stat().st_size, **built)
     execution_inputs.write_json(folder / "receipt.json", partial)
     excel_link = quote(file.name, safe="")
     with reporting.report_stage("markdown"):
@@ -394,6 +431,8 @@ def _select_design(base: dict, saved: dict | None, capture, retry: bool) -> bool
         if retry and previous_head_hash != saved["_pending_design_head"]:
             return False
         updated = {**selected, "report_id": base["report_id"]}
+        if selected and selected["report_id"] != base["report_id"]:
+            updated["previous_report_id"] = selected["report_id"]
         if selected and "delivered_sha256" not in selected:
             previous = _saved(selected["report_id"])
             if (previous and previous.get("status") == "ready" and previous.get("delivery_updated") is not False
@@ -621,7 +660,7 @@ def for_recording(project_id: str, recording: dict, cases: list[dict]) -> dict:
 
 
 def retry(report_id: str) -> dict:
-    saved = _saved(report_id)
+    saved = _saved(report_id) or _interrupted_design(report_id)
     if not saved:
         if report_id.startswith("run_"):
             return for_run(report_id.removeprefix("run_"), retry=True)

@@ -12,10 +12,55 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
-from autoskill import paths, platforms
+from autoskill import browser_temp, paths, platforms
 
 
 class LinuxPlatformTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "linux", "Linux Unix socket addresses")
+    def test_browser_temp_uses_byte_limit_private_per_browser_paths_and_original_storage(self):
+        limit = 107 - len(os.fsencode("/" + browser_temp.SOCKET))
+        short = "/" + "a" * (limit - 1)
+        environment = {"TMPDIR": short}
+        self.assertIsNone(browser_temp.prepare(environment))
+        self.assertEqual(environment["TMPDIR"], short)
+        with tempfile.TemporaryDirectory() as temp:
+            original = Path(temp) / ("临时 目录" * 12)
+            original.mkdir()
+            first, second = ({"TMPDIR": str(original)} for _ in range(2))
+            a = browser_temp.prepare(first)
+            self.addCleanup(browser_temp.release, a)
+            b = browser_temp.prepare(second)
+            self.addCleanup(browser_temp.release, b)
+            self.assertNotEqual(a, b)
+            self.assertEqual(a.stat().st_mode & 0o777, 0o700)
+            self.assertLess(len(os.fsencode(Path(first["TMPDIR"]) / browser_temp.SOCKET)), 108)
+            (Path(first["TMPDIR"]) / "marker").write_bytes(b"original temp")
+            browser_temp.release(a)
+            self.assertFalse(a.exists())
+            self.assertEqual((Path(second["TMPDIR"]) / "marker").read_bytes(), b"original temp")
+            self.assertEqual((original / "marker").read_bytes(), b"original temp")
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux Unix socket addresses")
+    def test_browser_temp_refuses_foreign_links_and_reports_an_unavailable_short_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            original = root / ("临时目录" * 12)
+            original.mkdir()
+            env = {"TMPDIR": str(original)}
+            with patch.object(browser_temp, "SHORT_ROOT", root):
+                expected = browser_temp.location("recorder")
+                expected.symlink_to(original, target_is_directory=True)
+                with self.assertRaisesRegex(ValueError, "可写 TMPDIR"):
+                    browser_temp.prepare(env, "recorder")
+                browser_temp.release(expected)
+                self.assertTrue(expected.is_symlink())
+                self.assertEqual(list(original.iterdir()), [])
+            with patch.object(browser_temp, "SHORT_ROOT", root / "unavailable"), self.assertRaisesRegex(ValueError, "unavailable"):
+                browser_temp.prepare(env)
+            self.assertEqual(env["TMPDIR"], str(original))
+            with patch.object(sys, "platform", "win32"):
+                self.assertIsNone(browser_temp.prepare(env))
+
     def test_architecture_aliases_never_fall_back_to_windows(self):
         for machine in ("aarch64", "arm64"):
             self.assertEqual(paths.runtime_target("linux", machine), "linux-arm64")

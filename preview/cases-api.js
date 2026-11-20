@@ -1,5 +1,6 @@
 // Project and case operations for the browser-local dashboard demo.
 import { resultOutcome, verdictStatus } from './verdicts.js';
+import { workspaceConflict, workspaceIdentity } from './workspace.js';
 
 const copy = structuredClone;
 const stamp = () => Array.from(crypto.getRandomValues(new Uint32Array(4)), (part) => part.toString(16).padStart(8, '0')).join('');
@@ -178,13 +179,14 @@ function saveCase(library, projectId, item, body) {
   return { changed: true, revision: draft.revision, content_revision: source.content_revision };
 }
 
-export function casesApi({ path, method = 'GET', params = new URLSearchParams(), body, db, fixtures }) {
+export function casesApi(context) {
+  const { path, method = 'GET', params = new URLSearchParams(), body, db, fixtures } = context;
   const [, resource, projectId, section, id, sub] = path.split('/').map(decodeURIComponent);
   if (!['cases', 'projects', 'case-definitions', 'secrets'].includes(resource)) return;
   const library = initCases(db, fixtures);
   if (resource === 'secrets') return updateSecrets(library, method, projectId, body);
   if (resource === 'cases') {
-    if (method === 'POST' && projectId === 'delete') return removeCases(library, body.items);
+    if (method === 'POST' && projectId === 'delete') return workspaceConflict(context) ?? removeCases(library, body.items);
     if (method !== 'GET' || projectId) return;
     const selected = (params.get('projects') || '').split(',').filter(Boolean);
     const start = params.get('start');
@@ -193,7 +195,7 @@ export function casesApi({ path, method = 'GET', params = new URLSearchParams(),
       && (!params.get('kind') || item.kind === params.get('kind')) && (!end || Date.parse(item.created_at) < Date.parse(end))
       && (params.get('added') !== 'true' || !start || Date.parse(item.created_at) >= Date.parse(start)))
       .map((item) => ({ ...item, ...caseStatus(db, item, end) }));
-    return { total: items.length, items };
+    return { total: items.length, items, workspace_identity: workspaceIdentity(context) };
   }
   if (!projectId && method === 'GET' && resource === 'projects') return library.projects.map((project) => projectView(library, project));
   if (sub || !projectId || section === 'login' || id === 'export' || ['report', 'postman'].includes(section)) return;
@@ -204,7 +206,11 @@ export function casesApi({ path, method = 'GET', params = new URLSearchParams(),
     return library.definitions[keyOf(projectId, section)] || problem('用例不存在', 404);
   }
   if (!section && method === 'PATCH') {
-    if (!body.name?.trim()) return problem('请填写项目名称');
+    if (Object.hasOwn(body, 'name') && !body.name?.trim()) return problem('请填写项目名称');
+    for (const field of ['timeout_seconds', 'page_load_seconds']) {
+      if (Object.hasOwn(body, field) && (!Number.isFinite(body[field]) || body[field] <= 0)) return problem('超时需要是大于零的秒数');
+    }
+    if (Object.hasOwn(body, 'ignore_https_errors') && typeof body.ignore_https_errors !== 'boolean') return problem('忽略 HTTPS 证书错误必须是布尔值');
     for (const field of ['name', 'category', 'timeout_seconds', 'page_load_seconds', 'ignore_https_errors']) {
       if (Object.hasOwn(body, field)) project[field] = body[field];
     }
@@ -226,6 +232,6 @@ export function casesApi({ path, method = 'GET', params = new URLSearchParams(),
     if (!item) return problem('用例不存在', 404);
     if (method === 'GET') return { ...library.details[keyOf(projectId, id)], ...caseStatus(db, item) };
     if (method === 'PUT') return saveCase(library, projectId, item, body);
-    if (method === 'DELETE') return removeCases(library, [{ project_id: projectId, case_id: id }]);
+    if (method === 'DELETE') return workspaceConflict(context) ?? removeCases(library, [{ project_id: projectId, case_id: id }]);
   }
 }

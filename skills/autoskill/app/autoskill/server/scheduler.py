@@ -8,6 +8,7 @@ import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .. import data_refs, db, paths, projects, runner, task_context, task_state
+from ..locking import named_lock
 from .deliveries import ack_delivery, claim_delivery, pending_deliveries, release_delivery, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
 
 UTC = datetime.UTC
@@ -55,7 +56,8 @@ def next_due(rule: dict, now: datetime.datetime, previous: datetime.datetime | N
                 raise ValueError("每周任务至少选择一天")
         hour, minute = map(int, clock.split(":"))
         today = now.astimezone(zone).date()
-        for offset in range(9):
+        # A weekly wall time may not exist next week. Include the following week's occurrence.
+        for offset in range(2 * 7 + 1):
             day = today + datetime.timedelta(days=offset)
             if day.weekday() not in days:
                 continue
@@ -264,15 +266,19 @@ def _update_definition(task_id: str, spec: dict, values: dict, expected: int) ->
 
 
 def update(task_id: str, spec: dict) -> dict:
-    current = get(task_id)
-    merged = _clean({**current, **spec})
-    values = {**merged, "updated_at": db.now()}
-    enabled = bool(spec.get("enabled", current["enabled"]))
-    values["enabled"] = int(enabled)
-    timing_changed = merged["rule"] != current["rule"] or enabled != current["enabled"]
-    if timing_changed:
-        values["next_due"] = _stamp(next_due(merged["rule"], datetime.datetime.now(UTC))) if enabled else None
-    return _update_definition(task_id, spec, values, spec.get("expected_revision", current["revision"]))
+    with named_lock("schedule-occurrence", task_id):
+        current = get(task_id)
+        expected = spec.get("expected_revision", current["revision"])
+        if spec.get("enabled") is False and set(spec) <= {"enabled", "expected_revision", "idempotency_key"}:
+            return _update_definition(task_id, spec, {"enabled": 0, "next_due": None, "updated_at": db.now()}, expected)
+        merged = _clean({**current, **spec})
+        values = {**merged, "updated_at": db.now()}
+        enabled = bool(spec.get("enabled", current["enabled"]))
+        values["enabled"] = int(enabled)
+        timing_changed = merged["rule"] != current["rule"] or enabled != current["enabled"]
+        if timing_changed:
+            values["next_due"] = _stamp(next_due(merged["rule"], datetime.datetime.now(UTC))) if enabled else None
+        return _update_definition(task_id, spec, values, expected)
 
 
 def set_enabled(task_id: str, enabled: bool, expected_revision: int | None = None) -> dict:
@@ -283,8 +289,9 @@ def set_enabled(task_id: str, enabled: bool, expected_revision: int | None = Non
 
 
 def delete(task_id: str) -> None:
-    get(task_id)
-    db.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    with named_lock("schedule-occurrence", task_id):
+        get(task_id)
+        db.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
 
 
 def _prepare(task: dict, trigger: str) -> dict:
@@ -321,23 +328,26 @@ def _maintenance(conn, task: dict, occurrence_id: str) -> dict:
     return {**delivery, "status": "awaiting_host"}
 
 
+def _check_revision(conn, task: dict) -> None:
+    if not conn.execute("SELECT 1 FROM tasks WHERE id = ? AND revision = ?", (task["id"], task["revision"])).fetchone():
+        raise ValueError("定时任务已被其他会话修改，请读取最新版本后重试")
+
+
 def fire(task: dict, trigger: str = "schedule", idempotency_key: str | None = None) -> dict:
     """Queue an immediate occurrence; retrying the same request returns its durable receipt."""
     key = idempotency_key or ""
     scope, digest = "fire:" + task["id"], _payload_hash({"trigger": trigger})
-    with db.connect() as conn:
+    with named_lock("schedule-occurrence", task["id"]), db.connect() as conn:
         receipt = _receipt(conn, scope, key, digest)
-    if receipt:
-        return receipt
-    prepared = None if task["kind"] == "maintenance" else _prepare(task, trigger)
-    with db.connect() as conn:
+        if receipt:
+            return receipt
+        _check_revision(conn, task)
+        prepared = None if task["kind"] == "maintenance" else _prepare(task, trigger)
         conn.execute("BEGIN IMMEDIATE")
         receipt = _receipt(conn, scope, key, digest)
         if receipt:
             return receipt
-        current = conn.execute("SELECT revision FROM tasks WHERE id = ?", (task["id"],)).fetchone()
-        if not current or current["revision"] != task["revision"]:
-            raise ValueError("定时任务已被其他会话修改，请读取最新版本后重试")
+        _check_revision(conn, task)
         occurrence_id = db.new_id("occurrence")
         result = _maintenance(conn, task, occurrence_id) if prepared is None else runner.enqueue(prepared, connection=conn)
         maintenance = prepared is None
@@ -362,12 +372,21 @@ def _busy(conn, task: dict) -> bool:
     return bool(conn.execute("SELECT 1 FROM runs WHERE task_id = ? AND status IN ('Queued', 'Running')", (task["id"],)).fetchone())
 
 
-def _claim_occurrence(task: dict, prepared: dict | None, now: datetime.datetime) -> dict | None:
+def _claim_occurrence(task: dict, now: datetime.datetime) -> dict | None:
     due = datetime.datetime.fromisoformat(task["next_due"])
     once = task["rule"].get("kind") == "at"
     following = None if once else _stamp(next_due(task["rule"], now, due))
-    with db.connect() as conn:
+    with named_lock("schedule-occurrence", task["id"]), db.connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
+        prepared = None
+        if task["kind"] != "maintenance" and not _busy(conn, task):
+            # Another tick may have already advanced this occurrence while we waited.
+            if not conn.execute("SELECT 1 FROM tasks WHERE id = ? AND next_due = ? AND revision = ? AND enabled = 1",
+                                (task["id"], task["next_due"], task["revision"])).fetchone():
+                return None
+            conn.commit()
+            prepared = _prepare(task, "schedule")
+            conn.execute("BEGIN IMMEDIATE")
         claimed = conn.execute("UPDATE tasks SET next_due = ?, enabled = ? WHERE id = ? AND next_due = ? AND revision = ? AND enabled = 1",
                                (following, int(not once), task["id"], task["next_due"], task["revision"])).rowcount
         if not claimed:
@@ -377,7 +396,7 @@ def _claim_occurrence(task: dict, prepared: dict | None, now: datetime.datetime)
         if _busy(conn, task):
             _insert(conn, "schedule_occurrences", {**occurrence, "status": "skipped", "reason": "前次执行仍未结束，按重叠策略跳过"})
             return None
-        if prepared is None:
+        if task["kind"] == "maintenance":
             result = _maintenance(conn, task, occurrence["id"])
             _insert(conn, "schedule_occurrences", {**occurrence, "status": "awaiting_host", "delivery_id": result["id"]})
             return None
@@ -393,8 +412,7 @@ def tick(now: datetime.datetime | None = None) -> list[dict]:
     started = []
     for row in db.rows("SELECT * FROM tasks WHERE enabled = 1 AND next_due IS NOT NULL AND next_due <= ?", (_stamp(now),)):
         task = view(row, include_state=False)
-        prepared = None if task["kind"] == "maintenance" else _prepare(task, "schedule")
-        result = _claim_occurrence(task, prepared, now)
+        result = _claim_occurrence(task, now)
         if result and result["status"] == "Queued":
             started.append(result)
     return started

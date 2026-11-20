@@ -2,10 +2,14 @@
 import hashlib
 import importlib.util
 import json
+import re
+import struct
 import tempfile
 import unittest
 import zipfile
+from collections import Counter
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("archive_publisher", ROOT / "scripts/publish-release.py")
@@ -37,10 +41,37 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
 
     def test_complete_inventory_is_verified_before_release(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = self.archive(folder)
-            result = publisher.describe_archive(path, "2.2.0")
+            path = self.archive(folder, additional={"vendor/large.bin": b"Z" * (3 * 1024 * 1024)})
+            with zipfile.ZipFile(path, "a") as bundle:
+                bundle.writestr("optional/", b"")
+                members = bundle.namelist()
+            reads = Counter()
+            open_member = zipfile.ZipFile.open
+
+            def tracked(bundle, member, *args, **kwargs):
+                reads[member.filename if isinstance(member, zipfile.ZipInfo) else member] += 1
+                return open_member(bundle, member, *args, **kwargs)
+
+            with patch.object(zipfile.ZipFile, "open", tracked):
+                result = publisher.describe_archive(path, "2.2.0")
+            self.assertEqual(reads, Counter(members))
             self.assertEqual(result["bytes"], path.stat().st_size)
             self.assertEqual(result["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
+
+    def test_invalid_crc_in_a_regular_file_or_directory_is_rejected(self):
+        for name in ("plugin/index.mjs", "optional/", "package-manifest.json"):
+            with self.subTest(member=name), tempfile.TemporaryDirectory() as folder:
+                path = self.archive(folder)
+                with zipfile.ZipFile(path, "a") as bundle:
+                    bundle.writestr("optional/", b"directory payload")
+                    offset = bundle.getinfo(name).header_offset
+                with path.open("r+b") as stream:
+                    stream.seek(offset + 26)
+                    name_size, extra_size = struct.unpack("<HH", stream.read(4))
+                    stream.seek(offset + 30 + name_size + extra_size)
+                    stream.write(b"!")
+                with self.assertRaisesRegex(ValueError, "ZIP CRC failure"):
+                    publisher.describe_archive(path, "2.2.0")
 
     def test_modified_program_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder, self.assertRaisesRegex(ValueError, "digest mismatch"):
@@ -98,6 +129,25 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
             self.assertEqual(set(inventory), {"package.json", "program.py"})
             for name, digest in inventory.items():
                 self.assertEqual(digest, hashlib.sha256((output / name).read_bytes()).hexdigest())
+
+    def test_offline_readme_links_resolve_to_shipped_files_and_tagged_evidence(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+            builder.copy_package_docs(output, version)
+            builder.copy_tree(ROOT / "skills/autoskill", output / "autoskill")
+            (output / "package.json").write_text(json.dumps({"version": version, "files": []}), encoding="utf-8")
+            builder.write_package_manifest(output)
+            readme = (output / "README.md").read_text(encoding="utf-8")
+            inventory = json.loads((output / "package-manifest.json").read_bytes())["files"]
+            links = re.findall(r"\]\(([^)]+)\)", readme)
+            self.assertIn("autoskill/references/commands.md#原生资产会话捕获与宿主判定", links)
+            self.assertIn("autoskill/examples/ticket-desk/ACCEPTANCE.md", links)
+            self.assertIn(f"https://github.com/lance-donif/autoSkill/blob/v{version}/reports/交付验证报告.md", links)
+            for link in links:
+                if "://" not in link:
+                    path = link.partition("#")[0]
+                    self.assertEqual(inventory[path], hashlib.sha256((output / path).read_bytes()).hexdigest())
 
     def test_builder_omits_skill_data_root_without_omitting_nested_assets(self):
         with tempfile.TemporaryDirectory() as folder:

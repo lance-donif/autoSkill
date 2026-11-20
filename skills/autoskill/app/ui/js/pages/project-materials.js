@@ -1,5 +1,5 @@
 // Authoritative project knowledge, case files, reports and portable share packages.
-import { h, icon, replace, api, scope, go, route, refresh, attempt, toast, fmtNumber } from '../core.js';
+import { h, icon, replace, api, deleteSelection, scope, go, route, refresh, attempt, toast, fmtNumber } from '../core.js';
 import { drawer, closeOverlay, confirm, filterSelect, empty, errorState, skeletonRows } from '../ui.js';
 import { refreshShell } from '../shell.js';
 
@@ -123,7 +123,7 @@ function fileList(data, category) {
       h('td', { class: 'sub mono', title: item.sha256 }, item.sha256.slice(0, 12)),
       h('td', { class: 'actions' }, category === 'knowledge' && item.text && h('button', { class: 'btn sm', onClick: () => editKnowledge(data.project.id, item) }, '查看 / 编辑'),
         h('a', { class: 'btn sm', href: item.download_url, download: '' }, '下载'),
-        category === 'knowledge' && h('button', { class: 'btn sm danger', onClick: (event) => removeKnowledge(data.project.id, item, event.currentTarget) }, '删除'))))))
+        category === 'knowledge' && h('button', { class: 'btn sm danger', onClick: (event) => removeKnowledge(data, item, event.currentTarget) }, '删除'))))))
     : empty({ glyph: 'folder', title: '还没有' + title, text: category === 'reports' ? '录制、执行或工作流完成后，报告自动保存在项目的 reports 子目录。'
       : category === 'knowledge' ? '把业务规则、测试经验和参考资料保存到当前项目的知识库。' : '在 DSH 对话中录制用例后，可在此下载用例文件。', actions: add });
   return h('section', { class: 'card', style: 'margin-top:16px;overflow-x:auto' },
@@ -158,9 +158,9 @@ async function editKnowledge(projectId, item) {
     foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '取消'), save] });
 }
 
-async function removeKnowledge(projectId, item, button) {
+async function removeKnowledge(data, item, button) {
   if (!(await confirm({ title: '删除这份知识？', text: item.name, action: '删除', danger: true }))) return;
-  if (await attempt(() => api(`/project-materials/${encodeURIComponent(projectId)}/knowledge`, { method: 'DELETE',
+  if (await attempt(() => deleteSelection(`/project-materials/${encodeURIComponent(data.project.id)}/knowledge`, [data], {
     body: { file: item.name, expected_hash: item.sha256 } }), button)) { toast('已删除'); refresh(); }
 }
 
@@ -194,8 +194,12 @@ function sharePanel(projectId) {
       return api('/shares/import', { method: 'POST', body: { source: source.value, overwrite: overwrite.checked, passphrase: secret.value } });
     }, importButton);
     if (!result) return;
-    replace(imported, h('div', { class: 'banner info', style: 'margin-top:16px' }, h('div', {},
-      h('b', {}, `已导入 ${result.imported.length} 个项目 · ${result.skipped.length} 个未导入`),
+    const failed = result.errors?.length ?? 0;
+    const summary = failed
+      ? `已导入 ${result.imported.length} 个项目 · 跳过 ${result.skipped.length - failed} 个 · 失败 ${failed} 个`
+      : `已导入 ${result.imported.length} 个项目 · ${result.skipped.length} 个未导入`;
+    replace(imported, h('div', { class: failed ? 'banner bad' : 'banner info', style: 'margin-top:16px' }, h('div', {},
+      h('b', {}, summary),
       result.skipped.map((item) => h('p', {}, `${item.id}：${item.reason}`)), h('p', {}, result.next))));
     await refreshShell();
   } }, '导入项目分享包');

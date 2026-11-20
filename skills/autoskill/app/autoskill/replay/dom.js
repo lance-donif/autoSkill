@@ -27,6 +27,12 @@
     if (el.tagName === 'SELECT') return el.multiple || el.size > 1 ? 'listbox' : 'combobox';
     return TAG_ROLES[el.tagName] || null;
   }
+  function checkedState(el) {
+    // A native control's live property takes precedence over a redundant ARIA attribute.
+    if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) return el.checked;
+    if (['checkbox', 'radio', 'switch'].includes(role(el))) return el.getAttribute('aria-checked') === 'true';
+    return null;
+  }
   function labelText(el) {
     const ids = el.getAttribute('aria-labelledby');
     if (ids) {
@@ -46,6 +52,16 @@
     if (tag === 'IMG') return norm(el.getAttribute('alt'));
     if (FIELD.test(tag)) return norm(el.getAttribute('placeholder') || el.getAttribute('title'));
     return norm(el.textContent) || norm(el.getAttribute('title'));
+  }
+  function focusHint() {
+    const el = root.activeElement;
+    if (!el || el === root.body || el === root.documentElement) return null;
+    // Read the current keyboard focus only. Frame and shadow hosts are identified from the top document.
+    const literal = (value) => value.replace(/[%${}]/g, encodeURIComponent);  // Observations cannot refer to replay variables.
+    if (el.id) return ['id', literal(el.id)];
+    if (el.hasAttribute('data-testid')) return ['testid', literal(el.getAttribute('data-testid'))];
+    const name = el.isContentEditable ? labelText(el) : accessibleName(el);
+    return [literal(role(el) || el.localName), literal(name.slice(0, 80))];
   }
   const rendered = (el) => el.tagName === 'OPTION' || el.getClientRects().length > 0;
   const exposed = (el) => rendered(el) && !el.closest('[aria-hidden="true"]');
@@ -90,8 +106,11 @@
         return all().filter((el) => el.getAttribute('data-testid') === value);
       case 'placeholder':
         return all().filter((el) => el.getAttribute('placeholder') === value);
-      case 'label':
-        return all().filter((el) => labelText(el) === norm(value));
+      case 'label': {
+        const matches = all().filter((el) => labelText(el) === norm(value));
+        if (locator.conflict_role && matches.length === 1 && role(matches[0]) === locator.conflict_role) return [];
+        return matches;
+      }
       case 'text': {
         const wanted = norm(value);
         const own = (el) => !/^(SCRIPT|STYLE|NOSCRIPT)$/.test(el.tagName) && norm(el.textContent) === wanted;
@@ -99,7 +118,11 @@
       }
       case 'role': {
         const name = locator.name == null ? null : norm(locator.name);
-        return all().filter((el) => role(el) === locator.role && exposed(el) && (name === null || accessibleName(el) === name));
+        const matches = all().filter((el) => role(el) === locator.role && (locator.unique || exposed(el)) && (name === null || accessibleName(el) === name));
+        if (!locator.unique) return matches;
+        const anchors = locator.anchor ? find(locator.anchor) : matches;
+        if (anchors.length > 1) throw new Error('业务目标不唯一：同名控件缺少唯一的定位依据。');
+        return anchors.filter((el) => exposed(el) && matches.includes(el));
       }
       default:
         return [];
@@ -247,8 +270,17 @@
     if (testid) push({ by: 'testid', value: testid });
     const r = role(el);
     const name = accessibleName(el);
+    const label = labelText(el);
+    let field = null;
+    if (r && label && (FIELD.test(el.tagName) || checkedState(el) !== null) && find({ by: 'label', value: label }).length > 1) {
+      field = { by: 'role', role: r, name, unique: true };
+      const anchors = [];
+      if (testid) anchors.push({ by: 'testid', value: testid });
+      if (stableId(el.id)) anchors.push({ by: 'css', value: '#' + cssEscape(el.id) });
+      const anchor = anchors.find((candidate) => find(candidate).length === 1);
+      if (anchor) field.anchor = anchor;
+    }
     if (FIELD.test(el.tagName)) {
-      const label = labelText(el);
       if (label && label.length <= 60) push({ by: 'label', value: label });
       const placeholder = el.getAttribute('placeholder');
       if (placeholder) push({ by: 'placeholder', value: placeholder });
@@ -264,12 +296,12 @@
     if (fallback) out.push(fallback);
     const type = (el.getAttribute('type') || '').toLowerCase();
     const auto = (el.getAttribute('autocomplete') || '').toLowerCase();
-    const business = businessLocator(el, r, name);
+    const identity = businessLocator(el, r, name) || field;
     return {
       // Once identity is known, a global ordinal fallback could silently act on a different row.
-      locators: business ? [business] : out, tag: el.tagName.toLowerCase(), role: r, name: name.slice(0, 80), type,
+      locators: identity ? [identity] : out, tag: el.tagName.toLowerCase(), role: r, name: name.slice(0, 80), type,
       editable: (el.tagName === 'INPUT' && !/^(button|submit|reset|checkbox|radio|file|image|hidden)$/.test(type)) || el.tagName === 'TEXTAREA' || el.isContentEditable,
-      checkable: el.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio') || /^(checkbox|radio|switch)$/.test(r || ''),
+      checkable: checkedState(el) !== null,
       secret: type === 'password' || /password|one-time-code|^cc-/.test(auto),
     };
   }
@@ -286,8 +318,13 @@
     return pool.slice().sort((a, b) => distance(a) - distance(b))[0];
   }
   function target(spec) {
-    const el = spec.ref ? fromRef(spec.ref) : spec.locator ? find(spec.locator)[spec.locator.nth || 0] : root.activeElement;
-    return el && el !== root.body ? describe(el) : null;
+    const matches = spec.locator ? find(spec.locator) : [];
+    const el = spec.ref ? fromRef(spec.ref) : spec.locator ? matches[spec.locator.nth || 0] : root.activeElement;
+    const item = el && el !== root.body ? describe(el) : null;
+    if (item?.locators[0]?.unique && spec.locator?.by === 'role' && spec.locator.nth == null && matches.length > 1) {
+      throw new Error('业务目标不唯一：多个控件使用相同角色和名称，请用快照编号或唯一标识指定控件。');
+    }
+    return item;
   }
   // One reading of an element property, for checking an assertion while recording.
   function read(locator, what, arg) {
@@ -297,10 +334,10 @@
     if (!el) return null;
     const visible = rendered(el) && getComputedStyle(el).visibility !== 'hidden';
     if (what === 'visible') return visible;
-    if (what === 'checked') return !!el.checked;
+    if (what === 'checked') return checkedState(el) ?? !!el.checked;
     if (what === 'value') return el.value == null ? null : String(el.value);
     if (what === 'attribute') return el.getAttribute(arg);
     return el.innerText == null ? el.textContent || '' : el.innerText;
   }
-  return { find, target, read, describe };
+  return { find, target, read, describe, checkedState, focusHint };
 })

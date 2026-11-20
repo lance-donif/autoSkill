@@ -181,9 +181,21 @@ class DashboardStabilityTests(unittest.TestCase):
         passed = toolbar.get_by_role("button", name="通过", exact=True)
         failed = toolbar.get_by_role("button", name="失败", exact=True)
         expect(toolbar.get_by_role("group", name="运行状态").get_by_role("button")).to_have_count(3)
-        expect(rows).to_have_count(sample["/runs"]["total"])
+        load_runs = {"load-demo-performance", "load-demo-stress"}
+
+        def verify_runs(path, extra=()):
+            expected = {run["id"] for run in sample[path]["items"]} | set(extra)
+            expect(rows).to_have_count(sample[path]["total"] + len(extra))
+            links = rows.locator("a[data-history-id]").evaluate_all("nodes => nodes.map(node => node.dataset.historyId)")
+            self.assertEqual(set(links), {"run:" + run_id for run_id in expected})
+
+        verify_runs("/runs", load_runs)
+        failed.click()
+        verify_runs("/runs?status=Fail", load_runs)
+        toolbar.get_by_role("button", name="未执行", exact=True).click()
+        verify_runs("/runs?status=NotRun")
         passed.click()
-        expect(rows).to_have_count(sample["/runs?status=Pass"]["total"])
+        verify_runs("/runs?status=Pass")
         toolbar.get_by_role("button", name="按用例结果").click()
         expect(passed).to_have_attribute("aria-pressed", "true")
         count = sample["/results?status=Pass"]["total"]

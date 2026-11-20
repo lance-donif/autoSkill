@@ -103,7 +103,7 @@ class DashboardDeletionTests(unittest.TestCase):
             elif status:
                 items = [run for run in items if run["status"] == status]
             offset, limit = int(query.get("offset", [0])[0]), int(query.get("limit", [50])[0])
-            return 200, {"items": items[offset:offset + limit], "total": len(items)}
+            return 200, {"items": items[offset:offset + limit], "total": len(items), "workspace_identity": "fixture-workspace"}
         run_id = unquote(path.removeprefix("/api/runs/"))
         if request.method == "DELETE":
             return 200, self.delete_runs([run_id])
@@ -116,7 +116,7 @@ class DashboardDeletionTests(unittest.TestCase):
         if path == "/api/cases/delete":
             return 200, self.delete_cases(request.post_data_json["items"])
         if path == "/api/cases":
-            return 200, {"items": self.cases, "total": len(self.cases)}
+            return 200, {"items": self.cases, "total": len(self.cases), "workspace_identity": "fixture-workspace"}
         parts = path.split("/")
         project_id, case_id = unquote(parts[3]), unquote(parts[5])
         if request.method == "DELETE":

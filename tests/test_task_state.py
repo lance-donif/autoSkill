@@ -14,7 +14,24 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, data_refs, db, execution_inputs, host_bindings, host_context, native_assets, native_run, projects, report_locations, runner, task_reports, task_state
+from autoskill import (
+    builder,
+    data_refs,
+    db,
+    execution_inputs,
+    host_bindings,
+    host_context,
+    native_assets,
+    native_run,
+    projects,
+    report_locations,
+    runner,
+    task_reports,
+    task_state,
+    workflow,
+    workflow_state,
+)
+from autoskill.server.app import create_app
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -143,6 +160,32 @@ class TaskStateTests(unittest.TestCase):
         final = runner.execute(runner.create(self.project)["id"])
         row = db.one("SELECT * FROM results WHERE run_id = ?", (final["id"],))
         return final, row
+
+    def test_workflow_scope_uses_run_index_after_creation_and_dashboard_upgrade(self):
+        with patch("autoskill.server.jobs.ensure_worker"):
+            flow = workflow.create(self.project, {"title": "Scope", "sources": [{"id": "source", "text": "Run scope"}]}, idempotency_key="scope-index")
+        with db.connect() as connection:
+            first = workflow_state.item(connection, flow["workflow_id"], "execute")
+            last = workflow_state.item(connection, flow["workflow_id"], "execute")
+            connection.executemany("UPDATE workflow_items SET run_id=?,attempt_id=? WHERE id=?",
+                                   [("sample-run", "earlier", first), ("sample-run", "latest", last)])
+
+        def check_lookup():
+            statements = []
+            with db.connect() as connection:
+                connection.set_trace_callback(statements.append)
+                scope = task_state._scope({"run_id": "sample-run"}, connection)
+                connection.set_trace_callback(None)
+                query = next(sql for sql in statements if "JOIN workflow_runtime" in sql)
+                plan = [row["detail"] for row in connection.execute("EXPLAIN QUERY PLAN " + query)]
+            self.assertEqual((scope["workflow_id"], scope["workflow_attempt_id"]), (flow["workflow_id"], "latest"))
+            self.assertTrue(any("workflow_items_by_run" in line for line in plan), plan)
+            self.assertFalse(any("TEMP B-TREE" in line for line in plan), plan)
+
+        check_lookup()
+        db.execute("DROP INDEX workflow_items_by_run")
+        create_app(start_worker=False)
+        check_lookup()
 
     def test_observed_checks_do_not_establish_business_pass(self):
         final, row = self.execute({})

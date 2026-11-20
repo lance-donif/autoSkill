@@ -12,6 +12,7 @@ import threading
 import time
 import unittest
 import uuid
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -25,6 +26,7 @@ APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
 from autoskill import builder, data_refs, db, deletion, native_assets, native_reader, native_run, plan, projects, reporting, runner, runtime_identity, task_report_data, task_reports, workflow
+from autoskill.file_changes import file_stamp, reusable
 from autoskill.server import jobs
 from autoskill.server.app import create_app
 
@@ -104,6 +106,19 @@ class TaskReportTests(unittest.TestCase):
         self.assertTrue(result.stdout.strip(), result.stderr)
         return result.returncode, json.loads(result.stdout)
 
+    def interrupt_cli_export(self, operation, *arguments):
+        script = """
+import os
+import sys
+from unittest.mock import patch
+from autoskill.cli import main
+with patch(sys.argv.pop(1), side_effect=lambda *args, **kwargs: os._exit(77)):
+    raise SystemExit(main())
+"""
+        result = subprocess.run([sys.executable, "-c", script, operation, *arguments], cwd=self.folder,
+                                env={**os.environ, "PYTHONPATH": str(APP)}, capture_output=True, text=True, timeout=20, check=False)
+        self.assertEqual(result.returncode, 77, (result.stdout, result.stderr))
+
     def native_asset(self):
         source = self.folder / "spec.json"
         source.write_text(json.dumps({"endpoint": {"url": f"http://127.0.0.1:{self.server.server_port}/chat",
@@ -132,6 +147,54 @@ class TaskReportTests(unittest.TestCase):
         self.assertNotEqual(second["test_report"]["excel"], report["excel"])
         self.assertEqual(task_reports.for_run(first["id"]), report)
         self.assertEqual(Path(report["excel"]).read_bytes(), old_bytes)
+
+    def test_snapshot_reads_shared_inputs_once_and_checks_individual_receipts(self):
+        source = projects.path(self.pid) / "analysis" / "source.bin"
+        source.parent.mkdir(exist_ok=True)
+        source.write_bytes(b"shared requirements")
+        prerequisite = builder.api_case("SETUP", "Prepare", "GET", "/priority", {"status": 200})
+        self.case["extensions"]["depends_on"] = [prerequisite["id"]]
+        projects.save_cases(self.pid, [prerequisite, self.case])
+        run = runner.create(self.pid, [self.case["id"], "TC-API-002"])
+        runner.execute(run["id"])
+        manifest = data_refs.resolve(run["input_manifest"])
+        sources = json.loads(manifest.read_bytes())["sources"]["files"]
+        objects = [manifest.parent / "objects" / item["sha256"] for item in sources.values()]
+        frozen = manifest.parent / "objects" / sources["analysis/source.bin"]["sha256"]
+        reads = Counter()
+        read = Path.read_bytes
+
+        def counted(file):
+            reads[file] += 1
+            return read(file)
+
+        with patch.object(Path, "read_bytes", counted):
+            captured = task_report_data.run_snapshot(run)
+        expected = 1 if all(reusable(file_stamp(file)) for file in [manifest, *objects]) else 4
+        self.assertEqual((reads[manifest], reads[frozen]), (expected, expected))
+        self.assertTrue(all(item["evidence_valid"] for item in captured["cases"]))
+        self.assertTrue(next(row for row in captured["results"] if row["prerequisite"])["evidence_valid"])
+        receipt = data_refs.resolve(captured["cases"][0]["result"]["detail"]["attempts"][0]["path"])
+        original = receipt.read_bytes()
+        receipt.unlink()
+        self.assertEqual([item["evidence_valid"] for item in task_report_data.run_snapshot(run)["cases"]], [False, True])
+        receipt.write_bytes(original)
+        mismatched = {**run, "case_ids": ["TC-API-002"]}
+        self.assertFalse(task_report_data.run_snapshot(mismatched)["cases"][0]["evidence_valid"])
+
+        def replace_after_read(file):
+            content = read(file)
+            if file == frozen:
+                frozen.write_bytes(b"different source")
+            return content
+
+        with patch.object(Path, "read_bytes", replace_after_read):
+            changed = task_report_data.run_snapshot(run)
+        self.assertFalse(any(item["evidence_valid"] for item in changed["cases"]))
+        self.assertFalse(next(row for row in changed["results"] if row["prerequisite"])["evidence_valid"])
+        self.assertFalse(any(item["evidence_valid"] for item in task_report_data.run_snapshot(run)["cases"]))
+        frozen.write_bytes(source.read_bytes())
+        self.assertTrue(all(item["evidence_valid"] for item in task_report_data.run_snapshot(run)["cases"]))
 
     def test_blocked_and_cancelled_tasks_have_real_not_run_rows(self):
         run = runner.create(self.pid, [self.case["id"]])
@@ -251,6 +314,72 @@ class TaskReportTests(unittest.TestCase):
         historical = task_reports.retry(skipped["report_id"])
         self.assertEqual((historical["status"], historical["delivery_updated"]), ("ready", False))
         self.assertEqual((delivery.read_bytes(), head.read_bytes()), before)
+
+    def test_initial_export_interruption_is_retryable_after_another_design_replaces_the_sheet(self):
+        from autoskill import case_plans
+
+        source = self.folder / "source.json"
+        for legacy in (False, True):
+            with self.subTest(legacy=legacy):
+                source.write_text(json.dumps([{"title": "原始设计", "expected": "只能从原设计恢复"}]), encoding="utf-8")
+                self.interrupt_cli_export("autoskill.reporting.write_task", "plan", "write", self.pid, "--file", source.name)
+                shown = plan.show()
+                identity = shown["initial_report_id"]
+                self.assertTrue(identity)
+                folder = task_reports._folder(identity)
+                if legacy:
+                    # Earlier releases persisted only the frozen snapshot and selected task head.
+                    (folder / "receipt.json").unlink()
+                frozen = (folder / "snapshot.json").read_bytes()
+                before = {file.name: file.read_bytes() for file in folder.iterdir()}
+                code, shown = self.cli("plan", "show")
+                self.assertEqual((code, shown["initial_report_id"], shown["test_report"]["status"]), (0, identity, "failed"))
+                self.assertEqual(self.cli("task-report", identity)[0], 2)
+                self.assertTrue(shown["test_report"]["retryable"])
+                self.assertNotIn("download_url", shown["test_report"])
+                self.assertEqual({file.name: file.read_bytes() for file in folder.iterdir()}, before)
+                replacement = self.write_design()
+                current = {key: Path(replacement[key]).read_bytes() for key in ("delivery_excel", "initial_excel")}
+                archived = next(row["report"] for row in case_plans.previous_deliveries(self.pid)["deliveries"] if row["task_id"] == shown["task_id"])
+                self.assertEqual((archived["report_id"], archived["status"]), (identity, "failed"))
+                if legacy:
+                    altered = {**json.loads(frozen), "title": "其他冻结数据"}
+                    (folder / "snapshot.json").write_text(json.dumps(altered), encoding="utf-8")
+                    self.assertEqual(self.cli("task-report", identity, "--retry")[0], 2)
+                    (folder / "snapshot.json").write_bytes(frozen)
+                code, ready = self.cli("task-report", identity, "--retry")
+                self.assertEqual((code, ready["report_id"], ready["task_id"], ready["status"]), (0, identity, shown["task_id"], "ready"))
+                book = self.workbook(ready)
+                self.assertEqual((book["功能测试用例"].max_column, self.rows(book)[0]["用例标题"]), (14, "原始设计"))
+                self.assertEqual(ready["summary_counts"], {"Pass": 0, "Fail": 0, "NotRun": 1})
+                for key in ("excel", "markdown", "bugs"):
+                    self.assertEqual(hashlib.sha256(Path(ready[key]).read_bytes()).hexdigest(), ready["sha256" if key == "excel" else key + "_sha256"])
+                self.assertEqual(Path(ready["initial_excel"]).read_bytes(), Path(ready["delivery_excel"]).read_bytes())
+                self.assertEqual((folder / "snapshot.json").read_bytes(), frozen)
+                self.assertEqual(plan.show()["task_id"], replacement["task_id"])
+                self.assertEqual({key: Path(replacement[key]).read_bytes() for key in current}, current)
+        for table in ("runs", "results"):
+            self.assertEqual(db.one(f"SELECT COUNT(*) n FROM {table}")["n"], 0)
+
+    def test_partial_revision_is_visible_and_late_retry_keeps_the_newer_public_workbook(self):
+        first = self.write_design()
+        self.interrupt_cli_export("autoskill.task_bugs.write_task", "plan", "mark", "TC-001", "未执行", "--note", "等待首次输入")
+        code, shown = self.cli("plan", "show")
+        interrupted = shown["test_report"]
+        self.assertEqual((code, shown["initial_report_id"], interrupted["status"]), (0, first["initial_report_id"], "failed"))
+        self.assertNotEqual(interrupted["report_id"], first["initial_report_id"])
+        partial = task_reports._saved(interrupted["report_id"])
+        retained = {key: data_refs.resolve(partial[key]).read_bytes() for key in ("excel", "markdown")}
+        self.assertNotIn("bugs", partial)
+        self.assertNotIn("download_url", interrupted)
+        newest = plan.mark("TC-001", "未执行", "等待新的输入")["test_report"]
+        public = Path(newest["delivery_excel"]).read_bytes()
+        code, repaired = self.cli("task-report", interrupted["report_id"], "--retry")
+        self.assertEqual((code, repaired["status"], repaired["delivery_updated"]), (0, "ready", False))
+        self.assertEqual({key: Path(repaired[key]).read_bytes() for key in retained}, retained)
+        self.assertTrue(Path(repaired["bugs"]).is_file())
+        self.assertEqual(Path(newest["delivery_excel"]).read_bytes(), public)
+        self.assertEqual(plan.show()["test_report"]["report_id"], newest["report_id"])
 
     def test_user_edits_survive_new_revision_and_late_retry_of_a_ready_design(self):
         written = self.write_design()

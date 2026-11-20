@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -15,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import code_review
 import validate_review
-from review_rules import repository
+from review_rules import archive_export, repository
 
 
 class ReviewToolTests(unittest.TestCase):
@@ -151,6 +152,55 @@ class RepositoryRuleTests(unittest.TestCase):
         self.assertEqual(len(findings), 2)
         self.assertTrue(any("test_missing.py" in item["message"] for item in findings))
         self.assertTrue(any("nonexistent" in item["message"] for item in findings))
+
+
+class ArchiveExportRuleTests(unittest.TestCase):
+    def check_source(self, source):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / archive_export.SOURCE
+            path.parent.mkdir(parents=True)
+            path.write_text(textwrap.dedent(source), encoding="utf-8")
+            return [item["line"] for item in archive_export.run(root)]
+
+    def test_exporters_and_explicit_output_aliases(self):
+        self.assertEqual(archive_export.run(ROOT), [])
+        self.assertEqual(self.check_source('''\
+            from pathlib import Path as P
+            from zipfile import ZipFile as Archive
+            def pack_full(out):
+                delivered = P(out).expanduser().resolve()
+                selected = delivered
+                with Archive(mode="w", file=selected):
+                    pass
+                return {"file": str(delivered)}
+        '''), [6])
+
+    def test_staging_other_modes_unrelated_names_and_rebindings(self):
+        self.assertEqual(self.check_source('''\
+            import zipfile as z
+            from pathlib import Path
+            from example import ZipFile
+            def pack(out):
+                final = Path(out)
+                text = 'with z.ZipFile(final, "w"):'
+                ZipFile(final, "w")
+                with z.ZipFile(final), z.ZipFile(final, "x"):
+                    pass
+                selected = final
+                selected = final.with_suffix(".tmp")
+                with z.ZipFile(selected, "w"):
+                    pass
+                if out:
+                    selected = final.with_suffix(".partial")
+                with z.ZipFile(selected, "w"):
+                    pass
+                return {"file": str(final)}
+            def pack_full(out, z):
+                with z.ZipFile(out, "w"):
+                    pass
+                return {"file": out}
+        '''), [])
 
 
 class ValidationRunnerTests(unittest.TestCase):
