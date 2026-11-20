@@ -2,6 +2,7 @@
 import hashlib
 import io
 import json
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -37,6 +38,7 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
             self.assertEqual(replay["status"], "Pass", replay)
             case_id = recording["ui_case"]["id"]
             self.assertEqual(replay["publication"]["published_ids"], [case_id])
+            self.assertEqual(self.design_row(identity, task=task)["evidence"]["run_id"], recording["run_id"])
             case = projects.case(self.pid, case_id)
             self.assertEqual(case["module"], "会话服务")
             self.assertEqual(case["extensions"]["test_case_document"]["module"], row["module"])
@@ -80,6 +82,58 @@ class FunctionalDesignDashboardTests(DashboardWorkspace):
         self.addCleanup(book.close)
         alias = next(row[0] for row in book["编号映射"].iter_rows(min_row=2, values_only=True) if row[1] == identity)
         return next(row for row in book["功能测试用例"].iter_rows(min_row=2, values_only=True) if row[0] == alias)
+
+    def record_http_draft(self, task, *, edit=False):
+        endpoint = f"/api/case-plans/{self.pid}"
+        params = {"session": task}
+        identity = "DRAFT-1"
+        revision = self.client.get(endpoint, params=params).json()["revision"]
+        row = {"id": identity, "title": "打开会话", "description": "核对初始状态", "module": "会话",
+               "steps": "1. 打开会话页面。", "expected": "1. 页面显示待执行。", "source": "会话初始状态需求"}
+        created = self.client.post(endpoint + "/rows", params=params, json={"expected_revision": revision, "row": row})
+        created.raise_for_status()
+        draft = created.json()
+        self.assertEqual(draft["rows"][0]["status"], "NotRun")
+        self.assertFalse(draft.get("task_id"))
+        with task_context.use_session(task), patch.dict(os.environ, {"AUTOSKILL_CASE_SKILL": draft["folder"]}):
+            try:
+                self.assertTrue(session.start(self.pid, login=False, url="/ui")["recording"])
+                self.assertTrue(session.check("text", "testid=result", "待执行")["passed"])
+                if edit:
+                    self.client.patch(endpoint + "/rows/" + identity, params=params, json={
+                        "expected_revision": draft["revision"], "row": {"description": "核对提交后的状态"}}).raise_for_status()
+                recorded = session.stop("核对初始状态", plan_case=identity)
+            finally:
+                session.cancel()
+        run = self.wait_run(recorded["run_id"], publication=True)
+        case_id = recorded["ui_case"]["id"]
+        self.assertEqual(run["status"], "Pass", run)
+        self.assertIn(case_id, run["publication"]["published_ids"])
+        self.assertEqual(projects.case(self.pid, case_id)["extensions"]["test_case_document"]["description"], row["description"])
+        view = self.client.get(endpoint, params=params).json()
+        exported = self.client.get(endpoint + "/excel", params=params)
+        exported.raise_for_status()
+        return recorded, view, self.workbook_row(exported.content, identity)
+
+    def test_http_draft_recording_binds_the_published_run_and_keeps_its_initial_workbook(self):
+        recorded, view, final = self.record_http_draft("未修改的在线草稿")
+        row = view["rows"][0]
+        self.assertEqual(recorded["plan"]["task_id"], view["task_id"])
+        self.assertEqual((row["status"], row["evidence"]["run_id"], row["evidence"]["current"]), ("Pass", recorded["run_id"], True))
+        self.assertEqual(row["evidence"]["latest_execution"]["publication"]["published_ids"], [recorded["ui_case"]["id"]])
+        initial = Path(view["initial_excel"]).read_bytes()
+        self.assertEqual(hashlib.sha256(initial).hexdigest(), task_reports.get(view["initial_report_id"])["sha256"])
+        initial_row = self.workbook_row(initial, row["id"])
+        self.assertEqual(initial_row[:8], final[:8])
+        self.assertEqual((initial_row[9], final[9]), ("未执行", "通过"))
+
+    def test_edit_during_http_draft_recording_keeps_old_candidate_out_of_the_new_sheet(self):
+        recorded, view, final = self.record_http_draft("录制中编辑的在线草稿", edit=True)
+        self.assertIn("error", recorded["plan"])
+        self.assertFalse(view.get("task_id"))
+        row = view["rows"][0]
+        self.assertEqual((row["status"], row["evidence"]["run_id"], row["description"]), ("NotRun", None, "核对提交后的状态"))
+        self.assertEqual((final[3], final[9]), (row["description"], "未执行"))
 
     def test_actual_record_plan_carries_the_authored_functional_design_into_frozen_replay(self):
         task, identity = "真实录制设计", "DESIGN-SESSION"

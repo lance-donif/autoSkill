@@ -332,35 +332,44 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
             "next": _delivery_next(published["test_report"]) if delivery else "可在在线设计用例表下载正式 14 列 Excel。"}
 
 
-def show() -> dict:
+def show(*, recording: bool = False) -> dict:
     if not _folder().is_dir():
         raise _missing_sheet()
-    return _read_sheet()
+    return _read_sheet(recording)
 
 
 @_sheet_locked
-def _read_sheet() -> dict:
-    from . import plan_execution
+def _read_sheet(recording: bool) -> dict:
+    from . import case_plans, plan_execution, runner
 
     book, sheet, columns = _open()
     meta = book["信息"] if "信息" in book.sheetnames else None
     project = str(meta.cell(1, 2).value or "") if meta else ""
     rows = [row for _, row in _rows(sheet, columns)]
     metadata_file = _folder() / "design.json"
-    extra_rows = json.loads(metadata_file.read_bytes()).get("rows", {}) if metadata_file.is_file() else {}
+    metadata = json.loads(metadata_file.read_bytes()) if metadata_file.is_file() else None
+    extra_rows = metadata.get("rows", {}) if metadata is not None else {}
     for row in rows:
         extra = extra_rows.get(row["id"], {})
         row.update({key: extra[key] for key in FUNCTIONAL_FIELDS if key in extra})
     sources = _source_rows(rows)
+    online = metadata is not None and project and not (_folder() / "functional-design.json").is_file()
+    project_name = projects.meta(project)["name"] if online else None
     for row in rows:
         row.update(sources.get(row["id"], {}))
-        if metadata_file.is_file() and project and not plan_execution._file().is_file():
-            row.setdefault("business_path", [projects.meta(project)["name"], row.get("module") or "未分组"])
+        if project_name:
+            row.setdefault("business_path", [project_name, row.get("module") or "未分组"])
     sources = plan_execution.execution_sources(rows)
     for row in rows:
         if row["id"] in sources:
             row["execution_source"] = sources[row["id"]]
-    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None, "cases": rows, "summary": _summary(sheet, columns), **_delivery_status()}
+    draft = {"design_version": metadata["version"]} if recording and metadata is not None and "version" in metadata else {}
+    if recording and online and not plan_execution._file().is_file():
+        # Reserve the same identity for recordings of this exact draft, without creating a delivery on read.
+        revision = case_plans._revision(_folder(), metadata)
+        draft["draft_task_id"] = "plan-" + execution_inputs.content_hash({"file": runner.plan_reference(_file()), "revision": revision})[:32]
+    return {"skill": str(_folder()), "excel": str(_file()), "project": project or None, "cases": rows,
+            "summary": _summary(sheet, columns), **draft, **_delivery_status()}
 
 
 def _delivery_status() -> dict:

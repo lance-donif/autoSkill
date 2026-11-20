@@ -536,8 +536,8 @@ def start(project_id: str, login: bool = True, as_login: bool = False, url: str 
 
     binding = workflow.current_binding()
     try:
-        sheet = plan.show()
-        plan_at_start = {key: sheet[key] for key in ("task_id", "excel", "project", "cases") if key in sheet}
+        sheet = plan.show(recording=True)
+        plan_at_start = {key: sheet[key] for key in ("task_id", "draft_task_id", "design_version", "excel", "project", "cases") if key in sheet}
     except (ValueError, OSError):
         plan_at_start = None
     notes = []
@@ -974,10 +974,11 @@ def _plan_design(rec: dict, plan_case: str | None) -> str | None:
     """Attach the actual design row before compilation and its frozen task report are produced."""
     if not plan_case:
         return None
-    from .. import plan
+    from .. import plan, plan_execution
 
+    rec.pop("test_case_document", None)
     try:
-        sheet = rec["plan_at_start"] if "plan_at_start" in rec else plan.show()
+        sheet = rec["plan_at_start"] if "plan_at_start" in rec else plan.show(recording=True)
         if not sheet:
             raise ValueError("开始录制时还没有设计表，未将后来创建的表绑定到这次录制")
         if sheet.get("project") and sheet["project"] != rec["project_id"]:
@@ -992,7 +993,9 @@ def _plan_design(rec: dict, plan_case: str | None) -> str | None:
         elif row.get("module"):
             document["business_path"] = [projects.meta(rec["project_id"])["name"], row["module"]]
         document["source"] = {"kind": "case_plan", "file": sheet["excel"], "case_id": plan_case,
-                              "task_id": sheet.get("task_id"), "business_row_hash": plan._source_hash(row),
+                              "task_id": sheet.get("task_id") or sheet.get("draft_task_id"), "business_row_hash": plan._source_hash(row),
+                              "design_hash": plan_execution._design_hash(row),
+                              **({"design_version": sheet["design_version"]} if "design_version" in sheet else {}),
                               "hash_scope": "功能字段、业务层级和来源引用；不含 design_sha256 自身",
                               **({"upstream": row["source"]} if row.get("source") else {})}
         document["source"]["design_sha256"] = execution_inputs.content_hash(document)
@@ -1004,7 +1007,7 @@ def _plan_design(rec: dict, plan_case: str | None) -> str | None:
 
 def stop(title: str, module: str = "", category: str = "", plan_case: str | None = None) -> dict:
     """Retain recording candidates, then validate them through the existing execution queue."""
-    from .. import candidate_publication, conversation_capture, plan, task_reports
+    from .. import candidate_publication, conversation_capture, plan, runner, task_reports
     from . import compile as compiler
 
     rec = current()
@@ -1035,9 +1038,12 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
         candidate_publication.stage(rec["project_id"], summary["candidates"], summary["candidate_auth"],
                                     summary["candidate_source"], candidate_id=summary["candidate_id"])
         summary["test_report"] = task_reports.for_recording(rec["project_id"], rec, summary["candidates"])
-        if plan_case:
+        if plan_case and not design_note:
             summary["plan"] = plan.bind_execution(plan_case, rec["project_id"], summary["candidates"][0], None,
+                                                  folder=runner.plan_folder(rec["test_case_document"]["source"]["file"]).parent,
                                                   candidate_id=summary["candidate_id"])
+        elif design_note:
+            summary["plan"] = {"case": plan_case, "error": design_note}
     if rec.get("conversation_evidence", {}).get("error"):
         retained = _retain_recording(rec)
         summary["network_capture"] = {"available": rec["conversation_evidence"].get("available", False),
@@ -1053,5 +1059,5 @@ def stop(title: str, module: str = "", category: str = "", plan_case: str | None
     if rec.get("workflow_binding"):
         summary["next"] = "候选已保留，请将 candidates 提交到当前工作流的 materialize；本次未额外启动执行"
     else:
-        summary.update(candidate_publication.queue(summary["candidate_id"], plan_case=plan_case, headed=rec.get("headed", paths.headed())))
+        summary.update(candidate_publication.queue(summary["candidate_id"], headed=rec.get("headed", paths.headed())))
     return summary
