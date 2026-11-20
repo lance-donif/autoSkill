@@ -106,6 +106,11 @@ jobs:
       - name: Workflow, diagnosis, knowledge and host contracts
         if: always()
         run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts" --show-logs
+      - name: Verify design row counts through the CLI and host bridge
+        run: |
+          PYTHONPATH=tests python -m unittest -v \
+            test_context_cli_inputs.AgentReadTests.test_counted_plan_rejects_split_steps_before_creating_or_replacing_a_delivery \
+            test_context_cli_inputs.AgentReadTests.test_counted_plan_keeps_one_ordered_flow_and_accepts_independent_states_from_the_same_source
       - name: Check report evidence, load scheduling and JMeter statistics
         run: |
           PYTHONPATH=tests python -m unittest -v test_preview_observation_steps test_report_step_definitions test_api_http_lifecycle test_load_testing test_load_report_evidence test_load_modes
