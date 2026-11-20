@@ -1,6 +1,7 @@
 // Schedule definitions and due times belong to the current browser sample session.
 import { initCases } from './cases-api.js';
 import { runsApi } from './runs-api.js';
+import { workspaceConflict, workspaceIdentity } from './workspace.js';
 
 const MINUTE = 60000;
 const DAY = 86400000;
@@ -181,15 +182,18 @@ export function schedulesApi(ctx) {
       const projects = params.get('projects')?.split(',');
       const items = tasks.filter((row) => !projects || projects.includes(row.project_id)).map((row) => view(row, db));
       items.sort((a, b) => Number(b.enabled) - Number(a.enabled) || String(a.next_due || '').localeCompare(String(b.next_due || '')));
+      const identity = workspaceIdentity(ctx);
       if (params.get('paged') === '1') {
         const offset = Math.max(0, Number(params.get('offset')) || 0);
         const limit = Number(params.get('limit')) || 50;
-        return { items: params.get('all') === '1' ? items : items.slice(offset, offset + limit), total: items.length };
+        return { items: params.get('all') === '1' ? items : items.slice(offset, offset + limit), total: items.length, workspace_identity: identity };
       }
-      return items;
+      return items.map((item) => ({ ...item, workspace_identity: identity }));
     }
     if ((method === 'POST' && !id) || (method === 'PATCH' && task)) return save(ctx, tasks, task);
     if (method === 'DELETE' && task) {
+      const conflict = workspaceConflict(ctx);
+      if (conflict) return conflict;
       tasks.splice(tasks.indexOf(task), 1);
       return { deleted: id };
     }

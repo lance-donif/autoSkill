@@ -4,6 +4,7 @@ import { runPage, compactCaseCounts } from './runs-api.js';
 import { folderPath, functionalWorkbook } from './workbook.js';
 import { validateTasks } from './schedules-api.js';
 import { previewZip, readPreviewEntry } from './preview-zip.js';
+import { workspaceConflict, workspaceIdentity } from './workspace.js';
 
 export { previewZip };
 const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -483,7 +484,7 @@ async function materialsApi(ctx) {
   const materials = await materialIndex(ctx, pid);
   if (!materials) return notFound('项目不存在');
   const { index, files, definitions } = materials;
-  if (!section && method === 'GET') return index;
+  if (!section && method === 'GET') return { ...index, workspace_identity: workspaceIdentity(ctx) };
   if (section === 'files' && method === 'GET') return materialFile(ctx, index.items.find((item) => item.id === id), files);
   if (section === 'export' && method === 'POST') {
     const entries = [];
@@ -496,6 +497,10 @@ async function materialsApi(ctx) {
     return archiveLink(previewZip(entries), pid + '-materials.zip', '项目资料包含当前浏览器保存的知识文件和用例。');
   }
   if (section === 'knowledge') {
+    if (method === 'DELETE') {
+      const changed = workspaceConflict(ctx);
+      if (changed) return changed;
+    }
     const name = method === 'GET' ? params.get('file') : body.file;
     if (!name || name.split(/[\\/]/).some((part) => !part || part === '.' || part === '..' || ['__proto__', 'constructor', 'prototype'].includes(part))) throw new Error('请输入有效的知识文件名');
     const item = index.items.find((entry) => entry.category === 'knowledge' && entry.name === name);

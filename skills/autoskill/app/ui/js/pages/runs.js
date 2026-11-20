@@ -1,5 +1,5 @@
 // Run history and the run report: what ran, what each case checked, and why something failed.
-import { h, icon, replace, api, scopeQuery, go, href, route, attempt, toast,
+import { h, icon, replace, api, deleteSelection, scopeQuery, go, href, route, attempt, toast,
   fmtTime, fmtDuration, CATEGORY, ENGINE, TRIGGER, refresh, live } from '../core.js';
 import { empty, errorState, confirm } from '../ui.js';
 import { splitBar } from '../charts.js';
@@ -100,7 +100,7 @@ async function history(view, isCurrent) {
     go('runs', { ...Object.fromEntries(params), offset: Math.max(0, Math.floor((data.total - 1) / PAGE) * PAGE) || null });
     return;
   }
-  updateSelection(data.items, params, mode);
+  updateSelection(data, params, mode);
   const chips = appliedFilters(stateFilters);
   if (status && !isHistoryStatus(status)) {
     const label = '状态：' + stateLabel(status.toLowerCase());
@@ -192,8 +192,8 @@ function appliedFilters(stateFilters) {
   });
 }
 
-function updateSelection(items, params, mode) {
-  const currentScope = params.toString();
+function updateSelection({ items, workspace_identity }, params, mode) {
+  const currentScope = JSON.stringify([workspace_identity, params.toString()]);
   if (selectionScope !== currentScope || mode !== 'runs') selected.clear();
   selectionScope = currentScope;
   const available = new Map(items.filter((run) => !deleting(run)).map((run) => [run.id, run]));
@@ -201,7 +201,10 @@ function updateSelection(items, params, mode) {
     if (available.has(id)) selected.set(id, available.get(id));
     else selected.delete(id);
   }
-  if (mode === 'runs') for (const run of items) watchDeletion(run);
+  if (mode === 'runs') for (const run of items) {
+    run.workspace_identity = workspace_identity;
+    watchDeletion(run);
+  }
 }
 
 function runList(items, params) {
@@ -280,8 +283,8 @@ async function deleteRuns(runs, button, bulk) {
     text: `将删除${bulk ? `所选的 ${runs.length} 次` : '这次'}运行记录、结果和附件。`
       + (cancelling ? '正在执行的运行会先取消，待执行器退出并完成清理后删除。' : ''), action, danger: true }))) return;
   const result = await attempt(() => bulk
-    ? api('/runs/delete', { method: 'POST', body: { run_ids: runs.map((run) => run.id) } })
-    : api('/runs/' + encodeURIComponent(runs[0].id), { method: 'DELETE' }), button);
+    ? deleteSelection('/runs/delete', runs, { method: 'POST', body: { run_ids: runs.map((run) => run.id) } })
+    : deleteSelection('/runs/' + encodeURIComponent(runs[0].id), runs), button);
   if (!result) return;
   selected.clear();
   deletionErrors = result.errors || [];

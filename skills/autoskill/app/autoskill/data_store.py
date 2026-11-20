@@ -47,7 +47,7 @@ def selected_workspace(expected: str | None = None):
         # A copied workspace retains its data_id and can then be edited independently.
         identity = f"{data_id}:{runtime_identity.location_id(root)}" if data_id else None
         if expected is not None and expected != identity:
-            raise DataError("data_changed", "数据目录已变化，请刷新页面后重新选择要删除的用例")
+            raise DataError("data_changed", "数据目录已变化，请刷新页面后重新选择要删除的内容")
         yield identity
 
 

@@ -391,7 +391,9 @@ def _register_overview_routes(app: FastAPI) -> None:
     @app.get("/api/runs")
     def runs(request: Request, trigger: str | None = None, status: str | None = None, exclude_load: bool = False):
         limit, offset = page(request)
-        return metrics.runs(scope_of(request), trigger, status, limit, offset, exclude_load=exclude_load)
+        with data_store.selected_workspace() as identity:
+            return {**metrics.runs(scope_of(request), trigger, status, limit, offset, exclude_load=exclude_load),
+                    "workspace_identity": identity}
 
     @app.get("/api/cases")
     def cases(request: Request, kind: str | None = None, added: bool = False):
@@ -617,31 +619,31 @@ def _register_run_detail_routes(app: FastAPI) -> None:
 
 
 def _register_deletion_routes(app: FastAPI) -> None:
-    def delete_selected_cases(items: list, expected_workspace: str | None) -> dict:
+    def delete_selected(delete, items: list, expected_workspace: str | None) -> dict:
         with data_store.selected_workspace(expected_workspace):
-            return deletion.delete_cases(items)
+            return delete(items)
 
     @app.delete("/api/projects/{project_id}/cases/{case_id}")
     def delete_case(project_id: str, case_id: str, expected_workspace: str | None = None):
-        return delete_selected_cases([{"project_id": project_id, "case_id": case_id}], expected_workspace)
+        return delete_selected(deletion.delete_cases, [{"project_id": project_id, "case_id": case_id}], expected_workspace)
 
     @app.post("/api/cases/delete")
     async def delete_cases(request: Request, expected_workspace: str | None = None):
         body = await request.json()
         if not isinstance(body, dict) or not isinstance(body.get("items"), list):
             raise ValueError("items 必须是包含 project_id、case_id 的数组")
-        return await asyncio.to_thread(delete_selected_cases, body["items"], expected_workspace)
+        return await asyncio.to_thread(delete_selected, deletion.delete_cases, body["items"], expected_workspace)
 
     @app.delete("/api/runs/{run_id}")
-    def delete_run(run_id: str):
-        return deletion.delete_runs([run_id])
+    def delete_run(run_id: str, expected_workspace: str | None = None):
+        return delete_selected(deletion.delete_runs, [run_id], expected_workspace)
 
     @app.post("/api/runs/delete")
-    async def delete_runs(request: Request):
+    async def delete_runs(request: Request, expected_workspace: str | None = None):
         body = await request.json()
         if not isinstance(body, dict) or not isinstance(body.get("run_ids"), list):
             raise ValueError("run_ids 必须是运行标识数组")
-        return await asyncio.to_thread(deletion.delete_runs, body["run_ids"])
+        return await asyncio.to_thread(delete_selected, deletion.delete_runs, body["run_ids"], expected_workspace)
 
 
 def _register_task_report_routes(app: FastAPI) -> None:
@@ -673,10 +675,12 @@ def _register_schedule_routes(app: FastAPI) -> None:
     """Register schedule routes in their original order."""
     @app.get("/api/tasks")
     def tasks(request: Request):
-        if request.query_params.get("paged") == "1":
-            return scheduler.page(scope_of(request).projects, offset=int(request.query_params.get("offset", 0)),
-                                  limit=int(request.query_params.get("limit", 50)), all_items=request.query_params.get("all") == "1")
-        return scheduler.list_all(scope_of(request).projects)
+        with data_store.selected_workspace() as identity:
+            if request.query_params.get("paged") == "1":
+                tasks = scheduler.page(scope_of(request).projects, offset=int(request.query_params.get("offset", 0)),
+                                       limit=int(request.query_params.get("limit", 50)), all_items=request.query_params.get("all") == "1")
+                return {**tasks, "workspace_identity": identity}
+            return [{**task, "workspace_identity": identity} for task in scheduler.list_all(scope_of(request).projects)]
 
     @app.get("/api/tasks/{task_id}")
     def task(task_id: str):
@@ -698,8 +702,9 @@ def _register_schedule_routes(app: FastAPI) -> None:
         return {**scheduler.update(task_id, body), "queue_dispatcher": jobs.ensure_worker()}
 
     @app.delete("/api/tasks/{task_id}")
-    def delete_task(task_id: str):
-        scheduler.delete(task_id)
+    def delete_task(task_id: str, expected_workspace: str | None = None):
+        with data_store.selected_workspace(expected_workspace):
+            scheduler.delete(task_id)
         return {"deleted": task_id}
 
     @app.post("/api/tasks/{task_id}/run")

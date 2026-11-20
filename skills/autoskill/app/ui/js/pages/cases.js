@@ -1,6 +1,6 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
 import { ensurePreferences } from '../preferences.js';
-import { h, icon, replace, api, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
+import { h, icon, replace, api, deleteSelection, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
 import { runtimeFields, credentialControls } from '../project-settings.js';
 import { state, caseProjects, refreshShell } from '../shell.js';
@@ -299,19 +299,14 @@ function caseDeleteButton(items, { bulk = false, small = false } = {}) {
 
 async function deleteCases(items, button, bulk) {
   const first = items[0];
-  if (!first.workspace_identity || items.some((item) => item.workspace_identity !== first.workspace_identity)) {
-    toast('无法确认所选用例的数据目录，请刷新页面后重新选择', { bad: true });
-    return;
-  }
   const agreed = await confirm({ title: bulk ? `删除所选的 ${items.length} 条用例？` : '删除这条用例？',
     text: bulk ? `将删除所选的 ${items.length} 条用例定义。已有执行记录会保留。`
       : `将删除「${first.title || first.case_id}」（${first.case_id}）的用例定义。已有执行记录会保留。`,
     action: bulk ? '删除所选' : '删除用例', danger: true });
   if (!agreed) return;
-  const workspace = '?expected_workspace=' + encodeURIComponent(first.workspace_identity);
   const result = await attempt(() => bulk
-    ? api('/cases/delete' + workspace, { method: 'POST', body: { items: items.map(({ project_id, case_id }) => ({ project_id, case_id })) } })
-    : api(`/projects/${encodeURIComponent(first.project_id)}/cases/${encodeURIComponent(first.case_id)}` + workspace, { method: 'DELETE' }), button);
+    ? deleteSelection('/cases/delete', items, { method: 'POST', body: { items: items.map(({ project_id, case_id }) => ({ project_id, case_id })) } })
+    : deleteSelection(`/projects/${encodeURIComponent(first.project_id)}/cases/${encodeURIComponent(first.case_id)}`, items), button);
   if (!result) return;
   selected.clear();
   deletionErrors = result.errors || [];

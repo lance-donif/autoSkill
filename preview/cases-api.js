@@ -1,5 +1,6 @@
 // Project and case operations for the browser-local dashboard demo.
 import { resultOutcome, verdictStatus } from './verdicts.js';
+import { workspaceConflict, workspaceIdentity } from './workspace.js';
 
 const copy = structuredClone;
 const stamp = () => Array.from(crypto.getRandomValues(new Uint32Array(4)), (part) => part.toString(16).padStart(8, '0')).join('');
@@ -76,8 +77,7 @@ function changeFolder(tree, method, id, body) {
   return tree;
 }
 
-function removeCases(library, targets, expectedWorkspace, workspace) {
-  if (expectedWorkspace !== null && expectedWorkspace !== workspace) return problem('数据目录已变化，请刷新页面后重新选择要删除的用例', 409);
+function removeCases(library, targets) {
   const deleted = [];
   const errors = [];
   for (const { project_id, case_id } of targets) {
@@ -179,14 +179,14 @@ function saveCase(library, projectId, item, body) {
   return { changed: true, revision: draft.revision, content_revision: source.content_revision };
 }
 
-export function casesApi({ path, method = 'GET', params = new URLSearchParams(), body, db, fixtures }) {
+export function casesApi(context) {
+  const { path, method = 'GET', params = new URLSearchParams(), body, db, fixtures } = context;
   const [, resource, projectId, section, id, sub] = path.split('/').map(decodeURIComponent);
   if (!['cases', 'projects', 'case-definitions', 'secrets'].includes(resource)) return;
   const library = initCases(db, fixtures);
-  const workspace = db.settings?.data_id ?? fixtures['/settings']?.data_id;
   if (resource === 'secrets') return updateSecrets(library, method, projectId, body);
   if (resource === 'cases') {
-    if (method === 'POST' && projectId === 'delete') return removeCases(library, body.items, params.get('expected_workspace'), workspace);
+    if (method === 'POST' && projectId === 'delete') return workspaceConflict(context) ?? removeCases(library, body.items);
     if (method !== 'GET' || projectId) return;
     const selected = (params.get('projects') || '').split(',').filter(Boolean);
     const start = params.get('start');
@@ -195,7 +195,7 @@ export function casesApi({ path, method = 'GET', params = new URLSearchParams(),
       && (!params.get('kind') || item.kind === params.get('kind')) && (!end || Date.parse(item.created_at) < Date.parse(end))
       && (params.get('added') !== 'true' || !start || Date.parse(item.created_at) >= Date.parse(start)))
       .map((item) => ({ ...item, ...caseStatus(db, item, end) }));
-    return { total: items.length, items, workspace_identity: workspace };
+    return { total: items.length, items, workspace_identity: workspaceIdentity(context) };
   }
   if (!projectId && method === 'GET' && resource === 'projects') return library.projects.map((project) => projectView(library, project));
   if (sub || !projectId || section === 'login' || id === 'export' || ['report', 'postman'].includes(section)) return;
@@ -232,6 +232,6 @@ export function casesApi({ path, method = 'GET', params = new URLSearchParams(),
     if (!item) return problem('用例不存在', 404);
     if (method === 'GET') return { ...library.details[keyOf(projectId, id)], ...caseStatus(db, item) };
     if (method === 'PUT') return saveCase(library, projectId, item, body);
-    if (method === 'DELETE') return removeCases(library, [{ project_id: projectId, case_id: id }], params.get('expected_workspace'), workspace);
+    if (method === 'DELETE') return workspaceConflict(context) ?? removeCases(library, [{ project_id: projectId, case_id: id }]);
   }
 }

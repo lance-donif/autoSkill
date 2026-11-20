@@ -103,7 +103,7 @@ class DashboardDeletionTests(unittest.TestCase):
             elif status:
                 items = [run for run in items if run["status"] == status]
             offset, limit = int(query.get("offset", [0])[0]), int(query.get("limit", [50])[0])
-            return 200, {"items": items[offset:offset + limit], "total": len(items)}
+            return 200, {"items": items[offset:offset + limit], "total": len(items), "workspace_identity": "fixture-workspace"}
         run_id = unquote(path.removeprefix("/api/runs/"))
         if request.method == "DELETE":
             return 200, self.delete_runs([run_id])

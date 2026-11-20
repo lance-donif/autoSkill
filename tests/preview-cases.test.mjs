@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { casesApi } from '../preview/cases-api.js';
+import { filesApi } from '../preview/files-api.js';
 import { runsApi } from '../preview/runs-api.js';
+import { schedulesApi } from '../preview/schedules-api.js';
 import { currentData, getData, restoreData, startSession } from '../preview/store.js';
 
 const fixtures = JSON.parse(readFileSync(new URL('../preview/fixtures.json', import.meta.url), 'utf8'));
@@ -93,6 +95,35 @@ test('project settings and credentials update within the visit', () => {
   assert.deepEqual(request('/secrets').items.find((item) => item.name === 'DEMO_KEY'), { name: 'DEMO_KEY', value: 'sample-value' });
   request('/secrets/DEMO_KEY', 'DELETE');
   assert.equal(request('/secrets').items.some((item) => item.name === 'DEMO_KEY'), false);
+});
+
+test('task, history and knowledge deletions check the workspace of the displayed data', async () => {
+  startSession(fixtures);
+  const db = currentData();
+  const request = (api, path, method = 'GET', body = undefined, identity = null) =>
+    api({ db, fixtures, path, method, body, params: new URLSearchParams(identity == null ? {} : { expected_workspace: identity }) });
+  const [task] = request(schedulesApi, '/tasks');
+  const history = request(runsApi, '/runs');
+  const materials = '/project-materials/runoob';
+  const index = await request(filesApi, materials);
+  const item = index.items.find((row) => row.category === 'knowledge');
+  const knowledge = { file: item.name, expected_hash: item.sha256 };
+  const { workspace_identity } = history;
+  assert.equal(task.workspace_identity, workspace_identity);
+  assert.equal(index.workspace_identity, workspace_identity);
+  const operations = [
+    [schedulesApi, '/tasks/' + task.id, 'DELETE', undefined],
+    [runsApi, '/runs/' + history.items[0].id, 'DELETE', undefined],
+    [runsApi, '/runs/delete', 'POST', { run_ids: [history.items[1].id] }],
+    [filesApi, materials + '/knowledge', 'DELETE', knowledge],
+  ];
+  for (const args of operations) {
+    const denied = await request(...args, 'previous-workspace');
+    assert.equal(denied.status, 409);
+    assert.equal((await denied.json()).code, 'data_changed');
+    assert.ok((await request(...args, workspace_identity)).deleted);
+  }
+  assert.ok(!(await request(filesApi, materials)).items.some((row) => row.name === item.name));
 });
 
 test('restoring legacy results uses the same verdicts for case revisions, history filters, dashboard and run details', () => {

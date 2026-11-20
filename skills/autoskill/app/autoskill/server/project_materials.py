@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 
-from .. import context_service, paths, project_materials, projects, share
+from .. import context_service, data_store, paths, project_materials, projects, share
 
 
 def _selected(request: Request) -> list[dict]:
@@ -41,7 +41,8 @@ def register(app: FastAPI) -> None:
 
     @app.get("/api/project-materials/{project_id}")
     def materials(project_id: str):
-        return project_materials.inventory(project_id)
+        with data_store.selected_workspace() as identity:
+            return {**project_materials.inventory(project_id), "workspace_identity": identity}
 
     @app.get("/api/project-materials/{project_id}/files/{file_id}")
     def download(project_id: str, file_id: str):
@@ -65,8 +66,9 @@ def register(app: FastAPI) -> None:
         return project_materials.write_knowledge(project_id, body.get("file"), body.get("content"), body.get("expected_hash"))
 
     @app.delete("/api/project-materials/{project_id}/knowledge")
-    def remove(project_id: str, body: dict):
-        return project_materials.write_knowledge(project_id, body.get("file"), "", body.get("expected_hash"), delete=True)
+    def remove(project_id: str, body: dict, expected_workspace: str | None = None):
+        with data_store.selected_workspace(expected_workspace):
+            return project_materials.write_knowledge(project_id, body.get("file"), "", body.get("expected_hash"), delete=True)
 
     @app.post("/api/shares/export")
     def export_share(body: dict):

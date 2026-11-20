@@ -1,7 +1,7 @@
 // Schedules: run chosen cases at fixed times. Create, edit, pause, delete, run now.
 import { projectIndex } from '../shell.js';
 import { ensurePreferences } from '../preferences.js';
-import { h, icon, replace, api, scope, scopeQuery, go, href, route, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
+import { h, icon, replace, api, deleteSelection, scope, scopeQuery, go, href, route, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
 import { empty, errorState, drawer, closeOverlay, confirm, preferredHeaded } from '../ui.js';
 import { targetEditor } from '../schedule-target.js';
 import { primaryState, stateResults } from '../status-view.js';
@@ -51,7 +51,7 @@ export async function render(view) {
         remove.addEventListener('click', async (event) => {
           event.stopPropagation();
           if (!(await confirm({ title: `删除「${task.title}」？`, text: '任务会被删除，已经产生的执行记录会保留。', action: '删除', danger: true }))) return;
-          if (await attempt(() => api('/tasks/' + task.id, { method: 'DELETE' }))) { toast('已删除'); refresh(); }
+          if (await attempt(() => deleteSelection('/tasks/' + task.id, [task]))) { toast('已删除'); refresh(); }
         });
         return h('tr', { class: 'click', onClick: () => editor(task, refresh, projects) },
           h('td', { style: 'width:56px' }, toggle),

@@ -8,6 +8,7 @@ import time
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import openpyxl
 from playwright.sync_api import expect
@@ -170,7 +171,7 @@ class RemainingDashboardActionsTests(DashboardWorkspace):
         confirm.get_by_role("button", name="取消", exact=True).click()
         self.assertEqual(selected.read_bytes(), original)
         row.get_by_role("button", name="删除", exact=True).click()
-        with self.page.expect_response(lambda response: response.request.method == "DELETE" and response.url.endswith("/knowledge")) as deleted:
+        with self.page.expect_response(lambda response: response.request.method == "DELETE" and urlsplit(response.url).path.endswith("/knowledge")) as deleted:
             self.page.get_by_role("alertdialog", name="删除这份知识？", exact=True).get_by_role("button", name="删除", exact=True).click()
         self.assertEqual(deleted.value.status, 200, deleted.value.text())
         expect(row).to_have_count(0)

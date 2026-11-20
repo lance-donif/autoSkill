@@ -22,7 +22,8 @@ from playwright.sync_api import expect, sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
-from autoskill import builder, paths, projects
+from autoskill import builder, data_store, db, paths, project_materials, projects, runner
+from autoskill.server import scheduler
 
 SERVER = """
 import json, socket, sys
@@ -289,6 +290,73 @@ class DataDashboardTests(unittest.TestCase):
         with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(first.root)}):
             self.assertEqual({case["id"] for case in projects.cases("shared")}, set(targets))
         self.assertEqual(self.page_errors, [])
+
+    def test_task_knowledge_and_history_confirmations_expire_on_an_independent_copy(self):
+        original = self.server("original")
+        target = self.folder / "copy"
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(original.root), "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_SESSION": "",
+                                     "AUTOSKILL_CASE_SKILL": str(original.root / ".local/case-plans/default/autoskill-cases")}):
+            pid = projects.create("Original project", original.origin)["id"]
+            projects.save_cases(pid, [builder.api_case("TC-1", "Dashboard status", "GET", "/api/status", {"status": 200})])
+            runs = [runner.execute(runner.create(pid, ["TC-1"])["id"])["id"] for _ in range(4)]
+            task = scheduler.create({"title": "Original task", "project_id": pid, "case_ids": ["TC-1"],
+                                     "rule": {"kind": "interval", "minutes": 720}})
+            scheduler.set_enabled(task["id"], False)
+            project_materials.write_knowledge(pid, "Checklist.md", "Shared instructions")
+            project_materials.write_knowledge(pid, "Keep.md", "Unrelated file")
+
+        def open_delete(page, action, title="Original task"):
+            if action == "task":
+                page.get_by_role("button", name=f"删除「{title}」", exact=True).click()
+            elif action == "knowledge":
+                page.get_by_role("row").filter(has_text="Checklist.md").get_by_role("button", name="删除", exact=True).click()
+            elif action == "single":
+                page.get_by_role("button", name="删除运行 " + runs[0], exact=True).click()
+            else:
+                for run_id in runs[1:3]:
+                    page.get_by_role("checkbox", name="选择运行 " + run_id, exact=True).check()
+                page.get_by_role("button", name="删除所选", exact=True).click()
+            expect(page.get_by_role("alertdialog")).to_be_visible()
+
+        def confirm(page, action):
+            method = "POST" if action == "batch" else "DELETE"
+            label = "删除" if action in ("task", "knowledge") else "删除运行"
+            with page.expect_response(lambda r: r.request.method == method and "expected_workspace=" in r.url) as receipt:
+                page.get_by_role("alertdialog").get_by_role("button", name=label, exact=True).click()
+            return receipt.value
+
+        routes = {"task": "schedules", "knowledge": "project-materials?project=" + pid, "single": "runs?range=all", "batch": "runs?range=all"}
+        tabs = {action: self.context.new_page() for action in routes}
+        for action, page in tabs.items():
+            page.goto(original.origin + "/#/" + routes[action])
+            open_delete(page, action)
+        original_id = original.api("/settings")["data_id"]
+        original.close()
+        self.servers.remove(original)
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(original.root)}):
+            self.assertEqual(data_store.import_data(original.root, target)["data_id"], original_id)
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(target)}):
+            scheduler.update(task["id"], {"title": "Renamed in copy"})
+        copy = self.server("copy", original.port)
+        for action, page in tabs.items():
+            denied = confirm(page, action)
+            self.assertEqual((denied.status, denied.json()["code"]), (409, "data_changed"))
+            expect(page.locator("#toasts")).to_contain_text("数据目录已变化，请刷新页面")
+        for action, page in tabs.items():
+            page.reload()
+            open_delete(page, action, "Renamed in copy")
+            self.assertEqual(confirm(page, action).status, 200)
+        for root, expected_runs, has_selected in [(original.root, runs, True), (copy.root, runs[-1:], False)]:
+            with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(root)}):
+                self.assertEqual({row["id"] for row in db.rows("SELECT id FROM runs")}, set(expected_runs))
+                self.assertEqual({row["run_id"] for row in db.rows("SELECT run_id FROM results")}, set(expected_runs))
+                self.assertEqual(bool(db.one("SELECT id FROM tasks WHERE id=?", (task["id"],))), has_selected)
+                knowledge = projects.path(pid) / "knowledge"
+                self.assertEqual((knowledge / "Checklist.md").is_file(), has_selected)
+                self.assertEqual((knowledge / "Keep.md").read_text(), "Unrelated file")
+        endpoint = f"/project-materials/{pid}/knowledge"
+        legacy = copy.api(endpoint, "PUT", {"file": "Legacy.md", "content": "Older API client"})
+        self.assertTrue(copy.api(endpoint, "DELETE", {"file": "Legacy.md", "expected_hash": legacy["sha256"]})["deleted"])
 
     def test_save_and_import_errors_are_visible_and_keep_the_previous_state(self):
         server = self.server()
