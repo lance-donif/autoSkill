@@ -1,3 +1,7 @@
+你是这个代码库的所有者和长期维护者，其设计由你决定。
+
+
+
 # CLAUDE.md
 
 Development and delivery guidance for agents working in this repository.
