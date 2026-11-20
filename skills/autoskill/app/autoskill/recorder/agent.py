@@ -10,7 +10,7 @@ import uuid
 from contextlib import suppress
 from pathlib import Path
 
-from .. import paths, runtime_identity
+from .. import browser_temp, paths, runtime_identity
 from ..core import store
 from ..locking import named_lock
 
@@ -132,11 +132,14 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
         raise AgentError("没有找到随包的 agent-browser；请使用完整离线包（不会联网下载）")
     command = [binary, "--session", session, *(launch or []), *args, "--json"]
     environment = paths.child_env({"AGENT_BROWSER_SOCKET_DIR": str(_control_directory(session))})
+    temp_key = str(paths.browser_control() / session)
     launch_token = _prepare_controller(session)
     folder = _scratch(session)
     token = uuid.uuid4().hex
     out_path, err_path, in_path = folder / f"{token}.out", folder / f"{token}.err", folder / f"{token}.in"
     try:
+        if launch:
+            browser_temp.prepare(environment, temp_key)
         if stdin_text is not None:
             in_path.write_text(stdin_text, encoding="utf-8")
         with out_path.open("wb") as out, err_path.open("wb") as err:
@@ -159,6 +162,8 @@ def call(session: str, args: list[str], *, launch: list[str] | None = None, stdi
                 _discard(file)
             with suppress(OSError):
                 folder.rmdir()
+            if (launch or args == ["close"]) and _controller_pid(session) is None:
+                browser_temp.release(browser_temp.location(temp_key))
     try:
         reply = json.loads(raw) if raw else None
     except ValueError:

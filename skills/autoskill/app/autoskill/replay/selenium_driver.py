@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-from .. import paths
+from .. import browser_temp, paths
 from . import ir
 from .tabs import selenium_tabs
 
@@ -60,8 +60,18 @@ class SeleniumDriver:
             options.add_argument("--headless=new")
         if config.get("ignore_https_errors"):
             options.add_argument("--ignore-certificate-errors")
-        self.wd = webdriver.Chrome(options=options, service=Service(executable_path=chromedriver, env=paths.child_env()))
-        self.wd.set_page_load_timeout(float(config.get("page_load_seconds", 90)))
+        environment = paths.child_env()
+        self._temp_folder = browser_temp.prepare(environment)
+        try:
+            self.wd = webdriver.Chrome(options=options, service=Service(executable_path=chromedriver, env=environment))
+            self.wd.set_page_load_timeout(float(config.get("page_load_seconds", 90)))
+        except Exception:
+            try:
+                if hasattr(self, "wd"):
+                    self.wd.quit()
+            finally:
+                browser_temp.release(self._temp_folder)
+            raise
         self._seeds: dict[str, str] = {}
 
     # --- lifecycle ---------------------------------------------------
@@ -103,7 +113,10 @@ class SeleniumDriver:
         return {"cookies": cookies, "origins": [{"origin": ir.origin_of(self.wd.current_url), "localStorage": items}]}
 
     def close(self) -> None:
-        self.wd.quit()
+        try:
+            self.wd.quit()
+        finally:
+            browser_temp.release(self._temp_folder)
 
     # --- page --------------------------------------------------------
     def tab_action(self, step: dict, timeout: float) -> None:

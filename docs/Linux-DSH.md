@@ -35,6 +35,8 @@ autoskill/autoskill dashboard
 
 `setup-linux.sh` 修复解压丢失的执行权限、识别 CPU、检查浏览器与驱动主版本，并保存本机浏览器配置。`verify` 检查包内运行时 SHA-256；`doctor --launch` 在本机示例页实际启动 Playwright、Selenium，同时检查 agent-browser 能否运行。这些命令的真实结果才是目标电脑的验收结果。仪表盘：<http://127.0.0.1:8787>。如果文件系统以 `noexec` 挂载，请把目录放到允许执行程序的位置。
 
+若旧包的 Chrome 报 `Socket path too long`，给启动仪表盘或命令的进程设置较短的可写 `TMPDIR` 后重试。新版在 Linux 套接字地址超长时，为浏览器子进程创建仅当前用户可访问的短路径。临时文件仍存放在选定的目录，录制关闭或回放结束后清理短路径。
+
 ## UOS / 老系统的浏览器
 
 如果包内 Chrome 报 `GLIBC_* not found` 或缺少 `.so`，安装脚本尝试 PATH 中的系统 Chromium 与 chromedriver。也可以显式指定：

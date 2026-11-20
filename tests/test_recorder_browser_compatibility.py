@@ -87,6 +87,40 @@ class ReuseTarget(RecordingTarget):
 
 @unittest.skipUnless(paths.agent_browser() and paths.chrome(), "requires the actual recording browser")
 class RecorderBrowserCompatibilityTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "linux", "Linux Chromium temporary socket locations")
+    def test_long_tmpdir_keeps_real_recording_and_both_replay_engines_operational(self):
+        if not paths.chromedriver():
+            self.skipTest("requires matching ChromeDriver")
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            temporary = root / ("测试 临时" * 12)
+            temporary.mkdir()
+            self.enterContext(patch.dict(os.environ, {"TMPDIR": str(temporary), "AUTOSKILL_WORKSPACE": str(root / "data"),
+                                                      "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"}))
+            self.enterContext(task_context.use_session("long-temp"))
+            site = ThreadingHTTPServer(("127.0.0.1", 0), ReuseTarget)
+            self.addCleanup(site.server_close)
+            site.can_prepare, site.preparation_clicks = True, 0
+            thread = threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+            thread.start()
+            self.addCleanup(site.shutdown)
+            project = projects.create("临时目录中的订单", f"http://127.0.0.1:{site.server_port}")["id"]
+            session.start(project, login=False)
+            try:
+                session.browser(["click", "#prepare"])
+                self.assertTrue(session.check("text", "#result", "prepared")["passed"])
+            finally:
+                session.cancel()
+            case = builder.ui_case("TC-UI-001", "提交订单", {"start_url": "/", "actions": [{"action": "click", "selector": "#prepare"}],
+                                   "assertions": [{"assertion": "text", "selector": "#result", "expected": "prepared"}]})
+            projects.save_cases(project, [case])
+            for engine in ("playwright", "selenium"):
+                with self.subTest(engine=engine):
+                    result = runner.execute(runner.create(project, [case["id"]], engine=engine)["id"])
+                    self.assertEqual(result["status"], "Pass", result)
+            self.assertEqual(site.preparation_clicks, 3)
+            self.assertEqual(os.environ["TMPDIR"], str(temporary))
+
     def test_saved_setup_stays_on_the_page_and_preserves_the_selected_source_revision(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
                 "AUTOSKILL_WORKSPACE": folder, "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"}), task_context.use_session("reuse"):
