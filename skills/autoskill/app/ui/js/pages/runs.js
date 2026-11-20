@@ -508,9 +508,14 @@ function resultBody(run, row, offline = false) {
   const exchanges = httpExchanges(d, row.duration_ms);
   parts.push(exchanges.map(({ label, line }) => line.length > 0 && h('div', { class: 'req-line' },
     label && h('b', {}, label), line)));
-  appendAssertionResults(parts, d);
-  parts.push(stepTimelines(d), httpDetails(exchanges, row));
-  appendScreenshots(parts, d, run, row);
+  const sections = uiAttemptSections(run, row);
+  if (sections) {
+    parts.push(sections, httpDetails(exchanges, row));
+  } else {
+    appendAssertionResults(parts, d);
+    parts.push(stepTimelines(d), httpDetails(exchanges, row));
+    appendScreenshots(parts, d, run, row);
+  }
   if (!offline) parts.push(caseRetryControl(run, row));
   return h('div', { class: 'result-body' }, parts);
 }
@@ -527,6 +532,39 @@ function attemptHistory(detail) {
   if (!attempts.length) return null;
   return h('ol', { class: 'steps timeline', 'aria-label': '尝试历史' }, attempts.map((entry, index) =>
     h('li', {}, h('span', { class: 'step-text' }, `第 ${index + 1} 次`, entry.outcome && statePill(entry.outcome)))));
+}
+
+function uiAttemptSections(run, row) {
+  const detail = row.detail;
+  if (row.kind !== 'ui' || !Array.isArray(detail.attempts)) return null;
+  const attempts = detail.attempts;
+  const captures = attempts.filter((entry) => entry.kind !== 'postcondition');
+  if (captures.length < 2) return null;
+  const sections = [];
+  const attributed = new Set();
+  function section(label, evidence, number) {
+    const contents = [];
+    appendAssertionResults(contents, evidence);
+    contents.push(stepTimelines(evidence));
+    appendScreenshots(contents, evidence, run, row, number ? label : '');
+    return h('section', { class: 'stack', 'aria-label': label, dataset: number ? { attempt: number } : {} },
+      h('b', {}, label), contents);
+  }
+  attempts.forEach((entry, index) => {
+    if (!entry.ui || entry.kind === 'postcondition') return;
+    for (const name of entry.ui.screenshots || []) attributed.add(name);
+    sections.push(section(`第 ${index + 1} 次`, entry.ui, index + 1));
+  });
+  // Older or incomplete receipts may only have case-level facts. Their attempt is unknown.
+  const summary = { screenshots: (detail.screenshots || []).filter((name) => !attributed.has(name)) };
+  if (captures.some((entry) => entry.kind !== 'login_probe' && !entry.ui?.steps)) {
+    Object.assign(summary, { steps: detail.steps, pending_steps: detail.pending_steps, definition_steps: detail.definition_steps });
+  }
+  if (captures.some((entry) => !entry.ui?.assertions)) summary.assertions = detail.assertions;
+  if (['steps', 'pending_steps', 'definition_steps', 'assertions', 'screenshots'].some((key) => summary[key]?.length)) {
+    sections.push(section('用例结果', summary));
+  }
+  return sections;
 }
 
 const stepStates = { done: '已完成', pass: '已完成', failed: '失败', fail: '失败', running: '执行中', not_run: '未执行' };
@@ -631,13 +669,15 @@ export function setRunScreenshotResolver(resolve) {
   screenshotUrl = resolve;
 }
 
-function appendScreenshots(parts, d, run, row) {
+function appendScreenshots(parts, d, run, row, attemptLabel = '') {
   for (const name of d.screenshots || []) {
     const url = screenshotUrl(run, row, name);
     if (!url) continue;
+    const check = attemptLabel && d.assertions?.find((entry) => entry.passed === false && entry.screenshot === name);
+    const caption = (attemptLabel ? attemptLabel + ' · ' : '') + (check ? `断言「${check.name}」失败时的截图` : '结束时的页面截图');
     parts.push(h('a', { class: 'shot', href: url, target: '_blank', rel: 'noreferrer', title: '在新标签页查看原图' },
-      h('img', { src: url, alt: `${row.case_title} 结束时的页面截图`, loading: 'lazy' }),
-      h('span', { class: 'sub' }, icon('image'), '结束时的页面截图（密码输入框已遮盖）')));
+      h('img', { src: url, alt: `${row.case_title} ${caption}`, loading: 'lazy' }),
+      h('span', { class: 'sub' }, icon('image'), caption + '（密码输入框已遮盖）')));
   }
 }
 

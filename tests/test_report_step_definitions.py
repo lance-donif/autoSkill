@@ -20,7 +20,10 @@ class ReportStepDefinitionTests(unittest.TestCase):
         missing = {**failed, "detail": {}}
         mismatched = {**failed, "case_content_hash": "other-version", "detail": {}}
         unverified = {**copy.deepcopy(failed), "state": {"evidence": "invalid"}}
-        rows = [failed, missing, mismatched, unverified]
+        retried = {**failed, "detail": {"steps": [{"status": "done"}], "attempts": [
+            {"ui": {"steps": copy.deepcopy(failed["detail"]["steps"])}}, {"ui": {"steps": [{"status": "done"}]}},
+            {"ui": {"assertions": [{"name": "Login probe", "passed": False}]}}]}}
+        rows = [failed, missing, mismatched, unverified, retried]
         with patch.object(execution_inputs, "load", return_value={"cases": {"example": case}}) as load:
             _supplement_ui_steps({"input_manifest": "example"}, rows)
         load.assert_called_once()
@@ -31,3 +34,7 @@ class ReportStepDefinitionTests(unittest.TestCase):
         self.assertEqual(missing["detail"], {"definition_steps": [{"text": "打开 /start"}, *pending]})
         self.assertFalse(mismatched["detail"])
         self.assertNotIn("pending_steps", unverified["detail"])
+        first, last, probe = [entry["ui"] for entry in retried["detail"]["attempts"]]
+        self.assertEqual(first["pending_steps"], pending)
+        self.assertNotIn("pending_steps", last)
+        self.assertNotIn("definition_steps", probe)

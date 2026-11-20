@@ -84,39 +84,56 @@ def result_view(row: dict, *, connection=None) -> dict:
     state = task_state.result(row, detail, connection=connection)
     attempts = detail.get("attempts")
     if isinstance(attempts, list):
+        group_ui = row.get("kind") == "ui" and sum(isinstance(item, dict) and item.get("kind") != "postcondition" for item in attempts) > 1
         for attempt in attempts:
-            if isinstance(attempt, dict) and attempt.get("path"):
-                record = task_state.attempt_record(attempt, result=row)
-                attempt["outcome"] = task_state.case_outcome(record, record, evidence_valid=state["evidence"] == "valid") if record is not None else "fail"
-                for field in ("request", "response", "duration_ms"):
-                    attempt.pop(field, None)
-                # A postcondition reuses the source result without sending another HTTP request.
-                if record and attempt.get("kind") != "postcondition":
-                    for field in ("request", "response"):
-                        if isinstance(record.get(field), dict):
-                            attempt[field] = record[field]
-                    if ("request" in attempt or "response" in attempt) and record.get("duration_ms") is not None:
-                        attempt["duration_ms"] = record["duration_ms"]
-                with contextlib.suppress(ValueError):
-                    attempt["path"] = str(data_refs.resolve(attempt["path"]))
+            if not isinstance(attempt, dict):
+                continue
+            attempt.pop("ui", None)
+            if not attempt.get("path"):
+                continue
+            record = task_state.attempt_record(attempt, result=row)
+            attempt["outcome"] = task_state.case_outcome(record, record, evidence_valid=state["evidence"] == "valid") if record is not None else "fail"
+            for field in ("request", "response", "duration_ms"):
+                attempt.pop(field, None)
+            # A derived postcondition does not execute the source's HTTP exchange or UI actions again.
+            if record and attempt.get("kind") != "postcondition":
+                if group_ui:
+                    evidence = {key: record[key] for key in ("steps", "assertions", "screenshots", "setup_cases") if isinstance(record.get(key), list)}
+                    if any(evidence.values()):
+                        attempt["ui"] = evidence
+                for field in ("request", "response"):
+                    if isinstance(record.get(field), dict):
+                        attempt[field] = record[field]
+                if ("request" in attempt or "response" in attempt) and record.get("duration_ms") is not None:
+                    attempt["duration_ms"] = record["duration_ms"]
+            with contextlib.suppress(ValueError):
+                attempt["path"] = str(data_refs.resolve(attempt["path"]))
     return {**row, "detail": detail, "state": state}
 
 
 def _supplement_ui_steps(run: dict, results: list[dict]) -> None:
     """Project the run's frozen definition onto receipts which stopped before the final checks."""
-    candidates = [row for row in results if row.get("kind") == "ui" and _needs_step_definition(row["detail"])]
+    candidates = []
+    for row in results:
+        if row.get("kind") != "ui":
+            continue
+        detail = row["detail"]
+        attempts = detail.get("attempts")
+        observed = [detail]
+        if isinstance(attempts, list):
+            observed.extend(item["ui"] for item in attempts if isinstance(item, dict) and item.get("ui", {}).get("steps"))
+        candidates.extend((row, item) for item in observed if _needs_step_definition(item))
     if not candidates or not run.get("input_manifest"):
         return
     try:
         cases = execution_inputs.load(run)["cases"]
     except ValueError:
         return
-    for row in candidates:
+    for row, detail in candidates:
         case = cases.get(row["case_id"])
         if not case or row.get("case_content_hash") != execution_inputs.content_hash(case):
             continue
         definition = case.get("extensions", {}).get("automation", {})
-        detail = row["detail"]
         steps = detail.get("steps", [])
         actions = definition.get("actions", [])
         rules = definition.get("assertions", [])
