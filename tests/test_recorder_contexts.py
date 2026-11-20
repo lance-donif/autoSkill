@@ -14,7 +14,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import paths, projects, runner
+from autoskill import db, paths, projects, runner
 from autoskill.recorder import session
 from autoskill.recorder.context import AttachedPage
 
@@ -50,6 +50,21 @@ def context_site():
                     count.textContent = String(Number(count.textContent) + 1);
                 };
                 </script>'''
+            elif self.path == "/channels":
+                html = '''<!doctype html><meta charset="utf-8">
+                <button id="open">打开渠道</button><button id="email">邮件</button><button id="sms">短信</button>
+                <output id="selected"></output>
+                <script>
+                const email = document.querySelector('#email'), sms = document.querySelector('#sms');
+                email.id = 'email-${ENV:UNSET_FOCUS_HINT}';
+                document.querySelector('#open').onclick = () => setTimeout(() => email.focus(), 150);
+                email.onkeydown = event => {
+                    if (event.key === 'ArrowDown' && ALLOW_ARROW) sms.focus();
+                };
+                for (const button of [email, sms]) {
+                    button.onclick = () => document.querySelector('#selected').textContent = button.textContent;
+                }
+                </script>'''.replace("ALLOW_ARROW", "false" if self.server.block_arrow else "true")
             elif self.path == "/middle":
                 html = f'''<!doctype html><title>跨域页面</title><input id="name" data-testid="entry"><div id="card"></div>
                 <script>document.querySelector('#card').attachShadow({{mode:'open'}}).innerHTML =
@@ -68,10 +83,11 @@ def context_site():
             self.wfile.write(html.encode())
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.block_arrow = False
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:
-        yield "http://127.0.0.1:" + str(server.server_address[1])
+        yield server
     finally:
         server.shutdown()
         worker.join()
@@ -102,7 +118,8 @@ class RecorderContextTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
         self.site = context_site()
-        self.base = self.site.__enter__()
+        self.server = self.site.__enter__()
+        self.base = "http://127.0.0.1:" + str(self.server.server_address[1])
         self.addCleanup(self.site.__exit__, None, None, None)
         self.project = projects.create("上下文录制", self.base, project_id="contexts")["id"]
         session.start(self.project, login=False)
@@ -118,6 +135,32 @@ class RecorderContextTests(unittest.TestCase):
         session.browser(["click", target])
         wrong = session.check("checked", target, "false", timeout_seconds=0)
         self.assertEqual((wrong["passed"], wrong["expected"], wrong["actual"]), (False, False, True))
+
+    def test_recorded_enter_uses_the_replayed_keyboard_focus(self):
+        session.browser(["open", "/channels"])
+        session.browser(["click", "#open"])
+        session.browser(["press", "ArrowDown"])
+        session.browser(["press", "Enter"])
+        self.assertTrue(session.check("text", "#selected", "短信", timeout_seconds=0)["passed"])
+        keys = [step for step in session.current()["steps"] if step.get("action") == "press"]
+        self.assertEqual([(s["key_target"], s.get("focus_hint"), s.get("locators")) for s in keys],
+                         [("active", ["id", "email-%24%7BENV:UNSET_FOCUS_HINT%7D"], None), ("active", ["id", "sms"], None)])
+        with patch("autoskill.server.jobs.ensure_worker"):
+            saved = session.stop("使用方向键选择渠道")
+        case_id = saved["ui_case"]["id"]
+        for engine in ("playwright", "selenium"):
+            if engine == "selenium" and not paths.chromedriver():
+                continue
+            with self.subTest(engine=engine):
+                self.server.block_arrow = False
+                healthy = saved["run_id"] if engine == "playwright" else runner.create(self.project, [case_id], engine)["id"]
+                self.assertEqual(runner.execute(healthy)["status"], "Pass")
+                self.server.block_arrow = True
+                run = runner.create(self.project, [case_id], engine)
+                self.assertEqual(runner.execute(run["id"])["status"], "Fail")
+                row = db.one("SELECT detail FROM results WHERE run_id=? AND case_id=?", (run["id"], case_id))
+                check = json.loads(row["detail"])["assertions"][0]
+                self.assertEqual((check["expected"], check["actual"]), ("短信", "邮件"))
 
     def test_aria_switch_state_and_idempotent_actions_match_recording_and_replay(self):
         session.browser(["open", "/notifications"])
@@ -147,6 +190,10 @@ class RecorderContextTests(unittest.TestCase):
         self.assertEqual(len(session.browser(["tab", "list"])["tabs"]), len(original_tabs))
         refs = session.current()["refs"]
         reference = next(key for key, value in refs.items() if value.get("name") == "姓名")
+        session.browser(["fill", "@" + reference, "原姓名"])
+        session.browser(["press", "Control+a"])
+        session.browser(["press", "x"])
+        self.assertTrue(session.check("value", "#name", "x")["passed"])
         session.browser(["fill", "@" + reference, "张三"])
         self.assertEqual(session.browser(["get", "value", "#name"])["result"], {"value": "张三"})
         self.assertEqual(session.check("value", "#name", "张三")["status"], "Pass")

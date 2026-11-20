@@ -812,18 +812,15 @@ def _browser_action(rec: dict, command: str, rest: list[str], argv: list[str], c
     elif command == "press":
         if not rest:
             raise RecordError("press 需要按键名，例如 Enter")
-        focused = _describe({}, rec)
-        if rec.get("context"):
-            if not focused or not focused.get("locators"):
-                raise RecordError("当前定位上下文没有聚焦的元素；请先点击或填写目标")
-            early_change = _scoped_act(rec, "press", focused["locators"][0], rest[0])
-        else:
-            early_change = _act(rec, ["press", rest[0]])
-        step = {"action": "press", "key": rest[0]}
-        if focused and focused.get("locators"):
-            step["locators"] = focused["locators"]
-        if rec.get("context"):
-            step["context"] = copy.deepcopy(rec["context"])
+        script = "(" + DOM_JS + ")().focusHint()"
+        try:
+            observation = agent.call(session_name(), ["eval", "--stdin"], stdin_text=script, check=False, timeout=2)
+        except agent.AgentError:  # An unavailable timing hint must not suppress the user's key.
+            observation = None
+        early_change = _act(rec, ["press", rest[0]])
+        step = {"action": "press", "key": rest[0], "key_target": "active"}
+        if observation and observation.get("result"):
+            step["focus_hint"] = observation["result"]
     elif command == "captcha":
         if len(rest) < 2:
             raise RecordError("captcha 需要两个目标：验证码图片和输入框，例如 autoskill browser captcha @e4 @e5")

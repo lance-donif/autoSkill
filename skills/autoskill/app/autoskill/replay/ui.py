@@ -218,6 +218,19 @@ def navigate(action, *args) -> None:
         raise
 
 
+def _settle_focus(driver, hint, timeout: float) -> None:
+    """Give a delayed autofocus a chance to finish before sending a real keyboard event."""
+    deadline = time.monotonic() + min(timeout, PRIMARY_GRACE)
+    while True:
+        check_cancel(driver)
+        if driver.focus_hint() == hint:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(POLL, remaining))
+
+
 def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float) -> bool:
     """Run one action. Returns True when a fallback locator had to be used."""
     check_cancel(driver)
@@ -241,6 +254,8 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
     need = op != "wait_hidden"
     locator, fallback = choose_locator(driver, step, timeout, need=need)
     if op == "press":
+        if locator is None and step.get("key_target") == "active" and step.get("focus_hint"):
+            _settle_focus(driver, step["focus_hint"], timeout)
         driver.press(locator, step["key"])
     elif op in ("fill", "type", "select"):
         driver.act(locator, op, secrets.resolve(ir.expand(step["value"])))

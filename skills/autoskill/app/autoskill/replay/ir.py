@@ -118,6 +118,8 @@ def describe(step: dict) -> str:
         if op in ("fill", "type", "select"):
             return f'在 {where} {text}「{step.get("value")}」'
         if op == "press":
+            if not where and step.get("key_target") == "active":
+                return f'{text} {step.get("key")}（当前焦点）'
             return f'{text} {step.get("key")}' + (f"（{where}）" if where else "")
         return f"{text} {where}".strip()
     op = step.get("assertion")

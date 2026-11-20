@@ -53,6 +53,16 @@
     if (FIELD.test(tag)) return norm(el.getAttribute('placeholder') || el.getAttribute('title'));
     return norm(el.textContent) || norm(el.getAttribute('title'));
   }
+  function focusHint() {
+    const el = root.activeElement;
+    if (!el || el === root.body || el === root.documentElement) return null;
+    // Read the current keyboard focus only. Frame and shadow hosts are identified from the top document.
+    const literal = (value) => value.replace(/[%${}]/g, encodeURIComponent);  // Observations cannot refer to replay variables.
+    if (el.id) return ['id', literal(el.id)];
+    if (el.hasAttribute('data-testid')) return ['testid', literal(el.getAttribute('data-testid'))];
+    const name = el.isContentEditable ? labelText(el) : accessibleName(el);
+    return [literal(role(el) || el.localName), literal(name.slice(0, 80))];
+  }
   const rendered = (el) => el.tagName === 'OPTION' || el.getClientRects().length > 0;
   const exposed = (el) => rendered(el) && !el.closest('[aria-hidden="true"]');
   const all = () => Array.from(root.querySelectorAll('*'));
@@ -329,5 +339,5 @@
     if (what === 'attribute') return el.getAttribute(arg);
     return el.innerText == null ? el.textContent || '' : el.innerText;
   }
-  return { find, target, read, describe, checkedState };
+  return { find, target, read, describe, checkedState, focusHint };
 })

@@ -270,6 +270,14 @@ class PlaywrightDriver:
         finally:
             node.dispose()
 
+    def focus_hint(self):
+        from playwright.sync_api import Error
+
+        try:
+            return self.page.evaluate("() => (" + DOM_JS + ")().focusHint()")
+        except Error:  # Navigation may temporarily replace the document being observed.
+            return None
+
     def press(self, locator: dict | None, key: str) -> None:
         if locator:
             node = self._one(locator)

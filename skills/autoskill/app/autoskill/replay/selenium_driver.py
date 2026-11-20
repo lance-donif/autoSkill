@@ -274,6 +274,15 @@ class SeleniumDriver:
         else:
             raise ValueError("不支持的动作：" + op)
 
+    def focus_hint(self):
+        from selenium.common.exceptions import WebDriverException
+
+        try:
+            self.wd.switch_to.default_content()
+            return self.wd.execute_script("return (" + DOM_JS + ")().focusHint();")
+        except WebDriverException:  # The page may be changing while focus is observed.
+            return None
+
     def press(self, locator: dict | None, key: str) -> None:
         from selenium.webdriver.common.action_chains import ActionChains
         from selenium.webdriver.common.keys import Keys
@@ -282,6 +291,7 @@ class SeleniumDriver:
         if locator:
             self._one(locator).send_keys(*keys)
             return
+        self.wd.switch_to.default_content()
         chain = ActionChains(self.wd)
         for modifier in keys[:-1]:
             chain.key_down(modifier)
