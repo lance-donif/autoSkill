@@ -9,6 +9,50 @@ MENU = ["总览", "测试用例", "执行记录", "定时任务", "数据管理"
 
 
 class NavigationDashboardTests(DashboardWorkspace):
+    def test_navigation_reserves_its_loaded_position_before_startup(self):
+        held = []
+
+        def hold_module(route):
+            held.append(route)
+
+        self.page.route("**/js/main.js", hold_module)
+        measure = """node => {
+            const {x, y} = node.getBoundingClientRect();
+            return [x, y];
+        }"""
+        for width, query, compact in ((390, "", True), (1440, "?embed=1&activation=2", True), (1440, "?embed=0&embed=1", False)):
+            with self.subTest(width=width, query=query):
+                self.page.set_viewport_size({"width": width, "height": 844})
+                url = self.origin + "/" + query + "#/dashboard"
+                document = self.page
+                with self.page.expect_request("**/js/main.js"):
+                    if "activation=" in query:
+                        self.page.goto(f"http://127.0.0.1:{self.target.server_port}/ui")
+                        self.page.evaluate("""url => {
+                            const frame = document.createElement('iframe');
+                            frame.style.cssText = 'width: 100%; height: 90vh; border: 0';
+                            frame.src = url;
+                            document.body.replaceChildren(frame);
+                        }""", url)
+                        document = self.page.frame_locator("iframe")
+                    else:
+                        self.page.goto(url, wait_until="commit")
+                expect(document.locator("#side")).to_have_css("position", "sticky")
+                expect(document.locator("#side > *")).to_have_count(0)
+                before = document.locator(".main").evaluate(measure)
+                held.pop().continue_()
+                expect(document.locator("#view h1")).to_have_text("总览")
+                self.assertEqual(document.locator(".main").evaluate(measure), before)
+                if compact:
+                    toggle = document.get_by_role("button", name="功能导航", exact=True)
+                    expect(toggle).to_be_visible()
+                    self.assertEqual(before[0], 0)
+                    self.assertGreaterEqual(before[1], toggle.bounding_box()["height"])
+                else:
+                    expect(document.get_by_role("navigation", name="主导航")).to_be_visible()
+                    self.assertGreater(before[0], 0)
+                    self.assertEqual(before[1], 0)
+
     def test_menu_height_stays_fixed_across_destinations(self):
         measure = """() => ['#side', '#side-panel'].map(selector =>
             document.querySelector(selector).getBoundingClientRect().height)"""

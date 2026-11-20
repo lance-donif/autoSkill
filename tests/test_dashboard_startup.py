@@ -70,6 +70,21 @@ class DashboardStartupTests(unittest.TestCase):
         expect(self.page.locator('#view h1')).to_have_text('执行记录')
         expect(search).to_have_count(0)
 
+    def test_desktop_case_rows_keep_their_position_when_folders_arrive(self):
+        self.page.set_viewport_size({'width': 1440, 'height': 900})
+        self.hold_request('/api/projects/review/folders')
+        self.open_cases()
+        loading = self.page.get_by_role('status').filter(has_text='正在加载文件夹…')
+        expect(loading).to_be_visible()
+        create = self.page.get_by_role('button', name='新建文件夹', exact=True)
+        expect(create).to_be_disabled()
+        case = self.page.get_by_role('button', name='Example case', exact=True)
+        before = case.bounding_box()
+        self.page.evaluate('window.releaseRequest()')
+        expect(create).to_be_enabled()
+        expect(loading).to_have_count(0)
+        self.assertEqual(case.bounding_box(), before)
+
     def test_fresh_navigation_replaces_old_run_controls_while_destination_is_pending(self):
         self.hold_request('/api/runs', limit='50')
         self.open_cases()
