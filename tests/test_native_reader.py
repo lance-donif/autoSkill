@@ -64,10 +64,14 @@ class NativeReaderTests(unittest.TestCase):
         self.assertNotIn("cases", first["outcome"])
         self.assertNotIn("events", first["outcome"])
         self.assertEqual(first["outcome"]["evidence_ref"]["count"], 500)
-        self.assertLess(len(json.dumps(first)), 20000)
+        # Returned file references include the machine-specific absolute fixture path.
+        encoded_root = json.dumps(str(self.root))[1:-1]
+        self.assertLess(len(json.dumps(first).replace(encoded_root, "<fixture>")), 20000)
         fields = {"lifecycle", "phase", "outcome", "checks", "evidence", "report", "delivery", "scope", "reason", "revision"}
         for row in first["results"]:
             self.assertTrue(fields <= row["state"].keys())
+            self.assertEqual((row["turn_count"], row["assertion_count"]), (2, 1))
+            self.assertNotIn("detail", row)
             self.assertNotIn("business_status", row)
             self.assertNotIn("execution_status", row)
         report = Path(first["report"]["path"])
