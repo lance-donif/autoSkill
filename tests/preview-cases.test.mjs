@@ -78,9 +78,17 @@ test('project settings and credentials update within the visit', () => {
   const request = visit();
   const project = request('/projects')[0];
   const path = '/projects/' + project.id;
-  request(path, 'PATCH', { name: '更新后的名称', timeout_seconds: 45, ignore_https_errors: true });
+  request(path, 'PATCH', { timeout_seconds: 45, ignore_https_errors: true });
+  request(path, 'PATCH', { name: '更新后的名称' });
   assert.equal(request('/projects')[0].name, '更新后的名称');
   assert.equal(request(path).timeout_seconds, 45);
+  assert.equal(request(path, 'PATCH', { name: '', ignore_https_errors: false }).status, 400);
+  assert.equal(request(path).ignore_https_errors, true);
+  assert.equal(request(path, 'PATCH', { name: '未生效', timeout_seconds: 0 }).status, 400);
+  const reset = request(path, 'PATCH', { timeout_seconds: 20, ignore_https_errors: false });
+  assert.equal(reset.name, '更新后的名称');
+  assert.equal(reset.timeout_seconds, 20);
+  assert.equal(reset.ignore_https_errors, false);
   request('/secrets/DEMO_KEY', 'PUT', { value: 'sample-value' });
   assert.deepEqual(request('/secrets').items.find((item) => item.name === 'DEMO_KEY'), { name: 'DEMO_KEY', value: 'sample-value' });
   request('/secrets/DEMO_KEY', 'DELETE');

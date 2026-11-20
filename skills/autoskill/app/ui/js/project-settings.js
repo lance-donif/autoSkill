@@ -7,11 +7,19 @@ export function runtimeFields(project) {
   const timeout = h('input', { class: 'input', type: 'number', min: 0, step: 'any', id: 'ps-timeout', value: project.timeout_seconds ?? 20 });
   const pageLoad = h('input', { class: 'input', type: 'number', min: 0, step: 'any', id: 'ps-page-load', value: project.page_load_seconds ?? 90 });
   const tls = h('input', { class: 'check', type: 'checkbox', id: 'ps-tls', checked: project.ignore_https_errors });
+  const seconds = [['timeout_seconds', timeout, timeout.valueAsNumber], ['page_load_seconds', pageLoad, pageLoad.valueAsNumber]];
+  const ignoreErrors = tls.checked;
   return { node: h('div', { class: 'stack' }, h('h3', {}, '执行设置'), field('操作超时（秒）', timeout), field('页面加载超时（秒）', pageLoad),
-    h('label', { class: 'row', for: 'ps-tls' }, tls, '忽略 HTTPS 证书错误')), read() {
-    const values = { timeout_seconds: Number(timeout.value), page_load_seconds: Number(pageLoad.value) };
-    if (Object.values(values).some((value) => !Number.isFinite(value) || value <= 0)) throw new Error('超时需要是大于零的秒数');
-    return { ...values, ignore_https_errors: tls.checked };
+    h('label', { class: 'row', for: 'ps-tls' }, tls, '忽略 HTTPS 证书错误')), changes() {
+    const changed = {};
+    for (const [key, input, original] of seconds) {
+      const value = input.valueAsNumber;
+      if (Object.is(value, original)) continue;
+      if (!Number.isFinite(value) || value <= 0) throw new Error('超时需要是大于零的秒数');
+      changed[key] = value;
+    }
+    if (tls.checked !== ignoreErrors) changed.ignore_https_errors = tls.checked;
+    return changed;
   } };
 }
 

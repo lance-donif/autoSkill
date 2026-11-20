@@ -206,7 +206,11 @@ export function casesApi({ path, method = 'GET', params = new URLSearchParams(),
     return library.definitions[keyOf(projectId, section)] || problem('用例不存在', 404);
   }
   if (!section && method === 'PATCH') {
-    if (!body.name?.trim()) return problem('请填写项目名称');
+    if (Object.hasOwn(body, 'name') && !body.name?.trim()) return problem('请填写项目名称');
+    for (const field of ['timeout_seconds', 'page_load_seconds']) {
+      if (Object.hasOwn(body, field) && (!Number.isFinite(body[field]) || body[field] <= 0)) return problem('超时需要是大于零的秒数');
+    }
+    if (Object.hasOwn(body, 'ignore_https_errors') && typeof body.ignore_https_errors !== 'boolean') return problem('忽略 HTTPS 证书错误必须是布尔值');
     for (const field of ['name', 'category', 'timeout_seconds', 'page_load_seconds', 'ignore_https_errors']) {
       if (Object.hasOwn(body, field)) project[field] = body[field];
     }

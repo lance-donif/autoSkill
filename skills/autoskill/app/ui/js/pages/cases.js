@@ -343,9 +343,11 @@ async function projectSettings(projectId) {
 
   const save = h('button', { class: 'btn primary' }, '保存');
   save.addEventListener('click', async () => {
-    const done = await attempt(() => api('/projects/' + projectId, { method: 'PATCH', body: {
-      name: name.value, ...runtime.read(),
-    } }), save);
+    const done = await attempt(() => {
+      const changes = runtime.changes();
+      if (name.value.trim() !== project.name.trim()) changes.name = name.value.trim();
+      return Object.keys(changes).length ? api('/projects/' + projectId, { method: 'PATCH', body: changes }) : true;
+    }, save);
     if (done) { await refreshShell(); closeOverlay(); toast('已保存'); refresh(); }
   });
 
