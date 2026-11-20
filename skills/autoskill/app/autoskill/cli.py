@@ -921,11 +921,12 @@ def _dispatch_plan(args) -> tuple[dict, int]:
 
 
 def _dispatch_import(args) -> tuple[dict, int]:
-    """Handle the import command without changing its result contract."""
+    """An existing project may be skipped normally; an unsuccessful import needs attention."""
     from . import share
 
     source = command_input.resolve_path(args.file, command_input.base_directory(args))
-    return share.import_pack(source, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite), 0
+    result = share.import_pack(source, args.passphrase or os.environ.get("AUTOSKILL_PASSPHRASE"), args.overwrite)
+    return result, 2 if result["errors"] else 0
 
 
 def _dispatch_demo(args) -> tuple[dict, int]:

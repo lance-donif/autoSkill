@@ -194,8 +194,12 @@ function sharePanel(projectId) {
       return api('/shares/import', { method: 'POST', body: { source: source.value, overwrite: overwrite.checked, passphrase: secret.value } });
     }, importButton);
     if (!result) return;
-    replace(imported, h('div', { class: 'banner info', style: 'margin-top:16px' }, h('div', {},
-      h('b', {}, `已导入 ${result.imported.length} 个项目 · ${result.skipped.length} 个未导入`),
+    const failed = result.errors?.length ?? 0;
+    const summary = failed
+      ? `已导入 ${result.imported.length} 个项目 · 跳过 ${result.skipped.length - failed} 个 · 失败 ${failed} 个`
+      : `已导入 ${result.imported.length} 个项目 · ${result.skipped.length} 个未导入`;
+    replace(imported, h('div', { class: failed ? 'banner bad' : 'banner info', style: 'margin-top:16px' }, h('div', {},
+      h('b', {}, summary),
       result.skipped.map((item) => h('p', {}, `${item.id}：${item.reason}`)), h('p', {}, result.next))));
     await refreshShell();
   } }, '导入项目分享包');

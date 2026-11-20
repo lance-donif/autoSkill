@@ -15,14 +15,15 @@ import hmac
 import json
 import os
 import re
+import shutil
 import stat
 import uuid
 import zipfile
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
-from . import __version__, db, domain, paths, projects, secrets
-from .locking import project_lock
+from . import __version__, db, domain, paths, projects, report_locations, secrets
+from .locking import named_lock, project_lock
 
 MANIFEST = "autoskill-pack.json"
 SECRETS = "secrets.sealed.json"
@@ -373,8 +374,6 @@ def _validate_import(staging: Path) -> None:
 
 def _rollback_import(target: Path, backup: Path, installed: bool) -> None:
     """Keep the original backup available if the filesystem also refuses rollback."""
-    import shutil
-
     try:
         if installed:
             shutil.rmtree(target)
@@ -387,8 +386,6 @@ def _rollback_import(target: Path, backup: Path, installed: bool) -> None:
 
 def _install_import(project_id: str, staging: Path, backup: Path) -> dict:
     """Replace files reversibly; reindex commits its own transaction only after every row succeeds."""
-    import shutil
-
     target = paths.projects_dir() / project_id
     installed, committed = False, False
     try:
@@ -406,9 +403,42 @@ def _install_import(project_id: str, staging: Path, backup: Path) -> dict:
     return info
 
 
+def _link_or_copy_report(source, target):
+    try:
+        os.link(source, target)
+    except OSError:
+        shutil.copy2(source, target)
+
+
+@contextmanager
+def _keep_local_reports(target: Path, staging: Path):
+    """Preserve this workspace's indexed task files through the reversible project swap."""
+    current, incoming = target / "reports", staging / "reports"
+    names = {entry.name for folder in (current, incoming) if folder.is_dir() for entry in folder.iterdir()}
+    indexes = paths.local() / "task-report-locations"
+    with ExitStack() as locks:
+        for name in sorted(names):
+            original, replacement = current / name, incoming / name
+            if not (indexes / (name + ".json")).is_file() or report_locations.folder(name) != original:
+                continue
+            # Other exports and run deletion already hold the project lock; workflows render separately.
+            if name.startswith("workflow_"):
+                locks.enter_context(named_lock("test-report", name))
+            if replacement.is_dir():
+                shutil.rmtree(replacement)
+            else:
+                replacement.unlink(missing_ok=True)
+            if original.is_symlink() or original.is_file():
+                incoming.mkdir(exist_ok=True)
+                shutil.copy2(original, replacement, follow_symlinks=False)
+            elif original.is_dir():
+                incoming.mkdir(exist_ok=True)
+                shutil.copytree(original, replacement, symlinks=True, copy_function=_link_or_copy_report)
+        yield
+
+
 def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo], overwrite: bool) -> dict | None:
     """Use a private staging directory so failures cannot remove another import's files."""
-    import shutil
     import tempfile
 
     target = paths.projects_dir() / project_id
@@ -433,7 +463,8 @@ def _import_project(archive: zipfile.ZipFile, project_id: str, members: list[zip
         with project_lock(project_id):
             if target.exists() and not overwrite:
                 return None
-            return _install_import(project_id, staging, backup)
+            with _keep_local_reports(target, staging):
+                return _install_import(project_id, staging, backup)
     finally:
         if not backup.exists():
             shutil.rmtree(work, ignore_errors=True)
@@ -459,10 +490,11 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
         grouped = _safe_members(archive)
         errors = _manifest_errors(archive, manifest, grouped)
         if errors:
-            return {"imported": [], "skipped": [{"id": project_id, "reason": reason} for project_id, reason in sorted(errors.items())],
+            failed = [{"id": project_id, "reason": reason} for project_id, reason in sorted(errors.items())]
+            return {"imported": [], "skipped": failed, "errors": failed,
                     "secrets_restored": [], "missing_secrets": [], "next": "分享包未通过完整性校验，请重新导出后重试"}
         restored = _restore_pack_secrets(archive, passphrase)
-        imported, skipped = [], []
+        imported, skipped, failed = [], [], []
         for project_id, members in grouped.items():
             try:
                 info = _import_project(archive, project_id, members, overwrite)
@@ -471,11 +503,17 @@ def import_pack(file: str, passphrase: str | None = None, overwrite: bool = Fals
                 else:
                     imported.append(info)
             except (ValueError, KeyError, OSError, TypeError, AttributeError, sqlite3.Error) as error:
-                skipped.append({"id": project_id, "reason": "内容没有通过校验：" + str(error)[:200]})
+                issue = {"id": project_id, "reason": "项目导入失败，" + str(error)}
+                failed.append(issue)
+                skipped.append(issue)
     missing = sorted({name for info in imported for name in info["missing_secrets"]})
     hint = ""
     if missing:
         hint = ("分享包里带有加密的凭据：加上 --passphrase 重新导入即可恢复" if manifest.get("secrets_included") and not passphrase
                 else "还需要设置凭据：" + "；".join(f"autoskill secret set {name}" for name in missing))
-    return {"imported": imported, "skipped": skipped,
+    if failed:
+        hint = "请处理失败项目的错误后重试。" + hint
+    elif skipped and not imported:
+        hint = "已保留本机同名项目。如需替换，请明确选择覆盖后重新导入。"
+    return {"imported": imported, "skipped": skipped, "errors": failed,
             "secrets_restored": sorted(restored), "missing_secrets": missing, "next": hint or "可以直接运行：autoskill run <项目>"}
