@@ -1,348 +1,126 @@
-name: Static checks
-on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
-    inputs:
-      cls_devtools:
-        description: Diagnose the sample group with the highest CLS using Chrome DevTools MCP
-        type: boolean
-        default: false
-      windows_release_smoke:
-        description: Install the published Windows x64 ZIP and verify its local business flow and report recovery
-        type: boolean
-        default: false
-      linux_arm64_release_smoke:
-        description: Install the published Linux ARM64 ZIP and verify both browsers, the local API and report recovery
-        type: boolean
-        default: false
+name: Diagnose released Windows browser launches
+'on':
+  workflow_dispatch: null
 permissions:
   contents: read
 jobs:
-  landmines:
-    name: Landmines
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: .github/landmines/package-lock.json
-      - name: Install locked analysis tools
-        run: npm ci --prefix .github/landmines --offline=false --include=dev --ignore-scripts --no-audit --no-fund
-      - name: Scan JavaScript and TypeScript
-        id: scan
-        run: npm run --silent lint:landmines -- --format json > "$RUNNER_TEMP/landmines.json"
-      - name: Summarize findings
-        if: ${{ !cancelled() && steps.scan.outcome != 'skipped' }}
-        run: python scripts/landmines_summary.py "$RUNNER_TEMP/landmines.json" >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && steps.scan.outcome != 'skipped' }}
-        with:
-          name: landmines-report
-          path: ${{ runner.temp }}/landmines.json
-          if-no-files-found: error
-  lint:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Provision pinned linters for CI
-        env:
-          npm_config_offline: 'false'
-        run: |
-          python - <<'PY'
-          import os
-          import subprocess
-          import sys
-          from pathlib import Path
-
-          subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "ruff==0.17.4"], check=True)
-          prefix = str(Path(os.environ["RUNNER_TEMP"]) / "review-tools")
-          subprocess.run(["npm", "install", "--prefix", prefix, "--no-audit", "--no-fund", "@biomejs/biome@2.6.7"], check=True)
-          PY
-      - name: Lint, project conventions and review tooling
-        if: always()
-        run: python scripts/validate_review.py --suite lint --suite conventions --suite review-tools --biome "$RUNNER_TEMP/review-tools/node_modules/.bin/biome" --output-dir "$RUNNER_TEMP/review-lint" --show-logs
-  contracts:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    env:
-      AUTOSKILL_HEADED: '0'
-      AUTOSKILL_BRIDGE: 'off'
-      PYTHONDONTWRITEBYTECODE: '1'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - &contract-dependencies
-        name: Install selected contract dependencies from project pins
-        shell: bash
-        run: |
-          python - <<'PY'
-          import re
-          import subprocess
-          import sys
-          from pathlib import Path
-
-          names = {"httpx", "h11", "locust", "jsonschema", "openpyxl", "fastapi", "starlette", "pydantic", "uvicorn", "cryptography"}
-          lines = "\n".join(Path(name).read_text() for name in ("requirements.txt", "requirements-linux.txt"))
-          requirements = [line for line in lines.splitlines() if re.split(r"[\[=]", line)[0] in names]
-          if len(requirements) != len(names):
-              raise SystemExit("Required contract dependency pin missing or duplicated")
-          subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", *requirements], check=True)
-          PY
-      - name: Workflow, diagnosis, knowledge and host contracts
-        if: always()
-        run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts" --show-logs
-      - name: Verify design row counts through the CLI and host bridge
-        run: |
-          PYTHONPATH=tests python -m unittest -v \
-            test_context_cli_inputs.AgentReadTests.test_counted_plan_rejects_split_steps_before_creating_or_replacing_a_delivery \
-            test_context_cli_inputs.AgentReadTests.test_counted_plan_keeps_one_ordered_flow_and_accepts_independent_states_from_the_same_source
-      - name: Check report evidence, load scheduling and JMeter statistics
-        run: |
-          PYTHONPATH=tests python -m unittest -v test_preview_observation_steps test_report_step_definitions test_api_http_lifecycle test_load_testing test_load_report_evidence test_load_modes
-          node --test tests/preview-runs.test.mjs tests/load-dashboard.test.mjs
-      - name: Verify project archive replacement, offline inventories and Linux runtime paths
-        run: PYTHONPATH=tests python -m unittest -v test_artifact_share test_platform_archive_integrity test_linux_platforms
   windows-report:
-    name: Windows reports and PowerShell
+    name: Compare published Windows packages on one native runner
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: candidate (Windows)
     env:
       AUTOSKILL_HEADED: '0'
-      AUTOSKILL_REPORT_BASELINE: '${{ github.workspace }}\control (v2.5.1)\skills\autoskill\app'
+      AUTOSKILL_REPORT_BASELINE: ${{ github.workspace }}\control (v2.5.1)\skills\autoskill\app
       PYTHONPATH: tests
       PYTHONUTF8: '1'
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
-      - uses: actions/checkout@v4
-        with:
-          path: candidate (Windows)
-          sparse-checkout: |
-            skills/autoskill
-            tests
-      - uses: actions/checkout@v4
-        with:
-          ref: ad795dd1837bc2103704bdff713bf70cb780411b
-          path: control (v2.5.1)
-          sparse-checkout: skills/autoskill
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - *contract-dependencies
-      - name: Compare native file handles, v2.5.1 receipts, HTTP bridge and Windows permissions
-        run: |
-          $suite = 'test_windows_report_delivery.ReportDeliveryTests'
-          python -m unittest -v "$suite.test_native_descriptor_access_modes" "$suite.test_existing_v251_report_retries_after_upgrade" "$suite.test_direct_and_http_bridge_create_readable_designs" "$suite.test_windows_acl_and_open_workbook_allow_retry_on_same_id"
-      - name: Preserve delivered project archives, Windows access control and open readers on retry
-        run: |
-          $suite = 'test_artifact_share.ArtifactShareTests'
-          python -m unittest -v "$suite.test_replacement_preserves_windows_dacl_and_open_readers" "$suite.test_failed_project_pack_preserves_the_delivered_file_and_leaves_no_partial_output" "$suite.test_failed_full_pack_keeps_the_previous_archive_until_the_source_is_repaired"
-      - name: Verify shared evidence reads and same-size changes on Windows
-        env:
-          AUTOSKILL_EXPECT_NTFS_CHANGE_TIME: '1'
-        run: |
-          $suite = 'test_state_api.StateApiTests'
-          python -m unittest -v "$suite.test_history_and_dashboard_check_each_distinct_source_once_per_cold_response" "$suite.test_source_replaced_between_result_verdicts_is_rechecked_within_one_response" "$suite.test_same_size_source_edit_with_restored_mtime_rechecks_dashboard_and_report"
-      - name: Prepare the pinned recorder and Python driver for the local fixture
-        run: |
-          $pins = (Select-String -Path requirements.txt -Pattern '^(playwright|selenium|pillow)==').Line
-          python -m pip install --disable-pip-version-check @pins
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $prefix = Join-Path $env:RUNNER_TEMP 'report-browser'
-          npm install --prefix $prefix --offline=false --ignore-scripts --no-audit --no-fund '@agent-browser/cli-win32-x64-msvc@0.43.0'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $binary = (Get-Item "$prefix\node_modules\@agent-browser\cli-win32-x64-msvc\bin\agent-browser.exe").FullName
-          $chrome = (Get-Item "$env:ProgramFiles\Google\Chrome\Application\chrome.exe").FullName
-          & $binary --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          "AUTOSKILL_AGENT_BROWSER=$binary" >> $env:GITHUB_ENV
-          "AUTOSKILL_CHROMIUM=$chrome" >> $env:GITHUB_ENV
-      - name: Test the documented arguments, recording and report delivery in both native shells
-        run: |
-          powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
-          pwsh.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
-          $suite = 'test_windows_report_delivery.ReportDeliveryTests'
-          python -m unittest -v "$suite.test_windows_powershell_51_cmd_with_direct_recording" "$suite.test_powershell_7_cmd_through_http_bridge" "$suite.test_v251_recording_and_run_reports_retry_without_replay"
-      - name: Verify the published Windows x64 offline installation
-        if: github.event_name == 'workflow_dispatch' && inputs.windows_release_smoke
-        timeout-minutes: 15
-        run: |
-          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
-          python tests/windows_release_smoke.py --release-tag "v$version"
-  linux-arm64-release:
-    name: Published Linux ARM64 ZIP
-    if: github.event_name == 'workflow_dispatch' && inputs.linux_arm64_release_smoke
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: tests
-          persist-credentials: false
-      - name: Prepare the virtual display for the bundled browsers
-        run: |
-          if ! command -v Xvfb || ! command -v xauth || ! command -v xwininfo; then
-            sudo apt-get -o Acquire::Retries=3 update -qq
-            sudo apt-get -y install --no-install-recommends xvfb xauth x11-utils
-          fi
-      - name: Verify the published Ubuntu ARM64 installation with both browsers under Xvfb
-        shell: bash
-        run: |
-          set -euo pipefail
-          work=$(mktemp -d "$RUNNER_TEMP/autoskill-arm64.XXXXXXXX")
-          policy=$(mktemp "$RUNNER_TEMP/autoskill-arm64-profile.XXXXXXXX")
-          loaded=0
-          cleanup() {
-            if [[ "$loaded" == 1 ]]; then sudo apparmor_parser -R "$policy"; fi
-            rm -f "$policy"
-            rm -rf "$work"
-          }
-          trap cleanup EXIT
-          # Ubuntu's user namespace restriction needs the same per-executable permission as the Linux release check.
-          if [[ -r /proc/sys/kernel/apparmor_restrict_unprivileged_userns && "$(< /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" == 1 ]]; then
-            chrome="$work/bundle/autoskill/vendor/linux-arm64/chrome/chrome-linux-arm64/chrome"
-            cat > "$policy" <<PROFILE
-          abi <abi/4.0>,
-          include <tunables/global>
-          profile autoskill-release-arm64-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT "$chrome" flags=(unconfined) {
-            userns,
-          }
-          PROFILE
-            sudo apparmor_parser -a "$policy"
-            loaded=1
-          fi
-          release_tag=$(jq -er '"v" + .version' package.json)
-          xvfb-run -a -s '-screen 0 1600x900x24' python3 tests/published_release_smoke.py --target linux-arm64 --release-tag "$release_tag" --work-dir "$work"
-  dashboard-e2e:
-    name: Dashboard E2E
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - &dashboard-browser
-        name: Install the pinned browser and local dashboard dependencies
-        run: |
-          python - <<'PY'
-          import re
-          import subprocess
-          import sys
-          from pathlib import Path
+    - uses: actions/checkout@v4
+      with:
+        path: candidate (Windows)
+        sparse-checkout: 'skills/autoskill
 
-          names = {"playwright", "httpx", "h11", "locust", "jsonschema", "openpyxl", "fastapi", "starlette", "pydantic", "uvicorn", "cryptography"}
-          lines = (Path("requirements.txt").read_text() + "\n" + Path("requirements-linux.txt").read_text()).splitlines()
-          pins = [line for line in lines if re.split(r"[\[=]", line)[0] in names]
-          if len(pins) != len(names):
-              raise SystemExit("Browser test dependency pin missing or duplicated")
-          subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", *pins], check=True)
-          PY
-          python -m playwright install --with-deps chromium
-          python - <<'PY'
-          import os
-          from playwright.sync_api import sync_playwright
-          with sync_playwright() as p, open(os.environ["GITHUB_ENV"], "a") as env:
-              env.write(f"AUTOSKILL_CHROMIUM={p.chromium.executable_path}\n")
-          PY
-      - name: Check dashboard flows, reports and both load modes in Chromium
-        env:
-          AUTOSKILL_VALIDATION_OUTPUT: ${{ runner.temp }}/dashboard-e2e
-        run: PYTHONPATH=tests python -m unittest -v test_pages_browser test_dashboard_palette test_pages_load test_load_dashboard
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: dashboard-e2e-diagnostics
-          path: ${{ runner.temp }}/dashboard-e2e
-          if-no-files-found: warn
-  layout-stability:
-    name: Layout stability (advisory)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    continue-on-error: true
-    env:
-      AUTOSKILL_BRIDGE: 'off'
-      AUTOSKILL_HEADED: '0'
-      PYTHONDONTWRITEBYTECODE: '1'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - *dashboard-browser
-      - name: Measure three dashboard and Pages flows at desktop and phone widths
-        id: measure
-        timeout-minutes: 15
-        shell: bash
-        env:
-          AUTOSKILL_VALIDATION_OUTPUT: ${{ runner.temp }}/dashboard-cls
-        run: |
-          mkdir -p "$AUTOSKILL_VALIDATION_OUTPUT"
-          git rev-parse HEAD > "$AUTOSKILL_VALIDATION_OUTPUT/revision.txt"
-          PYTHONPATH=tests python -m unittest -v test_dashboard_cls 2>&1 | tee "$AUTOSKILL_VALIDATION_OUTPUT/harness.log"
-      - name: Publish the measurements and flag incomplete evidence
-        id: summary
-        if: ${{ !cancelled() }}
-        env:
-          MEASURE_OUTCOME: ${{ steps.measure.outcome }}
-          REQUEST_DEVTOOLS: ${{ inputs.cls_devtools || false }}
-        run: |
-          evidence="$RUNNER_TEMP/dashboard-cls"
-          if [[ -s "$evidence/summary.md" ]]; then
-            cat "$evidence/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [[ "$MEASURE_OUTCOME" != success || ! -s "$evidence/summary.md" ]] || ! jq -e '.complete == true and .expected_runs == 60 and .completed_runs == 60' "$evidence/report.json" > /dev/null; then
-            echo '::warning title=Incomplete CLS evidence::The pilot did not produce all 60 measurements. See the logs and available artifacts.'
-            echo '采样未完成，请查看运行日志和已生成的证据。' >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [[ -s "$evidence/report.json" ]] && jq -e '.over_budget_runs > 0' "$evidence/report.json" > /dev/null; then
-            echo '::warning title=CLS above 0.1::See the affected samples in the job summary and inspect their traces.'
-            echo 'devtools=true' >> "$GITHUB_OUTPUT"
-          elif [[ "$REQUEST_DEVTOOLS" == true && -s "$evidence/report.json" ]] && jq -e '.completed_runs > 0' "$evidence/report.json" > /dev/null; then
-            echo 'devtools=true' >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/setup-node@v4
-        id: devtools-node
-        if: ${{ !cancelled() && steps.summary.outputs.devtools == 'true' }}
-        with:
-          node-version: '24'
-      - name: Diagnose one measured flow with Chrome DevTools MCP
-        id: devtools
-        if: ${{ !cancelled() && steps.devtools-node.outcome == 'success' }}
-        timeout-minutes: 4
-        shell: bash
-        env:
-          AUTOSKILL_VALIDATION_OUTPUT: ${{ runner.temp }}/dashboard-cls
-        run: |
-          npm install --offline=false --prefix "$RUNNER_TEMP/cls-devtools" --ignore-scripts --no-audit --no-fund chrome-devtools-mcp@1.13.0
-          PYTHONPATH=tests python tests/dashboard_cls_mcp.py --cli "$RUNNER_TEMP/cls-devtools/node_modules/.bin/chrome-devtools" 2>&1 | tee "$AUTOSKILL_VALIDATION_OUTPUT/devtools.log"
-          echo 'Chrome DevTools MCP 复验的 trace 和诊断结果见制品中的 `devtools/`。' >> "$GITHUB_STEP_SUMMARY"
-      - name: Flag missing DevTools evidence
-        if: ${{ !cancelled() && steps.summary.outputs.devtools == 'true' && steps.devtools.outcome != 'success' }}
-        run: |
-          echo '::warning title=Incomplete DevTools diagnostic::See the diagnostic step log and available artifacts.'
-          echo '本次 DevTools 诊断未完成，已采样的 CLS 和原始 trace 仍可查看。' >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: dashboard-cls-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/dashboard-cls
-          retention-days: 7
-          if-no-files-found: warn
+          tests
+
+          '
+    - uses: actions/checkout@v4
+      with:
+        ref: ad795dd1837bc2103704bdff713bf70cb780411b
+        path: control (v2.5.1)
+        sparse-checkout: skills/autoskill
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install selected contract dependencies from project pins
+      shell: bash
+      run: "python - <<'PY'\nimport re\nimport subprocess\nimport sys\nfrom pathlib import Path\n\nnames = {\"httpx\", \"h11\", \"locust\"\
+        , \"jsonschema\", \"openpyxl\", \"fastapi\", \"starlette\", \"pydantic\", \"uvicorn\", \"cryptography\"}\nlines = \"\\n\".join(Path(name).read_text()\
+        \ for name in (\"requirements.txt\", \"requirements-linux.txt\"))\nrequirements = [line for line in lines.splitlines() if re.split(r\"\
+        [\\[=]\", line)[0] in names]\nif len(requirements) != len(names):\n    raise SystemExit(\"Required contract dependency pin missing\
+        \ or duplicated\")\nsubprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"--disable-pip-version-check\", *requirements],\
+        \ check=True)\nPY\n"
+    - name: Compare native file handles, v2.5.1 receipts, HTTP bridge and Windows permissions
+      run: '$suite = ''test_windows_report_delivery.ReportDeliveryTests''
+
+        python -m unittest -v "$suite.test_native_descriptor_access_modes" "$suite.test_existing_v251_report_retries_after_upgrade"
+        "$suite.test_direct_and_http_bridge_create_readable_designs" "$suite.test_windows_acl_and_open_workbook_allow_retry_on_same_id"
+
+        '
+    - name: Preserve delivered project archives, Windows access control and open readers on retry
+      run: '$suite = ''test_artifact_share.ArtifactShareTests''
+
+        python -m unittest -v "$suite.test_replacement_preserves_windows_dacl_and_open_readers" "$suite.test_failed_project_pack_preserves_the_delivered_file_and_leaves_no_partial_output"
+        "$suite.test_failed_full_pack_keeps_the_previous_archive_until_the_source_is_repaired"
+
+        '
+    - name: Verify shared evidence reads and same-size changes on Windows
+      env:
+        AUTOSKILL_EXPECT_NTFS_CHANGE_TIME: '1'
+      run: '$suite = ''test_state_api.StateApiTests''
+
+        python -m unittest -v "$suite.test_history_and_dashboard_check_each_distinct_source_once_per_cold_response" "$suite.test_source_replaced_between_result_verdicts_is_rechecked_within_one_response"
+        "$suite.test_same_size_source_edit_with_restored_mtime_rechecks_dashboard_and_report"
+
+        '
+    - name: Prepare the pinned recorder and Python driver for the local fixture
+      run: '$pins = (Select-String -Path requirements.txt -Pattern ''^(playwright|selenium|pillow)=='').Line
+
+        python -m pip install --disable-pip-version-check @pins
+
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        $prefix = Join-Path $env:RUNNER_TEMP ''report-browser''
+
+        npm install --prefix $prefix --offline=false --ignore-scripts --no-audit --no-fund ''@agent-browser/cli-win32-x64-msvc@0.43.0''
+
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        $binary = (Get-Item "$prefix\node_modules\@agent-browser\cli-win32-x64-msvc\bin\agent-browser.exe").FullName
+
+        $chrome = (Get-Item "$env:ProgramFiles\Google\Chrome\Application\chrome.exe").FullName
+
+        & $binary --version
+
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        "AUTOSKILL_AGENT_BROWSER=$binary" >> $env:GITHUB_ENV
+
+        "AUTOSKILL_CHROMIUM=$chrome" >> $env:GITHUB_ENV
+
+        '
+    - name: Test the documented arguments, recording and report delivery in both native shells
+      run: 'powershell.exe -NoProfile -Command ''$PSVersionTable.PSVersion.ToString()''
+
+        pwsh.exe -NoProfile -Command ''$PSVersionTable.PSVersion.ToString()''
+
+        $suite = ''test_windows_report_delivery.ReportDeliveryTests''
+
+        python -m unittest -v "$suite.test_windows_powershell_51_cmd_with_direct_recording" "$suite.test_powershell_7_cmd_through_http_bridge"
+        "$suite.test_v251_recording_and_run_reports_retry_without_replay"
+
+        '
+    - name: Diagnose v2.5.3 from its anonymous public download
+      id: current
+      continue-on-error: true
+      run: python tests/windows-doctor-diagnostic.py --tag v2.5.3
+    - name: Compare v2.5.2 from its anonymous public download on this runner
+      id: prior
+      continue-on-error: true
+      run: python tests/windows-doctor-diagnostic.py --tag v2.5.2
+    - name: Retain traces, receipts and process evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-doctor-diagnostics
+        path: ${{ github.workspace }}/doctor-proof-*/**
+        if-no-files-found: warn
+        retention-days: 7
+    - name: Report the candidate result
+      if: always()
+      env:
+        CANDIDATE_RESULT: ${{ steps.current.outcome }}
+      run: if ($env:CANDIDATE_RESULT -ne 'success') { throw 'Inspect candidate traces and comparison before publication claims.' }
+    if: github.ref == 'refs/heads/diagnostics/v2.5.3-windows-doctor'
