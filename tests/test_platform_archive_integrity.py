@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import re
 import struct
 import tempfile
 import unittest
@@ -128,6 +129,25 @@ class PlatformArchiveIntegrityTests(unittest.TestCase):
             self.assertEqual(set(inventory), {"package.json", "program.py"})
             for name, digest in inventory.items():
                 self.assertEqual(digest, hashlib.sha256((output / name).read_bytes()).hexdigest())
+
+    def test_offline_readme_links_resolve_to_shipped_files_and_tagged_evidence(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+            builder.copy_package_docs(output, version)
+            builder.copy_tree(ROOT / "skills/autoskill", output / "autoskill")
+            (output / "package.json").write_text(json.dumps({"version": version, "files": []}), encoding="utf-8")
+            builder.write_package_manifest(output)
+            readme = (output / "README.md").read_text(encoding="utf-8")
+            inventory = json.loads((output / "package-manifest.json").read_bytes())["files"]
+            links = re.findall(r"\]\(([^)]+)\)", readme)
+            self.assertIn("autoskill/references/commands.md#原生资产会话捕获与宿主判定", links)
+            self.assertIn("autoskill/examples/ticket-desk/ACCEPTANCE.md", links)
+            self.assertIn(f"https://github.com/lance-donif/autoSkill/blob/v{version}/reports/交付验证报告.md", links)
+            for link in links:
+                if "://" not in link:
+                    path = link.partition("#")[0]
+                    self.assertEqual(inventory[path], hashlib.sha256((output / path).read_bytes()).hexdigest())
 
     def test_builder_omits_skill_data_root_without_omitting_nested_assets(self):
         with tempfile.TemporaryDirectory() as folder:
