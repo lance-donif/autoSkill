@@ -137,7 +137,7 @@ jobs:
           python -m unittest -v "$suite.test_native_descriptor_access_modes" "$suite.test_existing_v251_report_retries_after_upgrade" "$suite.test_direct_and_http_bridge_create_readable_designs" "$suite.test_windows_acl_and_open_workbook_allow_retry_on_same_id"
       - name: Prepare the pinned recorder and Python driver for the local fixture
         run: |
-          $pins = (Select-String -Path requirements.txt -Pattern '^(playwright|selenium)==').Line
+          $pins = (Select-String -Path requirements.txt -Pattern '^(playwright|selenium|pillow)==').Line
           python -m pip install --disable-pip-version-check @pins
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $prefix = Join-Path $env:RUNNER_TEMP 'report-browser'
@@ -154,7 +154,7 @@ jobs:
           powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
           pwsh.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
           $suite = 'test_windows_report_delivery.ReportDeliveryTests'
-          python -m unittest -v "$suite.test_windows_powershell_51_cmd_with_direct_recording" "$suite.test_powershell_7_cmd_through_http_bridge"
+          python -m unittest -v "$suite.test_windows_powershell_51_cmd_with_direct_recording" "$suite.test_powershell_7_cmd_through_http_bridge" "$suite.test_v251_recording_and_run_reports_retry_without_replay"
   dashboard-e2e:
     name: Dashboard E2E
     runs-on: ubuntu-24.04

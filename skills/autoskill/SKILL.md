@@ -10,7 +10,7 @@ description: 在 DSH/AI 对话中一次完成测试：先交付完整14列用例
 **用户明确要求多智能体协作时，主会话先委派再测试。** 新任务在 DSH 中先调用原生 `subagent`，其他宿主使用各自的原生委派工具。已知目标足够分工时直接转交，让执行方核实项目、版本和入口，完成分配给它的设计、录制、工作项领取和运行。新需求引用已保存用例时，直接把需求和该用例编号交给执行方。恢复已有进行中的任务时才沿用其子会话、设计表和任务标识。
 
 - 交给子智能体已核实的项目、来源及可复用用例编号、测试范围、独立预期和窗口偏好。需要接着已有页面状态时交接前置用例编号，执行方使用 `record start --reuse`。
-- 子智能体加载 autoSkill 后执行分配的阶段。接续已有工作时保留其 `--session` 与工作项绑定。独立任务各用自己的 `--session`，沿用插件提供的运行绑定。交接任务会话、确切运行编号、发布回执和最终 `plan show` 的整表报告编号。
+- 子智能体生成设计后，先交回 `--session`、`task_id` 和 `initial_report_id`。主会话向用户交付冻结初版，再通知原子会话继续录制、领取工作项和执行。由主会话自动衔接这两步。独立任务各用自己的 `--session`，沿用插件提供的运行绑定。最终交接确切运行编号、发布回执和 `plan show` 的整表报告编号。
 - 主会话按返回的编号复核，例如用 `run-status <run_id> --brief`，按需查看失败明细，再汇总证据并交付。原生委派不可用时如实说明。普通任务按下文顺序执行。
 
 测试使用同一套命令行工具。Windows x64、Linux x64 / ARM64 包自带浏览器和程序依赖。Linux / 统信 UOS 由维护者按 `docs/Linux-DSH.md` 检查系统库与浏览器（`sh setup-linux.sh`）。运行命令时**不联网安装任何东西**。
@@ -29,18 +29,26 @@ description: 在 DSH/AI 对话中一次完成测试：先交付完整14列用例
 
 **浏览器默认可见。用户明确要求隐藏本次窗口时，才给 `record start`、`run`、`login` 加 `--headless`。** 用户明确要求显示时带 `--headed`，优先于先前设置。未指定时沿用用户已保存的窗口偏好。后台调度沿用同样的窗口选择。若环境缺少图形桌面，说明阻塞原因，等待桌面可用或用户选择隐藏后再执行。临时覆盖不改写保存的窗口偏好。
 
-**PowerShell 里 `@e5` 必须加引号写成 `"@e5"`**，否则 `@` 会被当成 PowerShell 语法吞掉，报出「页面上找不到 <你要输入的文字>」这样参数错位的错误。出现 `"error"` 时，按里面的提示处理，不要猜。退出码：0 命令成功，1 同步用例或 check 失败，2 命令错误或回放被阻塞。check 不成立时返回 `passed:false`、expected/actual 并保存证据，退出 1；它不是命令崩溃。异步入队和状态查询成功也不代表业务通过。
+**PowerShell 中用英文单引号包住快照编号和含中文双引号的标题。** 从本次快照读到 `@e164` 时写 `browser click '@e164'`，避免 `@` 被当作参数展开。标题写 `record stop --title '打开“RAG 与知识检索”介绍页'`，外层英文单引号让空格和中文弯双引号按原文传给 `autoskill.cmd`。
+
+出现 `"error"` 时按返回的提示处理。退出码 0 表示命令成功，1 表示同步用例或 check 失败，2 表示命令错误或回放受阻。check 不成立时返回 `passed:false`、expected/actual 并保存证据。异步入队后按运行编号读取业务结果。
 
 ## 唯一主线：先给用例 Excel，再执行、回填和保存通过案例
 
 用户在 DSH/AI 对话中说明站点、需求和要验证的目标即可；由你完成设计、实际操作、检查、结果回填和文件交付。网页用于查看结果、下载报告和重跑已有案例，不要求用户到网页新增任务、填写 JSON、再调用另一个技能或逐步确认。只在完成业务判断确实缺少必要信息时询问，不把正常测试步骤变成人工审批。
 
 1. 依据需求设计业务目标、前置、操作和独立预期。设计表只列来源支持的验收点。技术属性仅用于定位时留在执行步骤，需求明确要验证属性时写入预期。沿用已核实的项目与用例编号，缺少时按项目或业务词查询。新增行提供 `id`、`title`、`business_path`、`preconditions`、`steps`、`expected` 和 `source`。完整覆盖或自定义格式按需读取 [test-cases 设计规范](references/test-cases/SKILL.md)。
-2. 用 `plan write <项目> --file <设计文件>` 生成标准 Excel。检查 `test_report.status` 后，先交付 **`delivery_excel` 正式14列文件**，再继续执行。`initial_excel` 保留首次未执行版本。
+2. 用 `plan write <项目> --file <设计文件>` 生成正式 14 列 `delivery_excel`。记录 `task_id` 和 `initial_report_id`（首次的 `test_report.report_id`）。回执为 `ready` 后，按其 `sha256` 核对并先交付 **`initial_excel` 冻结初版**。初版与此刻的 `delivery_excel` 同字节，全表为未执行。顶层 `excel` 是供命令读写的 11 列内部表。初版失败时依 `stage` 和 `error` 修复条件，用 `task-report <初版报告编号> --retry` 从原快照恢复。
 3. 用 `plan show` 逐行读取同一任务设计。已有用例能验证本行预期时先关联，再直接回放。新增场景在原窗口实操，每项预期都核对目标、时点、期望值和相应 `check` 回执。前置断言只证明前置时的状态。缺项时在对应步骤补查，需要时用 `record status` 核对已录步骤。无法验证的项目写入实际结论。核对后用 `record stop --title <业务标题> --subproject <功能区域> --plan <设计编号>` 冻结候选和安排验证，保留 `candidate_id`、`run_id`、`run_ids` 和实际失败。
-4. 对每个返回的 `run_id` 用 `run-status <run_id> --brief` 等待真实结果与发布回执。发布未完成时继续查询。需要逐条定位时省略 `--brief`，无需重新运行。执行按设计版本、候选内容及实际运行回填原 `delivery_excel`，未执行行仍在完整表中。用 `plan show` 核对当前任务，保留失败或阻塞的具体原因。
+4. 对每个返回的 `run_id` 用 `run-status <run_id> --brief` 等待真实结果与发布回执。发布未完成时继续查询。需要逐条定位时省略 `--brief`。执行按原任务、设计行编号、冻结版本与实际运行回填原 `delivery_excel`。核对原步骤和预期、执行结果与未执行原因。工作簿的「编号映射」可从 FT 标识查到原始编号和冻结定义。
 5. 只有独立业务、已声明性能目标及实际证据满足条件，并且所需依赖也通过时，才发布可复用 UI/API 案例。以返回的 **`published_ids`** 为入库事实；`unpublished` 保留未发布原因。部分通过时仅发布合格子集，Excel 和执行证据保留失败及未执行原因，Bug 清单保留实际发现的问题。
-6. 交付最终 `plan show` 中同一 `test_report` 的 `excel`、`markdown` 和 `bugs` 三份原件。完整14列 Excel 是整表，各次运行报告作为明细补充。文件必须存在且回执为 `ready`。交付副本要与回执的对应 SHA-256 相符。需要重试导出时用 `task-report <报告标识> --retry` 从冻结快照重试。
+6. 用 `plan show` 核对同一 `task_id`，按最终 `test_report.report_id` 交付该回执的 `excel`、`markdown` 和 `bugs` 三份原件。完整 14 列 Excel 是整表，各次运行报告作为明细补充。在任务独立目录保留三份文件原名，核对 `ready` 和逐份 SHA-256。遇 `delivery_conflict` 时保留人工修改的文件，按 `report_artifacts` 核对冻结原件，处理冲突后用 `task-report <原报告编号> --retry` 恢复正式文件。
+
+DSH 首交时用 `autoskill_read` 的 `resource=report`，在 `query` 中传初版 `report_id`、原 `task_id` 和 `delivery="initial"`。最终交付使用最终报告编号和同一任务编号，默认准备三份文件。文件核验为 `host_files.status=verified` 后，由主会话在打开的轮次调用 `present(host_files.present_input)`。以成功回执记录交付并继续。若宿主文件系统无法直接读取数据目录，在会话可写目录通过该报告下载入口保存文件，核对 SHA-256 后再交付。宿主没有文件卡功能时，先给用户实际可访问的初版下载链接。
+
+纯文本模型可用 `browser snapshot --all`、`browser describe`、`check` 的期望与实际值，以及逐次 HTTP 请求、响应和断言判定业务结果。按回执的 `validation.structure.ok`、`validation.case_ids_match`、三文件可读标记和 `summary_counts` 以文本验收工作簿和 Markdown。按需读取「功能测试用例」和「编号映射」的单元格。截图列可空。用户明确要求图片时，还须交付实际图片文件。
+
+恢复旧版任务时沿用原会话。`plan show` 会从保留的初版设计回执识别 `initial_report_id`。若该字段为空，可核对首次 `plan write` 的原始回执。对于首版导出失败后已经执行的历史任务，按实际补交时间记录交付顺序。
 
 同一任务始终保留相同 `--session`，已有设计的步骤与预期不因执行失败而改变。每张表自动登记到对应项目和会话，用户可在只读设计表页找到和下载，无需再次导入。正式文件使用14列、宋体和真实业务分组，不补造人员、业务层级和预期。Markdown 只含任务基本信息、结果数量、主要问题和 Excel 链接；Bug 清单区分业务失败、执行问题及录制观察，保留先前失败与后续复测。运行结束、报告生成、文件交付和业务通过分别判断。
 
@@ -139,13 +147,13 @@ autoskill context <项目>
 autoskill plan write <项目> --file <完整设计文件>
 ```
 
-先交付上一步的 `delivery_excel`，然后逐条按表执行；元素编号必须来自当次真实快照：
+先交付上一步正式设计表的冻结初版 `initial_excel`，然后逐条按表执行。使用当次快照给出的元素编号。
 
 ```
 autoskill plan show
 autoskill record start <项目>
-autoskill browser click @e5
-autoskill browser fill @e7 "工单-{{RAND}}"
+autoskill browser click "@e5"
+autoskill browser fill "@e7" "工单-{{RAND}}"
 autoskill check contains testid=toast "已创建"
 autoskill record stop --title "新建工单" --subproject "工单" --plan TC-001
 autoskill run-status <返回的运行ID> --brief
@@ -165,6 +173,21 @@ autoskill plan show
 ## 录制时怎么操作页面
 
 使用 `record start` 或上一步返回的最新 `snapshot` 选择元素。重新加载、修改页面或切换标签页后，读取新快照里的 `@e编号`。查标题、表格或提示用 `browser snapshot --all`，查稳定定位器用 `browser describe <目标>`。输入、标签页、iframe、Shadow DOM 和撤销操作见[页面录制命令](references/browser-recording.md#录制时怎么操作页面)。
+
+用户要求交付图片时，保留当前命令的宿主绑定和 `--session`，运行 `autoskill browser screenshot '#content > svg'` 截取已定位的元素，或省略选择器截取当前视口。省略文件名时，图片保存在数据根的 `.local/recordings/<会话目录>/screenshots/`。后台桥接允许显式指定数据根内的输出文件。用回执的 `result.path` 读取已核验原件，`result.reference` 是相对数据根的引用，`width`、`height`、`format`、`size` 和 `sha256` 可供纯文本模型核对。`--if-changed` 返回 `changed=false` 时本次没有新图片，需要新原件时再次调用普通截图命令。若要求判断图的连线、遮挡或布局，按约定的像素检查或人工复核记录结论。
+
+交付到 DSH 工作区时，由当前会话在宿主授予的读取和写入权限内复制。在 PowerShell 中将上一步的命令输出保存在 `$captureJson`。下例从本次可写工作区运行。
+
+```powershell
+$shot = ($captureJson | Out-String | ConvertFrom-Json).result
+if (-not $shot.path -or -not $shot.sha256) { throw '本次没有可交付的截图' }
+$extension = if ($shot.format -eq 'jpeg') { '.jpg' } else { '.png' }
+$copy = Join-Path (Get-Location) ("截图-" + $shot.sha256 + $extension)
+if (-not (Test-Path -LiteralPath $copy)) { Copy-Item -LiteralPath $shot.path -Destination $copy -ErrorAction Stop }
+if ((Get-FileHash -LiteralPath $copy -Algorithm SHA256 -ErrorAction Stop).Hash -ne $shot.sha256) { throw '截图副本校验失败' }
+```
+
+把核对成功的工作区文件交给本轮实际可用的文件交付工具，并记录其回执。遇到原件不可读、目录不可写或文件工具拒绝时，保留截图引用与摘要，说明图片仍待交付。已有的文本断言和正式报告照常记录。
 
 ## 执行步骤和断言
 

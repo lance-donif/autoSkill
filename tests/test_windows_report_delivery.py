@@ -191,7 +191,8 @@ class ReportDeliveryTests(Sandbox):
         folder.mkdir()
         buttons = "".join(f"<button>Item {index}</button>" for index in range(1, 171))
         (folder / "index.html").write_text(
-            '<!doctype html><title>Local recording</title><div onclick="document.querySelector(\'#result\').textContent=event.target.textContent">'
+            '<!doctype html><meta charset="utf-8"><title>Local recording</title>'
+            '<div onclick="document.querySelector(\'#result\').textContent=\'知识检索介绍 · \'+event.target.textContent">'
             + buttons + '</div><p id="result"></p>', encoding="utf-8")
         site = ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=folder))
         worker = threading.Thread(target=site.serve_forever, daemon=True)
@@ -215,6 +216,27 @@ class ReportDeliveryTests(Sandbox):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         return json.loads(done.stdout)
 
+    def screenshots(self, mode):
+        from PIL import Image
+
+        session = hashlib.sha256(mode.encode()).hexdigest()[:32]
+        folder = self.workspace / ".local/recordings" / session / "screenshots"
+        explicit = self.workspace / "显式截图 (result).png"
+        for args in (["#result"], [str(explicit)]):
+            receipt = self.command(mode, "browser", "screenshot", *args)["result"]
+            file = Path(receipt["path"])
+            self.assertEqual(receipt["reference"], file.relative_to(self.workspace).as_posix())
+            if args == ["#result"]:
+                self.assertEqual(file.parent, folder)
+            else:
+                self.assertEqual(file, explicit)
+            self.assertEqual((receipt["sha256"], receipt["size"]), (hashlib.sha256(file.read_bytes()).hexdigest(), file.stat().st_size))
+            with Image.open(file) as screenshot:
+                self.assertEqual(screenshot.format, "PNG")
+                self.assertEqual((receipt["format"], receipt["width"], receipt["height"]), ("png", *screenshot.size))
+                screenshot.verify()
+            evidence("recording screenshot", bridge=mode, **{key: receipt[key] for key in ("reference", "sha256", "width", "height")})
+
     def wait_for_run(self, mode, run_id):
         deadline = time.monotonic() + 90
         while True:
@@ -232,8 +254,11 @@ class ReportDeliveryTests(Sandbox):
             match = re.search(r'button "(Item \d+)" \[ref=e164\]', started["snapshot"])
             self.assertIsNotNone(match, started["snapshot"])
             self.shell_command(shell, mode, "browser click '@e164'")
-            checked = self.command(mode, "check", "text", "#result", match[1])
+            checked = self.command(mode, "check", "contains", "#result", "知识检索介绍")
             self.assertTrue(checked["passed"], checked)
+            self.assertEqual(checked["actual"], "知识检索介绍 · " + match[1])
+            if self.app == APP:
+                self.screenshots(mode)
             saved = self.shell_command(shell, mode, "record stop --title '打开“RAG 与知识检索”介绍页' --plan TC-001")
             self.assertEqual(saved["ui_case"]["title"], "打开“RAG 与知识检索”介绍页")
         finally:
@@ -272,3 +297,29 @@ class ReportDeliveryTests(Sandbox):
 
     def test_powershell_7_cmd_through_http_bridge(self):
         self.check_shell("pwsh.exe", "on")
+
+    def test_v251_recording_and_run_reports_retry_without_replay(self):
+        baseline = os.environ.get("AUTOSKILL_REPORT_BASELINE")
+        if os.name != "nt" or not baseline:
+            self.skipTest("native Windows and a v2.5.1 checkout required")
+        mode = "on"
+        self.dashboard(Path(baseline))
+        self.create(self.page())
+        self.assertEqual(self.write_plan(mode)["test_report"]["status"], "failed")
+        recording, run = self.record("pwsh.exe", mode)
+        final = self.command(mode, "plan", "show")["test_report"]
+        failed = (recording, run, final)
+        for old in failed:
+            self.assertEqual(old["status"], "failed", old)
+            self.assertIn("[Errno 9]", old["error"])
+            evidence("v2.5.1 after replay", kind=old["kind"], report_id=old["report_id"], error=old["error"])
+        self.assertEqual(self.run_counts(), [1, 1])
+        self.dashboard()
+        for old in failed:
+            snapshot = report_locations.folder(old["report_id"]) / "snapshot.json"
+            before = snapshot.read_bytes()
+            ready = self.command(mode, "task-report", old["report_id"], "--retry")
+            self.assertEqual((ready["report_id"], ready["source_hash"]), (old["report_id"], old["source_hash"]))
+            self.assertEqual(snapshot.read_bytes(), before)
+            self.check_files(ready)
+        self.assertEqual(self.run_counts(), [1, 1])

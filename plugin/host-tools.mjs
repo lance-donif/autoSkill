@@ -43,9 +43,10 @@ export function toolDefinitions(service) {
   const observed = new WeakMap();
   return [{
     name: 'autoskill_read',
-    description: '读取 autoSkill 当前任务、工作流、判定、运行或报告。context 是纯只读恢复摘要；正文按 cursor/head 分页取，报告读取会核验文件但不会调用 present。',
+    description: '读取 autoSkill 当前任务、工作流、判定、运行或报告。context 用于只读恢复，正文按 cursor/head 分页。report 按 report_id 核验宿主文件，query.delivery=initial 准备首次设计 Excel，默认准备最终三份原件。实际交付由当前会话调用 present。',
     parameters: { type: 'object', properties: { resource: { type: 'string', enum: READ_RESOURCES }, binding_id: { type: 'string' },
-      query: { type: 'object', additionalProperties: true } }, required: ['resource'], additionalProperties: false },
+      query: { type: 'object', properties: { delivery: { type: 'string', enum: ['initial', 'final'] },
+        task_id: { type: 'string', description: '报告所属的原始任务编号，可与回执核对。' } }, additionalProperties: true } }, required: ['resource'], additionalProperties: false },
     output,
     async execute(args, exec) {
       validate(args, 'resource', READ_RESOURCES, ['resource', 'binding_id', 'query']);

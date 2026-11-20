@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { spawn, execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -32,7 +32,7 @@ export async function sdk(name) {
   return import(pathToFileURL(sdkRequire.resolve(id)).href);
 }
 
-export async function sdkHost(t, cwd) {
+export async function sdkHost(t, cwd, sandboxMode = 'danger-full-access') {
   const { Context } = await sdk('cordis');
   const ctx = new Context();
   t.after(() => ctx.fiber.dispose());
@@ -41,7 +41,7 @@ export async function sdkHost(t, cwd) {
     'dsh-subprocess-local', 'dsh-sandbox-local', 'dsh-sandbox-policy', 'dsh-ptc-runtime-node',
     'dsh-tool-executor-native', 'dsh-commands', 'dsh-tool-present', 'dsh-skill']) {
     const module = await sdk(name);
-    const config = name === 'dsh-sandbox-policy' ? { mode: 'danger-full-access', workspaceRoot: cwd }
+    const config = name === 'dsh-sandbox-policy' ? { mode: sandboxMode, workspaceRoot: cwd }
       : name === 'dsh-fs-local' ? { cwd }
       : name === 'dsh-working-directory' ? { defaultDirectory: cwd } : {};
     await ctx.plugin(module.default ?? module, config);
@@ -205,7 +205,7 @@ export function resultText(result) {
 
 async function toolFixture(t, options = {}) {
   const kernel = await kernelFixture(t);
-  const host = await sdkHost(t, kernel.workspace);
+  const host = await sdkHost(t, options.cwd ?? kernel.workspace, options.sandboxMode);
   const { HostService } = await import('../plugin/host-service.mjs');
   const { attachHostBackend } = await import('../plugin/host-backend.mjs');
   const requests = [];
@@ -463,6 +463,80 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     assert.deepEqual(replay.value, lookup.value.data);
     assert.equal(requests.filter((request) => request.method === 'POST').length, 1);
     assert.deepEqual((await kernel.snapshot()).tables, accepted.tables, 'an uncertain accepted request must never be re-POSTed automatically');
+  });
+
+  test('workspace-write SDK presents the frozen design before bridge execution and the same task final reports afterward', { skip: sdkSkip }, async (t) => {
+    const cwd = await mkdtemp(join(tmpdir(), 'autoskill DSH caller-'));
+    t.after(() => rm(cwd, { recursive: true, force: true }));
+    const { kernel, ctx, owner, call } = await toolFixture(t, { cwd, sandboxMode: 'workspace-write' });
+    const policy = ctx.sandboxPolicy.resolve({ session: owner.session });
+    assert.deepEqual([policy.mode, policy.workspaceRoot], ['workspace-write', cwd]);
+    assert.notEqual(kernel.workspace, cwd);
+    const { runtimeContext } = await import('../plugin/index.mjs');
+    const env = { ...process.env, PYTHONPATH: join(ROOT, 'skills', 'autoskill', 'app'), PYTHONDONTWRITEBYTECODE: '1',
+      AUTOSKILL_BRIDGE: 'on', AUTOSKILL_CASE_SKILL: join(kernel.workspace, 'plans'), AUTOSKILL_WORKFLOW_BINDING: '' };
+    const cli = (...args) => executeFile(kernel.spec.python, ['-m', 'autoskill', '--runtime-context', runtimeContext(kernel.spec),
+      '--host-session', owner.session.id, '--session', 'initial-delivery', ...args], { cwd, env });
+    const source = join(cwd, '完整 设计.json');
+    await writeFile(source, JSON.stringify([{ id: 'DESIGN-9', title: 'Priority must be high', steps: ['Read priority'], expected: ['high'] },
+      { id: 'DESIGN-2', title: 'Another design', steps: ['Read owner'], expected: ['Owner is present'] }]));
+    const first = JSON.parse((await cli('plan', 'write', kernel.project, '--file', source)).stdout);
+    assert.equal(first.test_report.status, 'ready');
+    assert.equal(first.test_report.report_id, first.initial_report_id);
+    assert.deepEqual(first.test_report.summary_counts, { Pass: 0, Fail: 0, NotRun: 2 });
+    const initialBytes = await readFile(first.initial_excel);
+    assert.deepEqual(initialBytes, await readFile(first.delivery_excel));
+    const query = { report_id: first.initial_report_id, delivery: 'initial', task_id: first.task_id };
+    const prepared = await call(owner, 'autoskill_read', { resource: 'report', query });
+    assert.equal(prepared.isError, false, resultText(prepared));
+    const initial = prepared.value.data.host_files;
+    assert.equal(initial.status, 'verified');
+    assert.equal(initial.presented, false);
+    assert.deepEqual(initial.present_input.files.map((file) => file.path), [first.initial_excel]);
+    const presented = () => owner.session.snapshotEvents().filter((event) => event.type === 'deliverables/presented');
+    assert.equal(presented().length, 0);
+    owner.session.append('turn/start', { turn: 1 });
+    const initialDelivery = await call(owner, 'present', initial.present_input);
+    assert.equal(initialDelivery.isError, false, resultText(initialDelivery));
+    assert.deepEqual(presented().map((event) => event.data.files), [initial.present_input.files]);
+
+    await cli('plan', 'link', 'DESIGN-9', 'TC-SDK-001');
+    let runId;
+    await assert.rejects(cli('run', kernel.project, '--case', 'TC-SDK-001'), (error) => {
+      assert.equal(error.code, 1);
+      const failed = JSON.parse(error.stdout);
+      assert.equal(failed.failed, 1);
+      assert.equal(failed.plan.task_id, first.task_id);
+      runId = failed.run_id;
+      return true;
+    });
+    const run = await (await fetch(kernel.origin + '/api/runs/' + runId)).json();
+    const { detail } = run.results.find((item) => item.case_id === 'TC-SDK-001');
+    const check = detail.assertions.find((item) => item.name === '字段 /priority');
+    assert.deepEqual([detail.response.status, check.expected, check.actual, check.passed], [200, 'high', 'medium', false]);
+    assert.deepEqual(detail.screenshots ?? [], []);
+    const last = JSON.parse((await cli('plan', 'show')).stdout);
+    assert.equal(last.task_id, first.task_id);
+    assert.equal(last.initial_report_id, first.initial_report_id);
+    assert.equal(last.delivery_excel, first.delivery_excel);
+    assert.deepEqual(last.cases.map(({ id, status }) => [id, status]), [['DESIGN-9', '失败'], ['DESIGN-2', '未执行']]);
+    const report = last.test_report;
+    assert.equal(report.status, 'ready');
+    assert.deepEqual(report.summary_counts, { Pass: 0, Fail: 1, NotRun: 1 });
+    assert.notEqual(report.report_id, first.initial_report_id);
+    assert.deepEqual(initialBytes, await readFile(first.initial_excel));
+    assert.notDeepEqual(initialBytes, await readFile(last.delivery_excel));
+    const finished = await call(owner, 'autoskill_read', { resource: 'report', query: { report_id: report.report_id, task_id: first.task_id } });
+    assert.equal(finished.isError, false, resultText(finished));
+    const final = finished.value.data.host_files;
+    assert.equal(final.status, 'verified');
+    assert.equal(final.presented, false);
+    assert.deepEqual(final.present_input.files.map((file) => file.path), [report.excel, report.markdown, report.bugs]);
+    assert.equal(presented().length, 1);
+    const finalDelivery = await call(owner, 'present', final.present_input);
+    assert.equal(finalDelivery.isError, false, resultText(finalDelivery));
+    assert.deepEqual(presented().map((event) => event.data.files), [initial.present_input.files, final.present_input.files]);
+    owner.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } });
   });
 
   test('real DSH present commits only accessible reports in an owning Agent open turn', { skip: sdkSkip }, async (t) => {

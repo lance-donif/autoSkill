@@ -296,7 +296,8 @@ def evidence(project_id: str, row: dict) -> dict | None:
 
 def publish(value: dict, *, initial: Path | None = None) -> dict:
     active = _read()
-    current = {row["id"]: row for row in plan.show()["cases"]} if active and active["task_id"] == value["task_id"] else {}
+    shown = plan.show() if active and active["task_id"] == value["task_id"] else {}
+    current = {row["id"]: row for row in shown.get("cases", [])}
     cases = []
     for saved in value["rows"]:
         definition = saved["definition"]
@@ -318,9 +319,41 @@ def publish(value: dict, *, initial: Path | None = None) -> dict:
     head = _task_file(value["task_id"]).with_name("delivery-head.json")
     receipt = task_reports.for_design(snapshot, runner.plan_folder(value["delivery_excel"]), head, initial=initial)
     value["report_id"] = receipt["report_id"]
+    if initial is not None:
+        value["initial_report_id"] = receipt["report_id"]
+    elif shown.get("initial_report_id"):
+        value["initial_report_id"] = shown["initial_report_id"]
     _save(value)
+    return _delivery_view(value, receipt)
+
+
+def _delivery_view(value: dict, report: dict | None) -> dict:
+    initial_report_id = value.get("initial_report_id")
+    if not initial_report_id and report:
+        initial_report_id = (report["report_id"] if report.get("initial_excel") and report.get("task_id") == value["task_id"]
+                             else _legacy_initial_report(value))
     return {"delivery_excel": str(runner.plan_folder(value["delivery_excel"])), "initial_excel": str(runner.plan_folder(value["initial_excel"])),
-            "test_report": receipt, "task_id": value["task_id"]}
+            "initial_report_id": initial_report_id, "test_report": report, "task_id": value["task_id"]}
+
+
+def _legacy_initial_report(value: dict) -> str | None:
+    """Identify a pre-pointer first delivery from its own retained receipt, including failed exports."""
+    project_id = value["project_id"]
+    if not projects.ID.fullmatch(project_id):
+        return None
+    expected = runner.plan_folder(value["initial_excel"])
+    matches = set()
+    for folder in (paths.projects_dir() / project_id / "reports", paths.local() / "task-reports"):
+        for directory in folder.glob("design_*"):
+            try:
+                receipt = task_reports._saved(directory.name)
+                if (isinstance(receipt, dict) and receipt.get("report_id") == directory.name and receipt.get("kind") == "design"
+                        and receipt.get("task_id") == value["task_id"] and receipt.get("project_id") == project_id
+                        and receipt.get("initial_excel") and runner.plan_folder(receipt["initial_excel"]) == expected):
+                    matches.add(directory.name)
+            except (OSError, TypeError, ValueError):
+                continue
+    return matches.pop() if len(matches) == 1 else None
 
 
 def describe() -> dict:
@@ -331,8 +364,7 @@ def describe() -> dict:
         report = task_reports.get(value["report_id"]) if value.get("report_id") else None
     except ValueError as error:
         report = {"status": "failed", "error": str(error), "report_id": value.get("report_id")}
-    return {"delivery_excel": str(runner.plan_folder(value["delivery_excel"])), "initial_excel": str(runner.plan_folder(value["initial_excel"])),
-            "test_report": report, "task_id": value["task_id"]}
+    return _delivery_view(value, report)
 
 
 def previous_deliveries(project_id: str, session: str) -> list[dict]:

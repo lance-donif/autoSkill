@@ -117,7 +117,7 @@ class CasePlanHistoryDeliveryTests(unittest.TestCase):
                 page.get_by_role("button", name="历史版本", exact=True).click()
                 previous = page.locator(f'[data-task="{old_task}"]')
                 expect(previous).to_be_visible()
-                expect(previous).to_contain_text("2 通过 · 1 失败 · 1 未执行")
+                expect(previous).to_contain_text("1 未执行 · 2 通过 · 1 失败")
                 self.assertEqual(len(requests), 1)
                 download_link = previous.get_by_role("link", name="下载原任务 Excel", exact=True)
                 self.assertEqual(download_link.get_attribute("href"), receipt["download_url"])

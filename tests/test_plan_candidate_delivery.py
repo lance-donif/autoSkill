@@ -1,4 +1,5 @@
 """Complete design delivery binds unpublished candidates to exact local execution evidence."""
+import hashlib
 import json
 import os
 import sys
@@ -13,7 +14,7 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'skills/autoskill/app'))
 
-from autoskill import builder, candidate_publication, case_plans, data_refs, db, execution_inputs, plan, projects, runner, task_bugs, task_reports
+from autoskill import builder, candidate_publication, case_plans, data_refs, db, execution_inputs, plan, plan_execution, projects, reporting, runner, task_bugs, task_reports, task_workbook
 from autoskill.recorder import session
 from autoskill.replay import api
 
@@ -58,9 +59,88 @@ class CandidateSheetTests(unittest.TestCase):
         try:
             sheet = book['功能测试用例']
             self.assertEqual(sheet.max_column, 14)
+            self.assertEqual(list(next(sheet.values)), task_workbook.HEADERS)
             return [list(row) for row in sheet.values if row[9] in {'未执行', '失败', '通过', '业务未验证', '阻塞', '已取消'}]
         finally:
             book.close()
+
+    def test_duplicate_design_ids_are_rejected_before_replacing_the_previous_sheet(self):
+        original = {key: Path(self.written[key]).read_bytes() for key in ('excel', 'initial_excel', 'delivery_excel')}
+        source = self.root / 'duplicate.json'
+        for duplicate in ([{'id': 'DESIGN-A', 'title': 'A'}] * 2,
+                          [{'id': 'TC-002', 'title': 'A'}, {'title': 'B'}]):
+            with self.subTest(rows=duplicate):
+                source.write_text(json.dumps(duplicate), encoding='utf-8')
+                with self.assertRaisesRegex(ValueError, '编号.*重复.*第 1 行.*第 2 行'):
+                    plan.write(self.pid, str(source))
+                self.assertEqual(plan.show()['task_id'], self.written['task_id'])
+                for key, content in original.items():
+                    self.assertEqual(Path(self.written[key]).read_bytes(), content)
+        source.write_text(json.dumps([{'title': 'A'}, {'id': 'CUSTOM-7', 'title': 'B'}, {'title': 'C'}]), encoding='utf-8')
+        output = plan.write(self.pid, str(source))
+        self.assertEqual([row['id'] for row in plan.show()['cases']], ['TC-001', 'CUSTOM-7', 'TC-003'])
+        self.assertEqual(output['test_report']['validation']['case_rows'], 3)
+
+    def test_first_delivery_failure_exposes_its_retry_and_recovers_the_original_design(self):
+        with patch.object(reporting, 'write_task', side_effect=OSError(9, 'Bad file descriptor')):
+            failed = plan.write(self.pid, str(self.root / 'design.json'))
+        self.assertEqual(failed['test_report']['status'], 'failed')
+        self.assertEqual(failed['initial_report_id'], failed['test_report']['report_id'])
+        self.assertIn('task-report ' + failed['initial_report_id'] + ' --retry', failed['next'])
+        self.assertFalse(Path(failed['initial_excel']).is_file())
+        self.assertTrue(Path(failed['excel']).is_file())
+        restored = task_reports.retry(failed['initial_report_id'])
+        self.assertEqual(restored['status'], 'ready', restored)
+        self.assertEqual((restored['task_id'], restored['summary_counts']), (failed['task_id'], {'Pass': 0, 'Fail': 0, 'NotRun': 3}))
+        self.assertEqual(Path(failed['delivery_excel']).read_bytes(), Path(failed['initial_excel']).read_bytes())
+        self.assertEqual(db.one('SELECT count(*) AS n FROM runs')['n'], 0)
+
+    def test_text_only_assertions_fill_their_original_rows_and_keep_the_initial_report(self):
+        written = self.written
+        report_id = written['initial_report_id']
+        self.assertEqual(report_id, written['test_report']['report_id'])
+        self.assertEqual(plan.show()['initial_report_id'], report_id)
+        initial = self.workbook_rows(written['initial_excel'])
+        self.assertEqual([row[9] for row in initial], ['未执行'] * 3)
+        for case_id, row, passed in [('TC-API-B', 'DESIGN-2', False), ('TC-API-A', 'DESIGN-1', True)]:
+            run = self.queue(self.candidate(case_id), row=row)
+            self.execute(run, passed=passed)
+            result = db.one('SELECT * FROM results WHERE run_id = ?', (run['id'],))
+            detail = json.loads(result['detail'])
+            self.assertTrue(execution_inputs.result_evidence(run, result))
+            assertion = next(check for check in detail['assertions'] if check['name'] == '字段 /ok')
+            self.assertEqual((detail['response']['status'], assertion['expected'], assertion['actual'], assertion['passed']),
+                             (200, True, passed, passed))
+        shown = plan.show()
+        self.assertEqual((shown['task_id'], shown['delivery_excel'], shown['initial_report_id']),
+                         (written['task_id'], written['delivery_excel'], report_id))
+        final = shown['test_report']
+        self.assertNotEqual(final['report_id'], report_id)
+        self.assertEqual(final['summary_counts'], {'Pass': 1, 'Fail': 1, 'NotRun': 1})
+        rows = self.workbook_rows(final['excel'])
+        self.assertEqual([row[:8] for row in rows], [row[:8] for row in initial])
+        self.assertEqual([(row[9], row[13]) for row in rows], [('通过', None), ('失败', None), ('未执行', None)])
+        self.assertEqual(list(self.root.rglob('*.png')), [])
+        for field in ('excel', 'markdown', 'bugs'):
+            self.assertEqual(hashlib.sha256(Path(final[field]).read_bytes()).hexdigest(),
+                             final['sha256' if field == 'excel' else field + '_sha256'])
+        self.assertEqual(written['test_report']['sha256'], hashlib.sha256(Path(shown['initial_excel']).read_bytes()).hexdigest())
+        self.assertTrue(final['validation']['structure']['ok'])
+        self.assertTrue(final['validation']['case_ids_match'])
+        self.assertTrue(final['validation']['markdown_readable'] and final['validation']['bugs_readable'])
+
+    def test_legacy_sheet_resolves_its_own_frozen_initial_receipt_after_execution(self):
+        previous = self.written
+        written = plan.write(self.pid, str(self.root / 'design.json'))
+        self.execute(self.queue(self.candidate()))
+        saved = plan_execution._read()
+        saved.pop('initial_report_id')
+        plan_execution._save(saved)
+        shown = plan.show()
+        self.assertEqual(shown['initial_report_id'], written['initial_report_id'])
+        self.assertNotIn(shown['initial_report_id'], (previous['initial_report_id'], shown['test_report']['report_id']))
+        (task_reports._folder(written['initial_report_id']) / 'receipt.json').unlink()
+        self.assertIsNone(plan.show()['initial_report_id'])
 
     def test_failed_unpublished_candidate_updates_original_complete_excel_and_web_view(self):
         initial = Path(self.written['initial_excel']).read_bytes()
@@ -112,7 +192,11 @@ class CandidateSheetTests(unittest.TestCase):
         self.assertEqual([row[9] for row in self.workbook_rows(replacement['delivery_excel'])], ['未执行'] * 3)
         old_rows = self.workbook_rows(old['delivery_excel'])
         self.assertEqual([row[9] for row in old_rows], ['失败', '未执行', '未执行'])
-        self.assertIn('必要测试账号尚未提供', old_rows[2][8])
+        blocked = dict(zip(task_workbook.HEADERS, old_rows[2], strict=True))
+        self.assertIsNone(blocked['实际结果'])
+        self.assertEqual(blocked['测试结论'], '未执行')
+        self.assertIn('必要测试账号尚未提供', blocked['备注'])
+        self.assertIn('没有本行执行回执', blocked['备注'])
         self.assertEqual(old_rows[0][6], self.rows[0]['expected'])
         synchronized = plan.sync(run_id=run['id'])
         self.assertEqual(synchronized['task_id'], old['task_id'])

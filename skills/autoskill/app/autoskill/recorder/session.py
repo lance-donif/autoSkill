@@ -15,7 +15,7 @@ from .. import data_refs, db, execution_inputs, paths, projects, secrets, task_c
 from ..locking import project_lock
 from ..replay import ir
 from ..replay.tabs import Tabs
-from . import agent, capture
+from . import agent, capture, screenshots
 from .context import AttachedPage
 
 
@@ -873,7 +873,7 @@ def browser(argv: list[str]) -> dict:
                        or command == "scrollintoview" or (command == "wait" and rest and not rest[0].isdigit()))
         if is_targeted and (rec.get("context") or any(_rich_target(token) for token in rest)):
             return _after(rec, {"result": _scoped_read(rec, command, rest)})
-        result = agent.call(session_name(), argv)
+        result = screenshots.capture(session_name(), rest) if command == "screenshot" else agent.call(session_name(), argv)
         if command == "wait" and rest and rest[0].isdigit():
             result = {"waited_ms": int(rest[0])}
         return _after(rec, {"result": result})

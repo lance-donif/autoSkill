@@ -276,7 +276,8 @@ class Session:
     def attempt(self, case: dict, kind: str, invoke) -> dict:
         """Journal before invoking an adapter; each response and screenshot has its own durable identity."""
         attempt_id = "attempt-" + uuid.uuid4().hex
-        file = evidence_dir(self.run["id"]) / "attempts" / (attempt_id + ".json")
+        folder = evidence_dir(self.run["id"])
+        file = folder / "attempts" / (attempt_id + ".json")
         receipt = {"schema_version": 1, "id": attempt_id, "run_id": self.run["id"], "case_id": case["id"],
                    "input_hash": self.run["input_hash"], "case_content_hash": self.manifest["case_hashes"][case["id"]],
                    "case_scope_hash": self.manifest["scope_hashes"][case["id"]], "kind": kind,
@@ -297,11 +298,7 @@ class Session:
             if outcome["status"] == "Pass" and self.cancel_requested():
                 outcome.update(status="Cancelled", category="cancelled", reason="目标执行期间已取消")
         outcome = {**outcome, **verification(case, outcome, probe=kind in ("login_probe", "session_reuse"))}
-        artifacts = []
-        for name in outcome.get("screenshots", []):
-            artifact = evidence_dir(self.run["id"]) / name
-            if artifact.is_file():
-                artifacts.append({"path": name, "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()})
+        artifacts = _register_screenshots(folder, outcome)
         receipt.update(state="completed", finished_at=db.now(), outcome=outcome, artifacts=artifacts)
         execution_inputs.write_json(file, receipt)
         reference = {"id": attempt_id, "path": data_refs.store(file), "sha256": execution_inputs.content_hash(receipt),
@@ -448,7 +445,30 @@ class Session:
         return self.attempt(login, "login_probe", probe)["status"] == "Pass"
 
 
-DETAIL_KEYS = ("target_started", "execution_only_pass", "steps", "assertions", "request", "response", "screenshots", "fallbacks", "reused", "relogin", "extracted",
+def _register_screenshots(folder: Path, outcome: dict) -> list[dict]:
+    """Register each readable screenshot once. Primary receipt and store failures still propagate."""
+    artifacts, missing = [], set()
+    for name in outcome.get("screenshots", []):
+        try:
+            file = folder / name
+            if Path(name).name != name or file.is_symlink() or not file.is_file():
+                raise FileNotFoundError(name)
+            with file.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            artifacts.append({"path": name, "sha256": digest})
+        except OSError as error:
+            missing.add(name)
+            outcome.setdefault("screenshot_warnings", []).append({"path": name, "operation": "read", "error": type(error).__name__})
+    if missing:
+        for result in [outcome, *outcome.get("setup_cases", [])]:
+            result["screenshots"] = [name for name in result.get("screenshots", []) if name not in missing]
+            for assertion in result.get("assertions", []):
+                if assertion.get("screenshot") in missing:
+                    del assertion["screenshot"]
+    return artifacts
+
+
+DETAIL_KEYS = ("target_started", "execution_only_pass", "steps", "assertions", "request", "response", "screenshots", "screenshot_warnings", "fallbacks", "reused", "relogin", "extracted",
                "attempts", "verification", "business_status", "business_verified", "performance_status", "performance_assertions",
                "execution_status", "execution_blocker", "last_attempt_status", "load_user", "load_iteration",
                "postcondition_source", "postcondition_results", "setup_cases")

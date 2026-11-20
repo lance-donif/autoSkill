@@ -257,21 +257,22 @@ def classify(error: Exception, driver=None) -> tuple[str, str]:
     return ENVIRONMENT, "浏览器执行出错：" + name
 
 
-def _screenshot(driver, folder: Path, file: str, evidence: list) -> bool:
+def _screenshot(driver, folder: Path, file: str, outcome: dict) -> bool:
     try:
         folder.mkdir(parents=True, exist_ok=True)
         driver.screenshot(folder / file)
-    except Exception:  # noqa: BLE001  # A screenshot is optional evidence and does not change the verdict.
+    except Exception as error:  # noqa: BLE001  # Browser and filesystem capture errors are optional evidence failures.
+        outcome.setdefault("screenshot_warnings", []).append({"path": file, "operation": "capture", "error": type(error).__name__})
         return False
-    evidence.append(file)
+    outcome["screenshots"].append(file)
     return True
 
 
-def _failure_evidence(driver, result: dict, folder: Path, name: str, index: int, evidence: list) -> None:
+def _failure_evidence(driver, result: dict, folder: Path, name: str, index: int, outcome: dict) -> None:
     if result["passed"]:
         return
     file = f"{Path(name).stem}-check-{index}.png"
-    if _screenshot(driver, folder, file, evidence):
+    if _screenshot(driver, folder, file, outcome):
         result["screenshot"] = file
 
 
@@ -283,6 +284,8 @@ def run_setup(driver, stages: list[dict], config: dict, evidence_dir: Path, scre
         result = _run_flow(driver, stage["automation"], config, evidence_dir, name, keep_page=index > 0, stop_on_failed_check=True)
         receipt = {key: stage[key] for key in ("case_id", "revision", "content_hash")}
         receipt.update({key: result[key] for key in ("status", "reason", "assertions", "screenshots", "duration_ms")})
+        if result.get("screenshot_warnings"):
+            receipt["screenshot_warnings"] = result["screenshot_warnings"]
         receipts.append(receipt)
         if receipt["status"] != "Pass":
             break
@@ -341,8 +344,8 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
     timeout = float(config.get("timeout_seconds", 20))
     allowed = list(config.get("allowed_origins", []))
     base_url = config.get("base_url", "")
-    steps, assertions, evidence = [], [], []
-    outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "fallbacks": 0}
+    steps, assertions = [], []
+    outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "fallbacks": 0, "screenshots": []}
     started = time.monotonic()
     acted = False
     try:
@@ -360,7 +363,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
                 if "assertion" in step:
                     result = check(driver, step, timeout)
                     assertions.append(result)
-                    _failure_evidence(driver, result, evidence_dir, screenshot_name, len(assertions), evidence)
+                    _failure_evidence(driver, result, evidence_dir, screenshot_name, len(assertions), outcome)
                     outcome["fallbacks"] += int(bool(result.get("fallback")))
                     row["status"] = "done" if result["passed"] else "failed"
                     row["check"] = True
@@ -388,7 +391,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
             result = check(driver, step, timeout)
             outcome["fallbacks"] += int(bool(result.get("fallback")))
             assertions.append(result)
-            _failure_evidence(driver, result, evidence_dir, screenshot_name, len(assertions), evidence)
+            _failure_evidence(driver, result, evidence_dir, screenshot_name, len(assertions), outcome)
         failed = [a for a in assertions if not a["passed"]]
         if failed:
             outcome.update(status="Fail", category=ASSERTION, actual="页面结果与预期不一致",
@@ -413,13 +416,13 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
         else:
             outcome.update(status="Blocked", reason=message, category=category)
     if acted:
-        _screenshot(driver, evidence_dir, screenshot_name, evidence)
+        _screenshot(driver, evidence_dir, screenshot_name, outcome)
     definition = automation if isinstance(automation, dict) else {}
     declared = any(isinstance(s, dict) and "assertion" in s for s in (definition.get("actions") or [])) or bool(definition.get("assertions"))
     independent = any(a.get("oracle", {}).get("source") != "observation" for a in assertions if "oracle" in a)
     verified = (declared and independent) or (not declared and bool(steps) and all(step["status"] == "done" for step in steps))
     outcome.update(verification="verified" if verified else "unverified",
                    business_status=outcome["status"] if verified and outcome["status"] in ("Pass", "Fail") else "Unverified",
-                   target_started=bool(steps), steps=steps, assertions=assertions, screenshots=evidence,
+                   target_started=bool(steps), steps=steps, assertions=assertions,
                    duration_ms=round((time.monotonic() - started) * 1000))
     return outcome
