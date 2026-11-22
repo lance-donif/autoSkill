@@ -36,7 +36,8 @@ button:disabled { cursor: not-allowed; }
   /* Reserve the compact navigation button, its two insets and its border before startup. */
   min-block-size: calc(var(--s-8) + 2 * var(--s-2) + 1px);
 }
-.brand { display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-2) var(--s-6); }
+/* The mark is wider than the icon column, so it starts on the box line and the gap puts its name on the label line. */
+.brand { display: flex; align-items: center; gap: calc(var(--side-label) - 30px); padding: 0 0 var(--s-6); }
 .brand-mark {
   width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center;
@@ -50,7 +51,7 @@ button:disabled { cursor: not-allowed; }
 .nav { display: grid; gap: 2px; }
 .nav a svg { flex-shrink: 0; }
 .nav a {
-  display: flex; align-items: center; gap: var(--s-3); padding: 9px var(--s-3); border-radius: var(--r-md);
+  display: flex; align-items: center; gap: var(--s-3); padding: 9px var(--side-row-inset); border-radius: var(--r-md);
   color: var(--side-ink-2); font-weight: 550; transition: background var(--fast), color var(--fast);
 }
 .nav a:hover { background: var(--side-wash); color: var(--side-ink); }
@@ -59,12 +60,13 @@ button:disabled { cursor: not-allowed; }
   margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px;
   background: var(--accent); color: var(--on-accent);
 }
-.side-foot { margin-top: auto; display: grid; gap: var(--s-3); padding: 0 var(--s-2); font-size: var(--t-xs); color: var(--side-ink-2); }
-.side-foot .line { display: flex; align-items: center; gap: var(--s-2); }
+/* Footer rows share the navigation's icon column and label line; a narrower dot centres in the column. */
+.side-foot { margin-top: auto; display: grid; gap: var(--s-3); padding: 0 var(--side-row-inset); font-size: var(--t-xs); color: var(--side-ink-2); }
+.side-foot .line, .side-foot button { display: grid; grid-template-columns: var(--side-icon) auto; justify-content: start; align-items: center; column-gap: var(--s-3); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--idle); flex: none; }
-.dot.ok { background: var(--good); }
 .dot.off { background: var(--bad); }
-.side-foot button { color: var(--side-ink-2); display: flex; align-items: center; gap: var(--s-2); }
+.side-foot .line .dot { justify-self: center; }
+.side-foot button { color: var(--side-ink-2); }
 .side-foot button:hover { color: var(--side-ink); }
 .main { min-width: 0; display: flex; flex-direction: column; }
 .view { padding: var(--s-6) var(--s-8) var(--s-10); max-width: 1480px; width: 100%; outline: none; overflow-wrap: anywhere; }
@@ -113,6 +115,8 @@ button:disabled { cursor: not-allowed; }
   .scope .scope-text { flex-basis: 100%; overflow-wrap: anywhere; }
   .scope .pop { max-width: 100%; }
   .scope .btn { max-width: 100%; white-space: normal; }
+  /* The bar wraps here, so a ghost button can start a line: its fill is invisible, so its ink, not its hit area, sits on the text line. */
+  .scope .btn.ghost.sm { margin-inline-start: calc(-1 * var(--btn-sm-pad)); }
   .view .btn { max-width: 100%; min-height: 32px; height: auto; white-space: normal; }
   .view .btn.sm { min-height: 28px; }
 }

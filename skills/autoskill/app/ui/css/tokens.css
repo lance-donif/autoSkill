@@ -44,6 +44,14 @@
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --t-xs: 12px; --t-sm: 13px; --t-md: 14px; --t-lg: 17px; --t-xl: 26px; --t-2xl: 28px; --t-hero: 56px;
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px;
+  /* Sidebar lines from its box line (the sidebar padding): every row insets its icon into one 16px column,
+     labels start one gap after it. See docs/仪表盘对齐线.md. */
+  --side-row-inset: var(--s-3);
+  --side-icon: 16px;
+  --side-label: calc(var(--side-row-inset) + var(--side-icon) + var(--s-3));
+  /* A table's first and last cell inset; a padded panel around a table sets it to 0 so cells share the panel's text line. */
+  --table-inset: var(--s-5);
+  --btn-sm-pad: 10px;
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
   --case-filter-top: 0px;
   --ease: cubic-bezier(.32, .72, 0, 1);

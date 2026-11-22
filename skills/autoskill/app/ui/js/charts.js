@@ -128,28 +128,6 @@ export function trendTable(points, unit) {
       h('td', { class: 'num' }, fmtPercent(p.pass_rate)))))));
 }
 
-/** Pass rate over time: a single-series sparkline in a muted hue, last point in the accent. */
-export function sparkline(points) {
-  const values = points.map((p) => p.pass_rate);
-  const known = values.filter((v) => v != null);
-  if (known.length < 2) return null;
-  const width = 132, height = 36, pad = 5;
-  const lo = Math.min(...known), hi = Math.max(...known);
-  const span = hi - lo || 1;
-  const x = (i) => pad + (i / (values.length - 1)) * (width - pad * 2);
-  const y = (v) => height - pad - ((v - lo) / span) * (height - pad * 2);
-  let d = '', pen = false, last = null;
-  values.forEach((value, index) => {
-    if (value == null) return;  // a period with no runs has no rate: the line bridges it
-    d += `${pen ? 'L' : 'M'}${x(index).toFixed(1)},${y(value).toFixed(1)}`;
-    pen = true;
-    last = [x(index), y(value)];
-  });
-  return svg('svg', { viewBox: `0 0 ${width} ${height}`, class: 'spark', 'aria-hidden': 'true' },
-    svg('path', { d, class: 'spark-line' }),
-    svg('circle', { cx: last[0], cy: last[1], r: 4, class: 'spark-dot' }));
-}
-
 /** One whole split into outcomes, thin, no text: the figures sit beside it. */
 export function splitBar(counts, series = SERIES) {
   const bar = h('div', { class: 'split', role: 'img',

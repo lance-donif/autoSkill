@@ -246,8 +246,9 @@ class DashboardReviewTests(unittest.TestCase):
 
         self.api_response = diagnostic_response
         self.page.goto('http://127.0.0.1:8787/#/diagnostics')
-        self.page.get_by_role('button', name='检查运行环境', exact=True).click()
-        expect(self.page.locator('#view')).to_contain_text('diagnostic-owned')
+        with self.page.expect_response(lambda response: urlsplit(response.url).path == '/api/diagnostics'):
+            self.page.get_by_role('button', name='检查运行环境', exact=True).click()
+        expect(self.page.get_by_role('status').filter(has_text='正在检查运行环境…')).to_be_visible()
         with self.page.expect_response(lambda response: urlsplit(response.url).path == '/api/state-revision'
                                        and response.json()['revision'] == 'unrelated-during-diagnostic'):
             self.revision = 'unrelated-during-diagnostic'

@@ -104,6 +104,7 @@ Updating the program reuses the selected data root. `data import` copies an exis
 - A UI case opens on its ordered replay steps and checks, with available script downloads. An API case opens on the request, followed by its assertion rules. Show prerequisites when present. The case footer contains Close and, for replayable cases, Run. Editing, moving, deleting and load testing are list actions. Closing the inspector preserves the user's folder, filters and scroll position.
 - Show UI execution assertions, the ordered step evidence and available screenshots. Match historical evidence by run, case and revision. Distinguish definition-only steps and steps never reached from executed steps. In API results show the HTTP summary before assertions and pair each request with its own response on retries. The live report and the downloaded HTML use the same evidence. Pages simulations freeze mock inputs at launch and remain entirely in the preview.
 - Update the corresponding Chromium regressions in the same change as an intentional change to these behaviours. The `dashboard-e2e` job lists the exact Playwright/Chromium invocation for desktop and phone layouts, report content, offline downloads and palette checks. [Dashboard E2E](.github/workflows/lint.yml)
+- 侧边栏、表格与窄屏范围栏共用 `tokens.css` 中的对齐变量；批量审计用法与人工复核要求见 [仪表盘对齐线](docs/仪表盘对齐线.md)。
 
 ### Load testing and reporting
 

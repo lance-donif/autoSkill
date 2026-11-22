@@ -6,7 +6,7 @@ import { refreshShell } from '../shell.js';
 const TABS = [['knowledge', '知识库'], ['testcases', '用例文件'], ['reports', '报告'], ['share', '分享与导入']];
 const size = (bytes) => bytes < 1024 ? bytes + ' B' : bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB';
 const KNOWLEDGE_STATES = {
-  lifecycle: { active: '使用中', withdrawn: '已撤回' },
+  lifecycle: { withdrawn: '已撤回' },
   verification: { hypothesis: '待验证', observed: '已有事实记录', execution_reproduced: '执行已复现（3次）' },
   applicability: { match: '当前范围一致', changed: '适用条件已变化', unknown: '适用性待确认' },
   evidence_status: { valid: '证据可核验', missing: '证据缺失', tampered: '证据校验不符', imported_unverified: '导入证据未本地验证' },
@@ -38,8 +38,7 @@ export async function render(view) {
     : h('section', { class: 'card' }, empty({ glyph: 'folder', title: '还没有项目资料', text: '新建项目后，知识库、用例和报告会集中显示在这里。' }));
   replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '项目资料')), exportButton),
   h('div', { class: 'toolbar wrap' }, index.projects.length > 0 && project, tabs),
-  data && h('div', { class: 'card card-body' }, h('div', { class: 'sub' }, '本机项目目录'), h('code', {}, data.root),
-    h('p', { class: 'hint' }, 'knowledge / 知识库　·　testcases / 用例　·　reports / 报告。旧报告保留原文件，导出时一起收集。')),
+  data && h('div', { class: 'card card-body' }, h('div', { class: 'sub' }, '本机项目目录'), h('code', {}, data.root)),
   exporting, content);
 }
 
@@ -48,9 +47,10 @@ function materialsPanel(data, tab) {
   return h('div', {}, knowledgeEntries(data.project.id), fileList(data, tab));
 }
 
+// Only labelled states earn a tag; an active entry and unrecorded fields stay silent.
 function knowledgeStates(entry) {
   return h('div', { class: 'row wrap' }, Object.entries(KNOWLEDGE_STATES).map(([field, labels]) =>
-    h('span', { class: 'tag' }, labels[entry[field]] || '状态待确认')));
+    labels[entry[field]] && h('span', { class: 'tag' }, labels[entry[field]])));
 }
 
 function knowledgeEntries(projectId) {
@@ -71,7 +71,8 @@ function knowledgeEntries(projectId) {
       const entries = result.entries.filter((entry) => !entry.legacy);
       const page = result.pagination;
       replace(body, knowledgeTable(projectId, entries),
-        h('div', { class: 'card-body row wrap' }, h('span', { class: 'hint grow' }, `本页 ${fmtNumber(entries.length)} 条知识；原始文件在下方维护。`),
+        (entries.length > 0 || cursor || page.has_more) && h('div', { class: 'card-body row wrap' },
+          h('span', { class: 'hint grow' }, entries.length > 0 && `本页 ${fmtNumber(entries.length)} 条知识；原始文件在下方维护。`),
           cursor && h('button', { class: 'btn sm', onClick: () => load() }, '返回首页'),
           page.has_more && h('button', { class: 'btn sm', onClick: () => load(page.next_cursor) }, '下一页')));
     } catch (error) {
@@ -127,7 +128,7 @@ function fileList(data, category) {
     : empty({ glyph: 'folder', title: '还没有' + title, text: category === 'reports' ? '录制、执行或工作流完成后，报告自动保存在项目的 reports 子目录。'
       : category === 'knowledge' ? '把业务规则、测试经验和参考资料保存到当前项目的知识库。' : '在 DSH 对话中录制用例后，可在此下载用例文件。', actions: add });
   return h('section', { class: 'card', style: 'margin-top:16px;overflow-x:auto' },
-    h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, title), h('p', { class: 'sub' }, fmtNumber(files.length) + ' 个文件')), files.length > 0 && add), table);
+    h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, title), files.length > 0 && h('p', { class: 'sub' }, fmtNumber(files.length) + ' 个文件')), files.length > 0 && add), table);
 }
 
 async function editKnowledge(projectId, item) {
@@ -166,7 +167,7 @@ async function removeKnowledge(data, item, button) {
 
 function exportReceipt(result, label) {
   return h('div', { class: 'banner info', style: 'margin-top:16px' }, icon('check'), h('div', { class: 'grow' },
-    h('b', {}, '资料包已生成 · ' + size(result.bytes)), h('p', {}, result.note || '文件已生成，可下载。')),
+    h('b', {}, '资料包已生成 · ' + size(result.bytes)), result.note && h('p', {}, result.note)),
   h('a', { class: 'btn', href: result.download_url, download: '' }, label));
 }
 

@@ -101,8 +101,7 @@ function buildSide(side) {
     h('div', { class: 'side-panel', id: 'side-panel' },
       h('nav', { class: 'nav', 'aria-label': '主导航' }, NAV.map(navigationLink)),
       h('div', { class: 'side-foot' },
-        h('div', { class: 'line service-status' }, h('i', { class: 'dot' }), h('span', { class: 'text' })),
-        h('div', { class: 'line runtime-status', title: '离线运行：不联网、不更新、不上报' }, icon('lock'), h('span', { class: 'text' })),
+        h('div', { class: 'line service-status', title: '连不上本机服务', hidden: true }, h('i', { class: 'dot off' }), h('span', { class: 'text' }, '服务已断开')),
         h('button', { class: 'theme-toggle', title: '切换深浅色', onClick: async (event) => {
           await attempt(() => setTheme(theme() === 'dark' ? 'light' : 'dark'), event.currentTarget);
         } }))));
@@ -133,14 +132,7 @@ export function renderSide() {
   const count = side.querySelector('.count');
   count.hidden = !state.active;
   count.textContent = String(state.active);
-  const service = side.querySelector('.service-status');
-  service.title = state.online ? '服务只监听本机 127.0.0.1' : '连不上本机服务';
-  service.querySelector('.dot').className = 'dot ' + (state.online ? 'ok' : 'off');
-  service.querySelector('.text').textContent = state.online ? '本机服务运行中' : '服务已断开';
-  const runtime = state.status?.runtime;
-  const runtimeLine = side.querySelector('.runtime-status');
-  runtimeLine.hidden = !runtime;
-  runtimeLine.querySelector('.text').textContent = runtime?.bundled ? '随包运行时 · 离线' : '开发环境运行时';
+  side.querySelector('.service-status').hidden = state.online;
   const themeButton = side.querySelector('.theme-toggle');
   const label = theme() === 'dark' ? '浅色' : '深色';
   if (themeButton.getAttribute('aria-label') !== label) {
@@ -179,12 +171,12 @@ export function runSettings() {
       return button;
     };
     const row = (title, note, control) => h('div', { class: 'setting-row' },
-      h('div', { class: 'grow' }, h('div', { class: 'setting-title' }, title), h('div', { class: 'setting-note' }, note)), control);
+      h('div', { class: 'grow' }, h('div', { class: 'setting-title' }, title), note && h('div', { class: 'setting-note' }, note)), control);
     menu.classList.add('settings');
     menu.append(
       row('回放引擎', '只影响页面用例；接口用例始终走 HTTP', engines),
       h('div', { class: 'menu-sep' }),
-      row('显示浏览器窗口', '关闭后隐藏浏览器窗口', toggle('显示浏览器窗口', preferredHeaded(), (on) => setHeaded(on))),
+      row('显示浏览器窗口', null, toggle('显示浏览器窗口', preferredHeaded(), (on) => setHeaded(on))),
       row('使用本机 Chrome', browser.system ? '启动不了时改用随包浏览器；Selenium 始终用随包浏览器' : '没有找到本机 Chrome，正在使用随包浏览器',
         toggle('使用本机 Chrome', browser.mode !== 'bundled', async (on) => {
           const mode = on ? 'system' : 'bundled';
@@ -205,9 +197,10 @@ function pageScopeNote(page, id) {
   const notes = {
     data: '设置保存在当前数据目录中',
     diagnostics: '检查当前机器的运行环境',
-    'project-materials': '在页面中选择资料所属项目',
-    'native-assets': '在页面中选择资产所属项目',
-    conversations: '在页面中选择对话所属项目',
+    // These pages render their own project picker, so the bar carries only the replay settings.
+    'project-materials': '',
+    'native-assets': '',
+    conversations: '',
     'native-runs': '查看原生执行记录',
   };
   return notes[page];
@@ -223,9 +216,8 @@ export function renderScope() {
   // Background state changes must not dismiss an open scope picker or its date draft.
   if (bar.querySelector('.menu')) return;
   const note = pageScopeNote(page, id);
-  if (note) {
-    replaceScope(bar, h('span', { class: 'scope-label' }, PAGE_LABELS[page] || '执行记录'),
-      h('span', { class: 'scope-text' }, note), h('span', { class: 'grow' }), runSettings());
+  if (note !== undefined) {
+    replaceScope(bar, note && h('span', { class: 'scope-text' }, note), h('span', { class: 'grow' }), runSettings());
     return;
   }
   const timeless = ['schedules', 'workflows', 'case-plans'].includes(page);
@@ -266,8 +258,6 @@ export function renderScope() {
   replaceScope(bar,
     h('span', { class: 'scope-label' }, '当前范围'),
     projectPicker, !timeless && rangePicker,
-    h('span', { class: 'scope-text', 'aria-live': 'polite' },
-      h('b', {}, projectText(s)), ' · ', h('b', {}, timeless ? '不限时间' : rangeText(s))),
     (timeless ? s.projects.length > 0 : !isDefaultScope(s)) && h('button', {
       class: 'btn ghost sm', title: timeless ? '回到全部项目' : '回到「全部项目 · 近 7 天」',
       onClick: () => setScope(timeless ? { projects: [] } : { projects: [], range: DEFAULT_RANGE, from: '', to: '' }),

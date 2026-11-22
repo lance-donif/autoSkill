@@ -112,7 +112,7 @@ export async function render(view) {
           h('div', { class: 'row wrap' },
             h('button', { class: 'btn', disabled: !data.history.length && !data.task_id, onClick: () => history(data) }, icon('clock'), '历史版本'),
             h('button', { class: 'btn', onClick: refresh }, icon('reset'), '刷新结果'), runSettings()),
-          h('p', { class: 'sub' }, `版本 ${data.version} · 当前用例表：${activeSession || '默认'}`),
+          h('p', { class: 'sub' }, `版本 ${data.version}`),
           h('p', { class: 'sub' }, '在 DSH 对话中生成、执行和调整用例。结果按真实证据回填；测试内容改变后需重新执行。')))),
     data.rows.length ? caseGroups(data)
       : h('section', { class: 'card' }, empty({ glyph: 'table', title: '这份用例表还没有设计用例', text: '请在原 DSH 对话中继续生成用例 Excel；已有链接会保留对应的用例表。' })));
@@ -174,7 +174,7 @@ function caseRow(data, row) {
   const latest = evidence.latest_execution;
   const executions = evidence.execution_history || [];
   const retested = latest && (executions.length > 1 || (evidence.has_historical_failure && latest.status === 'Pass'));
-  const problem = row.status === 'Pass' ? '未发现问题' : evidence.reason || row.actual || row.conclusion || '尚未执行';
+  const problem = row.status === 'Pass' ? null : evidence.reason || row.actual || null;
   const facts = [['preconditions', '前置条件'], ['steps', '测试步骤'], ['expected', '预期结果'], ['actual', '实际结果'], ['remarks', '备注']];
   const authors = [['author', '设计人'], ['executor', '执行人'], ['environment', '执行环境']]
     .filter(([key]) => row[key]).map(([key, label]) => `${label}：${row[key]}`).join(' · ');
@@ -189,8 +189,6 @@ function caseRow(data, row) {
           h('p', { class: 'row wrap' }, `第 ${index + 1} 次执行`, statusPill(entry.status), executionLink(entry, '查看本次执行', 'history')),
           h('p', { class: 'sub case-plan-text' }, entry.actual || entry.reason || '详见本次执行证据'),
           entry.reason && entry.actual && entry.reason !== entry.actual && h('p', { class: 'sub case-plan-text' }, entry.reason)))),
-      h('p', { class: 'sub case-plan-text' }, '问题说明：' + problem),
-      h('p', { class: 'sub' }, '业务路径：' + ((row.business_path || []).join(' / ') || row.module || '未分组')),
       (row.requirement_ids || []).map((identity) => {
         const requirement = data.requirements?.find((item) => item.id === identity);
         return h('p', { class: 'sub' }, '关联需求：', requirement?.workflow_id
@@ -211,7 +209,7 @@ function caseOverview(data, row, evidence, problem, retested) {
     caseOutcome(data, row, evidence, problem, retested, stale),
     h('div', { class: 'stack' }, originalFailure && executionLink(originalFailure, '查看原失败', 'original'),
       latest ? executionLink(latest, latestLabel)
-        : evidence.run_id ? executionLink(evidence, '查看真实执行证据') : h('span', { class: 'sub' }, '尚无执行证据')));
+        : evidence.run_id && executionLink(evidence, '查看真实执行证据')));
 }
 
 function caseOutcome(data, row, evidence, problem, retested, stale) {
@@ -219,7 +217,7 @@ function caseOutcome(data, row, evidence, problem, retested, stale) {
   const conclusion = stale ? '当前定义尚未验证，需重新执行'
     : retested && evidence.has_historical_failure ? '本任务曾失败' : row.conclusion;
   return h('div', {}, statusPill(row.status), conclusion && h('span', { class: 'sub' }, ' ' + conclusion),
-    (stale || !retested) && h('p', { class: 'sub case-plan-problem' }, problem),
+    (stale || !retested) && problem && h('p', { class: 'sub case-plan-problem' }, problem),
     (stale || retested) && h('p', { class: 'sub' }, stale ? '历史执行：' : '最新复测：', statusPill(latest.status)),
     latest && publicationResult(latest, data.project.id, stale));
 }

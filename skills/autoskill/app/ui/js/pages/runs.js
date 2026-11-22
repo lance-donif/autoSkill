@@ -249,11 +249,10 @@ function historyRow(run, params, repaint) {
       if (box.checked) selected.set(run.id, run); else selected.delete(run.id);
       repaint();
     } });
-  const note = run.deletion_error || (deleting(run) ? '正在取消并删除，等待执行器退出及清理完成' :
-    active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
+  const note = run.deletion_error || (active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
   const destination = ({ load: 'load-tests', native: 'native-runs' })[run.family] || 'runs';
   return h('tr', { class: selected.has(run.id) ? 'selected' : '', dataset: { historyVerdict: run.history_status || '', historyRawStatus: run.status } },
-    h('td', {}, box), h('td', {}, historyVerdict(run), active(run) && primaryState(run)),
+    h('td', {}, box), h('td', {}, active(run) ? primaryState(run) : historyVerdict(run)),
     h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href(destination + '/' + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
     h('td', { style: 'min-width:170px' }, runProgress(run)),
     h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine] || run.engine || '未记录'),
@@ -403,7 +402,7 @@ async function report(view, runId, isCurrent) {
   replace(view,
     h('a', { class: 'back', href: returnToRuns() }, icon('right'), '返回执行记录'),
     deletionNotice(),
-    run.deletion_error && h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `删除未完成：${run.deletion_error}。可以重试删除。`),
+    run.deletion_error && !deletionErrors.some((error) => error.run_id === run.id) && h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `删除未完成：${run.deletion_error}。可以重试删除。`),
     runSummary(run), runActionFeedback(run), focusNotice(run, focus), rows);
   if (focus && focusedResult !== runId + '/' + focus && (focus.startsWith('result:') || run.results.filter((row) => row.case_id === focus).length === 1)) {
     focusedResult = runId + '/' + focus;
@@ -422,7 +421,7 @@ function reportRows(run, offline = false, focus = null) {
       run.results.some((row) => row.prerequisite) && h('p', { class: 'sub' }, '自动执行的前置用例不计入统计。'))),
     run.results.length
       ? h('div', { class: 'result-list' }, run.results.map((row) => resultRow(run, row, offline, focus)))
-      : empty({ glyph: 'clock', title: running ? '正在准备' : '没有结果', text: running ? '浏览器启动后，结果会一条条出现在这里。' : (run.reason || '这次运行没有产生结果。') }));
+      : empty({ glyph: 'clock', title: running ? '正在准备' : '没有结果', text: running ? null : '这次运行没有产生结果。' }));
 }
 
 const resultKey = (row) => String(row.id ?? row.case_id);
@@ -452,7 +451,7 @@ function runSummary(run, offline = false) {
       publicationSummary(run, offline),
       active(run) && h('div', { class: 'stack', style: 'gap:8px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
-          h('div', { class: 'row sub' }, h('i', { class: 'spin' }), run.status === 'Queued' ? '排队中，等待前一个运行结束' : `正在执行：${run.current || '准备中'}`,
+          h('div', { class: 'row sub' }, h('i', { class: 'spin' }), run.status === 'Queued' ? '排队中，等待前一个运行结束' : run.current && `正在执行：${run.current}`,
             h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`))),
       run.reason && h('div', { class: 'banner bad' }, icon('warn'), run.reason),
       reportStats(run, spent),

@@ -11,3 +11,5 @@ skills/autoskill/vendor/
 # machine-private data and anything a user records
 skills/autoskill/workspace/
 skills/autoskill-cases/
+# gridline audit captures (scripts/gridlines_audit.py)
+.gridlines/

@@ -26,9 +26,6 @@
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { width: 10px; height: 10px; border-radius: 3px; }
 .chart-table { max-height: 236px; overflow: auto; }
-.spark { width: 132px; height: 36px; display: block; }
-.spark-line { fill: none; stroke: var(--line-strong); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.spark-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 .split { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-3); }
 .split i { display: block; min-width: 3px; }
 
@@ -145,7 +142,8 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .case-title { color: var(--accent-strong); text-align: start; }
 .case-title:hover { text-decoration: underline; }
 .folder-content { min-width: 0; overflow-x: auto; }
-.folder-toolbar { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+/* The toolbar is the first row of the case table: its text sits on the table's first column. */
+.folder-toolbar { padding: var(--s-3) var(--table-inset); border-bottom: 1px solid var(--line); }
 @media (max-width: 900px) {
   .project-head > .grow { flex-basis: 100%; }
   .project-folders { grid-template-columns: minmax(0, 1fr); }

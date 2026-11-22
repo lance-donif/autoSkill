@@ -17,7 +17,7 @@ export async function editCase(projectId, caseId, onSaved) {
   let pending = null;
   let releaseRoute = () => undefined;
   const originalHash = location.hash;
-  const status = h('span', { class: 'sub grow', role: 'status' }, '尚未修改');
+  const status = h('span', { class: 'sub grow', role: 'status' });
   const touch = () => { dirty = true; status.textContent = '有未保存的修改'; };
   const common = commonEditor(draft, touch);
   const execute = draft.kind === 'ui' ? uiCaseEditor(draft, source.editing, touch) : apiCaseEditor(draft, touch);

@@ -4,7 +4,7 @@ import { ensurePreferences } from '../preferences.js';
 import { h, icon, replace, api, deleteSelection, scope, scopeQuery, go, href, route, attempt, toast, fmtTime, fmtUntil, ENGINE, refresh } from '../core.js';
 import { empty, errorState, drawer, closeOverlay, confirm, preferredHeaded } from '../ui.js';
 import { targetEditor } from '../schedule-target.js';
-import { primaryState, stateResults } from '../status-view.js';
+import { activeState, stateResults } from '../status-view.js';
 
 const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
@@ -61,7 +61,7 @@ export async function render(view) {
           h('td', { class: 'sub num' }, task.enabled ? [fmtUntil(task.next_due), h('div', { class: 'muted' }, fmtTime(task.next_due))] : '已暂停'),
           h('td', {}, task.last_status
             ? h('a', { href: href('runs/' + task.last_run_id), onClick: (event) => event.stopPropagation(), class: 'stack' },
-              primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state }), h('span', { class: 'sub num' }, fmtTime(task.last_finished)))
+              activeState({ state: task.last_run_state }), stateResults({ state: task.last_run_state }), h('span', { class: 'sub num' }, fmtTime(task.last_finished)))
             : h('span', { class: 'sub' }, '未执行')),
           h('td', { class: 'actions' }, h('div', { class: 'row', style: 'justify-content:flex-end' }, now, remove)));
       })));
@@ -110,7 +110,7 @@ async function editor(task, done, projects) {
       h('span', { class: 'hint' }, '前置用例（如登录）会自动先执行，不需要单独选。')),
     h('div', { class: 'field' }, h('label', { for: 'tk-engine' }, '回放引擎'), engine),
     h('div', { class: 'field' }, h('label', { class: 'row', for: 'tk-headed' }, headed, '显示浏览器窗口'),
-      h('span', { class: 'hint' }, '关闭后隐藏浏览器窗口。此任务单独保存这个选择，立即运行、定时执行和重启后都沿用。')));
+      h('span', { class: 'hint' }, '此任务单独保存这个选择，立即运行、定时执行和重启后都沿用。')));
   const target = targetEditor(task, project, (value) => { replayFields.hidden = value !== 'replay'; });
   replayFields.hidden = target.kind() !== 'replay';
 

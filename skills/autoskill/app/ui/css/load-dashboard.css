@@ -1,6 +1,6 @@
 .load-dashboard, .load-chart-panels { display: grid; gap: var(--s-4); min-width: 0; }
 .load-chart-panels { grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); }
-.load-dash-panel { min-width: 0; padding: var(--s-4); container-type: inline-size; }
+.load-dash-panel { min-width: 0; padding: var(--s-4); container-type: inline-size; --table-inset: 0px; }
 .load-dash-panel h2 { margin-bottom: var(--s-3); font-size: var(--t-lg); }
 .load-request-share { display: flex; height: 6px; overflow: hidden; border-radius: var(--r-pill); margin-bottom: var(--s-3); }
 .load-share-pass { background: var(--good); }
