@@ -5,6 +5,8 @@ import { primaryState, stateResults, stateDetails, stateLabel } from '../status-
 import { updateLiveView } from '../live-refresh.js';
 
 const PHASE = { sources: '来源整理', requirements: '需求拆分', design: '用例设计', coverage: '覆盖审查', completion: '补充设计', materialize: '候选用例', execute: '真实回归', diagnose: '失败分析', maintain: '维护候选', knowledge: '知识整理', investigate: '恢复调查' };
+// A cancelled workflow is resumable and its waits name who acts next, so these phases keep workflow wording.
+const WORKFLOW_STATE = { cancelled: '已暂停', awaiting_host: '等待 AI 处理', waiting_execution: '正在回归', recovering: '等待恢复调查' };
 const CONCLUSION = { satisfied: '业务满足', violated: '业务不满足', mixed: '存在业务失败', incomplete: '尚未完整验证', unassessed: '尚未验证' };
 const PUBLICATION = { published: '通过验证的候选已入库', partially_published: '部分候选已入库', bound_existing: '已验证已有用例', conflict: '入库冲突，原用例保留', unverified: '证据不足，候选未入库', rejected: '回归未满足，候选未入库', pending_validation: '等待回归验证', historical: '旧周期证据', interrupted: '回归中断' };
 const VERDICT = { Pass: '通过', Fail: '失败', NotRun: '未执行' };
@@ -68,7 +70,7 @@ export async function render(view, { id } = {}) {
     h('thead', {}, h('tr', {}, ['工作流', '执行阶段', '综合与分项结果', '版本', ''].map((label) => h('th', {}, label)))),
     h('tbody', {}, data.items.map((item) => h('tr', { class: 'click', onClick: () => go('workflows/' + item.workflow_id) },
       h('td', {}, h('div', { class: 'title' }, item.title), h('div', { class: 'sub' }, item.project_id)),
-      h('td', {}, primaryState(item)), h('td', {}, stateResults(item)),
+      h('td', {}, primaryState(item, WORKFLOW_STATE)), h('td', {}, stateResults(item)),
       h('td', { class: 'num' }, item.revision), h('td', {}, h('a', { class: 'btn sm', href: href('workflows/' + item.workflow_id) }, '查看'))))))
     : empty({ glyph: 'link', title: '还没有需求工作流', text: '在 DSH 对话中让 autoSkill 按需求生成用例 Excel，再按用例执行；这里显示保存的进度与证据。' })));
 }
@@ -92,7 +94,7 @@ async function detail(view, identity) {
   flow.lifecycle === 'active' ? control('暂停', 'cancel') : control('恢复', 'resume'));
   replace(view, h('a', { class: 'back', href: href('workflows') }, icon('right'), '需求与工作流'), title,
     h('section', { class: 'card card-body stack' }, h('h2', {}, '当前任务状态'),
-      h('div', { class: 'row wrap' }, primaryState(flow), stateResults(flow, false)),
+      h('div', { class: 'row wrap' }, primaryState(flow, WORKFLOW_STATE), stateResults(flow, false)),
       flow.state?.reason && h('p', { class: 'sub' }, flow.state.reason),
       h('details', { class: 'more', dataset: { readingId: 'state:detail' } }, h('summary', {}, '更多状态与运行说明'), stateDetails(flow),
         h('p', { class: 'sub' }, '继续或调整测试，请回到 DSH 对话交给 autoSkill。'))),
@@ -112,7 +114,7 @@ async function detail(view, identity) {
 function stageTable(items, label) {
   return h('div', { class: 'table-scroll', role: 'region', tabIndex: 0, 'aria-label': label },
     h('table', { class: 'table' }, h('thead', {}, h('tr', {}, ['阶段', '状态', '执行与证据', '时间'].map((title) => h('th', {}, title)))),
-      h('tbody', {}, items.map((item) => h('tr', {}, h('td', {}, PHASE[item.phase] || item.phase), h('td', {}, stateLabel(item.state)),
+      h('tbody', {}, items.map((item) => h('tr', {}, h('td', {}, PHASE[item.phase] || item.phase), h('td', {}, stateLabel(item.state, WORKFLOW_STATE)),
         h('td', {}, item.run_id ? h('a', { href: href('runs/' + item.run_id), dataset: { readingId: 'execution-link:' + item.id } }, '查看真实执行') : '',
           publicationSummary(item.context), item.context.summary && executionSummary(item.context.summary, item.id)),
         h('td', { class: 'sub' }, fmtTime(item.finished_at || item.created_at)))))));

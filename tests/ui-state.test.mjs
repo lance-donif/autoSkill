@@ -76,6 +76,14 @@ test('an execution-only pass keeps its ended phase without claiming a business a
   assert.doesNotMatch(text(stateDetails(entity)), /业务：|未验证|历史业务/);
 });
 
+test('caller overrides relabel a phase without changing the shared wording', () => {
+  const entity = { state: { lifecycle: 'cancelled', phase: 'cancelled', outcome: 'not_run' } };
+  assert.equal(text(primaryState(entity)).trim(), '已取消');
+  const paused = primaryState(entity, { cancelled: '已暂停' });
+  assert.equal(text(paused).trim(), '已暂停');
+  assert.equal(paused.attributes.title, '已暂停');
+});
+
 test('revision polling notices idle external completion and skips unchanged snapshots', async () => {
   let revision = 'before';
   const rendered = [];

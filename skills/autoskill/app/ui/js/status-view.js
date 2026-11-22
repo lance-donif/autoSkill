@@ -12,21 +12,23 @@ export const STATE_LABELS = {
 // Report and delivery pills appear only once they hold a fact worth reading.
 const recorded = (value) => !!value && !['not_generated', 'not_applicable'].includes(value);
 const AXES = [['business', '业务'], ['performance', '性能'], ['quality', '质量']];
-export const stateLabel = (value) => STATE_LABELS[value] || value || '未同步';
+// Callers whose lifecycle words mean something narrower (a resumable workflow pause) pass their own overrides.
+export const stateLabel = (value, labels) => labels?.[value] || STATE_LABELS[value] || value || '未同步';
 const tone = (value) => ({ pass: 'pass', valid: 'pass', fail: 'fail', failed: 'fail', invalid: 'fail',
   blocked: 'blocked', unverified: 'blocked', running: 'running', queued: 'queued', active: 'running' })[value] || 'idle';
 
 export function statePill(value, prefix = '', text = null) {
-  return h('span', { class: 'status ' + tone(value), title: prefix + stateLabel(value) },
+  return h('span', { class: 'status ' + tone(value), title: prefix + (text || stateLabel(value)) },
     icon(['fail', 'failed', 'invalid'].includes(value) ? 'x' : ['pass', 'valid'].includes(value) ? 'check' : 'info'),
     prefix + (text || stateLabel(value)));
 }
 
-export function primaryState(entity) {
+export function primaryState(entity, labels) {
   const state = entity?.state;
   const pendingCurrent = state?.current === false;
-  const text = entity?.delete_requested ? '正在取消并删除' : pendingCurrent ? '未执行' : null;
-  const phase = statePill(pendingCurrent ? 'pending' : state?.phase || state?.lifecycle, '', text);
+  const value = pendingCurrent ? 'pending' : state?.phase || state?.lifecycle;
+  const text = entity?.delete_requested ? '正在取消并删除' : pendingCurrent ? '未执行' : labels?.[value] || null;
+  const phase = statePill(value, '', text);
   if (!state?.scope?.historical) return phase;
   return h('span', { class: 'row wrap', 'aria-label': '历史执行阶段' }, phase,
     h('span', { class: 'tag', title: '周期 ' + state.scope.cycle_id + '；当前周期 ' + state.scope.current_cycle_id }, '历史周期'));
