@@ -1,9 +1,9 @@
 // Dashboard: every figure, chart and list below is computed from the same scope (projects x time range).
 import { h, icon, replace, api, scope, scopeQuery, bounds, go, href, setScope,
   fmtNumber, fmtPercent, fmtTime, fmtUntil, fmtDuration, CATEGORY, ENGINE, TRIGGER, DEFAULT_RANGE, isDefaultScope, refresh } from '../core.js';
-import { definition, empty, errorState, skeletonRows } from '../ui.js';
+import { definition, empty, errorState } from '../ui.js';
 import { trendChart, trendTable, legend, fillBuckets, splitBar } from '../charts.js';
-import { primaryState, stateResults } from '../status-view.js';
+import { activeState, stateResults } from '../status-view.js';
 
 const DEFINITIONS = {
   rate: '最近一批运行通过的目标用例数 ÷ 该批目标用例数。',
@@ -74,7 +74,10 @@ export async function render(view) {
 
   replace(view, pageHead(), kpis,
     h('div', { class: 'dash-grid' }, trend, tasksCard(summary.tasks)),
-    h('div', { class: 'dash-grid even' }, failuresCard(failures), recentCard(recent)));
+    // The trend card already reports an empty history, so the recent list appears only once it has runs.
+    recent.items.length
+      ? h('div', { class: 'dash-grid even' }, failuresCard(failures), recentCard(recent))
+      : h('div', { class: 'dash-grid', style: 'grid-template-columns:minmax(0, 1fr)' }, failuresCard(failures)));
 }
 
 function summaryKpis(r, c, batch, s) {
@@ -99,7 +102,7 @@ function tasksCard(tasks) {
       h('span', { class: 'grow' },
         h('div', { class: 'primary-text ellipsis' }, task.title),
         h('div', { class: 'secondary-text ellipsis' }, `${task.project_name} · ${task.enabled ? '下次 ' + fmtUntil(task.next_due) : '已暂停'}`)),
-      h('div', { class: 'stack' }, task.last_status && primaryState({ state: task.last_run_state }), stateResults({ state: task.last_run_state })))))
+      h('div', { class: 'stack' }, task.last_status && activeState({ state: task.last_run_state }), stateResults({ state: task.last_run_state })))))
     : empty({ glyph: 'clock', title: '还没有定时任务',
       actions: h('a', { class: 'btn', href: href('schedules', { new: 1 }) }, icon('plus'), '新建定时任务') });
   return h('section', { class: 'card' },
@@ -158,21 +161,17 @@ function failuresCard(failures) {
 }
 
 function recentCard(recent) {
-  const body = recent.items.length
-    ? h('div', { class: 'list' }, recent.items.map((run) => h('a', { class: 'list-row', href: href('runs/' + run.id) },
-      h('div', { class: 'stack', style: 'gap:4px' }, !['settled', 'completed', 'blocked'].includes(run.state?.phase || run.state?.lifecycle) && primaryState(run), stateResults(run)),
+  const body = h('div', { class: 'list' }, recent.items.map((run) => h('a', { class: 'list-row', href: href('runs/' + run.id) },
+      h('div', { class: 'stack', style: 'gap:4px' }, activeState(run), stateResults(run)),
       h('span', { class: 'grow' },
         h('div', { class: 'primary-text ellipsis' }, run.project_name),
         h('div', { class: 'secondary-text ellipsis' }, ['Queued', 'Running'].includes(run.status)
           ? `${run.done}/${run.total} · ${run.current || '准备中'}`
           : `${run.passed}/${run.total} 通过 · ${TRIGGER[run.trigger] || run.trigger} · ${ENGINE[run.engine] || run.engine || '未记录'}${run.finished_at && run.started_at ? ' · ' + fmtDuration(new Date(run.finished_at) - new Date(run.started_at)) : ''}`)),
-      h('span', { class: 'secondary-text num' }, fmtTime(run.created_at)))))
-    : empty({ glyph: 'runs', title: '还没有执行记录' });
+      h('span', { class: 'secondary-text num' }, fmtTime(run.created_at)))));
   return h('section', { class: 'card' },
     h('div', { class: 'card-head' },
       h('h2', { class: 'grow' }, '最近执行'),
       recent.total > 0 && h('a', { class: 'card-link', href: href('runs') }, '全部', icon('right'))),
     body);
 }
-
-export { skeletonRows };

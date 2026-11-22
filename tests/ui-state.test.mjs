@@ -58,8 +58,9 @@ test('an edited case keeps the current version unexecuted and labels prior passi
   const before = JSON.stringify(entity);
   assert.equal(text(primaryState(entity)).trim(), '未执行');
   assert.equal(text(stateResults(entity)).trim(), '未执行');
+  assert.match(text(stateResults(entity, false)), /历史业务：通过/);
   const detail = stateDetails(entity);
-  assert.match(text(detail), /历史业务：通过/);
+  assert.doesNotMatch(text(detail), /历史业务/);
   assert.match(text(detail), /历史阶段：已结束/);
   assert.match(text(detail), /历史综合：通过/);
   const history = detail.children.flatMap((node) => node.children).find((node) => node.tagName === 'a');

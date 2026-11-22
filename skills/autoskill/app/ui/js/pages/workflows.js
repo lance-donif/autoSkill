@@ -1,11 +1,10 @@
 // Requirement sources, traceable changes and durable workflow review.
 import { h, icon, replace, api, scopeQuery, go, href, refresh, attempt, toast, fmtTime, live, beforeRouteChange } from '../core.js';
 import { empty } from '../ui.js';
-import { primaryState, stateResults, stateDetails } from '../status-view.js';
+import { primaryState, stateResults, stateDetails, stateLabel } from '../status-view.js';
 import { updateLiveView } from '../live-refresh.js';
 
 const PHASE = { sources: '来源整理', requirements: '需求拆分', design: '用例设计', coverage: '覆盖审查', completion: '补充设计', materialize: '候选用例', execute: '真实回归', diagnose: '失败分析', maintain: '维护候选', knowledge: '知识整理', investigate: '恢复调查' };
-const STATE = { active: '进行中', cancelled: '已暂停', awaiting_host: '等待 AI 处理', waiting_execution: '正在回归', settled: '已完成', recovering: '等待恢复调查', ready: '待处理', leased: '处理中', completed: '已完成', obsolete: '已替代', publishing: '正在保存' };
 const CONCLUSION = { satisfied: '业务满足', violated: '业务不满足', mixed: '存在业务失败', incomplete: '尚未完整验证', unassessed: '尚未验证' };
 const PUBLICATION = { published: '通过验证的候选已入库', partially_published: '部分候选已入库', bound_existing: '已验证已有用例', conflict: '入库冲突，原用例保留', unverified: '证据不足，候选未入库', rejected: '回归未满足，候选未入库', pending_validation: '等待回归验证', historical: '旧周期证据', interrupted: '回归中断' };
 const VERDICT = { Pass: '通过', Fail: '失败', NotRun: '未执行' };
@@ -88,11 +87,12 @@ async function detail(view, identity) {
   };
   const documents = data.documents;
   const title = h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', { tabIndex: -1 }, flow.title),
-    h('p', { class: 'sub row wrap' }, primaryState(flow), `版本 ${flow.revision}`),
+    h('p', { class: 'sub' }, `版本 ${flow.revision}`),
     h('a', { class: 'btn', href: href('cases', { projects: flow.project_id }) }, icon('cases'), '查看项目测试用例')),
   flow.lifecycle === 'active' ? control('暂停', 'cancel') : control('恢复', 'resume'));
   replace(view, h('a', { class: 'back', href: href('workflows') }, icon('right'), '需求与工作流'), title,
-    h('section', { class: 'card card-body stack' }, h('h2', {}, '当前任务状态'), stateResults(flow),
+    h('section', { class: 'card card-body stack' }, h('h2', {}, '当前任务状态'),
+      h('div', { class: 'row wrap' }, primaryState(flow), stateResults(flow, false)),
       flow.state?.reason && h('p', { class: 'sub' }, flow.state.reason),
       h('details', { class: 'more', dataset: { readingId: 'state:detail' } }, h('summary', {}, '更多状态与运行说明'), stateDetails(flow),
         h('p', { class: 'sub' }, '继续或调整测试，请回到 DSH 对话交给 autoSkill。'))),
@@ -105,14 +105,14 @@ async function detail(view, identity) {
     sourceCards(documents), traceTable(data.traceability), candidateCard(documents), workflowReport(flow),
     h('section', { class: 'card' }, h('div', { class: 'card-body stack' }, h('h2', {}, 'AI 处理投递'),
       h('p', { class: 'sub' }, '等待投递、宿主接受和业务完成分别记录。宿主需要保持运行。'),
-      data.deliveries.length ? data.deliveries.map((item) => h('p', {}, `${item.state} · ${fmtTime(item.updated_at)}${item.reason ? ' · ' + item.reason : ''}`)) : h('p', { class: 'sub' }, '尚未投递。'))));
+      data.deliveries.length ? data.deliveries.map((item) => h('p', {}, `${stateLabel(item.state)} · ${fmtTime(item.updated_at)}${item.reason ? ' · ' + item.reason : ''}`)) : h('p', { class: 'sub' }, '尚未投递。'))));
   preserveReadingPosition(title, identity, flow.cycle_id);
 }
 
 function stageTable(items, label) {
   return h('div', { class: 'table-scroll', role: 'region', tabIndex: 0, 'aria-label': label },
     h('table', { class: 'table' }, h('thead', {}, h('tr', {}, ['阶段', '状态', '执行与证据', '时间'].map((title) => h('th', {}, title)))),
-      h('tbody', {}, items.map((item) => h('tr', {}, h('td', {}, PHASE[item.phase] || item.phase), h('td', {}, STATE[item.state] || item.state),
+      h('tbody', {}, items.map((item) => h('tr', {}, h('td', {}, PHASE[item.phase] || item.phase), h('td', {}, stateLabel(item.state)),
         h('td', {}, item.run_id ? h('a', { href: href('runs/' + item.run_id), dataset: { readingId: 'execution-link:' + item.id } }, '查看真实执行') : '',
           publicationSummary(item.context), item.context.summary && executionSummary(item.context.summary, item.id)),
         h('td', { class: 'sub' }, fmtTime(item.finished_at || item.created_at)))))));

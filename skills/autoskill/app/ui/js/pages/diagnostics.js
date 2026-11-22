@@ -40,7 +40,7 @@ function engineResult(report, engines) {
       h('td', {}, names.get(engine.id) || engine.id, h('div', { class: 'sub mono' }, engine.id)),
       h('td', {}, flag(engine.available)),
       h('td', {}, h('pre', { class: 'code' }, show(engine.version)), engine.command && h('div', { class: 'sub mono' }, engine.command.join(' '))),
-      h('td', { class: 'sub' }, engine.diagnosis || (engine.available ? '已完成实际运行诊断' : '执行器未安装或未通过诊断')))))));
+      h('td', { class: 'sub' }, engine.diagnosis || (!engine.available && '执行器未安装或未通过诊断')))))));
 }
 
 async function completedTask(initial, mine) {
@@ -54,7 +54,7 @@ async function completedTask(initial, mine) {
   return task;
 }
 
-function checkCard({ title, note, fields = [], actions, renderResult, mine }) {
+function checkCard({ title, note, busy, fields = [], actions, renderResult, mine }) {
   const result = h('div', { class: 'stack', 'aria-live': 'polite' });
   const error = h('p', { class: 'error', role: 'alert', hidden: true });
   const progress = h('p', { class: 'sub', role: 'status', hidden: true });
@@ -62,10 +62,9 @@ function checkCard({ title, note, fields = [], actions, renderResult, mine }) {
     for (const button of buttons) button.disabled = true;
     error.hidden = true;
     progress.hidden = false;
-    progress.textContent = '正在检查本机运行环境…';
+    progress.textContent = busy;
     try {
       const started = await api('/diagnostics', { method: 'POST', body: specification() });
-      progress.textContent = '正在检查 · ' + started.id;
       const task = await completedTask(started, mine);
       if (!task) return;
       replace(result, h('p', { class: 'sub' }, '检查时间：' + fmtTime(task.created_at)), renderResult(task.result));
@@ -87,13 +86,13 @@ export async function render(view) {
   const choice = h('select', { class: 'select', id: 'diagnostic-engine' }, h('option', { value: '' }, '全部执行器'),
     engines.map((engine) => h('option', { value: engine.id }, engine.name || engine.title || engine.id)));
   replace(view, h('div', { class: 'page-head' }, h('div', { class: 'grow' }, h('h1', {}, '运行诊断'))),
-  checkCard({ title: '运行环境', note: '检查 Python 依赖、浏览器、驱动与录制器；启动检查会实际打开浏览器完成本机探测。', mine,
+  checkCard({ title: '运行环境', busy: '正在检查运行环境…', note: '检查 Python 依赖、浏览器、驱动与录制器；启动检查会实际打开浏览器完成本机探测。', mine,
     actions: [{ label: '检查运行环境', specification: () => ({ kind: 'doctor' }) },
       { label: '检查并启动浏览器', specification: () => ({ kind: 'doctor', launch: true }) }], renderResult: doctorResult }),
-  checkCard({ title: '原生执行器', note: '探测实际安装和版本。导入资产之前，可先确认 Newman、Apifox 或 Python 执行器是否可用。', mine,
+  checkCard({ title: '原生执行器', busy: '正在探测执行器…', note: '探测实际安装和版本。导入资产之前，可先确认 Newman、Apifox 或 Python 执行器是否可用。', mine,
     fields: h('div', { class: 'field' }, h('label', { for: 'diagnostic-engine' }, '选择执行器'), choice),
     actions: [{ label: '检查执行器', specification: () => ({ kind: 'engines', ...(choice.value ? { engine: choice.value } : {}) }) }],
     renderResult: (report) => engineResult(report, engines) }),
-  checkCard({ title: '离线包文件', note: '按运行时清单校验文件内容。此项需要完整离线包，源码环境缺少清单时会显示原因。', mine,
+  checkCard({ title: '离线包文件', busy: '正在校验离线包文件…', note: '按运行时清单校验文件内容。此项需要完整离线包，源码环境缺少清单时会显示原因。', mine,
     actions: [{ label: '校验离线包文件', specification: () => ({ kind: 'verify' }) }], renderResult: verifyResult }));
 }

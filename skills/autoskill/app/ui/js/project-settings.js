@@ -26,6 +26,11 @@ export function runtimeFields(project) {
 export function credentialControls(project, changed) {
   const rows = new Map();
   const list = h('div', { class: 'stack', style: 'gap:12px' });
+  // The reference tag only distinguishes rows when unreferenced credentials are listed too.
+  const syncTags = () => {
+    const mixed = [...rows.values()].some((item) => !item.tag);
+    for (const item of rows.values()) if (item.tag) item.tag.hidden = !mixed;
+  };
   function addRow(name, value, referenced) {
     if (rows.has(name)) { rows.get(name).input.value = value || ''; return; }
     const input = h('input', { class: 'input', type: 'text', value: value || '', placeholder: '还没有填写', autocomplete: 'off', 'aria-label': name });
@@ -36,13 +41,15 @@ export function credentialControls(project, changed) {
     } }, '保存');
     const remove = h('button', { class: 'btn danger', 'aria-label': '删除凭据 ' + name, onClick: async () => {
       if (await attempt(() => api('/secrets/' + encodeURIComponent(name), { method: 'DELETE' }), remove)) {
-        if (referenced) input.value = ''; else { row.remove(); rows.delete(name); }
+        if (referenced) input.value = ''; else { row.remove(); rows.delete(name); syncTags(); }
         toast(`${name} 已删除`); await changed();
       }
     } }, '删除');
-    const row = h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'row wrap' }, h('span', { class: 'mono' }, name), referenced && h('span', { class: 'tag' }, '本项目引用'), input, save, remove));
-    rows.set(name, { input });
+    const tag = referenced && h('span', { class: 'tag', hidden: true }, '本项目引用');
+    const row = h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'row wrap' }, h('span', { class: 'mono' }, name), tag, input, save, remove));
+    rows.set(name, { input, tag });
     list.append(row);
+    syncTags();
   }
   for (const [name, value] of Object.entries(project.credentials || {})) addRow(name, value, true);
   const name = h('input', { class: 'input', id: 'ps-secret-name', placeholder: '例如：ORDER_TOKEN', autocomplete: 'off' });

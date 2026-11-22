@@ -37,8 +37,7 @@ function operation({ label, fields, run, receipt, setBusy, actions }) {
 }
 
 function importPanel(status, shared) {
-  const source = field('data-import-source', '旧数据位置', '', '旧 workspace、autoSkill-data 目录或数据 ZIP 的完整路径',
-    '填写 autoSkill 所在机器上的完整路径。原目录会保留。');
+  const source = field('data-import-source', '旧数据位置', '', '', '填写 autoSkill 所在机器上的完整路径。原目录会保留。');
   const target = field('data-import-target', '新的空数据目录', status.suggested_import_target || status.root + '-imported', '',
     '导入会复制到这个目录；已有数据的目录不能合并或覆盖。');
   return card('导入旧数据', '把旧 workspace、完整数据目录或 autoSkill 数据 ZIP 迁入另一个空目录。', operation({
@@ -72,8 +71,7 @@ function exportPanel(shared) {
       if (download.origin !== location.origin || !download.pathname.startsWith('/api/data/exports/')) throw new Error('服务返回的下载地址无效');
       return h('div', { class: 'stack', role: 'status' }, h('h3', {}, '完整数据 ZIP 已生成'),
         value.archive && h('pre', { class: 'code', 'data-testid': 'exported-data-archive' }, value.archive),
-        h('div', { class: 'row wrap' }, h('a', { class: 'btn primary', href: download.href, download: '' }, '下载完整数据 ZIP')),
-        h('p', { class: 'sub' }, '分享或保存这份 ZIP 即可携带本次导出的全部数据，包含凭据与保存的登录信息。'));
+        h('div', { class: 'row wrap' }, h('a', { class: 'btn primary', href: download.href, download: '' }, '下载完整数据 ZIP')));
     },
   }));
 }

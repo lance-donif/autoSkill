@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import quote
 
 from openpyxl import load_workbook
 from playwright.sync_api import expect
@@ -237,8 +238,8 @@ class CasePlanDashboardTests(DashboardWorkspace):
         expect(reader.locator('select[aria-label="已有用例表"] option[value="备用订单用例表"]')).to_have_count(1)
         self.open_options(reader)
         sheets.focus()
-        sheets.select_option('完整订单用例表')
-        expect(reader.locator('.case-plan-options-panel')).to_contain_text('当前用例表：完整订单用例表')
+        with self.page.expect_response(lambda response: 'session=' + quote('完整订单用例表') in response.url):
+            sheets.select_option('完整订单用例表')
         expect(reader.locator('#view')).not_to_have_attribute('aria-busy', 'true')
         expect(sheets).to_be_focused()
         expect(sheets).to_have_value('完整订单用例表')

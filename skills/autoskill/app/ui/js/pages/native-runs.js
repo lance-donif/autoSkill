@@ -110,7 +110,6 @@ export async function render(view, { id }) {
   } catch (error) { replace(view, errorState(error, refresh)); return; }
   const running = ['Queued', 'Running'].includes(run.status);
   if (running) live.until = Date.now() + 8000;
-  const outcome = run.outcome || {};
   const rows = run.results || [];
   replace(view,
     h('a', { class: 'back', href: returnToRuns() }, icon('right'), '返回执行记录'),
@@ -119,7 +118,7 @@ export async function render(view, { id }) {
     h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '用例与多轮结果'),
       h('p', { class: 'sub' }, '展开用例核对问题、实际回答、断言和耗时。'))),
     rows.length ? h('div', { class: 'result-list' }, rows.map((row) => caseRow(run, row)))
-      : empty({ glyph: running ? 'clock' : 'runs', title: running ? '等待执行器产生结果' : '没有用例结果', text: outcome.reason }),
+      : empty({ glyph: running ? 'clock' : 'runs', title: running ? '等待执行器产生结果' : '没有用例结果' }),
     run.page?.has_more && h('div', { class: 'card-body row' }, h('a', { class: 'btn', href: href('native-runs/' + id, { ...Object.fromEntries(params), case: '', cursor: run.page.next_cursor }) }, '下一页')),
     cursor && h('div', { class: 'card-body' }, h('a', { class: 'btn', href: href('native-runs/' + id, Object.fromEntries([...params].filter(([key]) => !['cursor', 'case'].includes(key)))) }, '回到第一页'))),
     evidencePanel(run));
@@ -186,7 +185,7 @@ function caseRow(run, row, initial = null, offline = false) {
     if (open && !loaded) load();
   } }, icon('right', 'icon-svg caret'),
   h('span', { class: 'grow' }, h('b', {}, row.case_title), h('span', { class: 'sub mono' }, '　' + row.case_id),
-    stateResults(row), row.state?.outcome !== 'pass' && h('span', { class: 'sub' }, row.state?.reason || '展开查看实际结果与未通过原因')),
+    stateResults(row), row.state?.outcome !== 'pass' && row.state?.reason && h('span', { class: 'sub' }, row.state.reason)),
   h('span', { class: 'sub' }, `${row.turn_count ?? initial?.turns?.length ?? 0} 轮 · ${fmtDuration(row.duration_ms)}`));
   if (open && !loaded) pendingDetails.set(body, load());
   return h('div', { class: 'result', dataset: { result: String(row.id) } }, button, body);

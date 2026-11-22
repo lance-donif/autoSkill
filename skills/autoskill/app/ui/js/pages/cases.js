@@ -231,7 +231,8 @@ function projectCard(project, items, folderResult, { retry, chooseFolder, select
     `菜单名：${module}`, h('span', { class: 'muted' }, `　${items.filter((item) => item.module === module).length} 条`)));
   let body;
   if (!items.length) {
-    body = empty({ glyph: 'cases', title: tree ? '没有符合条件的用例' : '用例范围尚未加载', text: tree ? '换一个类型、搜索词或文件夹试试。' : '读取文件夹后显示当前范围的用例。' });
+    // Without a folder tree the loading status or the folder error already explains the empty table.
+    body = tree && empty({ glyph: 'cases', title: '没有符合条件的用例', text: '换一个类型、搜索词或文件夹试试。' });
   } else {
     body = h('table', { class: 'table' },
       h('thead', {}, h('tr', {}, h('th', { style: 'width:36px' }, master), h('th', {}, '用例'), h('th', {}, '类型'), h('th', {}, '菜单名'),
