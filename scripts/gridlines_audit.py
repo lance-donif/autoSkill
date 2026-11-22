@@ -92,9 +92,13 @@ SETTLED = """() => document.fonts.ready.then(() => !document.getAnimations().som
   return a.playState === 'running' && timing && Number.isFinite(timing.endTime);
 }))"""
 
-# Classify each measured container in the order the probe visits them.
+# Classify each measured container in the order the probe visits them; `shown` mirrors probe.js.
 REGIONS = """(selector) => {
-  const shown = (el) => { const cs = getComputedStyle(el); return cs.visibility !== 'hidden' && parseFloat(cs.opacity) > 0; };
+  const shown = (el) => {
+    if (getComputedStyle(el).visibility === 'hidden') return false;
+    for (let a = el; a; a = a.parentElement) if (parseFloat(getComputedStyle(a).opacity) === 0) return false;
+    return true;
+  };
   return [...new Set(document.querySelectorAll(selector))].filter((c) => {
     const r = c.getBoundingClientRect();
     return r.width > 120 && r.height > 24 && shown(c);

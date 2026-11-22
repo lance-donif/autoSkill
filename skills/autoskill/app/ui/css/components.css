@@ -14,7 +14,7 @@
 .btn.danger { color: var(--bad-ink); }
 .btn.ghost { box-shadow: none; background: none; color: var(--ink-2); }
 .btn.ghost:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
-.btn.sm { height: 28px; padding: 0 10px; font-size: var(--t-xs); }
+.btn.sm { height: 28px; padding: 0 var(--btn-sm-pad); font-size: var(--t-xs); }
 .btn.icon { width: 32px; padding: 0; }
 .btn.sm.icon { width: 28px; }
 .side .nav-toggle, .side .nav-toggle:hover:not(:disabled) { background: var(--side-wash); color: var(--side-ink); }
@@ -94,12 +94,14 @@
 .table th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: var(--t-xs); padding: 10px var(--s-3); border-bottom: 1px solid var(--line); white-space: nowrap; }
 .table td { padding: 11px var(--s-3); border-bottom: 1px solid var(--line); vertical-align: middle; }
 .table tr:last-child td { border-bottom: 0; }
-.table tr.group td { padding: 8px var(--s-3); background: var(--surface-2); font-weight: 600; font-size: var(--t-xs); }
+.table tr.group td { padding-block: 8px; background: var(--surface-2); font-weight: 600; font-size: var(--t-xs); }
 .table tbody tr { transition: background var(--fast); }
 .table tbody tr.click { cursor: pointer; }
 .table tbody tr:hover { background: var(--fill); }
-.table th:first-child, .table td:first-child { padding-left: var(--s-5); }
-.table th:last-child, .table td:last-child { padding-right: var(--s-5); }
+.table th:first-child, .table td:first-child { padding-left: var(--table-inset); }
+.table th:last-child, .table td:last-child { padding-right: var(--table-inset); }
+/* A block checkbox is centred by its middle-aligned cell instead of sitting on the text baseline. */
+.table .check { display: block; }
 .table .actions { text-align: right; white-space: nowrap; }
 .table .actions .btn { opacity: 0; transition: opacity var(--fast); }
 .table .actions .btn + .btn { margin-left: var(--s-2); }

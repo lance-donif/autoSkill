@@ -142,7 +142,8 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 .case-title { color: var(--accent-strong); text-align: start; }
 .case-title:hover { text-decoration: underline; }
 .folder-content { min-width: 0; overflow-x: auto; }
-.folder-toolbar { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+/* The toolbar is the first row of the case table: its text sits on the table's first column. */
+.folder-toolbar { padding: var(--s-3) var(--table-inset); border-bottom: 1px solid var(--line); }
 @media (max-width: 900px) {
   .project-head > .grow { flex-basis: 100%; }
   .project-folders { grid-template-columns: minmax(0, 1fr); }
