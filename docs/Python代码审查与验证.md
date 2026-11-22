@@ -89,3 +89,21 @@ PYTHONPATH=tests python tests/dashboard_cls_mcp.py --cli "$tool_dir/node_modules
 试行期间用同版本浏览器、相同数据和延迟对照同一组的历史 `main` 与 PR 样本。累积多次 CI 运行后，根据各组的基线波动复核相对回归阈值，再决定哪些场景适合设为必需检查。
 
 紧凑导航的首屏占位由现有 `conventions` 检查执行。单独运行 `python scripts/code_review.py check --rule compact_navigation` 可定位窄屏或嵌入布局中未预留高度的空导航。实际位移由上述 Chromium 测量验证。
+
+## 参考线批量检查（维护者工具）
+
+`scripts/gridlines_audit.py` 逐个打开仪表盘的全部页面、详情页和浮层（回放设置、项目与时间范围菜单、用例详情与编辑、删除确认、新建定时任务、新建压测、手机导航），注入 `scripts/gridlines/probe.js` 画出参考线，并找出起始线、标签线、图标列、尾线和行内垂直居中偏离 2px 及以上的元素。它目前只供维护者在对齐调整前后对照，还不是 CI 必需检查。
+
+```bash
+export AUTOSKILL_CHROMIUM="/path/to/chrome"
+python scripts/gridlines_audit.py --scheme both
+python scripts/gridlines_audit.py --url http://127.0.0.1:8787/ --only cases,replay-settings
+```
+
+- 默认在本机启动静态服务器，打开使用 `preview/fixtures.json` 示例数据的 Pages 预览 `preview/dashboard.html`。`--url` 改为检查正在运行的本机仪表盘。
+- `--chromium` 指定浏览器，未指定时读取 `AUTOSKILL_CHROMIUM`；找不到浏览器或参数错误时以 2 退出。
+- `--scheme light|dark|both` 选择配色，默认 `light`。`--only` 按场景名筛选，`--out` 指定输出目录，默认 `.gridlines/`（已加入 `.gitignore`）。
+- 每个场景在 1440×900 和 390×844 下各测一次，输出带参考线的 2 倍截图 `<场景>-<宽度>[-dark].png` 和同名 JSON。`report.json` 与 `summary.md` 按区域（外壳、页面、浮层）→ 容器 → 边汇总偏离，跨页面相同的偏离只列一次，并列出未能打开的“未覆盖”场景。
+- 默认以 0 退出；加 `--fail-on-miss` 时存在偏离即以 1 退出。
+
+探针按行中心分组，表格多行单元格和居中的空状态会产生误报。按截图逐条确认后再调整容器内边距。
