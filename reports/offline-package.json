@@ -1,6 +1,6 @@
 {
   "target": "windows-x64",
-  "autoskill": "2.5.5",
+  "autoskill": "2.5.6",
   "python": "3.12.10",
   "chrome_for_testing": "157.0.8103.78",
   "chromedriver": "157.0.8103.78",
@@ -71,10 +71,10 @@
     },
     {
       "name": "charset-normalizer",
-      "version": "3.5.2",
+      "version": "3.5.3",
       "license": "MIT",
-      "file": "charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl",
-      "sha256": "780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc"
+      "file": "charset_normalizer-3.5.3-cp312-cp312-win_amd64.whl",
+      "sha256": "40b2ba91f0851aa864994b3c7022e4d96d09026717e6a72e44410d6fb3a74a13"
     },
     {
       "name": "click",
@@ -295,10 +295,10 @@
     },
     {
       "name": "packaging",
-      "version": "26.3",
+      "version": "26.4",
       "license": "Apache-2.0 OR BSD-2-Clause",
-      "file": "packaging-26.3-py3-none-any.whl",
-      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      "file": "packaging-26.4-py3-none-any.whl",
+      "sha256": "81383611a09c1bc0b08b76e0fd5829d7c6824c65b27a6aee339da133f4233ea2"
     },
     {
       "name": "pillow",
@@ -618,13 +618,13 @@
   "auto_update": false,
   "runtime_files": 7696,
   "file": "autoSkill-Windows-x64-Offline.zip",
-  "bytes": 342204153,
-  "sha256": "a4a36e14b86c223342467981e18f77a657fc9d56f835926f77d82ae9f78c9139",
+  "bytes": 342240187,
+  "sha256": "d611c04eccb4cd78ef599d3d4bb1a54853930b771d1de2e239276d5521702428",
   "ui_files": {
     "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
     "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
-    "autoskill/app/ui/js/shell.js": "7ae3443611a1414399ee0f1260dae4c6a1ff5502df139005748d23e6d5b6e101",
-    "autoskill/app/ui/js/project-settings.js": "47d44168eb2dedf67a925768350a3be0aff88001e26c5274c95d16d9d30a90e5",
+    "autoskill/app/ui/js/shell.js": "b6454498481969ebc117cdbd6343c17427223ff7406ff26e53547aa57b27a29a",
+    "autoskill/app/ui/js/project-settings.js": "5e46fd00305f0b1d4ad88eb35f887e97f25f2e7c9152819044ac6a1787c89c4d",
     "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
     "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
     "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
@@ -652,7 +652,7 @@
     "autoskill/app/ui/js/pages/schedules.js": "abcc00aa62c9c164aad7c8bdc28ed84fbf7ed75b0bf8a232f3629e36b0a92f36",
     "autoskill/app/ui/js/pages/load-dashboard.js": "e0ed619843a3ade72671eb692a49ba863930aff6e26206df1ff5b0b7c71901f7",
     "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
-    "autoskill/app/ui/js/pages/data.js": "b1e3c30ea2ed507b9c4bc0699f7ac130de739390f3d5f7ffbcc538bf48b2bf5d",
+    "autoskill/app/ui/js/pages/data.js": "e4285e5bdb3dad398ca0ab96ce00ff54f6b8ab483e9c1146763f6d0997a6adb6",
     "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
     "autoskill/app/ui/js/pages/runs.js": "590cafcc9b8f0895c4e5e719a045af4e7d7370cab79de213144f24efa69bdf28",
     "autoskill/app/ui/js/pages/diagnostics.js": "f0a62459388eed6bf832328b527ff94f693ef8f4098bc63634bd08edd239a32b",
@@ -660,7 +660,7 @@
     "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
     "autoskill/app/ui/js/pages/workflows.js": "fad74a33b5d663c13bdb4a7d702bb7c955e99f629020d2f3e6cf32b25eee84e1",
     "autoskill/app/ui/js/pages/project-materials.js": "a304194322cec4625c0a640ac6bb49ef0d773b2af0a99eb6653be7b7a6a6c980",
-    "autoskill/app/ui/js/pages/cases.js": "de129c4141d00f4b8d8f5aa9ae86db2961b906f201fcf8056dc78c5244616135",
+    "autoskill/app/ui/js/pages/cases.js": "50513284fd444c0ca2ca30bfbba9d4618f61fb18defc7a7449ea0ae0b1bcec4d",
     "autoskill/app/ui/js/pages/dashboard.js": "4cd44459f1c6b5c8fecf526e35e6cefee6bf408cf67f9d563990d053499b3c4c",
     "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
     "autoskill/app/ui/js/pages/native-runs.js": "10e34c6a8a5d3da48243b2e0fb7420db577abdf81fc174b208f8ed9c327950e6"
@@ -671,12 +671,12 @@
     "zip_crc_ok": true,
     "uploaded_digest_verified": true
   },
-  "asset_id": 777781506,
-  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.5/autoSkill-Windows-x64-Offline.zip",
+  "asset_id": 794534433,
+  "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.6/autoSkill-Windows-x64-Offline.zip",
   "packages": [
     {
       "target": "windows-x64",
-      "autoskill": "2.5.5",
+      "autoskill": "2.5.6",
       "python": "3.12.10",
       "chrome_for_testing": "157.0.8103.78",
       "chromedriver": "157.0.8103.78",
@@ -747,10 +747,10 @@
         },
         {
           "name": "charset-normalizer",
-          "version": "3.5.2",
+          "version": "3.5.3",
           "license": "MIT",
-          "file": "charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl",
-          "sha256": "780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc"
+          "file": "charset_normalizer-3.5.3-cp312-cp312-win_amd64.whl",
+          "sha256": "40b2ba91f0851aa864994b3c7022e4d96d09026717e6a72e44410d6fb3a74a13"
         },
         {
           "name": "click",
@@ -971,10 +971,10 @@
         },
         {
           "name": "packaging",
-          "version": "26.3",
+          "version": "26.4",
           "license": "Apache-2.0 OR BSD-2-Clause",
-          "file": "packaging-26.3-py3-none-any.whl",
-          "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+          "file": "packaging-26.4-py3-none-any.whl",
+          "sha256": "81383611a09c1bc0b08b76e0fd5829d7c6824c65b27a6aee339da133f4233ea2"
         },
         {
           "name": "pillow",
@@ -1294,13 +1294,13 @@
       "auto_update": false,
       "runtime_files": 7696,
       "file": "autoSkill-Windows-x64-Offline.zip",
-      "bytes": 342204153,
-      "sha256": "a4a36e14b86c223342467981e18f77a657fc9d56f835926f77d82ae9f78c9139",
+      "bytes": 342240187,
+      "sha256": "d611c04eccb4cd78ef599d3d4bb1a54853930b771d1de2e239276d5521702428",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
         "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
-        "autoskill/app/ui/js/shell.js": "7ae3443611a1414399ee0f1260dae4c6a1ff5502df139005748d23e6d5b6e101",
-        "autoskill/app/ui/js/project-settings.js": "47d44168eb2dedf67a925768350a3be0aff88001e26c5274c95d16d9d30a90e5",
+        "autoskill/app/ui/js/shell.js": "b6454498481969ebc117cdbd6343c17427223ff7406ff26e53547aa57b27a29a",
+        "autoskill/app/ui/js/project-settings.js": "5e46fd00305f0b1d4ad88eb35f887e97f25f2e7c9152819044ac6a1787c89c4d",
         "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
         "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
         "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
@@ -1328,7 +1328,7 @@
         "autoskill/app/ui/js/pages/schedules.js": "abcc00aa62c9c164aad7c8bdc28ed84fbf7ed75b0bf8a232f3629e36b0a92f36",
         "autoskill/app/ui/js/pages/load-dashboard.js": "e0ed619843a3ade72671eb692a49ba863930aff6e26206df1ff5b0b7c71901f7",
         "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
-        "autoskill/app/ui/js/pages/data.js": "b1e3c30ea2ed507b9c4bc0699f7ac130de739390f3d5f7ffbcc538bf48b2bf5d",
+        "autoskill/app/ui/js/pages/data.js": "e4285e5bdb3dad398ca0ab96ce00ff54f6b8ab483e9c1146763f6d0997a6adb6",
         "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
         "autoskill/app/ui/js/pages/runs.js": "590cafcc9b8f0895c4e5e719a045af4e7d7370cab79de213144f24efa69bdf28",
         "autoskill/app/ui/js/pages/diagnostics.js": "f0a62459388eed6bf832328b527ff94f693ef8f4098bc63634bd08edd239a32b",
@@ -1336,7 +1336,7 @@
         "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
         "autoskill/app/ui/js/pages/workflows.js": "fad74a33b5d663c13bdb4a7d702bb7c955e99f629020d2f3e6cf32b25eee84e1",
         "autoskill/app/ui/js/pages/project-materials.js": "a304194322cec4625c0a640ac6bb49ef0d773b2af0a99eb6653be7b7a6a6c980",
-        "autoskill/app/ui/js/pages/cases.js": "de129c4141d00f4b8d8f5aa9ae86db2961b906f201fcf8056dc78c5244616135",
+        "autoskill/app/ui/js/pages/cases.js": "50513284fd444c0ca2ca30bfbba9d4618f61fb18defc7a7449ea0ae0b1bcec4d",
         "autoskill/app/ui/js/pages/dashboard.js": "4cd44459f1c6b5c8fecf526e35e6cefee6bf408cf67f9d563990d053499b3c4c",
         "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
         "autoskill/app/ui/js/pages/native-runs.js": "10e34c6a8a5d3da48243b2e0fb7420db577abdf81fc174b208f8ed9c327950e6"
@@ -1348,12 +1348,12 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 777781506,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.5/autoSkill-Windows-x64-Offline.zip"
+      "asset_id": 794534433,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.6/autoSkill-Windows-x64-Offline.zip"
     },
     {
       "target": "linux-x64",
-      "autoskill": "2.5.5",
+      "autoskill": "2.5.6",
       "python": "3.12.10",
       "python_distribution": "astral-sh/python-build-standalone",
       "chrome_for_testing": "157.0.8103.78",
@@ -1428,9 +1428,9 @@
         },
         {
           "name": "charset-normalizer",
-          "version": "3.5.2",
-          "file": "charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
-          "sha256": "3d31298449090ab8d47b7b1b2a555ff73cac7ed438a08b7ac160980c7ebed649"
+          "version": "3.5.3",
+          "file": "charset_normalizer-3.5.3-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+          "sha256": "e5e4785d8a0adeadfbdf75f4efc357911842674651cbafd7e97f69b11ec3cbc6"
         },
         {
           "name": "click",
@@ -1620,9 +1620,9 @@
         },
         {
           "name": "packaging",
-          "version": "26.3",
-          "file": "packaging-26.3-py3-none-any.whl",
-          "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+          "version": "26.4",
+          "file": "packaging-26.4-py3-none-any.whl",
+          "sha256": "81383611a09c1bc0b08b76e0fd5829d7c6824c65b27a6aee339da133f4233ea2"
         },
         {
           "name": "pillow",
@@ -1888,13 +1888,13 @@
       "uos_hardware_verified": false,
       "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
       "file": "autoSkill-Linux-x64-Offline.zip",
-      "bytes": 420971408,
-      "sha256": "2fc26224ffe8dc2253f6ed0c5a6d2d6e1563eaf1bc48a0586c41ec731a2ef391",
+      "bytes": 421000188,
+      "sha256": "f09e67bd5cc0c04a4b23c1f70d4df3c216584c6d92fcd831dbc07546ef02970b",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
         "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
-        "autoskill/app/ui/js/shell.js": "7ae3443611a1414399ee0f1260dae4c6a1ff5502df139005748d23e6d5b6e101",
-        "autoskill/app/ui/js/project-settings.js": "47d44168eb2dedf67a925768350a3be0aff88001e26c5274c95d16d9d30a90e5",
+        "autoskill/app/ui/js/shell.js": "b6454498481969ebc117cdbd6343c17427223ff7406ff26e53547aa57b27a29a",
+        "autoskill/app/ui/js/project-settings.js": "5e46fd00305f0b1d4ad88eb35f887e97f25f2e7c9152819044ac6a1787c89c4d",
         "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
         "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
         "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
@@ -1922,7 +1922,7 @@
         "autoskill/app/ui/js/pages/schedules.js": "abcc00aa62c9c164aad7c8bdc28ed84fbf7ed75b0bf8a232f3629e36b0a92f36",
         "autoskill/app/ui/js/pages/load-dashboard.js": "e0ed619843a3ade72671eb692a49ba863930aff6e26206df1ff5b0b7c71901f7",
         "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
-        "autoskill/app/ui/js/pages/data.js": "b1e3c30ea2ed507b9c4bc0699f7ac130de739390f3d5f7ffbcc538bf48b2bf5d",
+        "autoskill/app/ui/js/pages/data.js": "e4285e5bdb3dad398ca0ab96ce00ff54f6b8ab483e9c1146763f6d0997a6adb6",
         "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
         "autoskill/app/ui/js/pages/runs.js": "590cafcc9b8f0895c4e5e719a045af4e7d7370cab79de213144f24efa69bdf28",
         "autoskill/app/ui/js/pages/diagnostics.js": "f0a62459388eed6bf832328b527ff94f693ef8f4098bc63634bd08edd239a32b",
@@ -1930,7 +1930,7 @@
         "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
         "autoskill/app/ui/js/pages/workflows.js": "fad74a33b5d663c13bdb4a7d702bb7c955e99f629020d2f3e6cf32b25eee84e1",
         "autoskill/app/ui/js/pages/project-materials.js": "a304194322cec4625c0a640ac6bb49ef0d773b2af0a99eb6653be7b7a6a6c980",
-        "autoskill/app/ui/js/pages/cases.js": "de129c4141d00f4b8d8f5aa9ae86db2961b906f201fcf8056dc78c5244616135",
+        "autoskill/app/ui/js/pages/cases.js": "50513284fd444c0ca2ca30bfbba9d4618f61fb18defc7a7449ea0ae0b1bcec4d",
         "autoskill/app/ui/js/pages/dashboard.js": "4cd44459f1c6b5c8fecf526e35e6cefee6bf408cf67f9d563990d053499b3c4c",
         "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
         "autoskill/app/ui/js/pages/native-runs.js": "10e34c6a8a5d3da48243b2e0fb7420db577abdf81fc174b208f8ed9c327950e6"
@@ -1942,12 +1942,12 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 777781879,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.5/autoSkill-Linux-x64-Offline.zip"
+      "asset_id": 794534774,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.6/autoSkill-Linux-x64-Offline.zip"
     },
     {
       "target": "linux-arm64",
-      "autoskill": "2.5.5",
+      "autoskill": "2.5.6",
       "python": "3.12.10",
       "python_distribution": "astral-sh/python-build-standalone",
       "chrome_for_testing": "157.0.8103.78",
@@ -2022,9 +2022,9 @@
         },
         {
           "name": "charset-normalizer",
-          "version": "3.5.2",
-          "file": "charset_normalizer-3.5.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
-          "sha256": "b91363207bd9dc966a691e959bb47f64b30f7ac4b072be9968b366982f7db77c"
+          "version": "3.5.3",
+          "file": "charset_normalizer-3.5.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "70f65dd0c2ed79ea2d9776096e9c7d25e398c2c03eb31877753598d201d91784"
         },
         {
           "name": "click",
@@ -2214,9 +2214,9 @@
         },
         {
           "name": "packaging",
-          "version": "26.3",
-          "file": "packaging-26.3-py3-none-any.whl",
-          "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+          "version": "26.4",
+          "file": "packaging-26.4-py3-none-any.whl",
+          "sha256": "81383611a09c1bc0b08b76e0fd5829d7c6824c65b27a6aee339da133f4233ea2"
         },
         {
           "name": "pillow",
@@ -2482,13 +2482,13 @@
       "uos_hardware_verified": false,
       "browser_compatibility": "Chrome requires system shared libraries; older UOS may need its own matched Chromium/driver pair",
       "file": "autoSkill-Linux-arm64-Offline.zip",
-      "bytes": 394798413,
-      "sha256": "9497275ab965a2aa23b81e658a0a49b3e826a04e66b81054f19be7674641c450",
+      "bytes": 394820488,
+      "sha256": "5cbad05578e2b202a89f23f3a0c1442e2796e312572dd1a9f8391b61943732c2",
       "ui_files": {
         "autoskill/app/ui/index.html": "ae0e7a4953f298cd80742abb30a754e59242082163435fb8f456920152a17fe7",
         "autoskill/app/ui/js/start-operation.js": "8ed4ae821628415927b1a0010859d08e326ea39d1457e8546114bd2de12a62d5",
-        "autoskill/app/ui/js/shell.js": "7ae3443611a1414399ee0f1260dae4c6a1ff5502df139005748d23e6d5b6e101",
-        "autoskill/app/ui/js/project-settings.js": "47d44168eb2dedf67a925768350a3be0aff88001e26c5274c95d16d9d30a90e5",
+        "autoskill/app/ui/js/shell.js": "b6454498481969ebc117cdbd6343c17427223ff7406ff26e53547aa57b27a29a",
+        "autoskill/app/ui/js/project-settings.js": "5e46fd00305f0b1d4ad88eb35f887e97f25f2e7c9152819044ac6a1787c89c4d",
         "autoskill/app/ui/js/schedule-target.js": "d1ce8d623688b9a84b46125d19bfa5f23a1c7aa138a045c86e05baf7a7ba92dd",
         "autoskill/app/ui/js/preferences.js": "e64ca79085d85ca99eb5e02a47b11e1db81a8b293a17615065b1cf1253d9f28a",
         "autoskill/app/ui/js/editor-fields.js": "8653cf18f0478859889f2adefc02f7be6de394be52ca4083969367742d7f5796",
@@ -2516,7 +2516,7 @@
         "autoskill/app/ui/js/pages/schedules.js": "abcc00aa62c9c164aad7c8bdc28ed84fbf7ed75b0bf8a232f3629e36b0a92f36",
         "autoskill/app/ui/js/pages/load-dashboard.js": "e0ed619843a3ade72671eb692a49ba863930aff6e26206df1ff5b0b7c71901f7",
         "autoskill/app/ui/js/pages/run-export.js": "033d833135a8b2d91fe69629854ffa47af10163b72ac68f32b097111bf5c381b",
-        "autoskill/app/ui/js/pages/data.js": "b1e3c30ea2ed507b9c4bc0699f7ac130de739390f3d5f7ffbcc538bf48b2bf5d",
+        "autoskill/app/ui/js/pages/data.js": "e4285e5bdb3dad398ca0ab96ce00ff54f6b8ab483e9c1146763f6d0997a6adb6",
         "autoskill/app/ui/js/pages/load-tests.js": "487a9fdc74cfa13469f3f246e0f131f3188f649ee082ac5eef292e499e54caf3",
         "autoskill/app/ui/js/pages/runs.js": "590cafcc9b8f0895c4e5e719a045af4e7d7370cab79de213144f24efa69bdf28",
         "autoskill/app/ui/js/pages/diagnostics.js": "f0a62459388eed6bf832328b527ff94f693ef8f4098bc63634bd08edd239a32b",
@@ -2524,7 +2524,7 @@
         "autoskill/app/ui/js/pages/report-controls.js": "da23f3e4995d8d7ccb39048284a4d890f9a464dc8a0c3fcee2dbde77fa2d3633",
         "autoskill/app/ui/js/pages/workflows.js": "fad74a33b5d663c13bdb4a7d702bb7c955e99f629020d2f3e6cf32b25eee84e1",
         "autoskill/app/ui/js/pages/project-materials.js": "a304194322cec4625c0a640ac6bb49ef0d773b2af0a99eb6653be7b7a6a6c980",
-        "autoskill/app/ui/js/pages/cases.js": "de129c4141d00f4b8d8f5aa9ae86db2961b906f201fcf8056dc78c5244616135",
+        "autoskill/app/ui/js/pages/cases.js": "50513284fd444c0ca2ca30bfbba9d4618f61fb18defc7a7449ea0ae0b1bcec4d",
         "autoskill/app/ui/js/pages/dashboard.js": "4cd44459f1c6b5c8fecf526e35e6cefee6bf408cf67f9d563990d053499b3c4c",
         "autoskill/app/ui/js/pages/conversations.js": "c77866cab7793055e95a45f88a7057769c2068f2acbec2bd11107abed03529bd",
         "autoskill/app/ui/js/pages/native-runs.js": "10e34c6a8a5d3da48243b2e0fb7420db577abdf81fc174b208f8ed9c327950e6"
@@ -2536,21 +2536,21 @@
         "ui_source_verified": true,
         "uploaded_digest_verified": true
       },
-      "asset_id": 777782261,
-      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.5/autoSkill-Linux-arm64-Offline.zip"
+      "asset_id": 794535178,
+      "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.6/autoSkill-Linux-arm64-Offline.zip"
     }
   ],
   "package_count": 3,
-  "tag": "v2.5.5",
-  "built_from_commit": "2ebfed605a505d8a83048b4a70529a7234363772",
-  "release_id": 454184826,
-  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.5.5",
+  "tag": "v2.5.6",
+  "built_from_commit": "e756648cb2d0580469a7fc8385833c7215c2afb8",
+  "release_id": 459018004,
+  "release_url": "https://github.com/lance-donif/autoSkill/releases/tag/v2.5.6",
   "checksum_asset": {
     "file": "SHA256SUMS.txt",
     "bytes": 298,
-    "sha256": "e11ab1c6dcc44671fc90287cd0d90d5feb01efcd1716421fd2524845ee368900",
-    "asset_id": 777782745,
-    "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.5/SHA256SUMS.txt"
+    "sha256": "d4e7bb84ccb5fc976c1f2786a364d42e6b5f9c1d4cd47b313de9a052c30c7e02",
+    "asset_id": 794535551,
+    "download_url": "https://github.com/lance-donif/autoSkill/releases/download/v2.5.6/SHA256SUMS.txt"
   },
   "real_dsh_agent_sandbox_verified": false,
   "uos_hardware_verified": false
