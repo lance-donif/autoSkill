@@ -29,7 +29,7 @@ class EnvironmentDashboardTests(DashboardWorkspace):
             if value:
                 return value
             time.sleep(0.05)
-        self.fail(message)
+        raise AssertionError(message)
 
     def project(self):
         return self.client.get(f"/api/projects/{self.pid}").json()

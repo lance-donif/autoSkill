@@ -8,7 +8,7 @@ const fixtures = JSON.parse(readFileSync(new URL('../preview/fixtures.json', imp
 
 function visit() {
   const db = {};
-  return (path, method = 'GET', body) => {
+  return (path, method = 'GET', body = undefined) => {
     const url = new URL(path, 'https://example.invalid/');
     const result = casesApi({ path: url.pathname, params: url.searchParams, method, body, fixtures, db });
     return result instanceof Response ? result : structuredClone(result);

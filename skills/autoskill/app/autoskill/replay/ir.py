@@ -67,7 +67,7 @@ LOCATOR_LABELS = {"testid": "测试标识", "label": "标签", "placeholder": "�
 RAND = "{{RAND}}"
 VARIABLE = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
 _rand = ContextVar("autoskill_rand", default="")
-_variables: ContextVar[dict] = ContextVar("autoskill_variables", default={})
+_variables: ContextVar[dict | None] = ContextVar("autoskill_variables", default=None)
 
 
 def set_rand(value: str) -> None:
@@ -76,13 +76,13 @@ def set_rand(value: str) -> None:
 
 def set_variables(values: dict | None) -> None:
     """Values a managed run may substitute into page steps: inputs, extracted values, environment."""
-    _variables.set(values or {})
+    _variables.set(values or None)
 
 
 def expand(value):
     """Fill {{RAND}} and {{name}}: a short text that is new on every run, so data a case creates never
     collides with an earlier run, plus the run's environment and input values."""
-    token, variables = _rand.get(), _variables.get()
+    token, variables = _rand.get(), _variables.get() or {}
     if isinstance(value, dict):
         return {key: expand(item) for key, item in value.items()}
     if isinstance(value, list):

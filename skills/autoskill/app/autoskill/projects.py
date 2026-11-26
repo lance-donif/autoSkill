@@ -38,7 +38,7 @@ def _variables(value) -> dict:
     for name, item in value.items():
         if not isinstance(name, str) or not VARIABLE_NAME.fullmatch(name):
             raise ValueError("环境变量名只能使用字母、数字和下划线，且不能以数字开头")
-        if isinstance(item, bool) or isinstance(item, (str, int, float)):
+        if isinstance(item, (str, int, float)):
             result[name] = item
         else:
             raise ValueError(f"环境变量 {name} 只能是文字、数字或布尔值")
@@ -232,6 +232,31 @@ def set_auth(project_id: str, value: dict) -> None:
     store.sync_skills(path(project_id))
 
 
+def _set_base_url(cfg: dict, project_id: str, value) -> None:
+    origin = origin_address(str(value).strip()) if str(value).strip() else ""
+    owner = site_owner(origin, exclude=project_id) if origin else None
+    if owner:
+        raise ValueError(f"该地址已属于项目 {owner}；一个站点对应一个项目")
+    cfg["base_url"] = origin
+    cfg["allowed_origins"] = sorted({origin, *[item for item in cfg.get("allowed_origins", []) if item]}) if origin else []
+
+
+def _set_environments(cfg: dict, value) -> None:
+    cfg["environments"] = _environments(value)
+    if cfg.get("active_environment_id") not in {item["id"] for item in cfg["environments"]}:
+        cfg.pop("active_environment_id", None)
+
+
+def _set_active_environment(cfg: dict, value) -> None:
+    selected = str(value).strip()
+    if selected and selected not in {item["id"] for item in cfg.get("environments") or []}:
+        raise ValueError(f"环境 {selected} 不存在")
+    if selected:
+        cfg["active_environment_id"] = selected
+    else:
+        cfg.pop("active_environment_id", None)
+
+
 @_project_locked
 def update(project_id: str, **fields) -> dict:
     """Change name, category, target address, environments, extra allowed origins, approvals or timeout."""
@@ -243,29 +268,13 @@ def update(project_id: str, **fields) -> dict:
     if not info.get("name"):
         raise ValueError("请填写项目名称")
     if fields.get("base_url") is not None:
-        value = str(fields["base_url"]).strip()
-        origin = origin_address(value) if value else ""
-        owner = site_owner(origin, exclude=project_id) if origin else None
-        if owner:
-            raise ValueError(f"该地址已属于项目 {owner}；一个站点对应一个项目")
-        cfg["base_url"] = origin
-        cfg["allowed_origins"] = sorted({origin, *[item for item in cfg.get("allowed_origins", []) if item]}) if origin else []
+        _set_base_url(cfg, project_id, fields["base_url"])
     if fields.get("environments") is not None:
-        cfg["environments"] = _environments(fields["environments"])
-        if cfg.get("active_environment_id") not in {item["id"] for item in cfg["environments"]}:
-            cfg.pop("active_environment_id", None)
+        _set_environments(cfg, fields["environments"])
     if fields.get("active_environment_id") is not None:
-        selected = str(fields["active_environment_id"]).strip()
-        if selected and selected not in {item["id"] for item in cfg.get("environments") or []}:
-            raise ValueError(f"环境 {selected} 不存在")
-        if selected:
-            cfg["active_environment_id"] = selected
-        else:
-            cfg.pop("active_environment_id", None)
+        _set_active_environment(cfg, fields["active_environment_id"])
     if fields.get("allowed_origins") is not None:
-        origins = []
-        for item in fields["allowed_origins"]:
-            origins.append(origin_address(item, f"「{item}」"))
+        origins = [origin_address(item, f"「{item}」") for item in fields["allowed_origins"]]
         cfg["allowed_origins"] = sorted({cfg["base_url"], *origins} - {""})
 
     if fields.get("ignore_https_errors") is not None:

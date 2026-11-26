@@ -23,6 +23,22 @@ export function runtimeFields(project) {
   } };
 }
 
+function environmentRows(environments) {
+  const seen = new Set();
+  return environments.map((env) => {
+    const name = env.name.trim();
+    if (!name) throw new Error('请填写环境名称');
+    if (!/^[a-z0-9][a-z0-9_-]{0,47}$/.test(env.id)) throw new Error('环境标识只能使用小写字母、数字、短横线和下划线');
+    if (seen.has(env.id)) throw new Error('环境标识重复');
+    seen.add(env.id);
+    if (env.base_url && !/^https?:\/\/[^\s/]+/.test(env.base_url)) throw new Error(`环境「${name}」的地址需要是完整网址`);
+    for (const key of Object.keys(env.variables)) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`环境「${name}」的变量名 ${key || '（空）'} 只能使用字母、数字和下划线，且不能以数字开头`);
+    }
+    return { id: env.id, name, base_url: env.base_url, variables: env.variables, is_default: !!env.is_default };
+  });
+}
+
 // Postman-style environments: one project keeps several addresses and variable sets.
 export function environmentFields(project) {
   const environments = (project.environments || []).map((item) => ({
@@ -55,9 +71,11 @@ export function environmentFields(project) {
   }
 
   function envBlock(env) {
-    const name = h('input', { class: 'input', value: env.name, placeholder: '环境名称，例如 测试', 'aria-label': '环境名称', autocomplete: 'off' });
+    const nameId = 'ps-env-name-' + env.id;
+    const baseId = 'ps-env-base-' + env.id;
+    const name = h('input', { class: 'input', id: nameId, value: env.name, placeholder: '环境名称，例如 测试', 'aria-label': '环境名称', autocomplete: 'off' });
     name.addEventListener('input', () => { env.name = name.value; });
-    const base = h('input', { class: 'input mono', value: env.base_url, placeholder: 'http://10.0.0.8:8080；留空沿用项目地址', 'aria-label': '环境地址', autocomplete: 'off' });
+    const base = h('input', { class: 'input mono', id: baseId, value: env.base_url, placeholder: 'http://10.0.0.8:8080；留空沿用项目地址', 'aria-label': '环境地址', autocomplete: 'off' });
     base.addEventListener('input', () => { env.base_url = base.value.trim(); });
     const isActive = h('input', { class: 'check', type: 'radio', name: 'ps-env-active', id: 'ps-env-active-' + env.id, checked: active === env.id });
     isActive.addEventListener('change', () => {
@@ -83,8 +101,8 @@ export function environmentFields(project) {
       paint();
     } }, '删除环境');
     return h('div', { class: 'stack', style: 'gap:10px;border:1px solid var(--line);border-radius:var(--r-md);padding:12px' },
-      h('div', { class: 'row wrap' }, h('label', { class: 'grow', for: name.id = 'ps-env-name-' + env.id }, '名称', name)),
-      h('div', { class: 'row wrap' }, h('label', { class: 'grow', for: base.id = 'ps-env-base-' + env.id }, '地址', base)),
+      h('div', { class: 'row wrap' }, h('label', { class: 'grow', for: nameId }, '名称', name)),
+      h('div', { class: 'row wrap' }, h('label', { class: 'grow', for: baseId }, '地址', base)),
       h('div', { class: 'row wrap' },
         h('label', { class: 'row', for: isActive.id }, isActive, '运行使用此环境'),
         h('label', { class: 'row', for: isDefault.id }, isDefault, '默认环境')),
@@ -110,22 +128,11 @@ export function environmentFields(project) {
     node: h('div', { class: 'stack' }, h('h3', {}, '运行环境'),
       h('p', { class: 'sub' }, '同一套用例按环境切换地址和变量；切换后立即生效于单条、批量回放和同步用例。'),
       hint, list, add,
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal placeholder users type, not interpolation
       h('p', { class: 'hint sub' }, '敏感凭据继续使用本机凭据库：在用例里写 ${ENV:名称}，不要直接放进环境变量。')),
     changes() {
       if (JSON.stringify({ environments, active }) === original) return {};
-      const seen = new Set();
-      const rows = environments.map((env) => {
-        const name = env.name.trim();
-        if (!name) throw new Error('请填写环境名称');
-        if (!/^[a-z0-9][a-z0-9_-]{0,47}$/.test(env.id)) throw new Error('环境标识只能使用小写字母、数字、短横线和下划线');
-        if (seen.has(env.id)) throw new Error('环境标识重复');
-        seen.add(env.id);
-        if (env.base_url && !/^https?:\/\/[^\s/]+/.test(env.base_url)) throw new Error(`环境「${name}」的地址需要是完整网址`);
-        for (const key of Object.keys(env.variables)) {
-          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`环境「${name}」的变量名 ${key || '（空）'} 只能使用字母、数字和下划线，且不能以数字开头`);
-        }
-        return { id: env.id, name, base_url: env.base_url, variables: env.variables, is_default: !!env.is_default };
-      });
+      const rows = environmentRows(environments);
       if (active && !rows.some((env) => env.id === active)) active = '';
       return { environments: rows, active_environment_id: active };
     },
