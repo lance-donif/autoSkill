@@ -274,7 +274,7 @@ def _scope(cases: dict, case_id: str, config: dict, auth: dict, sources: dict, e
 
 def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None,
             candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
-            persist: bool = True) -> dict:
+            environment_id: str | None = None, persist: bool = True) -> dict:
     """Read one project generation under its lock; no runtime database mutation occurs here."""
     if not isinstance(api_only, bool):
         raise ValueError("api_only 必须是布尔值")
@@ -294,7 +294,10 @@ def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate
             raise ValueError("这些用例还没有可回放的步骤：" + "、".join(not_ready))
         if not selected:
             raise ValueError("项目里还没有可回放的用例；先录制一条")
-        config = projects.config(project_id)
+        environment = projects.environment_of(cfg := projects.config(project_id), environment_id)
+        config = projects.with_environment(cfg, environment)
+        if not config.get("base_url"):
+            raise ValueError("项目还没有被测地址；开发完成后用 autoskill project update <项目> --url <地址> 补充，再执行")
         auth = projects.auth(project_id) if candidate_auth is None else _json_mapping(candidate_auth, "候选登录配置")
         api_only = api_only or _default_api_only(selected, active)
         if api_only:
@@ -318,20 +321,24 @@ def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate
         names = secrets.references([cases, config, auth, values])
         credentials = {name: secrets.get_secret(name) for name in sorted(names)}
         scopes = {key: _scope(cases, key, config, auth, sources, identities, credentials, api_only=api_only, inputs=values) for key in cases}
-        return {"schema_version": 1, "project_id": project_id, "selected": selected, "cases": cases,
-                "case_hashes": {key: content_hash(case) for key, case in cases.items()}, "scope_hashes": scopes,
-                "config": config, "auth": auth, "sources": sources, "engine": identity,
-                "credentials": credentials, "saved_session": sessions.load(project_id) if persist and not api_only else {},
-                "api_only": api_only, "inputs": values,
-                "variables": {**copy.deepcopy(values), **({"RAND": uuid.uuid4().hex[:6]} if persist else {})}}
+        seed = {**copy.deepcopy((environment or {}).get("variables") or {}), **copy.deepcopy(values)}
+        manifest = {"schema_version": 1, "project_id": project_id, "selected": selected, "cases": cases,
+                    "case_hashes": {key: content_hash(case) for key, case in cases.items()}, "scope_hashes": scopes,
+                    "config": config, "auth": auth, "sources": sources, "engine": identity,
+                    "credentials": credentials, "saved_session": sessions.load(project_id) if persist and not api_only else {},
+                    "api_only": api_only, "inputs": values,
+                    "variables": {**seed, **({"RAND": uuid.uuid4().hex[:6]} if persist else {})}}
+        if environment is not None:
+            manifest["environment"] = environment
+        return manifest
 
 
 def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None,
            candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
-           load: dict | None = None) -> tuple[dict, dict]:
+           environment_id: str | None = None, load: dict | None = None) -> tuple[dict, dict]:
     with project_lock(project_id), named_lock("input-store", "replay"):
         manifest = capture(project_id, chosen, engine, candidate_cases=candidate_cases, candidate_auth=candidate_auth,
-                           api_only=api_only, inputs=inputs)
+                           api_only=api_only, inputs=inputs, environment_id=environment_id)
         if load is not None:
             manifest["load"] = copy.deepcopy(load)
         digest = content_hash(manifest)

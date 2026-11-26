@@ -187,6 +187,27 @@ export function runSettings() {
   }, true);
 }
 
+function environmentPicker(s) {
+  if (s.projects.length !== 1) return null;
+  const project = state.allProjects.find((item) => item.id === s.projects[0]);
+  if (!project?.environments?.length) return null;
+  const button = h('button', { class: 'btn', 'aria-label': '切换运行环境' }, icon('globe'), project.environment?.name || '选择环境', icon('chevron'));
+  return menuButton(button, (menu, close) => {
+    for (const item of project.environments) {
+      menu.append(menuItem(item.name + (item.is_default ? '（默认）' : ''), {
+        checked: project.environment?.id === item.id,
+        meta: item.base_url || '',
+        onPick: async () => {
+          close();
+          const saved = await attempt(() => api(`/projects/${encodeURIComponent(project.id)}/environments`, { method: 'PUT',
+            body: { environments: project.environments, active_environment_id: item.id } }), button);
+          if (saved) await refreshShell();
+        },
+      }));
+    }
+  });
+}
+
 function replaceScope(bar, ...nodes) {
   updateLiveView(bar, h('div', {}, nodes));
 }
@@ -257,7 +278,7 @@ export function renderScope() {
 
   replaceScope(bar,
     h('span', { class: 'scope-label' }, '当前范围'),
-    projectPicker, !timeless && rangePicker,
+    projectPicker, environmentPicker(s), !timeless && rangePicker,
     (timeless ? s.projects.length > 0 : !isDefaultScope(s)) && h('button', {
       class: 'btn ghost sm', title: timeless ? '回到全部项目' : '回到「全部项目 · 近 7 天」',
       onClick: () => setScope(timeless ? { projects: [] } : { projects: [], range: DEFAULT_RANGE, from: '', to: '' }),

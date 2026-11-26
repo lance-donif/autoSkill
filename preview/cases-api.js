@@ -29,6 +29,52 @@ export function initCases(db, fixtures) {
   return db.caseLibrary;
 }
 
+function environmentList(value) {
+  if (!Array.isArray(value)) return problem('环境必须是对象数组');
+  const seen = new Set();
+  const rows = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return problem('环境必须是对象');
+    const id = item.id || `env-${rows.length + 1}`;
+    if (!/^[a-z0-9][a-z0-9_-]{0,47}$/.test(id) || seen.has(id)) return problem('环境标识无效或重复');
+    seen.add(id);
+    const name = String(item.name || '').trim();
+    if (!name) return problem('请填写环境名称');
+    const base = String(item.base_url || '').trim();
+    if (base && !/^https?:\/\/[^\s/]+/.test(base)) return problem(`环境「${name}」的地址需要是完整网址`);
+    const variables = item.variables ?? {};
+    if (!variables || typeof variables !== 'object' || Array.isArray(variables)) return problem('环境变量必须是 JSON 对象');
+    for (const [key, val] of Object.entries(variables)) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return problem('环境变量名只能使用字母、数字和下划线，且不能以数字开头');
+      if (!['string', 'number', 'boolean'].includes(typeof val)) return problem('环境变量只能是文字、数字或布尔值');
+    }
+    rows.push({ id, name, base_url: base, variables: copy(variables), is_default: !!item.is_default });
+  }
+  if (rows.filter((row) => row.is_default).length > 1) return problem('只能有一个默认环境');
+  return rows;
+}
+
+function resolveEnvironment(project) {
+  const environments = Array.isArray(project.environments) ? project.environments : [];
+  return environments.find((item) => item.id === project.active_environment_id)
+    || environments.find((item) => item.is_default) || null;
+}
+
+function selectEnvironment(project, environments, selected) {
+  let wanted;
+  if (selected === undefined) {
+    wanted = project.active_environment_id || '';
+    if (wanted && !environments.some((item) => item.id === wanted)) wanted = '';
+  } else {
+    wanted = String(selected ?? '').trim();
+    if (wanted && !environments.some((item) => item.id === wanted)) return problem(`环境 ${wanted} 不存在`);
+  }
+  project.environments = environments;
+  if (wanted) project.active_environment_id = wanted;
+  else delete project.active_environment_id;
+  return null;
+}
+
 function projectView(library, project) {
   const items = library.items.filter((item) => item.project_id === project.id && item.lifecycle !== 'archived');
   const names = new Set();
@@ -39,7 +85,10 @@ function projectView(library, project) {
   const credentials = Object.fromEntries([...names].sort().map((name) => [
     name, library.secrets.find((item) => item.name === name)?.value ?? null,
   ]));
+  const environment = resolveEnvironment(project);
   return { ...project, credentials, missing_secrets: Object.keys(credentials).filter((name) => credentials[name] === null),
+    active_environment_id: project.active_environment_id || environment?.id || '',
+    environment: environment ? copy(environment) : null,
     cases: { ...project.cases, total: items.length, api: items.filter((item) => item.kind === 'api').length, ui: items.filter((item) => item.kind === 'ui').length } };
 }
 
@@ -211,10 +260,37 @@ export function casesApi(context) {
       if (Object.hasOwn(body, field) && (!Number.isFinite(body[field]) || body[field] <= 0)) return problem('超时需要是大于零的秒数');
     }
     if (Object.hasOwn(body, 'ignore_https_errors') && typeof body.ignore_https_errors !== 'boolean') return problem('忽略 HTTPS 证书错误必须是布尔值');
+    if (Object.hasOwn(body, 'base_url')) {
+      const base = String(body.base_url || '').trim();
+      if (base && !/^https?:\/\/[^\s/]+/.test(base)) return problem('目标地址需要是完整网址');
+      project.base_url = base;
+      project.start_url = base || project.start_url;
+      project.allowed_origins = base ? [base] : [];
+    }
+    let environments;
+    if (Object.hasOwn(body, 'environments')) {
+      environments = environmentList(body.environments);
+      if (environments instanceof Response) return environments;
+    }
+    if (environments || Object.hasOwn(body, 'active_environment_id')) {
+      const rejected = selectEnvironment(project, environments || project.environments || [], body.active_environment_id);
+      if (rejected) return rejected;
+    }
     for (const field of ['name', 'category', 'timeout_seconds', 'page_load_seconds', 'ignore_https_errors']) {
       if (Object.hasOwn(body, field)) project[field] = body[field];
     }
     for (const item of library.items) if (item.project_id === projectId) item.project_name = project.name;
+    return projectView(library, project);
+  }
+  if (section === 'environments' && !id) {
+    if (method !== 'PUT') return problem('环境设置只支持 PUT', 405);
+    if (Object.keys(body || {}).some((key) => !['environments', 'active_environment_id'].includes(key))) {
+      return problem('环境设置只接受 environments 和 active_environment_id');
+    }
+    const rows = environmentList(body?.environments);
+    if (rows instanceof Response) return rows;
+    const rejected = selectEnvironment(project, rows, body.active_environment_id);
+    if (rejected) return rejected;
     return projectView(library, project);
   }
   if (!section && method === 'GET') return projectView(library, project);

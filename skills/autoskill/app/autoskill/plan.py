@@ -8,6 +8,7 @@ Columns are found by their header text, so a hand-made sheet works as long as it
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import re
 import shutil
@@ -196,13 +197,13 @@ def _set_status(sheet, columns, number: int, status: str, note: str | None = Non
         sheet.cell(number, columns["note"], note).data_type = "s"
 
 
-def _delivery(project_id: str, info: dict, items: list[dict], folder: Path) -> dict:
+def _delivery(project_id: str, info: dict, items: list[dict], folder: Path, source_doc_hash: str | None = None) -> dict:
     """Freeze the initial complete design before any candidate execution is bound."""
     from . import plan_execution
 
     identity = execution_inputs.content_hash(items)
     destination = folder / "exports" / ("functional-design-" + identity[:16] + "-" + uuid.uuid4().hex[:8] + ".xlsx")
-    return plan_execution.initialize(project_id, info, items, destination)
+    return plan_execution.initialize(project_id, info, items, destination, source_doc_hash=source_doc_hash)
 
 
 def _source_hash(row: dict) -> str:
@@ -233,9 +234,9 @@ def source_metadata() -> dict:
         book.close()
 
 
-def write(project_id: str, file: str, *, delivery: bool = True) -> dict:
+def write(project_id: str, file: str, *, delivery: bool = True, source_doc: str | None = None) -> dict:
     with _sheet_lock(project_id):
-        return _write(project_id, file, delivery=delivery)
+        return _write(project_id, file, delivery=delivery, source_doc=source_doc)
 
 
 def _design_text(item: dict) -> dict:
@@ -289,7 +290,34 @@ def _delivery_next(report: dict) -> str:
             "从原任务快照恢复文件。回执为 ready 后核对 SHA-256 并交付初版，再继续执行本任务。")
 
 
-def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
+def _document_hash(source_doc: str | None) -> str | None:
+    """Identify one version of the requirement document the host designed from."""
+    if not source_doc:
+        return None
+    file = Path(source_doc).expanduser().resolve()
+    if not file.is_file():
+        raise ValueError("找不到需求文档：" + str(file))
+    with file.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def _duplicate(project_id: str, items, source_doc_hash: str | None) -> dict | None:
+    """Reuse the same session's delivered design for the same document version and case content."""
+    from . import plan_execution
+
+    if plan_execution.existing_delivery(project_id, items, source_doc_hash) is None:
+        return None
+    view = plan_execution.describe()
+    if view.get("task_id") is None:
+        return None
+    return {"skill": str(_folder()), "excel": str(_file()), "cases": len(items), "project": project_id,
+            "excel_role": "内部编辑表（11 列），非用户交付 Excel", "duplicate": True, "task_id": view.get("task_id"),
+            "delivery_excel": view["delivery_excel"], "initial_excel": view["initial_excel"],
+            "initial_report_id": view.get("initial_report_id"), "test_report": view.get("test_report"),
+            "next": "本次设计内容与当前会话已交付的版本一致，已复用原任务和正式 Excel；直接按原设计行执行，不要重复写表。"}
+
+
+def _write(project_id: str, file: str, *, delivery: bool = True, source_doc: str | None = None) -> dict:
     """Turn designed cases (a JSON array) into the Excel case sheet and its skill."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font
@@ -303,6 +331,10 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
     except (OSError, ValueError) as error:
         raise ValueError(f"读不了用例文件 {file}：{error}") from None
     items = _design_rows(items)
+    source_doc_hash = _document_hash(source_doc)
+    duplicate = _duplicate(project_id, items, source_doc_hash) if delivery and source_doc_hash else None
+    if duplicate is not None:
+        return duplicate
     folder = _folder()
     folder.mkdir(parents=True, exist_ok=True)
     book = Workbook()
@@ -333,7 +365,7 @@ def _write(project_id: str, file: str, *, delivery: bool = True) -> dict:
         metadata = folder / "design.json"
         revision = execution_inputs.content_hash(json.loads(metadata.read_bytes())) if metadata.is_file() else None
         execution_inputs.write_json(folder / "functional-design.json", {"schema": 1, "online_revision": revision, "rows": source_rows})
-    published = _delivery(project_id, info, items, folder) if delivery else _delivery_status()
+    published = _delivery(project_id, info, items, folder, source_doc_hash) if delivery else _delivery_status()
     public_file = published.get("delivery_excel") if delivery else None
     (folder / "SKILL.md").write_text(SKILL_TEXT.format(file=Path(saved).name, count=len(items), project=f"，项目 {project_id}",
                                                      delivery=public_file or "在线设计用例表的「下载 14 列 Excel」"), encoding="utf-8")

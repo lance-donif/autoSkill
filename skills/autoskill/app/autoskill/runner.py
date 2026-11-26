@@ -32,12 +32,14 @@ def prepare(project_id: str, case_ids: list[str] | None = None, engine: str = "p
             trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
             headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
             *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None,
-            candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None) -> dict:
+            candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
+            environment_id: str | None = None) -> dict:
     """Validate and freeze execution inputs without writing any database row."""
     if engine not in ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
     frozen, manifest = execution_inputs.freeze(project_id, case_ids, engine, candidate_cases=candidate_cases,
-                                               candidate_auth=candidate_auth, api_only=api_only, inputs=inputs)
+                                               candidate_auth=candidate_auth, api_only=api_only, inputs=inputs,
+                                               environment_id=environment_id)
     chosen = manifest["selected"]
     identity = (task_context.session_id() if session_id is None else session_id) or ""
     with task_context.use_session(identity or None):
@@ -118,11 +120,13 @@ def create(project_id: str, case_ids: list[str] | None = None, engine: str = "pl
            trigger: str = "manual", task_id: str | None = None, batch_id: str | None = None,
            headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
            *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None,
-           candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None) -> dict:
+           candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
+           environment_id: str | None = None) -> dict:
     """Validate, freeze and queue a run through the same API used by transactional schedules."""
     projects.reindex(project_id)
     return enqueue(prepare(project_id, case_ids, engine, trigger, task_id, batch_id, headed, force_login, session_id,
-                           candidate_cases=candidate_cases, plan_path=plan_path, candidate_auth=candidate_auth, api_only=api_only, inputs=inputs))
+                           candidate_cases=candidate_cases, plan_path=plan_path, candidate_auth=candidate_auth,
+                           api_only=api_only, inputs=inputs, environment_id=environment_id))
 
 
 def evidence_dir(run_id: str) -> Path:
@@ -273,6 +277,11 @@ class Session:
     def shot(self, case_id: str) -> str:
         return re.sub(r"[^A-Za-z0-9_.-]", "_", case_id) + ".png"
 
+    def absolute(self, url: str) -> str:
+        """Resolve a case URL against the frozen environment address, moving the project's own origin."""
+        environment = self.config.get("_environment") or {}
+        return ir.absolute_url(ir.expand(url), self.config["base_url"], environment.get("recorded_base_url") or None)
+
     def attempt(self, case: dict, kind: str, invoke) -> dict:
         """Journal before invoking an adapter; each response and screenshot has its own durable identity."""
         attempt_id = "attempt-" + uuid.uuid4().hex
@@ -345,7 +354,7 @@ class Session:
         if state and probes and not force:
             driver.reset(state)
             def probe(_attempt):
-                driver.goto(ir.absolute_url(case["extensions"]["automation"]["start_url"], self.config["base_url"]))
+                driver.goto(self.absolute(case["extensions"]["automation"]["start_url"]))
                 rows = [ui.check(driver, step, 3.0) for step in probes]
                 return {"status": "Pass" if all(row["passed"] for row in rows) else "Fail", "actual": "检查已保存的登录态",
                         "reason": "", "category": "", "assertions": rows, "duration_ms": 0, "reused": True}
@@ -391,6 +400,7 @@ class Session:
         case_id = case["id"]
         self.count += 1
         ir.set_rand(f"{self.rand}{self.count}")  # page cases each get their own value; API cases share the run's
+        ir.set_variables(self.variables)  # inputs, extracted values and the environment; never secrets
         if case["kind"] == "api":
             if not self.api_only:
                 self.state_variables()
@@ -439,7 +449,7 @@ class Session:
         automation = login["extensions"]["automation"]
         def probe(_attempt):
             self.driver.reset(self.saved.get("ui"))
-            self.driver.goto(ir.absolute_url(automation["start_url"], self.config["base_url"]))
+            self.driver.goto(self.absolute(automation["start_url"]))
             rows = [ui.check(self.driver, step, 3.0) for step in automation.get("assertions", [])]
             return {"status": "Pass" if rows and all(row["passed"] for row in rows) else "Fail", "assertions": rows, "reused": True}
         return self.attempt(login, "login_probe", probe)["status"] == "Pass"
@@ -725,11 +735,13 @@ def recover_runs() -> None:
                 from . import task_reports
 
                 task_reports.for_run(run["id"])
+                archive_failures(run["id"])
     from . import candidate_publication, task_reports
 
     for completed in candidate_publication.pending_completions():
         sync_plan(completed)
         task_reports.for_run(completed["id"])
+        archive_failures(completed["id"])
 
 
 def _acquire(run_id: str, token: str | None) -> tuple[dict, bool]:
@@ -757,6 +769,7 @@ def execute(run_id: str, force_login: bool = False, *, claim_token: str | None =
         # the same guard. Keep joining/recovery outside that child's execution lock.
         recover_runs()
         time.sleep(0.1)
+    archive_failures(run_id)
     deletion._cleanup_result(run_id)
     if not db.one("SELECT id FROM runs WHERE id = ?", (run_id,)):
         result["test_report"] = {"status": "skipped", "reason": "运行已删除，报告已随记录清理", "retryable": False}
@@ -782,6 +795,14 @@ def _execute_guarded(run_id: str, force_login: bool, claim_token: str | None) ->
             return _execute_claimed(run)
         finally:
             sync_plan(run)
+
+
+def archive_failures(run_id: str) -> None:
+    """Copy failed and blocked results to the configured error folder; never fail the run for it."""
+    from . import failure_archive
+
+    with contextlib.suppress(Exception):
+        failure_archive.for_run(run_id)
 
 
 def sync_plan(run: dict) -> None:

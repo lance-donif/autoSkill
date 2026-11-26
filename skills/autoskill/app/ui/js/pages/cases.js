@@ -2,7 +2,7 @@
 import { ensurePreferences } from '../preferences.js';
 import { h, icon, replace, api, deleteSelection, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
 import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
-import { runtimeFields, credentialControls } from '../project-settings.js';
+import { runtimeFields, environmentFields, credentialControls } from '../project-settings.js';
 import { state, caseProjects, refreshShell } from '../shell.js';
 import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
@@ -336,11 +336,12 @@ async function projectSettings(projectId) {
   if (location.hash !== source) return;
   const name = h('input', { class: 'input', value: project.name, id: 'ps-name' });
   const runtime = runtimeFields(project);
+  const environments = environmentFields(project);
 
   const save = h('button', { class: 'btn primary' }, '保存');
   save.addEventListener('click', async () => {
     const done = await attempt(() => {
-      const changes = runtime.changes();
+      const changes = { ...runtime.changes(), ...environments.changes() };
       if (name.value.trim() !== project.name.trim()) changes.name = name.value.trim();
       return Object.keys(changes).length ? api('/projects/' + projectId, { method: 'PATCH', body: changes }) : true;
     }, save);
@@ -368,9 +369,9 @@ async function projectSettings(projectId) {
   });
 
   drawer({
-    title: '项目设置', subtitle: project.base_url,
+    title: '项目设置', subtitle: project.base_url || '还没有被测地址（需求设计阶段）',
     body: [
-      h('div', { class: 'field' }, h('label', { for: 'ps-name' }, '项目名称'), name), runtime.node,
+      h('div', { class: 'field' }, h('label', { for: 'ps-name' }, '项目名称'), name), runtime.node, environments.node,
       h('div', { class: 'stack' }, h('h3', {}, '登录'),
         h('p', { class: 'sub' }, project.login.ui_case || project.login.api_case
           ? `登录用例：${[project.login.ui_case, project.login.api_case].filter(Boolean).join('、')}。运行依赖登录的用例时会自动先登录，并在本机复用登录态。`
@@ -399,6 +400,9 @@ async function caseDrawer(projectId, caseId) {
   const body = [];
   if (item.depends_on?.length) {
     body.push(h('div', { class: 'banner info' }, icon('link'), h('span', {}, `前置用例：${item.depends_on.join('、')}。运行这条用例时会自动先执行。`)));
+  }
+  if (item.sync?.file) {
+    body.push(h('div', { class: 'banner info' }, icon('folder'), h('span', {}, `来自同步目录：${item.sync.file}` + (item.sync.synced_at ? `，同步于 ${fmtTime(item.sync.synced_at)}` : ''))));
   }
   if (item.kind === 'ui') {
     body.push(h('div', { class: 'stack', style: 'gap:8px' }, h('h3', {}, '回放步骤'),

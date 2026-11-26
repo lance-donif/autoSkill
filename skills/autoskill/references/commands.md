@@ -14,12 +14,12 @@
 
 | 命令 | 说明 |
 | --- | --- |
-| `project create --name 名称 --url 地址 [--category 分类] [--id 标识]` | 新建项目。地址用于确定起始页面；不限制后续访问站点；标识默认由名称或主机名生成 |
+| `project create --name 名称 [--url 地址] [--category 分类] [--id 标识]` | 新建项目。地址用于确定起始页面；需求阶段还没有地址时可省略，项目进入设计阶段，执行前再用 `project update --url` 补充。不限制后续访问站点；标识默认由名称或主机名生成 |
 | `project list` | 全部项目及用例数、缺少的凭据 |
 | `project show <项目>` | 单个项目的设置 |
-| `project update <项目> [--name] [--category] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置 |
+| `project update <项目> [--name] [--category] [--url 地址] [--environments 环境.json] [--active-environment 标识] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置。`--url` 用于补充或更换被测地址，站点已属于其他项目时拒绝；`--environments` 用 JSON 数组整体替换环境列表（每项 `id/name/base_url/variables/is_default`），`--active-environment` 切换运行环境 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
-| `plan write <项目> --file 用例.json [--expected-cases 数量]` / `plan show` / `plan mark <编号> 通过\|失败\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、按设计版本、候选和指定运行回填完整表，保留未执行及失败；`initial_excel` 是最初副本。用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
+| `plan write <项目> --file 用例.json [--expected-cases 数量] [--source-doc 需求文档] [--deliver-to 目录]` / `plan show` / `plan mark <编号> 通过\|失败\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、按设计版本、候选和指定运行回填完整表，保留未执行及失败；`initial_excel` 是最初副本。用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
 | `plan link <设计行编号> <可复用用例编号>` | 将当前会话设计行关联到同项目已有用例，不执行、不复用旧通过。先确认操作与独立断言符合本行预期，再保持相同 `--session` 执行 `run <项目> --case <可复用用例编号>`；API 流程可带 `--api-only --inputs <参数文件>`。本次真实结果回填原表，自动前置只回填表内已有明确关联的行，不增加运行报告的显式目标数 |
 | `context <项目> [--limit 50] [--cursor 游标] [--knowledge-limit 5] [--knowledge-cursor 游标] [--all]` | 登录、缺少的凭据、用例与知识预览；`page.cases`、`page.knowledge` 分别标明总数、剩余页及内容版本 |
 | `cases <项目> [--limit 数量] [--cursor 游标] [--all] [--kind] [--module] [--requirement] [--query]` | 分页用例摘要；`page` 返回 `total/returned/has_more/next_cursor/content_revision`，内容或查询改变会报 `cursor_expired` |
@@ -37,9 +37,17 @@
 
 `context` 保留旧 `knowledge`，另提供 `knowledge_entries`。搜索页绑定参与项目的版本、知识设置与旧文件内容；变化后 `cursor_expired`，从首页重读。`--team` 只查询配置了完全相同非空 `team_id/business_scope` 的项目；未配置时返回当前项目及 `scope_note: project_only_unconfigured`，条目标签不能代替项目设置。搜索命中不表示适用或事实已证实。新知识接口错误返回 `code/error/details`，退出 2；完整提交、状态和导入语义见 [诊断与知识闭环](diagnosis-knowledge.md)。
 
-用户目标明确了可独立验收的用例数时，先按该目标确定数量，再将它传给 `plan write --expected-cases`。只需完成一个连续流程时传 `--expected-cases 1`，把过程写进同一行的 `steps` 和 `expected`。数量不符会在写初版前返回期望数与实际数。
+提供 `--source-doc` 时，同一会话对同一文档版本和相同用例内容再次写表会返回 `duplicate: true` 的原任务和正式 Excel；不带该参数时保持原有的新任务语义。用户目标明确了可独立验收的用例数时，先按该目标确定数量，再将它传给 `plan write --expected-cases`。只需完成一个连续流程时传 `--expected-cases 1`，把过程写进同一行的 `steps` 和 `expected`。数量不符会在写初版前返回期望数与实际数。
 
 功能设计字段为 `description/preconditions/steps/expected/source`，以及已确认的 `business_path/prefix/author/remarks`。`plan write` 保留这些来源字段供 `plan show` 和同一会话的 `record stop --plan <编号>` 使用；可执行用例将其保存在 `extensions.test_case_document`。主表使用真实业务操作及对应预期，HTTP 请求、选择器和浏览器 IR 留在技术附表。只改功能文字或重新关联旧检查不能证明新预期已验证；需要按来源录制独立检查，或通过工作流提交明确对应新预期的候选断言并真实回归。
+
+## 环境、同步与错误目录
+
+每个项目可在 `qa-config.json` 中保存多套环境。当前环境决定 `base_url`；页面用例中相对地址按该地址补全，录制时属于项目原地址的绝对地址替换为环境地址，其他站点地址保持原样。`{{名称}}` 按 `运行 --inputs`、前置用例提取值、环境 `variables`、凭据 `${ENV:名称}` 的顺序取用；页面步骤、页面断言和接口请求都使用同一份变量。敏感值继续存放在本机凭据库，不写进环境变量。仪表盘项目工具栏与环境设置抽屉可以增删改并即时切换。
+
+同步目录 `AUTOSKILL_SYNC_DIR`（或数据目录 `settings.json` 的 `sync_dir`）存放开发侧同步来的文件：分享 ZIP，或 `{"project_id": ..., "cases": [...], "status": "pass"}` 打包对象。扫描按 SHA-256 增量进行，内容未变的文件不会重复导入；标记为非通过的文件跳过。导入的用例保留 `{{变量}}` 占位符并记录来源文件。后台队列每 `AUTOSKILL_SYNC_INTERVAL` 秒（默认 60）自动扫描一次，也可在数据管理页或 `sync scan` 手动触发。
+
+错误目录 `AUTOSKILL_ERROR_DIR`（或 `error_dir`）在每次回放结束后，为存在失败或受阻用例的运行写入 `日期/项目/run_id/errors.json` 与 `errors.md`，包含失败断言、HTTP 请求响应摘要、尝试回执和截图路径；全部通过的运行不写入。
 
 ## 输入文件、运行绑定与后台转交
 
@@ -192,11 +200,11 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 ## 回放
 
-`run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api] [--candidate 候选ID] [--api-only] [--inputs 参数.json]`
+`run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api] [--candidate 候选ID] [--api-only] [--inputs 参数.json] [--environment 标识]`
 
 `run-status <运行ID> [--brief]` 只读运行状态、结果、已有报告和候选发布回执。轮询用 `--brief` 保留状态、发布和报告入口，诊断时省略它查看用例结果。`record stop` 已入队后，用它等待各个 `run_id`。
 
-`--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。
+`--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。`--environment` 选择本次运行环境，省略时使用项目当前环境；冻结输入记录环境标识、地址和变量的快照，之后切换环境不会改写历史运行。
 
 - 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好，默认显示最大化窗口。Linux 缺少图形桌面时会报告启动受阻。用户明确要求显示或隐藏时分别传 `--headed` 或 `--headless`，命令行优先于 `AUTOSKILL_HEADED=1/0`，再优先于保存偏好。显式无头时页面为 1920×1080。这些选项适用于 `record start`、`run`、`login`、`dashboard`。
 - 全局默认同时执行 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的浏览器/HTTP replay 共享登录态，会自动排队，native 原生任务使用独立输入与证据目录、同项目可并行。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
@@ -225,8 +233,9 @@ HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{
 | --- | --- |
 | `export postman <项目> [--out 目录]` | Postman Collection v2.1 + Environment。按依赖顺序排列，含断言脚本和变量传递；凭据是环境里的空变量 |
 | `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本，包含前置步骤。脚本默认显示窗口，设置 `HEADED=0` 可隐藏。凭据从同名环境变量读取。 |
+| `sync scan` / `sync status` | 扫描同步目录中的 autoSkill 用例文件（JSON 打包对象或分享 ZIP），按内容哈希增量导入对应项目；只导入标记为通过的文件，结果和来源写入用例库并在数据管理页展示 |
 | `report <项目> [--out 目录]` | Excel 以14列功能测试用例为主表，保留技术定义、执行明细与最近结果附表，并生成 Markdown 摘要 |
-| `task-report <报告标识> [--retry]` | 读取本次任务的 Excel、简报和 Bug 清单交付回执；`--retry` 按同一任务快照重新导出，不重新执行测试，也不借用其他任务的结果 |
+| `task-report <报告标识> [--retry] [--deliver-to 目录]` | 读取本次任务的 Excel、简报和 Bug 清单交付回执；`--retry` 按同一任务快照重新导出，不重新执行测试，也不借用其他任务的结果；`--deliver-to` 把三份原件复制到用户项目目录；未指定时使用 `AUTOSKILL_DELIVERY_DIR`，宿主会话另使用转交的调用目录，通用命令行调用需要显式路径 |
 | `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、项目报告附件、原生资产及原始捕获，不额外加入本机登录态、`.local/` 运行数据库、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |
 | `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库及项目报告附件、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含 `.local/` 运行历史数据库、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
 | `import <分享包> [--passphrase 口令] [--overwrite]` | 导入轻量分享包。已有同名项目默认跳过 |

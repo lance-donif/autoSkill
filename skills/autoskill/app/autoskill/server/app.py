@@ -48,6 +48,7 @@ from .load_testing import register as register_load_testing
 from .native_tools import register as register_native_tools
 from .project_materials import register as register_project_materials
 from .project_settings import register as register_project_settings
+from .sync import register as register_sync
 from .ui_assets import mount_ui
 from .workflows import register as register_workflows
 
@@ -188,7 +189,7 @@ def case_view(project_id: str, case: dict) -> dict:
     """A case as the dashboard shows it: readable steps, never raw secrets (they are references already)."""
     view = {k: case.get(k) for k in ("id", "kind", "title", "module", "priority", "risk", "revision", "expected")}
     view.update(project_id=project_id, depends_on=projects.depends_on(case), replayable=ir.is_replayable(case),
-                category=case.get("extensions", {}).get("category", ""))
+                category=case.get("extensions", {}).get("category", ""), sync=case.get("extensions", {}).get("sync"))
     scope = metrics.Scope(projects=[project_id])
     with metrics.snapshot(scope) as snapshot:
         connection = snapshot["connection"]
@@ -269,6 +270,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     register_host_context(app)
     register_knowledge_entries(app)
     register_project_settings(app)
+    register_sync(app)
     register_execution_requests(app)
     register_data(app)
     register_project_materials(app)
@@ -428,6 +430,8 @@ def _register_project_routes(app: FastAPI, state: dict) -> None:
     async def update_project(project_id: str, request: Request):
         body = await request.json()
         return projects.update(project_id, name=body.get("name"), category=body.get("category"),
+                               base_url=body.get("base_url"), environments=body.get("environments"),
+                               active_environment_id=body.get("active_environment_id"),
                                allowed_origins=body.get("allowed_origins"), approvals=body.get("approvals"),
                                timeout_seconds=body.get("timeout_seconds"),
                                page_load_seconds=body.get("page_load_seconds"),

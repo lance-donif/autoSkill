@@ -20,6 +20,7 @@ PYTHON_SUITES = {
     "knowledge": ["test_failure_context.py", "test_knowledge_entries.py", "test_knowledge_workflow.py",
                   "test_knowledge_transfer.py", "test_knowledge_transport.py"],
     "review-tools": ["test_code_review.py"],
+    "environments": ["test_environments_delivery.py", "test_sync_error_archive.py"],
 }
 NODE_SUITES = {"host": ["tests/plugin.test.mjs", "tests/host-adapter.test.mjs", "tests/host-backend.test.mjs",
                         "tests/host-commands.test.mjs", "tests/host-state-summary.test.mjs"]}

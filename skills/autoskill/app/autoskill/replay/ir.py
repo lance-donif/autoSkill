@@ -65,21 +65,35 @@ LOCATOR_LABELS = {"testid": "测试标识", "label": "标签", "placeholder": "�
 
 
 RAND = "{{RAND}}"
+VARIABLE = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
 _rand = ContextVar("autoskill_rand", default="")
+_variables: ContextVar[dict] = ContextVar("autoskill_variables", default={})
 
 
 def set_rand(value: str) -> None:
     _rand.set(value)
 
 
+def set_variables(values: dict | None) -> None:
+    """Values a managed run may substitute into page steps: inputs, extracted values, environment."""
+    _variables.set(values or {})
+
+
 def expand(value):
-    """Fill {{RAND}}: a short text that is new on every run, so data a case creates never collides with an earlier run."""
-    token = _rand.get()
+    """Fill {{RAND}} and {{name}}: a short text that is new on every run, so data a case creates never
+    collides with an earlier run, plus the run's environment and input values."""
+    token, variables = _rand.get(), _variables.get()
     if isinstance(value, dict):
         return {key: expand(item) for key, item in value.items()}
     if isinstance(value, list):
         return [expand(item) for item in value]
-    return value.replace(RAND, token) if isinstance(value, str) and token else value
+    if not isinstance(value, str):
+        return value
+    if token:
+        value = value.replace(RAND, token)
+    if variables:
+        value = VARIABLE.sub(lambda match: str(variables[match[1]]) if match[1] in variables else match[0], value)
+    return value
 
 
 def locators(step: dict) -> list[dict]:
@@ -301,9 +315,18 @@ def is_replayable(case: dict) -> bool:
     return True
 
 
-def absolute_url(url: str, base_url: str) -> str:
-    """Cases may store a path; the project's target address makes it absolute."""
-    if urlsplit(url).scheme:
+def absolute_url(url: str, base_url: str, rebase: str | None = None) -> str:
+    """Cases may store a path; the project's target address makes it absolute.
+
+    With an environment whose address differs, recorded absolute URLs on the project's own
+    origin move to that environment; URLs on other sites are left alone.
+    """
+    parts = urlsplit(url)
+    if parts.scheme:
+        recorded = urlsplit(rebase) if rebase else None
+        if (recorded and base_url and parts.scheme in ("http", "https")
+                and (parts.scheme, parts.netloc) == (recorded.scheme, recorded.netloc)):
+            return urlsplit(base_url)._replace(path=parts.path, query=parts.query, fragment=parts.fragment).geturl()
         return url
     if not base_url:
         raise ValueError("用例使用了相对地址，但项目没有设置目标地址")

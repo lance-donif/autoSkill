@@ -418,6 +418,28 @@ class PagesBrowserTests(PagesWorkspace):
                 with self.offline(run_id) as reader:
                     self.check_failed_api(reader.locator(f'.result[data-case="{case}"]'))
 
+    def test_environments_and_sync_folders_are_visible_in_the_demo(self):
+        for width in WIDTHS:
+            with self.subTest(width=width), self.session(width):
+                self.open("cases?projects=stock-room")
+                switch = self.page.get_by_role("button", name="切换运行环境")
+                expect(switch).to_contain_text("开发环境")
+                switch.click()
+                self.page.get_by_role("menuitemcheckbox").filter(has_text="测试环境").click()
+                expect(switch).to_contain_text("测试环境")
+                self.open("cases?settings=stock-room")
+                drawer = self.page.get_by_role("dialog", name="项目设置")
+                expect(drawer.get_by_role("heading", name="运行环境")).to_be_visible()
+                expect(drawer.locator('input[aria-label="环境名称"]').nth(0)).to_have_value("开发环境")
+                drawer.get_by_role("button", name="关闭", exact=True).click()
+                expect(drawer).to_have_count(0)
+                self.open("data")
+                expect(self.page.get_by_role("heading", name="同步与错误目录")).to_be_visible()
+                expect(self.page.get_by_text("release/stock-room.cases.json")).to_be_visible()
+                expect(self.page.get_by_text("已导入", exact=True)).to_be_visible()
+                self.page.get_by_role("button", name="立即扫描（示例）").click()
+                expect(self.page.get_by_text("示例扫描：识别 3 个文件，导入 1 个（演示数据不会变化）")).to_be_visible()
+
     def import_retry(self):
         self.open("data")
         with self.page.expect_download() as download:

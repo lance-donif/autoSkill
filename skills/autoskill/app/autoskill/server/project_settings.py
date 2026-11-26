@@ -14,6 +14,16 @@ def register(app: FastAPI) -> None:
     def credentials():
         return {"items": [{"name": name, "value": secrets.get_secret(name)} for name in secrets.names()]}
 
+    @app.put("/api/projects/{project_id}/environments")
+    def put_environments(project_id: str, body: dict):
+        """Replace the project's environment list and select one; runs then follow that choice."""
+        if set(body) - {"environments", "active_environment_id"}:
+            raise ValueError("环境设置只接受 environments 和 active_environment_id")
+        if not isinstance(body.get("environments"), list):
+            raise ValueError("environments 必须是数组")
+        return projects.update(project_id, environments=body["environments"],
+                               active_environment_id=body.get("active_environment_id"))
+
     @app.delete("/api/secrets/{name}")
     def delete_credential(name: str):
         if not secrets.NAME.fullmatch(name):

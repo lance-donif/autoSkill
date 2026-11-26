@@ -48,6 +48,13 @@ description: 在 DSH/AI 对话中一次完成测试：先交付完整14列用例
 5. 只有独立业务、已声明性能目标及实际证据满足条件，并且所需依赖也通过时，才发布可复用 UI/API 案例。以返回的 **`published_ids`** 为入库事实；`unpublished` 保留未发布原因。部分通过时仅发布合格子集，Excel 和执行证据保留失败及未执行原因，Bug 清单保留实际发现的问题。
 6. 用 `plan show` 核对同一 `task_id`，按最终 `test_report.report_id` 交付该回执的 `excel`、`markdown` 和 `bugs` 三份原件。完整 14 列 Excel 是整表，各次运行报告作为明细补充。在任务独立目录保留三份文件原名，核对 `ready` 和逐份 SHA-256。遇 `delivery_conflict` 时保留人工修改的文件，按 `report_artifacts` 核对冻结原件，处理冲突后用 `task-report <原报告编号> --retry` 恢复正式文件。
 
+### 需求阶段：还没有测试地址
+
+用户只给了需求文档、还没有可访问的测试地址时，先判断文档是否具备可测内容，再决定是否写表。
+
+- 文档包含明确的业务流程、功能点或验收口径，且本会话尚未对同一文档版本产出过用例：用 `project create --name <名称>`（省略 `--url`）建立设计阶段项目，按上文设计后用 `plan write --source-doc <需求文档>` 生成 14 列 Excel，只交付冻结初版 `initial_excel`，结果保持未执行。开发完成后用 `project update <项目> --url <地址>` 补充地址，再继续录制、执行和回填，已有设计、报告和编号保留。
+- 只是模糊想法、纯技术方案、没有可验收结果，或本会话已对同一版本写过表：不盲目输出。先请用户补充业务流程和验收口径，或复用已有 `task_id`、`initial_report_id`。带同一 `--source-doc` 且内容相同的 `plan write` 会返回 `duplicate: true` 的原任务，不会生成第二份；不带 `--source-doc` 的写表视为有意创建新的设计任务。
+
 DSH 首交时用 `autoskill_read` 的 `resource=report`，在 `query` 中传初版 `report_id`、原 `task_id` 和 `delivery="initial"`。最终交付使用最终报告编号和同一任务编号，默认准备三份文件。文件核验为 `host_files.status=verified` 后，由主会话在打开的轮次调用 `present(host_files.present_input)`。以成功回执记录交付并继续。若宿主文件系统无法直接读取数据目录，在会话可写目录通过该报告下载入口保存文件，核对 SHA-256 后再交付。宿主没有文件卡功能时，先给用户实际可访问的初版下载链接。
 
 纯文本模型可用 `browser snapshot --all`、`browser describe`、`check` 的期望与实际值，以及逐次 HTTP 请求、响应和断言判定业务结果。按回执的 `validation.structure.ok`、`validation.case_ids_match`、三文件可读标记和 `summary_counts` 以文本验收工作簿和 Markdown。按需读取「功能测试用例」和「编号映射」的单元格。截图列可空。用户明确要求图片时，还须交付实际图片文件。
@@ -215,6 +222,14 @@ if ((Get-FileHash -LiteralPath $copy -Algorithm SHA256 -ErrorAction Stop).Hash -
 ## 接口候选必须独立冷启动验证
 
 页面录制产生的请求和响应是观测基线。按原业务预期在独立 HTTP 会话验证认证、数据依赖和结果，保留原 `--session`、设计行的 `execution_source` 及每次回执。冷验证和后置检查见[接口候选验证](references/replay-and-assets.md#接口候选必须独立冷启动验证)。
+
+## 运行环境、交付目录、同步与错误归档
+
+环境按项目维护：`project update <项目> --environments <环境.json> --active-environment <标识>`，或在仪表盘顶部范围栏、项目设置里切换。环境提供 `base_url` 和 `{{变量}}`；取值优先级是 `run --inputs` > 前置用例提取值 > 环境变量 > `${ENV:凭据}`。页面相对地址按环境地址补全，录制时属于项目原地址的绝对地址会换到当前环境，其他站点保持原样。`run` 可用 `--environment <标识>` 覆盖当前环境；历史运行保留冻结的环境快照，切换环境不改变旧结果。敏感值继续放本机凭据库，不写进环境变量。
+
+最终交付物只有用例 Excel 和报告 Markdown。宿主转交了用户项目目录（宿主会话）、传了 `--deliver-to` 或设置了 `AUTOSKILL_DELIVERY_DIR` 时，`plan write` 与 `task-report` 会把正式 Excel、冻结初版或三份报告原件复制过去，并在 `delivery` 回执给出逐份 SHA-256；同名但内容不同的文件保留原文件。录制缓存、截图、冻结输入和执行证据始终在数据目录内。
+
+Linux 部署用 `AUTOSKILL_SYNC_DIR` 收集开发同步来的通过状态用例（`sync scan` 或后台自动扫描），用 `AUTOSKILL_ERROR_DIR` 归档失败和受阻运行。配置见仓库的 `docs/Linux-DSH.md`。
 
 ## 回放、导出、分享
 

@@ -27,6 +27,14 @@ function sampleSettings({ path, method, body, db }) {
   return settings;
 }
 
+function sampleSync({ path, method, fixtures }) {
+  if (path === '/sync' && method === 'GET') return fixtures['/sync'];
+  if (path === '/sync/scan' && method === 'POST') {
+    const sample = fixtures['/sync'];
+    return { status: 'ok', ...sample.last_scan, at: new Date().toISOString(), files: sample.files.length };
+  }
+}
+
 async function dispatch(url, method, body, headers) {
   const before = currentData();
   const now = Date.now();
@@ -40,7 +48,7 @@ async function dispatch(url, method, body, headers) {
     const offset = new URLSearchParams(location.hash.split('?')[1]).get('detail_offset');
     if (offset && !context.params.has('detail_offset')) context.params.set('detail_offset', offset);
   }
-  for (const handler of [sampleSettings, casesApi, schedulesApi, runsApi, filesApi]) {
+  for (const handler of [sampleSettings, sampleSync, casesApi, schedulesApi, runsApi, filesApi]) {
     const value = await handler(context);
     if (value === undefined) continue;
     const response = value instanceof Response ? value : Response.json(value);

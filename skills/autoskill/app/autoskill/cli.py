@@ -335,6 +335,13 @@ def _schedule_commands(sub) -> None:
             operation.add_argument("--expected-revision", type=int)
 
 
+def _sync_commands(sub) -> None:
+    """The sync folder keeps external case files out of the board until they are scanned."""
+    sync = sub.add_parser("sync", help="同步目录：扫描开发同步来的用例文件（JSON/ZIP）").add_subparsers(dest="action", required=True)
+    sync.add_parser("scan", help="立即扫描一次；内容未变化的文件不会重复导入")
+    sync.add_parser("status", help="查看同步目录、错误目录和最近一次扫描结果")
+
+
 def _data_commands(sub) -> None:
     data = sub.add_parser("data", help="独立数据目录：状态、完整导入和导出").add_subparsers(dest="action", required=True)
     data.add_parser("status", help="只读查看当前数据目录")
@@ -364,9 +371,9 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     sub = top.add_subparsers(dest="command", required=True)
 
     project = sub.add_parser("project", help="项目：create / list / show / update").add_subparsers(dest="action", required=True)
-    create = project.add_parser("create", help="新建项目；给出要测的地址即授权该地址")
+    create = project.add_parser("create", help="新建项目；需求阶段可先不填地址，开发完成后用 project update --url 补充")
     create.add_argument("--name", required=True)
-    create.add_argument("--url", required=True)
+    create.add_argument("--url", default="", help="要测的地址；需求阶段还没有地址时省略，地址一旦存在即对应一个项目")
     create.add_argument("--category", default="")
     create.add_argument("--id")
     project.add_parser("list")
@@ -375,6 +382,9 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     update.add_argument("project")
     update.add_argument("--name")
     update.add_argument("--category")
+    update.add_argument("--url", help="补充或更换被测地址；同一站点沿用已有项目")
+    update.add_argument("--environments", help="环境变量文件（JSON 数组），整体替换项目的环境列表")
+    update.add_argument("--active-environment", help="切换到指定环境标识；省略环境时使用默认环境")
     update.add_argument("--allow-origin", action="append", help=argparse.SUPPRESS)  # no longer limits anything; old commands still parse
     update.add_argument("--approve", action="append", help=argparse.SUPPRESS)
     update.add_argument("--timeout", type=int, help="单步等待元素的秒数，默认 20")
@@ -389,6 +399,7 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     _schedule_commands(sub)
     _data_commands(sub)
     _delete_commands(sub)
+    _sync_commands(sub)
 
     secret = sub.add_parser("secret", help="本机凭据：set / list / delete").add_subparsers(dest="action", required=True)
     setter = secret.add_parser("set")
@@ -443,6 +454,7 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     run.add_argument("--candidate", help="验证 record stop 或工作流返回的候选任务标识，通过后发布可复用用例")
     run.add_argument("--api-only", action="store_true", help="独立 HTTP 冷启动；不借用浏览器或已保存登录")
     run.add_argument("--inputs", dest="file", help="运行参数 JSON 文件（- 读标准输入）；RAND 由每次运行生成，不能覆盖")
+    run.add_argument("--environment", help="本次运行使用的环境标识；省略时使用项目当前环境")
     run.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
     run_status = sub.add_parser("run-status", help="只读执行状态、发布结果和已有报告；不执行用例或重新导出")
     run_status.add_argument("run_id")
@@ -460,6 +472,7 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     receipt = sub.add_parser("task-report", help="读取本次任务的 Excel 与 Markdown 交付结果；不使用其他任务的最近结果")
     receipt.add_argument("report_id")
     receipt.add_argument("--retry", action="store_true", help="用对应任务快照重试生成，不重新执行测试")
+    receipt.add_argument("--deliver-to", help="把 Excel、Markdown 简报和 Bug 清单复制到这个目录；省略时用用户项目目录或 AUTOSKILL_DELIVERY_DIR")
     packer = sub.add_parser("pack", help="把项目（用例、知识库、登录方式）打成一个分享包")
     packer.add_argument("projects", nargs="*", help="项目标识；省略则打包全部项目")
     packer.add_argument("--out", help="输出文件或目录")
@@ -486,6 +499,8 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     writer.add_argument("project")
     writer.add_argument("--file", required=True, help="用例 JSON 文件（数组）")
     writer.add_argument("--expected-cases", type=int, help="按独立验收目标预先确定的用例数；单一连续流程填 1")
+    writer.add_argument("--deliver-to", help="把正式 Excel 和冻结初版复制到这个目录；省略时用用户项目目录或 AUTOSKILL_DELIVERY_DIR")
+    writer.add_argument("--source-doc", help="本次设计依据的需求文档；同一文档版本和相同内容再次写表时复用原任务，不重复交付")
     plan.add_parser("show", help="读出用例表：要执行哪些用例、各自的结果")
     linker = plan.add_parser("link", help="把当前用例表的一行关联到同项目已有用例；随后回放才写入真实结果")
     linker.add_argument("case", help="本次设计表中的用例编号")
@@ -627,7 +642,11 @@ def _dispatch_project(args) -> tuple[dict, int]:
         return {"projects": projects.list_all()}, 0
     if action == "show":
         return projects.get(args.project), 0
-    return projects.update(args.project, name=args.name, category=args.category, allowed_origins=args.allow_origin,
+    environments = None
+    if args.environments:
+        environments = command_input.read_json(args.environments, base=command_input.base_directory(args))
+    return projects.update(args.project, name=args.name, category=args.category, base_url=args.url, environments=environments,
+                           active_environment_id=args.active_environment, allowed_origins=args.allow_origin,
                            approvals=args.approve, timeout_seconds=args.timeout, page_load_seconds=args.page_load,
                            ignore_https_errors=None if args.insecure_tls is None else args.insecure_tls == "on"), 0
 
@@ -897,6 +916,10 @@ def _dispatch_task_report(args) -> tuple[dict, int]:
     from . import task_reports
 
     result = task_reports.retry(args.report_id) if args.retry else task_reports.get(args.report_id)
+    if args.deliver_to or paths.delivery_dir() is not None:
+        from . import deliverables
+
+        result["delivery"] = deliverables.report_receipt(result, args.deliver_to)
     return result, 2 if result["status"] == "failed" else 0
 
 
@@ -935,7 +958,13 @@ def _dispatch_plan(args) -> tuple[dict, int]:
         with tempfile.TemporaryDirectory(prefix="autoskill-plan-") as folder:
             source = Path(folder) / "cases.json"
             source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-            return plan.write(args.project, str(source)), 0
+            source_doc = command_input.resolve_path(args.source_doc, command_input.base_directory(args)) if args.source_doc else None
+            written = plan.write(args.project, str(source), source_doc=source_doc)
+            if args.deliver_to or paths.delivery_dir() is not None:
+                from . import deliverables
+
+                written["delivery"] = deliverables.plan_receipt(projects.get(args.project), written, args.deliver_to)
+            return written, 0
     if action == "mark":
         return plan.mark(args.case, args.status, args.note), 0
     if action == "link":
@@ -1018,7 +1047,8 @@ def _dispatch_execution(args) -> tuple[dict, int]:
             chosen = [c["id"] for c in pool if not args.cases or c["id"] in args.cases]
             if not chosen:
                 raise ValueError("没有符合条件的可回放用例")
-        run = runner.create(args.project, chosen, args.engine, api_only=args.api_only, inputs=_input_json(args) if args.file else None)
+        run = runner.create(args.project, chosen, args.engine, api_only=args.api_only, inputs=_input_json(args) if args.file else None,
+                            environment_id=args.environment)
         final = runner.execute(run["id"])
     summary = run_summary(final)
     if command == "run":  # the verdicts go back into the case sheet these cases came from
@@ -1065,6 +1095,12 @@ def _dispatch_run_status(args) -> tuple[dict, int]:
     except ValueError as error:
         result["test_report"] = {"status": "unavailable", "reason": str(error)}
     return run_summary(result, brief=args.brief), 0
+
+
+def _dispatch_sync(args) -> tuple[dict, int]:
+    from . import sync_import
+
+    return (sync_import.scan() if args.action == "scan" else sync_import.status()), 0
 
 
 def _dispatch_recording(args) -> tuple[dict, int]:
@@ -1119,6 +1155,7 @@ def dispatch(args) -> tuple[dict, int]:
         "login": _dispatch_execution,
         "run": _dispatch_execution,
         "run-status": _dispatch_run_status,
+        "sync": _dispatch_sync,
     }
     handler = handlers.get(args.command, _dispatch_recording)
     if args.command in ("record", "browser", "check"):

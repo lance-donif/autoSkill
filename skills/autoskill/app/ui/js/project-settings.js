@@ -23,6 +23,115 @@ export function runtimeFields(project) {
   } };
 }
 
+// Postman-style environments: one project keeps several addresses and variable sets.
+export function environmentFields(project) {
+  const environments = (project.environments || []).map((item) => ({
+    id: item.id, name: item.name, base_url: item.base_url || '', is_default: !!item.is_default,
+    variables: { ...(item.variables || {}) },
+  }));
+  let active = project.active_environment_id || '';
+  const original = JSON.stringify({ environments, active });
+  const list = h('div', { class: 'stack', style: 'gap:12px' });
+  const hint = h('p', { class: 'hint sub' }, environments.length ? '' : '还没有环境：添加后即可在用例表和顶部范围栏一键切换。');
+
+  function variableRow(env, name = '', value = '') {
+    let key = name;
+    const keyInput = h('input', { class: 'input mono', value: name, placeholder: '变量名', 'aria-label': '变量名', autocomplete: 'off' });
+    const valueInput = h('input', { class: 'input', value: String(value), placeholder: '值', 'aria-label': '变量值', autocomplete: 'off' });
+    const apply = () => {
+      const next = keyInput.value.trim();
+      if (key !== next) delete env.variables[key];
+      key = next;
+      if (next) env.variables[next] = valueInput.value;
+    };
+    keyInput.addEventListener('change', apply);
+    valueInput.addEventListener('input', apply);
+    const remove = h('button', { class: 'btn sm danger', type: 'button', 'aria-label': '删除变量', onClick: () => {
+      if (key) delete env.variables[key];
+      row.remove();
+    } }, '删除');
+    const row = h('div', { class: 'row wrap', style: 'gap:8px' }, keyInput, valueInput, remove);
+    return row;
+  }
+
+  function envBlock(env) {
+    const name = h('input', { class: 'input', value: env.name, placeholder: '环境名称，例如 测试', 'aria-label': '环境名称', autocomplete: 'off' });
+    name.addEventListener('input', () => { env.name = name.value; });
+    const base = h('input', { class: 'input mono', value: env.base_url, placeholder: 'http://10.0.0.8:8080；留空沿用项目地址', 'aria-label': '环境地址', autocomplete: 'off' });
+    base.addEventListener('input', () => { env.base_url = base.value.trim(); });
+    const isActive = h('input', { class: 'check', type: 'radio', name: 'ps-env-active', id: 'ps-env-active-' + env.id, checked: active === env.id });
+    isActive.addEventListener('change', () => {
+      if (!isActive.checked) return;
+      active = env.id;
+    });
+    const isDefault = h('input', { class: 'check', type: 'checkbox', id: 'ps-env-default-' + env.id, checked: env.is_default });
+    isDefault.addEventListener('change', () => {
+      if (isDefault.checked) {
+        for (const other of environments) other.is_default = other === env;
+        for (const box of list.querySelectorAll('.ps-env-default')) box.checked = box.id === 'ps-env-default-' + env.id;
+      } else {
+        env.is_default = false;
+      }
+    });
+    isDefault.className = 'check ps-env-default';
+    const variables = h('div', { class: 'stack', style: 'gap:8px' },
+      Object.entries(env.variables).map(([key, value]) => variableRow(env, key, value)));
+    const addVariable = h('button', { class: 'btn sm', type: 'button', onClick: () => variables.append(variableRow(env)) }, '+ 变量');
+    const remove = h('button', { class: 'btn sm danger', type: 'button', onClick: () => {
+      environments.splice(environments.indexOf(env), 1);
+      if (active === env.id) active = environments[0]?.id || '';
+      paint();
+    } }, '删除环境');
+    return h('div', { class: 'stack', style: 'gap:10px;border:1px solid var(--line);border-radius:var(--r-md);padding:12px' },
+      h('div', { class: 'row wrap' }, h('label', { class: 'grow', for: name.id = 'ps-env-name-' + env.id }, '名称', name)),
+      h('div', { class: 'row wrap' }, h('label', { class: 'grow', for: base.id = 'ps-env-base-' + env.id }, '地址', base)),
+      h('div', { class: 'row wrap' },
+        h('label', { class: 'row', for: isActive.id }, isActive, '运行使用此环境'),
+        h('label', { class: 'row', for: isDefault.id }, isDefault, '默认环境')),
+      h('div', { class: 'sub' }, '变量（用例中写 {{名称}} 引用）'), variables,
+      h('div', { class: 'row wrap' }, addVariable, h('span', { class: 'grow' }), remove));
+  }
+
+  function paint() {
+    replace(list, environments.map(envBlock));
+    hint.textContent = environments.length ? '' : '还没有环境：添加后即可在用例表和顶部范围栏一键切换。';
+  }
+  paint();
+
+  const add = h('button', { class: 'btn', type: 'button', onClick: () => {
+    let number = environments.length + 1;
+    while (environments.some((item) => item.id === 'env-' + number)) number += 1;
+    environments.push({ id: 'env-' + number, name: '环境 ' + number, base_url: '', is_default: environments.length === 0, variables: {} });
+    if (!active) active = 'env-' + number;
+    paint();
+  } }, '添加环境');
+
+  return {
+    node: h('div', { class: 'stack' }, h('h3', {}, '运行环境'),
+      h('p', { class: 'sub' }, '同一套用例按环境切换地址和变量；切换后立即生效于单条、批量回放和同步用例。'),
+      hint, list, add,
+      h('p', { class: 'hint sub' }, '敏感凭据继续使用本机凭据库：在用例里写 ${ENV:名称}，不要直接放进环境变量。')),
+    changes() {
+      if (JSON.stringify({ environments, active }) === original) return {};
+      const seen = new Set();
+      const rows = environments.map((env) => {
+        const name = env.name.trim();
+        if (!name) throw new Error('请填写环境名称');
+        if (!/^[a-z0-9][a-z0-9_-]{0,47}$/.test(env.id)) throw new Error('环境标识只能使用小写字母、数字、短横线和下划线');
+        if (seen.has(env.id)) throw new Error('环境标识重复');
+        seen.add(env.id);
+        if (env.base_url && !/^https?:\/\/[^\s/]+/.test(env.base_url)) throw new Error(`环境「${name}」的地址需要是完整网址`);
+        for (const key of Object.keys(env.variables)) {
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`环境「${name}」的变量名 ${key || '（空）'} 只能使用字母、数字和下划线，且不能以数字开头`);
+        }
+        return { id: env.id, name, base_url: env.base_url, variables: env.variables, is_default: !!env.is_default };
+      });
+      if (active && !rows.some((env) => env.id === active)) active = '';
+      return { environments: rows, active_environment_id: active };
+    },
+  };
+}
+
 export function credentialControls(project, changed) {
   const rows = new Map();
   const list = h('div', { class: 'stack', style: 'gap:12px' });

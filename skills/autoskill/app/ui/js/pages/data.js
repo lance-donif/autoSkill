@@ -1,5 +1,5 @@
 // Move complete data roots through the kernel; a copied root is not an activated runtime.
-import { h, icon, replace, api, copyText } from '../core.js';
+import { h, icon, replace, api, copyText, toast, refresh } from '../core.js';
 import { errorState } from '../ui.js';
 
 function field(id, label, value, placeholder, hint) {
@@ -76,12 +76,48 @@ function exportPanel(shared) {
   }));
 }
 
+const SYNC_STATUS = { imported: '已导入', skipped: '已跳过', failed: '失败' };
+
+function syncCard(sync) {
+  const scan = h('button', { class: 'btn primary' }, '立即扫描');
+  const result = h('div', { class: 'stack' }, sync.last_scan
+    ? h('p', { class: 'sub' }, `最近扫描：${sync.last_scan.at || ''}，识别 ${sync.last_scan.files} 个文件，导入 ${sync.last_scan.imported} 个`)
+    : h('p', { class: 'sub' }, '还没有扫描记录。'));
+  scan.addEventListener('click', async () => {
+    scan.disabled = true;
+    try {
+      const receipt = await api('/sync/scan', { method: 'POST' });
+      if (receipt.status === 'ok') { toast(`扫描完成：导入 ${receipt.imported} 个文件`); refresh(); }
+      else { replace(result, h('p', { class: 'error' }, receipt.hint || '同步目录尚未配置')); }
+    } catch (error) { toast(error.message, { bad: true }); }
+    finally { scan.disabled = false; }
+  });
+  const syncRow = (row) => {
+    const note = [row.project_id, ...(row.cases?.length ? [`${row.cases.length} 条用例`] : []), row.reason].filter(Boolean).join(' · ');
+    return h('tr', {}, h('td', { class: 'mono' }, row.file),
+      h('td', {}, row.unchanged ? '未变化' : (SYNC_STATUS[row.status] || row.status || '')),
+      h('td', { class: 'sub' }, note));
+  };
+  const files = sync.files.length
+    ? h('table', { class: 'table kv' }, h('tbody', {}, sync.files.map(syncRow)))
+    : h('p', { class: 'sub' }, '同步目录里还没有 JSON 或 ZIP 用例文件。');
+  return card('同步与错误目录', '把开发同步上来的通过状态用例导入项目用例库；失败回放按日期、项目和运行归档到错误目录。', [
+    h('div', { class: 'stack', style: 'gap:4px' },
+      h('div', { class: 'sub' }, '同步目录：', h('code', { class: 'mono' }, sync.sync_dir || '未配置（设置环境变量 AUTOSKILL_SYNC_DIR）')),
+      h('div', { class: 'sub' }, '错误目录：', h('code', { class: 'mono' }, sync.error_dir || '未配置（设置环境变量 AUTOSKILL_ERROR_DIR）'))),
+    h('div', { class: 'row wrap' }, scan),
+    result, files,
+  ]);
+}
+
 export async function render(view) {
   let status;
   try { status = await api('/data/status'); }
   catch (error) { replace(view, h('div', { class: 'card' }, errorState(error, () => render(view)))); return; }
   if (typeof status?.root !== 'string' || !status.root) throw new Error('服务没有返回当前数据目录');
-  const reload = h('button', { class: 'btn', onClick: () => render(view) }, icon('reset'), '刷新目录状态');
+  let sync;
+  try { sync = await api('/sync'); } catch { sync = { files: [], sync_dir: null, error_dir: null, last_scan: null }; }
+  const reload = h('button', { class: 'btn', onClick: () => refresh() }, icon('reset'), '刷新目录状态');
   const actions = [reload];
   const setBusy = (busy) => { for (const action of actions) action.disabled = busy; };
   const shared = { actions, setBusy };
@@ -94,5 +130,5 @@ export async function render(view) {
         h('span', { class: 'sub' }, '数据集标识：'), h('code', { class: 'mono', 'data-testid': 'current-data-id' }, status.data_id || '尚未初始化')),
       typeof caseSkill === 'string' && h('p', { class: 'sub' }, '用例设计表：' + caseSkill),
     ]),
-    exportPanel(shared), importPanel(status, shared));
+    exportPanel(shared), importPanel(status, shared), syncCard(sync));
 }

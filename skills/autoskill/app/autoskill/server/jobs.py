@@ -11,7 +11,7 @@ import threading
 import time
 import uuid
 
-from .. import db, deletion, execution_inputs, paths, runner
+from .. import db, deletion, execution_inputs, paths, runner, sync_import
 from ..locking import named_lock
 from . import scheduler
 
@@ -210,6 +210,7 @@ def _dispatch(token: str) -> None:
                     sweep()
                     reconcile_workflows()
                     start_queued()
+                    sync_import.autoscan()
                     if _pending():
                         idle_since = time.monotonic()
                     elif time.monotonic() - idle_since >= _idle_seconds():
@@ -321,6 +322,7 @@ class Worker:
                 sweep()
                 reconcile_workflows()
                 start_queued()
+                sync_import.autoscan()
             except Exception:  # noqa: BLE001, S110  # Durable queue state lets the worker retry any failed pass without losing its thread.
                 pass  # state is durable; the next pass retries
             self.stop.wait(0.2)

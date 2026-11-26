@@ -84,6 +84,32 @@ autoskill/autoskill --session "库存任务-乙" browser snapshot
 
 更新时先结束当前任务并停止旧程序，只替换程序文件，继续使用同一外置数据目录（默认 `$HOME/autoSkill-data`）。旧版首次迁入通过数据管理或 `data import`；完整数据分享用 `data export`，包含 `.local` 中的执行记录、凭据、登录态及证据，不能用不含运行历史的 `pack --full` 代替。DSH 重新加载插件模块或重启后使用新代码；详细步骤见 [升级与数据保留](升级与数据保留.md)。
 
+## 同步目录、错误目录与无桌面运行
+
+在服务进程的环境里设置（systemd 的 `Environment=`、容器环境或启动脚本的 `export`），后台队列和桥接命令会继承这些值。也可以把 `sync_dir`、`error_dir`、`delivery_dir` 写进数据根的 `.local/settings.json`；环境变量优先。
+
+| 变量 | 用途 |
+| --- | --- |
+| `AUTOSKILL_SYNC_DIR` | 开发侧同步上来的通过状态用例：分享 ZIP，或 `{"project_id": ..., "cases": [...], "status": "pass"}` JSON。后台按内容哈希增量导入，也可在数据管理页或 `autoskill sync scan` 手动触发 |
+| `AUTOSKILL_SYNC_INTERVAL` | 后台自动扫描间隔秒数，默认 60 |
+| `AUTOSKILL_ERROR_DIR` | 失败或受阻的回放按 `日期/项目/运行ID/errors.json` 与 `errors.md` 归档，包含失败断言、请求响应摘要和截图路径；全部通过的运行不写 |
+| `AUTOSKILL_DELIVERY_DIR` | 最终用例 Excel 与报告 Markdown 的交付目录；未设置时宿主会话使用转交的调用目录，直接命令行调用需显式传 `--deliver-to` |
+
+运行命令和队列进程必须能读同步目录、写错误目录。同步文件只是输入，未经校验或非通过状态的文件不会进入用例库；导入的用例保留 `{{变量}}` 占位符，运行时使用项目当前环境。错误目录里的归档副本是给告警和开发排查用的独立输出，不随 autoSkill 中删除运行记录而自动清理；分享 ZIP 只在项目尚不存在时导入，已有项目用 JSON 用例文件做增量更新。
+
+Linux 服务器没有图形桌面时，为 `record start`、`run`、`login` 加 `--headless`，或给服务进程设置 `AUTOSKILL_HEADED=0`，页面按 1920×1080 运行。没有显式隐藏且缺少 `DISPLAY` 时，命令会报告需要图形桌面或改用无头模式。systemd 的最小示例：
+
+```ini
+[Service]
+WorkingDirectory=/opt/autoskill
+Environment=AUTOSKILL_WORKSPACE=/data/autoskill-data
+Environment=AUTOSKILL_SYNC_DIR=/data/autoskill-sync
+Environment=AUTOSKILL_ERROR_DIR=/data/autoskill-errors
+Environment=AUTOSKILL_HEADED=0
+ExecStart=/opt/autoskill/autoskill/autoskill dashboard --port 8787
+Restart=on-failure
+```
+
 ## 从源码部署
 
 需要 Python 3.12+、Node >= 24.9、系统 Chromium 和匹配驱动。下面命令在联网准备阶段执行，日常技能命令不安装依赖：

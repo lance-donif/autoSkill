@@ -122,6 +122,8 @@ def for_bridge(args, argv: list[str]) -> tuple[list[str], str | None, list[dict]
         files.add(resolve_path(args.file, root))
     if getattr(args, "source", None):
         files.add(resolve_path(args.source, root))
+    if getattr(args, "source_doc", None):
+        files.add(resolve_path(args.source_doc, root))
     if args.command == "secret" and action == "set" and args.value is None:
         stdin_text = sys.stdin.readline()
     return forwarded, stdin_text, [_attachment(file) for file in sorted(files)]

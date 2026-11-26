@@ -231,7 +231,7 @@ def _settle_focus(driver, hint, timeout: float) -> None:
         time.sleep(min(POLL, remaining))
 
 
-def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float) -> bool:
+def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: float, rebase: str | None = None) -> bool:
     """Run one action. Returns True when a fallback locator had to be used."""
     check_cancel(driver)
     op = step["action"]
@@ -239,12 +239,12 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
     if op.startswith("tab_"):
         tab_step = dict(step)
         if op == "tab_new":
-            tab_step["url"] = ir.absolute_url(step["url"], base_url)
+            tab_step["url"] = ir.absolute_url(ir.expand(step["url"]), base_url, rebase)
             ir.check_origin(tab_step["url"], allowed)
         driver.tab_action(tab_step, timeout)
         return False
     if op == "goto":
-        url = ir.absolute_url(step["url"], base_url)
+        url = ir.absolute_url(ir.expand(step["url"]), base_url, rebase)
         ir.check_origin(url, allowed)
         navigate(driver.goto, url)
         return False
@@ -389,6 +389,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
     timeout = float(config.get("timeout_seconds", 20))
     allowed = list(config.get("allowed_origins", []))
     base_url = config.get("base_url", "")
+    rebase = (config.get("_environment") or {}).get("recorded_base_url") or None
     steps, assertions = [], []
     outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "fallbacks": 0, "screenshots": []}
     started = time.monotonic()
@@ -396,7 +397,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
     try:
         check_cancel(driver)
         ir.validate(automation)
-        _enter_page(driver, ir.absolute_url(automation["start_url"], base_url), allowed, steps,
+        _enter_page(driver, ir.absolute_url(ir.expand(automation["start_url"]), base_url, rebase), allowed, steps,
                     keep_page=keep_page, setup_stage=stop_on_failed_check)
         acted = True
         for index, step in enumerate(automation.get("actions", []), 1):
@@ -417,13 +418,13 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
                     continue
                 scope = driver.action_scope(step) if hasattr(driver, "action_scope") else nullcontext()
                 with scope:
-                    if perform(driver, step, base_url, allowed, timeout):
+                    if perform(driver, step, base_url, allowed, timeout, rebase):
                         row["fallback"] = True
                         outcome["fallbacks"] += 1
                 check_cancel(driver)
                 if step.get("tabs"):
                     change = {**step["tabs"], "opened": [
-                        {**item, "url": ir.absolute_url(item["url"], base_url)} if item.get("url") else item
+                        {**item, "url": ir.absolute_url(ir.expand(item["url"]), base_url, rebase)} if item.get("url") else item
                         for item in step["tabs"].get("opened", [])]}
                     driver.sync_tabs(change, float(config.get("page_load_seconds", 90)))
                 ir.check_origin(driver.url(), allowed)

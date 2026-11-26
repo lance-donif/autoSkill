@@ -86,6 +86,19 @@ def registered(project_id: str, session: str = "") -> tuple[dict | None, list[di
     return chosen, matches
 
 
+def existing_delivery(project_id: str, items: list[dict], source_doc_hash: str | None = None) -> dict | None:
+    """The same session's active design for the same document version and identical case content."""
+    chosen, _ = registered(project_id, task_context.session_id() or "")
+    if chosen is None or not source_doc_hash:
+        return None
+    value = _read()
+    if (not value or value.get("task_id") != chosen["task_id"] or value.get("project_id") != project_id
+            or value.get("source_doc_hash") != source_doc_hash
+            or value.get("content_hash") != execution_inputs.content_hash(items)):
+        return None
+    return value
+
+
 def _definition(item: dict, number: int) -> dict:
     identity = item.get("id") or f"TC-{number:03d}"
     document = {key: copy.deepcopy(item[key]) for key in ("description", "preconditions", "steps", "expected", "source", "business_path", "prefix", "author", "remarks") if item.get(key)}
@@ -109,11 +122,13 @@ def execution_sources(rows: list[dict]) -> dict[str, dict]:
             for row in rows if row["id"] in original and _design_hash(row) == original[row["id"]]["design_hash"]}
 
 
-def initialize(project_id: str, info: dict, items: list[dict], destination: Path, *, task_id: str | None = None) -> dict:
+def initialize(project_id: str, info: dict, items: list[dict], destination: Path, *, task_id: str | None = None,
+               source_doc_hash: str | None = None) -> dict:
     task_id = task_id or "plan-" + uuid.uuid4().hex
     initial = destination.with_name(destination.stem + "-initial-" + task_id[-8:] + ".xlsx")
     current = {row["id"]: row for row in plan.show()["cases"]}
     value = {"schema": 1, "task_id": task_id, "project_id": project_id, "session": task_context.session_id() or "",
+             "content_hash": execution_inputs.content_hash(items), "source_doc_hash": source_doc_hash,
              "project": {"id": project_id, "name": info["name"], "base_url": info["base_url"]},
              "delivery_excel": runner.plan_reference(destination), "initial_excel": runner.plan_reference(initial), "bindings": [],
              "rows": [{"definition": _definition(item, number), "source_row": current[item.get("id") or f"TC-{number:03d}"],

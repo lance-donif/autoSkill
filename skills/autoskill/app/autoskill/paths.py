@@ -153,6 +153,41 @@ def _configured_binary(name: str, variable: str, *, explicit_only: bool = False)
     return False, None
 
 
+def _configured_folder(setting: str, variable: str) -> Path | None:
+    """A sync, error or delivery folder chosen by environment variable or the saved settings."""
+    value = os.environ.get(variable) or settings().get(setting)
+    return Path(value).expanduser().resolve() if isinstance(value, str) and value.strip() else None
+
+
+def sync_dir() -> Path | None:
+    """Where development copies native case files (JSON/ZIP) for automatic import."""
+    return _configured_folder("sync_dir", "AUTOSKILL_SYNC_DIR")
+
+
+def error_dir() -> Path | None:
+    """Where failed replay runs are archived as JSON and Markdown for the deployment side."""
+    return _configured_folder("error_dir", "AUTOSKILL_ERROR_DIR")
+
+
+def delivery_dir() -> Path | None:
+    """The user's project folder for the final Excel and report files only.
+
+    `AUTOSKILL_DELIVERY_DIR` (or the saved `delivery_dir`) selects it explicitly. Otherwise the
+    directory the host forwarded with the command is the user's project; direct CLI users opt in.
+    """
+    selected = _configured_folder("delivery_dir", "AUTOSKILL_DELIVERY_DIR")
+    if selected is not None:
+        return selected
+    if os.environ.get("AUTOSKILL_HOST", "generic") == "generic":
+        return None  # generic callers opt in explicitly; a host conversation forwards the user's project folder
+    caller = os.environ.get("AUTOSKILL_CALLER_CWD")
+    if not caller:
+        return None
+    folder = Path(caller).expanduser().resolve()
+    # Never scatter deliveries into the program or the data folder itself.
+    return None if folder in (SKILL.resolve(), workspace()) else folder
+
+
 def settings() -> dict:
     """Choices made for this machine, for example which browser to use (read without creating anything)."""
     file = workspace() / ".local" / "settings.json"

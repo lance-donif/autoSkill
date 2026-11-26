@@ -105,7 +105,7 @@ jobs:
           PY
       - name: Workflow, diagnosis, knowledge and host contracts
         if: always()
-        run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --output-dir "$RUNNER_TEMP/review-contracts" --show-logs
+        run: python scripts/validate_review.py --suite workflow --suite knowledge --suite host --suite environments --output-dir "$RUNNER_TEMP/review-contracts" --show-logs
       - name: Verify design row counts through the CLI and host bridge
         run: |
           PYTHONPATH=tests python -m unittest -v \
@@ -265,7 +265,7 @@ jobs:
       - name: Check dashboard flows, reports and both load modes in Chromium
         env:
           AUTOSKILL_VALIDATION_OUTPUT: ${{ runner.temp }}/dashboard-e2e
-        run: PYTHONPATH=tests python -m unittest -v test_pages_browser test_dashboard_palette test_pages_load test_load_dashboard
+        run: PYTHONPATH=tests python -m unittest -v test_pages_browser test_dashboard_palette test_pages_load test_load_dashboard test_environments_dashboard
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

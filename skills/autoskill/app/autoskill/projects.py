@@ -1,6 +1,7 @@
 """Projects: one shareable folder each (cases, knowledge, login definition) plus a local index."""
 from __future__ import annotations
 
+import copy
 import json
 import math
 import re
@@ -15,6 +16,100 @@ from .locking import named_lock, project_lock
 from .replay import ir
 
 ID = re.compile(r"[a-z0-9][a-z0-9-]{0,47}")
+ENV_ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,47}")
+VARIABLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def origin_address(value: str, label: str = "目标地址") -> str:
+    url = (value or "").strip()
+    origin = ir.origin_of(url)
+    if not url.startswith(("http://", "https://")) or origin.endswith("://"):
+        raise ValueError(f"{label}需要是完整网址，例如 http://10.0.0.8:8080")
+    return origin
+
+
+def _variables(value) -> dict:
+    """Environment values are plain text or simple JSON scalars usable in {{name}}."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("环境变量必须是 JSON 对象")
+    result = {}
+    for name, item in value.items():
+        if not isinstance(name, str) or not VARIABLE_NAME.fullmatch(name):
+            raise ValueError("环境变量名只能使用字母、数字和下划线，且不能以数字开头")
+        if isinstance(item, bool) or isinstance(item, (str, int, float)):
+            result[name] = item
+        else:
+            raise ValueError(f"环境变量 {name} 只能是文字、数字或布尔值")
+    return result
+
+
+def _environments(value) -> list[dict]:
+    if not isinstance(value, list):
+        raise ValueError("环境必须是对象数组")
+    result, seen = [], set()
+    for number, item in enumerate(value, 1):
+        if not isinstance(item, dict):
+            raise ValueError(f"第 {number} 个环境必须是对象")
+        identity = item.get("id") or f"env-{number}"
+        if not isinstance(identity, str) or not ENV_ID.fullmatch(identity):
+            raise ValueError("环境标识只能使用小写字母、数字、短横线和下划线")
+        if identity in seen:
+            raise ValueError(f"环境标识 {identity} 重复")
+        seen.add(identity)
+        name = str(item.get("name") or "").strip()
+        if not name:
+            raise ValueError(f"第 {number} 个环境需要填写名称")
+        base_url = str(item.get("base_url") or "").strip()
+        result.append({"id": identity, "name": name, "base_url": origin_address(base_url, f"环境「{name}」的地址") if base_url else "",
+                       "variables": _variables(item.get("variables")), "is_default": bool(item.get("is_default"))})
+    if sum(1 for item in result if item["is_default"]) > 1:
+        raise ValueError("只能有一个默认环境")
+    return result
+
+
+def environment_of(cfg: dict, environment_id: str | None = None) -> dict | None:
+    """The explicitly selected, active or default environment; a project without one keeps its address."""
+    environments = [item for item in cfg.get("environments") or [] if isinstance(item, dict) and item.get("id")]
+    if environment_id:
+        found = next((item for item in environments if item["id"] == environment_id), None)
+        if found is None:
+            raise ValueError(f"环境 {environment_id} 不存在")
+        return copy.deepcopy(found)
+    keys = [cfg.get("active_environment_id"), *[item["id"] for item in environments if item.get("is_default")]]
+    for key in keys:
+        found = next((item for item in environments if item["id"] == key), None)
+        if found is not None:
+            return copy.deepcopy(found)
+    return None
+
+
+def with_environment(cfg: dict, environment: dict | None) -> dict:
+    """Freeze execution configuration: the selected address and variables, never the live catalog."""
+    frozen = copy.deepcopy({key: value for key, value in cfg.items() if key not in ("environments", "active_environment_id")})
+    if environment is not None:
+        frozen["base_url"] = environment.get("base_url") or frozen.get("base_url", "")
+        frozen["_environment"] = {"id": environment["id"], "name": environment["name"], "variables": copy.deepcopy(environment.get("variables") or {}),
+                                  "recorded_base_url": cfg.get("base_url") or ""}
+    return frozen
+
+
+def site_owner(url: str, exclude: str = "") -> str | None:
+    """Another project already covering this site, read without taking its lock."""
+    target = site_of(url)
+    if not target:
+        return None
+    for folder in sorted(paths.projects_dir().iterdir()):
+        if not ID.fullmatch(folder.name) or folder.name == exclude:
+            continue
+        try:
+            cfg = json.loads((folder / "qa-config.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if site_of(cfg.get("base_url", "")) == target:
+            return folder.name
+    return None
 
 
 def _project_locked(operation):
@@ -70,16 +165,18 @@ def same_site(url: str) -> str | None:
     return max(found)[1] if found else None
 
 
-def create(name: str, base_url: str, category: str = "", project_id: str | None = None) -> dict:
-    """Create a project. Naming the address to test is what authorises that address."""
+def create(name: str, base_url: str = "", category: str = "", project_id: str | None = None) -> dict:
+    """Create a project. Naming the address to test is what authorises that address.
+
+    A requirement can be designed before the site exists: without an address the project stays in
+    the design stage and execution asks for the address first.
+    """
     name = (name or "").strip()
     if not name:
         raise ValueError("请填写项目名称")
-    origin = ir.origin_of(base_url or "")
-    if not origin.startswith(("http://", "https://")) or origin.endswith("://"):
-        raise ValueError("目标地址需要是完整网址，例如 http://10.0.0.8:8080")
+    origin = origin_address(base_url) if (base_url or "").strip() else ""
     with named_lock("projects", "catalog"):
-        if project_id is None:
+        if project_id is None and origin:
             existing = same_site(origin)
             if existing:  # one site is one project; its areas are sub-projects (the module of each case)
                 return {**get(existing), "reused": True}
@@ -100,7 +197,7 @@ def _create_project(project_id: str, name: str, base_url: str, category: str, or
         meta.update(id=project_id, name=name, category=category.strip(), start_url=base_url)
         store.write(folder / "project.json", meta)
         config = store.read(folder / "qa-config.json")
-        config.update(mode="auto", execution_authorized=True, base_url=origin, allowed_origins=[origin])
+        config.update(mode="auto", execution_authorized=True, base_url=origin, allowed_origins=[origin] if origin else [])
         store.write(folder / "qa-config.json", config)
         store.write(folder / "auth.json", {})
         for junk in ("staging", "testcase-skill", "execution", "output", "input", "versions"):
@@ -137,7 +234,7 @@ def set_auth(project_id: str, value: dict) -> None:
 
 @_project_locked
 def update(project_id: str, **fields) -> dict:
-    """Change name, category, extra allowed origins, approvals or timeout."""
+    """Change name, category, target address, environments, extra allowed origins, approvals or timeout."""
     folder = path(project_id)
     info, cfg = meta(project_id), config(project_id)
     for key in ("name", "category"):
@@ -145,14 +242,31 @@ def update(project_id: str, **fields) -> dict:
             info[key] = str(fields[key]).strip()
     if not info.get("name"):
         raise ValueError("请填写项目名称")
+    if fields.get("base_url") is not None:
+        value = str(fields["base_url"]).strip()
+        origin = origin_address(value) if value else ""
+        owner = site_owner(origin, exclude=project_id) if origin else None
+        if owner:
+            raise ValueError(f"该地址已属于项目 {owner}；一个站点对应一个项目")
+        cfg["base_url"] = origin
+        cfg["allowed_origins"] = sorted({origin, *[item for item in cfg.get("allowed_origins", []) if item]}) if origin else []
+    if fields.get("environments") is not None:
+        cfg["environments"] = _environments(fields["environments"])
+        if cfg.get("active_environment_id") not in {item["id"] for item in cfg["environments"]}:
+            cfg.pop("active_environment_id", None)
+    if fields.get("active_environment_id") is not None:
+        selected = str(fields["active_environment_id"]).strip()
+        if selected and selected not in {item["id"] for item in cfg.get("environments") or []}:
+            raise ValueError(f"环境 {selected} 不存在")
+        if selected:
+            cfg["active_environment_id"] = selected
+        else:
+            cfg.pop("active_environment_id", None)
     if fields.get("allowed_origins") is not None:
         origins = []
         for item in fields["allowed_origins"]:
-            origin = ir.origin_of(item)
-            if not origin.startswith(("http://", "https://")) or origin.endswith("://"):
-                raise ValueError(f"「{item}」不是完整网址")
-            origins.append(origin)
-        cfg["allowed_origins"] = sorted({cfg["base_url"], *origins})
+            origins.append(origin_address(item, f"「{item}」"))
+        cfg["allowed_origins"] = sorted({cfg["base_url"], *origins} - {""})
 
     if fields.get("ignore_https_errors") is not None:
         if type(fields["ignore_https_errors"]) is not bool:
@@ -248,10 +362,14 @@ def reindex(project_id: str) -> None:
 def get(project_id: str) -> dict:
     info, cfg, login = meta(project_id), config(project_id), auth(project_id)
     active, known = cases(project_id), credentials(project_id)
+    environment = environment_of(cfg)
     return {
         "id": project_id, "name": info.get("name") or project_id, "category": info.get("category", ""),
         "base_url": cfg.get("base_url", ""), "start_url": info.get("start_url") or cfg.get("base_url", ""),
         "allowed_origins": cfg.get("allowed_origins", []),
+        "environments": cfg.get("environments", []),
+        "active_environment_id": cfg.get("active_environment_id") or (environment or {}).get("id", ""),
+        "environment": environment,
         "timeout_seconds": cfg.get("timeout_seconds", 20), "page_load_seconds": cfg.get("page_load_seconds", 90),
         "ignore_https_errors": bool(cfg.get("ignore_https_errors")),
         "cases": {"total": len(active), "ui": sum(c["kind"] == "ui" for c in active),

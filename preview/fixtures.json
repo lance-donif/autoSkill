@@ -1,7 +1,7 @@
 {
   "/status": {
     "name": "autoSkill",
-    "version": "2.5.5",
+    "version": "2.5.6",
     "ui_revision": "32300a4fc08205c9a09a8a361ae91a3b8343f2a6ad055394c9feee192d583ad2",
     "projects": 3,
     "runtime": {
@@ -11759,7 +11759,28 @@
         "role"
       ]
     },
-    "credentials": {}
+    "credentials": {},
+    "environments": [
+      {
+        "id": "dev",
+        "name": "开发环境",
+        "base_url": "https://stock-dev.example.invalid",
+        "variables": {
+          "warehouse_id": "WH-DEV"
+        },
+        "is_default": true
+      },
+      {
+        "id": "test",
+        "name": "测试环境",
+        "base_url": "https://stock-test.example.invalid",
+        "variables": {
+          "warehouse_id": "WH-TEST"
+        },
+        "is_default": false
+      }
+    ],
+    "active_environment_id": "dev"
   },
   "/projects/stock-room/folders": {
     "project_id": "stock-room",
@@ -14437,7 +14458,28 @@
       "browser": false,
       "variables": []
     },
-    "credentials": {}
+    "credentials": {},
+    "environments": [
+      {
+        "id": "test",
+        "name": "测试环境",
+        "base_url": "https://tickets-test.example.invalid",
+        "variables": {
+          "tenant": "demo"
+        },
+        "is_default": true
+      },
+      {
+        "id": "staging",
+        "name": "预发环境",
+        "base_url": "https://tickets-staging.example.invalid",
+        "variables": {
+          "tenant": "preview"
+        },
+        "is_default": false
+      }
+    ],
+    "active_environment_id": "test"
   },
   "/projects/ticket-desk/folders": {
     "project_id": "ticket-desk",
@@ -21355,5 +21397,46 @@
       "xl/charts/chart1.xml": "<chartSpace xmlns=\"http://schemas.openxmlformats.org/drawingml/2006/chart\"><chart><plotArea><doughnutChart><varyColors val=\"1\"/><ser><idx val=\"0\"/><order val=\"0\"/><spPr><a:ln xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:prstDash val=\"solid\"/></a:ln></spPr><dPt><idx val=\"0\"/><spPr><a:solidFill xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:srgbClr val=\"95A6B5\"/></a:solidFill><a:ln xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:solidFill><a:srgbClr val=\"FFFFFF\"/></a:solidFill><a:prstDash val=\"solid\"/></a:ln></spPr></dPt><dPt><idx val=\"1\"/><spPr><a:solidFill xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:srgbClr val=\"238678\"/></a:solidFill><a:ln xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:solidFill><a:srgbClr val=\"FFFFFF\"/></a:solidFill><a:prstDash val=\"solid\"/></a:ln></spPr></dPt><dPt><idx val=\"2\"/><spPr><a:solidFill xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:srgbClr val=\"C8504D\"/></a:solidFill><a:ln xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:solidFill><a:srgbClr val=\"FFFFFF\"/></a:solidFill><a:prstDash val=\"solid\"/></a:ln></spPr></dPt><cat><strRef><f>'概览'!$A$25:$A$27</f><strCache><ptCount val=\"3\"/><pt idx=\"0\"><v>未执行</v></pt><pt idx=\"1\"><v>通过</v></pt><pt idx=\"2\"><v>失败</v></pt></strCache></strRef></cat><val><numRef><f>'概览'!$B$25:$B$27</f><numCache><formatCode>0</formatCode><ptCount val=\"3\"/><pt idx=\"0\"><v>3</v></pt><pt idx=\"1\"><v>3</v></pt><pt idx=\"2\"><v>1</v></pt></numCache></numRef></val></ser><dLbls><numFmt formatCode=\"0;-0;;\"/><txPr><a:bodyPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"/><a:p xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:pPr><a:defRPr lang=\"zh-CN\" sz=\"1100\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:defRPr></a:pPr><a:r><a:t></a:t></a:r><a:endParaRPr lang=\"zh-CN\" sz=\"1100\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:endParaRPr></a:p></txPr><showLegendKey val=\"0\"/><showVal val=\"1\"/><showCatName val=\"0\"/><showSerName val=\"0\"/><showPercent val=\"0\"/></dLbls><firstSliceAng val=\"270\"/><holeSize val=\"66\"/></doughnutChart></plotArea><legend><legendPos val=\"b\"/><txPr><a:bodyPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"/><a:p xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:pPr><a:defRPr lang=\"zh-CN\" sz=\"1000\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:defRPr></a:pPr><a:r><a:t></a:t></a:r><a:endParaRPr lang=\"zh-CN\" sz=\"1000\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:endParaRPr></a:p></txPr></legend><plotVisOnly val=\"1\"/><dispBlanksAs val=\"gap\"/></chart></chartSpace>",
       "xl/charts/chart2.xml": "<chartSpace xmlns=\"http://schemas.openxmlformats.org/drawingml/2006/chart\"><chart><plotArea><barChart><barDir val=\"bar\"/><grouping val=\"stacked\"/><ser><idx val=\"0\"/><order val=\"0\"/><tx><strRef><f>'概览'!H24</f><strCache><ptCount val=\"1\"/><pt idx=\"0\"><v>未执行</v></pt></strCache></strRef></tx><spPr><a:solidFill xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:srgbClr val=\"95A6B5\"/></a:solidFill><a:ln xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:noFill/><a:prstDash val=\"solid\"/></a:ln></spPr><cat><strRef><f>'概览'!$F$25:$F$29</f><strCache><ptCount val=\"5\"/><pt idx=\"0\"><v>仓库</v></pt><pt idx=\"1\"><v>库存查询</v></pt><pt idx=\"2\"><v>库存预警</v></pt><pt idx=\"3\"><v>服务</v></pt><pt idx=\"4\"><v>账户</v></pt></strCache></strRef></cat><val><numRef><f>'概览'!$H$25:$H$29</f><numCache><formatCode>0</formatCode><ptCount val=\"5\"/><pt idx=\"0\"><v>1</v></pt><pt idx=\"1\"><v>1</v></pt><pt idx=\"2\"><v>0</v></pt><pt idx=\"3\"><v>0</v></pt><pt idx=\"4\"><v>1</v></pt></numCache></numRef></val></ser><ser><idx val=\"1\"/><order val=\"1\"/><tx><strRef><f>'概览'!I24</f><strCache><ptCount val=\"1\"/><pt idx=\"0\"><v>通过</v></pt></strCache></strRef></tx><spPr><a:solidFill xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:srgbClr val=\"238678\"/></a:solidFill><a:ln xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:noFill/><a:prstDash val=\"solid\"/></a:ln></spPr><cat><strRef><f>'概览'!$F$25:$F$29</f><strCache><ptCount val=\"5\"/><pt idx=\"0\"><v>仓库</v></pt><pt idx=\"1\"><v>库存查询</v></pt><pt idx=\"2\"><v>库存预警</v></pt><pt idx=\"3\"><v>服务</v></pt><pt idx=\"4\"><v>账户</v></pt></strCache></strRef></cat><val><numRef><f>'概览'!$I$25:$I$29</f><numCache><formatCode>0</formatCode><ptCount val=\"5\"/><pt idx=\"0\"><v>1</v></pt><pt idx=\"1\"><v>1</v></pt><pt idx=\"2\"><v>0</v></pt><pt idx=\"3\"><v>1</v></pt><pt idx=\"4\"><v>0</v></pt></numCache></numRef></val></ser><ser><idx val=\"2\"/><order val=\"2\"/><tx><strRef><f>'概览'!J24</f><strCache><ptCount val=\"1\"/><pt idx=\"0\"><v>失败</v></pt></strCache></strRef></tx><spPr><a:solidFill xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:srgbClr val=\"C8504D\"/></a:solidFill><a:ln xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:noFill/><a:prstDash val=\"solid\"/></a:ln></spPr><cat><strRef><f>'概览'!$F$25:$F$29</f><strCache><ptCount val=\"5\"/><pt idx=\"0\"><v>仓库</v></pt><pt idx=\"1\"><v>库存查询</v></pt><pt idx=\"2\"><v>库存预警</v></pt><pt idx=\"3\"><v>服务</v></pt><pt idx=\"4\"><v>账户</v></pt></strCache></strRef></cat><val><numRef><f>'概览'!$J$25:$J$29</f><numCache><formatCode>0</formatCode><ptCount val=\"5\"/><pt idx=\"0\"><v>0</v></pt><pt idx=\"1\"><v>0</v></pt><pt idx=\"2\"><v>1</v></pt><pt idx=\"3\"><v>0</v></pt><pt idx=\"4\"><v>0</v></pt></numCache></numRef></val></ser><gapWidth val=\"55\"/><overlap val=\"100\"/><axId val=\"10\"/><axId val=\"100\"/></barChart><catAx><axId val=\"10\"/><scaling><orientation val=\"maxMin\"/></scaling><axPos val=\"l\"/><majorTickMark val=\"none\"/><minorTickMark val=\"none\"/><txPr><a:bodyPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"/><a:p xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:pPr><a:defRPr lang=\"zh-CN\" sz=\"1000\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:defRPr></a:pPr><a:r><a:t></a:t></a:r><a:endParaRPr lang=\"zh-CN\" sz=\"1000\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:endParaRPr></a:p></txPr><crossAx val=\"100\"/><lblOffset val=\"100\"/></catAx><valAx><axId val=\"100\"/><scaling><orientation val=\"minMax\"/><min val=\"0\"/></scaling><axPos val=\"l\"/><majorGridlines/><numFmt formatCode=\"0\" sourceLinked=\"0\"/><majorTickMark val=\"none\"/><minorTickMark val=\"none\"/><txPr><a:bodyPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"/><a:p xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:pPr><a:defRPr lang=\"zh-CN\" sz=\"900\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:defRPr></a:pPr><a:r><a:t></a:t></a:r><a:endParaRPr lang=\"zh-CN\" sz=\"900\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:endParaRPr></a:p></txPr><crossAx val=\"10\"/><crosses val=\"max\"/><majorUnit val=\"1\"/></valAx></plotArea><legend><legendPos val=\"b\"/><txPr><a:bodyPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"/><a:p xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:pPr><a:defRPr lang=\"zh-CN\" sz=\"1000\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:defRPr></a:pPr><a:r><a:t></a:t></a:r><a:endParaRPr lang=\"zh-CN\" sz=\"1000\"><a:solidFill><a:srgbClr val=\"243F50\"/></a:solidFill><a:latin typeface=\"宋体\"/><a:ea typeface=\"宋体\"/></a:endParaRPr></a:p></txPr></legend><plotVisOnly val=\"1\"/><dispBlanksAs val=\"gap\"/></chart></chartSpace>"
     }
+  },
+  "/sync": {
+    "sync_dir": "/srv/autoskill-sync（示例）",
+    "error_dir": "/srv/autoskill-errors（示例）",
+    "last_scan": {
+      "at": "2026-11-20T09:30:00+08:00",
+      "path": "/srv/autoskill-sync（示例）",
+      "files": 3,
+      "imported": 1,
+      "failed": 1
+    },
+    "files": [
+      {
+        "file": "release/stock-room.cases.json",
+        "sha256": "8c650b36a441ef169c6e87efca20932887d62fac04ccdd23bea3b82907e00373",
+        "at": "2026-11-20T09:30:00+08:00",
+        "status": "imported",
+        "project_id": "stock-room",
+        "cases": [
+          "ST-API-001",
+          "ST-API-002"
+        ],
+        "reason": ""
+      },
+      {
+        "file": "release/ticket-desk.zip",
+        "sha256": "a1d4f0d6b8ef0f8a2b5d0f1d9b6b8a2f6c0d7e3f4a5b6c7d8e9f0a1b2c3d4e5f",
+        "at": "2026-11-20T09:29:00+08:00",
+        "status": "skipped",
+        "projects": [],
+        "cases": [],
+        "reason": "本机已有同名项目；已有项目请用 JSON 用例文件增量更新"
+      },
+      {
+        "file": "release/broken.json",
+        "sha256": "b7c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+        "at": "2026-11-20T09:28:00+08:00",
+        "status": "failed",
+        "reason": "不是有效的 JSON"
+      }
+    ]
   }
 }
