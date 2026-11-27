@@ -1,1 +1,0 @@
-{"disposition":"business_defect","reason":"独立订单需求要求 message=订单完成；本次实际 HTTP200 且 message=订单失败，保留业务失败。该差异由本地黑盒测试站故意配置，用于验证autoSkill状态表达，不作为autoSkill产品缺陷。","evidence_refs":["run-263729e4ba4c","result:8"]}

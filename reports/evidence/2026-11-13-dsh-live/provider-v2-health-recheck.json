@@ -1,7 +1,0 @@
-{
-  "at": "2026-11-13T10:24:26Z",
-  "http_status": 200,
-  "returned_model": "deepseek/deepseek-v4.1-flash-1017",
-  "has_choices": true,
-  "elapsed_seconds": 1.58
-}

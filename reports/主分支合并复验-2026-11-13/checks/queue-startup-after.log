@@ -1,6 +1,0 @@
-test_startup_ack_does_not_compete_with_the_new_dispatcher (test_queue_dispatcher.DispatcherTests.test_startup_ack_does_not_compete_with_the_new_dispatcher) ... ok
-
-----------------------------------------------------------------------
-Ran 1 test in 1.858s
-
-OK

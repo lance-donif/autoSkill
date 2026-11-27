@@ -1,8 +1,0 @@
-{
-  "time_utc": "2026-11-13T15:11:56.527939+00:00",
-  "pid": 65761,
-  "cmdline": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python -m autoskill dashboard --port 18890 ",
-  "purpose": "Pause own idle coordinator while parent prepares another frozen performance candidate; preserve workspace/fixture; restart only when final candidate/window is announced",
-  "timing_started": false,
-  "stopped": true
-}

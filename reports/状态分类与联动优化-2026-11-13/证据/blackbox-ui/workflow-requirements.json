@@ -1,1 +1,0 @@
-{"requirements":[{"id":"req-order-success","text":"POST /api/order 返回的 JSON message 必须等于订单完成。","source_ids":["order-business-rule"]}]}

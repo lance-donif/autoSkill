@@ -1,7 +1,0 @@
-test_context_edit_requires_new_manual_dual_engine_runs_and_preserves_old_pass_and_cas (test_case_editing_integration.CaseEditingIntegrationTests.test_context_edit_requires_new_manual_dual_engine_runs_and_preserves_old_pass_and_cas) ... ok
-test_actual_record_plan_carries_the_authored_functional_design_into_frozen_replay (test_functional_design_dashboard.FunctionalDesignDashboardTests.test_actual_record_plan_carries_the_authored_functional_design_into_frozen_replay) ... ok
-
-----------------------------------------------------------------------
-Ran 2 tests in 41.092s
-
-OK

@@ -1,8 +1,0 @@
-[
-  {
-    "id": "REQ-RECORDED",
-    "module": "录制",
-    "title": "录制得到的回归场景",
-    "source": "autoskill record"
-  }
-]

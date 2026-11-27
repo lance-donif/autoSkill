@@ -1,4 +1,0 @@
-HEAD: fbdf45a81f99d51fd117025a3c2399c88cc0b038
-Command: [".venv/bin/ruff", "check", "."]
-
-All checks passed!

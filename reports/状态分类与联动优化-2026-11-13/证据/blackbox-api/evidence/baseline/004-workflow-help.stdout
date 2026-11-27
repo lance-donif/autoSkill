@@ -1,9 +1,0 @@
-usage: autoskill workflow [-h]
-                          {start,revise,status,read,next,submit,heartbeat,release,recover,cancel,resume}
-                          ...
-
-positional arguments:
-  {start,revise,status,read,next,submit,heartbeat,release,recover,cancel,resume}
-
-options:
-  -h, --help            show this help message and exit

@@ -56,18 +56,9 @@ def main():
             text = '\n'.join(lines) + '\n'
         note = (f"\n最新发布 {tag}：构建自 `{data['built_from_commit']}`，大小 {data['bytes']:,} 字节，SHA-256 `{data['sha256']}`。"
                 f'{check_text}；流水线结果不代替源码功能或平台真机验收。'
-                'Linux DSH 源码实测另见 [真实验收](DSH真实验收.md)，Windows/UOS 真机功能本轮未验证，历史结果保留其原有边界。\n')
+                'Windows/UOS 真机功能本轮未验证，历史结果保留其原有边界。\n')
         text = text.replace('## 6. 未验证', note + '\n## 6. 未验证', 1)
         path.write_text(text, encoding='utf-8')
-        # Only source-side audit documents change after packaging. Keep shipped plugin docs
-        # byte-identical to the tag from which the verified archive was built.
-        # Platform bundles also ship docs/: do not mutate them after their archive is hashed.
-        for filename in (() if data.get('packages') else ('docs/需求与验收清单.md',)):
-            path = Path(filename)
-            with path.open('a', encoding='utf-8') as stream:
-                stream.write(f"\n发布 {tag}：{check_text}，证据见 `reports/evidence/releases/{tag}/`。"
-                             '流水线结果不代替源码功能或平台真机验收；Linux DSH 源码实测另见 '
-                             '[真实验收](../reports/DSH真实验收.md)，Windows/UOS 真机功能本轮未验证。\n')
     Path('reports/release-status.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(report, ensure_ascii=False))
 

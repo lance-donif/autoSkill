@@ -1,5 +1,0 @@
-{
-  "skills/autoskill/app/autoskill/server/metrics.py": "a7a4b68c419596ecb89d9d452959e183e7f54fd3e68329c851cd40bd355a1643",
-  "skills/autoskill/app/autoskill/task_state.py": "1ed5231c11480cdec3360b082dbe9f32cd14cb9f2992d540a402b51fb797514c",
-  "tests/test_state_api.py": "bf59f35a24262b6df4008f826a946b5b42b35e4ab4b595f80a7daa798942ca1d"
-}

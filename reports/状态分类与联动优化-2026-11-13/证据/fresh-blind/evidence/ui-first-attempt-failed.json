@@ -1,8 +1,0 @@
-{
-  "attempt": "scripts/inspect-ui.py",
-  "command_session": 52882,
-  "exit_code": 1,
-  "observation": "Page.goto timeout30000ms waiting networkidle on live polling app",
-  "classification": "harness wait condition; subsequent attempts use DOM content loading",
-  "traceback_last": "playwright._impl._errors.TimeoutError: Page.goto: Timeout 30000ms exceeded. Call log: navigating to http://127.0.0.1:18890/, waiting until networkidle"
-}

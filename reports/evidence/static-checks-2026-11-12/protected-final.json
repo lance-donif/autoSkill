@@ -1,8 +1,0 @@
-{
-  "protected_files": {
-    "ruff.toml": "4e6b4a27e57fdc8ca49321c0c34d7539afd037864e196e81d0ddae1e7e0024c7",
-    "biome.json": "cb328d325da450368bdc35fcc4c687cc83ff6ea95de914b3688d2ac7cdc27f27",
-    "tests/test_conventions.py": "c42598ec2aab48361e3b7a5731cc04a3bbcfae959b72371bf5a246832bf095ce"
-  },
-  "protected_unchanged": true
-}

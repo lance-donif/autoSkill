@@ -27,13 +27,13 @@
 
 `tests/test_host_outbox_loop.py` 通过真实本机 HTTP outbox、JS adapter、CLI/bridge judge 和 SQLite 回执形成闭环：两任务/宿主会话分别保留 Fail 与 Pass，重复 poll 不重复投递。它验证服务边界，不证明 DSH 真机中的模型能自主完成本轮新 workflow。
 
-v2.2.1 全项目回归：Python 486 项通过、无失败或跳过，Node 16 项和三项静态检查通过，见[整体回归](../reports/整体回归-v2.2.1.md)。详细方法、自然提示词验收与脱敏证据见[系统化技能与多轮对话验证](../reports/系统化技能与多轮对话验证.md)。
+v2.2.1 全项目回归：Python 486 项通过、无失败或跳过，Node 16 项和三项静态检查通过（历史详细报告已归档于仓库 Git 历史）。
 
 ## 升级后的内嵌页面缓存（v2.2.2）
 
 使用者确认过：外部浏览器 8787 显示新版 Apple UI，DSH 显示旧 UI，清缓存后恢复。旧实现只有 API 禁止缓存，HTML/CSS/JS 使用固定 URL，不能根据包内容正确就推断已加载的 WebView 页面已经更新。
 
-v2.2.2 每次插件激活生成新的 iframe 加载标识，同次普通重渲染保持 URL 不变；服务端以整个 UI 的内容 hash 为 CSS/JS 和模块依赖统一命名空间，入口及静态资源不存储缓存。真实 Chromium 在同一上下文保留旧缓存的验收通过，Cookie 和 localStorage 保留；详见[升级页面缓存验证](../reports/升级页面缓存验证.md)。
+v2.2.2 每次插件激活生成新的 iframe 加载标识，同次普通重渲染保持 URL 不变；服务端以整个 UI 的内容 hash 为 CSS/JS 和模块依赖统一命名空间，入口及静态资源不存储缓存。真实 Chromium 在同一上下文保留旧缓存的验收通过，Cookie 和 localStorage 保留。
 
 DSH 0.2.2-rc.1 的 ModuleLoader 会缓存已加载的模块，替换时先失效/预取再刷新，服务端 entry revision 使用文件时间信息。升级仍需宿主重新加载新版插件模块，或重启 DSH；已经运行的旧客户端不会凭空获得新逻辑。本轮验证使用真实浏览器和产品服务/客户端、最小 SDK 形状宿主，没有宣称新版缓存机制已在真实 DSH WebView 完成实机验收。
 
@@ -43,7 +43,7 @@ DSH 0.2.2-rc.1 的 ModuleLoader 会缓存已加载的模块，替换时先失效
 
 插件为入口 Skill 和定时投递加入共同指引：后台执行，不自动弹出进度或切换面板；原生工具结果仅保留默认折叠的内联记录，用户点击后可查看断言、打开报告或核验下载。Excel、简短 Markdown 与 Bug Markdown 生成、读回核验后仍按宿主实际文件交付能力处理。`present` 仅记录当前宿主能访问的普通文件路径，不复制文件。任务报告与执行结果按各自任务保存；旧版两份报告完成补齐前不能假称第三份已交付。
 
-Node 检查覆盖指引注入、用户用例 Skill 保留与原有宿主适配合同；不是 DSH 真机模型调用或原生卡片验收。GoFile 直连此前返回代理 403，随后已从用户提交的 `test-cases.rar` 读取完整 Skill，随包注册为 `test-cases`；用户可替换的 `autoskill-cases` 仍是独立的具体用例目录。通用 Skill 和离线渲染不依赖 DSH。详细协议、源码与待验收项见 [DSH 对话进度与 Excel 交付](../docs/DSH对话进度与Excel交付.md)。
+Node 检查覆盖指引注入、用户用例 Skill 保留与原有宿主适配合同；不是 DSH 真机模型调用或原生卡片验收。通用 Skill 和离线渲染不依赖 DSH。
 
 ## Linux x64 / ARM64 与统信 UOS
 
@@ -59,7 +59,7 @@ agent-browser、Playwright、Chrome for Testing 均有 Linux ARM64 程序；Sele
 
 命令通过宿主启动的后台服务完成 `project list`、`record start`，受控登录页返回 `needs_login`。这是明确设置 `AUTOSKILL_BRIDGE=on` 的命令行验证，不是 DSH 智能体或默认沙箱验证。随后已配置并选中 HappyCoding 的 `deepseek-v4.1-flash`，但真实 DSH 连接检查被环境代理 CONNECT 403 拒绝，没有执行技能任务。
 
-Linux 源码部署说明：[docs/Linux-DSH.md](../docs/Linux-DSH.md)。证据：[reports/evidence/linux-dsh/](../reports/evidence/linux-dsh/)。当前工作区已移除站点白名单和代理围栏，原报告中的网络拦截结论属于旧版本。百度实测受当前环境系统代理 403 阻断，不能声称通过。
+Linux 源码部署说明：[docs/Linux-DSH.md](../docs/Linux-DSH.md)。当前工作区已移除站点白名单和代理围栏，历史报告中的网络拦截结论属于旧版本。百度实测受当前环境系统代理 403 阻断，不能声称通过。
 
 ## 真实宿主中的情况（2026-11-12，DSH 桌面版）
 
@@ -77,7 +77,7 @@ DSH 以 `link:` 方式安装本地目录并调用了插件入口：安装阶段�
 
 2026-11-12 已在真实 Linux DSH Web 打开两个面板，不再属于“完全没有真实宿主验证”。未完成的是：默认沙箱中的智能体技能全链路，本轮定时维护/独立 judge/动态多轮的真实模型驱动闭环，热更新及其他 DSH 版本兼容性。桌面版显示细节也未逐项复核。
 
-Windows/UOS 未做本轮新功能实机验收。历史 Linux 升级器专项见[升级保留数据验证](../reports/升级保留数据验证.md)，该升级方式已移除；当前采用外置完整数据目录，不能用旧方案通过记录替代现行数据迁移或其他平台验收。
+Windows/UOS 未做本轮新功能实机验收。历史升级器方式已移除；当前采用外置完整数据目录，不能用旧方案通过记录替代现行数据迁移或其他平台验收。
 
 仪表盘面板使用浏览器本机的回环地址；远程访问 DSH Web 时，还需将仪表盘端口（默认 8787）转发到浏览器所在机器的相同端口。
 
@@ -85,6 +85,6 @@ Windows/UOS 未做本轮新功能实机验收。历史 Linux 升级器专项见[
 
 插件注册 `autoskill_read`、`autoskill_task` 原生工具、只读 pre-step 摘要、会话任务绑定和持久请求回执。任务卡、侧栏和输入区任务入口使用当前会话，取消响应未知时先查询同一请求；报告下载先核验对应任务的三份文件。仪表盘地址由已认证宿主元数据提供，已在真实 Linux DSH Web 中核对非默认端口、双会话隔离、取消恢复和报告入口。
 
-上述界面验收使用真实 DSH 0.2.2-rc.1、真实浏览器及本地协议模型夹具。它验证宿主交互与工具链，未验证远程模型自主执行；远程模型请求被当前环境代理 CONNECT 403 拒绝。实际 SDK 的工具/PTC、命令、路由、pre-step 和 present 另有专项，记录见 `reports/evidence/2026-11-13-dsh-native/`。
+上述界面验收使用真实 DSH 0.2.2-rc.1、真实浏览器及本地协议模型夹具。它验证宿主交互与工具链，未验证远程模型自主执行；远程模型请求被当前环境代理 CONNECT 403 拒绝。
 
 程序目录与数据目录独立，默认 Windows `%USERPROFILE%\autoSkill-data`、Linux/UOS `$HOME/autoSkill-data`；插件 `workspace` 或 `AUTOSKILL_WORKSPACE` 显式配置优先。插件等服务确认实际数据根后注册该目录中的用例 Skill。更新程序继续复用这一目录，不运行升级脚本。旧数据首次通过内置「数据管理」导入到空目标，然后配置 `workspace` 并重新加载插件；导入回执不代表当前宿主已经切换。详细操作见[升级与数据保留](../docs/升级与数据保留.md)。

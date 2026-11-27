@@ -1,8 +1,0 @@
-{
-  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
-  "selenium": "4.38.0",
-  "playwright": "1.62.0",
-  "node": "v24.22.1",
-  "pip_check": "passed",
-  "installation_scope": "External test environment; repository requirements lock unchanged."
-}

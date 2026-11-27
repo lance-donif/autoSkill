@@ -1,8 +1,0 @@
-{
-  "skills/autoskill/app/autoskill/data_store.py": "2f76d10aa66e7b31ff074d5eca76a7d0ce8da8252f6cdee8f09830e213c89db5",
-  "skills/autoskill/app/autoskill/data_transfer.py": "9e20bc73c106a029f16598d7effbfdb3cba8d1bbcbc5b39326b4cb6cc4d73a27",
-  "skills/autoskill/app/autoskill/runtime_identity.py": "bf605e4c724928d91e5925265ba08342bf7df7c46e6f9024dd709e4043dd696b",
-  "skills/autoskill/app/autoskill/maintenance.py": "d71373fa3c8049bc6c32626d826a8e055cc272b62e37f374c760c53c7999e0b8",
-  "skills/autoskill/app/autoskill/db.py": "30f2358aef740811eb035033fbb529b4003a80a6f61fbeb8be51148fdbf93bbf",
-  "tests/test_data_store.py": "1cafa820a329c5d78fdad17263a5d81970817b9059bdcf0c975bc745be7928f3"
-}

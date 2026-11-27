@@ -1,8 +1,0 @@
-{
-  "received": "候选冻结",
-  "start_time_utc": "2026-11-13T14:34:28.314541+00:00",
-  "start_time_ns": 1794580468314551959,
-  "source_baseline": "same repository frozen uncommitted working tree, not inspected",
-  "workspace": "/workspace/autoskill-state-validation/fresh-blind/workspace-candidate",
-  "background_load": "parent full Python regression still running; UI latency scheduled last"
-}

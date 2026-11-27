@@ -1,3 +1,0 @@
-5cccf8d4b0ca5f7f09ac97087baaa0065bc4f2f665f5c6692fd55fb223639d63  autoSkill-Windows-x64-Offline.zip
-12c15be18bc59435cd38ff74a441eb9d6a04748c2405938eecdac0ed19f32d53  autoSkill-Linux-x64-Offline.zip
-3bb2160c41dbb32e50e66413d981ad7a226d5d4af53ca4412302aefe716f0090  autoSkill-Linux-arm64-Offline.zip

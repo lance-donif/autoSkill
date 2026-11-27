@@ -1,9 +1,0 @@
-{
-  "model": "laya-browser",
-  "mode": "native_dom",
-  "rounds": 16,
-  "passed": 4,
-  "protocol_sha256": "2a18850648679f61f7649dfbcfe6c8c428c01b3e099fce65c9f9eb1401a7c2c1",
-  "load_s": 11.157486865000465,
-  "peak_worker_rss_mib": 2301.53125
-}

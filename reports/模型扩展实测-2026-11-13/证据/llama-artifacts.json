@@ -1,7 +1,0 @@
-{
-  "file": "llama.tar.gz",
-  "sha256": "b60dc211e4ba206bb04bbc9eb06294364c43d0aab8fc308c44a361477466ba4c",
-  "bytes": 23310281,
-  "release": "b12360",
-  "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12360/llama-b12360-bin-ubuntu-x64.tar.gz"
-}

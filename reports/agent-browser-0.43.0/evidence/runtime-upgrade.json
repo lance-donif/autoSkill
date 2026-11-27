@@ -1,8 +1,0 @@
-{
-  "old_official_sha256": "b69e0f5ea76dcb51f8f75da6bcb87c7f4d81f79b5738f1f08bd121b51cb3dc57",
-  "new_sha256": "8e69c9fb662514c9cf36e4911e94e913742ba066e55102486350e049dd847612",
-  "versions": {
-    "/workspace/autoskill-main-integration/runtime/agent-browser-linux-x64": "agent-browser 0.43.0",
-    "/workspace/autoSkill/skills/autoskill/vendor/linux-x64/agent-browser/agent-browser": "agent-browser 0.43.0"
-  }
-}

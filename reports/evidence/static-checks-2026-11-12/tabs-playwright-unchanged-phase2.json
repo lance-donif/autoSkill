@@ -1,8 +1,0 @@
-{
-  "codegen_module_identical": true,
-  "playwright_driver_identical": true,
-  "tabs_class_source_identical": true,
-  "playwright_factory_source_identical": true,
-  "observed_error": "TargetClosedError after Send and close deliberately closes its own page",
-  "fresh_target_pass_seconds": 10.214
-}

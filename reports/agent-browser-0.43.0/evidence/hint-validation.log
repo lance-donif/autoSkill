@@ -1,8 +1,0 @@
-test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay (test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay) ... ok
-test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay (test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay) ... ok
-test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay (test_recorder_browser_compatibility.RecorderBrowserCompatibilityTests.test_snapshot_hints_distinguish_same_name_buttons_and_preserve_replay) ... ok
-
-----------------------------------------------------------------------
-Ran 3 tests in 19.016s
-
-OK

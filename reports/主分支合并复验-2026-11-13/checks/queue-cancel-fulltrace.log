@@ -1,9 +1,0 @@
-FAIL: test_cancelled_waiter_does_not_execute_when_a_slot_opens (test_queue_dispatcher.DispatcherTests.test_cancelled_waiter_does_not_execute_when_a_slot_opens)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 221, in test_cancelled_waiter_does_not_execute_when_a_slot_opens
-    self.ensure()
-  File "/workspace/autoSkill/tests/test_queue_dispatcher.py", line 178, in ensure
-    self.assertIn(result["status"], ("started", "running"), result)
-AssertionError: 'unavailable' not found in ('started', 'running') : {'status': 'unavailable', 'pid': None, 'reason': '后台队列在启动期间退出；运行已保存，可重试启动现有队列'}
-

@@ -1,1 +1,0 @@
-{"source":"native-http","engine":"selenium-unittest","name":"Local HTTP wrong value","asset_id":"bb-fail","argv":["python3","-m","unittest","test_fixture.BusinessFailure"],"cwd":"."}

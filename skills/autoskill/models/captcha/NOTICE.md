@@ -11,9 +11,8 @@ Training data included project-generated samples plus these pinned public datase
 - huthayfahodeb/Captcha Dataset v2, CC0 1.0
 - daniilnxy/Math problem CAPTCHA images v1, Apache 2.0
 
-Exact source URLs, archive hashes, limitations, sample provenance, and split groups are
-recorded in `training/ppocrv6-captcha/public-datasets.ts`, the dataset manifest, and the
-candidate model card. The model must not be presented as supporting CAPTCHA types outside
+Exact source URLs, archive hashes, limitations, sample provenance, and split groups were
+recorded in the historical `training/ppocrv6-captcha/public-datasets.ts` manifest in repository git history. The model must not be presented as supporting CAPTCHA types outside
 the documented project scope.
 
 
@@ -30,4 +29,4 @@ Optimized model SHA-256: `b58376af1642a97b0df1be84642170c1f9a88203b86b062c3fe3d2
 On the fixed 1920-image research corpus, output probabilities and CTC strings
 were identical. The corpus is not a target-site acceptance set; this rewrite
 does not claim improved recognition accuracy. Reproduction and CPU latency/memory
-evidence are in `training/captcha-research`. Upstream licenses remain unchanged.
+evidence were recorded under `training/captcha-research` (archived in repository git history). Upstream licenses remain unchanged.

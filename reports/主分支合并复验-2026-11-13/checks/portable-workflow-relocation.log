@@ -1,8 +1,0 @@
-test_legacy_absolute_receipt_and_snapshot_are_not_rewritten_or_rehashed (test_report_relocation.ReportRelocationTests.test_legacy_absolute_receipt_and_snapshot_are_not_rewritten_or_rehashed) ... ok
-test_native_multiturn_evidence_follows_data_copy_without_touching_original_outcome (test_report_relocation.ReportRelocationTests.test_native_multiturn_evidence_follows_data_copy_without_touching_original_outcome) ... ok
-test_relative_reports_survive_moving_data_with_original_tree_still_present (test_report_relocation.ReportRelocationTests.test_relative_reports_survive_moving_data_with_original_tree_still_present) ... ok
-
-----------------------------------------------------------------------
-Ran 3 tests in 9.540s
-
-OK

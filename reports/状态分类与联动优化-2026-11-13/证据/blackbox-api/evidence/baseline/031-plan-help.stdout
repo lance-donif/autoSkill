@@ -1,8 +1,0 @@
-usage: autoskill plan write [-h] --file FILE project
-
-positional arguments:
-  project
-
-options:
-  -h, --help   show this help message and exit
-  --file FILE  用例 JSON 文件（数组）
