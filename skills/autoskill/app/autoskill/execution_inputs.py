@@ -13,13 +13,24 @@ from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 
-from . import __version__, data_refs, db, file_changes, paths, projects, secrets, sessions
+from . import __version__, data_refs, db, file_changes, paths, platform_accounts, projects, secrets, sessions
 from .core import store
 from .locking import named_lock, project_lock
 from .replay import ir
 
 # The adapter signals dispatch after preflight and any inline prerequisite, just before the target action.
 on_target_start = ContextVar("on_target_start", default=None)
+
+
+class MissingVariablesError(ValueError):
+    """Raised before execution when required {{variables}} have no value in inputs, prerequisites or environment."""
+
+    def __init__(self, missing_variables: list[str], by_case: dict[str, list[str]] | None = None):
+        self.code = "missing_variables"
+        self.missing_variables = list(missing_variables)
+        self.by_case = copy.deepcopy(by_case or {})
+        self.details = {"missing_variables": self.missing_variables, "by_case": self.by_case}
+        super().__init__("缺少必需变量：" + "、".join(self.missing_variables) + "；请在环境变量或运行参数中补齐后再执行")
 
 
 def mark_target_started() -> None:
@@ -257,8 +268,97 @@ def _case_sources(cases: dict, scope: dict) -> dict:
             if not name.startswith("domain/conversations/") or name.split("/")[2] in referenced}
 
 
+def _case_variable_references(case: dict, env_entry: dict | None = None) -> list[str]:
+    """Collect {{variable}} references from executable fields of one case."""
+    found: list[str] = []
+
+    def add(value) -> None:
+        for name in ir.variable_references(value):
+            if name not in found:
+                found.append(name)
+
+    if case.get("kind") == "api":
+        for field in ("path", "headers", "params", "json", "form"):
+            if field in case:
+                add(case[field])
+        assertions = case.get("assertions") or {}
+        for field in ("json_equals", "header_contains", "body_contains"):
+            if assertions.get(field):
+                add(assertions[field])
+    else:
+        extensions = case.get("extensions") or {}
+        add(extensions.get("automation"))
+        override = extensions.get("auth_override") or {}
+        entry = extensions.get("entry") if isinstance(extensions.get("entry"), dict) else (None if override.get("mode") == "none" else env_entry)
+        if entry:
+            add(entry)
+    return found
+
+
+def _dependency_extracts(case_id: str, cases: dict) -> set[str]:
+    """Variables extracted by any transitive prerequisite of `case_id`."""
+    produced: set[str] = set()
+    stack = list(projects.depends_on(cases[case_id]))
+    seen: set[str] = set()
+    while stack:
+        dep_id = stack.pop()
+        if dep_id in seen or dep_id not in cases:
+            continue
+        seen.add(dep_id)
+        dep = cases[dep_id]
+        extract = dep.get("extensions", {}).get("extract")
+        if isinstance(extract, dict):
+            produced.update(extract)
+        stack.extend(projects.depends_on(dep))
+    return produced
+
+
+def _available_variables(config: dict, inputs: dict | None, account: dict | None) -> dict:
+    """Merge environment, account and explicit inputs; empty string or None remains missing."""
+    env_vars = (config.get("_environment") or {}).get("variables") or {}
+    acc_vars = (account or {}).get("variables") or {}
+    merged = {**env_vars, **acc_vars}
+    if account:
+        if account.get("username"):
+            merged.setdefault("username", account["username"])
+        if account.get("password"):
+            merged.setdefault("password", account["password"])
+    if inputs:
+        merged.update(inputs)
+    return merged
+
+
+def find_missing_variables(cases: dict, selected: list[str], config: dict, inputs: dict | None = None, *,
+                           auth: dict | None = None, account: dict | None = None,
+                           saved_session: dict | None = None) -> dict:
+    """Scan selected cases and prerequisites for {{var}} placeholders with no available value."""
+    from .runner import build_plan
+
+    plan = build_plan(selected, cases)
+    available = _available_variables(config, inputs, account)
+    env_entry = (config.get("_environment") or {}).get("entry")
+    state_vars = set((auth or {}).get("state_variables", {})) if (
+        (auth or {}).get("ui_case") in cases or bool((saved_session or {}).get("ui"))
+    ) else set()
+    missing: list[str] = []
+    by_case: dict[str, list[str]] = {}
+    for case_id, _prereq in plan:
+        case = cases[case_id]
+        produced = {"RAND", *state_vars, *_dependency_extracts(case_id, cases)}
+        case_missing = [
+            name for name in _case_variable_references(case, env_entry)
+            if name not in produced and (name not in available or available[name] in (None, ""))
+        ]
+        if case_missing:
+            by_case[case_id] = case_missing
+            for name in case_missing:
+                if name not in missing:
+                    missing.append(name)
+    return {"missing": missing, "by_case": by_case}
+
+
 def _scope(cases: dict, case_id: str, config: dict, auth: dict, sources: dict, engines: dict, credentials: dict,
-           *, api_only: bool = False, inputs: dict | None = None) -> str:
+           *, api_only: bool = False, inputs: dict | None = None, account: dict | None = None) -> str:
     selected = _closure([case_id], cases)
     extras = _auth_cases(auth, cases, api_only)
     selected = _closure(list(dict.fromkeys([*selected, *extras])), cases)
@@ -267,78 +367,171 @@ def _scope(cases: dict, case_id: str, config: dict, auth: dict, sources: dict, e
     engine = engines["ui" if any(case["kind"] == "ui" for case in subset.values()) else "api"]
     scope = {"cases": subset, "config": config, "auth": auth, "sources": _case_sources(subset, sources["scope"]), "engine": engine,
              "credentials": {key: credentials.get(key) for key in sorted(names)}}
-    if api_only or inputs:
-        scope["execution"] = {"api_only": api_only, "inputs": inputs or {}}
+    if api_only or inputs or account:
+        execution = {"api_only": api_only, "inputs": inputs or {}}
+        if account:
+            execution["account"] = account
+        scope["execution"] = execution
     return content_hash(scope)
+
+
+def _load_scoped_session(project_id: str, platform_id: str, environment_id: str, account_id: str) -> dict:
+    if platform_id or account_id:
+        return sessions.load(project_id, platform_id=platform_id, environment_id=environment_id, account_id=account_id)
+    return sessions.load(project_id)
+
+
+def _freeze_override_accounts(project_id: str, cases: dict, environment: dict | None, *, persist: bool, api_only: bool) -> tuple[dict, dict, dict]:
+    summaries, creds, saved = {}, {}, {}
+    env_id = str((environment or {}).get("id") or "")
+    env_platform = str((environment or {}).get("platform_id") or "")
+    for case in cases.values():
+        override = (case.get("extensions") or {}).get("auth_override")
+        if not isinstance(override, dict) or override.get("mode") != "account":
+            continue
+        oid = str(override.get("account_id") or "").strip()
+        if not oid or oid in summaries:
+            continue
+        account = platform_accounts.get_account(oid, include_password=True)
+        if account is None:
+            continue
+        summaries[oid] = platform_accounts.summary_for_result(account, mode="account")
+        creds[oid] = {
+            "username": account.get("username", ""),
+            "password": account.get("password", ""),
+            "variables": copy.deepcopy(account.get("variables") or {}),
+        }
+        if persist and not api_only:
+            pid = str(account.get("platform_id") or env_platform)
+            saved[oid] = sessions.load(project_id, platform_id=pid, environment_id=env_id, account_id=oid)
+    return summaries, creds, saved
+
+
+def _seed_variables(environment: dict | None, account: dict | None, values: dict) -> dict:
+    seed = {}
+    for source in ((environment or {}).get("variables") or {}, (account or {}).get("variables") or {}):
+        for key, item in source.items():
+            if item not in (None, ""):
+                seed[key] = copy.deepcopy(item)
+    seed.update(copy.deepcopy(values))
+    return seed
+
+
+def _select_capture_cases(project_id: str, chosen: list[str] | None, candidate_cases: list[dict] | None,
+                          candidate_auth: dict | None, api_only: bool) -> tuple[list[str], dict, dict, bool]:
+    active = {case["id"]: case for case in projects.cases(project_id)}
+    if candidate_cases is not None:
+        _validate_candidates(candidate_cases)
+        active.update({case["id"]: copy.deepcopy(case) for case in candidate_cases})
+    selected = list(dict.fromkeys(chosen or [key for key, case in active.items()
+                                            if ir.is_replayable(case) and (not api_only or case["kind"] == "api")]))
+    missing = [key for key in selected if key not in active or active[key]["lifecycle"] != "active"]
+    if missing:
+        raise ValueError("这些用例不存在或已归档：" + "、".join(missing))
+    not_ready = [key for key in selected if not ir.is_replayable(active[key])]
+    if not_ready:
+        raise ValueError("这些用例还没有可回放的步骤：" + "、".join(not_ready))
+    if not selected:
+        raise ValueError("项目里还没有可回放的用例；先录制一条")
+    auth = projects.auth(project_id) if candidate_auth is None else _json_mapping(candidate_auth, "候选登录配置")
+    api_only = api_only or _default_api_only(selected, active)
+    if api_only:
+        auth = {key: value for key, value in auth.items() if key not in ("ui_case", "state_variables")}
+    extras = _auth_cases(auth, active, api_only)
+    included = _closure(list(dict.fromkeys([*selected, *extras])), active)
+    cases = {key: active[key] for key in included}
+    if api_only:
+        if any(case["kind"] == "ui" for case in cases.values()):
+            ui_cases = [key for key, case in cases.items() if case["kind"] == "ui"]
+            raise ValueError("独立接口运行包含页面用例或页面依赖：" + "、".join(ui_cases) + "；请先补齐对应的 HTTP 登录或前置请求")
+        unresolved = [key for key in _closure(selected, active)
+                      if isinstance(execution := active[key].get("extensions", {}).get("execution"), dict)
+                      and execution.get("unresolved_recorded_credentials")]
+        if unresolved:
+            raise ValueError("独立接口运行仍依赖录制捕获的临时凭据：" + "、".join(unresolved) + "；请补齐 API 登录或明确输入来源后重新生成候选")
+    return selected, cases, auth, api_only
+
+
+def _attach_context_fields(manifest: dict, environment: dict | None, account_full: dict | None,
+                           account_summary: dict | None, platform_id: str,
+                           override_summaries: dict, override_creds: dict, override_sessions: dict) -> dict:
+    if environment is not None:
+        manifest["environment"] = environment
+    if account_summary is not None and account_full is not None:
+        manifest["account"] = account_summary
+        manifest["_account_credentials"] = {
+            str(account_full.get("id") or ""): {
+                "username": account_full.get("username", ""),
+                "password": account_full.get("password", ""),
+                "variables": copy.deepcopy(account_full.get("variables") or {}),
+            }
+        }
+    if platform_id:
+        platform = platform_accounts.get_platform(platform_id)
+        if platform is not None:
+            manifest["platform"] = platform
+    if override_summaries:
+        manifest["override_accounts"] = override_summaries
+        manifest.setdefault("_account_credentials", {}).update(override_creds)
+    if override_sessions:
+        manifest["override_sessions"] = override_sessions
+    return manifest
 
 
 def capture(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None,
             candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
-            environment_id: str | None = None, persist: bool = True) -> dict:
+            environment_id: str | None = None, account_id: str | None = None, strict_variables: bool = False,
+            use_active_context: bool = True, persist: bool = True) -> dict:
     """Read one project generation under its lock; no runtime database mutation occurs here."""
     if not isinstance(api_only, bool):
         raise ValueError("api_only 必须是布尔值")
     values = _inputs(inputs)
     with project_lock(project_id):
-        active = {case["id"]: case for case in projects.cases(project_id)}
-        if candidate_cases is not None:
-            _validate_candidates(candidate_cases)
-            active.update({case["id"]: copy.deepcopy(case) for case in candidate_cases})
-        selected = list(dict.fromkeys(chosen or [key for key, case in active.items()
-                                                if ir.is_replayable(case) and (not api_only or case["kind"] == "api")]))
-        missing = [key for key in selected if key not in active or active[key]["lifecycle"] != "active"]
-        if missing:
-            raise ValueError("这些用例不存在或已归档：" + "、".join(missing))
-        not_ready = [key for key in selected if not ir.is_replayable(active[key])]
-        if not_ready:
-            raise ValueError("这些用例还没有可回放的步骤：" + "、".join(not_ready))
-        if not selected:
-            raise ValueError("项目里还没有可回放的用例；先录制一条")
-        environment = projects.environment_of(cfg := projects.config(project_id), environment_id)
+        selected, cases, auth, api_only = _select_capture_cases(project_id, chosen, candidate_cases, candidate_auth, api_only)
+        environment = projects.environment_of(cfg := projects.config(project_id), environment_id, use_active=use_active_context)
         config = projects.with_environment(cfg, environment)
         if not config.get("base_url"):
             raise ValueError("项目还没有被测地址；开发完成后用 autoskill project update <项目> --url <地址> 补充，再执行")
-        auth = projects.auth(project_id) if candidate_auth is None else _json_mapping(candidate_auth, "候选登录配置")
-        api_only = api_only or _default_api_only(selected, active)
-        if api_only:
-            auth = {key: value for key, value in auth.items() if key not in ("ui_case", "state_variables")}
-        extras = _auth_cases(auth, active, api_only)
-        included = _closure(list(dict.fromkeys([*selected, *extras])), active)
-        cases = {key: active[key] for key in included}
+        account_full = projects.account_of(cfg, environment, account_id, use_active=use_active_context, include_password=True)
+        account_summary = platform_accounts.summary_for_result(account_full, mode="account") if account_full else None
+        env_id = str((environment or {}).get("id") or "")
+        platform_id = str((account_full or {}).get("platform_id") or (environment or {}).get("platform_id") or "")
+        resolved_account_id = str((account_full or {}).get("id") or "")
+        saved_session = _load_scoped_session(project_id, platform_id, env_id, resolved_account_id) if persist and not api_only else {}
+        if strict_variables:
+            check = find_missing_variables(cases, selected, config, values, auth=auth, account=account_full, saved_session=saved_session)
+            if check["missing"]:
+                raise MissingVariablesError(check["missing"], check["by_case"])
         has_ui = any(case["kind"] == "ui" for case in cases.values())
-        if api_only and has_ui:
-            ui_cases = [key for key, case in cases.items() if case["kind"] == "ui"]
-            raise ValueError("独立接口运行包含页面用例或页面依赖：" + "、".join(ui_cases) + "；请先补齐对应的 HTTP 登录或前置请求")
-        if api_only:
-            unresolved = [key for key in _closure(selected, active)
-                          if isinstance(execution := active[key].get("extensions", {}).get("execution"), dict)
-                          and execution.get("unresolved_recorded_credentials")]
-            if unresolved:
-                raise ValueError("独立接口运行仍依赖录制捕获的临时凭据：" + "、".join(unresolved) + "；请补齐 API 登录或明确输入来源后重新生成候选")
         identity = engine_identity("http" if api_only else engine, has_ui)
         identities = {"ui": identity, "api": engine_identity(engine, False) if has_ui else identity}
         sources = _sources(project_id, persist)
         names = secrets.references([cases, config, auth, values])
         credentials = {name: secrets.get_secret(name) for name in sorted(names)}
-        scopes = {key: _scope(cases, key, config, auth, sources, identities, credentials, api_only=api_only, inputs=values) for key in cases}
-        seed = {**copy.deepcopy((environment or {}).get("variables") or {}), **copy.deepcopy(values)}
+        scopes = {key: _scope(cases, key, config, auth, sources, identities, credentials,
+                              api_only=api_only, inputs=values, account=account_summary) for key in cases}
+        seed = _seed_variables(environment, account_full, values)
+        override_summaries, override_creds, override_sessions = _freeze_override_accounts(
+            project_id, cases, environment, persist=persist, api_only=api_only,
+        )
         manifest = {"schema_version": 1, "project_id": project_id, "selected": selected, "cases": cases,
                     "case_hashes": {key: content_hash(case) for key, case in cases.items()}, "scope_hashes": scopes,
                     "config": config, "auth": auth, "sources": sources, "engine": identity,
-                    "credentials": credentials, "saved_session": sessions.load(project_id) if persist and not api_only else {},
+                    "credentials": credentials, "saved_session": saved_session,
                     "api_only": api_only, "inputs": values,
                     "variables": {**seed, **({"RAND": uuid.uuid4().hex[:6]} if persist else {})}}
-        if environment is not None:
-            manifest["environment"] = environment
-        return manifest
+        return _attach_context_fields(manifest, environment, account_full, account_summary, platform_id,
+                                      override_summaries, override_creds, override_sessions)
 
 
 def freeze(project_id: str, chosen: list[str] | None, engine: str, *, candidate_cases: list[dict] | None = None,
            candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
-           environment_id: str | None = None, load: dict | None = None) -> tuple[dict, dict]:
+           environment_id: str | None = None, account_id: str | None = None, strict_variables: bool = False,
+           use_active_context: bool = True, load: dict | None = None) -> tuple[dict, dict]:
     with project_lock(project_id), named_lock("input-store", "replay"):
         manifest = capture(project_id, chosen, engine, candidate_cases=candidate_cases, candidate_auth=candidate_auth,
-                           api_only=api_only, inputs=inputs, environment_id=environment_id)
+                           api_only=api_only, inputs=inputs, environment_id=environment_id, account_id=account_id,
+                           strict_variables=strict_variables, use_active_context=use_active_context)
         if load is not None:
             manifest["load"] = copy.deepcopy(load)
         digest = content_hash(manifest)

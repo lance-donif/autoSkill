@@ -48,6 +48,7 @@ from .load_testing import register as register_load_testing
 from .native_tools import register as register_native_tools
 from .project_materials import register as register_project_materials
 from .project_settings import register as register_project_settings
+from .project_settings import session_summary_for_project
 from .sync import register as register_sync
 from .ui_assets import mount_ui
 from .workflows import register as register_workflows
@@ -325,8 +326,12 @@ def _register_http_handlers(app: FastAPI, port: int) -> None:
             status = 409
         elif structured_route and code in ("not_found", "knowledge_not_found"):
             status = 404
-        return JSONResponse({"detail": str(error), "error": str(error), "code": code,
-                             "details": getattr(error, "details", {})}, status_code=status)
+        payload = {"detail": str(error), "error": str(error), "code": code,
+                   "details": getattr(error, "details", {})}
+        if isinstance(error, execution_inputs.MissingVariablesError):
+            payload["missing_variables"] = error.missing_variables
+            payload["by_case"] = error.by_case
+        return JSONResponse(payload, status_code=status)
 
 
 def _identity_header(request: Request, name: str) -> str | None:
@@ -421,8 +426,8 @@ def _register_project_routes(app: FastAPI, state: dict) -> None:
 
     @app.get("/api/projects/{project_id}")
     def project(project_id: str):
-        info = projects.get(project_id)
-        info["session"] = sessions.summary(project_id)
+        info = projects.get(project_id, include_passwords=True, include_shared=True)
+        info["session"] = session_summary_for_project(project_id, info)
         info["credentials"] = projects.credentials(project_id)  # plain text: the settings page shows and edits them
         return info
 
@@ -432,15 +437,25 @@ def _register_project_routes(app: FastAPI, state: dict) -> None:
         return projects.update(project_id, name=body.get("name"), category=body.get("category"),
                                base_url=body.get("base_url"), environments=body.get("environments"),
                                active_environment_id=body.get("active_environment_id"),
+                               active_account_id=body.get("active_account_id"),
                                allowed_origins=body.get("allowed_origins"), approvals=body.get("approvals"),
                                timeout_seconds=body.get("timeout_seconds"),
                                page_load_seconds=body.get("page_load_seconds"),
                                ignore_https_errors=body.get("ignore_https_errors"))
 
     @app.delete("/api/projects/{project_id}/session")
-    def forget_session(project_id: str):
+    def forget_session(project_id: str, environment_id: str | None = None, account_id: str | None = None):
         projects.path(project_id)
-        return {"cleared": sessions.clear(project_id)}
+        info = projects.get(project_id)
+        env = info.get("environment") or {}
+        acc = info.get("account") or {}
+        env_id = environment_id if environment_id is not None else str(env.get("id") or "")
+        acc_id = account_id if account_id is not None else str(acc.get("id") or "")
+        platform_id = str(acc.get("platform_id") or env.get("platform_id") or "")
+        cleared = sessions.clear(project_id, platform_id=platform_id, environment_id=env_id, account_id=acc_id)
+        if not cleared and (platform_id or acc_id):
+            cleared = sessions.clear(project_id)
+        return {"cleared": cleared}
 
     @app.get("/api/projects/{project_id}/cases/{case_id}")
     def case(project_id: str, case_id: str):
@@ -518,22 +533,63 @@ def _register_run_creation_route(app: FastAPI) -> None:
     """Register run creation route in their original order."""
     @app.post("/api/runs")
     async def start_runs(request: Request):
-        """Queue runs: one project, or a batch across projects. Each item is {project_id, case_ids?}."""
+        """Queue runs: one project, or a batch across projects. Each item is {project_id, case_ids?, environment_id?, account_id?, inputs?}."""
         body = await request.json()
         engine = body.get("engine", "playwright")
-        items = body.get("items") or [{"project_id": body.get("project_id"), "case_ids": body.get("case_ids")}]
+        items = body.get("items") or [{
+            "project_id": body.get("project_id"),
+            "case_ids": body.get("case_ids"),
+            "environment_id": body.get("environment_id"),
+            "account_id": body.get("account_id"),
+            "inputs": body.get("inputs"),
+        }]
         batch = db.new_id("batch") if len(items) > 1 else None
         created, skipped = [], []
+        first_error: ValueError | None = None
         for item in items:
             try:
-                created.append(runner.create(item["project_id"], item.get("case_ids") or None, engine, batch_id=batch,
-                                             headed=body.get("headed")))
+                created.append(runner.create(
+                    item["project_id"],
+                    item.get("case_ids") or None,
+                    engine,
+                    batch_id=batch,
+                    headed=body.get("headed"),
+                    environment_id=item.get("environment_id") or None,
+                    account_id=item.get("account_id") or None,
+                    inputs=item.get("inputs"),
+                    strict_variables=True,
+                ))
+            except execution_inputs.MissingVariablesError as error:
+                if first_error is None:
+                    first_error = error
+                skipped.append({
+                    "project_id": item.get("project_id"),
+                    "reason": str(error),
+                    "code": error.code,
+                    "missing_variables": error.missing_variables,
+                    "by_case": error.by_case,
+                })
             except ValueError as error:
+                if first_error is None:
+                    first_error = error
                 skipped.append({"project_id": item.get("project_id"), "reason": str(error)})
         if not created:
-            raise ValueError(skipped[0]["reason"] if skipped else "没有可运行的用例")
-        return {"batch_id": batch, "runs": [{"id": r["id"], "project_id": r["project_id"], "total": r["total"]} for r in created],
-                "skipped": skipped}
+            if first_error is not None:
+                raise first_error
+            raise ValueError("没有可运行的用例")
+        return {
+            "batch_id": batch,
+            "runs": [{
+                "id": r["id"],
+                "project_id": r["project_id"],
+                "total": r["total"],
+                "environment_id": r.get("environment_id", ""),
+                "environment_name": r.get("environment_name", ""),
+                "account_id": r.get("account_id", ""),
+                "account_label": r.get("account_label", ""),
+            } for r in created],
+            "skipped": skipped,
+        }
 
 
 def _rerun_case_ids(run: dict, body: dict) -> list[str]:
@@ -609,7 +665,9 @@ def _register_run_detail_routes(app: FastAPI) -> None:
         manifest = await asyncio.to_thread(execution_inputs.load, run) if run.get("input_manifest") else {}
         created = await asyncio.to_thread(runner.create, run["project_id"], kept, body.get("engine") or run["engine"],
                                           headed=body.get("headed"), session_id=run["session_id"], plan_path=run.get("plan_path"),
-                                          inputs=manifest.get("inputs"), api_only=manifest.get("api_only", False))
+                                          inputs=manifest.get("inputs"), api_only=manifest.get("api_only", False),
+                                          environment_id=run.get("environment_id") or None,
+                                          account_id=run.get("account_id") or None)
         return {"id": created["id"], "total": created["total"], "dropped": len(case_ids) - len(kept)}
 
     @app.get("/api/runs/{run_id}/files/{name}")

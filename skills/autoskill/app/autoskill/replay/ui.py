@@ -15,8 +15,9 @@ from .. import execution_inputs, paths, secrets
 from . import ir
 
 # Failure categories shown in the dashboard.
-LOCATOR, ASSERTION, TIMEOUT, BLOCKED_ORIGIN, ENVIRONMENT, SECRET = (
+LOCATOR, ASSERTION, TIMEOUT, BLOCKED_ORIGIN, ENVIRONMENT, SECRET, MISSING_VARIABLE, ENTRY_NOT_FOUND = (
     "locator_not_found", "assertion_failed", "timeout", "unauthorized_origin", "environment", "missing_secret",
+    "missing_variable", "entry_not_found",
 )
 POLL = 0.1
 PRIMARY_GRACE = 1.5  # seconds the best locator gets before fallbacks are considered
@@ -27,6 +28,14 @@ class StepError(Exception):
     def __init__(self, category: str, message: str):
         super().__init__(message)
         self.category = category
+
+
+def _require_resolved(value):
+    """Never send an unexpanded {{variable}} placeholder to the browser under test."""
+    missing = ir.unresolved_variables(value)
+    if missing:
+        raise StepError(MISSING_VARIABLE, f"缺少变量 {{{{{missing[0]}}}}}：请核对当前环境变量、运行参数及前置用例的提取结果")
+    return value
 
 
 def check_cancel(driver) -> None:
@@ -58,9 +67,10 @@ def _recorded_field(candidates: list[dict]):
 
 def choose_locator(driver, step: dict, timeout: float, need: bool = True):
     """Return (locator, index) of the first candidate that matches; index > 0 means a fallback was used."""
-    candidates = ir.expand(ir.locators(step))
+    candidates = _require_resolved(ir.expand(ir.locators(step)))
     if "context" in step:
-        candidates = [{**candidate, "context": ir.expand(step["context"])} for candidate in candidates]
+        expanded_context = _require_resolved(ir.expand(step["context"]))
+        candidates = [{**candidate, "context": expanded_context} for candidate in candidates]
     if not candidates:
         return None, 0
     field = _recorded_field(candidates)
@@ -140,7 +150,7 @@ def evaluate(driver, step: dict, locator) -> tuple[bool, object]:
 
 def _prepare_assertion(step: dict) -> dict:
     """Resolve runtime expectations before polling; configuration errors are not business failures."""
-    step = {**step, "expected": secrets.resolve(ir.expand(step.get("expected", True)))}
+    step = {**step, "expected": secrets.resolve(_require_resolved(ir.expand(step.get("expected", True))))}
     if step["assertion"] in ("count", "min_count") and isinstance(step["expected"], str):
         if not step["expected"].isdigit():
             raise ValueError("count 断言的动态期望必须是非负整数")
@@ -239,12 +249,12 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
     if op.startswith("tab_"):
         tab_step = dict(step)
         if op == "tab_new":
-            tab_step["url"] = ir.absolute_url(ir.expand(step["url"]), base_url, rebase)
+            tab_step["url"] = ir.absolute_url(_require_resolved(ir.expand(step["url"])), base_url, rebase)
             ir.check_origin(tab_step["url"], allowed)
         driver.tab_action(tab_step, timeout)
         return False
     if op == "goto":
-        url = ir.absolute_url(ir.expand(step["url"]), base_url, rebase)
+        url = ir.absolute_url(_require_resolved(ir.expand(step["url"])), base_url, rebase)
         ir.check_origin(url, allowed)
         navigate(driver.goto, url)
         return False
@@ -258,7 +268,7 @@ def perform(driver, step: dict, base_url: str, allowed: list[str], timeout: floa
             _settle_focus(driver, step["focus_hint"], timeout)
         driver.press(locator, step["key"])
     elif op in ("fill", "type", "select"):
-        driver.act(locator, op, secrets.resolve(ir.expand(step["value"])))
+        driver.act(locator, op, secrets.resolve(_require_resolved(ir.expand(step["value"]))))
     elif op == "captcha":
         from .. import captcha
 
@@ -337,20 +347,112 @@ def run_setup(driver, stages: list[dict], config: dict, evidence_dir: Path, scre
     return receipts
 
 
-def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_name: str) -> dict:
+def _entry_active(entry: dict | None) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    mode = str(entry.get("mode") or "direct").strip()
+    if mode in ("redirect", "nav"):
+        return True
+    return any(entry.get(key) for key in ("target_url", "verify_url_contains", "verify_locators"))
+
+
+def _entry_nav_locators(entry: dict) -> list[dict]:
+    if entry.get("nav_locators"):
+        return _require_resolved(ir.expand(entry["nav_locators"]))
+    nav_label = str(entry.get("nav_label") or "").strip()
+    if not nav_label:
+        return []
+    label = str(_require_resolved(ir.expand(nav_label)))
+    return [
+        {"by": "role", "role": "link", "name": label},
+        {"by": "role", "role": "button", "name": label},
+        {"by": "text", "value": label},
+    ]
+
+
+def _verify_entry_target(driver, entry: dict, timeout: float) -> None:
+    expected_fragment = str(entry.get("verify_url_contains") or "").strip()
+    if expected_fragment:
+        fragment = str(_require_resolved(ir.expand(expected_fragment)))
+        deadline = time.monotonic() + timeout
+        while True:
+            check_cancel(driver)
+            current = str(driver.url() or "")
+            if fragment in current:
+                break
+            if time.monotonic() >= deadline:
+                raise StepError(ENTRY_NOT_FOUND, f"找不到项目入口：当前页面地址「{current}」未包含预期标识「{fragment}」")
+            time.sleep(POLL)
+    verify_locators = entry.get("verify_locators") or []
+    if verify_locators:
+        candidates = _require_resolved(ir.expand(verify_locators))
+        try:
+            choose_locator(driver, {"locators": candidates}, timeout, need=True)
+        except StepError as error:
+            if error.category == "cancelled":
+                raise
+            names = " / ".join(ir.describe_locator(c) for c in candidates)
+            raise StepError(ENTRY_NOT_FOUND, f"找不到项目入口：目标页面未找到核对元素（{names}）") from None
+
+
+def _enter_project_entry(driver, entry: dict, config: dict, steps: list, timeout: float) -> bool:
+    """Navigate through redirect or platform nav entry and verify the target project loaded."""
+    mode = str(entry.get("mode") or "direct").strip()
+    base_url = config.get("base_url", "")
+    allowed = list(config.get("allowed_origins", []))
+    rebase = (config.get("_environment") or {}).get("recorded_base_url") or None
+    entry_timeout = min(timeout, 5.0)
+    navigated = False
+    if mode == "nav":
+        home = str(entry.get("login_url") or "").strip() or base_url
+        if home:
+            home_url = ir.absolute_url(_require_resolved(ir.expand(home)), base_url, rebase)
+            ir.check_origin(home_url, allowed)
+            navigate(driver.goto, home_url)
+            navigated = True
+        candidates = _entry_nav_locators(entry)
+        if candidates:
+            label = str(entry.get("nav_label") or "").strip() or ir.describe_locator(candidates[0])
+            clock = time.monotonic()
+            row = {"index": len(steps), "text": f"进入项目入口「{label}」", "status": "running", "ms": 0, "entry": True}
+            steps.append(row)
+            try:
+                locator, _ = choose_locator(driver, {"locators": candidates}, entry_timeout, need=True)
+            except StepError as error:
+                row.update(status="failed", ms=round((time.monotonic() - clock) * 1000))
+                if error.category == "cancelled":
+                    raise
+                raise StepError(ENTRY_NOT_FOUND, f"找不到项目入口：未在平台导航中找到「{label}」") from None
+            driver.act(locator, "click", None)
+            row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
+            navigated = True
+    elif entry.get("target_url"):
+        dest = ir.absolute_url(_require_resolved(ir.expand(entry["target_url"])), base_url, rebase)
+        ir.check_origin(dest, allowed)
+        clock = time.monotonic()
+        row = {"index": len(steps), "text": f"进入项目入口 {dest}", "status": "running", "ms": 0, "entry": True}
+        steps.append(row)
+        navigate(driver.goto, dest)
+        row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
+        navigated = True
+    _verify_entry_target(driver, entry, entry_timeout)
+    return navigated
+
+
+def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_name: str, *, entry: dict | None = None) -> dict:
     """Replay optional setup, then judge only this case's own actions and assertions."""
     automation = case.get("extensions", {}).get("automation")
     setup = automation.get("setup_cases") if isinstance(automation, dict) else None
     if not setup:
-        return _run_flow(driver, automation, config, evidence_dir, screenshot_name)
+        return _run_flow(driver, automation, config, evidence_dir, screenshot_name, entry=entry)
     try:
         ir.validate(automation)
     except ValueError:
-        return _run_flow(driver, automation, config, evidence_dir, screenshot_name)
+        return _run_flow(driver, automation, config, evidence_dir, screenshot_name, entry=entry)
     receipts = run_setup(driver, setup, config, evidence_dir, screenshot_name)
     last = receipts[-1]
     if last["status"] == "Pass":
-        outcome = _run_flow(driver, automation, config, evidence_dir, screenshot_name, keep_page=True)
+        outcome = _run_flow(driver, automation, config, evidence_dir, screenshot_name, keep_page=True, entry=entry)
     else:
         cancelled = last["status"] == "Cancelled"
         outcome = {"status": "Cancelled" if cancelled else "Blocked", "actual": "",
@@ -370,7 +472,7 @@ def run_case(driver, case: dict, config: dict, evidence_dir: Path, screenshot_na
 def _enter_page(driver, start_url: str, allowed: list[str], steps: list, *, keep_page: bool, setup_stage: bool) -> None:
     url = driver.url() if keep_page else start_url
     ir.check_origin(url, allowed)
-    row = {"index": 0, "text": ("接续 " if keep_page else "打开 ") + url, "status": "running", "ms": 0}
+    row = {"index": len(steps), "text": ("接续 " if keep_page else "打开 ") + url, "status": "running", "ms": 0}
     steps.append(row)
     if not setup_stage:
         execution_inputs.mark_target_started()
@@ -383,8 +485,31 @@ def _enter_page(driver, start_url: str, allowed: list[str], steps: list, *, keep
     row.update(status="done", ms=round((time.monotonic() - clock) * 1000))
 
 
+def _same_url(left: str, right: str) -> bool:
+    return left.rstrip("/") == right.rstrip("/")
+
+
+def _prepare_entry_and_enter(driver, start_url: str, config: dict, steps: list, timeout: float, *,
+                             keep_page: bool, stop_on_failed_check: bool, entry: dict | None) -> bool:
+    """Handle pre-entry navigation, target entry, and post-entry verification; return whether to capture a screenshot."""
+    allowed = list(config.get("allowed_origins", []))
+    active_entry = entry if not stop_on_failed_check and _entry_active(entry) else None
+    entry_mode = str(active_entry.get("mode") or "direct").strip() if active_entry else "direct"
+    capture_shot = False
+    if active_entry and (entry_mode in ("nav", "redirect") or active_entry.get("target_url")):
+        capture_shot = True
+        navigated = _enter_project_entry(driver, active_entry, config, steps, timeout)
+        if navigated and _same_url(str(driver.url() or ""), start_url):
+            keep_page = True
+    _enter_page(driver, start_url, allowed, steps, keep_page=keep_page, setup_stage=stop_on_failed_check)
+    if active_entry and entry_mode == "direct" and not active_entry.get("target_url"):
+        capture_shot = True
+        _verify_entry_target(driver, active_entry, min(timeout, 5.0))
+    return capture_shot
+
+
 def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_name: str, *,
-              keep_page: bool = False, stop_on_failed_check: bool = False) -> dict:
+              keep_page: bool = False, stop_on_failed_check: bool = False, entry: dict | None = None) -> dict:
     """Run a flow inside the browser already owned by the caller."""
     timeout = float(config.get("timeout_seconds", 20))
     allowed = list(config.get("allowed_origins", []))
@@ -394,15 +519,18 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
     outcome = {"status": "Blocked", "actual": "", "reason": "", "category": "", "fallbacks": 0, "screenshots": []}
     started = time.monotonic()
     acted = False
+    capture_shot = False
     try:
         check_cancel(driver)
         ir.validate(automation)
-        _enter_page(driver, ir.absolute_url(ir.expand(automation["start_url"]), base_url, rebase), allowed, steps,
-                    keep_page=keep_page, setup_stage=stop_on_failed_check)
+        start_url = ir.absolute_url(_require_resolved(ir.expand(automation["start_url"])), base_url, rebase)
+        capture_shot = bool(not stop_on_failed_check and _entry_active(entry))
+        _prepare_entry_and_enter(driver, start_url, config, steps, timeout,
+                                 keep_page=keep_page, stop_on_failed_check=stop_on_failed_check, entry=entry)
         acted = True
-        for index, step in enumerate(automation.get("actions", []), 1):
+        for step in automation.get("actions", []):
             check_cancel(driver)
-            row = {"index": index, "text": ir.describe(step), "status": "running", "ms": 0}
+            row = {"index": len(steps), "text": ir.describe(step), "status": "running", "ms": 0}
             steps.append(row)
             clock = time.monotonic()
             try:
@@ -424,7 +552,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
                 check_cancel(driver)
                 if step.get("tabs"):
                     change = {**step["tabs"], "opened": [
-                        {**item, "url": ir.absolute_url(ir.expand(item["url"]), base_url, rebase)} if item.get("url") else item
+                        {**item, "url": ir.absolute_url(_require_resolved(ir.expand(item["url"])), base_url, rebase)} if item.get("url") else item
                         for item in step["tabs"].get("opened", [])]}
                     driver.sync_tabs(change, float(config.get("page_load_seconds", 90)))
                 ir.check_origin(driver.url(), allowed)
@@ -461,7 +589,7 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
             outcome.update(status="Fail", actual="动作未能完成", reason=message, category=category)
         else:
             outcome.update(status="Blocked", reason=message, category=category)
-    if acted:
+    if acted or capture_shot:
         _screenshot(driver, evidence_dir, screenshot_name, outcome)
     definition = automation if isinstance(automation, dict) else {}
     declared = any(isinstance(s, dict) and "assertion" in s for s in (definition.get("actions") or [])) or bool(definition.get("assertions"))
@@ -469,6 +597,6 @@ def _run_flow(driver, automation, config: dict, evidence_dir: Path, screenshot_n
     verified = (declared and independent) or (not declared and bool(steps) and all(step["status"] == "done" for step in steps))
     outcome.update(verification="verified" if verified else "unverified",
                    business_status=outcome["status"] if verified and outcome["status"] in ("Pass", "Fail") else "Unverified",
-                   target_started=bool(steps), steps=steps, assertions=assertions,
+                   target_started=any(not step.get("entry") for step in steps), steps=steps, assertions=assertions,
                    duration_ms=round((time.monotonic() - started) * 1000))
     return outcome

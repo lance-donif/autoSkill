@@ -10,7 +10,7 @@ import uuid
 from functools import wraps
 from pathlib import Path
 
-from . import db, paths, secrets
+from . import db, paths, platform_accounts, secrets
 from .core import store
 from .locking import named_lock, project_lock
 from .replay import ir
@@ -18,6 +18,9 @@ from .replay import ir
 ID = re.compile(r"[a-z0-9][a-z0-9-]{0,47}")
 ENV_ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,47}")
 VARIABLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+AUTH_MODES = ("none", "account_password")
+ENTRY_MODES = ("direct", "redirect", "nav")
+_ENV_EXTENDED_KEYS = ("login_required", "auth_mode", "platform_id", "platform_name", "entry", "account_ids", "default_account_id")
 
 
 def origin_address(value: str, label: str = "目标地址") -> str:
@@ -45,31 +48,154 @@ def _variables(value) -> dict:
     return result
 
 
+def _default_entry() -> dict:
+    return {
+        "mode": "direct",
+        "login_url": "",
+        "target_url": "",
+        "nav_label": "",
+        "nav_locators": [],
+        "verify_url_contains": "",
+        "verify_locators": [],
+    }
+
+
+def _normalize_entry(value, where: str) -> dict:
+    if value is None:
+        return _default_entry()
+    if not isinstance(value, dict):
+        raise ValueError(f"{where}的入口配置必须是 JSON 对象")
+    mode = str(value.get("mode") or "direct").strip()
+    if mode not in ENTRY_MODES:
+        raise ValueError(f"{where}的入口模式只能是 direct、redirect 或 nav")
+    nav_locators = value.get("nav_locators") if "nav_locators" in value else []
+    verify_locators = value.get("verify_locators") if "verify_locators" in value else []
+    if not isinstance(nav_locators, list) or not isinstance(verify_locators, list):
+        raise ValueError(f"{where}的入口定位必须是数组")
+    for locator in nav_locators:
+        ir._check_locator(locator, f"{where}导航入口")
+    for locator in verify_locators:
+        ir._check_locator(locator, f"{where}核对元素")
+    return {
+        "mode": mode,
+        "login_url": str(value.get("login_url") or "").strip(),
+        "target_url": str(value.get("target_url") or "").strip(),
+        "nav_label": str(value.get("nav_label") or "").strip(),
+        "nav_locators": copy.deepcopy(nav_locators),
+        "verify_url_contains": str(value.get("verify_url_contains") or "").strip(),
+        "verify_locators": copy.deepcopy(verify_locators),
+    }
+
+
+def _normalize_account_ids(value, where: str) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError(f"{where}的 account_ids 必须是数组")
+    result = []
+    for item in value:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        if not platform_accounts.ID_RE.fullmatch(text):
+            raise ValueError(f"{where}的账号标识格式不正确：{text}")
+        if text not in result:
+            result.append(text)
+    return result
+
+
+def _normalize_environment(item: dict, number: int) -> dict:
+    if not isinstance(item, dict):
+        raise ValueError(f"第 {number} 个环境必须是对象")
+    identity = item.get("id") or f"env-{number}"
+    if not isinstance(identity, str) or not ENV_ID.fullmatch(identity):
+        raise ValueError("环境标识只能使用小写字母、数字、短横线和下划线")
+    name = str(item.get("name") or "").strip()
+    if not name:
+        raise ValueError(f"第 {number} 个环境需要填写名称")
+    base_url = str(item.get("base_url") or "").strip()
+    where = f"环境「{name}」"
+    record = {
+        "id": identity,
+        "name": name,
+        "base_url": origin_address(base_url, f"{where}的地址") if base_url else "",
+        "variables": _variables(item.get("variables")),
+        "is_default": bool(item.get("is_default")),
+    }
+    if any(key in item for key in _ENV_EXTENDED_KEYS):
+        login_required = bool(item.get("login_required", False))
+        auth_mode = str(item.get("auth_mode") or ("account_password" if login_required else "none")).strip()
+        if auth_mode not in AUTH_MODES:
+            raise ValueError(f"{where}的登录方式只能是 none 或 account_password")
+        platform_id = str(item.get("platform_id") or "").strip()
+        if platform_id and not platform_accounts.ID_RE.fullmatch(platform_id):
+            raise ValueError(f"{where}的平台标识格式不正确")
+        platform_name = str(item.get("platform_name") or "").strip()
+        account_ids = _normalize_account_ids(item.get("account_ids"), where)
+        default_account_id = str(item.get("default_account_id") or "").strip()
+        if default_account_id and default_account_id not in account_ids:
+            raise ValueError(f"{where}的默认账号必须在账号列表中")
+        record.update({
+            "login_required": login_required,
+            "auth_mode": auth_mode,
+            "platform_id": platform_id,
+            "platform_name": platform_name,
+            "entry": _normalize_entry(item.get("entry"), where),
+            "account_ids": account_ids,
+            "default_account_id": default_account_id,
+        })
+    return record
+
+
 def _environments(value) -> list[dict]:
     if not isinstance(value, list):
         raise ValueError("环境必须是对象数组")
     result, seen = [], set()
     for number, item in enumerate(value, 1):
-        if not isinstance(item, dict):
-            raise ValueError(f"第 {number} 个环境必须是对象")
-        identity = item.get("id") or f"env-{number}"
-        if not isinstance(identity, str) or not ENV_ID.fullmatch(identity):
-            raise ValueError("环境标识只能使用小写字母、数字、短横线和下划线")
-        if identity in seen:
-            raise ValueError(f"环境标识 {identity} 重复")
-        seen.add(identity)
-        name = str(item.get("name") or "").strip()
-        if not name:
-            raise ValueError(f"第 {number} 个环境需要填写名称")
-        base_url = str(item.get("base_url") or "").strip()
-        result.append({"id": identity, "name": name, "base_url": origin_address(base_url, f"环境「{name}」的地址") if base_url else "",
-                       "variables": _variables(item.get("variables")), "is_default": bool(item.get("is_default"))})
+        record = _normalize_environment(item, number)
+        if record["id"] in seen:
+            raise ValueError(f"环境标识 {record['id']} 重复")
+        seen.add(record["id"])
+        result.append(record)
     if sum(1 for item in result if item["is_default"]) > 1:
         raise ValueError("只能有一个默认环境")
     return result
 
 
-def environment_of(cfg: dict, environment_id: str | None = None) -> dict | None:
+def environment_view(env: dict, *, include_passwords: bool = False, include_shared: bool = False) -> dict:
+    """Return one environment with normalized platform, entry and account fields."""
+    login_required = bool(env.get("login_required", False))
+    auth_mode = str(env.get("auth_mode") or ("account_password" if login_required else "none"))
+    platform_id = str(env.get("platform_id") or "")
+    platform = platform_accounts.get_platform(platform_id) if platform_id else None
+    platform_name = str(env.get("platform_name") or (platform["name"] if platform else ""))
+    account_ids = list(env.get("account_ids") or [])
+    default_account_id = str(env.get("default_account_id") or "")
+    accounts = platform_accounts.resolve_accounts(
+        account_ids,
+        include_password=include_passwords,
+        include_shared=include_shared,
+        environment_name=str(env.get("name") or ""),
+        platform_name=platform_name,
+    )
+    return {
+        "id": env["id"],
+        "name": env["name"],
+        "base_url": env.get("base_url", ""),
+        "variables": copy.deepcopy(env.get("variables") or {}),
+        "is_default": bool(env.get("is_default")),
+        "login_required": login_required,
+        "auth_mode": auth_mode,
+        "platform_id": platform_id,
+        "platform_name": platform_name,
+        "entry": _normalize_entry(env.get("entry"), f"环境「{env.get('name') or env['id']}」"),
+        "account_ids": account_ids,
+        "default_account_id": default_account_id,
+        "accounts": accounts,
+    }
+
+
+def environment_of(cfg: dict, environment_id: str | None = None, *, use_active: bool = True) -> dict | None:
     """The explicitly selected, active or default environment; a project without one keeps its address."""
     environments = [item for item in cfg.get("environments") or [] if isinstance(item, dict) and item.get("id")]
     if environment_id:
@@ -77,7 +203,7 @@ def environment_of(cfg: dict, environment_id: str | None = None) -> dict | None:
         if found is None:
             raise ValueError(f"环境 {environment_id} 不存在")
         return copy.deepcopy(found)
-    keys = [cfg.get("active_environment_id"), *[item["id"] for item in environments if item.get("is_default")]]
+    keys = [*([] if not use_active else [cfg.get("active_environment_id")]), *[item["id"] for item in environments if item.get("is_default")]]
     for key in keys:
         found = next((item for item in environments if item["id"] == key), None)
         if found is not None:
@@ -85,13 +211,51 @@ def environment_of(cfg: dict, environment_id: str | None = None) -> dict | None:
     return None
 
 
+def account_of(cfg: dict, environment: dict | None, account_id: str | None = None, *,
+               use_active: bool = True, include_password: bool = True) -> dict | None:
+    """Resolve the selected, active or default platform account for an environment."""
+    if account_id is not None and str(account_id).strip():
+        chosen_id = str(account_id).strip()
+        account = platform_accounts.get_account(chosen_id, include_password=include_password)
+        if account is None:
+            raise ValueError(f"账号 {chosen_id} 不存在")
+        return account
+    if environment is None or not environment.get("login_required"):
+        return None
+    env_ids = [item for item in (environment.get("account_ids") or []) if isinstance(item, str) and item]
+    candidates: list[str] = []
+    if use_active:
+        active = str(cfg.get("active_account_id") or "").strip()
+        if active and (not env_ids or active in env_ids):
+            candidates.append(active)
+    default_id = str(environment.get("default_account_id") or "").strip()
+    if default_id and default_id not in candidates:
+        candidates.append(default_id)
+    for item in env_ids:
+        if item not in candidates:
+            candidates.append(item)
+    for candidate in candidates:
+        account = platform_accounts.get_account(candidate, include_password=include_password)
+        if account is not None:
+            return account
+    return None
+
+
 def with_environment(cfg: dict, environment: dict | None) -> dict:
     """Freeze execution configuration: the selected address and variables, never the live catalog."""
-    frozen = copy.deepcopy({key: value for key, value in cfg.items() if key not in ("environments", "active_environment_id")})
+    frozen = copy.deepcopy({key: value for key, value in cfg.items() if key not in ("environments", "active_environment_id", "active_account_id")})
     if environment is not None:
         frozen["base_url"] = environment.get("base_url") or frozen.get("base_url", "")
-        frozen["_environment"] = {"id": environment["id"], "name": environment["name"], "variables": copy.deepcopy(environment.get("variables") or {}),
-                                  "recorded_base_url": cfg.get("base_url") or ""}
+        env_meta = {
+            "id": environment["id"],
+            "name": environment["name"],
+            "variables": copy.deepcopy(environment.get("variables") or {}),
+            "recorded_base_url": cfg.get("base_url") or "",
+        }
+        for key in ("login_required", "auth_mode", "platform_id", "platform_name", "entry"):
+            if key in environment:
+                env_meta[key] = copy.deepcopy(environment[key])
+        frozen["_environment"] = env_meta
     return frozen
 
 
@@ -241,10 +405,27 @@ def _set_base_url(cfg: dict, project_id: str, value) -> None:
     cfg["allowed_origins"] = sorted({origin, *[item for item in cfg.get("allowed_origins", []) if item]}) if origin else []
 
 
+def _reconcile_active_account(cfg: dict) -> None:
+    env = environment_of(cfg)
+    active = str(cfg.get("active_account_id") or "").strip()
+    if not env or not env.get("login_required"):
+        if not active:
+            cfg.pop("active_account_id", None)
+        return
+    env_ids = list(env.get("account_ids") or [])
+    if active and env_ids and active not in env_ids:
+        default_id = str(env.get("default_account_id") or "").strip()
+        if default_id:
+            cfg["active_account_id"] = default_id
+        else:
+            cfg.pop("active_account_id", None)
+
+
 def _set_environments(cfg: dict, value) -> None:
     cfg["environments"] = _environments(value)
     if cfg.get("active_environment_id") not in {item["id"] for item in cfg["environments"]}:
         cfg.pop("active_environment_id", None)
+    _reconcile_active_account(cfg)
 
 
 def _set_active_environment(cfg: dict, value) -> None:
@@ -255,11 +436,26 @@ def _set_active_environment(cfg: dict, value) -> None:
         cfg["active_environment_id"] = selected
     else:
         cfg.pop("active_environment_id", None)
+    _reconcile_active_account(cfg)
+
+
+def _set_active_account(cfg: dict, value) -> None:
+    selected = str(value).strip()
+    if not selected:
+        cfg.pop("active_account_id", None)
+        return
+    env = environment_of(cfg)
+    env_ids = list((env or {}).get("account_ids") or [])
+    if env_ids and selected not in env_ids and platform_accounts.get_account(selected, include_password=False) is None:
+        raise ValueError(f"账号 {selected} 不存在")
+    if not env_ids and platform_accounts.get_account(selected, include_password=False) is None:
+        raise ValueError(f"账号 {selected} 不存在")
+    cfg["active_account_id"] = selected
 
 
 @_project_locked
 def update(project_id: str, **fields) -> dict:
-    """Change name, category, target address, environments, extra allowed origins, approvals or timeout."""
+    """Change name, category, target address, environments, active account, extra allowed origins or timeout."""
     folder = path(project_id)
     info, cfg = meta(project_id), config(project_id)
     for key in ("name", "category"):
@@ -273,6 +469,8 @@ def update(project_id: str, **fields) -> dict:
         _set_environments(cfg, fields["environments"])
     if fields.get("active_environment_id") is not None:
         _set_active_environment(cfg, fields["active_environment_id"])
+    if fields.get("active_account_id") is not None:
+        _set_active_account(cfg, fields["active_account_id"])
     if fields.get("allowed_origins") is not None:
         origins = [origin_address(item, f"「{item}」") for item in fields["allowed_origins"]]
         cfg["allowed_origins"] = sorted({cfg["base_url"], *origins} - {""})
@@ -368,17 +566,28 @@ def reindex(project_id: str) -> None:
 
 
 @_project_locked
-def get(project_id: str) -> dict:
+def get(project_id: str, *, include_passwords: bool = False, include_shared: bool = False) -> dict:
     info, cfg, login = meta(project_id), config(project_id), auth(project_id)
     active, known = cases(project_id), credentials(project_id)
-    environment = environment_of(cfg)
+    raw_environments = [item for item in cfg.get("environments") or [] if isinstance(item, dict) and item.get("id")]
+    environments = [environment_view(item, include_passwords=include_passwords, include_shared=include_shared) for item in raw_environments]
+    selected_env = environment_of(cfg)
+    environment = next((item for item in environments if selected_env and item["id"] == selected_env["id"]), None)
+    account = account_of(cfg, selected_env, include_password=include_passwords)
+    if account is not None and include_shared:
+        account = {**account, "shared_projects": platform_accounts.shared_projects_for(account["id"])}
+    active_account_id = str(cfg.get("active_account_id") or "")
+    if not active_account_id and account is not None:
+        active_account_id = str(account.get("id") or "")
     return {
         "id": project_id, "name": info.get("name") or project_id, "category": info.get("category", ""),
         "base_url": cfg.get("base_url", ""), "start_url": info.get("start_url") or cfg.get("base_url", ""),
         "allowed_origins": cfg.get("allowed_origins", []),
-        "environments": cfg.get("environments", []),
+        "environments": environments,
         "active_environment_id": cfg.get("active_environment_id") or (environment or {}).get("id", ""),
+        "active_account_id": active_account_id,
         "environment": environment,
+        "account": account,
         "timeout_seconds": cfg.get("timeout_seconds", 20), "page_load_seconds": cfg.get("page_load_seconds", 90),
         "ignore_https_errors": bool(cfg.get("ignore_https_errors")),
         "cases": {"total": len(active), "ui": sum(c["kind"] == "ui" for c in active),
@@ -485,6 +694,15 @@ def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[s
         item = dict(incoming_item)
         if not item.get("requirement_ids"):
             item["requirement_ids"] = ["REQ-RECORDED"]
+        prior = merged.get(item["id"])
+        extensions = copy.deepcopy(item.get("extensions")) if isinstance(item.get("extensions"), dict) else {}
+        if not isinstance(extensions.get("internal_id"), str) or not extensions["internal_id"].strip():
+            existing_internal = (prior.get("extensions") or {}).get("internal_id") if isinstance(prior, dict) else None
+            extensions["internal_id"] = (
+                existing_internal if isinstance(existing_internal, str) and existing_internal.strip()
+                else f"uid-{uuid.uuid4().hex}"
+            )
+        item["extensions"] = extensions
         merged[item["id"]] = item
     ids = set(merged)
     incoming_ids = {item["id"] for item in incoming}

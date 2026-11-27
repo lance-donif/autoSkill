@@ -7,7 +7,7 @@ import json
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .. import data_refs, db, paths, projects, runner, task_context, task_state
+from .. import data_refs, db, paths, platform_accounts, projects, runner, task_context, task_state
 from ..locking import named_lock
 from .deliveries import ack_delivery, claim_delivery, pending_deliveries, release_delivery, resolve_delivery  # noqa: F401  # Public scheduler delivery API.
 
@@ -104,7 +104,41 @@ def _headed(spec: dict) -> bool:
     return value if type(value) is bool else paths.headed()
 
 
-def _clean(spec: dict) -> dict:
+def _resolve_task_context(project_id: str, spec: dict, *, previous: dict | None = None) -> tuple[str, str]:
+    """Bind a task's environment and account explicitly, defaulting to the project's default item."""
+    cfg = projects.config(project_id)
+    raw_env = spec.get("environment_id")
+    if "environment_id" not in spec or raw_env is None:
+        if previous is not None:
+            env_id = str(previous.get("environment_id") or "")
+        else:
+            default_env = projects.environment_of(cfg, None, use_active=False)
+            env_id = str((default_env or {}).get("id") or "")
+    else:
+        if not isinstance(raw_env, str):
+            raise ValueError("environment_id 必须是文本")
+        env_id = raw_env.strip()
+    env = projects.environment_of(cfg, env_id, use_active=False) if env_id else None
+
+    env_changed = previous is not None and env_id != str(previous.get("environment_id") or "")
+    raw_account = spec.get("account_id")
+    if "account_id" not in spec or raw_account is None:
+        if previous is not None and not env_changed:
+            acc_id = str(previous.get("account_id") or "")
+        elif env and env.get("login_required"):
+            acc_id = str(env.get("default_account_id") or ((env.get("account_ids") or [""])[0]))
+        else:
+            acc_id = ""
+    else:
+        if not isinstance(raw_account, str):
+            raise ValueError("account_id 必须是文本")
+        acc_id = raw_account.strip()
+    if acc_id and platform_accounts.get_account(acc_id, include_password=False) is None:
+        raise ValueError(f"账号 {acc_id} 不存在")
+    return env_id, acc_id
+
+
+def _clean(spec: dict, *, previous: dict | None = None) -> dict:
     title = str(spec.get("title", "")).strip()
     if not title:
         raise ValueError("任务名称不能为空")
@@ -137,11 +171,29 @@ def _clean(spec: dict) -> dict:
     headed = spec.get("headed")
     if headed is not None and type(headed) is not bool:
         raise ValueError("显示浏览器窗口必须是布尔值")
+    environment_id, account_id = _resolve_task_context(spec["project_id"], spec, previous=previous)
     return {"title": title, "engine": engine, "project_id": spec["project_id"], "case_ids": case_ids, "rule": rule,
             "kind": kind, "asset_id": spec.get("asset_id", ""), "parameters": parameters,
             "workflow_id": spec.get("workflow_id", ""), "host": spec.get("host") or "generic", "host_session_id": spec.get("host_session_id") or "", "overlap": overlap,
             "session_id": spec.get("session_id", task_context.session_id()) or "", "plan_path": _plan_path(spec),
-            "headed": None if headed is None else int(headed)}
+            "headed": None if headed is None else int(headed),
+            "environment_id": environment_id, "account_id": account_id}
+
+
+def _task_context_labels(project_id: str, environment_id: str, account_id: str) -> tuple[str, str]:
+    env_name = ""
+    if environment_id:
+        try:
+            env = projects.environment_of(projects.config(project_id), environment_id, use_active=False)
+            env_name = str((env or {}).get("name") or "")
+        except ValueError:
+            env_name = ""
+    acc_label = ""
+    if account_id:
+        acc = platform_accounts.get_account(account_id, include_password=False)
+        if acc:
+            acc_label = str(acc.get("label") or acc.get("username") or account_id)
+    return env_name, acc_label
 
 
 def view(row: dict, *, connection=None, include_state: bool = True) -> dict:
@@ -155,9 +207,13 @@ def view(row: dict, *, connection=None, include_state: bool = True) -> dict:
             saved = connection.execute("SELECT * FROM runs WHERE id=?", (row["last_run_id"],)).fetchone()
             run = dict(saved) if saved else None
         last_state = task_state.run(run, connection=connection) if run else None
+    env_id = str(row.get("environment_id") or "")
+    acc_id = str(row.get("account_id") or "")
+    env_name, acc_label = _task_context_labels(row["project_id"], env_id, acc_id)
     return {**row, "rule": rule, "case_ids": json.loads(row["case_ids"]), "enabled": bool(row["enabled"]),
             "headed": bool(row["headed"]) if row.get("headed") is not None else None, "effective_headed": _headed(row),
-            "parameters": json.loads(row.get("parameters", "{}")), "rule_text": describe(rule), "last_run_state": last_state}
+            "parameters": json.loads(row.get("parameters", "{}")), "rule_text": describe(rule), "last_run_state": last_state,
+            "environment_id": env_id, "environment_name": env_name, "account_id": acc_id, "account_label": acc_label}
 
 
 def _packed(value):
@@ -271,7 +327,7 @@ def update(task_id: str, spec: dict) -> dict:
         expected = spec.get("expected_revision", current["revision"])
         if spec.get("enabled") is False and set(spec) <= {"enabled", "expected_revision", "idempotency_key"}:
             return _update_definition(task_id, spec, {"enabled": 0, "next_due": None, "updated_at": db.now()}, expected)
-        merged = _clean({**current, **spec})
+        merged = _clean({**current, **spec}, previous=current)
         values = {**merged, "updated_at": db.now()}
         enabled = bool(spec.get("enabled", current["enabled"]))
         values["enabled"] = int(enabled)
@@ -303,12 +359,18 @@ def _prepare(task: dict, trigger: str) -> dict:
                                       trigger=trigger, task_id=task["id"], session_id=task.get("session_id"), host=task["host"], host_session_id=task["host_session_id"])
         return runner.prepare(task["project_id"], task["case_ids"] or None, task["engine"], trigger=trigger,
                               task_id=task["id"], session_id=task.get("session_id"), plan_path=task.get("plan_path") or None,
-                              headed=_headed(task))
+                              headed=_headed(task), environment_id=task.get("environment_id") or None,
+                              account_id=task.get("account_id") or None, strict_variables=True, use_active_context=False)
     except ValueError as error:
         stamp = db.now()
+        env_id = str(task.get("environment_id") or "")
+        acc_id = str(task.get("account_id") or "")
+        env_name, acc_label = _task_context_labels(task["project_id"], env_id, acc_id)
         return {"id": db.new_id("run"), "project_id": task["project_id"], "engine": task["engine"], "trigger": trigger,
                 "task_id": task["id"], "status": "Blocked", "reason": str(error), "case_ids": task["case_ids"],
                 "total": len(task["case_ids"]) if task["kind"] == "replay" else 0,
+                "environment_id": env_id, "environment_name": env_name,
+                "account_id": acc_id, "account_label": acc_label,
                 "created_at": stamp, "finished_at": stamp}
 
 

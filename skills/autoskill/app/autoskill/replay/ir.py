@@ -96,6 +96,32 @@ def expand(value):
     return value
 
 
+def variable_references(value) -> list[str]:
+    """Return every unique {{name}} placeholder referenced in a nested value, in order."""
+    found: list[str] = []
+
+    def walk(node) -> None:
+        if isinstance(node, str):
+            for match in VARIABLE.finditer(node):
+                name = match[1]
+                if name not in found:
+                    found.append(name)
+        elif isinstance(node, dict):
+            for item in node.values():
+                walk(item)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(value)
+    return found
+
+
+def unresolved_variables(value) -> list[str]:
+    """Find any {{name}} placeholders that remained unexpanded after variable substitution."""
+    return variable_references(value)
+
+
 def locators(step: dict) -> list[dict]:
     """All locator candidates of a step, best first."""
     found = [dict(item) for item in step.get("locators", [])]

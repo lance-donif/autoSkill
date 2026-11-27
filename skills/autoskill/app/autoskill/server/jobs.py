@@ -251,18 +251,22 @@ def start_queued() -> None:
 
     with db.connect() as connection:
         connection.execute("BEGIN")
-        active = connection.execute("SELECT family, project_id FROM runs WHERE status = 'Running'").fetchall()
+        active = connection.execute("SELECT family, project_id, account_lock_key FROM runs WHERE status = 'Running'").fetchall()
         slots = runner.parallel_limit() - len(active)
         if slots <= 0:
             return
         replay_projects = {row["project_id"] for row in active if row["family"] == "replay"}
+        replay_accounts = {row["account_lock_key"] for row in active if row["family"] == "replay" and row["account_lock_key"]}
         candidates = []
-        for row in connection.execute("SELECT id, family, project_id FROM runs WHERE status = 'Queued' "
+        for row in connection.execute("SELECT id, family, project_id, account_lock_key FROM runs WHERE status = 'Queued' "
                                       "AND cancel = 0 AND delete_requested = 0 ORDER BY created_at, rowid"):
             if row["family"] == "replay":
-                if row["project_id"] in replay_projects:
+                lock_key = row["account_lock_key"] or ""
+                if row["project_id"] in replay_projects or (lock_key and lock_key in replay_accounts):
                     continue
                 replay_projects.add(row["project_id"])
+                if lock_key:
+                    replay_accounts.add(lock_key)
             candidates.append(row["id"])
             if len(candidates) == slots:
                 break

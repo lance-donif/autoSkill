@@ -280,8 +280,40 @@ def _counts(items: list[dict]) -> dict:
 
 
 def run_values(row: dict, *, results=None, result_states=None, connection=None) -> dict:
-    """Expose target-case counts using the same current outcomes as result drill-downs."""
-    return task_state.run_values(row, results=results, result_states=result_states, connection=connection)
+    """Expose target-case counts, environment/account context and error-pack availability."""
+    values = task_state.run_values(row, results=results, result_states=result_states, connection=connection)
+    recorded = values.get("recorded_counts") or {}
+    if result_states is not None:
+        blocked = sum(1 for item in result_states if item.get("phase") == "blocked")
+        blocked_unstarted = sum(1 for item in result_states if item.get("phase") == "blocked" and item.get("outcome") == "not_run")
+    elif results is not None:
+        target_rows = [item for item in results if not item.get("prerequisite")]
+        blocked = sum(1 for item in target_rows if item.get("status") == "Blocked")
+        blocked_unstarted = sum(1 for item in target_rows if item.get("status") == "Blocked"
+                                and not (json.loads(item["detail"]) if isinstance(item.get("detail"), str) else (item.get("detail") or {})).get("target_started"))
+    else:
+        blocked = int(recorded.get("blocked") or 0) if row.get("status") != "Cancelled" else 0
+        blocked_unstarted = blocked
+    passed = int(values.get("passed") or 0)
+    failed = int(values.get("failed") or 0)
+    not_run = max(0, int(values.get("not_run") or 0) - blocked_unstarted)
+    total = int(values.get("total") or 0)
+    executed = passed + failed + blocked_unstarted
+    if total > 0:
+        executed = min(total, executed)
+    values["blocked"] = blocked
+    values["not_run"] = not_run
+    values["executed"] = executed
+    values["environment_id"] = str(row.get("environment_id") or "")
+    values["environment_name"] = str(row.get("environment_name") or "")
+    values["account_id"] = str(row.get("account_id") or "")
+    values["account_label"] = str(row.get("account_label") or "")
+    family = row.get("family") or "replay"
+    values["has_error_pack"] = bool(
+        family == "replay"
+        and (failed > 0 or blocked > 0 or int(recorded.get("failed") or 0) > 0 or row.get("status") in ("Fail", "Blocked"))
+    )
+    return values
 
 
 def result_counts(scope: Scope) -> dict:

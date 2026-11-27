@@ -9,10 +9,12 @@ from . import db, execution_inputs, maintenance, native_run, paths, projects, ru
 from .locking import named_lock
 
 _COMMON = {"family", "project_id", "session_id", "trigger", "task_id"}
-_REPLAY = {"case_ids", "engine", "headed", "force_login", "batch_id", "candidate_cases", "plan_path"}
+_REPLAY = {"case_ids", "engine", "headed", "force_login", "batch_id", "candidate_cases", "plan_path",
+           "environment_id", "account_id", "inputs"}
 _NATIVE = {"asset_id", "head", "parameters", "host", "host_session_id"}
 _RUN_FIELDS = ("id", "family", "project_id", "engine", "session_id", "trigger", "task_id", "batch_id", "status",
-               "total", "done", "passed", "failed", "blocked", "current", "reason", "cancel", "created_at", "started_at", "finished_at", "input_hash")
+               "total", "done", "passed", "failed", "blocked", "current", "reason", "cancel", "created_at", "started_at", "finished_at", "input_hash",
+               "environment_id", "environment_name", "account_id", "account_label")
 
 
 class ExecutionRequestError(ValueError):
@@ -61,9 +63,19 @@ def _replay_options(request: dict) -> dict:
     headed, force = request.get("headed"), request.get("force_login", False)
     if (headed is not None and type(headed) is not bool) or type(force) is not bool:
         raise ExecutionRequestError("validation_error", "headed 和 force_login 必须是布尔值；headed 可为 null")
-    return {"case_ids": chosen, "candidate_cases": candidates, "engine": _text(request.get("engine", "playwright"), "engine"),
-            "headed": headed, "force_login": force, "batch_id": _text(request.get("batch_id"), "batch_id", optional=True, empty=True),
-            "plan_path": _text(request.get("plan_path"), "plan_path", optional=True)}
+    options = {"case_ids": chosen, "candidate_cases": candidates, "engine": _text(request.get("engine", "playwright"), "engine"),
+               "headed": headed, "force_login": force, "batch_id": _text(request.get("batch_id"), "batch_id", optional=True, empty=True),
+               "plan_path": _text(request.get("plan_path"), "plan_path", optional=True)}
+    if "environment_id" in request:
+        options["environment_id"] = _text(request.get("environment_id"), "environment_id", optional=True, empty=True)
+    if "account_id" in request:
+        options["account_id"] = _text(request.get("account_id"), "account_id", optional=True, empty=True)
+    if "inputs" in request:
+        inputs = request.get("inputs")
+        if inputs is not None and not isinstance(inputs, dict):
+            raise ExecutionRequestError("validation_error", "inputs 必须是对象或 null")
+        options["inputs"] = inputs
+    return options
 
 
 def _native_options(request: dict) -> dict:

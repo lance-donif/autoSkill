@@ -18,7 +18,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import data_refs, db, execution_inputs, paths, projects, runtime_identity, secrets, sessions, task_context, task_state
+from . import data_refs, db, execution_inputs, paths, platform_accounts, projects, runtime_identity, secrets, sessions, task_context, task_state
 from .core import store
 from .replay import api, ir, ui
 
@@ -33,21 +33,32 @@ def prepare(project_id: str, case_ids: list[str] | None = None, engine: str = "p
             headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
             *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None,
             candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
-            environment_id: str | None = None) -> dict:
+            environment_id: str | None = None, account_id: str | None = None,
+            strict_variables: bool = False, use_active_context: bool = True) -> dict:
     """Validate and freeze execution inputs without writing any database row."""
     if engine not in ENGINES:
         raise ValueError("回放引擎只能是 playwright 或 selenium")
     frozen, manifest = execution_inputs.freeze(project_id, case_ids, engine, candidate_cases=candidate_cases,
                                                candidate_auth=candidate_auth, api_only=api_only, inputs=inputs,
-                                               environment_id=environment_id)
+                                               environment_id=environment_id, account_id=account_id,
+                                               strict_variables=strict_variables, use_active_context=use_active_context)
     chosen = manifest["selected"]
     identity = (task_context.session_id() if session_id is None else session_id) or ""
     with task_context.use_session(identity or None):
         selected_plan = str(plan_folder(plan_path) if plan_path else paths.case_skill())
+    env = manifest.get("environment") or {}
+    acc = manifest.get("account") or {}
+    env_id = str(env.get("id") or "")
+    resolved_account_id = str(acc.get("account_id") or "")
+    platform_id = str(acc.get("platform_id") or env.get("platform_id") or "")
+    lock_key = sessions.account_lock_key(platform_id=platform_id, environment_id=env_id, account_id=resolved_account_id)
     prepared = {"id": db.new_id("run"), "batch_id": batch_id, "project_id": project_id, "engine": engine,
                 "trigger": trigger, "task_id": task_id, "status": "Queued", "case_ids": chosen,
                 "total": len(chosen), "created_at": db.now(), "headed": int(paths.headed() if headed is None else bool(headed)),
-                "force_login": int(force_login), "session_id": identity, "family": "replay", "plan_path": selected_plan, **frozen}
+                "force_login": int(force_login), "session_id": identity, "family": "replay", "plan_path": selected_plan,
+                "environment_id": env_id, "environment_name": str(env.get("name") or ""),
+                "account_id": resolved_account_id, "account_label": str(acc.get("label") or ""),
+                "account_lock_key": lock_key, **frozen}
     if candidate_cases is None:
         from . import plan
 
@@ -121,12 +132,14 @@ def create(project_id: str, case_ids: list[str] | None = None, engine: str = "pl
            headed: bool | None = None, force_login: bool = False, session_id: str | None = None,
            *, candidate_cases: list[dict] | None = None, plan_path: str | Path | None = None,
            candidate_auth: dict | None = None, api_only: bool = False, inputs: dict | None = None,
-           environment_id: str | None = None) -> dict:
+           environment_id: str | None = None, account_id: str | None = None,
+           strict_variables: bool = False, use_active_context: bool = True) -> dict:
     """Validate, freeze and queue a run through the same API used by transactional schedules."""
     projects.reindex(project_id)
     return enqueue(prepare(project_id, case_ids, engine, trigger, task_id, batch_id, headed, force_login, session_id,
                            candidate_cases=candidate_cases, plan_path=plan_path, candidate_auth=candidate_auth,
-                           api_only=api_only, inputs=inputs, environment_id=environment_id))
+                           api_only=api_only, inputs=inputs, environment_id=environment_id, account_id=account_id,
+                           strict_variables=strict_variables, use_active_context=use_active_context))
 
 
 def evidence_dir(run_id: str) -> Path:
@@ -227,18 +240,94 @@ class Session:
                                              for key, value in self.manifest["engine"]["runtime"].items()}
         self.cases = self.manifest["cases"]
         self.auth = self.manifest["auth"]
+        self.environment = self.manifest.get("environment") or None
+        self.account = self.manifest.get("account") or None
+        self.platform = self.manifest.get("platform") or None
+        self.account_credentials = self.manifest.get("_account_credentials") or {}
+        self.override_accounts = self.manifest.get("override_accounts") or {}
         self.api_only = bool(self.manifest.get("api_only"))
         self.force_login = force_login or self.api_only
         self.saved = {} if self.api_only else self.manifest["saved_session"]
+        self._override_sessions = {} if self.api_only else copy.deepcopy(self.manifest.get("override_sessions") or {})
+        self._override_clients: dict[str, object] = {}
+        self._override_logged_api: set[str] = set()
+        self._override_logged_ui: set[str] = set()
+        env_id = str((self.environment or {}).get("id") or "")
+        platform_id = str((self.account or {}).get("platform_id") or (self.environment or {}).get("platform_id") or "")
+        acc_id = str((self.account or {}).get("account_id") or "")
+        self.session_scope = (platform_id, env_id, acc_id)
         self.rand = self.manifest["variables"]["RAND"]
         self.count = 0
+        self.explicit_inputs: dict = copy.deepcopy(self.manifest.get("inputs") or {})
         self.variables: dict = copy.deepcopy(self.manifest["variables"])
         self.driver = None
         self.driver_error = ""
         self.client = api.new_client(self.config, self.saved.get("ui"))
         self.relogged = False
         self.attempts: dict[str, list[dict]] = {}
+        self.case_contexts: dict[str, tuple[dict, dict]] = {}
         self._cancelled = bool(run.get("cancel"))
+
+    def _apply_explicit_inputs(self, target: dict | None = None) -> None:
+        """Preserve highest priority for explicit run inputs over extracted or environment values."""
+        bucket = self.variables if target is None else target
+        if self.explicit_inputs:
+            bucket.update(copy.deepcopy(self.explicit_inputs))
+
+    def _save_scoped_session(self, *, ui: dict | None = None, variables: dict | None = None,
+                             scope: tuple[str, str, str] | None = None) -> None:
+        platform_id, env_id, acc_id = scope if scope is not None else self.session_scope
+        if platform_id or acc_id:
+            sessions.save(self.pid, ui=ui, variables=variables,
+                          platform_id=platform_id, environment_id=env_id, account_id=acc_id)
+        else:
+            sessions.save(self.pid, ui=ui, variables=variables)
+
+    def _env_meta(self) -> dict:
+        return {
+            "id": str((self.environment or {}).get("id") or ""),
+            "name": str((self.environment or {}).get("name") or ""),
+            "base_url": str(self.config.get("base_url") or ""),
+        }
+
+    def _account_runtime_vars(self, account_id: str) -> dict:
+        creds = self.account_credentials.get(account_id) or {}
+        extra = {key: copy.deepcopy(value) for key, value in (creds.get("variables") or {}).items() if value not in (None, "")}
+        if creds.get("username"):
+            extra.setdefault("username", creds["username"])
+        if creds.get("password"):
+            extra.setdefault("password", creds["password"])
+        return extra
+
+    def _effective_auth(self, case: dict) -> tuple[str, dict, tuple[str, str, str] | None, str]:
+        override = (case.get("extensions") or {}).get("auth_override")
+        if not isinstance(override, dict):
+            override = {"mode": "inherit"}
+        mode = str(override.get("mode") or "inherit")
+        if mode == "none":
+            return "none", platform_accounts.summary_for_result(None, mode="none"), None, ""
+        if mode == "account":
+            oid = str(override.get("account_id") or "").strip()
+            if self.account and self.account.get("account_id") == oid:
+                return "account", copy.deepcopy(self.account), self.session_scope, ""
+            summary = self.override_accounts.get(oid)
+            if not summary:
+                return "account", {"mode": "account", "account_id": oid, "label": oid, "username": "", "platform_id": ""}, None, f"用例指定的账号 {oid} 不存在"
+            env_id = str((self.environment or {}).get("id") or "")
+            pid = str(summary.get("platform_id") or (self.environment or {}).get("platform_id") or "")
+            return "account", copy.deepcopy(summary), (pid, env_id, oid), ""
+        if self.account:
+            return "account", copy.deepcopy(self.account), self.session_scope, ""
+        return "inherit", platform_accounts.summary_for_result(None, mode="inherit"), self.session_scope, ""
+
+    def _effective_entry(self, case: dict, auth_mode: str) -> dict | None:
+        case_entry = (case.get("extensions") or {}).get("entry")
+        if isinstance(case_entry, dict):
+            return case_entry
+        if auth_mode == "none":
+            return None
+        env_entry = (self.environment or {}).get("entry")
+        return env_entry if isinstance(env_entry, dict) else None
 
     def cancel_requested(self) -> bool:
         if not self._cancelled:
@@ -248,6 +337,10 @@ class Session:
 
     def close(self) -> None:
         self.client.close()
+        for client in self._override_clients.values():
+            with contextlib.suppress(Exception):
+                client.close()
+        self._override_clients.clear()
         if self.driver:
             if paths.headed():
                 import time
@@ -318,6 +411,7 @@ class Session:
     def api_replay(self, client, case: dict, variables: dict, *, kind: str = "case", managed_session: bool = False) -> dict:
         def replay(_attempt):
             outcome = api.run_case(client, case, self.config, variables)
+            self._apply_explicit_inputs(variables)
             status = (outcome.get("response") or {}).get("status")
             if (managed_session and outcome["category"] == "assertion_failed" and status in (401, 403)
                     and case["assertions"]["status"] not in (401, 403)):
@@ -331,25 +425,37 @@ class Session:
             self.attempt(case, "not_executed", lambda _attempt: outcome)
         return summarize_outcomes(case, self.attempts.get(case["id"], []), outcome)
 
-    def replay(self, case: dict, state: dict | None = None) -> dict:
+    def replay(self, case: dict, state: dict | None = None, *, entry: dict | None = None) -> dict:
         """Replay one UI case in a clean context. A misread captcha is not a defect: try again with a fresh image."""
         actions = case["extensions"]["automation"].get("actions", [])
         for index in range(3 if any(step.get("action") == "captcha" for step in actions) else 1):
             if self.cancel_requested():
                 return cancelled()
             self.driver.reset(state)
-            outcome = self.attempt(case, "captcha_retry" if index else "case", lambda attempt_id:
-                                   ui.run_case(self.driver, case, self.config, evidence_dir(self.run["id"]), self.shot(attempt_id)))
+            outcome = self.attempt(
+                case,
+                "captcha_retry" if index else "case",
+                lambda attempt_id: ui.run_case(
+                    self.driver,
+                    case,
+                    self.config,
+                    evidence_dir(self.run["id"]),
+                    self.shot(attempt_id),
+                    **({"entry": entry} if entry else {}),
+                ),
+            )
             if outcome["status"] != "Fail" or self.cancel_requested():
                 break
         return outcome
 
     # --- login -------------------------------------------------------
-    def ui_login(self, case: dict, force: bool) -> dict:
+    def ui_login(self, case: dict, force: bool, *, saved: dict | None = None,
+                 scope: tuple[str, str, str] | None = None, update_default_client: bool = True) -> dict:
         driver = self.browser()
         if not driver:
             return blocked(self.driver_error, "environment")
-        state = self.saved.get("ui")
+        bucket = self.saved if saved is None else saved
+        state = bucket.get("ui")
         probes = case["extensions"]["automation"].get("assertions", [])
         if state and probes and not force:
             driver.reset(state)
@@ -363,87 +469,170 @@ class Session:
                 return trial
         outcome = self.replay(case)
         if outcome["status"] == "Pass":
-            self.saved["ui"] = driver.storage_state()
-            sessions.save(self.pid, ui=self.saved["ui"])
-            self.client.close()
-            self.client = api.new_client(self.config, self.saved["ui"])
+            bucket["ui"] = driver.storage_state()
+            self._save_scoped_session(ui=bucket["ui"], scope=scope)
+            if update_default_client:
+                self.client.close()
+                self.client = api.new_client(self.config, bucket["ui"])
         return outcome
 
-    def api_login(self, case: dict, force: bool) -> dict:
+    def api_login(self, case: dict, force: bool, *, client=None, variables: dict | None = None,
+                  saved: dict | None = None, scope: tuple[str, str, str] | None = None) -> dict:
         wanted = list(case.get("extensions", {}).get("extract", {}))
-        kept = self.saved.get("variables", {})
+        bucket = self.saved if saved is None else saved
+        target_vars = self.variables if variables is None else variables
+        target_client = self.client if client is None else client
+        kept = bucket.get("variables", {})
         if not force and wanted and all(name in kept for name in wanted):
             probe = self.cases.get(self.auth.get("api_check_case", ""))
             trial = dict(kept)
-            if not probe or self.api_replay(self.client, probe, trial, kind="login_probe", managed_session=True)["status"] == "Pass":
-                self.variables.update({name: kept[name] for name in wanted})
+            if not probe or self.api_replay(target_client, probe, trial, kind="login_probe", managed_session=True)["status"] == "Pass":
+                target_vars.update({name: kept[name] for name in wanted})
+                self._apply_explicit_inputs(target_vars)
                 return self.attempt(case, "session_reuse", lambda _attempt:
                                     {"status": "Pass", "actual": "复用已保存的登录信息", "reason": "", "category": "",
                                      "assertions": [], "duration_ms": 0, "reused": True})
-        outcome = self.api_replay(self.client, case, self.variables, managed_session=True)
+        outcome = self.api_replay(target_client, case, target_vars, managed_session=True)
         if outcome["status"] == "Pass" and wanted:
-            self.saved["variables"] = {name: self.variables[name] for name in wanted}
+            bucket["variables"] = {name: target_vars[name] for name in wanted if name in target_vars}
             if not self.api_only:
-                sessions.save(self.pid, variables=self.saved["variables"])
+                self._save_scoped_session(variables=bucket["variables"], scope=scope)
         return outcome
 
-    def state_variables(self) -> None:
+    def state_variables(self, saved: dict | None = None, variables: dict | None = None) -> None:
         """API variables that live in the browser login (for example a token kept in localStorage)."""
-        stored = {item["name"]: item["value"] for origin in self.saved.get("ui", {}).get("origins", [])
+        bucket = self.saved if saved is None else saved
+        target = self.variables if variables is None else variables
+        stored = {item["name"]: item["value"] for origin in bucket.get("ui", {}).get("origins", [])
                   for item in origin.get("localStorage", [])}
         for name, source in self.auth.get("state_variables", {}).items():
             if source.get("name") in stored:
-                self.variables[name] = stored[source["name"]]
+                target[name] = stored[source["name"]]
+        self._apply_explicit_inputs(target)
 
-    # --- one case ----------------------------------------------------
-    def run_one(self, case: dict) -> dict:
+    def _run_override_api_case(self, case: dict, account_meta: dict, scope: tuple[str, str, str]) -> dict:
         case_id = case["id"]
-        self.count += 1
-        ir.set_rand(f"{self.rand}{self.count}")  # page cases each get their own value; API cases share the run's
-        ir.set_variables(self.variables)  # inputs, extracted values and the environment; never secrets
-        if case["kind"] == "api":
-            if not self.api_only:
-                self.state_variables()
-            if case_id == self.auth.get("api_case"):
-                return self.api_login(case, self.force_login)
-            if not projects.depends_on(case):
-                # A case with no prerequisite is sent without the run's cookies: "rejected when not
-                # signed in" must stay true after a login earlier in the same run. Cookies it sets
-                # are kept for the cases that depend on it.
-                fresh = api.new_client(self.config)
-                try:
-                    outcome = self.api_replay(fresh, case, self.variables)
-                    for cookie in fresh.cookies.jar:
-                        self.client.cookies.jar.set_cookie(cookie)
-                finally:
-                    fresh.close()
-                return outcome
-            login = self.cases.get(self.auth.get("api_case", ""))
-            needs_api_login = login is not None and needs(case_id, login["id"], self.cases)
-            managed_session = needs_api_login or needs(case_id, self.auth.get("ui_case"), self.cases)
-            outcome = self.api_replay(self.client, case, self.variables, managed_session=managed_session)
-            if outcome["category"] == "session_expired" and needs_api_login and not self.relogged and not self.cancel_requested():
-                self.relogged = True
-                if self.api_login(login, force=True)["status"] != "Pass":
-                    return blocked("登录已过期，重新登录没有成功", "session_expired")
-                outcome = self.api_replay(self.client, case, self.variables, kind="relogin_retry", managed_session=True)
-                outcome["relogin"] = True
+        oid = account_meta["account_id"]
+        saved_bucket = self._override_sessions.setdefault(oid, {})
+        client = self._override_clients.setdefault(oid, api.new_client(self.config, saved_bucket.get("ui")))
+        case_vars = {**self.variables, **self._account_runtime_vars(oid), **saved_bucket.get("variables", {})}
+        self._apply_explicit_inputs(case_vars)
+        if not self.api_only:
+            self.state_variables(saved_bucket, case_vars)
+        login = self.cases.get(self.auth.get("api_case", ""))
+        needs_api_login = login is not None and needs(case_id, login["id"], self.cases)
+        if needs_api_login and oid not in self._override_logged_api:
+            login_res = self.api_login(login, self.force_login, client=client, variables=case_vars, saved=saved_bucket, scope=scope)
+            if login_res["status"] != "Pass":
+                return blocked(f"账号「{account_meta['label']}」登录失败：{login_res.get('reason') or login_res['status']}", "session_expired")
+            self._override_logged_api.add(oid)
+        outcome = self.api_replay(client, case, case_vars, managed_session=needs_api_login)
+        if outcome["category"] == "session_expired" and needs_api_login and not self.cancel_requested():
+            if self.api_login(login, force=True, client=client, variables=case_vars, saved=saved_bucket, scope=scope)["status"] != "Pass":
+                return blocked("登录已过期，重新登录没有成功", "session_expired")
+            outcome = self.api_replay(client, case, case_vars, kind="relogin_retry", managed_session=True)
+            outcome["relogin"] = True
+        return outcome
+
+    def _run_api_case(self, case: dict, auth_mode: str, account_meta: dict, scope: tuple[str, str, str] | None) -> dict:
+        case_id = case["id"]
+        if auth_mode == "none":
+            anonymous_vars = {**self.variables}
+            fresh = api.new_client(self.config)
+            try:
+                return self.api_replay(fresh, case, anonymous_vars)
+            finally:
+                fresh.close()
+        if scope is not None and scope != self.session_scope:
+            return self._run_override_api_case(case, account_meta, scope)
+        if not self.api_only:
+            self.state_variables()
+        if case_id == self.auth.get("api_case"):
+            acc_id = account_meta.get("account_id") or ""
+            run_vars = self.variables
+            if acc_id:
+                extra = self._account_runtime_vars(acc_id)
+                for key, value in extra.items():
+                    run_vars.setdefault(key, value)
+                self._apply_explicit_inputs(run_vars)
+            return self.api_login(case, self.force_login)
+        if not projects.depends_on(case):
+            # A case with no prerequisite is sent without the run's cookies: "rejected when not
+            # signed in" must stay true after a login earlier in the same run. Cookies it sets
+            # are kept for the cases that depend on it.
+            fresh = api.new_client(self.config)
+            try:
+                outcome = self.api_replay(fresh, case, self.variables)
+                for cookie in fresh.cookies.jar:
+                    self.client.cookies.jar.set_cookie(cookie)
+            finally:
+                fresh.close()
             return outcome
+        login = self.cases.get(self.auth.get("api_case", ""))
+        needs_api_login = login is not None and needs(case_id, login["id"], self.cases)
+        managed_session = needs_api_login or needs(case_id, self.auth.get("ui_case"), self.cases)
+        outcome = self.api_replay(self.client, case, self.variables, managed_session=managed_session)
+        if outcome["category"] == "session_expired" and needs_api_login and not self.relogged and not self.cancel_requested():
+            self.relogged = True
+            if self.api_login(login, force=True)["status"] != "Pass":
+                return blocked("登录已过期，重新登录没有成功", "session_expired")
+            outcome = self.api_replay(self.client, case, self.variables, kind="relogin_retry", managed_session=True)
+            outcome["relogin"] = True
+        return outcome
+
+    def _run_ui_case(self, case: dict, auth_mode: str, account_meta: dict, scope: tuple[str, str, str] | None) -> dict:
+        case_id = case["id"]
+        entry = self._effective_entry(case, auth_mode)
         if case_id == self.auth.get("ui_case"):
             return self.ui_login(case, self.force_login)
         driver = self.browser()
         if not driver:
             return blocked(self.driver_error, "environment")
+        if auth_mode == "none":
+            return self.replay(case, None, entry=entry)
         login = self.cases.get(self.auth.get("ui_case", ""))
         signed_in = bool(login) and needs(case_id, login["id"], self.cases)
-        outcome = self.replay(case, self.saved.get("ui") if signed_in else None)
+        if scope is not None and scope != self.session_scope:
+            oid = account_meta["account_id"]
+            saved_bucket = self._override_sessions.setdefault(oid, {})
+            if signed_in and oid not in self._override_logged_ui:
+                extra = self._account_runtime_vars(oid)
+                ir.set_variables({**self.variables, **extra, **self.explicit_inputs})
+                login_res = self.ui_login(login, self.force_login, saved=saved_bucket, scope=scope, update_default_client=False)
+                if login_res["status"] != "Pass":
+                    return blocked(f"账号「{account_meta['label']}」登录失败：{login_res.get('reason') or login_res['status']}", "session_expired")
+                self._override_logged_ui.add(oid)
+            state = saved_bucket.get("ui") if (signed_in or (self.environment or {}).get("login_required")) else None
+            return self.replay(case, state, entry=entry)
+        use_state = self.saved.get("ui") if (signed_in or (self.environment or {}).get("login_required")) else None
+        outcome = self.replay(case, use_state, entry=entry)
         if outcome["status"] == "Fail" and signed_in and not self.relogged and not self.cancel_requested() and not self.still_signed_in(login):
             self.relogged = True
             if self.ui_login(login, force=True)["status"] != "Pass":
                 return blocked("登录已过期，重新登录没有成功", "session_expired")
-            outcome = self.replay(case, self.saved.get("ui"))
+            outcome = self.replay(case, self.saved.get("ui"), entry=entry)
             outcome["relogin"] = True
         return outcome
+
+    # --- one case ----------------------------------------------------
+    def run_one(self, case: dict) -> dict:
+        self.count += 1
+        auth_mode, account_meta, scope, auth_error = self._effective_auth(case)
+        env_meta = self._env_meta()
+        safe_account = {k: v for k, v in account_meta.items() if k != "password"}
+        self.case_contexts[case["id"]] = (env_meta, safe_account)
+        if auth_error:
+            return blocked(auth_error, "missing_account")
+        is_login_case = case["id"] in (self.auth.get("ui_case"), self.auth.get("api_case"))
+        if (self.environment or {}).get("login_required") and auth_mode != "none" and not account_meta.get("account_id") and not is_login_case:
+            return blocked("当前环境需要登录，但未配置可用账号", "missing_account")
+        ir.set_rand(f"{self.rand}{self.count}")  # page cases each get their own value; API cases share the run's
+        acc_id = account_meta.get("account_id") or ""
+        ir_vars = {**self._account_runtime_vars(acc_id), **self.variables, **self.explicit_inputs} if acc_id else self.variables
+        ir.set_variables(ir_vars)  # inputs, extracted values and the environment; never secrets
+        return (self._run_api_case(case, auth_mode, account_meta, scope)
+                if case["kind"] == "api"
+                else self._run_ui_case(case, auth_mode, account_meta, scope))
 
     def still_signed_in(self, login: dict) -> bool:
         automation = login["extensions"]["automation"]
@@ -481,7 +670,7 @@ def _register_screenshots(folder: Path, outcome: dict) -> list[dict]:
 DETAIL_KEYS = ("target_started", "execution_only_pass", "steps", "assertions", "request", "response", "screenshots", "screenshot_warnings", "fallbacks", "reused", "relogin", "extracted",
                "attempts", "verification", "business_status", "business_verified", "performance_status", "performance_assertions",
                "execution_status", "execution_blocker", "last_attempt_status", "load_user", "load_iteration",
-               "postcondition_source", "postcondition_results", "setup_cases")
+               "postcondition_source", "postcondition_results", "setup_cases", "environment", "account")
 
 
 def _completed_replay(case: dict, outcome: dict) -> bool:
@@ -504,7 +693,8 @@ def _completed_replay(case: dict, outcome: dict) -> bool:
     actions = automation.get("actions", [])
     expected_checks = len(automation.get("assertions", [])) + sum("assertion" in step for step in actions)
     steps = outcome.get("steps", [])
-    return (len(assertions) == expected_checks and len(steps) == 1 + len(actions) + len(automation.get("setup_cases", []))
+    business_steps = [step for step in steps if not step.get("entry")]
+    return (len(assertions) == expected_checks and len(business_steps) == 1 + len(actions) + len(automation.get("setup_cases", []))
             and all(step.get("status") == "done" for step in steps))
 
 
@@ -608,11 +798,30 @@ def postcondition_outcome(case: dict, source: dict, results: list[dict]) -> dict
     return outcome
 
 
-def record(run: dict, case: dict, outcome: dict, prerequisite: bool, started_at: str) -> None:
+def record(run: dict, case: dict, outcome: dict, prerequisite: bool, started_at: str, *,
+           case_context: tuple[dict, dict] | None = None) -> None:
     manifest = execution_inputs.load(run)
     if execution_inputs.content_hash(case) != manifest["case_hashes"][case["id"]]:
         raise ValueError("结果用例内容与实际冻结输入不一致")
     detail = {k: outcome[k] for k in DETAIL_KEYS if outcome.get(k) not in (None, [], "")}
+    if case_context is not None:
+        detail["environment"] = case_context[0]
+        detail["account"] = {k: v for k, v in case_context[1].items() if k != "password"}
+    env = manifest.get("environment") or {}
+    detail.setdefault("environment", {
+        "id": str(env.get("id") or ""),
+        "name": str(env.get("name") or ""),
+        "base_url": str((manifest.get("config") or {}).get("base_url") or ""),
+    })
+    if "account" not in detail:
+        acc = manifest.get("account")
+        detail["account"] = (
+            {k: v for k, v in acc.items() if k != "password"}
+            if isinstance(acc, dict)
+            else platform_accounts.summary_for_result(None, mode="inherit")
+        )
+    elif isinstance(detail["account"], dict):
+        detail["account"] = {k: v for k, v in detail["account"].items() if k != "password"}
     detail.setdefault("verification", verification(case, outcome)["verification"])
     for key, value in verification(case, outcome).items():
         detail.setdefault(key, value)
@@ -846,7 +1055,7 @@ def _run_cases(run: dict, chosen: list[str], session: Session, counts: dict) -> 
         if case.get("extensions", {}).get("postconditions"):
             pending[case_id] = (prerequisite, started_at)
         else:
-            record(run, case, outcome, prerequisite, started_at)
+            record(run, case, outcome, prerequisite, started_at, case_context=session.case_contexts.get(case_id))
         if case_id in chosen:
             counts["done"] += 1
             counts[{"Pass": "passed", "Fail": "failed"}.get(outcome["status"], "blocked")] += 1
@@ -862,7 +1071,7 @@ def _run_cases(run: dict, chosen: list[str], session: Session, counts: dict) -> 
             derived = session.attempt(case, "postcondition", lambda _attempt, c=case, s=source, r=rows: postcondition_outcome(c, s, r))
             outcomes[case_id] = session.summarize(case, derived)
         prerequisite, started_at = pending[case_id]
-        record(run, case, outcomes[case_id], prerequisite, started_at)
+        record(run, case, outcomes[case_id], prerequisite, started_at, case_context=session.case_contexts.get(case_id))
     counts.update(done=sum(identity in outcomes for identity in chosen), passed=0, failed=0, blocked=0)
     for identity in chosen:
         if identity in outcomes:

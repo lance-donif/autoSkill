@@ -143,6 +143,16 @@ def _sender(client, method, url, options, send_prepared):
     return partial(send_prepared, request)
 
 
+def _fill_assertions(case: dict, variables: dict) -> dict:
+    assertions = dict(case["assertions"])
+    changed = False
+    for key in ("json_equals", "header_contains", "body_contains"):
+        if assertions.get(key):
+            assertions[key] = fill(assertions[key], variables)
+            changed = True
+    return {**case, "assertions": assertions} if changed else case
+
+
 def run_case(client, case: dict, config: dict, variables: dict, *, send_prepared=None) -> dict:
     """Send one API case and judge it. `variables` is updated with anything the case extracts."""
     import httpx
@@ -160,9 +170,7 @@ def run_case(client, case: dict, config: dict, variables: dict, *, send_prepared
         if case.get("extensions", {}).get("execution", {}).get("merge_cookies"):
             _merge_cookies(client, url, sent)
         # Expected values share the request's variable contract; unresolved values are not literal business expectations.
-        expected = fill(case["assertions"].get("json_equals", {}), variables)
-        if expected:
-            case = {**case, "assertions": {**case["assertions"], "json_equals": expected}}
+        case = _fill_assertions(case, variables)
     except KeyError as missing:
         outcome.update(reason=f"缺少变量 {{{{{missing.args[0]}}}}}：请核对本次运行的 --inputs 参数及前置用例的提取结果", category="missing_variable")
         return outcome

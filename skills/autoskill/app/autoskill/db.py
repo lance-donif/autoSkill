@@ -156,7 +156,10 @@ def _initialize() -> None:
                                  ("input_manifest", "TEXT NOT NULL DEFAULT ''"),
                                  ("input_hash", "TEXT NOT NULL DEFAULT ''"), ("plan_path", "TEXT NOT NULL DEFAULT ''"),
                                  ("delete_requested", "INTEGER NOT NULL DEFAULT 0"), ("deletion_error", "TEXT NOT NULL DEFAULT ''"),
-                                 ("deletion_manifest", "TEXT NOT NULL DEFAULT ''"), ("owner_identity", "TEXT NOT NULL DEFAULT '{}'")):
+                                 ("deletion_manifest", "TEXT NOT NULL DEFAULT ''"), ("owner_identity", "TEXT NOT NULL DEFAULT '{}'"),
+                                 ("environment_id", "TEXT NOT NULL DEFAULT ''"), ("environment_name", "TEXT NOT NULL DEFAULT ''"),
+                                 ("account_id", "TEXT NOT NULL DEFAULT ''"), ("account_label", "TEXT NOT NULL DEFAULT ''"),
+                                 ("account_lock_key", "TEXT NOT NULL DEFAULT ''")):
             if name not in columns:
                 conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
         conn.execute("CREATE INDEX IF NOT EXISTS runs_by_session ON runs(session_id,created_at,id)")
@@ -168,7 +171,8 @@ def _initialize() -> None:
                                  ("host", "TEXT NOT NULL DEFAULT 'generic'"), ("revision", "INTEGER NOT NULL DEFAULT 1"),
                                  ("overlap", "TEXT NOT NULL DEFAULT 'skip'"), ("session_id", "TEXT NOT NULL DEFAULT ''"),
                                  ("plan_path", "TEXT NOT NULL DEFAULT ''"), ("host_session_id", "TEXT NOT NULL DEFAULT ''"),
-                                 ("headed", "INTEGER")):
+                                 ("headed", "INTEGER"), ("environment_id", "TEXT NOT NULL DEFAULT ''"),
+                                 ("account_id", "TEXT NOT NULL DEFAULT ''")):
             if name not in task_columns:
                 conn.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
         result_columns = {row[1] for row in conn.execute("PRAGMA table_info(results)")}
@@ -181,14 +185,16 @@ def _initialize() -> None:
 
 
 def claim_run(run_id: str, pid: int, maximum: int, token: str = "") -> bool:
-    """Reserve a process slot; only replay runs share the project's saved login state."""
+    """Reserve a process slot; serialize replay runs per project and per shared platform account."""
     with connect() as conn:
         return bool(conn.execute(
             "UPDATE runs SET status = 'Running', started_at = ?, pid = ?, claim_token = ?, owner_identity = ? "
             "WHERE id = ? AND status = 'Queued' AND cancel = 0 AND delete_requested = 0 "
             "AND (SELECT COUNT(*) FROM runs WHERE status = 'Running') < ? "
-            "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' AND active.project_id = runs.project_id "
-            "AND active.family = 'replay' AND runs.family = 'replay')",
+            "AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.status = 'Running' "
+            "AND active.family = 'replay' AND runs.family = 'replay' "
+            "AND (active.project_id = runs.project_id "
+            "OR (runs.account_lock_key != '' AND active.account_lock_key = runs.account_lock_key)))",
             (now(), pid, token, json.dumps(runtime_identity.current(pid)), run_id, maximum)).rowcount)
 
 

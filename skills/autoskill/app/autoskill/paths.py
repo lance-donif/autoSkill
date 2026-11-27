@@ -84,6 +84,11 @@ def runtime_settings_file() -> Path:
     return workspace() / ".local" / "runtime-settings" / (runtime_target() + ".json")
 
 
+def platform_accounts_file() -> Path:
+    """Plain-text shared platform and account store inside the local data directory."""
+    return workspace() / ".local" / "platform-accounts.json"
+
+
 def _can_write(folder: Path) -> bool:
     probe = folder / f".write-test-{os.getpid()}"
     try:
