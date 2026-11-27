@@ -105,7 +105,7 @@
 .table .actions { text-align: right; white-space: nowrap; }
 .table .actions .btn { opacity: 0; transition: opacity var(--fast); }
 .table .actions .btn + .btn { margin-left: var(--s-2); }
-.table tr:hover .actions .btn, .table .actions .btn:focus-visible, .table tr.selected .actions .btn { opacity: 1; }
+.table tr:hover .actions .btn, .table .actions .btn:focus-visible, .table tr.selected .actions .btn, .table.var-table tr .actions .btn, .table.kv tr .actions .btn { opacity: 1; }
 .table tr.selected { background: var(--accent-wash); }
 .table .title { font-weight: 600; }
 .table-scroll { min-width: 0; max-width: 100%; overflow-x: auto; }
@@ -160,3 +160,27 @@
 .toast.bad { background: var(--bad); color: var(--on-accent); }
 .toast button { font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 @keyframes toast { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---- project settings and conflict drawer ---- */
+.ps-settings { gap: var(--s-4); }
+.ps-env-bar { gap: var(--s-2); padding-bottom: var(--s-3); border-bottom: 1px solid var(--line); }
+.ps-env-select { flex: 1 1 180px; }
+.ps-copy-select, .ps-inline-select { width: auto; min-width: 140px; max-width: 100%; height: 28px; font-size: var(--t-xs); }
+.ps-env-panel { gap: var(--s-3); padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-md); }
+.ps-two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+.ps-account-card { gap: var(--s-3); padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.ps-account-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-2); }
+.ps-var-toolbar { gap: var(--s-2); align-items: center; }
+.var-table-wrap { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md); --table-inset: var(--s-3); }
+.var-table-wrap .var-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+.var-table-wrap .var-table tbody td { padding-top: 6px; padding-bottom: 6px; }
+.var-table .input { height: 30px; font-size: var(--t-xs); padding: 0 8px; }
+.var-table .input.is-empty { background: var(--warn-wash); }
+.var-bulk-text { height: auto; min-height: 280px; padding: var(--s-3); line-height: 1.6; resize: vertical; }
+.conflict-section { gap: var(--s-3); }
+.conflict-item { gap: var(--s-2); padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-md); }
+.conflict-diff { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+.conflict-col { gap: var(--s-1); min-width: 0; }
+@media (max-width: 700px) {
+  .ps-two-col, .ps-account-grid, .conflict-diff { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,6 +1,8 @@
 // Move complete data roots through the kernel; a copied root is not an activated runtime.
 import { h, icon, replace, api, copyText, toast, refresh } from '../core.js';
 import { errorState } from '../ui.js';
+import { projectIndex } from '../shell.js';
+import { openConflictDrawer } from '../sync-conflict-drawer.js';
 
 function field(id, label, value, placeholder, hint) {
   const input = h('input', { id, class: 'input mono', value, placeholder, autocomplete: 'off', spellcheck: false });
@@ -76,10 +78,96 @@ function exportPanel(shared) {
   }));
 }
 
-const SYNC_STATUS = { imported: '已导入', skipped: '已跳过', failed: '失败' };
+const SYNC_STATUS = { imported: '已导入', skipped: '已跳过', pending: '传输中', conflict: '有冲突', failed: '失败' };
 
-function syncCard(sync) {
-  const scan = h('button', { class: 'btn primary' }, '立即扫描');
+function manualSyncTools(projects) {
+  const output = h('div', { class: 'stack', 'aria-live': 'polite' });
+  const projectSelect = h('select', { class: 'select sync-project-select', 'aria-label': '选择导出项目' },
+    h('option', { value: '' }, '全部项目'),
+    projects.map((item) => h('option', { value: item.id }, item.name)));
+  const exportBtn = h('button', { class: 'btn', type: 'button' }, '导出用例包');
+  exportBtn.addEventListener('click', async () => {
+    exportBtn.disabled = true;
+    try {
+      const body = { include_environments: true, include_accounts: true };
+      if (projectSelect.value) body.project_id = projectSelect.value;
+      const receipt = await api('/sync/export', { method: 'POST', body });
+      const download = receipt.download_url ? new URL(receipt.download_url, location.href) : null;
+      const safeDownload = download && download.origin === location.origin && download.pathname.startsWith('/api/sync/exports/');
+      replace(output, h('div', { class: 'stack', role: 'status' },
+        receipt.file && h('pre', { class: 'code', dataset: { testid: 'sync-export-path' } }, receipt.file),
+        h('div', { class: 'row wrap', style: 'gap:8px' },
+          safeDownload && h('a', { class: 'btn primary sm', href: download.href, download: '' }, '下载同步 ZIP'),
+          receipt.file && h('button', { class: 'btn sm', type: 'button', onClick: () => copyText(receipt.file) }, icon('copy'), '复制路径'),
+          receipt.case_count !== undefined && h('span', { class: 'sub' }, `${receipt.case_count} 条用例`))));
+    } catch (error) {
+      toast(error.message || '导出用例包失败', { bad: true });
+    } finally {
+      exportBtn.disabled = false;
+    }
+  });
+
+  const fileInput = h('input', { class: 'input sync-file-input', type: 'file', accept: '.zip,.json', 'aria-label': '选择同步包' });
+  const importBtn = h('button', { class: 'btn', type: 'button' }, '导入同步包');
+  importBtn.addEventListener('click', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) { toast('请先选择同步 ZIP 文件', { bad: true }); return; }
+    importBtn.disabled = true;
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch('/api/sync/import', { method: 'POST', body: form });
+      let data = null;
+      try { data = await response.json(); } catch { /* empty body */ }
+      if (!response.ok) throw new Error(data?.detail || `导入失败（${response.status}）`);
+      if (data?.status === 'conflict' && (data.conflict_id || data.conflict?.id)) {
+        const cid = data.conflict_id || data.conflict.id;
+        toast('检测到同步冲突，请处理');
+        await openConflictDrawer(cid, () => refresh());
+        refresh();
+        return;
+      }
+      toast(`已导入 ${data?.imported_cases?.length ?? 0} 条用例`);
+      refresh();
+    } catch (error) {
+      toast(error.message || '导入同步包失败', { bad: true });
+    } finally {
+      importBtn.disabled = false;
+    }
+  });
+
+  return h('div', { class: 'stack sync-manual-tools' },
+    h('div', { class: 'row wrap', style: 'gap:8px' }, projectSelect, exportBtn, fileInput, importBtn),
+    output);
+}
+
+function conflictSummaryText(item) {
+  const parts = [];
+  const caseCount = item.case_count ?? item.cases?.length ?? 0;
+  const envCount = item.environment_count ?? item.environments?.length ?? 0;
+  const accCount = item.account_count ?? item.accounts?.length ?? 0;
+  if (caseCount) parts.push(`${caseCount} 条用例`);
+  if (envCount) parts.push(`${envCount} 个环境`);
+  if (accCount) parts.push(`${accCount} 个账号`);
+  return parts.join(' · ') || '存在差异';
+}
+
+function conflictsTable(conflicts) {
+  const pending = conflicts.filter((item) => item && item.status !== 'resolved');
+  if (!pending.length) return null;
+  return h('div', { class: 'stack' },
+    h('h3', {}, `待处理冲突 (${pending.length})`),
+    h('table', { class: 'table kv' },
+      h('tbody', {}, pending.map((item) => h('tr', {},
+        h('td', {}, item.project_name || item.project_id || '—'),
+        h('td', { class: 'mono sub' }, item.source_file || item.id),
+        h('td', { class: 'sub' }, conflictSummaryText(item)),
+        h('td', { class: 'actions' }, h('button', { class: 'btn sm primary', type: 'button',
+          onClick: () => openConflictDrawer(item.id, () => refresh()) }, '处理')))))));
+}
+
+function syncCard(sync, projects) {
+  const scan = h('button', { class: 'btn primary', type: 'button' }, '立即扫描');
   const result = h('div', { class: 'stack' }, sync.last_scan
     ? h('p', { class: 'sub' }, `最近扫描：${sync.last_scan.at || ''}，识别 ${sync.last_scan.files} 个文件，导入 ${sync.last_scan.imported} 个`)
     : h('p', { class: 'sub' }, '还没有扫描记录。'));
@@ -94,18 +182,23 @@ function syncCard(sync) {
   });
   const syncRow = (row) => {
     const note = [row.project_id, ...(row.cases?.length ? [`${row.cases.length} 条用例`] : []), row.reason].filter(Boolean).join(' · ');
+    const conflictId = row.conflict_id || (row.status === 'conflict' ? row.id : '');
     return h('tr', {}, h('td', { class: 'mono' }, row.file),
       h('td', {}, row.unchanged ? '未变化' : (SYNC_STATUS[row.status] || row.status || '')),
-      h('td', { class: 'sub' }, note));
+      h('td', { class: 'sub' }, note),
+      h('td', { class: 'actions' }, conflictId && h('button', { class: 'btn sm primary', type: 'button',
+        onClick: () => openConflictDrawer(conflictId, () => refresh()) }, '处理')));
   };
-  const files = sync.files.length
+  const files = (sync.files || []).length
     ? h('table', { class: 'table kv' }, h('tbody', {}, sync.files.map(syncRow)))
     : h('p', { class: 'sub' }, '同步目录里还没有 JSON 或 ZIP 用例文件。');
-  return card('同步与错误目录', '把开发同步上来的通过状态用例导入项目用例库；失败回放按日期、项目和运行归档到错误目录。', [
+  return card('同步与错误目录', null, [
     h('div', { class: 'stack', style: 'gap:4px' },
       h('div', { class: 'sub' }, '同步目录：', h('code', { class: 'mono' }, sync.sync_dir || '未配置（设置环境变量 AUTOSKILL_SYNC_DIR）')),
       h('div', { class: 'sub' }, '错误目录：', h('code', { class: 'mono' }, sync.error_dir || '未配置（设置环境变量 AUTOSKILL_ERROR_DIR）'))),
     h('div', { class: 'row wrap' }, scan),
+    manualSyncTools(projects),
+    conflictsTable(sync.conflicts || []),
     result, files,
   ]);
 }
@@ -116,7 +209,12 @@ export async function render(view) {
   catch (error) { replace(view, h('div', { class: 'card' }, errorState(error, () => render(view)))); return; }
   if (typeof status?.root !== 'string' || !status.root) throw new Error('服务没有返回当前数据目录');
   let sync;
-  try { sync = await api('/sync'); } catch { sync = { files: [], sync_dir: null, error_dir: null, last_scan: null }; }
+  let projects = [];
+  try { sync = await api('/sync'); } catch { sync = { files: [], conflicts: [], sync_dir: null, error_dir: null, last_scan: null }; }
+  try {
+    const all = await projectIndex();
+    projects = (all || []).filter((item) => !item.broken);
+  } catch { projects = []; }
   const reload = h('button', { class: 'btn', onClick: () => refresh() }, icon('reset'), '刷新目录状态');
   const actions = [reload];
   const setBusy = (busy) => { for (const action of actions) action.disabled = busy; };
@@ -130,5 +228,5 @@ export async function render(view) {
         h('span', { class: 'sub' }, '数据集标识：'), h('code', { class: 'mono', 'data-testid': 'current-data-id' }, status.data_id || '尚未初始化')),
       typeof caseSkill === 'string' && h('p', { class: 'sub' }, '用例设计表：' + caseSkill),
     ]),
-    exportPanel(shared), importPanel(status, shared), syncCard(sync));
+    exportPanel(shared), importPanel(status, shared), syncCard(sync, projects));
 }

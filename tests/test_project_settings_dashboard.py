@@ -120,7 +120,7 @@ class ProjectSettingsTests(unittest.TestCase):
         self.assertEqual(bad.status_code, 400)
         self.assertEqual(self.client.get('/api/projects/' + self.project_id).json()["timeout_seconds"], 240)
 
-    def test_explicit_login_is_queued_uses_window_preference_and_preserves_force(self):
+    def test_settings_omit_verify_login_buttons_and_clear_saved_session(self):
         site = ThreadingHTTPServer(("127.0.0.1", 0), LoginHandler)
         threading.Thread(target=site.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True).start()
         self.addCleanup(site.server_close)
@@ -131,25 +131,19 @@ class ProjectSettingsTests(unittest.TestCase):
         projects.set_auth(pid, {"api_case": case["id"]})
         data = self.client.get("/api/settings").json()
         self.assertEqual(self.client.put("/api/settings", json={"dashboard": {"headed": False}, "expected_data_id": data["data_id"]}).status_code, 200)
-        self.page.reload()
-        dialog = self.settings("Login fixture")
-        with self.page.expect_response(lambda response: response.request.method == "POST" and response.url.endswith("/login")) as response:
-            dialog.get_by_role("button", name="强制重新登录", exact=True).click()
-        receipt = response.value.json()
-        self.assertEqual(response.value.status, 200)
-        self.assertEqual(receipt["status"], "Queued")
-        self.assertIs(receipt["headed"], False)
-        expect(self.page.locator("#view h1")).to_have_text("Login fixture")
+        login = self.client.post(f"/api/projects/{pid}/login", json={"force": True, "headed": False}).raise_for_status().json()
+        self.assertEqual(login["status"], "Queued")
+        self.page.goto(self.origin + "/#/runs/" + login["id"])
         expect(self.page.locator(".run-summary .status").first).to_have_text("通过", timeout=30000)
         expect(self.page.locator(".run-summary .stat.pass .stat-value")).to_be_visible()
-        run = self.client.get('/api/runs/' + receipt["id"]).json()
-        self.assertEqual((run["state"]["phase"], run["state"]["outcome"], run["state"]["checks"]["business"]), ("settled", "pass", "pass"))
-        self.assertEqual((run["force_login"], run["headed"], run["trigger"]), (1, 0, "login"))
-        self.assertTrue(self.client.get('/api/projects/' + pid).json()["session"]["saved"])
+        self.assertTrue(self.client.get("/api/projects/" + pid).json()["session"]["saved"])
         dialog = self.settings("Login fixture")
+        expect(dialog.get_by_role("button", name="立即登录")).to_have_count(0)
+        expect(dialog.get_by_role("button", name="强制重新登录")).to_have_count(0)
+        expect(dialog.get_by_role("button", name="验证登录")).to_have_count(0)
         dialog.get_by_role("button", name="清除登录态", exact=True).click()
         expect(dialog).to_have_count(0)
-        self.assertFalse(self.client.get('/api/projects/' + pid).json()["session"]["saved"])
+        self.assertFalse(self.client.get("/api/projects/" + pid).json()["session"]["saved"])
 
 
 if __name__ == "__main__":

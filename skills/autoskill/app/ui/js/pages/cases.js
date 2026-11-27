@@ -1,8 +1,7 @@
 // Projects and cases: see what exists, run one case or a batch, open a case to read its steps.
-import { ensurePreferences } from '../preferences.js';
-import { h, icon, replace, api, deleteSelection, scope, scopeQuery, go, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
-import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, preferredHeaded, preferredEngine } from '../ui.js';
-import { runtimeFields, environmentFields, credentialControls } from '../project-settings.js';
+import { h, icon, replace, api, deleteSelection, scope, scopeQuery, attempt, toast, fmtTime, route, refresh, onChange } from '../core.js';
+import { empty, errorState, runButton, startRun, drawer, closeOverlay, confirm, menuButton, menuItem } from '../ui.js';
+import { runtimeFields, projectSettingsTabs, credentialControls } from '../project-settings.js';
 import { state, caseProjects, refreshShell } from '../shell.js';
 import { loadTestButton } from './load-tests.js';
 import { ALL_FOLDERS, folderSelection, folderTree, folderPath, folderEditor, moveCases } from '../folders.js';
@@ -33,6 +32,100 @@ const headerSizes = new ResizeObserver(() => {
 });
 headerSizes.observe(scopeBar, { box: 'border-box' });
 headerSizes.observe(sideBar, { box: 'border-box' });
+
+function activeEnvOf(project) {
+  const envs = Array.isArray(project?.environments) ? project.environments : [];
+  return project?.environment || envs.find((item) => item.id === project.active_environment_id) || envs.find((item) => item.is_default) || null;
+}
+
+function envAccountsOf(project, env) {
+  if (!env) return [];
+  if (Array.isArray(env.accounts)) return env.accounts;
+  const all = Array.isArray(project?.accounts) ? project.accounts : [];
+  if (Array.isArray(env.account_ids) && env.account_ids.length) {
+    return env.account_ids.map((id) => all.find((acc) => acc.id === id)).filter(Boolean);
+  }
+  return all;
+}
+
+function activeAccountOf(project, env) {
+  if (!env?.login_required) return null;
+  const accounts = envAccountsOf(project, env);
+  if (!accounts.length) return null;
+  const currentId = project.account?.id || project.active_account_id || env.default_account_id;
+  return accounts.find((acc) => acc.id === currentId) || project.account || accounts[0];
+}
+
+function runTargetFor(projectId, caseIds) {
+  const project = state.projects.find((item) => item.id === projectId) || state.allProjects.find((item) => item.id === projectId);
+  const env = activeEnvOf(project);
+  const account = activeAccountOf(project, env);
+  const item = { project_id: projectId, case_ids: caseIds, name: project?.name || projectId };
+  if (env?.id) item.environment_id = env.id;
+  if (account?.id) item.account_id = account.id;
+  return item;
+}
+
+async function switchContext(project, patch) {
+  try {
+    return await api(`/projects/${encodeURIComponent(project.id)}/active-context`, { method: 'PUT', body: patch });
+  } catch (error) {
+    if (error.status !== 404 && error.status !== 405) throw error;
+    if (patch.environment_id !== undefined) {
+      return await api(`/projects/${encodeURIComponent(project.id)}/environments`, {
+        method: 'PUT',
+        body: { environments: project.environments, active_environment_id: patch.environment_id },
+      });
+    }
+    return await api(`/projects/${encodeURIComponent(project.id)}`, { method: 'PATCH', body: { active_account_id: patch.account_id } });
+  }
+}
+
+function projectEnvPicker(project, activeEnv) {
+  if (!project.environments?.length) return null;
+  const button = h('button', { class: 'btn sm', type: 'button', 'aria-label': '切换运行环境', dataset: { projectEnv: project.id } },
+    icon('globe'), activeEnv?.name || '选择环境', icon('chevron'));
+  return menuButton(button, (menu, close) => {
+    for (const item of project.environments) {
+      menu.append(menuItem(item.name + (item.is_default ? '（默认）' : ''), {
+        checked: activeEnv?.id === item.id,
+        meta: item.base_url || '',
+        onPick: async () => {
+          close();
+          const saved = await attempt(() => switchContext(project, { environment_id: item.id }), button);
+          if (saved) { await refreshShell(); refresh(); }
+        },
+      }));
+    }
+  });
+}
+
+function projectAccountPicker(project, activeEnv) {
+  if (!activeEnv?.login_required) return null;
+  const accounts = envAccountsOf(project, activeEnv);
+  if (!accounts.length) {
+    return h('button', { class: 'btn sm env-account-missing', type: 'button', 'aria-label': '未配置账号',
+      onClick: () => projectSettings(project.id) }, icon('lock'), '未配置账号');
+  }
+  const activeAcc = activeAccountOf(project, activeEnv);
+  const button = h('button', { class: 'btn sm', type: 'button', 'aria-label': '切换运行账号', dataset: { projectAccount: project.id } },
+    icon('lock'), activeAcc?.label || activeAcc?.username || '选择账号', icon('chevron'));
+  return menuButton(button, (menu, close) => {
+    for (const acc of accounts) {
+      const label = acc.label || acc.username || acc.id;
+      const meta = acc.label && acc.username ? acc.username : (acc.platform_name || '');
+      menu.append(menuItem(label, {
+        checked: activeAcc?.id === acc.id,
+        meta,
+        onPick: async () => {
+          close();
+          const saved = await attempt(() => switchContext(project, { environment_id: activeEnv.id, account_id: acc.id }), button);
+          if (saved) { await refreshShell(); refresh(); }
+        },
+      }));
+    }
+  });
+}
 
 export async function render(view, { isCurrent }) {
   const scopeIds = scope().projects;
@@ -116,7 +209,7 @@ export async function render(view, { isCurrent }) {
       if (previousFocus !== null) kinds.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
       return;
     }
-    const byProject = byProjectIds(items);
+    const grouped = byProjectIds(items);
     const apiCases = byProjectIds(items.filter((item) => item.kind === 'api'));
     const visibleKeys = new Set(projects.flatMap(displayed).map(keyOf));
     const hidden = items.filter((item) => !visibleKeys.has(keyOf(item)));
@@ -131,16 +224,15 @@ export async function render(view, { isCurrent }) {
       paintBar();
     } }, '清除');
     replace(bar,
-      h('span', { class: 'grow' }, h('b', {}, `已选 ${items.length} 条用例`), byProject.size > 1 ? ` · ${byProject.size} 个项目` : '',
+      h('span', { class: 'grow' }, h('b', {}, `已选 ${items.length} 条用例`), grouped.size > 1 ? ` · ${grouped.size} 个项目` : '',
         hidden.length > 0 && h('span', { class: 'muted' }, `　其中 ${hidden.length} 条不在当前显示范围，运行所选仍会包含它们。`)),
       hidden.length > 0 && h('button', { class: 'btn', onClick: () => { for (const item of hidden) selected.delete(keyOf(item)); paintBar(); } }, `清除隐藏的 ${hidden.length} 条`),
       clear,
       caseDeleteButton(items, { bulk: true }),
       h('button', { class: 'btn', disabled: !scopeReady, onClick: () => moveCases(items) }, icon('folder'), '移动到文件夹'),
       apiCases.size > 0 && loadTestButton('压测所选', () => [...apiCases].map(([project_id, case_ids]) => ({ project_id, case_ids }))),
-      runButton(`运行所选 ${items.length} 条`, () => [...byProject].map(([project_id, case_ids]) => ({ project_id, case_ids,
-        name: state.projects.find((project) => project.id === project_id)?.name || project_id })),
-      { disabled: !scopeReady, title: scopeReady ? '运行所有勾选的用例，包含当前筛选隐藏的用例' : '文件夹范围尚未加载，请刷新后再运行' }));
+      runButton(`运行所选 ${items.length} 条`, () => [...grouped].map(([project_id, case_ids]) => runTargetFor(project_id, case_ids)),
+        { disabled: !scopeReady, title: scopeReady ? '运行所有勾选的用例，包含当前筛选隐藏的用例' : '文件夹范围尚未加载，请刷新后再运行' }));
     if (previousFocus !== null) {
       const matching = [...bar.querySelectorAll('button:not(:disabled)')].find((button) => button.textContent === previousFocus);
       (matching || clear).focus({ preventScroll: true });
@@ -186,8 +278,8 @@ export async function render(view, { isCurrent }) {
   const entry = params.get('settings') ? 'settings:' + params.get('settings') : '';
   if (entry !== handledEntry) {
     handledEntry = entry;
-    if (!document.querySelector('#layer [role="dialog"]')) {
-      if (params.get('settings')) await projectSettings(params.get('settings'));
+    if (!document.querySelector('#layer [role="dialog"]') && params.get('settings')) {
+      await projectSettings(params.get('settings'));
     }
   }
 }
@@ -213,10 +305,15 @@ function projectCard(project, items, folderResult, { retry, chooseFolder, select
     selectionChanged();
   });
   const missing = project.missing_secrets || [];
+  const activeEnv = activeEnvOf(project);
+  const activeUrl = activeEnv?.base_url || project.base_url || '';
   const head = h('div', { class: 'card-head project-head' },
     h('div', { class: 'grow' },
-      h('h2', {}, project.name),
-      h('p', { class: 'sub ellipsis' }, `${project.base_url} · 页面 ${project.cases.ui} · 接口 ${project.cases.api}`)),
+      h('div', { class: 'row wrap project-title-row' },
+        h('h2', {}, project.name),
+        projectEnvPicker(project, activeEnv),
+        projectAccountPicker(project, activeEnv)),
+      h('p', { class: 'sub ellipsis' }, `${activeUrl} · 页面 ${project.cases.ui} · 接口 ${project.cases.api}`)),
     project.cases.api > 0 && loadTestButton('压测', () => [{ project_id: project.id }], { small: true }),
     h('a', { class: 'btn sm', href: `/api/projects/${encodeURIComponent(project.id)}/folders/export`, download: '' }, icon('table'), '导出测试用例'),
     h('button', { class: 'btn sm icon', 'aria-label': `「${project.name}」设置`, title: '项目设置', onClick: () => projectSettings(project.id) }, icon('edit')));
@@ -225,13 +322,11 @@ function projectCard(project, items, folderResult, { retry, chooseFolder, select
     h('span', {}, `缺少凭据 ${missing.join('、')}：依赖它的用例会被阻塞。`),
     h('button', { class: 'btn sm', onClick: () => projectSettings(project.id) }, '去填写'))) : null;
 
-  // sub-projects: the areas of one site, taken from each case's module
   const modules = [...new Set(items.map((item) => item.module))];
   const groupRow = (module) => modules.length > 1 && h('tr', { class: 'group' }, h('td', { colSpan: 7 },
     `菜单名：${module}`, h('span', { class: 'muted' }, `　${items.filter((item) => item.module === module).length} 条`)));
   let body;
   if (!items.length) {
-    // Without a folder tree the loading status or the folder error already explains the empty table.
     body = tree && empty({ glyph: 'cases', title: '没有符合条件的用例', text: '换一个类型、搜索词或文件夹试试。' });
   } else {
     body = h('table', { class: 'table' },
@@ -248,26 +343,26 @@ function projectCard(project, items, folderResult, { retry, chooseFolder, select
           selectionChanged();
         });
         const deps = JSON.parse(item.depends_on || '[]');
-        const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([{ project_id: item.project_id, case_ids: [item.case_id], name: project.name }], run); } }, icon('play'), '运行');
+        const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([runTargetFor(item.project_id, [item.case_id])], run); } }, icon('play'), '运行');
         const openDetail = () => caseDrawer(item.project_id, item.case_id);
         return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: openDetail },
           h('td', {}, box),
           h('td', {}, h('button', { class: 'title case-title', type: 'button', 'aria-haspopup': 'dialog',
             onClick: (event) => { event.stopPropagation(); openDetail(); } }, item.title),
-            h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : '')),
+          h('div', { class: 'sub mono' }, item.case_id, deps.length ? `　前置 ${deps.join('、')}` : '')),
           h('td', {}, kindTag(item.kind)),
           h('td', { class: 'sub' }, item.module),
           h('td', {}, caseStatus(item)),
           h('td', { class: 'sub num' }, fmtTime(item.last_run_at)),
           h('td', { class: 'actions' }, h('button', { class: 'btn sm icon', title: '编辑用例', 'aria-label': `编辑用例 ${item.case_id}`,
             onClick: (event) => { event.stopPropagation(); editCase(item.project_id, item.case_id); } }, icon('edit')),
-            h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, disabled: !tree, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
-            item.kind === 'api' && loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }),
-            run, caseDeleteButton([item], { small: true })));
+          h('button', { class: 'btn sm icon', title: '移动到文件夹', 'aria-label': `移动用例 ${item.case_id}`, disabled: !tree, onClick: (event) => { event.stopPropagation(); moveCases([item]); } }, icon('folder')),
+          item.kind === 'api' && loadTestButton('压测', () => [{ project_id: item.project_id, case_ids: [item.case_id] }], { small: true }),
+          run, caseDeleteButton([item], { small: true })));
       })])));
   }
   const error = folderResult?.error;
-  return h('section', { class: 'card' }, head, banner,
+  return h('section', { class: 'card', dataset: { projectCard: project.id } }, head, banner,
     error && h('div', { class: 'card-body' }, h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), `文件夹加载失败：${error.message}`,
       h('button', { class: 'btn sm', onClick: retry }, '重试文件夹'))),
     h('div', { class: error ? '' : 'project-folders' },
@@ -332,62 +427,47 @@ function caseDeletionNotice() {
 async function projectSettings(projectId) {
   const source = location.hash;
   let project;
-  try { project = await api('/projects/' + projectId); } catch (error) { toast(error.message, { bad: true }); return; }
+  let platformStore = null;
+  try {
+    [project, platformStore] = await Promise.all([
+      api('/projects/' + projectId),
+      api('/platform-accounts').catch(() => null),
+    ]);
+  } catch (error) { toast(error.message, { bad: true }); return; }
   if (location.hash !== source) return;
   const name = h('input', { class: 'input', value: project.name, id: 'ps-name' });
   const runtime = runtimeFields(project);
-  const environments = environmentFields(project);
+  const credentials = credentialControls(project, async () => { await refreshShell(); refresh(); });
+  const session = project.session;
+  const forget = h('button', { class: 'btn', type: 'button' }, '清除登录态');
+  forget.addEventListener('click', async () => {
+    const done = await attempt(() => api(`/projects/${projectId}/session`, { method: 'DELETE' }), forget);
+    if (done) { toast('已清除登录态'); closeOverlay(); }
+  });
+  const sessionNode = session?.saved ? h('div', { class: 'row wrap' },
+    h('span', { class: 'sub grow' }, `登录态保存于 ${fmtTime(session.saved_at)}`), forget) : null;
+  const exportNode = h('details', { class: 'more' }, h('summary', {}, '导出'),
+    h('div', { class: 'row wrap', style: 'margin-top:12px' },
+      h('a', { class: 'btn', href: `/api/projects/${projectId}/report`, download: '' }, icon('table'), 'Excel 测试报告'),
+      h('a', { class: 'btn', href: `/api/projects/${projectId}/postman?part=collection`, download: '' }, icon('api'), 'Postman 集合'),
+      h('a', { class: 'btn', href: `/api/projects/${projectId}/postman?part=environment`, download: '' }, 'Postman 环境')));
+  const tabs = projectSettingsTabs(project, { runtime, credentials, sessionNode, exportNode, platformStore });
 
-  const save = h('button', { class: 'btn primary' }, '保存');
+  const save = h('button', { class: 'btn primary', type: 'button' }, '保存');
   save.addEventListener('click', async () => {
-    const done = await attempt(() => {
-      const changes = { ...runtime.changes(), ...environments.changes() };
+    const done = await attempt(async () => {
+      const changes = { ...runtime.changes(), ...tabs.changes() };
       if (name.value.trim() !== project.name.trim()) changes.name = name.value.trim();
+      await tabs.saveAccounts();
       return Object.keys(changes).length ? api('/projects/' + projectId, { method: 'PATCH', body: changes }) : true;
     }, save);
     if (done) { await refreshShell(); closeOverlay(); toast('已保存'); refresh(); }
   });
 
-  const credentials = credentialControls(project, async () => { await refreshShell(); refresh(); });
-  const loginButton = (force) => {
-    const button = h('button', { class: 'btn', disabled: !project.login.ui_case && !project.login.api_case, onClick: async () => {
-      const run = await attempt(async () => {
-        await ensurePreferences();
-        return api(`/projects/${encodeURIComponent(projectId)}/login`, { method: 'POST', body: {
-        force, engine: preferredEngine(), headed: preferredHeaded(),
-        } });
-      }, button);
-      if (run) { closeOverlay(); go('runs/' + run.id); }
-    } }, icon('play'), force ? '强制重新登录' : '立即登录');
-    return button;
-  };
-  const session = project.session;
-  const forget = h('button', { class: 'btn' }, '清除登录态');
-  forget.addEventListener('click', async () => {
-    const done = await attempt(() => api(`/projects/${projectId}/session`, { method: 'DELETE' }), forget);
-    if (done) { toast('已清除，下次运行会重新登录'); closeOverlay(); }
-  });
-
   drawer({
-    title: '项目设置', subtitle: project.base_url || '还没有被测地址（需求设计阶段）',
-    body: [
-      h('div', { class: 'field' }, h('label', { for: 'ps-name' }, '项目名称'), name), runtime.node, environments.node,
-      h('div', { class: 'stack' }, h('h3', {}, '登录'),
-        h('p', { class: 'sub' }, project.login.ui_case || project.login.api_case
-          ? `登录用例：${[project.login.ui_case, project.login.api_case].filter(Boolean).join('、')}。运行依赖登录的用例时会自动先登录，并在本机复用登录态。`
-          : '还没有登录用例。让 AI 用 autoskill record start … --as-login 录制一次登录即可。'),
-        h('div', { class: 'row wrap' }, loginButton(false), loginButton(true)),
-        h('p', { class: 'hint' }, '登录异步执行，窗口设置沿用顶部回放偏好；执行记录保存进度和结果。'),
-        session.saved && h('div', { class: 'row' }, h('span', { class: 'sub grow' }, `登录态保存于 ${fmtTime(session.saved_at)}（只保存在本机）`), forget)),
-      credentials,
-      h('details', { class: 'more' }, h('summary', {}, '导出'),
-        h('div', { class: 'row wrap', style: 'margin-top:12px' },
-          h('a', { class: 'btn', href: `/api/projects/${projectId}/report`, download: '' }, icon('table'), 'Excel 测试报告'),
-          h('a', { class: 'btn', href: `/api/projects/${projectId}/postman?part=collection`, download: '' }, icon('api'), 'Postman 集合'),
-          h('a', { class: 'btn', href: `/api/projects/${projectId}/postman?part=environment`, download: '' }, 'Postman 环境'),
-          h('span', { class: 'hint sub' }, '凭据值不会导出，在 Postman 环境里自行填写。'))),
-    ],
-    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '取消'), save],
+    title: '项目设置', subtitle: project.base_url || '未配置地址', wide: true,
+    body: [h('div', { class: 'field' }, h('label', { for: 'ps-name' }, '项目名称'), name), tabs.node],
+    foot: [h('button', { class: 'btn', type: 'button', onClick: () => closeOverlay() }, '取消'), save],
   });
 }
 
@@ -431,7 +511,7 @@ async function caseDrawer(projectId, caseId) {
     if (item.traffic === 'resource' || item.traffic === 'static') body.push(h('div', { class: 'banner info' }, icon('info'), '这是「页面资源或静态数据文件可访问」检查，不是业务接口测试。'));
   }
   const run = h('button', { class: 'btn primary' }, icon('play'), '运行这条用例');
-  run.addEventListener('click', async () => { const started = await startRun([{ project_id: projectId, case_ids: [caseId], name: state.projects.find((project) => project.id === projectId)?.name }], run); if (started) closeOverlay(); });
+  run.addEventListener('click', async () => { const started = await startRun([runTargetFor(projectId, [caseId])], run); if (started) closeOverlay(); });
   const subtitle = `${item.id} · ${item.kind === 'ui' ? '页面用例' : '接口用例'} · 菜单名 ${item.module} · 第 ${item.revision} 版`;
   drawer({ title: item.title, subtitle, body, wide: true,
     foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭'), item.replayable && run] });
@@ -442,11 +522,11 @@ function caseStatus(item) {
 }
 
 function hasRequestValue(value) {
-  return value != null && value !== '' && (typeof value !== 'object' || Object.keys(value).length > 0);
+  return value !== null && value !== undefined && value !== '' && (typeof value !== 'object' || Object.keys(value).length > 0);
 }
 
 function apiAssertionRows(rules) {
-  const rows = rules.status == null ? [] : [['状态码', rules.status]];
+  const rows = rules.status === null || rules.status === undefined ? [] : [['状态码', rules.status]];
   for (const [pointer, value] of Object.entries(rules.json_equals || {})) rows.push([`字段 ${pointer}`, JSON.stringify(value)]);
   for (const [name, value] of Object.entries(rules.header_contains || {})) rows.push([`响应头 ${name} 包含`, value]);
   for (const value of rules.body_contains || []) rows.push(['响应内容包含', value]);

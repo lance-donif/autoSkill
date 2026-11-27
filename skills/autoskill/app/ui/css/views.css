@@ -96,6 +96,12 @@ button.list-row:hover, a.list-row:hover { background: var(--surface-2); }
 
 /* ---- cases ---- */
 .project-head { flex-wrap: wrap; padding-bottom: 0; }
+.project-title-row { gap: var(--s-2); align-items: center; }
+.env-account-missing { background: var(--warn-wash); color: var(--warn-ink); }
+.run-context-tags { gap: 6px; margin-top: 4px; }
+.sync-manual-tools { gap: var(--s-3); }
+.sync-project-select { width: auto; min-width: 150px; height: 32px; font-size: var(--t-sm); }
+.sync-file-input { width: auto; max-width: 240px; height: 32px; padding-top: 4px; font-size: var(--t-xs); }
 .select-bar {
   position: sticky; bottom: var(--s-5); z-index: 15; display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-4);
   padding: var(--s-3) var(--s-4) var(--s-3) var(--s-5); border-radius: var(--r-lg); background: var(--surface);

@@ -165,7 +165,7 @@ function resultTable(items, params) {
         h('td', {}, kindTag(item.kind)),
         h('td', { class: 'sub' }, item.project_name),
         h('td', { class: 'sub', style: 'max-width:340px' }, item.state?.outcome === 'pass' || (!item.category && !item.reason) ? '—'
-          : h('div', { class: 'ellipsis', title: item.reason }, h('b', {}, CATEGORY[item.category] || '未分类'), item.reason ? '：' + item.reason : '')),
+          : h('div', { class: 'ellipsis', title: item.reason }, h('b', {}, categoryText(item.category, '未分类')), item.reason ? '：' + item.reason : '')),
         h('td', { class: 'sub num' }, fmtTime(item.started_at)),
         h('td', { class: 'sub num' }, fmtDuration(item.duration_ms))))));
 }
@@ -233,14 +233,48 @@ function runList(items, params) {
   return { table, bar };
 }
 
+function hasErrorPack(run) {
+  if (active(run)) return false;
+  if (run.has_error_pack) return true;
+  return !['load', 'native'].includes(run.family) && ((run.failed || 0) > 0 || (run.blocked || 0) > 0);
+}
+
+function runContextTags(run) {
+  const envLabel = run.environment_name || run.environment?.name || run.environment_id || '';
+  const accLabel = run.account_label || run.account?.label || run.account?.username || run.account_id || '';
+  if (!envLabel && !accLabel) return null;
+  return h('div', { class: 'row wrap run-context-tags' },
+    envLabel && h('span', { class: 'tag' }, icon('globe'), envLabel),
+    accLabel && h('span', { class: 'tag' }, icon('lock'), accLabel));
+}
+
+function caseAccountTag(row) {
+  const acc = row.detail?.account;
+  if (!acc || typeof acc !== 'object') return null;
+  if (acc.mode === 'none') return h('span', { class: 'tag', style: 'margin-left:6px' }, '不登录');
+  const label = acc.label || acc.username || acc.account_id || '';
+  return label ? h('span', { class: 'tag', style: 'margin-left:6px' }, icon('lock'), label) : null;
+}
+
+function categoryText(category, fallback) {
+  if (category === 'entry_not_found') return '找不到项目入口';
+  return CATEGORY[category] || fallback;
+}
+
 function runProgress(run) {
   if (active(run)) {
     const width = run.total ? (run.done / run.total) * 100 : 0;
     return h('div', { class: 'stack', style: 'gap:4px' }, h('div', { class: 'progress' }, h('i', { style: `width:${width}%` })),
       h('span', { class: 'sub num' }, `${run.done}/${run.total}`));
   }
+  const passed = run.passed || 0;
+  const failed = run.failed || 0;
+  const blocked = run.blocked || 0;
+  const notRun = run.not_run || 0;
+  const total = run.total ?? 0;
+  const executed = run.executed ?? (passed + failed + blocked);
   return h('div', { class: 'stack', style: 'gap:4px' }, splitBar(run),
-    h('span', { class: 'sub num' }, `${run.not_run || 0} 未执行 · ${run.passed || 0} 通过 · ${run.failed || 0} 失败`));
+    h('span', { class: 'sub num' }, `总 ${total} · 执行 ${executed} · ${notRun} 未执行 · ${passed} 通过 · ${failed} 失败 · ${blocked} 受阻`));
 }
 
 function historyRow(run, params, repaint) {
@@ -251,14 +285,18 @@ function historyRow(run, params, repaint) {
     } });
   const note = run.deletion_error || (active(run) ? (run.current || '准备中') : (run.reason || `${run.total} 条用例`));
   const destination = ({ load: 'load-tests', native: 'native-runs' })[run.family] || 'runs';
+  const errorPack = hasErrorPack(run) ? h('a', { class: 'btn sm', href: `/api/runs/${encodeURIComponent(run.id)}/error-pack`, download: '',
+    title: '下载错误包 ZIP', onClick: (event) => event.stopPropagation() }, '下载错误包') : null;
   return h('tr', { class: selected.has(run.id) ? 'selected' : '', dataset: { historyVerdict: run.history_status || '', historyRawStatus: run.status } },
     h('td', {}, box), h('td', {}, active(run) ? primaryState(run) : historyVerdict(run)),
-    h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href(destination + '/' + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id), h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
+    h('td', {}, historyLink([run.project_name, run.family === 'load' && h('span', { class: 'tag' }, '压测')], href(destination + '/' + run.id, { ...Object.fromEntries(params), return: location.hash }), 'run:' + run.id),
+      runContextTags(run),
+      h('div', { class: 'sub ellipsis', style: 'max-width:360px', title: note }, note)),
     h('td', { style: 'min-width:170px' }, runProgress(run)),
     h('td', { class: 'sub' }, TRIGGER[run.trigger] || run.trigger), h('td', { class: 'sub' }, ENGINE[run.engine] || run.engine || '未记录'),
     h('td', { class: 'sub num' }, fmtTime(run.created_at)),
     h('td', { class: 'sub num' }, run.finished_at && run.started_at ? fmtDuration(new Date(run.finished_at) - new Date(run.started_at)) : '—'),
-    h('td', { class: 'actions' }, runDeleteButton([run], { small: true })));
+    h('td', { class: 'actions' }, errorPack, runDeleteButton([run], { small: true })));
 }
 
 function runDeleteButton(runs, { bulk = false, small = false } = {}) {
@@ -443,11 +481,15 @@ function offlineReport(run) {
 
 function runSummary(run, offline = false) {
   const spent = run.results.reduce((sum, row) => sum + (row.duration_ms || 0), 0);
+  const envLabel = run.environment_name || run.environment?.name || run.environment_id || '';
+  const accLabel = run.account_label || run.account?.label || run.account?.username || run.account_id || '';
+  const meta = [fmtTime(run.created_at), envLabel && `环境：${envLabel}`, accLabel && `账号：${accLabel}`, `${run.total} 条用例`].filter(Boolean).join(' · ');
+  const errorPackUrl = hasErrorPack(run) ? `/api/runs/${encodeURIComponent(run.id)}/error-pack` : '';
   return h('section', { class: 'card run-summary' },
     h('div', { class: 'card-body stack report-summary' },
       h('div', { class: 'row wrap', style: 'gap:16px' },
         h('div', { class: 'grow report-heading' }, h('h1', {}, run.project_name),
-          h('p', { class: 'sub' }, `${fmtTime(run.created_at)} · ${run.total} 条用例`)), reportVerdict(run)),
+          h('p', { class: 'sub' }, meta)), reportVerdict(run)),
       publicationSummary(run, offline),
       active(run) && h('div', { class: 'stack', style: 'gap:8px' },
           h('div', { class: 'progress' }, h('i', { style: `width:${run.total ? (run.done / run.total) * 100 : 0}%` })),
@@ -455,7 +497,7 @@ function runSummary(run, offline = false) {
             h('span', { class: 'grow' }), h('span', { class: 'num' }, `${run.done} / ${run.total}`))),
       run.reason && h('div', { class: 'banner bad' }, icon('warn'), run.reason),
       reportStats(run, spent),
-      !offline && reportControls(() => downloadRunHtml(run, offlineReport(run)))));
+      !offline && reportControls(() => downloadRunHtml(run, offlineReport(run)), { errorPackUrl })));
 }
 
 function publicationSummary(run, offline) {
@@ -484,6 +526,7 @@ function resultRow(run, row, offline, focus) {
     row.detail.reused ? h('span', { class: 'tag', style: 'margin-left:6px' }, '复用登录态') : null,
     row.detail.relogin ? h('span', { class: 'tag', style: 'margin-left:6px' }, '已自动重新登录') : null,
     row.detail.fallbacks ? h('span', { class: 'tag', style: 'margin-left:6px', title: '首选定位没有匹配，用了备选定位' }, '定位已降级') : null,
+    caseAccountTag(row),
     stateResults(row)),
   kindTag(row.kind), h('span', { class: 'sub num', style: 'min-width:72px;text-align:right' }, fmtDuration(row.duration_ms)));
   const result = h('div', { class: 'result' + (open ? ' open' : ''), dataset: { case: row.case_id, result: key } }, head, open && resultBody(run, row, offline));
@@ -503,7 +546,7 @@ function resultBody(run, row, offline = false) {
   if (!offline) parts.push(recoveryActions(run, row));
   if (row.state?.outcome !== 'pass') {
     parts.push(h('div', { class: 'banner ' + (row.state?.outcome === 'fail' ? 'bad' : '') }, icon(row.state?.outcome === 'fail' ? 'x' : 'warn'),
-      h('span', {}, h('b', {}, CATEGORY[row.category] || stateLabel(row.state?.outcome)), row.reason ? '：' + row.reason : '')));
+      h('span', {}, h('b', {}, categoryText(row.category, stateLabel(row.state?.outcome))), row.reason ? '：' + row.reason : '')));
   } else if (row.actual) {
     parts.push(h('p', { class: 'sub' }, row.actual));
   }

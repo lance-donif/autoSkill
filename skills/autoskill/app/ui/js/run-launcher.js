@@ -1,5 +1,5 @@
 // Keep request receipts separate from execution results and across ordinary page refreshes.
-import { h, icon, replace, href, go, toast } from './core.js';
+import { h, icon, replace, api, href, go, toast } from './core.js';
 import { preferenceDataId, preferredEngine, preferredHeaded, onPreferences, ensurePreferences } from './preferences.js';
 import { startOperation, operationRequest, classifyStartError } from './start-operation.js';
 
@@ -72,8 +72,56 @@ function targets(items) {
   if (!Array.isArray(items) || !items.length) throw new Error('请先选择至少一条用例');
   return items.map((item) => {
     if (!item.project_id || !Array.isArray(item.case_ids) || !item.case_ids.length) throw new Error('用例范围为空或尚未加载，请重新选择后运行');
-    return { project_id: item.project_id, case_ids: [...new Set(item.case_ids)].sort(), name: item.name };
+    const entry = { project_id: item.project_id, case_ids: [...new Set(item.case_ids)].sort(), name: item.name };
+    if (item.environment_id) entry.environment_id = item.environment_id;
+    if (item.account_id) entry.account_id = item.account_id;
+    return entry;
   }).sort((a, b) => a.project_id.localeCompare(b.project_id));
+}
+
+function runPayload(item) {
+  const body = { project_id: item.project_id, case_ids: item.case_ids };
+  if (item.environment_id) body.environment_id = item.environment_id;
+  if (item.account_id) body.account_id = item.account_id;
+  return body;
+}
+
+function formatMissingReason(result) {
+  const missing = Array.isArray(result?.missing_variables) ? result.missing_variables.filter(Boolean) : [];
+  const parts = [];
+  if (missing.length) parts.push(`缺少环境变量：${missing.join('、')}`);
+  if (result?.account_missing) parts.push('当前环境未配置账号');
+  if (result?.base_url_missing) parts.push('未配置运行地址');
+  const message = typeof result?.message === 'string' ? result.message.trim() : '';
+  if (message) {
+    const coversAll = missing.every((name) => message.includes(name));
+    return coversAll && !result?.account_missing && !result?.base_url_missing ? message : [message, ...parts].filter(Boolean).join('；');
+  }
+  return parts.join('；') || '运行前检查未通过';
+}
+
+async function preflightOne(item) {
+  try {
+    const body = { case_ids: item.case_ids };
+    if (item.environment_id) body.environment_id = item.environment_id;
+    if (item.account_id) body.account_id = item.account_id;
+    const result = await api(`/projects/${encodeURIComponent(item.project_id)}/preflight`, { method: 'POST', body });
+    if (result && result.ok === false) return { ok: false, reason: formatMissingReason(result) };
+    return { ok: true };
+  } catch (error) {
+    if (error.status === 404 || error.status === 405) return { ok: true };
+    if (error.details && typeof error.details === 'object') {
+      const missing = Array.isArray(error.details.missing_variables) ? error.details.missing_variables : [];
+      if (missing.length) return { ok: false, reason: formatMissingReason({ message: error.message, missing_variables: missing }) };
+    }
+    return { ok: true };
+  }
+}
+
+function formatSkippedReason(row) {
+  const missing = Array.isArray(row?.missing_variables) ? row.missing_variables.filter(Boolean) : [];
+  if (!missing.length) return row.reason;
+  return missing.every((name) => row.reason.includes(name)) ? row.reason : `${row.reason}（缺少变量：${missing.join('、')}）`;
 }
 
 function parseRows(items, response) {
@@ -82,27 +130,48 @@ function parseRows(items, response) {
     const skipped = (Array.isArray(response?.skipped) ? response.skipped : []).filter((row) => row.project_id === item.project_id && typeof row.reason === 'string' && row.reason.trim());
     const base = { project_id: item.project_id, name: item.name, item };
     if (runs.length === 1 && !skipped.length) return { ...base, state: 'accepted', id: runs[0].id };
-    if (skipped.length === 1 && !runs.length) return { ...base, state: 'rejected', reason: skipped[0].reason };
+    if (skipped.length === 1 && !runs.length) return { ...base, state: 'rejected', reason: formatSkippedReason(skipped[0]) };
     return { ...base, state: 'unknown', reason: '服务未返回这个项目的完整启动回执，请先核对执行记录。' };
   });
+}
+
+async function runPreflight(items) {
+  const checks = await Promise.all(items.map(preflightOne));
+  const ready = [];
+  const blocked = new Map();
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    if (checks[index].ok) ready.push(item);
+    else blocked.set(item.project_id, { project_id: item.project_id, name: item.name, item, state: 'rejected', reason: checks[index].reason });
+  }
+  return { ready, blocked };
 }
 
 async function submit(items, engine, headed) {
   const receipt = { id: crypto.randomUUID(), rows: items.map((item) => ({ project_id: item.project_id, name: item.name, item })), engine, headed, pending: true };
   receipts.push(receipt);
   save();
-  let response;
-  try {
-    response = await operationRequest('/runs', { items: items.map(({ project_id, case_ids }) => ({ project_id, case_ids })), engine, headed });
-    receipt.rows = parseRows(items, response);
-  } catch (error) {
-    receipt.rows = items.map((item) => ({ project_id: item.project_id, name: item.name, item, state: classifyStartError(error), reason: error.message }));
+  const { ready, blocked } = await runPreflight(items);
+  let response = null;
+  const resolved = new Map(blocked);
+  if (ready.length) {
+    try {
+      response = await operationRequest('/runs', { items: ready.map(runPayload), engine, headed });
+      for (const row of parseRows(ready, response)) resolved.set(row.project_id, row);
+    } catch (error) {
+      for (const item of ready) {
+        resolved.set(item.project_id, { project_id: item.project_id, name: item.name, item, state: classifyStartError(error), reason: error.message });
+      }
+    }
   }
+  receipt.rows = items.map((item) => resolved.get(item.project_id));
   receipt.pending = false;
   const accepted = receipt.rows.every((row) => row.state === 'accepted');
   if (accepted) {
     receipts = receipts.filter((item) => item.id === receipt.id || item.pending || item.rows.some((row) => row.state !== 'accepted'));
     if (receipt.rows.length === 1) receipts = receipts.filter((item) => item.id !== receipt.id);
+  } else if (blocked.size) {
+    toast([...blocked.values()][0].reason, { bad: true });
   }
   save();
   if (receipt.rows.length === 1 && receipt.rows[0].state === 'accepted') go('runs/' + receipt.rows[0].id);
@@ -123,7 +192,7 @@ export async function launchRuns(items, button, requestedEngine, requestedHeaded
       save();
       return null;
     }
-    const key = JSON.stringify(['current-case-run', preferenceDataId(), chosen.map(({ project_id, case_ids }) => ({ project_id, case_ids })), engine, headed]);
+    const key = JSON.stringify(['current-case-run', preferenceDataId(), chosen.map(runPayload), engine, headed]);
     return await startOperation(key, () => submit(chosen, engine, headed));
   } catch (error) {
     toast('测试尚未启动：' + error.message, { bad: true });

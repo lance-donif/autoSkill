@@ -79,7 +79,85 @@ function taskDescription(task) {
   if (task.kind === 'native') return `${task.project_name} · 原生资产 ${task.asset_id}`;
   if (task.kind === 'maintenance') return `${task.project_name} · AI 维护 ${task.workflow_id} · 等待在线宿主接续`;
   const headed = task.headed ?? task.effective_headed ?? preferredHeaded();
-  return `${task.project_name} · ${task.case_ids.length ? task.case_ids.length + ' 条用例' : '全部用例'} · ${ENGINE[task.engine]} · ${headed ? '显示浏览器窗口' : '隐藏浏览器窗口'}`;
+  const context = [task.environment_name, task.account_label].filter(Boolean);
+  return [task.project_name, ...context, task.case_ids.length ? task.case_ids.length + ' 条用例' : '全部用例',
+    ENGINE[task.engine], headed ? '显示浏览器窗口' : '隐藏浏览器窗口'].join(' · ');
+}
+
+function projectEnvs(project) {
+  return Array.isArray(project?.environments) ? project.environments : [];
+}
+
+function envAccounts(project, env) {
+  if (!env) return [];
+  if (Array.isArray(env.accounts)) return env.accounts;
+  const all = Array.isArray(project?.accounts) ? project.accounts : [];
+  if (Array.isArray(env.account_ids) && env.account_ids.length) {
+    return env.account_ids.map((id) => all.find((acc) => acc.id === id)).filter(Boolean);
+  }
+  return all;
+}
+
+function scheduleContextEditor(task, projectSelect, projects) {
+  const envSelect = h('select', { class: 'select', id: 'tk-env', 'aria-label': '运行环境' });
+  const envField = h('div', { class: 'field', hidden: true }, h('label', { for: 'tk-env' }, '运行环境'), envSelect);
+  const accSelect = h('select', { class: 'select', id: 'tk-account', 'aria-label': '运行账号' });
+  const accField = h('div', { class: 'field', hidden: true }, h('label', { for: 'tk-account' }, '运行账号'), accSelect);
+
+  const selectedProject = () => projects.find((item) => item.id === projectSelect.value) || null;
+  const selectedEnv = () => projectEnvs(selectedProject()).find((item) => item.id === envSelect.value) || null;
+
+  function paintAccounts(preferredAccountId) {
+    const proj = selectedProject();
+    const env = selectedEnv();
+    if (!env?.login_required) {
+      accField.hidden = true;
+      replace(accSelect);
+      return;
+    }
+    accField.hidden = false;
+    const accounts = envAccounts(proj, env);
+    if (!accounts.length) {
+      replace(accSelect, h('option', { value: '', disabled: true, selected: true }, '未配置账号'));
+      return;
+    }
+    const wanted = preferredAccountId || env.default_account_id || accounts[0].id;
+    replace(accSelect, accounts.map((acc) => h('option', { value: acc.id, selected: acc.id === wanted }, acc.label || acc.username || acc.id)));
+  }
+
+  function paintEnvs(initial = false) {
+    const proj = selectedProject();
+    const envs = projectEnvs(proj);
+    if (!envs.length) {
+      envField.hidden = true;
+      accField.hidden = true;
+      replace(envSelect);
+      replace(accSelect);
+      return;
+    }
+    envField.hidden = false;
+    const fallback = envs.find((item) => item.is_default)?.id || proj.active_environment_id || envs[0].id;
+    const wantedEnv = initial && task?.environment_id && envs.some((item) => item.id === task.environment_id) ? task.environment_id : fallback;
+    replace(envSelect, envs.map((env) => h('option', { value: env.id, selected: env.id === wantedEnv }, env.name + (env.is_default ? '（默认）' : ''))));
+    paintAccounts(initial && task?.environment_id === wantedEnv ? task.account_id : '');
+  }
+
+  envSelect.addEventListener('change', () => paintAccounts(''));
+  paintEnvs(true);
+
+  return {
+    node: h('div', { class: 'stack' }, envField, accField),
+    onProjectChange: () => paintEnvs(false),
+    values() {
+      const envs = projectEnvs(selectedProject());
+      if (!envs.length && !task?.environment_id && !task?.account_id) return {};
+      const env = selectedEnv();
+      return {
+        environment_id: env?.id || '',
+        account_id: env?.login_required ? (accSelect.value || '') : '',
+      };
+    },
+  };
 }
 
 async function editor(task, done, projects) {
@@ -104,7 +182,9 @@ async function editor(task, done, projects) {
     timezone: (task && calendarZone(rule)) || ZONE,
     at: rule.at ? new Date(rule.at) : new Date(Date.now() + 3600000) };
   const initialRule = task ? JSON.stringify(scheduleRule(current)) : null;
+  const contextEditor = scheduleContextEditor(task, project, projects);
   const replayFields = h('div', { class: 'stack' },
+    contextEditor.node,
     h('div', { class: 'field' }, h('span', { class: 'label' }, '执行哪些用例'),
       h('label', { class: 'row', for: 'tk-all' }, allCases, '全部用例（以后新增的用例也会包含）'), caseBox,
       h('span', { class: 'hint' }, '前置用例（如登录）会自动先执行，不需要单独选。')),
@@ -152,18 +232,29 @@ async function editor(task, done, projects) {
     cases = data.items.filter((item) => item.replayable);
     paintCases();
   }
-  project.addEventListener('change', () => { picked.clear(); loadCases(); });
+  project.addEventListener('change', () => { picked.clear(); contextEditor.onProjectChange(); loadCases(); });
   allCases.addEventListener('change', paintCases);
+
+  function buildTaskBody() {
+    const selected = target.read();
+    const isReplay = selected.kind === 'replay';
+    return {
+      title: title.value, project_id: project.value, ...selected,
+      engine: isReplay ? engine.value : 'native',
+      case_ids: isReplay && !allCases.checked ? [...picked] : [],
+      headed: headed.checked,
+      ...(isReplay ? contextEditor.values() : {}),
+      ...ruleChange(current, initialRule),
+      ...(task ? { expected_revision: task.revision } : {}),
+    };
+  }
 
   const save = h('button', { class: 'btn primary' }, task ? '保存' : '创建任务');
   save.addEventListener('click', async () => {
     error.hidden = true;
     if (target.kind() === 'replay' && !allCases.checked && !picked.size) { error.textContent = '请至少选择一条用例，或勾选「全部用例」'; error.hidden = false; return; }
     try {
-      const selected = target.read();
-      const body = { title: title.value, project_id: project.value, ...selected, engine: selected.kind === 'replay' ? engine.value : 'native',
-        case_ids: selected.kind === 'replay' && !allCases.checked ? [...picked] : [], headed: headed.checked,
-        ...ruleChange(current, initialRule), ...(task ? { expected_revision: task.revision } : {}) };
+      const body = buildTaskBody();
       save.disabled = true;
       const saved = await api(task ? '/tasks/' + task.id : '/tasks', { method: task ? 'PATCH' : 'POST', body });
       closeOverlay();
