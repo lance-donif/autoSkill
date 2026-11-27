@@ -238,6 +238,8 @@ def save(project_id: str, row: dict, *, session: str = "", expected_revision: st
         identity = case_id or row["id"]
         before = dict(next((item for index, item in plan._rows(sheet, columns) if index == number), {}))
         before_hash = execution_inputs.content_hash(_design(before, meta["rows"].get(identity, {})))
+        if "priority" in row:
+            row["priority"] = plan.normalize_priority(row["priority"])
         _write_definition(sheet, columns, number, {"id": identity, **row})
         extra = meta["rows"].setdefault(identity, {})
         extra.update({key: row[key] for key in ("description", "author", "remarks", "requirement_ids", "source", "business_path", "prefix") if key in row})
@@ -245,7 +247,7 @@ def save(project_id: str, row: dict, *, session: str = "", expected_revision: st
             extra.pop("business_path", None)
         after = next(item for index, item in plan._rows(sheet, columns) if index == number)
         if before_hash != execution_inputs.content_hash(_design(after, extra)):
-            plan._set_status(sheet, columns, number, "未执行", "设计已变化；原执行结果保留在历史版本，需重新关联并回放")
+            plan._set_status(sheet, columns, number, "未执行", "设计已变化，需重验；原执行结果保留在历史版本，需重新关联并回放")
         meta["version"] += 1
         plan._save(book)
         book.close()

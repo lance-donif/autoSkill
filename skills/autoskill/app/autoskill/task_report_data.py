@@ -68,10 +68,97 @@ def logical_cases(snapshot: dict) -> list[dict]:
     return list(groups.values())
 
 
+def account_display(account) -> str:
+    """Format an execution account label without ever exposing password fields."""
+    if not account:
+        return ""
+    if isinstance(account, str):
+        return account.strip()
+    if not isinstance(account, dict):
+        return ""
+    mode = str(account.get("mode") or "").strip().lower()
+    if mode == "none":
+        return "不登录"
+    label = str(account.get("label") or "").strip()
+    username = str(account.get("username") or "").strip()
+    account_id = str(account.get("account_id") or account.get("id") or "").strip()
+    if label and username and label != username:
+        return f"{label}（{username}）"
+    return label or username or account_id
+
+
+def _sanitize_account(account) -> dict | None:
+    if not isinstance(account, dict):
+        return None
+    allowed = ("mode", "account_id", "id", "label", "username", "platform_id", "platform_name")
+    cleaned = {key: account[key] for key in allowed if account.get(key) not in (None, "")}
+    return cleaned or None
+
+
+def _is_blocked(group: dict, snapshot: dict) -> bool:
+    """Distinguish blocked unexecuted cases from cases that were never attempted."""
+    if group["status"] != "NotRun":
+        return False
+    for item in group["items"]:
+        result = item.get("result") or {}
+        detail = result.get("detail") if isinstance(result.get("detail"), dict) else {}
+        if result.get("status") == "Blocked" or result.get("category") == "blocked" or detail.get("execution_blocker"):
+            return True
+    return snapshot.get("status") == "Blocked" and all(item.get("result") is None for item in group["items"])
+
+
+def istqb_summary(snapshot: dict, groups: list[dict] | None = None) -> dict:
+    """Compute ISTQB parallel counts and a scope-bound conclusion that never hides failures or blocks."""
+    groups = logical_cases(snapshot) if groups is None else groups
+    total = len(groups)
+    passed = sum(group["status"] == "Pass" for group in groups)
+    failed = sum(group["status"] == "Fail" for group in groups)
+    blocked_groups = [group for group in groups if _is_blocked(group, snapshot)]
+    blocked = len(blocked_groups)
+    not_run = max(0, total - passed - failed - blocked)
+    executed = passed + failed + sum(1 for group in blocked_groups if any(item.get("result") for item in group["items"]))
+    all_passed = total > 0 and passed == total and failed == 0 and blocked == 0 and not_run == 0
+    if failed > 0 and blocked > 0:
+        conclusion = "存在失败与受阻用例"
+    elif failed > 0:
+        conclusion = "存在失败用例"
+    elif blocked > 0:
+        conclusion = "存在受阻用例"
+    elif total == 0:
+        conclusion = "暂无用例"
+    elif executed == 0:
+        conclusion = "尚未执行"
+    elif not_run > 0:
+        conclusion = f"本次已执行 {executed}/{total} 条通过，另有 {not_run} 条未执行"
+    else:
+        conclusion = "已执行用例均通过（仅覆盖本次执行范围）"
+    return {"total": total, "executed": executed, "passed": passed, "failed": failed,
+            "blocked": blocked, "not_run": not_run, "all_passed": all_passed, "conclusion": conclusion}
+
+
+def _snapshot_accounts(snapshot: dict, groups: list[dict]) -> list[str]:
+    accounts: list[str] = []
+    metadata = snapshot.get("metadata") or {}
+    for candidate in (metadata.get("account"), metadata.get("account_label"),
+                      (snapshot.get("sources") or {}).get("execution_environment", {}).get("account")):
+        label = account_display(candidate)
+        if label:
+            accounts.append(label)
+    for group in groups:
+        for item in group["items"]:
+            detail = (item.get("result") or {}).get("detail")
+            for candidate in (item.get("account"), detail.get("account") if isinstance(detail, dict) else None):
+                label = account_display(candidate)
+                if label:
+                    accounts.append(label)
+    return list(dict.fromkeys(accounts))
+
+
 def task_summary(snapshot: dict) -> dict:
     """Expose one verdict and concise facts per definition to every delivery renderer."""
     groups = logical_cases(snapshot)
     counts = {status: sum(group["status"] == status for group in groups) for status in STATUS}
+    istqb = istqb_summary(snapshot, groups)
     issues, environments = [], []
     for group in groups:
         reasons = []
@@ -91,8 +178,12 @@ def task_summary(snapshot: dict) -> dict:
             environments.append("被测地址：" + str(base_url))
         if engine := snapshot.get("metadata", {}).get("engine"):
             environments.append("任务引擎：" + str(engine))
-    return {"cases": len(groups), "execution_rows": len(snapshot["cases"]), "counts": counts, "issues": issues,
-            "run_ids": snapshot.get("run_ids", []), "environment": list(dict.fromkeys(environments))}
+    accounts = _snapshot_accounts(snapshot, groups)
+    return {"cases": len(groups), "execution_rows": len(snapshot["cases"]), "counts": counts, "istqb": istqb,
+            "total": istqb["total"], "executed": istqb["executed"], "passed": istqb["passed"],
+            "failed": istqb["failed"], "blocked": istqb["blocked"], "not_run": istqb["not_run"],
+            "conclusion": istqb["conclusion"], "accounts": accounts, "account": "、".join(accounts),
+            "issues": issues, "run_ids": snapshot.get("run_ids", []), "environment": list(dict.fromkeys(environments))}
 
 
 def _json(value, default):
@@ -125,9 +216,16 @@ def _replay(run: dict, results: list[dict]) -> tuple[list[dict], dict, list[str]
         evidence = None
         manifest = {"selected": _json(run.get("case_ids"), []), "cases": {}, "sources": {}}
         notes.append("冻结输入或来源证据不可用；只列本次选择与保留结果，不用当前项目定义替代历史输入。")
+    env_info = manifest.get("environment") if isinstance(manifest.get("environment"), dict) else {}
+    env_name = env_info.get("name") or run.get("environment_name") or env_info.get("id") or run.get("environment_id") or ""
+    run_account = _sanitize_account(manifest.get("account"))
+    if not run_account and (run.get("account_id") or run.get("account_label")):
+        run_account = _sanitize_account({"account_id": run.get("account_id"), "label": run.get("account_label")})
     sources = {**manifest.get("sources", {}), "execution_environment": {
+        "environment_name": env_name, "environment_id": env_info.get("id") or run.get("environment_id") or "",
         "base_url": manifest.get("config", {}).get("base_url"), "engine": manifest.get("engine", {}).get("adapter"),
-        "python": manifest.get("engine", {}).get("python")}}
+        "python": manifest.get("engine", {}).get("python"),
+        **({"account": run_account} if run_account else {})}}
     if evidence and run.get("family") == "load":
         cases = _load(run, results, evidence)
         sources["load"] = manifest["load"]
@@ -296,13 +394,31 @@ def run_snapshot(run: dict) -> dict:
     results = _rows(run["id"])
     capture = _native if run.get("family") == "native" else _replay
     cases, sources, notes = capture(run, results)
-    labels = {"base_url": "被测地址", "engine": "任务引擎", "python": "Python", "runtime_version": "运行时版本"}
-    environment = [labels[key] + "：" + str(value) for key, value in sources.get("execution_environment", {}).items() if value]
+    exec_env = sources.get("execution_environment", {})
+    labels = {"environment_name": "环境", "base_url": "被测地址", "engine": "任务引擎", "python": "Python", "runtime_version": "运行时版本"}
+    environment = [labels[key] + "：" + str(value) for key, value in exec_env.items() if key in labels and value]
+    run_account = _sanitize_account(exec_env.get("account"))
+    if not run_account and (run.get("account_id") or run.get("account_label")):
+        run_account = _sanitize_account({"account_id": run.get("account_id"), "label": run.get("account_label")})
     for item in cases:
         item["environment"] = environment
         item["evidence_directory"] = data_refs.store(paths.local() / "runs" / run["id"])
+        detail = (item.get("result") or {}).get("detail")
+        case_account = _sanitize_account(detail.get("account") if isinstance(detail, dict) else None) or run_account
+        if case_account:
+            item["account"] = case_account
     metadata = {key: run.get(key) for key in ("id", "family", "engine", "trigger", "task_id", "created_at", "started_at",
-                                           "finished_at", "reason", "total", "done", "input_hash", "input_manifest")}
+                                           "finished_at", "reason", "total", "done", "input_hash", "input_manifest",
+                                           "environment_id", "environment_name", "account_id", "account_label") if key in run or key in (
+                                               "id", "family", "engine", "trigger", "task_id", "created_at", "started_at",
+                                               "finished_at", "reason", "total", "done", "input_hash", "input_manifest")}
+    if exec_env.get("environment_name") and not metadata.get("environment_name"):
+        metadata["environment_name"] = exec_env["environment_name"]
+    if exec_env.get("environment_id") and not metadata.get("environment_id"):
+        metadata["environment_id"] = exec_env["environment_id"]
+    if run_account:
+        metadata["account"] = run_account
+        metadata.setdefault("account_label", account_display(run_account))
     if metadata.get("input_manifest"):
         # Missing legacy mappings remain provenance; a report must not invent an input location.
         with contextlib.suppress(ValueError):

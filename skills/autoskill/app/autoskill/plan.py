@@ -23,10 +23,25 @@ from .locking import file_lock, project_lock
 COLUMNS = [("id", "用例编号", 12), ("module", "子项目", 14), ("title", "用例标题", 32), ("type", "操作类型", 10),
            ("priority", "优先级", 8), ("preconditions", "前置条件", 24), ("steps", "操作步骤", 50), ("expected", "预期结果", 40),
            ("status", "执行结果", 10), ("note", "备注", 40), ("replay", "回放用例", 22)]
-FUNCTIONAL_FIELDS = ("description", "author", "remarks", "source", "requirement_ids", "business_path", "prefix")
+FUNCTIONAL_FIELDS = ("description", "author", "remarks", "source", "requirement_ids", "business_path", "prefix", "needs_reverify", "reverify_reason")
 ALIASES = {"编号": "id", "用例ID": "id", "模块": "module", "标题": "title", "用例名称": "title", "类型": "type", "步骤": "steps",
            "测试步骤": "steps", "期望结果": "expected", "结果": "status", "是否通过": "status"}
+PRIORITY_ALIASES = {
+    "p0": "P0", "高": "P0", "高优": "P0", "高风险": "P0", "high": "P0", "critical": "P0",
+    "p1": "P1", "中": "P1", "中优": "P1", "中风险": "P1", "medium": "P1", "normal": "P1",
+    "p2": "P2", "低": "P2", "低优": "P2", "低风险": "P2", "low": "P2",
+}
 STATUS = task_report_data.STATUS
+
+
+def normalize_priority(value: str | None) -> str:
+    """Normalize business risk priority labels to P0/P1/P2 with P1 as the default."""
+    if value is None:
+        return "P1"
+    cleaned = str(value).strip()
+    if not cleaned:
+        return "P1"
+    return PRIORITY_ALIASES.get(cleaned.lower(), cleaned)
 FILL = {"通过": "E2F0D9", "失败": "FCE4D6"}
 _selected_folder: ContextVar[Path | None] = ContextVar("autoskill_plan_folder", default=None)
 SKILL_TEXT = """---
@@ -197,13 +212,15 @@ def _set_status(sheet, columns, number: int, status: str, note: str | None = Non
         sheet.cell(number, columns["note"], note).data_type = "s"
 
 
-def _delivery(project_id: str, info: dict, items: list[dict], folder: Path, source_doc_hash: str | None = None) -> dict:
+def _delivery(project_id: str, info: dict, items: list[dict], folder: Path, source_doc_hash: str | None = None,
+              requirement: str | None = None) -> dict:
     """Freeze the initial complete design before any candidate execution is bound."""
     from . import plan_execution
 
     identity = execution_inputs.content_hash(items)
     destination = folder / "exports" / ("functional-design-" + identity[:16] + "-" + uuid.uuid4().hex[:8] + ".xlsx")
-    return plan_execution.initialize(project_id, info, items, destination, source_doc_hash=source_doc_hash)
+    return plan_execution.initialize(project_id, info, items, destination, source_doc_hash=source_doc_hash,
+                                     requirement=requirement)
 
 
 def _source_hash(row: dict) -> str:
@@ -234,9 +251,10 @@ def source_metadata() -> dict:
         book.close()
 
 
-def write(project_id: str, file: str, *, delivery: bool = True, source_doc: str | None = None) -> dict:
+def write(project_id: str, file: str, *, delivery: bool = True, source_doc: str | None = None,
+          requirement: str | None = None) -> dict:
     with _sheet_lock(project_id):
-        return _write(project_id, file, delivery=delivery, source_doc=source_doc)
+        return _write(project_id, file, delivery=delivery, source_doc=source_doc, requirement=requirement)
 
 
 def _design_text(item: dict) -> dict:
@@ -301,23 +319,77 @@ def _document_hash(source_doc: str | None) -> str | None:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def _duplicate(project_id: str, items, source_doc_hash: str | None) -> dict | None:
+def _duplicate(project_id: str, items, source_doc_hash: str | None, requirement: str | None = None) -> dict | None:
     """Reuse the same session's delivered design for the same document version and case content."""
     from . import plan_execution
 
-    if plan_execution.existing_delivery(project_id, items, source_doc_hash) is None:
+    if plan_execution.existing_delivery(project_id, items, source_doc_hash, requirement=requirement) is None:
         return None
     view = plan_execution.describe()
     if view.get("task_id") is None:
         return None
     return {"skill": str(_folder()), "excel": str(_file()), "cases": len(items), "project": project_id,
+            **({"requirement": view["requirement"]} if view.get("requirement") else {}),
             "excel_role": "内部编辑表（11 列），非用户交付 Excel", "duplicate": True, "task_id": view.get("task_id"),
             "delivery_excel": view["delivery_excel"], "initial_excel": view["initial_excel"],
             "initial_report_id": view.get("initial_report_id"), "test_report": view.get("test_report"),
             "next": "本次设计内容与当前会话已交付的版本一致，已复用原任务和正式 Excel；直接按原设计行执行，不要重复写表。"}
 
 
-def _write(project_id: str, file: str, *, delivery: bool = True, source_doc: str | None = None) -> dict:
+def _previous_rows(project_id: str, requirement: str | None) -> dict[str, dict]:
+    """Read existing sheet rows when updating the same project and requirement in place."""
+    from . import plan_execution
+
+    if not _file().is_file():
+        return {}
+    existing = plan_execution._read()
+    existing_req = (existing or {}).get("requirement") or ""
+    incoming_req = (requirement or "").strip()
+    if incoming_req and existing_req and existing_req != incoming_req:
+        return {}
+    try:
+        book, sheet, columns = _open()
+        try:
+            meta = book["信息"] if "信息" in book.sheetnames else None
+            sheet_project = str(meta.cell(1, 2).value or "") if meta else ""
+            if sheet_project and sheet_project != project_id:
+                return {}
+            return {row["id"]: row for _, row in _rows(sheet, columns)}
+        finally:
+            book.close()
+    except (OSError, ValueError):
+        return {}
+
+
+def _diff_updates(previous: dict[str, dict], rows: list[dict]) -> tuple[list[dict], dict | None]:
+    """Identify added and modified rows when updating rules/copy so re-verification is explicit."""
+    if not previous:
+        return rows, None
+    added, modified, unchanged = [], [], []
+    incoming_ids = set()
+    annotated = []
+    for item in rows:
+        identity = item["id"]
+        incoming_ids.add(identity)
+        comparable = {**item, "module": item.get("module") or "未分组", "priority": normalize_priority(item.get("priority"))}
+        if identity not in previous:
+            added.append(identity)
+            annotated.append({**item, "needs_reverify": True, "reverify_reason": "本次新增用例，需验证"})
+        elif _source_hash(comparable) != _source_hash(previous[identity]):
+            modified.append(identity)
+            annotated.append({**item, "needs_reverify": True, "reverify_reason": "规则或文案已更新，需重验"})
+        else:
+            unchanged.append(identity)
+            annotated.append(item)
+    removed = [identity for identity in previous if identity not in incoming_ids]
+    if not added and not modified and not removed:
+        return rows, None
+    return annotated, {"updated_existing": True, "added": added, "modified": modified, "unchanged": unchanged,
+                       "removed": removed, "needs_reverify": [*modified, *added]}
+
+
+def _write(project_id: str, file: str, *, delivery: bool = True, source_doc: str | None = None,
+           requirement: str | None = None) -> dict:
     """Turn designed cases (a JSON array) into the Excel case sheet and its skill."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font
@@ -330,11 +402,14 @@ def _write(project_id: str, file: str, *, delivery: bool = True, source_doc: str
         items = json.loads(Path(file).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as error:
         raise ValueError(f"读不了用例文件 {file}：{error}") from None
-    items = _design_rows(items)
+    items = [{**row, "priority": normalize_priority(row.get("priority"))} for row in _design_rows(items)]
+    clean_requirement = requirement.strip() if isinstance(requirement, str) and requirement.strip() else None
     source_doc_hash = _document_hash(source_doc)
-    duplicate = _duplicate(project_id, items, source_doc_hash) if delivery and source_doc_hash else None
+    duplicate = _duplicate(project_id, items, source_doc_hash, requirement=clean_requirement) if delivery and source_doc_hash else None
     if duplicate is not None:
         return duplicate
+    previous = _previous_rows(project_id, clean_requirement) if delivery else {}
+    items, changes = _diff_updates(previous, items)
     folder = _folder()
     folder.mkdir(parents=True, exist_ok=True)
     book = Workbook()
@@ -344,8 +419,9 @@ def _write(project_id: str, file: str, *, delivery: bool = True, source_doc: str
     source_rows = {}
     for item in items:
         steps = item.get("steps", "")
+        note = item.get("reverify_reason", "") if item.get("needs_reverify") else ""
         row = {**item, "module": item.get("module") or "未分组", "steps": steps,
-               "priority": item.get("priority") or "P1", "status": "未执行", "note": "", "replay": ""}
+               "priority": normalize_priority(item.get("priority")), "status": "未执行", "note": note, "replay": ""}
         sheet.append([str(row.get(key, "") or "") for key, _, _ in COLUMNS])
         source_rows[str(row["id"])] = {"row_hash": _source_hash(row), "document": {key: item[key] for key in FUNCTIONAL_FIELDS if key in item}}
     for index, (_, _, width) in enumerate(COLUMNS, 1):
@@ -360,19 +436,27 @@ def _write(project_id: str, file: str, *, delivery: bool = True, source_doc: str
     for pair in (("项目", project_id), ("名称", info["name"]), ("被测地址", info["base_url"])):
         meta.append(pair)
         meta.cell(meta.max_row, 2).data_type = "s"
+    if clean_requirement:
+        meta.append(("需求", clean_requirement))
+        meta.cell(meta.max_row, 2).data_type = "s"
     saved = _save(book)
     if delivery:
         metadata = folder / "design.json"
         revision = execution_inputs.content_hash(json.loads(metadata.read_bytes())) if metadata.is_file() else None
         execution_inputs.write_json(folder / "functional-design.json", {"schema": 1, "online_revision": revision, "rows": source_rows})
-    published = _delivery(project_id, info, items, folder, source_doc_hash) if delivery else _delivery_status()
+    published = _delivery(project_id, info, items, folder, source_doc_hash, requirement=clean_requirement) if delivery else _delivery_status()
     public_file = published.get("delivery_excel") if delivery else None
     (folder / "SKILL.md").write_text(SKILL_TEXT.format(file=Path(saved).name, count=len(items), project=f"，项目 {project_id}",
                                                      delivery=public_file or "在线设计用例表的「下载 14 列 Excel」"), encoding="utf-8")
-    return {"skill": str(folder), "excel": saved, "cases": len(items), "project": project_id,
-            "excel_role": "内部编辑表（11 列），非用户交付 Excel", "delivery_excel": public_file,
-            **published,
-            "next": _delivery_next(published["test_report"]) if delivery else "可在在线设计用例表下载正式 14 列 Excel。"}
+    result = {"skill": str(folder), "excel": saved, "cases": len(items), "project": project_id,
+              "excel_role": "内部编辑表（11 列），非用户交付 Excel", "delivery_excel": public_file,
+              **published,
+              "next": _delivery_next(published["test_report"]) if delivery else "可在在线设计用例表下载正式 14 列 Excel。"}
+    if clean_requirement:
+        result["requirement"] = clean_requirement
+    if changes:
+        result["changes"] = changes
+    return result
 
 
 def show(*, recording: bool = False) -> dict:

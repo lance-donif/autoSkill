@@ -19,7 +19,7 @@
 | `project show <项目>` | 单个项目的设置 |
 | `project update <项目> [--name] [--category] [--url 地址] [--environments 环境.json] [--active-environment 标识] [--timeout 秒] [--page-load 秒] [--insecure-tls on\|off]` | 修改设置。`--url` 用于补充或更换被测地址，站点已属于其他项目时拒绝；`--environments` 用 JSON 数组整体替换环境列表（每项 `id/name/base_url/variables/is_default`），`--active-environment` 切换运行环境 |
 | `settings [--browser system\|bundled]` | 本机设置：`system` 优先用本机 Chrome、随包浏览器备用（默认），`bundled` 只用随包浏览器；不带参数时显示当前使用的浏览器 |
-| `plan write <项目> --file 用例.json [--expected-cases 数量] [--source-doc 需求文档] [--deliver-to 目录]` / `plan show` / `plan mark <编号> 通过\|失败\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、按设计版本、候选和指定运行回填完整表，保留未执行及失败；`initial_excel` 是最初副本。用户交付读取 `delivery_excel` 正式14列文件，`excel` 是兼容的内部11列表。默认表位于数据根的 `.local/case-plans/default/autoskill-cases`，命名会话拥有独立目录，以命令返回的路径为准 |
+| `plan write <项目> --file 用例.json [--expected-cases 数量] [--source-doc 需求文档] [--requirement 需求名] [--deliver-to 目录] [--overwrite-delivery]` / `plan show` / `plan mark <编号> 通过\|失败\|未执行 [--note]` / `plan sync` | 用例表：生成、读取、记录结果、按设计版本、候选和指定运行回填完整表，保留未执行及失败，并按业务风险标记优先级（`P0`/`P1`/`P2`）；规则或文案更新时自动标出需重验条目。向用户交付目录 `<目标>/autoSkill交付/` 只放最新版 `功能测试用例.xlsx`（不另交付初版）；出现第二项独立需求时把原需求用例和历次报告一并迁入对应子文件夹；检测到手工改表时保留人工内容并返回 `diff_summary` 与 `merge_preview`，用户确认后加 `--overwrite-delivery` 更新。内部 `initial_excel` 与 11 列表仍保存在数据目录 `.local/case-plans/` |
 | `plan link <设计行编号> <可复用用例编号>` | 将当前会话设计行关联到同项目已有用例，不执行、不复用旧通过。先确认操作与独立断言符合本行预期，再保持相同 `--session` 执行 `run <项目> --case <可复用用例编号>`；API 流程可带 `--api-only --inputs <参数文件>`。本次真实结果回填原表，自动前置只回填表内已有明确关联的行，不增加运行报告的显式目标数 |
 | `context <项目> [--limit 50] [--cursor 游标] [--knowledge-limit 5] [--knowledge-cursor 游标] [--all]` | 登录、缺少的凭据、用例与知识预览；`page.cases`、`page.knowledge` 分别标明总数、剩余页及内容版本 |
 | `cases <项目> [--limit 数量] [--cursor 游标] [--all] [--kind] [--module] [--requirement] [--query]` | 分页用例摘要；`page` 返回 `total/returned/has_more/next_cursor/content_revision`，内容或查询改变会报 `cursor_expired` |
@@ -200,11 +200,11 @@ kind 为 replay/native/maintenance；replay 选项目及 case_ids，native 选 a
 
 ## 回放
 
-`run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api] [--candidate 候选ID] [--api-only] [--inputs 参数.json] [--environment 标识]`
+`run <项目> [--case 编号]… [--engine playwright|selenium] [--kind ui|api] [--candidate 候选ID] [--api-only] [--inputs 参数.json] [--environment 标识] [--account 账号标识]`
 
 `run-status <运行ID> [--brief]` 只读运行状态、结果、已有报告和候选发布回执。轮询用 `--brief` 保留状态、发布和报告入口，诊断时省略它查看用例结果。`record stop` 已入队后，用它等待各个 `run_id`。
 
-`--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。`--environment` 选择本次运行环境，省略时使用项目当前环境；冻结输入记录环境标识、地址和变量的快照，之后切换环境不会改写历史运行。
+`--candidate` 验证同一候选任务并报告 `published_ids`、`unpublished`，只发布实际通过且依赖满足的子集。`--api-only` 使用独立冷HTTP会话，不借用浏览器或已保存登录；`--inputs` 从JSON对象加载本次运行参数（`-`为标准输入），`RAND`由每次运行产生，不能覆盖。输入/认证/依赖改变不借用此前通过结果。`--environment` 与 `--account` 选择本次运行环境与账号，省略时使用项目当前环境与默认账号；冻结输入记录环境、地址、账号与变量的快照，之后切换不会改写历史运行。回执并列返回 `total`/`executed`/`passed`/`failed`/`blocked`/`not_run` 及环境、账号。
 
 - 录制、回放、登录和 DSH 对话任务沿用当前数据目录保存的回放窗口偏好，默认显示最大化窗口。Linux 缺少图形桌面时会报告启动受阻。用户明确要求显示或隐藏时分别传 `--headed` 或 `--headless`，命令行优先于 `AUTOSKILL_HEADED=1/0`，再优先于保存偏好。显式无头时页面为 1920×1080。这些选项适用于 `record start`、`run`、`login`、`dashboard`。
 - 全局默认同时执行 2 个任务，`AUTOSKILL_MAX_PARALLEL` 可调大；同一项目的浏览器/HTTP replay 共享登录态，会自动排队，native 原生任务使用独立输入与证据目录、同项目可并行。不同会话录制仍可并行，保存到同一项目时只对写入阶段排队。
@@ -233,9 +233,9 @@ HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{
 | --- | --- |
 | `export postman <项目> [--out 目录]` | Postman Collection v2.1 + Environment。按依赖顺序排列，含断言脚本和变量传递；凭据是环境里的空变量 |
 | `export scripts <项目> [--out 目录]` | 每条页面用例各一份 Playwright 和 Selenium 的独立 Python 脚本，包含前置步骤。脚本默认显示窗口，设置 `HEADED=0` 可隐藏。凭据从同名环境变量读取。 |
-| `sync scan` / `sync status` | 扫描同步目录中的 autoSkill 用例文件（JSON 打包对象或分享 ZIP），按内容哈希增量导入对应项目；只导入标记为通过的文件，结果和来源写入用例库并在数据管理页展示 |
+| `sync scan` / `sync status` / `sync export [项目]… [--case 编号] [--out 路径]` / `sync import <文件> [--overwrite]` | 扫描、查看、导出或手动导入同步目录中的单 ZIP / JSON 用例包，按内容哈希增量导入并只同步通过状态的用例 |
 | `report <项目> [--out 目录]` | Excel 以14列功能测试用例为主表，保留技术定义、执行明细与最近结果附表，并生成 Markdown 摘要 |
-| `task-report <报告标识> [--retry] [--deliver-to 目录]` | 读取本次任务的 Excel、简报和 Bug 清单交付回执；`--retry` 按同一任务快照重新导出，不重新执行测试，也不借用其他任务的结果；`--deliver-to` 把三份原件复制到用户项目目录；未指定时使用 `AUTOSKILL_DELIVERY_DIR`，宿主会话另使用转交的调用目录，通用命令行调用需要显式路径 |
+| `task-report <报告标识> [--retry] [--deliver-to 目录] [--requirement 需求名] [--overwrite-delivery]` | 读取本次任务的 Excel、简报和 Bug 清单交付回执；`--retry` 按同一任务快照重新导出，不重新执行测试；`--deliver-to` 把最新版 `功能测试用例.xlsx`、同分钟配对的 `测试报告-YYYYMMDD-HHMM.md` 与 `Bug清单-YYYYMMDD-HHMM.md`（同分钟重跑自动加 `-2`、`-3` 保留旧报告）复制到 `<目录>/autoSkill交付/`；遇文件占用返回 `code="file_in_use"`，遇手工改表返回 `diff_summary` 与 `merge_preview`，确认后加 `--overwrite-delivery` 更新 |
 | `pack [项目]… [--out 路径] [--include-secrets --passphrase 口令]` | 分享包保留用例、知识、项目报告附件、原生资产及原始捕获，不额外加入本机登录态、`.local/` 运行数据库、截图和凭据库；资产或捕获内已有的认证字段保留。`--include-secrets` 额外加密携带凭据库 |
 | `pack --full [--out 路径]` | 完整包：运行时、全部项目与知识库及项目报告附件、明文凭据和已保存登录态，统一放到解压后的标准工作区。不含 `.local/` 运行历史数据库、截图和临时进程文件；返回包含的凭据名、登录项目及仍缺少的凭据名 |
 | `import <分享包> [--passphrase 口令] [--overwrite]` | 导入轻量分享包。已有同名项目默认跳过 |

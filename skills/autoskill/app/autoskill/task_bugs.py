@@ -126,16 +126,23 @@ def _issue_lines(issue: dict) -> list[str]:
 
 def render(snapshot: dict, *, excel_link: str) -> tuple[str, dict]:
     summary = task_report_data.task_summary(snapshot)
+    stats = summary["istqb"]
     found = issues(snapshot)
     counts = {kind: sum(kind in issue["kinds"] for issue in found) for kind in KINDS}
     project = snapshot.get("project", {})
     metadata = snapshot.get("metadata", {})
+    account_text = summary.get("account") or "未指定/免登录"
     lines = ["# Bug 清单", "", "- 项目：" + _text(project.get("name") or snapshot.get("project_id")),
              "- 任务：" + _text(snapshot["task_id"]) + "；轮次：" + task_markdown._rounds(snapshot),
              "- 时间：" + _text(metadata.get("finished_at") or metadata.get("updated_at") or metadata.get("created_at")),
              "- 环境：" + _text("；".join(summary["environment"])),
+             "- 账号：" + _text(account_text, 120),
              "- 任务状态：" + _text(task_markdown.LABELS.get(snapshot.get("status"), snapshot.get("status"))),
+             "- 结论：" + _text(stats["conclusion"], 120),
              "- 任务说明：" + _text(metadata.get("reason")),
+             "",
+             (f"总用例 {stats['total']} ｜ 本次执行 {stats['executed']} ｜ 通过 {stats['passed']} ｜ "
+              f"失败 {stats['failed']} ｜ 受阻 {stats['blocked']} ｜ 未执行 {stats['not_run']}"),
              "", "| 分类 | 涉及用例版本数 |", "| --- | ---: |"]
     lines.extend(f"| {label} | {counts[kind]} |" for kind, label in KINDS.items())
     lines.extend(["", f"本轮共 {summary['cases']} 个用例版本、{summary['execution_rows']} 条结果；问题按用例版本归组，不表示同一根因。",

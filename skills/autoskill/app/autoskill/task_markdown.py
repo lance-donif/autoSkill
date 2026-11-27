@@ -38,17 +38,23 @@ def _rounds(snapshot: dict) -> str:
 def render(snapshot: dict, *, excel_link: str) -> tuple[str, dict]:
     """Keep counts and issue classification shared with the Excel renderer, without detailed dumps."""
     summary = task_report_data.task_summary(snapshot)
+    stats = summary["istqb"]
     metadata = snapshot.get("metadata", {})
     project = snapshot.get("project", {})
     started = metadata.get("started_at") or metadata.get("created_at")
     finished = metadata.get("finished_at") or metadata.get("updated_at")
     environment = summary.get("environment") or []
+    account_text = summary.get("account") or "未指定/免登录"
     lines = ["# 测试任务简报", "", "- 项目：" + _text(project.get("name") or snapshot.get("project_id")),
              "- 任务：" + _text(snapshot.get("title")) + "（" + _text(snapshot["task_id"]) + "）",
              "- 轮次：" + _rounds(snapshot), "- 时间：" + _text(started) + " → " + _text(finished),
              "- 环境：" + (_text("；".join(str(value) for value in environment), 240) if environment else "未记录"),
-             "- 执行/流程状态：" + _text(snapshot.get("status")), "", "## 结果汇总", "",
-             f"逻辑用例 {summary['cases']} 条；执行结果行 {summary['execution_rows']} 条。", "",
+             "- 账号：" + _text(account_text, 120),
+             "- 执行/流程状态：" + _text(snapshot.get("status")),
+             "- 结论：" + _text(stats["conclusion"], 120), "", "## 结果汇总", "",
+             f"逻辑用例 {summary['cases']} 条；执行结果行 {summary['execution_rows']} 条。",
+             (f"总用例 {stats['total']} ｜ 本次执行 {stats['executed']} ｜ 通过 {stats['passed']} ｜ "
+              f"失败 {stats['failed']} ｜ 受阻 {stats['blocked']} ｜ 未执行 {stats['not_run']}"), "",
              "| 结果 | 数量 |", "| --- | ---: |"]
     lines.extend(f"| {label} | {summary['counts'].get(status, 0)} |" for status, label in LABELS.items())
     lines.extend(["", "## 主要问题", ""])

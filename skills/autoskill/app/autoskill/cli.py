@@ -94,11 +94,17 @@ def run_summary(run: dict, *, brief: bool = False) -> dict:
 
     rows = None if brief else db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
     totals = task_state.run_values(run, results=rows)
+    recorded = totals.get("recorded_counts") or {}
+    blocked = totals.get("blocked", 0) or (recorded.get("blocked", 0) if totals.get("not_run", 0) > 0 else 0)
+    executed = totals["passed"] + totals["failed"] + blocked
     summary = {
         "run_id": run["id"], "status": run["status"], "status_text": STATUS_TEXT.get(run["status"], run["status"]),
         "state": totals["state"],
-        "engine": run["engine"], "total": run["total"], "passed": totals["passed"], "failed": totals["failed"],
+        "engine": run["engine"], "total": run["total"], "executed": executed,
+        "passed": totals["passed"], "failed": totals["failed"], "blocked": blocked,
         "not_run": totals["not_run"], "reason": run["reason"],
+        "environment_id": run.get("environment_id") or "", "environment_name": run.get("environment_name") or "",
+        "account_id": run.get("account_id") or "", "account_label": run.get("account_label") or "",
     }
     if rows is not None:
         summary["results"] = []
@@ -337,9 +343,16 @@ def _schedule_commands(sub) -> None:
 
 def _sync_commands(sub) -> None:
     """The sync folder keeps external case files out of the board until they are scanned."""
-    sync = sub.add_parser("sync", help="同步目录：扫描开发同步来的用例文件（JSON/ZIP）").add_subparsers(dest="action", required=True)
+    sync = sub.add_parser("sync", help="同步目录：扫描、导出或导入开发同步来的用例包（JSON/ZIP）").add_subparsers(dest="action", required=True)
     sync.add_parser("scan", help="立即扫描一次；内容未变化的文件不会重复导入")
     sync.add_parser("status", help="查看同步目录、错误目录和最近一次扫描结果")
+    exporter = sync.add_parser("export", help="把通过状态的用例及环境配置导出为单个同步 ZIP")
+    exporter.add_argument("projects", nargs="*", help="项目标识；省略则导出全部项目")
+    exporter.add_argument("--case", action="append", dest="cases", help="指定用例编号，可重复")
+    exporter.add_argument("--out", help="输出路径或目录")
+    importer = sync.add_parser("import", help="手动导入单个同步 ZIP 或 JSON 用例包")
+    importer.add_argument("file", help="同步 ZIP 或 JSON 用例包路径")
+    importer.add_argument("--overwrite", action="store_true", help="本机已有同名项时覆盖")
 
 
 def _data_commands(sub) -> None:
@@ -455,6 +468,7 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     run.add_argument("--api-only", action="store_true", help="独立 HTTP 冷启动；不借用浏览器或已保存登录")
     run.add_argument("--inputs", dest="file", help="运行参数 JSON 文件（- 读标准输入）；RAND 由每次运行生成，不能覆盖")
     run.add_argument("--environment", help="本次运行使用的环境标识；省略时使用项目当前环境")
+    run.add_argument("--account", help="本次运行使用的共享账号标识；省略时使用项目当前账号或环境默认账号")
     run.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
     run_status = sub.add_parser("run-status", help="只读执行状态、发布结果和已有报告；不执行用例或重新导出")
     run_status.add_argument("run_id")
@@ -472,7 +486,9 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     receipt = sub.add_parser("task-report", help="读取本次任务的 Excel 与 Markdown 交付结果；不使用其他任务的最近结果")
     receipt.add_argument("report_id")
     receipt.add_argument("--retry", action="store_true", help="用对应任务快照重试生成，不重新执行测试")
-    receipt.add_argument("--deliver-to", help="把 Excel、Markdown 简报和 Bug 清单复制到这个目录；省略时用用户项目目录或 AUTOSKILL_DELIVERY_DIR")
+    receipt.add_argument("--deliver-to", help="把最新用例 Excel、按分钟命名的测试报告和 Bug 清单复制到该目录下的 autoSkill交付/；省略时用用户项目目录或 AUTOSKILL_DELIVERY_DIR")
+    receipt.add_argument("--requirement", help="本次报告所属需求名称；省略时沿用任务已记录的需求名称")
+    receipt.add_argument("--overwrite-delivery", action="store_true", help="用户确认差异与合并示例后，覆盖交付目录中已手工修改过的 功能测试用例.xlsx")
     packer = sub.add_parser("pack", help="把项目（用例、知识库、登录方式）打成一个分享包")
     packer.add_argument("projects", nargs="*", help="项目标识；省略则打包全部项目")
     packer.add_argument("--out", help="输出文件或目录")
@@ -499,8 +515,10 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
     writer.add_argument("project")
     writer.add_argument("--file", required=True, help="用例 JSON 文件（数组）")
     writer.add_argument("--expected-cases", type=int, help="按独立验收目标预先确定的用例数；单一连续流程填 1")
-    writer.add_argument("--deliver-to", help="把正式 Excel 和冻结初版复制到这个目录；省略时用用户项目目录或 AUTOSKILL_DELIVERY_DIR")
+    writer.add_argument("--deliver-to", help="把最新版正式 14 列 Excel 复制到该目录下的 autoSkill交付/；省略时用用户项目目录或 AUTOSKILL_DELIVERY_DIR")
     writer.add_argument("--source-doc", help="本次设计依据的需求文档；同一文档版本和相同内容再次写表时复用原任务，不重复交付")
+    writer.add_argument("--requirement", help="需求名称；单需求直接放 autoSkill交付/，出现第二项独立需求时自动归入各自子文件夹")
+    writer.add_argument("--overwrite-delivery", action="store_true", help="用户确认差异与合并示例后，覆盖交付目录中已手工修改过的 功能测试用例.xlsx")
     plan.add_parser("show", help="读出用例表：要执行哪些用例、各自的结果")
     linker = plan.add_parser("link", help="把当前用例表的一行关联到同项目已有用例；随后回放才写入真实结果")
     linker.add_argument("case", help="本次设计表中的用例编号")
@@ -919,7 +937,9 @@ def _dispatch_task_report(args) -> tuple[dict, int]:
     if args.deliver_to or paths.delivery_dir() is not None:
         from . import deliverables
 
-        result["delivery"] = deliverables.report_receipt(result, args.deliver_to)
+        result["delivery"] = deliverables.report_receipt(
+            result, args.deliver_to, requirement=args.requirement, overwrite=args.overwrite_delivery,
+        )
     return result, 2 if result["status"] == "failed" else 0
 
 
@@ -959,11 +979,14 @@ def _dispatch_plan(args) -> tuple[dict, int]:
             source = Path(folder) / "cases.json"
             source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
             source_doc = command_input.resolve_path(args.source_doc, command_input.base_directory(args)) if args.source_doc else None
-            written = plan.write(args.project, str(source), source_doc=source_doc)
+            written = plan.write(args.project, str(source), source_doc=source_doc, requirement=args.requirement)
             if args.deliver_to or paths.delivery_dir() is not None:
                 from . import deliverables
 
-                written["delivery"] = deliverables.plan_receipt(projects.get(args.project), written, args.deliver_to)
+                written["delivery"] = deliverables.plan_receipt(
+                    projects.get(args.project), written, args.deliver_to,
+                    requirement=args.requirement, overwrite=args.overwrite_delivery,
+                )
             return written, 0
     if action == "mark":
         return plan.mark(args.case, args.status, args.note), 0
@@ -1047,8 +1070,11 @@ def _dispatch_execution(args) -> tuple[dict, int]:
             chosen = [c["id"] for c in pool if not args.cases or c["id"] in args.cases]
             if not chosen:
                 raise ValueError("没有符合条件的可回放用例")
-        run = runner.create(args.project, chosen, args.engine, api_only=args.api_only, inputs=_input_json(args) if args.file else None,
-                            environment_id=args.environment)
+        run_kwargs = {"api_only": args.api_only, "inputs": _input_json(args) if args.file else None,
+                      "environment_id": args.environment}
+        if args.account:
+            run_kwargs["account_id"] = args.account
+        run = runner.create(args.project, chosen, args.engine, **run_kwargs)
         final = runner.execute(run["id"])
     summary = run_summary(final)
     if command == "run":  # the verdicts go back into the case sheet these cases came from
@@ -1098,9 +1124,23 @@ def _dispatch_run_status(args) -> tuple[dict, int]:
 
 
 def _dispatch_sync(args) -> tuple[dict, int]:
-    from . import sync_import
+    from . import share, sync_import
 
-    return (sync_import.scan() if args.action == "scan" else sync_import.status()), 0
+    if args.action == "scan":
+        return sync_import.scan(), 0
+    if args.action == "status":
+        return sync_import.status(), 0
+    if args.action == "export":
+        if hasattr(share, "pack_sync"):
+            return share.pack_sync(args.projects or None, case_ids=args.cases or None, out=args.out), 0
+        if hasattr(share, "export_sync_pack"):
+            return share.export_sync_pack(project_ids=args.projects or None, case_ids=args.cases or None, destination=args.out), 0
+        return share.pack(args.projects or None, args.out, None), 0
+    source = command_input.resolve_path(args.file, command_input.base_directory(args))
+    if hasattr(sync_import, "import_file"):
+        return sync_import.import_file(source), 0
+    result = share.import_pack(source, None, args.overwrite)
+    return result, 2 if result.get("errors") else 0
 
 
 def _dispatch_recording(args) -> tuple[dict, int]:

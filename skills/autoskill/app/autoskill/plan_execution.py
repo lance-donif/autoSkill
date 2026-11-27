@@ -86,7 +86,8 @@ def registered(project_id: str, session: str = "") -> tuple[dict | None, list[di
     return chosen, matches
 
 
-def existing_delivery(project_id: str, items: list[dict], source_doc_hash: str | None = None) -> dict | None:
+def existing_delivery(project_id: str, items: list[dict], source_doc_hash: str | None = None,
+                      requirement: str | None = None) -> dict | None:
     """The same session's active design for the same document version and identical case content."""
     chosen, _ = registered(project_id, task_context.session_id() or "")
     if chosen is None or not source_doc_hash:
@@ -96,15 +97,22 @@ def existing_delivery(project_id: str, items: list[dict], source_doc_hash: str |
             or value.get("source_doc_hash") != source_doc_hash
             or value.get("content_hash") != execution_inputs.content_hash(items)):
         return None
+    if requirement is not None and (value.get("requirement") or "") != requirement.strip():
+        return None
     return value
 
 
 def _definition(item: dict, number: int) -> dict:
     identity = item.get("id") or f"TC-{number:03d}"
-    document = {key: copy.deepcopy(item[key]) for key in ("description", "preconditions", "steps", "expected", "source", "business_path", "prefix", "author", "remarks") if item.get(key)}
+    document = {key: copy.deepcopy(item[key]) for key in
+                ("description", "preconditions", "steps", "expected", "source", "business_path", "prefix", "author", "remarks",
+                 "needs_reverify", "reverify_reason") if item.get(key)}
     document.setdefault("description", item["title"])
+    priority = plan.normalize_priority(item.get("priority"))
+    document["priority"] = priority
     return {**{key: copy.deepcopy(value) for key, value in item.items() if key not in ("status", "note", "replay", "execution_source")},
-            "id": identity, "kind": "scenario", "module": item.get("module") or "未分组", "extensions": {"test_case_document": document}}
+            "id": identity, "kind": "scenario", "module": item.get("module") or "未分组", "priority": priority,
+            "extensions": {"test_case_document": document}}
 
 
 def _design_hash(row: dict) -> str:
@@ -123,11 +131,13 @@ def execution_sources(rows: list[dict]) -> dict[str, dict]:
 
 
 def initialize(project_id: str, info: dict, items: list[dict], destination: Path, *, task_id: str | None = None,
-               source_doc_hash: str | None = None) -> dict:
+               source_doc_hash: str | None = None, requirement: str | None = None) -> dict:
     task_id = task_id or "plan-" + uuid.uuid4().hex
     initial = destination.with_name(destination.stem + "-initial-" + task_id[-8:] + ".xlsx")
     current = {row["id"]: row for row in plan.show()["cases"]}
+    clean_requirement = requirement.strip() if isinstance(requirement, str) and requirement.strip() else ""
     value = {"schema": 1, "task_id": task_id, "project_id": project_id, "session": task_context.session_id() or "",
+             "requirement": clean_requirement,
              "content_hash": execution_inputs.content_hash(items), "source_doc_hash": source_doc_hash,
              "project": {"id": project_id, "name": info["name"], "base_url": info["base_url"]},
              "delivery_excel": runner.plan_reference(destination), "initial_excel": runner.plan_reference(initial), "bindings": [],
@@ -339,14 +349,16 @@ def publish(value: dict, *, initial: Path | None = None) -> dict:
         else:
             cases.append({"definition": definition, "result": None, "run_id": None, "evidence_valid": False,
                           "note": "当前设计已变化；本任务仍保留最初设计，不把其他版本结果套入"})
+    metadata = {"requirement": value["requirement"]} if value.get("requirement") else {}
     snapshot = {"schema": 1, "kind": "design", "task_id": value["task_id"], "project_id": value["project_id"], "project": value["project"],
                 "title": "本次完整用例表与实际结果", "status": "Design", "cases": cases,
                 "results": [item["result"] for item in cases if item["result"]],
                 "run_ids": list(dict.fromkeys(item["run_id"] for item in cases if item["run_id"])),
                 "sources": {"design_rows": [{"id": saved["definition"]["id"], "row_hash": saved["row_hash"]} for saved in value["rows"]]},
-                "notes": ["完整保留初始设计、原步骤与预期；只有绑定候选和指定运行的证据写入结果，失败不会因未入库而消失。"], "metadata": {}}
+                "notes": ["完整保留初始设计、原步骤与预期；只有绑定候选和指定运行的证据写入结果，失败不会因未入库而消失。"], "metadata": metadata}
     head = _task_file(value["task_id"]).with_name("delivery-head.json")
-    receipt = task_reports.for_design(snapshot, runner.plan_folder(value["delivery_excel"]), head, initial=initial)
+    receipt = task_reports.for_design(snapshot, runner.plan_folder(value["delivery_excel"]), head, initial=initial,
+                                      requirement=value.get("requirement") or None)
     value["report_id"] = receipt["report_id"]
     if initial is not None:
         value["initial_report_id"] = receipt["report_id"]
@@ -361,8 +373,11 @@ def _delivery_view(value: dict, report: dict | None) -> dict:
     if not initial_report_id and report:
         initial_report_id = (report["report_id"] if report.get("initial_excel") and report.get("task_id") == value["task_id"]
                              else _legacy_initial_report(value))
-    return {"delivery_excel": str(runner.plan_folder(value["delivery_excel"])), "initial_excel": str(runner.plan_folder(value["initial_excel"])),
+    view = {"delivery_excel": str(runner.plan_folder(value["delivery_excel"])), "initial_excel": str(runner.plan_folder(value["initial_excel"])),
             "initial_report_id": initial_report_id, "test_report": report, "task_id": value["task_id"]}
+    if value.get("requirement"):
+        view["requirement"] = value["requirement"]
+    return view
 
 
 def _legacy_initial_report(value: dict) -> str | None:

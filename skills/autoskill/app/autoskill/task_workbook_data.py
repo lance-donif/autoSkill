@@ -251,6 +251,9 @@ def _screenshot_reference(value, item: dict) -> str:
     return f"运行 {item.get('run_id', '未记录')}；截图来源：{source}（来源证据未随 Excel 嵌入，请在对应运行中读取）"
 
 
+PRIORITY_LABELS = {"P0": "P0（高）", "P1": "P1（中）", "P2": "P2（低）"}
+
+
 def _row(group: dict, identity: str, data: list[dict]) -> dict:
     case, gaps = group["definition"], group["gaps"]
     metadata = document(case)
@@ -265,6 +268,11 @@ def _row(group: dict, identity: str, data: list[dict]) -> dict:
         gaps.append(preconditions)
     verdict = STATUS[group["status"]]
     remarks = [text(metadata["remarks"])] if metadata.get("remarks") else []
+    priority = str(case.get("priority") or metadata.get("priority") or "").strip()
+    if priority:
+        remarks.append("优先级：" + PRIORITY_LABELS.get(priority, priority))
+    if metadata.get("needs_reverify"):
+        remarks.append("需重验：" + str(metadata.get("reverify_reason") or "规则或文案已更新"))
     if group["status"] == "Fail" and group["final_status"] == "Pass":
         remarks.append("曾失败，后续通过")
     remarks += [f"原始标识：{case['id']}；冻结定义：{group['definition_hash']}", *gaps]
@@ -274,6 +282,10 @@ def _row(group: dict, identity: str, data: list[dict]) -> dict:
         remarks.append("各轮结论：" + " → ".join(STATUS[task_report_data.observation_verdict(item)] for item in group["items"]))
     path = group["business_path"]
     environment = list(dict.fromkeys(value for item in group["items"] for value in item.get("environment", [])))
+    for item in group["items"]:
+        account_label = task_report_data.account_display(item.get("account"))
+        if account_label and f"账号：{account_label}" not in environment:
+            environment.append(f"账号：{account_label}")
     return {"id": identity, "name": "-".join(CHAPTER.sub("", part).strip() for part in path), "trace": path[-1],
             "description": description, "preconditions": preconditions,
             "steps": steps, "expected": expected,

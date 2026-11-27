@@ -193,8 +193,10 @@ def peek(report_id: str) -> dict:
 
 
 def _persist_failure(base: dict, error: Exception, generation, *, save: bool = True) -> dict:
-    receipt = {**base, "status": "failed", "error": "测试报告生成失败：" + str(error), "retryable": True,
-               **_failure_details(error), "generation": generation, "updated_at": db.now()}
+    details = _failure_details(error)
+    hint = "（请先关闭正在打开的 功能测试用例.xlsx 后重试）" if details.get("code") == "file_in_use" else ""
+    receipt = {**base, "status": "failed", "error": f"测试报告生成失败：{error}{hint}", "retryable": True,
+               **details, "generation": generation, "updated_at": db.now()}
     if hasattr(error, "pending_design_head"):
         receipt["_pending_design_head"] = error.pending_design_head
     if not save:
@@ -264,7 +266,8 @@ def _markdown_artifact(snapshot: dict, folder: Path, digest: str, excel_link: st
         if file.read_text(encoding="utf-8") != expected:
             raise ValueError("Markdown 内容不匹配当前冻结快照，未交付文件")
     if artifact == "markdown":
-        return file, {"summary_counts": summary["counts"], "summary_cases": summary["cases"], "summary_execution_rows": summary["execution_rows"]}
+        return file, {"summary_counts": summary["counts"], "summary_istqb": summary["istqb"],
+                      "summary_cases": summary["cases"], "summary_execution_rows": summary["execution_rows"]}
     return file, {"bugs_count": summary["issues"], "bugs_counts": summary["counts"]}
 
 
@@ -448,13 +451,16 @@ def _select_design(base: dict, saved: dict | None, capture, retry: bool) -> bool
         return selected.get("report_id") != base["report_id"]
 
 
-def for_design(snapshot: dict, destination: Path, head: Path, *, initial: Path | None = None) -> dict:
+def for_design(snapshot: dict, destination: Path, head: Path, *, initial: Path | None = None,
+               requirement: str | None = None) -> dict:
     """Freeze each complete sheet revision and publish its public workbook with retry receipts."""
     from .runner import plan_reference
 
     digest = execution_inputs.content_hash(snapshot)
+    req_name = requirement or (snapshot.get("metadata") or {}).get("requirement")
     base = {**_base("design", snapshot["task_id"], "design_" + digest, snapshot["project_id"]),
-            "delivery_excel": plan_reference(destination), "delivery_head": plan_reference(head)}
+            "delivery_excel": plan_reference(destination), "delivery_head": plan_reference(head),
+            **({"requirement": req_name} if req_name else {})}
     if initial is not None:
         base["initial_excel"] = plan_reference(initial)
     return _ensure(base, digest, lambda: snapshot, False)
@@ -669,7 +675,7 @@ def retry(report_id: str) -> dict:
         return for_run(saved["task_id"], retry=True)
     if saved["kind"] == "design":
         base = {**_base("design", saved["task_id"], report_id, saved.get("project_id")),
-                **{key: saved[key] for key in ("delivery_excel", "delivery_head", "initial_excel") if key in saved}}
+                **{key: saved[key] for key in ("delivery_excel", "delivery_head", "initial_excel", "requirement") if key in saved}}
         return _ensure(base, saved["generation"], lambda: _snapshot(base, saved), True)
     if saved["kind"] == "workflow":
         from . import workflow_state

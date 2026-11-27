@@ -56,8 +56,10 @@ class EnvironmentTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.folder = Path(folder.name)
+        # Keep generated case sheets inside this test's data root, not the shared case sheet of a CI job.
         self.environment = patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.folder / "data"), "AUTOSKILL_HEADED": "0",
-                                                   "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_SESSION": "environment-test"})
+                                                   "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_SESSION": "environment-test",
+                                                   "AUTOSKILL_CASE_SKILL": ""})
         self.environment.start()
         self.addCleanup(self.environment.stop)
         for name in ("AUTOSKILL_DELIVERY_DIR", "AUTOSKILL_CALLER_CWD"):
@@ -169,16 +171,20 @@ class EnvironmentTests(unittest.TestCase):
         with contextlib.redirect_stdout(stdout):
             self.assertEqual(cli.main(["plan", "write", pid, "--file", str(file)]), 0)
         written = json.loads(stdout.getvalue())
-        self.assertEqual(written["delivery"]["folder"], str(user_folder.resolve()))
-        self.assertEqual({item.name for item in user_folder.iterdir()}, {"交付项目-功能测试用例.xlsx", "交付项目-功能测试用例-初版.xlsx"})
-        self.assertTrue(all(item.suffix == ".xlsx" for item in user_folder.iterdir()))
+        delivery_root = (user_folder / "autoSkill交付").resolve()
+        self.assertEqual(written["delivery"]["folder"], str(delivery_root))
+        self.assertEqual({item.name for item in user_folder.iterdir()}, {"autoSkill交付"})
+        self.assertEqual({item.name for item in delivery_root.iterdir()}, {"功能测试用例.xlsx"})
         self.assertTrue(Path(written["initial_excel"]).is_file())
         self.assertFalse(Path(written["skill"]).resolve().is_relative_to(user_folder.resolve()))
         self.assertFalse(Path(written["excel"]).resolve().is_relative_to(user_folder.resolve()))
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
             self.assertEqual(cli.main(["task-report", written["initial_report_id"]]), 0)
-        self.assertEqual({item.suffix for item in user_folder.iterdir()}, {".xlsx", ".md"})
+        names = {item.name for item in delivery_root.iterdir()}
+        self.assertIn("功能测试用例.xlsx", names)
+        self.assertTrue(any(name.startswith("测试报告-") and name.endswith(".md") for name in names))
+        self.assertTrue(any(name.startswith("Bug清单-") and name.endswith(".md") for name in names))
 
     def test_delivery_folder_follows_the_host_or_explicit_setting(self):
         from autoskill import paths
