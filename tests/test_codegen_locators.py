@@ -71,6 +71,46 @@ class ExportLocatorContractTests(unittest.TestCase):
             self.assertIn(case["title"], ast.get_docstring(tree))
             self.assertTrue(any(isinstance(node, ast.Constant) and node.value == value for node in ast.walk(tree)))
 
+    def test_embedded_runtime_support_executes_perform_and_prepare_assertion_without_name_errors(self):
+        class _StubDriver:
+            def __init__(self):
+                self.actions = []
+
+            def count(self, _locator):
+                return 1
+
+            def read(self, _locator, kind, *_args):
+                return "done" if kind == "text" else ""
+
+            def act(self, locator, op, value):
+                self.actions.append((op, locator, value))
+
+        case = make_case([{"action": "fill", "selector": "#name", "value": "alice"}],
+                         [{"assertion": "text", "selector": "#result", "expected": "done"}])
+        for engine in ("playwright", "selenium"):
+            with self.subTest(engine=engine):
+                source = codegen.script([case], "http://localhost", engine)
+                self.assertIn("def _require_resolved(", source)
+                self.assertIn("MISSING_VARIABLE", source)
+                import importlib.util
+
+                with tempfile.TemporaryDirectory() as directory:
+                    module_file = Path(directory) / f"support_{engine}.py"
+                    preamble = ("import os\nimport time\nfrom urllib.parse import urljoin, urlsplit\n"
+                                "BASE_URL = 'http://localhost'\nTIMEOUT = 0.5\nRAND = 'r1'\n")
+                    module_file.write_text(preamble + codegen._runtime_support(engine), encoding="utf-8")
+                    spec = importlib.util.spec_from_file_location(f"support_{engine}", module_file)
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                driver = _StubDriver()
+                module.perform(driver, {"action": "fill", "locators": [{"by": "css", "value": "#name"}], "value": "alice"},
+                               "http://localhost", [], 0.5)
+                self.assertEqual(driver.actions, [("fill", {"by": "css", "value": "#name"}, "alice")])
+                prepared = module._prepare_assertion({"assertion": "text", "locators": [{"by": "css", "value": "#result"}], "expected": "done"})
+                self.assertEqual(prepared["expected"], "done")
+                checked = module.check(driver, {"assertion": "text", "locators": [{"by": "css", "value": "#result"}], "expected": "done"}, 0.5)
+                self.assertTrue(checked["passed"])
+
 
 @unittest.skipUnless(paths.chrome() and paths.chromedriver(), "matching Chromium and chromedriver required")
 class ExportLocatorBrowserTests(unittest.TestCase):

@@ -201,6 +201,7 @@ def _runtime_support(engine: str) -> str:
     support = '''
 class _IR:
     expand = staticmethod(lambda value: value)
+    unresolved_variables = staticmethod(lambda _value: [])
     describe = staticmethod(lambda step: step.get("name", step.get("assertion", "断言")))
     describe_locator = staticmethod(str)
 
@@ -214,12 +215,12 @@ class _Captcha:
 
 
 ir, secrets, captcha = _IR(), _Secrets(), _Captcha()
-POLL, PRIMARY_GRACE, LOCATOR, STEP_TIMEOUT = 0.1, 1.5, "locator_not_found", "timeout"
+POLL, PRIMARY_GRACE, LOCATOR, MISSING_VARIABLE, STEP_TIMEOUT = 0.1, 1.5, "locator_not_found", "missing_variable", "timeout"
 '''
     for function in (ir.locators, ir.absolute_url, ir.check_origin):
         support += "\n\n" + _standalone_source(function) + f"\nir.{function.__name__} = {function.__name__}"
-    for function in (ui.StepError, ui.check_cancel, ui._recorded_field, ui.choose_locator, ui._same, ui.evaluate, ui._prepare_assertion, ui._read_assertion,
-                     ui._poll_assertion, ui.check, ui.navigate, ui._settle_focus, ui.perform):
+    for function in (ui.StepError, ui._require_resolved, ui.check_cancel, ui._recorded_field, ui.choose_locator, ui._same, ui.evaluate,
+                     ui._prepare_assertion, ui._read_assertion, ui._poll_assertion, ui.check, ui.navigate, ui._settle_focus, ui.perform):
         support += "\n\n" + _standalone_source(function)
     for name, value in vars(module).items():
         if name.isupper() and isinstance(value, (str, int, float, dict, list, tuple)):
