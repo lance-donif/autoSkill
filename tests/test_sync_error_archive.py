@@ -1,4 +1,4 @@
-"""Sync-folder imports and failure archiving for Linux deployments."""
+"""Sync-folder imports and single-ZIP failure archiving for Linux deployments."""
 import datetime
 import json
 import os
@@ -6,6 +6,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
@@ -15,7 +16,7 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, projects, runner, share, sync_import
+from autoskill import builder, failure_archive, projects, runner, share, sync_import
 from autoskill.server.app import create_app
 
 
@@ -46,8 +47,16 @@ class SyncTests(unittest.TestCase):
         self.folder = Path(folder.name)
         self.sync = self.folder / "sync"
         self.sync.mkdir()
-        self.environment = patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.folder / "data"), "AUTOSKILL_SYNC_DIR": str(self.sync),
-                                                   "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"})
+        self.environment = patch.dict(
+            os.environ,
+            {
+                "AUTOSKILL_WORKSPACE": str(self.folder / "data"),
+                "AUTOSKILL_SYNC_DIR": str(self.sync),
+                "AUTOSKILL_SYNC_STABLE_SECONDS": "0",
+                "AUTOSKILL_BRIDGE": "off",
+                "AUTOSKILL_HEADED": "0",
+            },
+        )
         self.environment.start()
         self.addCleanup(self.environment.stop)
         self.pid = projects.create("同步项目", "http://127.0.0.1:9", project_id="sync-project")["id"]
@@ -90,7 +99,8 @@ class SyncTests(unittest.TestCase):
         second_data, second_sync = self.folder / "data-2", self.folder / "sync-2"
         second_sync.mkdir()
         (second_sync / archive.name).write_bytes(archive.read_bytes())
-        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(second_data), "AUTOSKILL_SYNC_DIR": str(second_sync)}):
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(second_data), "AUTOSKILL_SYNC_DIR": str(second_sync),
+                                     "AUTOSKILL_SYNC_STABLE_SECONDS": "0"}):
             receipt = sync_import.scan()
             self.assertEqual(receipt["imported"], 1)
             self.assertEqual(receipt["files"][0]["projects"], [self.pid])
@@ -100,7 +110,10 @@ class SyncTests(unittest.TestCase):
         with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
             status = client.get("/api/sync")
             self.assertEqual(status.status_code, 200)
-            self.assertEqual(status.json()["sync_dir"], str(self.sync.resolve()))
+            payload = status.json()
+            self.assertEqual(payload["sync_dir"], str(self.sync.resolve()))
+            self.assertEqual(payload["conflicts_count"], 0)
+            self.assertEqual(payload["conflicts"], [])
             scanned = client.post("/api/sync/scan")
             self.assertEqual(scanned.status_code, 200)
             self.assertEqual(scanned.json()["status"], "ok")
@@ -123,7 +136,7 @@ class ErrorArchiveTests(unittest.TestCase):
         self.addCleanup(self.server.shutdown)
         self.pid = projects.create("错误归档", f"http://127.0.0.1:{self.server.server_port}", project_id="error-archive")["id"]
 
-    def test_failed_run_is_archived_and_passing_run_is_not(self):
+    def test_failed_run_is_archived_as_single_zip_and_passing_run_is_not(self):
         failing = builder.api_case("API-FAIL", "预期失败", "GET", "/status", {"status": 200})
         passing = builder.api_case("API-PASS", "预期通过", "GET", "/status", {"status": 200})
         projects.save_cases(self.pid, [failing, passing])
@@ -131,17 +144,40 @@ class ErrorArchiveTests(unittest.TestCase):
         failed = runner.create(self.pid, [failing["id"]], api_only=True)
         self.assertEqual(runner.execute(failed["id"])["status"], "Fail")
         stamp = datetime.datetime.now().strftime("%Y-%m-%d")  # noqa: DTZ005  # Archive folders use the local day.
-        run_folder = self.errors / stamp / self.pid / failed["id"]
-        self.assertTrue((run_folder / "errors.json").is_file(), list(self.errors.iterdir()))
-        report = json.loads((run_folder / "errors.json").read_bytes())
-        self.assertEqual(report["counts"]["failed"], 1)
-        self.assertEqual(report["cases"][0]["case_id"], failing["id"])
-        self.assertEqual(report["cases"][0]["response"]["status"], 500)
-        self.assertIn(failing["id"], (run_folder / "errors.md").read_text(encoding="utf-8"))
+        day_dir = self.errors / stamp
+        zips = sorted(day_dir.glob("*.zip"))
+        self.assertEqual(len(zips), 1, list(day_dir.iterdir()) if day_dir.exists() else [])
+        archive_path = zips[0]
+        self.assertRegex(archive_path.name, rf"^{self.pid}-error-\d{{8}}-\d{{4}}-{failed['id'][-6:]}\.zip$")
+        with zipfile.ZipFile(archive_path) as zf:
+            names = set(zf.namelist())
+            self.assertIn("manifest.json", names)
+            self.assertIn("errors.md", names)
+            self.assertIn(f"cases/{failing['id']}.json", names)
+            self.assertIn(f"evidence/logs/{failing['id']}.json", names)
+            manifest = json.loads(zf.read("manifest.json"))
+            self.assertEqual(manifest["schema"], 2)
+            self.assertEqual(manifest["kind"], "error_pack")
+            self.assertEqual(manifest["counts"]["failed"], 1)
+            self.assertEqual(manifest["counts"]["total"], 1)
+            self.assertEqual(manifest["counts"]["executed"], 1)
+            self.assertEqual(manifest["counts"]["not_run"], 0)
+            self.assertEqual(manifest["cases"][0]["case_id"], failing["id"])
+            self.assertEqual(manifest["cases"][0]["response"]["status"], 500)
+            self.assertEqual(manifest["cases"][0]["case_file"], f"cases/{failing['id']}.json")
+            self.assertIn(failing["id"], zf.read("errors.md").decode("utf-8"))
+
+        # Collision in the same minute appends -2 rather than overwriting.
+        second = failure_archive.for_run(failed["id"])
+        self.assertIsNotNone(second)
+        self.assertTrue(second["filename"].endswith("-2.zip"))
+        self.assertEqual(len(list(day_dir.glob("*.zip"))), 2)
+
+        # Passing runs produce no error pack.
         self.server.status = 200
         passed = runner.create(self.pid, [passing["id"]], api_only=True)
         self.assertEqual(runner.execute(passed["id"])["status"], "Pass")
-        self.assertFalse((self.errors / stamp / self.pid / passed["id"]).exists())
+        self.assertEqual(len(list(day_dir.glob("*.zip"))), 2)
 
 
 if __name__ == "__main__":
