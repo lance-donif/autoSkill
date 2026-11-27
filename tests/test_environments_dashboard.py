@@ -17,7 +17,11 @@ class EnvironmentDashboardTests(DashboardWorkspace):
     def setUp(self):
         self.sync_folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.sync_folder.cleanup)
-        self.sync_environment = patch.dict(os.environ, {"AUTOSKILL_SYNC_DIR": self.sync_folder.name, "AUTOSKILL_CASE_SKILL": ""})
+        self.sync_environment = patch.dict(os.environ, {
+            "AUTOSKILL_SYNC_DIR": self.sync_folder.name,
+            "AUTOSKILL_SYNC_STABLE_SECONDS": "0",
+            "AUTOSKILL_CASE_SKILL": "",
+        })
         self.sync_environment.start()
         self.addCleanup(self.sync_environment.stop)
         super().setUp()

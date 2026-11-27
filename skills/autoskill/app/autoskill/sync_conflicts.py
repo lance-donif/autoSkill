@@ -312,7 +312,14 @@ def _match_incoming_cases(project_id: str, local_cases: list[dict], incoming_cas
     return pairs, id_remap
 
 
-def _classify_cases(pairs: list[tuple[dict | None, dict]], *, source_file: str, source_sha256: str, stamp: str) -> tuple[list[dict], list[dict]]:
+def _classify_cases(
+    pairs: list[tuple[dict | None, dict]],
+    *,
+    source_file: str,
+    source_sha256: str,
+    stamp: str,
+    overwrite: bool = False,
+) -> tuple[list[dict], list[dict]]:
     """Split matched cases into safe writes (new/fast-forward) and local-modification conflicts."""
     to_save: list[dict] = []
     conflicts: list[dict] = []
@@ -330,7 +337,7 @@ def _classify_cases(pairs: list[tuple[dict | None, dict]], *, source_file: str, 
         if loc_hash == inc_hash:
             continue
         last_sync = (local.get("extensions") or {}).get("sync")
-        if isinstance(last_sync, dict) and last_sync.get("base_hash") == loc_hash:
+        if overwrite or (isinstance(last_sync, dict) and last_sync.get("base_hash") == loc_hash):
             inc.setdefault("extensions", {})["sync"] = sync_meta
             to_save.append(inc)
             continue
@@ -370,7 +377,7 @@ def _find_matching_env(envs: list[dict], incoming: dict) -> tuple[int, dict] | N
     return None
 
 
-def _merge_environments(project_id: str, local_cfg: dict, incoming_config: dict | None) -> tuple[list[str], list[dict]]:
+def _merge_environments(project_id: str, local_cfg: dict, incoming_config: dict | None, *, overwrite: bool = False) -> tuple[list[str], list[dict]]:
     """Add missing environments and protect existing center environments by recording conflicts."""
     if not isinstance(incoming_config, dict):
         return [], []
@@ -401,16 +408,26 @@ def _merge_environments(project_id: str, local_cfg: dict, incoming_config: dict 
             added.append(inc_env["id"])
             changed = True
             continue
-        _index, loc_env = matched
+        index, loc_env = matched
         if _comparable_environment(loc_env) != _comparable_environment(inc_env):
-            conflicts.append({
-                "id": loc_env["id"],
-                "incoming_id": inc_env["id"],
-                "name": loc_env.get("name") or inc_env.get("name") or loc_env["id"],
-                "local": copy.deepcopy(loc_env),
-                "incoming": copy.deepcopy(inc_env),
-                "diff_fields": diff_fields(_comparable_environment(loc_env), _comparable_environment(inc_env)),
-            })
+            if overwrite:
+                replacement = copy.deepcopy(inc_env)
+                replacement["id"] = loc_env["id"]
+                if replacement.get("is_default"):
+                    for item in local_envs:
+                        item["is_default"] = False
+                local_envs[index] = replacement
+                added.append(loc_env["id"])
+                changed = True
+            else:
+                conflicts.append({
+                    "id": loc_env["id"],
+                    "incoming_id": inc_env["id"],
+                    "name": loc_env.get("name") or inc_env.get("name") or loc_env["id"],
+                    "local": copy.deepcopy(loc_env),
+                    "incoming": copy.deepcopy(inc_env),
+                    "diff_fields": diff_fields(_comparable_environment(loc_env), _comparable_environment(inc_env)),
+                })
 
     if changed:
         updated_cfg["environments"] = local_envs
@@ -460,6 +477,7 @@ def merge_platform_accounts(
     *,
     referenced_accounts: set[str] | None = None,
     referenced_platforms: set[str] | None = None,
+    overwrite: bool = False,
 ) -> tuple[list[str], list[dict], dict[str, dict]]:
     """Import missing platforms/accounts while preserving differing center accounts as conflicts."""
     if not isinstance(incoming_store, dict):
@@ -479,7 +497,7 @@ def merge_platform_accounts(
                           if needed_platforms else dict(inc_platforms))
 
     for pid, plat in selected_platforms.items():
-        if isinstance(plat, dict) and pid not in local_store["platforms"]:
+        if isinstance(plat, dict) and (overwrite or pid not in local_store["platforms"]):
             save_platform_entry(pid, plat)
 
     added: list[str] = []
@@ -495,15 +513,21 @@ def merge_platform_accounts(
             added.append(record["id"])
             continue
         if _comparable_account(matched) != _comparable_account(record):
-            conflicts.append({
-                "id": matched["id"],
-                "incoming_id": record["id"],
-                "label": matched.get("label") or record.get("label") or matched["id"],
-                "platform_id": matched.get("platform_id") or record.get("platform_id") or "",
-                "local": copy.deepcopy(matched),
-                "incoming": copy.deepcopy(record),
-                "diff_fields": diff_fields(_comparable_account(matched), _comparable_account(record)),
-            })
+            if overwrite:
+                replacement = copy.deepcopy(record)
+                replacement["id"] = matched["id"]
+                save_account_entry(matched["id"], replacement)
+                added.append(matched["id"])
+            else:
+                conflicts.append({
+                    "id": matched["id"],
+                    "incoming_id": record["id"],
+                    "label": matched.get("label") or record.get("label") or matched["id"],
+                    "platform_id": matched.get("platform_id") or record.get("platform_id") or "",
+                    "local": copy.deepcopy(matched),
+                    "incoming": copy.deepcopy(record),
+                    "diff_fields": diff_fields(_comparable_account(matched), _comparable_account(record)),
+                })
     return added, conflicts, selected_platforms
 
 
@@ -535,6 +559,7 @@ def merge_project_sync(
     incoming_platform_store: dict | None = None,
     include_environments: bool = True,
     include_accounts: bool = True,
+    overwrite: bool = False,
 ) -> dict:
     """Merge one synced project into an existing local project without deleting omitted cases."""
     stamp = db.now()
@@ -544,11 +569,11 @@ def merge_project_sync(
         local_auth = projects.auth(project_id)
         local_meta = projects.meta(project_id)
         pairs, id_remap = _match_incoming_cases(project_id, local_cases, incoming_cases)
-        to_save, case_conflicts = _classify_cases(pairs, source_file=source_file, source_sha256=source_sha256, stamp=stamp)
+        to_save, case_conflicts = _classify_cases(pairs, source_file=source_file, source_sha256=source_sha256, stamp=stamp, overwrite=overwrite)
         if to_save:
             projects.save_cases(project_id, to_save, requirement_records=incoming_requirements)
 
-        added_envs, env_conflicts = (_merge_environments(project_id, local_cfg, incoming_config)
+        added_envs, env_conflicts = (_merge_environments(project_id, local_cfg, incoming_config, overwrite=overwrite)
                                      if include_environments else ([], []))
 
         remapped_auth = copy.deepcopy(incoming_auth) if isinstance(incoming_auth, dict) else {}
@@ -556,9 +581,11 @@ def merge_project_sync(
             if remapped_auth.get(key) in id_remap:
                 remapped_auth[key] = id_remap[remapped_auth[key]]
         auth_conflict = {"local": copy.deepcopy(local_auth), "incoming": copy.deepcopy(remapped_auth), "changed": False}
+        updated_auth = False
         if remapped_auth:
-            if not local_auth:
+            if not local_auth or (overwrite and local_auth != remapped_auth):
                 projects.set_auth(project_id, remapped_auth)
+                updated_auth = True
             elif local_auth != remapped_auth:
                 auth_conflict["changed"] = True
 
@@ -568,7 +595,7 @@ def merge_project_sync(
                      if isinstance(incoming_config, dict) else set())
     added_accounts, account_conflicts, incoming_platforms = (
         merge_platform_accounts(incoming_platform_store, referenced_accounts=ref_accounts or None,
-                                referenced_platforms=ref_platforms or None)
+                                referenced_platforms=ref_platforms or None, overwrite=overwrite)
         if include_accounts else ([], [], {})
     )
 
@@ -600,6 +627,7 @@ def merge_project_sync(
         "renumbered": id_remap,
         "added_environments": added_envs,
         "added_accounts": added_accounts,
+        "updated_auth": updated_auth,
         "conflict_id": conflict["id"] if conflict else None,
         "conflict": conflict,
     }

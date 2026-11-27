@@ -95,14 +95,30 @@ def run_summary(run: dict, *, brief: bool = False) -> dict:
     rows = None if brief else db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run["id"],))
     totals = task_state.run_values(run, results=rows)
     recorded = totals.get("recorded_counts") or {}
-    blocked = totals.get("blocked", 0) or (recorded.get("blocked", 0) if totals.get("not_run", 0) > 0 else 0)
-    executed = totals["passed"] + totals["failed"] + blocked
+    if rows is not None:
+        target_rows = [item for item in rows if not item.get("prerequisite")]
+        blocked = sum(1 for item in target_rows if item.get("status") == "Blocked")
+        blocked_unstarted = sum(
+            1 for item in target_rows
+            if item.get("status") == "Blocked"
+            and not (json.loads(item["detail"]) if isinstance(item.get("detail"), str) else (item.get("detail") or {})).get("target_started")
+        )
+    else:
+        blocked = int(recorded.get("blocked") or 0) if run.get("status") != "Cancelled" else 0
+        blocked_unstarted = min(blocked, int(totals.get("not_run") or 0))
+    passed = int(totals.get("passed") or 0)
+    failed = int(totals.get("failed") or 0)
+    not_run = max(0, int(totals.get("not_run") or 0) - blocked_unstarted)
+    total = int(run.get("total") or 0)
+    executed = passed + failed + blocked_unstarted
+    if total > 0:
+        executed = min(total, executed)
     summary = {
         "run_id": run["id"], "status": run["status"], "status_text": STATUS_TEXT.get(run["status"], run["status"]),
         "state": totals["state"],
-        "engine": run["engine"], "total": run["total"], "executed": executed,
-        "passed": totals["passed"], "failed": totals["failed"], "blocked": blocked,
-        "not_run": totals["not_run"], "reason": run["reason"],
+        "engine": run["engine"], "total": total, "executed": executed,
+        "passed": passed, "failed": failed, "blocked": blocked,
+        "not_run": not_run, "reason": run["reason"],
         "environment_id": run.get("environment_id") or "", "environment_name": run.get("environment_name") or "",
         "account_id": run.get("account_id") or "", "account_label": run.get("account_label") or "",
     }
@@ -1138,7 +1154,8 @@ def _dispatch_sync(args) -> tuple[dict, int]:
         return share.pack(args.projects or None, args.out, None), 0
     source = command_input.resolve_path(args.file, command_input.base_directory(args))
     if hasattr(sync_import, "import_file"):
-        return sync_import.import_file(source), 0
+        result = sync_import.import_file(source, overwrite=args.overwrite)
+        return result, 2 if result.get("status") == "failed" else 0
     result = share.import_pack(source, None, args.overwrite)
     return result, 2 if result.get("errors") else 0
 

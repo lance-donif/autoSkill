@@ -402,6 +402,32 @@ class PlatformAccountsAndQueueTests(unittest.TestCase):
             self.assertEqual(listed_mix["executed"], 3)
             self.assertEqual(listed_mix["blocked"], 1)
 
+    def test_switching_to_login_required_env_without_accounts_clears_active_account_and_fails_preflight(self):
+        orders, _ = self._setup_shared_platform_projects()
+        env_a = projects.config(orders)["environments"][0]
+        env_empty = {
+            "id": "uat", "name": "验收", "base_url": self.base, "variables": {},
+            "is_default": False, "login_required": True, "auth_mode": "account_password",
+            "platform_id": "erp-main", "platform_name": "业务平台",
+            "account_ids": [], "default_account_id": "",
+        }
+        projects.update(orders, environments=[env_a, env_empty])
+        projects.save_cases(orders, [builder.api_case("TC-API-001", "检查", "GET", "/api/public", {"status": 200})])
+
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787") as client:
+            first = client.put(f"/api/projects/{orders}/active-context", json={"environment_id": "test", "account_id": "acc-b"}).raise_for_status().json()
+            self.assertEqual(first["active_account_id"], "acc-b")
+
+            switched = client.put(f"/api/projects/{orders}/active-context", json={"environment_id": "uat"}).raise_for_status().json()
+            self.assertEqual(switched["active_environment_id"], "uat")
+            self.assertEqual(switched["active_account_id"], "")
+            self.assertIsNone(switched["account"])
+            self.assertNotIn("active_account_id", projects.config(orders))
+
+            pre = client.post(f"/api/projects/{orders}/preflight", json={"case_ids": ["TC-API-001"]}).raise_for_status().json()
+            self.assertFalse(pre["ok"])
+            self.assertTrue(pre["account_missing"])
+
 
 if __name__ == "__main__":
     unittest.main()

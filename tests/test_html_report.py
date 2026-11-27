@@ -150,13 +150,17 @@ class HtmlReportTests(unittest.TestCase):
         self.open()
         summary = self.page.locator(".run-summary")
         expect(summary.get_by_role("button")).to_have_count(1)
-        expect(summary.get_by_role("link")).to_have_count(0)
+        expect(summary.get_by_role("link")).to_have_count(1)
+        expect(summary.get_by_role("link", name="下载错误包 ZIP", exact=True)).to_have_attribute("href", "/api/runs/run-report/error-pack")
         expect(summary.get_by_role("button", name="下载 HTML 报告", exact=True)).to_be_visible()
         expect(summary.get_by_text("执行与技术详情", exact=True)).to_have_count(0)
         expect(summary.locator(".stats")).to_be_visible()
-        expect(summary.locator(".stat-label")).to_have_text(["通过", "失败", "未执行", "用例", "总耗时"])
-        expect(summary.locator(".stat-value").nth(0)).to_have_text("1")
-        expect(summary.locator(".stat-value").nth(1)).to_have_text("1")
+        expect(summary.locator(".stat-label")).to_have_text(["总用例", "本次执行", "通过", "失败", "受阻", "未执行", "总耗时"])
+        expect(summary.locator(".stat-value").nth(0)).to_have_text("3")
+        expect(summary.locator(".stat-value").nth(1)).to_have_text("3")
+        expect(summary.locator(".stat-value").nth(2)).to_have_text("1")
+        expect(summary.locator(".stat-value").nth(3)).to_have_text("1")
+        expect(summary.locator(".stat-value").nth(4)).to_have_text("1")
         expect(self.page.locator(".report-heading")).to_be_visible()
         width = self.page.evaluate("document.querySelector('.report-heading').getBoundingClientRect().width")
         self.assertGreaterEqual(width, 280)
@@ -334,10 +338,16 @@ class HtmlReportTests(unittest.TestCase):
                 expect(panel).not_to_contain_text("第 3 次")
 
     def test_summary_badge_distinguishes_pass_failure_and_unexecuted_runs(self):
-        for status, passed, failed, not_run, label in (("Pass", 3, 0, 0, "通过"), ("Fail", 1, 1, 1, "不通过"),
-                                                      ("Running", 0, 1, 0, "执行中"), ("NotRun", 0, 0, 3, "未执行")):
+        cases = (
+            ("Pass", 3, 0, 0, 0, "通过"),
+            ("Fail", 1, 1, 0, 1, "不通过"),
+            ("Blocked", 0, 0, 1, 2, "受阻"),
+            ("Running", 0, 1, 0, 0, "执行中"),
+            ("NotRun", 0, 0, 0, 3, "未执行"),
+        )
+        for status, passed, failed, blocked, not_run, label in cases:
             with self.subTest(status=status):
-                self.run.update(status=status, passed=passed, failed=failed, not_run=not_run)
+                self.run.update(status=status, passed=passed, failed=failed, blocked=blocked, not_run=not_run)
                 self.page.goto(f"http://127.0.0.1:8787/?snapshot={status}#/runs/run-report")
                 expect(self.page.locator(".run-summary .status").first).to_have_text(label)
 

@@ -80,6 +80,28 @@ function exportPanel(shared) {
 
 const SYNC_STATUS = { imported: '已导入', skipped: '已跳过', pending: '传输中', conflict: '有冲突', failed: '失败' };
 
+async function handleSyncImportResult(data) {
+  if (data?.status === 'failed') {
+    toast(data.reason || '导入失败', { bad: true });
+    refresh();
+    return;
+  }
+  if (data?.status === 'skipped') {
+    toast(data.reason || '未导入新用例');
+    refresh();
+    return;
+  }
+  const conflictId = data?.status === 'conflict' ? (data.conflict_id || data.conflict?.id) : '';
+  if (conflictId) {
+    toast('检测到同步冲突，请处理');
+    await openConflictDrawer(conflictId, () => refresh());
+    refresh();
+    return;
+  }
+  toast(`已导入 ${data?.imported_cases?.length ?? 0} 条用例`);
+  refresh();
+}
+
 function manualSyncTools(projects) {
   const output = h('div', { class: 'stack', 'aria-live': 'polite' });
   const projectSelect = h('select', { class: 'select sync-project-select', 'aria-label': '选择导出项目' },
@@ -120,15 +142,7 @@ function manualSyncTools(projects) {
       let data = null;
       try { data = await response.json(); } catch { /* empty body */ }
       if (!response.ok) throw new Error(data?.detail || `导入失败（${response.status}）`);
-      if (data?.status === 'conflict' && (data.conflict_id || data.conflict?.id)) {
-        const cid = data.conflict_id || data.conflict.id;
-        toast('检测到同步冲突，请处理');
-        await openConflictDrawer(cid, () => refresh());
-        refresh();
-        return;
-      }
-      toast(`已导入 ${data?.imported_cases?.length ?? 0} 条用例`);
-      refresh();
+      await handleSyncImportResult(data);
     } catch (error) {
       toast(error.message || '导入同步包失败', { bad: true });
     } finally {
@@ -143,12 +157,15 @@ function manualSyncTools(projects) {
 
 function conflictSummaryText(item) {
   const parts = [];
-  const caseCount = item.case_count ?? item.cases?.length ?? 0;
-  const envCount = item.environment_count ?? item.environments?.length ?? 0;
-  const accCount = item.account_count ?? item.accounts?.length ?? 0;
+  const counts = item.counts || {};
+  const caseCount = counts.cases ?? item.case_count ?? item.cases?.length ?? 0;
+  const envCount = counts.environments ?? item.environment_count ?? item.environments?.length ?? 0;
+  const accCount = counts.accounts ?? item.account_count ?? item.accounts?.length ?? 0;
+  const authCount = counts.auth ?? (item.auth?.changed ? 1 : 0);
   if (caseCount) parts.push(`${caseCount} 条用例`);
   if (envCount) parts.push(`${envCount} 个环境`);
   if (accCount) parts.push(`${accCount} 个账号`);
+  if (authCount) parts.push('登录配置');
   return parts.join(' · ') || '存在差异';
 }
 

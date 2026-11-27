@@ -1,6 +1,8 @@
 """Build complete case objects from the few fields a recording or a person provides."""
 from __future__ import annotations
 
+import uuid
+
 from . import case_document
 from .core import store
 from .replay import ir
@@ -8,7 +10,7 @@ from .replay import ir
 
 def _common(case_id: str, kind: str, title: str, module: str, steps: list[str], expected: str, risk: str,
             source: str, depends_on: list[str] | None, category: str, tags: list[str] | None) -> dict:
-    extensions: dict = {}
+    extensions: dict = {"internal_id": f"uid-{uuid.uuid4().hex}"}
     if depends_on:
         extensions["depends_on"] = list(depends_on)
     if category:

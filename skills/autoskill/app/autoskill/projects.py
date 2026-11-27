@@ -226,10 +226,10 @@ def account_of(cfg: dict, environment: dict | None, account_id: str | None = Non
     candidates: list[str] = []
     if use_active:
         active = str(cfg.get("active_account_id") or "").strip()
-        if active and (not env_ids or active in env_ids):
+        if active and active in env_ids:
             candidates.append(active)
     default_id = str(environment.get("default_account_id") or "").strip()
-    if default_id and default_id not in candidates:
+    if default_id and default_id in env_ids and default_id not in candidates:
         candidates.append(default_id)
     for item in env_ids:
         if item not in candidates:
@@ -413,9 +413,9 @@ def _reconcile_active_account(cfg: dict) -> None:
             cfg.pop("active_account_id", None)
         return
     env_ids = list(env.get("account_ids") or [])
-    if active and env_ids and active not in env_ids:
+    if active and active not in env_ids:
         default_id = str(env.get("default_account_id") or "").strip()
-        if default_id:
+        if default_id and default_id in env_ids:
             cfg["active_account_id"] = default_id
         else:
             cfg.pop("active_account_id", None)
@@ -576,9 +576,7 @@ def get(project_id: str, *, include_passwords: bool = False, include_shared: boo
     account = account_of(cfg, selected_env, include_password=include_passwords)
     if account is not None and include_shared:
         account = {**account, "shared_projects": platform_accounts.shared_projects_for(account["id"])}
-    active_account_id = str(cfg.get("active_account_id") or "")
-    if not active_account_id and account is not None:
-        active_account_id = str(account.get("id") or "")
+    active_account_id = str(account.get("id") or "") if account is not None else ""
     return {
         "id": project_id, "name": info.get("name") or project_id, "category": info.get("category", ""),
         "base_url": cfg.get("base_url", ""), "start_url": info.get("start_url") or cfg.get("base_url", ""),
@@ -694,15 +692,15 @@ def save_cases(project_id: str, incoming: list[dict], *, expected_hashes: dict[s
         item = dict(incoming_item)
         if not item.get("requirement_ids"):
             item["requirement_ids"] = ["REQ-RECORDED"]
-        prior = merged.get(item["id"])
-        extensions = copy.deepcopy(item.get("extensions")) if isinstance(item.get("extensions"), dict) else {}
-        if not isinstance(extensions.get("internal_id"), str) or not extensions["internal_id"].strip():
+        if expected_hashes is None:
+            prior = merged.get(item["id"])
+            extensions = copy.deepcopy(item.get("extensions")) if isinstance(item.get("extensions"), dict) else {}
             existing_internal = (prior.get("extensions") or {}).get("internal_id") if isinstance(prior, dict) else None
-            extensions["internal_id"] = (
-                existing_internal if isinstance(existing_internal, str) and existing_internal.strip()
-                else f"uid-{uuid.uuid4().hex}"
-            )
-        item["extensions"] = extensions
+            if isinstance(existing_internal, str) and existing_internal.strip():
+                extensions["internal_id"] = existing_internal
+            elif not isinstance(extensions.get("internal_id"), str) or not extensions["internal_id"].strip():
+                extensions["internal_id"] = f"uid-{uuid.uuid4().hex}"
+            item["extensions"] = extensions
         merged[item["id"]] = item
     ids = set(merged)
     incoming_ids = {item["id"] for item in incoming}

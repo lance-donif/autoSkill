@@ -176,8 +176,12 @@ def _markdown(manifest: dict) -> str:
         f"- 账号：{account_text}",
         (f"- 统计：总用例 {counts['total']} / 本次执行 {counts['executed']} / 通过 {counts['passed']}"
          f" / 失败 {counts['failed']} / 受阻 {counts['blocked']} / 未执行 {counts['not_run']}"),
-        "",
     ]
+    if run.get("reason"):
+        lines.append(f"- 原因：{run['reason']}")
+    lines.append("")
+    if not manifest["cases"] and run.get("reason"):
+        lines += ["## 运行级异常", "", f"- 状态：{run['status']}", f"- 原因：{run['reason']}", ""]
     for item in manifest["cases"]:
         lines += [
             f"## {item['case_id']} {item['title']}",
@@ -210,7 +214,7 @@ def _prepare_pack_data(run_id: str) -> tuple[dict, dict[str, dict], dict[str, by
         raise ValueError("仅回放运行支持导出错误包")
     rows = db.rows("SELECT * FROM results WHERE run_id = ? ORDER BY id", (run_id,))
     failed = [row for row in rows if row["status"] in ("Fail", "Blocked")]
-    if not failed:
+    if not failed and run.get("status") not in ("Fail", "Blocked"):
         raise ValueError("本次运行没有失败或受阻用例，无需生成错误包")
 
     try:
@@ -358,10 +362,12 @@ def build_zip(run_id: str, *, force: bool = False) -> Path:
 
 
 def has_error_pack(run_id: str) -> bool:
-    """Return True when the replay run has at least one Fail or Blocked result."""
-    run = db.one("SELECT family FROM runs WHERE id = ?", (run_id,))
+    """Return True when the replay run failed/blocked or has any Fail/Blocked result."""
+    run = db.one("SELECT family, status FROM runs WHERE id = ?", (run_id,))
     if not run or run.get("family") not in (None, "replay"):
         return False
+    if run.get("status") in ("Fail", "Blocked"):
+        return True
     row = db.one("SELECT 1 AS hit FROM results WHERE run_id = ? AND status IN ('Fail', 'Blocked') LIMIT 1", (run_id,))
     return bool(row)
 
@@ -376,7 +382,7 @@ def for_run(run_id: str) -> dict | None:
         return None
     rows = db.rows("SELECT status FROM results WHERE run_id = ?", (run_id,))
     failed_count = sum(row["status"] in ("Fail", "Blocked") for row in rows)
-    if not failed_count:
+    if not failed_count and run.get("status") not in ("Fail", "Blocked"):
         return None
     cached = build_zip(run_id, force=True)
     day, _minute = _local_stamp(run.get("finished_at") or run.get("created_at"))

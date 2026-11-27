@@ -309,9 +309,14 @@ def run_values(row: dict, *, results=None, result_states=None, connection=None) 
     values["account_id"] = str(row.get("account_id") or "")
     values["account_label"] = str(row.get("account_label") or "")
     family = row.get("family") or "replay"
+    has_failed_row = (
+        any(item.get("status") in ("Fail", "Blocked") for item in results)
+        if results is not None
+        else (int(recorded.get("failed") or 0) > 0 or int(recorded.get("blocked") or 0) > 0)
+    )
     values["has_error_pack"] = bool(
         family == "replay"
-        and (failed > 0 or blocked > 0 or int(recorded.get("failed") or 0) > 0 or row.get("status") in ("Fail", "Blocked"))
+        and (has_failed_row or row.get("status") in ("Fail", "Blocked"))
     )
     return values
 

@@ -121,6 +121,7 @@ class PlatformUiE2ETests(unittest.TestCase):
         expect(order_card.get_by_role("button", name="切换运行环境")).to_contain_text("测试环境")
         expect(order_card.get_by_role("button", name="切换运行账号")).to_contain_text("订单管理员 A")
         expect(inv_card.get_by_role("button", name="未配置账号")).to_be_visible()
+        expect(order_card.get_by_text("正在加载文件夹…")).to_have_count(0)
         self.maybe_shot("cases-env-account.png")
 
         order_card.get_by_role("button", name="切换运行账号").click()
@@ -251,7 +252,7 @@ class PlatformUiE2ETests(unittest.TestCase):
             "conflicts_count": 1,
             "conflicts": [{"id": "conf-001", "project_id": self.project_id, "project_name": "订单系统",
                            "source_file": conflict_detail["source_file"], "status": "pending",
-                           "case_count": 1, "environment_count": 1, "account_count": 1}],
+                           "counts": {"cases": 1, "environments": 1, "accounts": 1, "auth": 0}}],
         }
 
         self.page.route("**/api/sync", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(sync_state)))
@@ -269,6 +270,7 @@ class PlatformUiE2ETests(unittest.TestCase):
         ))
 
         self.page.goto(self.origin + "/#/data")
+        expect(self.page.locator("#view")).to_contain_text("1 条用例 · 1 个环境 · 1 个账号")
         self.page.get_by_role("button", name="导出用例包", exact=True).click()
         expect(self.page.get_by_test_id("sync-export-path")).to_contain_text("autoskill-sync-orders-20261127-1200-1234.zip")
         expect(self.page.get_by_role("link", name="下载同步 ZIP", exact=True)).to_be_visible()

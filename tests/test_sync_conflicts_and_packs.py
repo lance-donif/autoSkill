@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, db, failure_archive, paths, projects, runner, share, sync_conflicts, sync_import
+from autoskill import builder, cli, db, failure_archive, paths, projects, runner, share, sync_conflicts, sync_import
 from autoskill.core import store
 from autoskill.server.app import create_app
 
@@ -441,6 +441,77 @@ class SyncConflictsAndApiTests(unittest.TestCase):
                         content = zf.read(name).decode("utf-8", errors="replace")
                         self.assertNotIn("SUPER_SECRET_PASSWORD_999", content, f"Password leaked in {name}")
                 self.assertIsNotNone(re.match(rf"^err-proj-error-\d{{8}}-\d{{4}}-{failed_run['id'][-6:]}\.zip$", cached_zip.name))
+
+    def test_zero_result_blocked_run_error_pack_and_cli_summary_and_sync_import_flags(self):
+        dev_pack = self._build_dev_pack()
+        env = {"AUTOSKILL_WORKSPACE": str(self.center_ws), "AUTOSKILL_SYNC_STABLE_SECONDS": "0", "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"}
+        with patch.dict(os.environ, env):
+            self._seed_center()
+            # 1) 0-result Blocked run: has_error_pack and GET /error-pack stay consistent (200 ZIP).
+            db.init()
+            blocked_id = db.new_id("run")
+            now = db.now()
+            db.execute(
+                "INSERT INTO runs (id, project_id, engine, trigger, status, case_ids, total, done, passed, failed, blocked, "
+                "reason, created_at, finished_at, family, environment_id, environment_name) "
+                "VALUES (?, 'order', 'playwright', 'schedule', 'Blocked', '[\"TC-API-001\"]', 1, 0, 0, 0, 0, "
+                "'缺少变量：missing_sched_var', ?, ?, 'replay', 'test', '测试')",
+                (blocked_id, now, now),
+            )
+            self.assertTrue(failure_archive.has_error_pack(blocked_id))
+            with TestClient(create_app(8787, start_worker=False), base_url="http://127.0.0.1:8787") as client:
+                detail = client.get(f"/api/runs/{blocked_id}").raise_for_status().json()
+                self.assertTrue(detail["has_error_pack"])
+                pack_resp = client.get(f"/api/runs/{blocked_id}/error-pack")
+                self.assertEqual(pack_resp.status_code, 200, pack_resp.text)
+                self.assertEqual(pack_resp.headers["content-type"], "application/zip")
+                pack_path = self.root / "blocked-pack.zip"
+                pack_path.write_bytes(pack_resp.content)
+                with zipfile.ZipFile(pack_path) as zf:
+                    manifest = json.loads(zf.read("manifest.json"))
+                    self.assertEqual(manifest["run"]["status"], "Blocked")
+                    self.assertIn("missing_sched_var", manifest["run"]["reason"])
+                    self.assertIn("missing_sched_var", zf.read("errors.md").decode("utf-8"))
+
+            # 2) cli.run_summary: executed + not_run == total when a target is blocked before starting.
+            mix_id = db.new_id("run")
+            db.execute(
+                "INSERT INTO runs (id, project_id, engine, trigger, status, case_ids, total, done, passed, failed, blocked, "
+                "reason, created_at, finished_at, family) "
+                "VALUES (?, 'order', 'playwright', 'manual', 'Fail', '[\"TC-API-000\",\"TC-API-001\"]', 2, 2, 0, 1, 1, '', ?, ?, 'replay')",
+                (mix_id, now, now),
+            )
+            db.execute(
+                "INSERT INTO results (run_id, project_id, case_id, case_title, kind, engine, status, prerequisite, started_at, detail) "
+                "VALUES (?, 'order', 'TC-API-000', '登录前置', 'api', 'playwright', 'Fail', 0, ?, '{}'), "
+                "(?, 'order', 'TC-API-001', '受阻用例', 'api', 'playwright', 'Blocked', 0, ?, '{\"target_started\": false}')",
+                (mix_id, now, mix_id, now),
+            )
+            run_row = db.one("SELECT * FROM runs WHERE id = ?", (mix_id,))
+            full_summary = cli.run_summary(run_row, brief=False)
+            brief_summary = cli.run_summary(run_row, brief=True)
+            for summary in (full_summary, brief_summary):
+                self.assertEqual((summary["total"], summary["executed"], summary["blocked"], summary["not_run"]), (2, 2, 1, 0))
+                self.assertEqual(summary["executed"] + summary["not_run"], summary["total"])
+
+            # 3) CLI sync import --overwrite overwrites conflicts and returns exit code 2 on failed files.
+            bad_zip = self.root / "corrupt.zip"
+            bad_zip.write_bytes(b"not-a-zip")
+            bad_args = cli.parser().parse_args(["sync", "import", str(bad_zip)])
+            bad_res, bad_code = cli.dispatch(bad_args)
+            self.assertEqual(bad_res["status"], "failed")
+            self.assertNotEqual(bad_code, 0)
+
+            over_args = cli.parser().parse_args(["sync", "import", str(dev_pack), "--overwrite"])
+            over_res, over_code = cli.dispatch(over_args)
+            self.assertEqual(over_code, 0)
+            self.assertEqual(over_res["status"], "imported")
+            self.assertIsNone(over_res["conflict_id"])
+            self.assertEqual(projects.case("order", "TC-API-001")["title"], "退款成功-开发新版")
+            envs_after = {item["id"]: item for item in projects.config("order")["environments"]}
+            self.assertEqual(envs_after["test"]["base_url"], "http://dev.local:8080")
+            self.assertEqual(sync_conflicts.load_platform_store()["accounts"]["acc-a"]["username"], "dev_user")
+            self.assertEqual(projects.auth("order"), {"api_case": "TC-API-000"})
 
 
 if __name__ == "__main__":

@@ -189,7 +189,15 @@ def _read_staged_project(archive: zipfile.ZipFile, project_id: str, members: lis
         shutil.rmtree(work, ignore_errors=True)
 
 
-def _import_new_project_accounts(project_id: str, platform_store: dict | None, relative: str, digest: str, source_type: str) -> dict | None:
+def _import_new_project_accounts(
+    project_id: str,
+    platform_store: dict | None,
+    relative: str,
+    digest: str,
+    source_type: str,
+    *,
+    overwrite: bool = False,
+) -> dict | None:
     if not isinstance(platform_store, dict):
         return None
     cfg = projects.config(project_id)
@@ -197,7 +205,7 @@ def _import_new_project_accounts(project_id: str, platform_store: dict | None, r
     ref_accounts = sync_conflicts._referenced_account_ids(cfg, cases)
     ref_platforms = {str(env["platform_id"]) for env in cfg.get("environments") or [] if isinstance(env, dict) and env.get("platform_id")}
     _added, acc_conflicts, inc_platforms = sync_conflicts.merge_platform_accounts(
-        platform_store, referenced_accounts=ref_accounts or None, referenced_platforms=ref_platforms or None
+        platform_store, referenced_accounts=ref_accounts or None, referenced_platforms=ref_platforms or None, overwrite=overwrite
     )
     if not acc_conflicts:
         return None
@@ -266,12 +274,16 @@ def _import_one_zip_project(
     platform_store: dict | None,
     include_envs: bool,
     include_accounts: bool,
+    overwrite: bool = False,
 ) -> tuple[bool, list[str], dict[str, str], dict | None]:
     exists = (paths.projects_dir() / project_id / "project.json").is_file()
     if not exists:
         share._import_project(archive, project_id, members, overwrite=False)
         case_ids = _stamp_new_project_cases(project_id, relative, digest)
-        conflict = _import_new_project_accounts(project_id, platform_store, relative, digest, source_type) if (include_accounts and platform_store) else None
+        conflict = (
+            _import_new_project_accounts(project_id, platform_store, relative, digest, source_type, overwrite=overwrite)
+            if (include_accounts and platform_store) else None
+        )
         return True, case_ids, {}, conflict
     staged = _read_staged_project(archive, project_id, members)
     merged = sync_conflicts.merge_project_sync(
@@ -286,12 +298,13 @@ def _import_one_zip_project(
         incoming_platform_store=platform_store,
         include_environments=include_envs,
         include_accounts=include_accounts,
+        overwrite=overwrite,
     )
-    changed = bool(merged["imported_cases"] or merged["added_environments"] or merged["added_accounts"])
+    changed = bool(merged["imported_cases"] or merged["added_environments"] or merged["added_accounts"] or merged.get("updated_auth"))
     return changed, merged["imported_cases"], merged["renumbered"], merged["conflict"]
 
 
-def _import_zip(file: Path, relative: str, digest: str) -> dict:
+def _import_zip(file: Path, relative: str, digest: str, *, overwrite: bool = False) -> dict:
     try:
         archive = zipfile.ZipFile(file)
     except (zipfile.BadZipFile, OSError):
@@ -321,6 +334,7 @@ def _import_zip(file: Path, relative: str, digest: str) -> dict:
                     platform_store=platform_store,
                     include_envs=include_envs,
                     include_accounts=include_accounts,
+                    overwrite=overwrite,
                 )
             except (ValueError, KeyError, OSError, TypeError) as error:
                 reasons.append(f"{project_id}: {error}")
@@ -356,7 +370,7 @@ def _import_zip(file: Path, relative: str, digest: str) -> dict:
         return result
 
 
-def _bundle(file: Path, relative: str, digest: str) -> dict:
+def _bundle(file: Path, relative: str, digest: str, *, overwrite: bool = False) -> dict:
     try:
         value = json.loads(file.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as error:
@@ -394,11 +408,13 @@ def _bundle(file: Path, relative: str, digest: str) -> dict:
             incoming_config=incoming_config,
             incoming_auth=incoming_auth,
             incoming_platform_store=incoming_platform_store,
+            overwrite=overwrite,
         )
     except (ValueError, KeyError, OSError, TypeError) as error:
         return {"status": "failed", "project_id": project_id, "reason": str(error)[:500], "cases": [], "imported_cases": []}
     conflict = merged["conflict"]
-    status_value = "conflict" if conflict else ("imported" if (merged["imported_cases"] or merged["added_environments"] or merged["added_accounts"]) else "skipped")
+    has_changes = bool(merged["imported_cases"] or merged["added_environments"] or merged["added_accounts"] or merged.get("updated_auth"))
+    status_value = "conflict" if conflict else ("imported" if has_changes else "skipped")
     reason = "发现冲突，已保留本地配置与修改，请前往处理" if conflict else ("" if status_value == "imported" else "用例内容与本机一致，已跳过")
     result = {
         "status": status_value,
@@ -416,7 +432,7 @@ def _bundle(file: Path, relative: str, digest: str) -> dict:
     return result
 
 
-def import_file(file: str | Path, *, source_name: str | None = None) -> dict:
+def import_file(file: str | Path, *, source_name: str | None = None, overwrite: bool = False) -> dict:
     """Manually import a single sync ZIP or JSON bundle through the shared conflict-aware pipeline."""
     path = Path(file).expanduser()
     if not path.is_file():
@@ -427,7 +443,7 @@ def import_file(file: str | Path, *, source_name: str | None = None) -> dict:
     label = source_name or path.name
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     with named_lock("sync", "scan"):
-        receipt = _import_zip(path, label, digest) if suffix == ".zip" else _bundle(path, label, digest)
+        receipt = _import_zip(path, label, digest, overwrite=overwrite) if suffix == ".zip" else _bundle(path, label, digest, overwrite=overwrite)
         receipt.update(file=label, sha256=digest, at=db.now())
         state = _read_state()
         stored = {key: value for key, value in receipt.items() if key != "conflict"}
