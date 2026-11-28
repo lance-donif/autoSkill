@@ -82,9 +82,11 @@ def build(assets: Path, output: Path, arch: str) -> dict:
     site = vendor / "python/lib/python3.12/site-packages"
     site.mkdir(parents=True, exist_ok=True)
     wheels = _install_wheels(assets, site)
+    common.prune_site_packages(site, target)
     cft = "linux-arm64" if arch == "arm64" else "linux64"
     for key in ("chrome", "chromedriver"):
         unzip(assets / key / recorded["sources"][key]["file"], vendor / key)
+    common.prune_chrome_locales(vendor / "chrome" / f"chrome-{cft}")
     common.install_agent_browser(assets, recorded, package, target)
     for file in (vendor / "python/bin/python3", vendor / f"chrome/chrome-{cft}/chrome",
                  vendor / f"chromedriver/chromedriver-{cft}/chromedriver", vendor / "agent-browser/agent-browser", site / "playwright/driver/node"):
@@ -96,8 +98,9 @@ def build(assets: Path, output: Path, arch: str) -> dict:
     # Import-only assembly checks; no website access, browser regression or UOS acceptance claim.
     environment = {**os.environ, "PYTHONPATH": str(package / "app"), "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
                    "LOCUST_SKIP_MONKEY_PATCH": "1"}
-    subprocess.run([str(vendor / "python/bin/python3"), "-c", "import autoskill, playwright, selenium, cryptography, httpx, fastapi, uvicorn, openpyxl, jsonschema, locust"],
-                   check=True, env=environment, cwd=output)
+    imports = ("import autoskill, playwright, selenium, cryptography, httpx, fastapi, uvicorn, "
+               "openpyxl, jsonschema, locust, numpy, PIL, onnxruntime, python_multipart")
+    subprocess.run([str(vendor / "python/bin/python3"), "-c", imports], check=True, env=environment, cwd=output)
     common.plugin_check(output)
     files = {p.relative_to(vendor).as_posix(): common.sha256(p) for p in sorted(vendor.rglob("*")) if p.is_file()}
     (vendor / "runtime-manifest.json").write_text(json.dumps({"files": files}, indent=1) + "\n", encoding="utf-8")

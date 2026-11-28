@@ -179,3 +179,25 @@ test('slow content updates do not block version checks and intermediate versions
     assert.deepEqual(rendered, ['running', 'completed']);
   } finally { polling.close(); }
 });
+
+test('hidden dashboard suspends polling and immediately refreshes when shown', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let shown = false;
+  let reads = 0;
+  let signal;
+  const polling = revisionPoll({ read: (active) => { signal = active; reads += 1; return Promise.resolve({ revision: 'current' }); },
+    changed: () => undefined, unavailable: assert.fail, visible: () => shown });
+  try {
+    t.mock.timers.tick(1500);
+    assert.equal(reads, 0);
+    shown = true;
+    polling.visibilityChanged();
+    await setImmediate();
+    assert.equal(reads, 1);
+    shown = false;
+    polling.visibilityChanged();
+    t.mock.timers.tick(1500);
+    assert.equal(reads, 1);
+  } finally { polling.close(); }
+  assert.equal(signal.aborted, true);
+});

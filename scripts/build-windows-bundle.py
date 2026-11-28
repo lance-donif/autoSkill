@@ -7,6 +7,7 @@ libraries. End users never run this script.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import shutil
@@ -158,7 +159,7 @@ def smoke_test(package: Path) -> None:
         "SystemRoot": os.environ.get("SystemRoot", "C:/WINDOWS"),  # noqa: SIM112  # Preserve the canonical Windows key on case-sensitive hosts.
         "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1", "LOCUST_SKIP_MONKEY_PATCH": "1",
     }
-    code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema, locust; print(autoskill.__file__)"
+    code = "import autoskill, playwright, selenium, httpx, fastapi, uvicorn, openpyxl, jsonschema, locust, numpy, PIL, onnxruntime, python_multipart; print(autoskill.__file__)"
     done = subprocess.run([str(python), "-c", code], env=env, capture_output=True, text=True, cwd=str(package.parent), check=False)
     located = done.stdout.strip()
     if done.returncode or not Path(located).resolve().is_relative_to(package.resolve()):
@@ -197,6 +198,53 @@ def _install_wheels(assets: Path, site: Path) -> list[dict]:
     return wheels
 
 
+def prune_chrome_locales(chrome: Path) -> None:
+    """Keep the browser UI languages used by the offline package."""
+    locales = chrome / "locales"
+    if not all((locales / name).is_file() for name in LOCALES):
+        raise ValueError("Chrome does not contain the required English and Chinese locales")
+    for pak in locales.glob("*.pak"):
+        if pak.name not in LOCALES:
+            pak.unlink()
+
+
+def prune_site_packages(site: Path, target: str) -> None:
+    """Trim non-runtime wheel files without removing imports, data, or licenses."""
+    selenium_os = "windows" if target.startswith("windows-") else "linux"
+    selenium = site / "selenium" / "webdriver" / "common"
+    candidates = [selenium / platform / ("selenium-manager.exe" if platform == "windows" else "selenium-manager")
+                  for platform in ("linux", "macos", "windows") if platform != selenium_os]
+    candidates.extend(site.rglob("*.pyi"))
+    for name in ("gevent", "mpmath", "numpy", "onnxruntime", "sympy"):
+        candidates.extend((site / name).rglob("tests"))
+    candidates.append(site / "PyWin32.chm")
+    removed = _remove_wheel_files(site, candidates)
+    if removed:
+        _update_wheel_records(site, removed)
+
+
+def _remove_wheel_files(site: Path, candidates: list[Path]) -> set[str]:
+    removed = set()
+    for key in sorted(set(candidates)):
+        if key.is_file():
+            removed.add(key.relative_to(site).as_posix())
+            key.unlink()
+        elif key.is_dir():
+            removed.update(file.relative_to(site).as_posix() for file in key.rglob("*") if file.is_file())
+            shutil.rmtree(key)
+    return removed
+
+
+def _update_wheel_records(site: Path, removed: set[str]) -> None:
+    for record in site.glob("*.dist-info/RECORD"):
+        with record.open(encoding="utf-8", newline="") as stream:
+            rows = list(csv.reader(stream))
+        kept = [row for row in rows if row and row[0] not in removed]
+        if kept != rows:
+            with record.open("w", encoding="utf-8", newline="") as stream:
+                csv.writer(stream).writerows(kept)
+
+
 def build(assets: Path, output: Path) -> dict:
     if output.exists():
         raise ValueError("Output folder already exists; choose a new one")
@@ -227,12 +275,11 @@ def build(assets: Path, output: Path) -> dict:
     # relative to python.exe: vendor/windows-x64/python -> ../../../app.
     pth.write_text(f"{pth.stem}.zip\n.\nLib/site-packages\n../../../app\nimport site\n", encoding="ascii")
     wheels = _install_wheels(assets, site)
+    prune_site_packages(site, "windows-x64")
     # Chrome for Testing and its matching driver.
     unzip(assets / "chrome" / recorded["sources"]["chrome"]["file"], vendor / "chrome")
     chrome = vendor / "chrome" / "chrome-win64"
-    for pak in (chrome / "locales").iterdir():
-        if pak.name not in LOCALES:
-            pak.unlink()
+    prune_chrome_locales(chrome)
     for name in CHROME_DROP:
         target = chrome / name
         if target.is_dir():
@@ -245,8 +292,9 @@ def build(assets: Path, output: Path) -> dict:
 
     for binary in ("python/python.exe", "chrome/chrome-win64/chrome.exe", "chromedriver/chromedriver-win64/chromedriver.exe",
                    "agent-browser/agent-browser.exe"):
-        if (vendor / binary).read_bytes()[:2] != b"MZ":
-            raise ValueError("Not a Windows executable: " + binary)
+        with (vendor / binary).open("rb") as stream:
+            if stream.read(2) != b"MZ":
+                raise ValueError("Not a Windows executable: " + binary)
 
     smoke_test(package)
     plugin_check(output)

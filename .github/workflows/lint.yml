@@ -96,7 +96,7 @@ jobs:
           import sys
           from pathlib import Path
 
-          names = {"httpx", "h11", "locust", "jsonschema", "openpyxl", "fastapi", "starlette", "pydantic", "uvicorn", "cryptography"}
+          names = {"httpx", "h11", "locust", "jsonschema", "openpyxl", "fastapi", "starlette", "python-multipart", "pydantic", "uvicorn", "cryptography"}
           lines = "\n".join(Path(name).read_text() for name in ("requirements.txt", "requirements-linux.txt"))
           requirements = [line for line in lines.splitlines() if re.split(r"[\[=]", line)[0] in names]
           if len(requirements) != len(names):
@@ -250,7 +250,7 @@ jobs:
           import sys
           from pathlib import Path
 
-          names = {"playwright", "httpx", "h11", "locust", "jsonschema", "openpyxl", "fastapi", "starlette", "pydantic", "uvicorn", "cryptography"}
+          names = {"playwright", "httpx", "h11", "locust", "jsonschema", "openpyxl", "fastapi", "starlette", "python-multipart", "pydantic", "uvicorn", "cryptography"}
           lines = (Path("requirements.txt").read_text() + "\n" + Path("requirements-linux.txt").read_text()).splitlines()
           pins = [line for line in lines if re.split(r"[\[=]", line)[0] in names]
           if len(pins) != len(names):

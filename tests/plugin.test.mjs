@@ -158,7 +158,7 @@ test('client registers dashboard and schedules panels pointing at the loopback d
   const clock = { now: 1700000000000, random: 0.5 };
   vm.runInNewContext(await readFile(new URL('../plugin/client.js', import.meta.url), 'utf8'), {
     window, document, Date: { now: () => clock.now }, Math: { random: () => clock.random },
-    URL, URLSearchParams, AbortController, fetch: () => Promise.resolve({ ok: true,
+    URL, URLSearchParams, AbortController, AbortSignal, fetch: () => Promise.resolve({ ok: true,
       json: () => Promise.resolve({ version: 1, dashboard_origin: 'http://127.0.0.1:8788' }) }),
   });
   assert.equal(registration.id, 'dsh-plugin-autoskill');

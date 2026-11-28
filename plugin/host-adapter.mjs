@@ -1,9 +1,11 @@
 // The local scheduler owns time. This adapter only admits one durable occurrence to an active DSH host.
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, opendir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { hostGuidance } from './host-guidance.mjs';
 import { workspaceFor } from './data-root.mjs';
+
+const RECEIPT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const keyOf = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -29,11 +31,12 @@ export class HostAdapter {
     this.stopped = false;
     this.busy = false;
     this.abort = new AbortController();
+    this.nextCleanup = 0;
   }
 
   async request(path, body) {
     const response = await this.fetch(this.spec.origin + path, {
-      method: body === undefined ? 'GET' : 'POST', signal: this.abort.signal,
+      method: body === undefined ? 'GET' : 'POST', signal: AbortSignal.any([this.abort.signal, AbortSignal.timeout(15000)]),
       headers: { 'Content-Type': 'application/json', 'X-Autoskill-Host': 'dsh' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -57,8 +60,26 @@ export class HostAdapter {
   async save(journal) {
     await mkdir(this.folder, { recursive: true });
     const temporary = this.journalPath(journal.delivery_id) + '.' + randomUUID() + '.tmp';
-    await writeFile(temporary, JSON.stringify(journal), { encoding: 'utf8', flag: 'wx' });
-    await rename(temporary, this.journalPath(journal.delivery_id));
+    try {
+      await writeFile(temporary, JSON.stringify(journal), { encoding: 'utf8', flag: 'wx' });
+      await rename(temporary, this.journalPath(journal.delivery_id));
+    } finally { await rm(temporary, { force: true }); }
+  }
+
+  async pruneConfirmed(now = Date.now()) {
+    const directory = await opendir(this.folder).catch((error) => {
+      if (error.code !== 'ENOENT') throw error;
+      return null;
+    });
+    if (!directory) return;
+    for await (const file of directory) {
+      if (this.stopped) break;
+      if (!file.isFile() || !/^[0-9a-f]{64}\.json$/.test(file.name)) continue;
+      const path = join(this.folder, file.name);
+      const journal = await readFile(path, 'utf8').then(JSON.parse).catch(() => null);
+      if (typeof journal?.delivery_id !== 'string' || journal.state !== 'delivered' || this.journalPath(journal.delivery_id) !== path) continue;
+      if (Number.isFinite(journal.confirmed_at) && now - journal.confirmed_at >= RECEIPT_RETENTION_MS) await rm(path, { force: true });
+    }
   }
 
   prompt(delivery, sessionId) {
@@ -92,10 +113,15 @@ export class HostAdapter {
       request_id: journal.request_id, delivered_at: journal.delivered_at, status: 'accepted', completion: 'not_asserted' };
   }
 
-  acknowledge(delivery, journal) {
+  async acknowledge(delivery, journal) {
     const receipt = this.receipt(journal);
-    if (delivery.state === 'unknown') return this.request(`/api/host/deliveries/${delivery.id}/resolve`, { receipt, reason: '已核实 DSH 请求身份与持久化投递收据' });
-    return this.request(`/api/host/deliveries/${delivery.id}/ack`, { token: delivery.token, receipt });
+    const endpoint = `/api/host/deliveries/${delivery.id}`;
+    const result = delivery.state === 'unknown'
+      ? await this.request(endpoint + '/resolve', { receipt, reason: '已核实 DSH 请求身份与持久化投递收据' })
+      : await this.request(endpoint + '/ack', { token: delivery.token, receipt });
+    // Only a kernel-confirmed receipt can be aged out of the duplicate local journal.
+    if (result.state === 'delivered' && !journal.confirmed_at) await this.save({ ...journal, confirmed_at: Date.now() });
+    return result;
   }
 
   async recover(delivery, journal) {
@@ -192,6 +218,11 @@ export class HostAdapter {
         if (this.stopped) break;
         try { await this.deliver(delivery); }
         catch (error) { this.logger?.warn?.(`autoSkill 宿主投递 ${delivery.id} 尚未完成：${String(error)}`); }
+      }
+      const now = Date.now();
+      if (!this.stopped && now >= this.nextCleanup) {
+        this.nextCleanup = now + 60 * 60 * 1000;
+        await this.pruneConfirmed(now);
       }
     } finally {
       this.busy = false;

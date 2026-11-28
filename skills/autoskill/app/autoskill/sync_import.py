@@ -17,7 +17,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from . import db, execution_inputs, paths, projects, share, sync_conflicts
+from . import db, execution_inputs, file_changes, paths, projects, runtime_identity, share, sync_conflicts
 from .core import store
 from .locking import named_lock, project_lock
 
@@ -165,6 +165,31 @@ def _stamp_new_project_cases(project_id: str, relative: str, digest: str) -> lis
         return [item["id"] for item in updated]
 
 
+def _file_digest(file: Path) -> str:
+    with file.open("rb") as source:
+        return hashlib.file_digest(source, "sha256").hexdigest()
+
+
+def _cleanup_staging() -> None:
+    """Retire only our interrupted extraction directories, under the scan lock."""
+    from .runner import process_alive
+
+    root = paths.workspace()
+    staging = root / ".local" / "import"
+    for work in staging.glob("sync-*"):
+        with contextlib.suppress(OSError, ValueError, TypeError, KeyError):
+            if work.is_symlink() or not work.is_dir() or work.resolve().parent != staging.resolve():
+                continue
+            marker = work / ".autoskill-extraction.json"
+            if marker.is_symlink() or time.time() - marker.stat().st_mtime < 3600:
+                continue
+            value = json.loads(marker.read_bytes())
+            owner = value.get("owner") if isinstance(value, dict) and value.get("folder") == work.name else None
+            if (isinstance(owner, dict) and runtime_identity.is_local(owner, root)
+                    and type(owner.get("pid")) is int and owner["pid"] > 0 and not process_alive(owner["pid"])):
+                shutil.rmtree(work)
+
+
 def _read_staged_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo]) -> dict:
     """Extract and validate one project from a ZIP into a temporary staging folder."""
     folder = paths.local() / "import"
@@ -172,6 +197,7 @@ def _read_staged_project(archive: zipfile.ZipFile, project_id: str, members: lis
     work = Path(tempfile.mkdtemp(prefix=f"sync-{project_id}-", dir=folder))
     staging = work / "incoming"
     try:
+        execution_inputs.write_json(work / ".autoskill-extraction.json", {"folder": work.name, "owner": runtime_identity.current()})
         for member in members:
             destination = staging / Path(*member.filename.split("/")[2:])
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -441,8 +467,9 @@ def import_file(file: str | Path, *, source_name: str | None = None, overwrite: 
     if suffix not in (".zip", ".json"):
         raise ValueError("仅支持导入 .zip 同步包或 .json 用例文件")
     label = source_name or path.name
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = _file_digest(path)
     with named_lock("sync", "scan"):
+        _cleanup_staging()
         receipt = _import_zip(path, label, digest, overwrite=overwrite) if suffix == ".zip" else _bundle(path, label, digest, overwrite=overwrite)
         receipt.update(file=label, sha256=digest, at=db.now())
         state = _read_state()
@@ -468,7 +495,11 @@ def scan() -> dict:
     if not folder.is_dir():
         return {"status": "missing", "sync_dir": str(folder), "files": [], "hint": "同步目录不存在，等待开发侧同步后重试"}
     with named_lock("sync", "scan"):
+        _cleanup_staging()
         state = _read_state()
+        old_stamps = state.get("source_stamps")
+        old_stamps = old_stamps if isinstance(old_stamps, dict) else {}
+        stamps = {}
         pending = _read_pending()
         now = time.time()
         results = []
@@ -478,6 +509,13 @@ def scan() -> dict:
                 continue
             relative = file.relative_to(folder).as_posix()
             seen_relatives.add(relative)
+            previous = state["files"].get(relative)
+            stamp = file_changes.file_stamp(file)
+            if (previous and previous.get("sha256") and relative not in pending
+                    and file_changes.reusable(stamp) and old_stamps.get(relative) == list(stamp)):
+                stamps[relative] = stamp
+                results.append({**previous, "unchanged": True})
+                continue
             ready, override_status, override_reason = _check_ready(file, relative, pending, now)
             if not ready:
                 receipt = {"file": relative, "status": override_status, "reason": override_reason or "", "at": db.now(), "cases": [], "imported_cases": []}
@@ -485,12 +523,13 @@ def scan() -> dict:
                 results.append(receipt)
                 continue
             try:
-                digest = hashlib.sha256(file.read_bytes()).hexdigest()
+                digest = _file_digest(file)
             except OSError as error:
                 results.append({"file": relative, "status": "failed", "reason": str(error)[:200]})
                 continue
             pending.pop(relative, None)
-            previous = state["files"].get(relative)
+            if file_changes.reusable(stamp) and file_changes.file_stamp(file) == stamp:
+                stamps[relative] = stamp
             if previous and previous.get("status") != "pending" and previous.get("sha256") == digest:
                 results.append({**previous, "unchanged": True})
                 continue
@@ -508,6 +547,7 @@ def scan() -> dict:
         for stale in list(pending):
             if stale not in seen_relatives:
                 pending.pop(stale, None)
+        state["source_stamps"] = stamps
         state["last_scan"] = {
             "at": db.now(),
             "path": str(folder),

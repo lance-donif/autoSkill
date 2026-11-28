@@ -398,7 +398,10 @@ def _register_overview_routes(app: FastAPI) -> None:
     @app.get("/api/dashboard")
     def dashboard(request: Request, tz: int = 480, current: bool = False):
         limit, _ = page(request, 6)
-        return metrics.dashboard(scope_of(request), tz, current_only=current, limit=limit)
+        with data_store.selected_workspace() as identity:
+            dashboard = metrics.dashboard(scope_of(request), tz, current_only=current, limit=limit)
+            dashboard["recent"]["workspace_identity"] = identity
+            return dashboard
 
     @app.get("/api/results")
     def results(request: Request, status: str | None = None, current: bool = False):

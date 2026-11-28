@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ctypes
 import gc
+import json
 import os
 import socket
 import subprocess
@@ -18,7 +19,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills/autoskill/app"))
 
-from autoskill import db, locking, maintenance, paths, runner, runtime_identity, secrets, task_state
+from autoskill import db, locking, maintenance, paths, runner, runtime_identity, secrets, sync_import, task_state
 from autoskill.server.jobs import Worker
 
 
@@ -152,6 +153,24 @@ class RuntimeResources(unittest.TestCase):
             self.assertIsNone(task_state._watched[self.root])
             with patch.object(task_state.time, "monotonic_ns", side_effect=[0, 500_000_000]):
                 self.assertNotEqual(task_state.revision(), task_state.revision())
+
+    def test_staging_cleanup_leaves_live_and_unmarked_directories(self):
+        area = self.root / ".local" / "import"
+        stale, live, unmarked = [area / ("sync-" + name) for name in ("stale", "live", "unmarked")]
+        for path in (stale, live, unmarked):
+            path.mkdir(parents=True)
+            (path / "incoming.zip").write_bytes(b"fixture")
+        for path, pid in ((stale, 123456), (live, os.getpid())):
+            owner = {**runtime_identity.current(), "pid": pid}
+            marker = path / ".autoskill-extraction.json"
+            marker.write_text(json.dumps({"folder": path.name, "owner": owner}), encoding="utf-8")
+            old = time.time() - 7200
+            os.utime(marker, (old, old))
+        with patch.object(runner, "process_alive", side_effect=lambda pid: pid == os.getpid()):
+            sync_import._cleanup_staging()
+        self.assertFalse(stale.exists())
+        self.assertTrue(live.is_dir())
+        self.assertTrue(unmarked.is_dir())
 
     def test_dashboard_shuts_down_when_its_host_pipe_closes(self):
         with socket.socket() as port_probe:

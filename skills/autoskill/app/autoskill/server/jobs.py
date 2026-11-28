@@ -19,6 +19,7 @@ _dispatchers: dict[int, subprocess.Popen] = {}
 _dispatcher_lock = threading.Lock()
 _report_children: dict[str, tuple[subprocess.Popen, str]] = {}
 _report_lock = threading.RLock()
+_checkpoint_after = 0.0
 
 
 def _state_file():
@@ -253,6 +254,19 @@ def sweep() -> None:
     deletion.sweep()
 
 
+def _checkpoint_if_large(now: float) -> None:
+    global _checkpoint_after  # noqa: PLW0603  # One idle maintenance deadline per worker process.
+    if now < _checkpoint_after:
+        return
+    _checkpoint_after = now + 60
+    wal = paths.workspace() / ".local" / "autoskill.db-wal"
+    with contextlib.suppress(FileNotFoundError):
+        if wal.stat().st_size >= 64 * 1024 * 1024:
+            # Do not force readers out of their snapshots or wait to truncate a live WAL.
+            with db.connect() as connection:
+                connection.execute("PRAGMA wal_checkpoint(PASSIVE)").fetchone()
+
+
 def _queue_pass(next_review: float, observed: int | None) -> tuple[float, int]:
     # A pass keeps the shared maintenance gate but each transaction commits independently.
     with db.batch():
@@ -277,6 +291,8 @@ def _queue_pass(next_review: float, observed: int | None) -> tuple[float, int]:
         # Reconciliation can enqueue work in this pass.
         if activity["queued"] or (review_due and db.one("SELECT 1 FROM runs WHERE status = 'Queued' LIMIT 1")):
             start_queued()
+        elif not (activity["running"] or activity["deleting"]):
+            _checkpoint_if_large(now)
     sync_import.autoscan()
     return next_review, observed
 

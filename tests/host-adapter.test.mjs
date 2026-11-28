@@ -159,3 +159,16 @@ test('an empty optional host identity creates a stable independent session', asy
   assert.match(state.creates[0].sessionId, /^session-autoskill-[a-f0-9]{64}$/);
   assert.equal(state.creates[0].sessionId, state.prompts[0].sessionId);
 });
+
+test('only confirmed duplicate journals expire, while uncertain receipts stay recoverable', async (t) => {
+  const { adapter } = await fixture(t);
+  await adapter.poll();
+  const old = await adapter.journal('delivery-1');
+  assert.ok(Number.isFinite(old.confirmed_at));
+  await adapter.save({ delivery_id: 'unconfirmed', state: 'delivered' });
+  await adapter.save({ delivery_id: 'in-flight', state: 'sending' });
+  await adapter.pruneConfirmed(old.confirmed_at + 8 * 24 * 60 * 60 * 1000);
+  assert.equal(await adapter.journal('delivery-1'), null);
+  assert.equal((await adapter.journal('unconfirmed')).state, 'delivered');
+  assert.equal((await adapter.journal('in-flight')).state, 'sending');
+});
