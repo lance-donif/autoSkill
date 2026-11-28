@@ -122,7 +122,7 @@ export async function apply(ctx, config = {}) {
     }
     child.once('error', done);
     child.once('exit', done);
-    child.stdin.on('error', () => { /* the child may exit before its pipe is closed */ });
+    child.stdin.on('error', () => undefined);
   });
   function stop() {
     if (!lifetime.signal.aborted) {

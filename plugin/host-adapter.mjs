@@ -119,7 +119,6 @@ export class HostAdapter {
     const result = delivery.state === 'unknown'
       ? await this.request(endpoint + '/resolve', { receipt, reason: '已核实 DSH 请求身份与持久化投递收据' })
       : await this.request(endpoint + '/ack', { token: delivery.token, receipt });
-    // Only a kernel-confirmed receipt can be aged out of the duplicate local journal.
     if (result.state === 'delivered' && !journal.confirmed_at) await this.save({ ...journal, confirmed_at: Date.now() });
     return result;
   }
