@@ -27,7 +27,9 @@ class FeatureDashboardTests(DashboardWorkspace):
         self.assertEqual(response.value.status, 200, response.value.text())
         expect(dialog).not_to_be_visible()
         tree = self.client.get(f"/api/projects/{self.pid}/folders").json()
-        return next(folder["id"] for folder in tree["folders"] if folder["name"] == name)
+        created = next(folder["id"] for folder in tree["folders"] if folder["name"] == name)
+        expect(self.page.locator(f'button[data-folder-id="{created}"]')).to_be_attached()
+        return created
 
     def test_nested_folders_move_and_recursive_excel_export_survive_reload(self):
         original = self.client.get(f"/api/projects/{self.pid}/cases/TC-CHECK").json()
