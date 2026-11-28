@@ -345,7 +345,7 @@ function projectCard(project, items, folderResult, { retry, chooseFolder, select
         const deps = JSON.parse(item.depends_on || '[]');
         const run = h('button', { class: 'btn sm', title: '只运行这一条', onClick: (event) => { event.stopPropagation(); startRun([runTargetFor(item.project_id, [item.case_id])], run); } }, icon('play'), '运行');
         const openDetail = () => caseDrawer(item.project_id, item.case_id);
-        return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), onClick: openDetail },
+        return h('tr', { class: 'click' + (selected.has(key) ? ' selected' : ''), dataset: { case: key }, onClick: openDetail },
           h('td', {}, box),
           h('td', {}, h('button', { class: 'title case-title', type: 'button', 'aria-haspopup': 'dialog',
             onClick: (event) => { event.stopPropagation(); openDetail(); } }, item.title),

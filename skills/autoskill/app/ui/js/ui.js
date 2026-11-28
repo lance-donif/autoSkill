@@ -1,5 +1,6 @@
 // Shared interface pieces: overlays, menus, empty states, the run launcher.
 import { h, icon } from './core.js';
+import { captureFocus } from './live-refresh.js';
 import { launchRuns } from './run-launcher.js';
 export { preferredEngine, setEngine, preferredHeaded, setHeaded } from './preferences.js';
 
@@ -9,7 +10,7 @@ let closeMenu = null;
 
 function open(panel, onClose, beforeClose) {
   if (closeCurrent && closeCurrent() === false) return null;
-  const previous = document.activeElement;
+  const restoreFocus = captureFocus(document.getElementById('view'));
   const scrim = h('div', { class: 'scrim', onClick: () => close() });
   const onKey = (event) => { if (event.key === 'Escape') close(); };
   function close() {
@@ -18,7 +19,7 @@ function open(panel, onClose, beforeClose) {
     scrim.remove();
     panel.remove();
     closeCurrent = null;
-    if (previous?.focus) previous.focus();
+    restoreFocus();
     if (onClose) onClose();
     return true;
   }

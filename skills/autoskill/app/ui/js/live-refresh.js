@@ -14,7 +14,7 @@ function nodeKey(node) {
 
 function focusRecord(view) {
   const focused = document.activeElement;
-  if (!focused || !view.contains(focused)) return null;
+  if (!focused || !view?.contains(focused)) return null;
   const nodes = [...view.querySelectorAll(FOCUSABLE)];
   const key = nodeKey(focused);
   const index = nodes.filter((node) => nodeKey(node) === key).indexOf(focused);
@@ -22,10 +22,24 @@ function focusRecord(view) {
     editable: ['INPUT', 'SELECT', 'TEXTAREA'].includes(focused.tagName) };
 }
 
+function findControl(view, { key, index }) {
+  return [...view.querySelectorAll(FOCUSABLE)].filter((node) => nodeKey(node) === key)[index];
+}
+
+export function captureFocus(view) {
+  const focused = document.activeElement;
+  const original = focused ? new WeakRef(focused) : null;
+  const { key, index } = focusRecord(view) ?? {};
+  return () => {
+    const previous = original?.deref();
+    if (previous?.isConnected) previous.focus({ preventScroll: true });
+    else if (index >= 0) findControl(view, { key, index })?.focus({ preventScroll: true });
+  };
+}
+
 function reuseEditor(holder, focused) {
   if (!focused?.editable || ['checkbox', 'radio', 'file', 'submit', 'button'].includes(focused.node.type)) return;
-  const fresh = [...holder.querySelectorAll(FOCUSABLE)]
-    .filter((node) => nodeKey(node) === focused.key)[focused.index];
+  const fresh = findControl(holder, focused);
   if (!fresh || fresh.tagName !== focused.node.tagName) return;
   const editor = focused.node;
   adoptAttributes(editor, fresh);
@@ -75,8 +89,7 @@ export function updateLiveView(view, holder) {
     if (node) { node.scrollTop = position.top; node.scrollLeft = position.left; }
   }
   if (focused) {
-    const node = [...view.querySelectorAll(FOCUSABLE)]
-      .filter((candidate) => nodeKey(candidate) === focused.key)[focused.index];
+    const node = findControl(view, focused);
     if (node) {
       if (focused.editable && node.value !== focused.value) node.value = focused.value;
       node.focus({ preventScroll: true });

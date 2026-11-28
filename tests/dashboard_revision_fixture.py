@@ -12,7 +12,7 @@ def change_project_and_wait_for_ui(test, project_id):
 
     def revision_changed(response):
         nonlocal observed
-        if after_revision is None or urlsplit(response.url).path != '/api/state-revision':
+        if after_revision is None or response.status != 200 or urlsplit(response.url).path != '/api/state-revision':
             return False
         if response.json()['revision'] != after_revision:
             return False
