@@ -10,7 +10,7 @@ import uuid
 from functools import wraps
 from pathlib import Path
 
-from . import db, paths, platform_accounts, secrets
+from . import db, maintenance, paths, platform_accounts, secrets
 from .core import store
 from .locking import named_lock, project_lock
 from .replay import ir
@@ -593,6 +593,16 @@ def get(project_id: str, *, include_passwords: bool = False, include_shared: boo
         "login": {"ui_case": login.get("ui_case"), "api_case": login.get("api_case")},
         "missing_secrets": [name for name, value in known.items() if value is None],
     }
+
+
+def count() -> int:
+    """Count the same on-disk project entries, including broken definitions."""
+    root = paths.workspace()
+    try:
+        with maintenance.access(root):
+            return sum(1 for item in (root / "projects").iterdir() if ID.fullmatch(item.name) and (item / "project.json").is_file())
+    except FileNotFoundError:
+        return 0
 
 
 def list_all() -> list[dict]:

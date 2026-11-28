@@ -12,6 +12,7 @@ import contextlib
 import datetime
 import json
 from dataclasses import dataclass, field
+from itertools import batched
 
 from .. import db, projects, task_state
 
@@ -469,6 +470,16 @@ def results(scope: Scope, status: str | None = None, current_only: bool = False,
     return _history_page(scope, "result", status, int(limit), int(offset), current_only=current_only)
 
 
+def _latest_cases(connection, group: tuple[dict, ...], cycle_where: str) -> dict:
+    values = ",".join("(?,?)" for _ in group)
+    bindings = [value for row in group for value in (row["project_id"], row["case_id"])]
+    rows = connection.execute(
+        f"WITH requested(project_id,case_id) AS (VALUES {values}) "
+        "SELECT latest.* FROM requested c JOIN results latest ON latest.id=("
+        "SELECT r.id FROM results r JOIN runs u ON u.id=r.run_id WHERE r.project_id=c.project_id AND r.case_id=c.case_id "
+        "AND r.prerequisite=0 AND u.trigger!='login' AND u.family!='load' AND " + cycle_where + " ORDER BY r.id DESC LIMIT 1)", bindings)
+    return {(row["project_id"], row["case_id"]): dict(row) for row in rows}
+
 def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> dict:
     """Active cases as of the end of the range, each with its latest counted result."""
     if scope._snapshot is None:
@@ -488,22 +499,25 @@ def cases(scope: Scope, kind: str | None = None, added_only: bool = False) -> di
         f"FROM cases c LEFT JOIN projects p ON p.id = c.project_id WHERE {where} ORDER BY c.project_id, c.kind DESC, c.case_id", args)
     cycle_where = _cycle(scope, "u")
     with _connection(scope) as connection:
-        for item in items:
-            latest = connection.execute("SELECT r.* FROM results r JOIN runs u ON u.id=r.run_id WHERE r.project_id=? AND r.case_id=? "
-                                        "AND r.prerequisite=0 AND u.trigger!='login' AND u.family!='load' AND " + cycle_where + " ORDER BY r.id DESC LIMIT 1",
-                                        (item["project_id"], item["case_id"])).fetchone()
-            if latest:
-                try:
-                    definition = projects.case(item["project_id"], item["case_id"])
-                except (OSError, ValueError):
-                    definition = None
-                state = task_state.current_result(item["project_id"], definition, dict(latest), connection=connection)
-            else:
+        loaded, definitions = None, {}
+        for group in batched(items, 64):
+            latest_cases = _latest_cases(connection, group, cycle_where)
+            for item in group:
+                project_id, case_id = item["project_id"], item["case_id"]
+                latest = latest_cases.get((project_id, case_id))
                 state = None
-            current = bool(state and state["current"])
-            item.update(state=state, last_state=state, last_status=latest["status"] if latest else None,
-                        last_run_at=latest["started_at"] if latest else None, current=current,
-                        current_status=history_status(state) if current else None)
+                if latest:
+                    if loaded != project_id:
+                        try:
+                            definitions = {case["id"]: case for case in projects.cases(project_id, active_only=False)}
+                        except (OSError, ValueError):
+                            definitions = {}
+                        loaded = project_id
+                    state = task_state.current_result(project_id, definitions.get(case_id), latest, connection=connection)
+                current = bool(state and state["current"])
+                item.update(state=state, last_state=state, last_status=latest["status"] if latest else None,
+                            last_run_at=latest["started_at"] if latest else None, current=current,
+                            current_status=history_status(state) if current else None)
     if scope.state_filters:
         items = [item for item in items if _matches(item["state"] or {"outcome": "not_run"}, scope.state_filters)]
     return {"total": len(items), "items": items}

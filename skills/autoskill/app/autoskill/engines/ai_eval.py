@@ -11,8 +11,6 @@ import uuid
 from collections import deque
 from pathlib import Path
 
-import httpx
-
 from .. import paths, secrets
 from . import ai_audio, ai_journal, ai_judging, ai_oracles, ai_protocols
 
@@ -215,6 +213,8 @@ def _turn_result(observation, turn, spec, judgement):
 
 
 async def _conversation(sample, spec, case_id, user_id, cancelled, emit, prepared):
+    import httpx
+
     started, history, turns = time.monotonic(), [], []
     context = {"user_id": user_id, "case_id": case_id, "conversation_id": uuid.uuid4().hex, **sample.get("context", {})}
     pending = deque(sample.get("turns", [sample]))

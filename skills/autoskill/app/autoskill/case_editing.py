@@ -4,8 +4,6 @@ from __future__ import annotations
 import copy
 import json
 
-import jsonschema
-
 from . import case_document, db, domain, execution_inputs, paging, paths, projects, runner
 from .core import store
 from .locking import project_lock
@@ -151,6 +149,8 @@ def _provenance(candidate: dict, current: dict) -> None:
 
 
 def _validate(candidate: dict, project_id: str) -> None:
+    import jsonschema
+
     errors = list(jsonschema.Draft202012Validator(store.read(paths.SKILL / "references/case.schema.json")).iter_errors(candidate))
     if errors:
         raise ValueError("用例 Schema 不符：" + errors[0].json_path + "：" + errors[0].message)

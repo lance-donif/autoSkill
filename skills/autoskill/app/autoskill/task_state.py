@@ -36,7 +36,7 @@ def projection():
     if _projection.get() is not None:
         yield
         return
-    token = _projection.set({"root": paths.workspace(), "paths": {}, "json": {}, "reports": {}, "source_checks": {}, "current_projects": set()})
+    token = _projection.set({"root": paths.workspace(), "paths": {}, "json": {}, "reports": {}, "source_checks": {}, "current_projects": set(), "tables": {}})
     try:
         yield
     finally:
@@ -127,7 +127,14 @@ def _rows(connection, sql: str, args: tuple = ()) -> list[dict]:
 
 
 def _has(connection, name: str) -> bool:
-    return connection is not None and bool(_rows(connection, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)))
+    if connection is None:
+        return False
+    current = _projection.get()
+    if current is None:
+        return bool(_rows(connection, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)))
+    if connection not in current["tables"]:
+        current["tables"][connection] = {row["name"] for row in _rows(connection, "SELECT name FROM sqlite_master WHERE type = 'table'")}
+    return name in current["tables"][connection]
 
 
 def _scope(row: dict, connection=None) -> dict:

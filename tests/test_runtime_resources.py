@@ -12,6 +12,7 @@ import time
 import tracemalloc
 import unittest
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -108,6 +109,33 @@ class RuntimeResources(unittest.TestCase):
             worker.loop()
 
         self.assert_stable(operation, rounds=45, allowance=256 * 1024)
+
+    def test_queue_batch_reuses_sequential_transactions_and_holds_migration_gate(self):
+        def try_migration():
+            with self.assertRaises(ValueError), maintenance.exclusive(self.root):
+                self.fail("Exclusive migration entered an active database batch")
+
+        with ThreadPoolExecutor(1) as thread, db.batch():
+            with db.connect() as first:
+                first.execute("CREATE TABLE batch_probe (value)")
+                first.execute("INSERT INTO batch_probe VALUES (1)")
+            thread.submit(try_migration).result(timeout=5)
+            with self.assertRaises(RuntimeError), db.connect() as reused:
+                self.assertIs(reused, first)
+                with db.connect() as nested:
+                    self.assertIsNot(nested, first)
+                    self.assertEqual(nested.execute("SELECT value FROM batch_probe").fetchone()[0], 1)
+                reused.execute("INSERT INTO batch_probe VALUES (2)")
+                raise RuntimeError("rollback only this operation")
+            self.assertEqual(db.rows("SELECT value FROM batch_probe"), [{"value": 1}])
+        with maintenance.exclusive(self.root):
+            pass
+
+    def test_dashboard_idle_does_not_import_feature_dependencies(self):
+        roots = ["onnxruntime", "numpy", "PIL", "playwright", "selenium", "locust", "openpyxl", "jsonschema", "cryptography", "httpx"]
+        check = ("import sys; from autoskill.server.app import create_app; create_app(start_worker=False); "
+                 f"loaded = set({roots!r}) & set(sys.modules); assert not loaded, sorted(loaded)")
+        subprocess.run([sys.executable, "-c", check], env=paths.child_env(), cwd=paths.APP, check=True, timeout=15)
 
     def test_inactive_named_lock_objects_are_reclaimed(self):
         baseline = len(locking._threads)

@@ -73,7 +73,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     const emit = () => { for (const fn of listeners) fn(); };
     async function loadHost(current) {
       try {
-        const response = await fetch(routeUrl('host'), { credentials: 'same-origin', cache: 'no-store', signal: current.controller.signal });
+        const response = await fetch(routeUrl('host'), { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([current.controller.signal, AbortSignal.timeout(15000)]) });
         const value = await responseJson(response);
         const origin = dashboardOrigin(value, response.ok);
         if (!disposed && !current.controller.signal.aborted) host = { origin, loading: false, error: null };
@@ -136,21 +136,25 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     return facts.map(([title, value]) => title + '：' + label(value)).join('；');
   }
 
-  function sessionStore(sessionId) {
+  function sessionStore(sessionId, retain) {
     let snapshot = { actions: {}, reports: {} };
     const listeners = new Set();
     const requests = new Set();
     let generation = 0;
     let disposed = false;
+    const updateRetention = () => retain(store, !disposed && (requests.size > 0
+      || Object.values(snapshot.actions).some((item) => ['pending', 'unknown'].includes(item.state))));
     const publish = (patch) => {
       if (disposed) return;
       snapshot = { ...snapshot, ...patch };
+      updateRetention();
       for (const fn of listeners) fn();
     };
     const currentGeneration = (value) => !disposed && value === generation;
     async function json(name, query, body, signal) {
       const response = await fetch(routeUrl(name, query), { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store',
-        headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined, signal });
+        headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined,
+        signal: body ? signal : AbortSignal.any([signal, AbortSignal.timeout(15000)]) });
       const value = await responseJson(response);
       if (!response.ok) throw new Error(value?.error?.message || value?.error || value?.detail || 'autoSkill 请求失败（' + response.status + '）');
       if (!object(value)) throw new Error('autoSkill 返回了无法识别的响应');
@@ -159,8 +163,9 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     async function read(resource, query = {}) {
       const controller = new AbortController();
       requests.add(controller);
+      updateRetention();
       try { return await json('read', { session_id: sessionId, resource, ...query }, undefined, controller.signal); }
-      finally { requests.delete(controller); }
+      finally { requests.delete(controller); updateRetention(); }
     }
     function finishAction(key, action, result) {
       const state = result.request_state || 'unknown';
@@ -186,7 +191,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       } catch (error) {
         if (!currentGeneration(startedGeneration)) return action;
         return finishAction(key, action, { request_state: 'unknown', error: { message: message(error) } });
-      } finally { requests.delete(controller); }
+      } finally { requests.delete(controller); updateRetention(); }
     }
     async function queryAction(key) {
       const action = snapshot.actions[key];
@@ -219,7 +224,7 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
         if (currentGeneration(startedGeneration)) publish({ reports: { ...snapshot.reports, [reportId]: { state: 'failed', error: message(error) } } });
       }
     }
-    return {
+    const store = {
       sessionId, getSnapshot: () => snapshot,
       subscribe: (fn) => {
         listeners.add(fn);
@@ -249,8 +254,10 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
         for (const request of requests) request.abort();
         requests.clear();
         listeners.clear();
+        updateRetention();
       },
     };
+    return store;
   }
 
   function useSnapshot(store) {
@@ -409,9 +416,22 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
     const loadId = Date.now().toString(36) + '-' + activationCount.toString(36) + '-' + Math.random().toString(36).slice(2);
     const nav = navigation(ctx);
     const stores = new Map();
+    const unsettled = new Map();
+    const collect = new FinalizationRegistry(({ id, ref }) => {
+      if (stores.get(id) === ref) stores.delete(id);
+    });
     const inject = (sessionId) => {
-      if (!stores.has(sessionId)) stores.set(sessionId, sessionStore(sessionId));
-      return { autoskill: { store: stores.get(sessionId), navigation: nav } };
+      let store = stores.get(sessionId)?.deref();
+      if (!store) {
+        store = sessionStore(sessionId, (current, keep) => {
+          if (keep) unsettled.set(sessionId, current);
+          else if (unsettled.get(sessionId) === current) unsettled.delete(sessionId);
+        });
+        const ref = new WeakRef(store);
+        stores.set(sessionId, ref);
+        collect.register(store, { id: sessionId, ref });
+      }
+      return { autoskill: { store, navigation: nav } };
     };
     const panels = [['autoskill-dashboard', 'autoSkill 仪表盘', 'dashboard'], ['autoskill-schedules', 'autoSkill 定时任务', 'schedules']];
     for (const [key, title, page] of panels) {
@@ -431,8 +451,13 @@ window.__ModuleLoader__.load({ id: 'dsh-plugin-autoskill', factory: (require) =>
       ctx.slots.register({ name: 'tool.call.toolview', key, inject }, ToolCard)), 'autoskill: ' + key);
     ctx.effect(() => ctx.slots.inject('conversation.hero.options', () =>
       ctx.slots.register({ name: 'conversation.hero.options', id: 'autoskill.activation-status' }, ActivationStatus)), 'autoskill: activation status');
-    ctx.on('connection/reset', () => { nav.reset(); for (const store of stores.values()) store.reset(); });
-    ctx.effect(() => () => { for (const store of stores.values()) store.dispose(); stores.clear(); nav.dispose(); }, 'autoskill: client lifetime');
+    ctx.on('connection/reset', () => { nav.reset(); for (const ref of stores.values()) ref.deref()?.reset(); });
+    ctx.effect(() => () => {
+      for (const ref of stores.values()) ref.deref()?.dispose();
+      unsettled.clear();
+      stores.clear();
+      nav.dispose();
+    }, 'autoskill: client lifetime');
   };
   return module.exports;
 } });

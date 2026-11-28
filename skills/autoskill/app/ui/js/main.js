@@ -94,9 +94,14 @@ void refreshShell();
 await firstView;
 
 // A late baseline stays unknown, forcing a fresh snapshot for writes during startup.
+let knownRevision = initialRevision;
 const polling = revisionPoll({
   initialRevision,
-  read: () => api('/state-revision'),
+  read: async (signal) => {
+    const value = await api('/state-revision', { knownRevision, signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) });
+    knownRevision = value.revision;
+    return value;
+  },
   changed: async () => {
     // Request-owned screens keep drafts and receipts until an explicit refresh.
     // Start independent reads together so pages that need the project list can share it.
@@ -105,7 +110,11 @@ const polling = revisionPoll({
   },
   unavailable: () => { state.online = false; renderSide(); },
 });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) void polling.check(); });
-window.addEventListener('focus', () => { void polling.check(); });
-window.addEventListener('pageshow', () => { void polling.check(); });
-window.addEventListener('pagehide', (event) => { if (!event.persisted) polling.close(); });
+const pollingLifetime = new AbortController();
+const listeners = { signal: pollingLifetime.signal };
+document.addEventListener('visibilitychange', polling.visibilityChanged, listeners);
+window.addEventListener('focus', () => { void polling.check(); }, listeners);
+window.addEventListener('pageshow', polling.visibilityChanged, listeners);
+window.addEventListener('pagehide', (event) => {
+  if (!event.persisted) { polling.close(); pollingLifetime.abort(); }
+}, listeners);

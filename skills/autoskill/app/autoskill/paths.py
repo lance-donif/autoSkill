@@ -247,7 +247,12 @@ def chrome(bundled: bool = False) -> str | None:
 
 
 def browser_info() -> dict:
-    return {"mode": browser_mode(), "system": system_chrome(), "bundled": chrome(bundled=True), "using": chrome()}
+    mode, system = browser_mode(), system_chrome()
+    configured, selected = _configured_binary("chrome", "AUTOSKILL_CHROMIUM")
+    bundled = selected if configured else _first(_bundled_chrome_path()) or (system if sys.platform == "linux" else None)
+    explicit, selected = _configured_binary("chrome", "AUTOSKILL_CHROMIUM", explicit_only=True) if mode == "system" else (False, None)
+    using = (selected if explicit else system or bundled) if mode == "system" else bundled
+    return {"mode": mode, "system": system, "bundled": bundled, "using": using}
 
 
 def chromedriver() -> str | None:

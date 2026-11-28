@@ -9,7 +9,9 @@ import contextlib
 import datetime
 import json
 import sqlite3
+import threading
 import uuid
+from types import SimpleNamespace
 
 from . import maintenance, paths, runtime_identity
 from .locking import named_lock
@@ -90,6 +92,8 @@ CREATE TABLE IF NOT EXISTS execution_requests (
   payload_hash TEXT NOT NULL, payload TEXT NOT NULL, run_id TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL, UNIQUE(scope,idempotency_key));
 """
+_local = threading.local()
+
 FINISHED = ("Pass", "Fail", "Blocked", "Cancelled")
 
 
@@ -102,23 +106,52 @@ def new_id(prefix: str) -> str:
 
 
 @contextlib.contextmanager
+def batch():
+    """Reuse one locked connection for sequential operations in a synchronous queue pass."""
+    root = paths.workspace()
+    previous = getattr(_local, "batch", None)
+    with contextlib.ExitStack() as stack:
+        _local.batch = SimpleNamespace(root=root, stack=stack, connection=None)
+        try:
+            yield
+        finally:
+            _local.batch = previous
+
+
+@contextlib.contextmanager
 def connect():
-    with maintenance.access(paths.workspace()), _connection() as conn:
+    root = paths.workspace()
+    current = getattr(_local, "batch", None)
+    if current is not None and root == current.root:
+        if current.connection is None:
+            current.stack.enter_context(maintenance.access(root))
+            current.connection = current.stack.enter_context(_connection(root))
+        # Nested callers still get an independent transaction, as outside a batch.
+        _local.batch = None
+        try:
+            with current.connection as conn:
+                yield conn
+        finally:
+            _local.batch = current
+        return
+    with maintenance.access(root), _connection(root) as conn:
         yield conn
 
 
 @contextlib.contextmanager
-def _connection():
-    conn = sqlite3.connect(paths.local() / "autoskill.db", timeout=30)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
+def _connection(root):
+    folder = root / ".local"
+    folder.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(folder / "autoskill.db", timeout=30)
     try:
+        conn.row_factory = sqlite3.Row
+        if conn.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+            conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
         with conn:
             yield conn
     finally:
         conn.close()
-
 
 def init() -> None:
     # Serialize the initial WAL transition as well as migrations across fresh CLI processes.
@@ -179,6 +212,11 @@ def _initialize() -> None:
         for name in ("case_content_hash", "input_hash"):
             if name not in result_columns:
                 conn.execute(f"ALTER TABLE results ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS runs_active_status ON runs(status,created_at) WHERE status = 'Queued' OR status = 'Running'")
+        conn.execute("CREATE INDEX IF NOT EXISTS runs_pending_delete ON runs(delete_requested) WHERE delete_requested = 1")
+        conn.execute("CREATE INDEX IF NOT EXISTS tasks_enabled_due ON tasks(next_due) WHERE enabled = 1 AND next_due IS NOT NULL")
+        conn.execute("CREATE INDEX IF NOT EXISTS host_outbox_due ON host_outbox(lease_until) WHERE state = 'dispatching'")
+        conn.execute("CREATE INDEX IF NOT EXISTS host_outbox_live ON host_outbox(host,created_at,id) WHERE state != 'delivered'")
         install_state_triggers(conn)
     if fresh:
         runtime_identity.note_new_database(paths.workspace())

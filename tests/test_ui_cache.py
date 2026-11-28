@@ -45,7 +45,7 @@ class DashboardCacheTests(unittest.TestCase):
             self.assertTrue(url.startswith(f"/_ui/{revision}/"))
             asset = client.get(url)
             self.assertEqual(asset.status_code, 200)
-            self.assertEqual(asset.headers["cache-control"], "no-store")
+            self.assertEqual(asset.headers["cache-control"], "public, max-age=31536000, immutable")
         main_url = next(url for url in urls if url.endswith("/main.js"))
         for module in ("./core.js", "./pages/dashboard.js", "./pages/../ui.js"):
             response = client.get(urljoin(main_url, module))
@@ -63,6 +63,8 @@ class DashboardCacheTests(unittest.TestCase):
         module.write_text(module.read_text().replace("Cache fixture old", "Cache fixture new"), encoding="utf-8")
         os.utime(module, ns=(before.st_atime_ns, before.st_mtime_ns))
         self.assertEqual(module.stat().st_size, before.st_size)
+        stale_url = f"/_ui/{old_revision}/js/pages/dashboard.js"
+        self.assertEqual(first.get(stale_url).status_code, 404)
         second = self.client()
         new_revision = second.get("/api/status").json()["ui_revision"]
         self.assertNotEqual(old_revision, new_revision)
@@ -85,7 +87,19 @@ class DashboardCacheTests(unittest.TestCase):
                     response = client.get(url, headers={header: value})
                     self.assertEqual(response.status_code, 200)
                     self.assertIn("Cache fixture new", response.text)
-                    self.assertEqual(response.headers["cache-control"], "no-store")
+                    expected = "public, max-age=31536000, immutable" if url.startswith("/_ui/") else "no-store"
+                    self.assertEqual(response.headers["cache-control"], expected)
+
+    def test_versioned_assets_and_revision_support_conditional_requests(self):
+        client = self.client()
+        revision = client.get("/api/status").json()["ui_revision"]
+        for url in (f"/_ui/{revision}/css/base.css", "/api/state-revision"):
+            with self.subTest(url=url):
+                first = client.get(url)
+                tag = first.headers["etag"]
+                self.assertTrue(first.content)
+                reply = client.get(url, headers={"If-None-Match": '"unrelated", W/' + tag})
+                self.assertEqual((reply.status_code, reply.content, reply.headers["etag"]), (304, b"", tag))
 
     def test_document_and_status_do_not_store_or_reuse_old_entries(self):
         client = self.client()

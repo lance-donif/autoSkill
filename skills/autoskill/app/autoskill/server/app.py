@@ -43,6 +43,7 @@ from .conversations import register as register_conversations
 from .data import register as register_data
 from .execution_requests import register as register_execution_requests
 from .host_context import register as register_host_context
+from .http_cache import etag_matches
 from .knowledge_entries import register as register_knowledge_entries
 from .load_testing import register as register_load_testing
 from .native_tools import register as register_native_tools
@@ -76,7 +77,9 @@ def run_view(run: dict, *, results=None, connection=None) -> dict:
     run = metrics.run_values(run, results=results, connection=connection)
     run = runner.public_run(run, state=run["state"])
     run["case_ids"] = json.loads(run["case_ids"])
-    project = db.one("SELECT name FROM projects WHERE id = ?", (run["project_id"],))
+    query = "SELECT name FROM projects WHERE id = ?"
+    args = (run["project_id"],)
+    project = db.one(query, args) if connection is None else connection.execute(query, args).fetchone()
     run["project_name"] = project["name"] if project else run["project_id"]
     return run
 
@@ -351,17 +354,22 @@ def _register_overview_routes(app: FastAPI) -> None:
     """Register overview routes in their original order."""
     @app.get("/api/status")
     def status():
-        return {"name": "autoSkill", "version": __version__, "ui_revision": app.state.ui_revision, "projects": len(projects.list_all()),
-                "runtime": {"bundled": paths.VENDOR.is_dir(), "chrome": bool(paths.chrome()),
-                            "selenium": bool(paths.chrome(bundled=True) and paths.chromedriver()),
+        browser = paths.browser_info()
+        return {"name": "autoSkill", "version": __version__, "ui_revision": app.state.ui_revision, "projects": projects.count(),
+                "runtime": {"bundled": paths.VENDOR.is_dir(), "chrome": bool(browser["using"]),
+                            "selenium": bool(browser["bundled"] and paths.chromedriver()),
                             "recorder": bool(paths.agent_browser())},
-                "browser": paths.browser_info(),
+                "browser": browser,
                 "skill_path": str(paths.SKILL), "workspace": str(paths.workspace()), "case_skill": str(paths.case_skill()), "bridge": bridge.enabled(),
                 "instance": os.environ.get("AUTOSKILL_INSTANCE_ID")}
 
     @app.get("/api/state-revision")
-    def state_revision():
-        return {"revision": task_state.revision()}
+    def state_revision(request: Request):
+        revision = task_state.revision()
+        headers = {"ETag": f'"{revision}"'}
+        if etag_matches(request.headers.get("if-none-match", ""), headers["ETag"]):
+            return Response(status_code=304, headers=headers)
+        return JSONResponse({"revision": revision}, headers=headers)
 
     @app.post("/api/bridge")
     def run_command(body: dict, request: Request):

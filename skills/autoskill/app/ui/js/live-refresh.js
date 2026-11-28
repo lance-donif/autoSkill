@@ -95,6 +95,8 @@ export function revisionPoll({ read, changed, unavailable, visible = () => !docu
   let failed = false;
   let pending = null;
   let applying = null;
+  let timer = null;
+  const lifetime = new AbortController();
 
   function failure(error) {
     if (!disposed) { failed = true; unavailable(error); }
@@ -133,11 +135,22 @@ export function revisionPoll({ read, changed, unavailable, visible = () => !docu
     reading = true;
     let value;
     try {
-      value = await read();
+      value = await read(lifetime.signal);
     } catch (error) { failure(error); }
     finally { reading = false; }
     if (!disposed && value) await queue(value);
   }
-  const timer = setInterval(check, interval);
-  return { check, close: () => { disposed = true; pending = null; clearInterval(timer); } };
+  function pause() {
+    clearInterval(timer);
+    timer = null;
+  }
+
+  function visibilityChanged() {
+    if (disposed || !visible()) { pause(); return; }
+    timer ??= setInterval(check, interval);
+    void check();
+  }
+
+  if (visible()) timer = setInterval(check, interval);
+  return { check, visibilityChanged, close: () => { disposed = true; pending = null; pause(); lifetime.abort(); } };
 }

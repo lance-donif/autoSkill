@@ -5,6 +5,8 @@ import datetime
 import hashlib
 import json
 import re
+from collections import defaultdict
+from itertools import batched
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .. import data_refs, db, paths, platform_accounts, projects, runner, task_context, task_state
@@ -196,17 +198,19 @@ def _task_context_labels(project_id: str, environment_id: str, account_id: str) 
     return env_name, acc_label
 
 
-def view(row: dict, *, connection=None, include_state: bool = True) -> dict:
+def view(row: dict, *, connection=None, include_state: bool = True, runs=None, results=None) -> dict:
     rule = json.loads(row["rule"])
     row = runner.public_run(row)
     last_state = None
     if include_state and row.get("last_run_id"):
-        if connection is None:
+        if runs is not None:
+            run = runs.get(row["last_run_id"])
+        elif connection is None:
             run = db.one("SELECT * FROM runs WHERE id=?", (row["last_run_id"],))
         else:
             saved = connection.execute("SELECT * FROM runs WHERE id=?", (row["last_run_id"],)).fetchone()
             run = dict(saved) if saved else None
-        last_state = task_state.run(run, connection=connection) if run else None
+        last_state = task_state.run(run, connection=connection, results=results.get(run["id"], []) if results is not None else None) if run else None
     env_id = str(row.get("environment_id") or "")
     acc_id = str(row.get("account_id") or "")
     env_name, acc_label = _task_context_labels(row["project_id"], env_id, acc_id)
@@ -284,6 +288,20 @@ def list_all(project_ids: list[str] | None = None) -> list[dict]:
     return page(project_ids, all_items=True)["items"]
 
 
+def _page_views(connection, rows):
+    for group in batched(rows, 64):
+        ids = sorted({row["last_run_id"] for row in group if row["last_run_id"]})
+        runs, results = {}, defaultdict(list)
+        if ids:
+            marks = ",".join("?" for _ in ids)
+            runs = {run["id"]: dict(run) for run in connection.execute(f"SELECT * FROM runs WHERE id IN ({marks})", ids)}
+            for result in connection.execute(f"SELECT * FROM results WHERE run_id IN ({marks}) AND prerequisite=0 ORDER BY id", ids):
+                results[result["run_id"]].append(dict(result))
+        with task_state.projection():
+            for row in group:
+                yield view(dict(row), connection=connection, runs=runs, results=results)
+
+
 def page(project_ids: list[str] | None = None, offset: int = 0, limit: int = 50, all_items: bool = False) -> dict:
     if offset < 0 or limit < 1:
         raise ValueError("分页起点不能为负数，每页数量需要大于零")
@@ -293,12 +311,13 @@ def page(project_ids: list[str] | None = None, offset: int = 0, limit: int = 50,
     query = "FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN runs u ON u.id = t.last_run_id "
     query += f"WHERE {where}"
     with db.connect() as conn:
+        conn.execute("BEGIN")
         total = conn.execute("SELECT COUNT(*) " + query, args).fetchone()[0]
         paging = " LIMIT ? OFFSET ?" if not all_items else " LIMIT -1 OFFSET ?"
         bindings = [*args, limit, offset] if not all_items else [*args, offset]
         rows = conn.execute("SELECT t.*, COALESCE(p.name, t.project_id) project_name, u.status last_status, u.finished_at last_finished "
                             + query + " ORDER BY t.enabled DESC, t.next_due IS NULL, t.next_due, t.created_at DESC" + paging, bindings)
-        items = [view(dict(row), connection=conn) for row in rows]
+        items = list(_page_views(conn, rows))
     more = offset + len(items) < total
     return {"items": items, "total": total, "has_more": more, "next_offset": offset + len(items) if more else None}
 

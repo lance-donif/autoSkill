@@ -31,7 +31,7 @@ function harness(fetcher, hostOrigin = 'http://127.0.0.1:8788') {
   };
   const window = { __ModuleLoader__: { load: (value) => { registration = value; } } };
   vm.runInNewContext(source, {
-    window, URL, URLSearchParams, AbortController,
+    window, URL, URLSearchParams, AbortController, AbortSignal,
     fetch: (url, options) => {
       const request = { url: new URL(url, 'http://dsh.test/nested/'), options };
       requests.push(request);

@@ -23,10 +23,16 @@ def pending_deliveries(host: str = "dsh", offset: int = 0, limit: int = 50) -> d
     if offset < 0 or limit < 1:
         raise ValueError("分页起点不能为负数，每页数量需要大于零")
     with db.connect() as conn:
-        conn.execute("UPDATE host_outbox SET state = 'unknown', reason = '投递租约已过期，需要查询宿主收据', updated_at = ? "
-                     "WHERE state = 'dispatching' AND lease_until <= ?", (db.now(), db.now()))
+        stamp = db.now()
+        expired = "state = 'dispatching' AND lease_until <= ?"
+        if conn.execute("SELECT 1 FROM host_outbox WHERE " + expired + " LIMIT 1", (stamp,)).fetchone():
+            conn.execute("UPDATE host_outbox SET state = 'unknown', reason = '投递租约已过期，需要查询宿主收据', updated_at = ? "
+                         "WHERE " + expired, (stamp, stamp))
+        else:
+            conn.execute("BEGIN")
         total = conn.execute("SELECT COUNT(*) FROM host_outbox WHERE host = ? AND state != 'delivered'", (host,)).fetchone()[0]
-        rows = conn.execute("SELECT * FROM host_outbox WHERE host = ? AND state != 'delivered' ORDER BY created_at, id LIMIT ? OFFSET ?", (host, limit, offset))
+        rows = conn.execute("SELECT * FROM host_outbox WHERE host = ? AND state != 'delivered' ORDER BY created_at, id LIMIT ? OFFSET ?",
+                            (host, limit, offset)) if offset < total else ()
         items = [_view(row) for row in rows]
     more = offset + len(items) < total
     return {"items": items, "total": total, "has_more": more, "next_offset": offset + len(items) if more else None}

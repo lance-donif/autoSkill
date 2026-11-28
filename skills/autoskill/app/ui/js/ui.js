@@ -5,6 +5,7 @@ export { preferredEngine, setEngine, preferredHeaded, setHeaded } from './prefer
 
 const layer = () => document.getElementById('layer');
 let closeCurrent = null;
+let closeMenu = null;
 
 function open(panel, onClose, beforeClose) {
   if (closeCurrent && closeCurrent() === false) return null;
@@ -72,6 +73,7 @@ export function filterSelect(label, value, options, onChange, name = label) {
 export function menuButton(trigger, build, alignRight = false) {
   const wrap = h('div', { class: 'pop' }, trigger);
   let menu = null;
+  let removal;
   const outside = (event) => { if (!wrap.contains(event.target)) close(); };
   const key = (event) => { if (event.key === 'Escape') { close(); trigger.focus(); } };
   function close() {
@@ -79,6 +81,9 @@ export function menuButton(trigger, build, alignRight = false) {
     menu.remove();
     menu = null;
     trigger.setAttribute('aria-expanded', 'false');
+    removal?.disconnect();
+    removal = undefined;
+    if (closeMenu === close) closeMenu = null;
     document.removeEventListener('pointerdown', outside, true);
     document.removeEventListener('keydown', key);
   }
@@ -86,10 +91,14 @@ export function menuButton(trigger, build, alignRight = false) {
   trigger.setAttribute('aria-expanded', 'false');
   trigger.addEventListener('click', () => {
     if (menu) { close(); return; }
+    closeMenu?.();
     menu = h('div', { class: 'menu' + (alignRight ? ' right' : ''), role: 'menu' });
     build(menu, close);
     wrap.append(menu);
     trigger.setAttribute('aria-expanded', 'true');
+    closeMenu = close;
+    removal = new MutationObserver(() => { if (!wrap.isConnected) close(); });
+    removal.observe(document.body, { subtree: true, childList: true });
     document.addEventListener('pointerdown', outside, true);
     document.addEventListener('keydown', key);
   });

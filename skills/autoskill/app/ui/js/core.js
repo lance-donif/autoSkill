@@ -73,15 +73,18 @@ export function icon(name, cls = 'icon-svg') {
 export class ApiError extends Error {}
 export async function api(path, options = {}) {
   let response;
+  const headers = options.body === undefined ? {} : { 'Content-Type': 'application/json' };
+  if (options.knownRevision) headers['If-None-Match'] = '"' + options.knownRevision + '"';
   try {
     response = await fetch('/api' + path, {
       method: options.method || 'GET',
-      headers: options.body === undefined ? {} : { 'Content-Type': 'application/json' },
+      headers, signal: options.signal,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch {
     throw new ApiError('连不上 autoSkill 服务，请确认它还在运行');
   }
+  if (response.status === 304 && options.knownRevision) return { revision: options.knownRevision };
   let data = null;
   try { data = await response.json(); } catch { /* empty body */ }
   if (!response.ok) {

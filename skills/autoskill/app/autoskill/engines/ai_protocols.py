@@ -7,8 +7,6 @@ import hashlib
 import json
 import time
 
-import httpx
-
 from . import ai_audio
 
 _MISSING = object()
@@ -248,6 +246,8 @@ async def _websocket(endpoint, body, state):
 
 
 async def request(client, endpoint: dict, body, cancelled=None) -> dict:
+    import httpx
+
     state = Observation(endpoint, cancelled)
     try:
         if endpoint.get("protocol", "http") == "websocket":

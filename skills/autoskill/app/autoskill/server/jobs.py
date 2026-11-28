@@ -120,9 +120,10 @@ def ensure_worker() -> dict:
 def _pending() -> bool:
     from .. import workflow
 
-    return bool(db.one("SELECT id FROM runs WHERE status IN ('Queued', 'Running') OR delete_requested = 1 LIMIT 1")
-                or db.one("SELECT id FROM tasks WHERE enabled = 1 LIMIT 1") or workflow.needs_monitoring()
-                or _reports_running())
+    with db.batch():
+        return bool(db.one("SELECT id FROM runs WHERE status IN ('Queued', 'Running') OR delete_requested = 1 LIMIT 1")
+                    or db.one("SELECT id FROM tasks WHERE enabled = 1 LIMIT 1") or workflow.needs_monitoring()
+                    or _reports_running())
 
 
 def _reports_running() -> bool:
@@ -149,15 +150,15 @@ def _reports_running() -> bool:
         return False
 
 
-def _start_workflow_report() -> None:
+def _start_workflow_report(report_ids: list[str]) -> None:
     """Render frozen reports serially outside the state coordination loop."""
-    from .. import task_reports, workflow
+    from .. import task_reports
 
     with _report_lock:
         if _reports_running():
             return
-        pending = [report_id for report_id in workflow.pending_reports()
-                   if not (task_reports._saved(report_id) or {}).get("render_owner_identity")]
+        pending = [report_id for report_id in report_ids if (saved := (task_reports._saved(report_id) or {})).get("status") == "generating"
+                   and not saved.get("render_owner_identity")]
         if not pending:
             return
         report_id = pending[0]
@@ -181,10 +182,10 @@ def reconcile_workflows() -> dict:
     from .. import task_reports, workflow
 
     result = workflow.reconcile_pending()
-    for report_id in workflow.pending_reports():
+    pending = workflow.pending_reports()
+    for report_id in pending:
         task_reports.fail_interrupted_export(report_id)
-    workflow.prepare_pending_reports()
-    _start_workflow_report()
+    _start_workflow_report([*pending, *workflow.prepare_pending_reports()])
     return result
 
 
@@ -206,6 +207,7 @@ def _dispatch(token: str) -> None:
         try:
             initialized = False
             idle_since = time.monotonic()
+            next_review, observed = 0.0, None
             while True:
                 if not database.is_file():
                     return
@@ -213,11 +215,7 @@ def _dispatch(token: str) -> None:
                     if not initialized:
                         db.init()
                         initialized = True
-                    scheduler.tick()
-                    sweep()
-                    reconcile_workflows()
-                    start_queued()
-                    sync_import.autoscan()
+                    next_review, observed = _queue_pass(next_review, observed)
                     if _pending():
                         idle_since = time.monotonic()
                     elif time.monotonic() - idle_since >= _idle_seconds():
@@ -241,14 +239,46 @@ def alive(pid: int | None) -> bool:
     return runner.process_alive(pid)
 
 
-def sweep() -> None:
-    """A run whose process is gone can never finish; say so instead of showing it as running forever."""
+def _reap_recorders_and_dispatchers() -> None:
     _reap_dispatchers()
     capture = sys.modules.get("autoskill.recorder.capture")
     if capture is not None:
         capture.reap_children()
+
+
+def sweep() -> None:
+    """A run whose process is gone can never finish; say so instead of showing it as running forever."""
+    _reap_recorders_and_dispatchers()
     runner.recover_runs()
     deletion.sweep()
+
+
+def _queue_pass(next_review: float, observed: int | None) -> tuple[float, int]:
+    # A pass keeps the shared maintenance gate but each transaction commits independently.
+    with db.batch():
+        scheduler.tick()
+        activity = db.one("SELECT revision,"
+                          "EXISTS(SELECT 1 FROM runs WHERE status = 'Running') AS running,"
+                          "EXISTS(SELECT 1 FROM runs WHERE status = 'Queued') AS queued,"
+                          "EXISTS(SELECT 1 FROM runs WHERE delete_requested = 1) AS deleting "
+                          "FROM state_revision WHERE id=1")
+        _reap_recorders_and_dispatchers()
+        if activity["running"]:
+            runner.recover_runs()
+        else:
+            runner.reap_children()
+        if activity["deleting"]:
+            deletion.sweep()
+        now = time.monotonic()
+        review_due = activity["revision"] != observed or now >= next_review
+        if review_due:
+            reconcile_workflows()
+            next_review, observed = now + 0.4, activity["revision"]
+        # Reconciliation can enqueue work in this pass.
+        if activity["queued"] or (review_due and db.one("SELECT 1 FROM runs WHERE status = 'Queued' LIMIT 1")):
+            start_queued()
+    sync_import.autoscan()
+    return next_review, observed
 
 
 def start_queued() -> None:
@@ -331,15 +361,10 @@ class Worker:
             ensure_worker()
 
     def loop(self) -> None:
+        next_review, observed = 0.0, None
         while not self.stop.is_set():
-            try:
-                scheduler.tick()
-                sweep()
-                reconcile_workflows()
-                start_queued()
-                sync_import.autoscan()
-            except Exception:  # noqa: BLE001, S110  # Durable queue state lets the worker retry any failed pass without losing its thread.
-                pass  # state is durable; the next pass retries
+            with contextlib.suppress(Exception):  # Durable state lets the next pass retry independently.
+                next_review, observed = _queue_pass(next_review, observed)
             self.stop.wait(0.2)
 
 
