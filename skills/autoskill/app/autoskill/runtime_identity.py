@@ -43,11 +43,8 @@ def _windows_birth(pid: int) -> str | None:
     import ctypes
     from ctypes import wintypes
 
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-    kernel.OpenProcess.restype = wintypes.HANDLE
-    kernel.GetProcessTimes.argtypes = (wintypes.HANDLE, *(ctypes.POINTER(wintypes.FILETIME),) * 4)
-    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    from .win32 import kernel
+
     handle = kernel.OpenProcess(0x1000, False, pid)
     if not handle:
         return None

@@ -9,11 +9,12 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from weakref import WeakValueDictionary
 
 from . import maintenance, paths, task_context
 
 _guard = threading.Lock()
-_threads: dict[str, threading.RLock] = {}
+_threads: WeakValueDictionary[str, threading.RLock] = WeakValueDictionary()
 _held = threading.local()
 
 
@@ -57,7 +58,10 @@ def file_lock(path: str | Path):
     file = Path(path).resolve()
     key = os.path.normcase(str(file))
     with _guard:
-        local_lock = _threads.setdefault(key, threading.RLock())
+        local_lock = _threads.get(key)
+        if local_lock is None:
+            local_lock = threading.RLock()
+            _threads[key] = local_lock
     with maintenance.access(paths.workspace()), maintenance.access(file.parent if file.name == ".autoskill-plan.lock" else paths.workspace()), local_lock:
         held = getattr(_held, "paths", None)
         if held is None:

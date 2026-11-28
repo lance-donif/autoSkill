@@ -16,6 +16,7 @@ from ..locking import named_lock
 from . import scheduler
 
 _dispatchers: dict[int, subprocess.Popen] = {}
+_dispatcher_lock = threading.Lock()
 _report_children: dict[str, tuple[subprocess.Popen, str]] = {}
 _report_lock = threading.RLock()
 
@@ -74,15 +75,21 @@ def _launch_dispatcher(token: str) -> subprocess.Popen:
     child = subprocess.Popen([sys.executable, "-m", "autoskill.server.jobs", "--token", token], cwd=str(paths.APP),
                              env=paths.child_env(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              creationflags=flags, start_new_session=os.name != "nt")
-    _dispatchers[child.pid] = child
+    with _dispatcher_lock:
+        _dispatchers[child.pid] = child
     return child
+
+
+def _reap_dispatchers() -> None:
+    with _dispatcher_lock:
+        for pid, child in list(_dispatchers.items()):
+            if child.poll() is not None:
+                _dispatchers.pop(pid, None)
 
 
 def ensure_worker() -> dict:
     """Start one independent queue drainer after enqueue commits; startup failure never loses the run ID."""
-    for pid, child in list(_dispatchers.items()):
-        if child.poll() is not None:
-            _dispatchers.pop(pid, None)
+    _reap_dispatchers()
     with named_lock("queue-dispatcher", "startup"):
         deadline, child, token = time.monotonic() + 10, None, uuid.uuid4().hex
         while time.monotonic() < deadline:
@@ -236,6 +243,10 @@ def alive(pid: int | None) -> bool:
 
 def sweep() -> None:
     """A run whose process is gone can never finish; say so instead of showing it as running forever."""
+    _reap_dispatchers()
+    capture = sys.modules.get("autoskill.recorder.capture")
+    if capture is not None:
+        capture.reap_children()
     runner.recover_runs()
     deletion.sweep()
 

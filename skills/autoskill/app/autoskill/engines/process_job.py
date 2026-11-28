@@ -12,29 +12,9 @@ class ProcessJob:
 
     def _open_windows(self) -> None:
         import ctypes
-        from ctypes import wintypes
 
-        class BasicLimits(ctypes.Structure):
-            _fields_ = [("process_time", ctypes.c_longlong), ("job_time", ctypes.c_longlong), ("flags", wintypes.DWORD),
-                        ("minimum_working_set", ctypes.c_size_t), ("maximum_working_set", ctypes.c_size_t),
-                        ("active_processes", wintypes.DWORD), ("affinity", ctypes.c_size_t),
-                        ("priority", wintypes.DWORD), ("scheduling", wintypes.DWORD)]
+        from ..win32 import ExtendedLimits, kernel
 
-        class ExtendedLimits(ctypes.Structure):
-            _fields_ = [("basic", BasicLimits), ("io", ctypes.c_ulonglong * 6), ("process_memory", ctypes.c_size_t),
-                        ("job_memory", ctypes.c_size_t), ("peak_process", ctypes.c_size_t), ("peak_job", ctypes.c_size_t)]
-
-        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
-        kernel.CreateJobObjectW.restype = wintypes.HANDLE
-        kernel.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
-        kernel.SetInformationJobObject.restype = wintypes.BOOL
-        kernel.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
-        kernel.AssignProcessToJobObject.restype = wintypes.BOOL
-        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-        kernel.OpenProcess.restype = wintypes.HANDLE
-        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-        kernel.CloseHandle.restype = wintypes.BOOL
         self.kernel = kernel
         self.handle = kernel.CreateJobObjectW(None, None)
         if not self.handle:

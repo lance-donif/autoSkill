@@ -146,6 +146,8 @@ jobs:
         with:
           python-version: '3.12'
       - *contract-dependencies
+      - name: Check resident lock and subprocess resources on Windows
+        run: python -m unittest -v test_runtime_resources
       - name: Compare native file handles, v2.5.1 receipts, HTTP bridge and Windows permissions
         run: |
           $suite = 'test_windows_report_delivery.ReportDeliveryTests'

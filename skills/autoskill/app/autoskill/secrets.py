@@ -53,20 +53,19 @@ def _protect(data: bytes, decrypt: bool = False) -> bytes:
         except (InvalidToken, FileNotFoundError) as error:
             raise ValueError("本机密钥库无法读取：缺少 Linux 本地密钥、密文损坏或来自其他平台；请重新设置凭据") from error
     import ctypes
-    from ctypes import wintypes
 
-    class Blob(ctypes.Structure):
-        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
+    from .win32 import DataBlob, crypt, kernel
 
-    source = Blob(len(data), ctypes.cast(ctypes.create_string_buffer(data, len(data)), ctypes.POINTER(ctypes.c_char)))
-    target = Blob()
-    call = ctypes.windll.crypt32.CryptUnprotectData if decrypt else ctypes.windll.crypt32.CryptProtectData
+    buffer = ctypes.create_string_buffer(data)
+    source = DataBlob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte)))
+    target = DataBlob()
+    call = crypt.CryptUnprotectData if decrypt else crypt.CryptProtectData
     if not call(ctypes.byref(source), None, None, None, None, 0, ctypes.byref(target)):
         raise ValueError("本机密钥库无法读取：不是保存它的 Windows 用户，或文件已损坏")
     try:
         return ctypes.string_at(target.pbData, target.cbData)
     finally:
-        ctypes.windll.kernel32.LocalFree(target.pbData)
+        kernel.LocalFree(target.pbData)
 
 
 def seal(text: str) -> str:

@@ -21,17 +21,9 @@ def _shared(stream, *, exclusive: bool = False):
     if os.name == "nt":
         import ctypes
         import msvcrt
-        from ctypes import wintypes
 
-        class Overlapped(ctypes.Structure):
-            _fields_ = [("Internal", ctypes.c_size_t), ("InternalHigh", ctypes.c_size_t),
-                        ("Offset", wintypes.DWORD), ("OffsetHigh", wintypes.DWORD), ("hEvent", wintypes.HANDLE)]
+        from .win32 import Overlapped, kernel
 
-        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel.LockFileEx.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(Overlapped)]
-        kernel.LockFileEx.restype = wintypes.BOOL
-        kernel.UnlockFileEx.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(Overlapped)]
-        kernel.UnlockFileEx.restype = wintypes.BOOL
         handle = msvcrt.get_osfhandle(stream.fileno())
         overlapped = Overlapped()
         if not kernel.LockFileEx(handle, 3 if exclusive else 1, 0, 1, 0, ctypes.byref(overlapped)):

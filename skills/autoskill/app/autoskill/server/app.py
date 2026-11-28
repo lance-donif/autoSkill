@@ -244,11 +244,13 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
         if start_worker:
             worker.start()
             bridge.announce(port)
-        yield
-        bridge.withdraw()
-        worker.close()
-        if state["demo_site"]:
-            state["demo_site"].shutdown()
+        try:
+            yield
+        finally:
+            bridge.withdraw()
+            worker.close()
+            if state["demo_site"]:
+                state["demo_site"].shutdown()
 
     app = FastAPI(title="autoSkill", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -1029,4 +1031,17 @@ def serve(port: int = 8787) -> None:
     import uvicorn
 
     print(f"autoSkill 仪表盘：http://127.0.0.1:{port}  （Ctrl+C 停止）", flush=True)  # noqa: T201  # The interactive server prints its startup address.
-    uvicorn.run(create_app(port), host="127.0.0.1", port=port, log_level="warning")
+    app = create_app(port)
+    if os.environ.get("AUTOSKILL_HOST_PIPE") != "1":
+        uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+        return
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", timeout_graceful_shutdown=5))
+
+    def wait_for_host() -> None:
+        # A closed pipe also handles a host crash. Avoid a buffered stdin lock at interpreter exit.
+        with contextlib.suppress(OSError):
+            os.read(0, 1)
+        server.should_exit = True
+
+    threading.Thread(target=wait_for_host, daemon=True, name="autoskill-host-lifetime").start()
+    server.run()

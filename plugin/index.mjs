@@ -109,28 +109,62 @@ export async function apply(ctx, config = {}) {
       + 'Windows 请选择完整离线包；Linux / UOS 请选择匹配 CPU 的离线包并运行 sh setup-linux.sh；源码部署见 docs/Linux-DSH.md。');
   }
   const instance = randomUUID();
-  const child = spawn(spec.python, spec.args, { cwd: spec.cwd, windowsHide: true, stdio: ['ignore', 'ignore', 'inherit'],
-    env: { ...process.env, ...spec.env, AUTOSKILL_INSTANCE_ID: instance } });
+  const lifetime = new AbortController();
+  const child = spawn(spec.python, spec.args, { cwd: spec.cwd, windowsHide: true, stdio: ['pipe', 'ignore', 'inherit'],
+    env: { ...process.env, ...spec.env, AUTOSKILL_INSTANCE_ID: instance, AUTOSKILL_HOST_PIPE: '1' } });
   let exited = false;
-  child.on('error', () => { exited = true; });
-  child.on('exit', () => { exited = true; });
-  ctx.effect(() => () => child.kill(), 'autoskill: dashboard process');
-  for (let i = 0; i < 120 && !exited; i++) {
-    try {
-      const response = await fetch(spec.origin + '/api/status', { signal: AbortSignal.timeout(500) });
-      const body = await response.json();
-      if (response.ok && body.name === 'autoSkill' && body.instance === instance) {
+  let force;
+  const closed = new Promise((resolve) => {
+    function done() {
+      exited = true;
+      clearTimeout(force);
+      resolve();
+    }
+    child.once('error', done);
+    child.once('exit', done);
+    child.stdin.on('error', () => { /* the child may exit before its pipe is closed */ });
+  });
+  function stop() {
+    if (!lifetime.signal.aborted) {
+      lifetime.abort();
+      if (!exited) {
+        child.stdin.end();
+        force = setTimeout(() => child.kill(), 45000);
+        force.unref();
+      }
+    }
+    return closed;
+  }
+
+  ctx.effect(() => stop, 'autoskill: dashboard process');
+  try {
+    for (let i = 0; i < 120 && !exited && !lifetime.signal.aborted; i++) {
+      let body;
+      try {
+        const signal = AbortSignal.any([lifetime.signal, AbortSignal.timeout(500)]);
+        const response = await fetch(spec.origin + '/api/status', { signal });
+        if (response.ok) body = await response.json();
+      } catch { /* not up yet */ }
+      if (body?.name === 'autoSkill' && body.instance === instance) {
         const connected = { ...spec, workspace: body.workspace, caseSkill: body.case_skill };
-        for (const skill of await bundledSkills(SKILL_DIR, connected)) ctx.effect(() => ctx.skills.register(skill), 'autoskill: ' + skill.name);
-        attachHostAdapter(ctx, connected, runtimeContext(connected));
-        attachHostBackend(ctx, connected, { runtimeContext: runtimeContext(connected) });
+        const skills = await bundledSkills(SKILL_DIR, connected);
+        if (lifetime.signal.aborted) return;
+        for (const skill of skills) ctx.effect(() => ctx.skills.register(skill), 'autoskill: ' + skill.name);
+        const context = runtimeContext(connected);
+        attachHostAdapter(ctx, connected, context);
+        attachHostBackend(ctx, connected, { runtimeContext: context });
         ctx.logger?.info?.('autoSkill dashboard ready at ' + spec.origin);
         return;
       }
-    } catch { /* not up yet */ }
-    await delay(250);
+      await delay(250);
+    }
+  } catch (error) {
+    await stop();
+    throw error;
   }
-  child.kill();
+  if (lifetime.signal.aborted) return;
+  const exitedAtStartup = exited;
+  await stop();
   throw new Error('autoSkill：仪表盘没有在端口 ' + spec.port + ' 上启动。'
-    + (exited ? '运行时进程启动后立即退出，运行 autoskill verify 检查包完整性，再用 doctor --launch 检查系统依赖。' : '这个端口可能被别的程序占用；可在插件配置里换一个 port。'));
+    + (exitedAtStartup ? '运行时进程启动后立即退出，运行 autoskill verify 检查包完整性，再用 doctor --launch 检查系统依赖。' : '这个端口可能被别的程序占用；可在插件配置里换一个 port。'));
 }

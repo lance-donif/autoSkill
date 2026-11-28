@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import contextlib
-import ctypes
 import errno
 import hashlib
 import json
@@ -10,7 +9,6 @@ import os
 import shutil
 import sqlite3
 import stat
-import sys
 import tempfile
 import uuid
 import zipfile
@@ -244,18 +242,13 @@ def publish_directory(source: Path, target: Path) -> None:
     if os.name == "nt":
         source.rename(target)
         return
-    library = ctypes.CDLL(None, use_errno=True)
-    if sys.platform.startswith("linux") and hasattr(library, "renameat2"):
-        rename = library.renameat2
-        rename.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
-        result = rename(-100, os.fsencode(source), -100, os.fsencode(target), 1)
-    elif sys.platform == "darwin" and hasattr(library, "renamex_np"):
-        rename = library.renamex_np
-        rename.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint)
-        result = rename(os.fsencode(source), os.fsencode(target), 4)
-    else:
+    import ctypes
+
+    from .directory_rename import no_replace
+
+    if no_replace is None:
         raise OSError(errno.ENOTSUP, "当前文件系统接口不支持不覆盖的原子目录发布，原目录未修改")
-    if result != 0:
+    if no_replace(os.fsencode(source), os.fsencode(target)) != 0:
         number = ctypes.get_errno()
         raise OSError(number, os.strerror(number), str(target))
     descriptor = os.open(target.parent, os.O_RDONLY)

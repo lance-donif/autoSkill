@@ -8,7 +8,8 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from collections import Counter
+import time
+from collections import Counter, OrderedDict
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import partial, wraps
@@ -20,7 +21,11 @@ from .file_changes import file_stamp as _stamp
 CASE_STATUS = {"pass": "Pass", "fail": "Fail", "not_run": "NotRun"}
 
 _lock = threading.RLock()
-_watched: dict[str, set[Path]] = {}
+# The server can observe old runs and arbitrarily many user-supplied files.
+# A saturated workspace gets periodic invalidation instead of dropping edits silently.
+_WATCHED_ROOTS = 8
+_WATCHED_FILES = 4096
+_watched: OrderedDict[Path, set[Path] | None] = OrderedDict()
 _checks: dict[str, tuple[tuple, bool]] = {}
 _projection = ContextVar("task_state_projection", default=None)
 
@@ -66,8 +71,16 @@ def _resolve(value) -> Path:
 
 
 def _watch(file: Path) -> Path:
+    root = _root()
     with _lock:
-        _watched.setdefault(str(_root()), set()).add(file)
+        files = _watched.setdefault(root, set())
+        _watched.move_to_end(root)
+        if len(_watched) > _WATCHED_ROOTS:
+            _watched.popitem(last=False)
+        if files is not None:
+            files.add(file)
+            if len(files) > _WATCHED_FILES:
+                _watched[root] = None
     return file
 
 
@@ -224,9 +237,11 @@ def report(report_id: str, *, run_row: dict | None = None) -> dict:
 
 
 def _save_check(key: str, signature: tuple, valid: bool) -> None:
+    if len(signature) > 128:
+        return
     with _lock:
-        if len(_checks) >= 4096:
-            _checks.clear()
+        if len(_checks) >= 1024 and key not in _checks:
+            del _checks[next(iter(_checks))]
         _checks[key] = (signature, valid)
 
 
@@ -527,6 +542,7 @@ def revision() -> str:
     with host_bindings.snapshot() as connection:
         version = _rows(connection, "SELECT revision FROM state_revision WHERE id = 1") if _has(connection, "state_revision") else []
     with _lock:
-        files = list(_watched.get(str(paths.workspace()), set()))
-    metadata = sorted(_stamp(file) for file in files)
+        watched = _watched.get(paths.workspace(), ())
+        files = None if watched is None else tuple(watched)
+    metadata = time.monotonic_ns() // 500_000_000 if files is None else sorted(_stamp(file) for file in files)
     return hashlib.sha256(json.dumps([version, metadata], separators=(",", ":")).encode()).hexdigest()

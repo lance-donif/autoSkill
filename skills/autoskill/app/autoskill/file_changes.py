@@ -3,28 +3,7 @@ from __future__ import annotations
 
 import os
 import stat
-from functools import lru_cache
 from pathlib import Path
-
-
-@lru_cache(maxsize=1)
-def _windows_api():
-    import ctypes
-    from ctypes import wintypes as win
-
-    class BasicInfo(ctypes.Structure):
-        _fields_ = [(name, ctypes.c_int64) for name in ("creation", "access", "write", "change")] + [("attributes", win.DWORD)]
-
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel.CreateFileW.argtypes = (win.LPCWSTR, win.DWORD, win.DWORD, win.LPVOID, win.DWORD, win.DWORD, win.HANDLE)
-    kernel.CreateFileW.restype = win.HANDLE
-    kernel.GetFileInformationByHandleEx.argtypes = (win.HANDLE, ctypes.c_int, win.LPVOID, win.DWORD)
-    kernel.GetFileInformationByHandleEx.restype = win.BOOL
-    kernel.GetVolumeInformationByHandleW.argtypes = (win.HANDLE, win.LPWSTR, win.DWORD, win.LPDWORD, win.LPDWORD, win.LPDWORD, win.LPWSTR, win.DWORD)
-    kernel.GetVolumeInformationByHandleW.restype = win.BOOL
-    kernel.CloseHandle.argtypes = (win.HANDLE,)
-    kernel.CloseHandle.restype = win.BOOL
-    return kernel, BasicInfo
 
 
 def _ntfs_change_time(file: Path) -> int | None:
@@ -32,7 +11,7 @@ def _ntfs_change_time(file: Path) -> int | None:
     import ctypes
 
     try:
-        kernel, basic_info = _windows_api()
+        from .win32 import FileBasicInfo, kernel
     except (AttributeError, OSError):
         return None
     # FILE_READ_ATTRIBUTES, share read/write/delete, OPEN_EXISTING.
@@ -43,7 +22,7 @@ def _ntfs_change_time(file: Path) -> int | None:
         filesystem = ctypes.create_unicode_buffer(32)
         if not kernel.GetVolumeInformationByHandleW(handle, None, 0, None, None, None, filesystem, len(filesystem)) or filesystem.value.upper() != "NTFS":
             return None
-        info = basic_info()
+        info = FileBasicInfo()
         if kernel.GetFileInformationByHandleEx(handle, 0, ctypes.byref(info), ctypes.sizeof(info)) and info.change > 0:
             return info.change
         return None

@@ -11,6 +11,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from datetime import UTC, datetime
@@ -20,6 +21,15 @@ from .. import data_refs, paths, runtime_identity
 from . import agent, traffic
 
 _children: dict[int, tuple[subprocess.Popen, str]] = {}
+_children_lock = threading.Lock()
+
+
+def reap_children() -> None:
+    """Release completed observers even when no caller stopped that recording."""
+    with _children_lock:
+        for pid, (child, _) in list(_children.items()):
+            if child.poll() is not None:
+                _children.pop(pid, None)
 
 
 def _write(file: Path, value: dict) -> None:
@@ -30,6 +40,7 @@ def _write(file: Path, value: dict) -> None:
 
 def start(session: str, folder: Path) -> dict:
     """Start a task-owned observer before the recorder navigates away from about:blank."""
+    reap_children()
     endpoint = (agent.call(session, ['get', 'cdp-url']) or {}).get('cdpUrl')
     if not endpoint:
         raise RuntimeError('浏览器未提供 CDP 地址，无法保存真实网络证据')
@@ -44,14 +55,16 @@ def start(session: str, folder: Path) -> dict:
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     handle = {'folder': data_refs.store(folder), 'pid': process.pid, 'token': token, 'source': 'cdp_network',
               'owner': runtime_identity.current(process.pid)}
-    _children[process.pid] = (process, token)
+    with _children_lock:
+        _children[process.pid] = (process, token)
     deadline = time.monotonic() + 12
     while time.monotonic() < deadline:
         ready = folder / 'ready.json'
         if ready.is_file() and json.loads(ready.read_text()) == {'token': token, 'ready': True}:
             return handle
         if process.poll() is not None:
-            _children.pop(process.pid, None)
+            with _children_lock:
+                _children.pop(process.pid, None)
             raise RuntimeError('网络证据观察器未能启动；诊断保存在 ' + str(folder / 'observer.log'))
         time.sleep(0.05)
     _write(folder / 'control.json', {'token': token, 'stop': True})
@@ -79,7 +92,8 @@ def stop(handle: dict | None) -> dict:
                 raise RuntimeError('网络证据不属于当前录制会话')
             child = _children.get(handle['pid'])
             if child and child[1] == handle['token'] and runtime_identity.is_local(handle.get('owner')):
-                _children.pop(handle['pid'])
+                with _children_lock:
+                    _children.pop(handle['pid'], None)
                 with contextlib.suppress(subprocess.TimeoutExpired):
                     child[0].wait(timeout=2)
             if not active:
@@ -116,7 +130,8 @@ def _terminate_observer(handle: dict, folder: Path) -> None:
     if runtime_identity.owns(handle['pid'], handle.get('owner')):
         raise RuntimeError('本次网络观察器尚未退出，原始证据已保留；可重试结束录制')
     if local_child:
-        _children.pop(handle['pid'], None)
+        with _children_lock:
+            _children.pop(handle['pid'], None)
         child[0].wait(timeout=2)
 
 

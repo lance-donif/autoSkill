@@ -72,10 +72,10 @@ def _copy_windows_dacl(source: Path, target: Path) -> None:
     import ctypes
     from ctypes import wintypes
 
-    security = ctypes.WinDLL("advapi32", use_last_error=True)
+    from .win32 import security
+
     dacl = 0x4  # DACL_SECURITY_INFORMATION
     get = security.GetFileSecurityW
-    get.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD))
     needed = wintypes.DWORD()
     get(str(source), dacl, None, 0, ctypes.byref(needed))
     if not needed.value:
@@ -91,7 +91,6 @@ def _copy_windows_dacl(source: Path, target: Path) -> None:
         raise ctypes.WinError(ctypes.get_last_error())
     inherited = 0x20000000 if not control.value & 0x1000 else 0x80000000  # Preserve SE_DACL_PROTECTED.
     set_security = security.SetFileSecurityW
-    set_security.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.LPVOID)
     if not set_security(str(target), dacl | inherited, descriptor):
         error = ctypes.get_last_error()
         if error not in (1, 50):
