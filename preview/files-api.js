@@ -305,6 +305,7 @@ export async function filesApi(ctx) {
     return { id: crypto.randomUUID(), created_at: new Date().toISOString(), status: 'Completed', result };
   }
   if (['project-materials', 'shares'].includes(resource)) return materialsApi(ctx);
+  if (resource === 'projects' && section === 'knowledge-search' && method === 'GET') return searchMaterials(ctx, pid);
   if (resource === 'workflows' && method === 'GET' && !pid) return fixtures['/workflows'] || { items: [], total: 0 };
   if (resource === 'conversations' || resource === 'assets' || resource === 'knowledge') return fixtures[path];
   return undefined;
@@ -373,6 +374,20 @@ async function materialIndex(ctx, pid) {
 function materialFile(ctx, item, files) {
   if (!item) return notFound('项目文件不存在');
   return files.get(item.id) || fixtureFile(ctx.fixtures[item.download_url.slice(4)]) || notFound('没有找到文件原件');
+}
+
+async function searchMaterials(ctx, projectId) {
+  const materials = await materialIndex(ctx, projectId);
+  if (!materials) return notFound('项目不存在');
+  const query = (ctx.params.get('q') || '').trim().toLowerCase();
+  const matches = [];
+  for (const item of materials.index.items) {
+    if (item.category !== 'knowledge' || !item.name.toLowerCase().endsWith('.md')) continue;
+    const response = materialFile(ctx, item, materials.files);
+    const content = response.ok ? await response.text() : '';
+    if (item.name.toLowerCase().includes(query) || content.toLowerCase().includes(query)) matches.push({ path: item.name });
+  }
+  return { matches };
 }
 
 async function projectShare(ctx) {
@@ -508,6 +523,7 @@ async function materialsApi(ctx) {
       const response = materialFile(ctx, item, files);
       return response.ok ? { file: name, content: await response.text(), content_revision: item.sha256 } : response;
     }
+    if (name.split('/')[0].toLowerCase() === 'raw') return conflict('原始资料只读');
     if ((item?.sha256 || null) !== (body.expected_hash || null)) return conflict('文件已更新，请重新打开');
     const knowledge = ((db.knowledgeFiles ||= {})[pid] ||= {});
     if (method === 'PUT') {

@@ -5,6 +5,7 @@ import codecs
 import hashlib
 from pathlib import Path
 
+from . import knowledge as knowledge_files
 from . import knowledge_entries, paging, projects, secrets, sessions
 from .locking import project_lock
 from .replay import ir
@@ -43,11 +44,8 @@ def case(project_id: str, case_id: str) -> dict:
 
 
 def _knowledge_index(project_id: str) -> list[dict]:
-    folder = projects.path(project_id) / "knowledge"
     found = []
-    for file in sorted(folder.rglob("*")) if folder.is_dir() else []:
-        if not file.is_file():
-            continue
+    for name, file in knowledge_files.files(project_id):
         with file.open("rb") as stream:
             content_hash = hashlib.file_digest(stream, "sha256").hexdigest()
         readable = file.suffix.lower() in (".md", ".txt", ".json", ".csv")
@@ -55,7 +53,7 @@ def _knowledge_index(project_id: str) -> list[dict]:
             text = file.read_text(encoding="utf-8", errors="replace").strip()
             if "待补充；未提供不代表不存在" in text and len(text) < 120:
                 continue
-        found.append({"file": "knowledge/" + file.relative_to(folder).as_posix(), "bytes": file.stat().st_size,
+        found.append({"file": "knowledge/" + name, "bytes": file.stat().st_size,
                       "content_revision": content_hash, "text": readable, "content_loaded": False})
     return found
 
@@ -77,10 +75,9 @@ def read_knowledge(project_id: str, file: str, *, offset: int = 0, length: int =
                    content_revision: str | None = None, all_items: bool = False) -> dict:
     if type(offset) is not int or offset < 0 or type(length) is not int or length < 1:
         raise paging.PageError("正文偏移需非负，读取长度需要是正整数")
-    folder = projects.path(project_id) / "knowledge"
     relative = file.removeprefix("knowledge/")
-    path = folder / relative
-    if Path(relative).is_absolute() or ".." in Path(relative).parts or not path.is_file():
+    path = knowledge_files.file_path(project_id, relative)
+    if not path.is_file():
         raise ValueError("知识文件不存在；请先用 knowledge list 查看文件路径")
     chunks, total, digest = [], 0, hashlib.sha256()
     decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")

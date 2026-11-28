@@ -296,7 +296,12 @@ class DashboardStabilityTests(unittest.TestCase):
         expect(self.page.get_by_role("heading", name=project["name"], exact=True)).to_be_visible()
         for item in sample["/projects"]:
             head = self.page.locator(".project-head").filter(has=self.page.get_by_role("heading", name=item["name"], exact=True))
-            expect(head.locator(".sub")).to_have_text(f'{item["base_url"]} · 页面 {item["cases"]["ui"]} · 接口 {item["cases"]["api"]}')
+            detail = sample.get(f'/projects/{item["id"]}', {})
+            environments = detail.get("environments", [])
+            environment = next((env for env in environments if env["id"] == detail.get("active_environment_id")), None)
+            environment = environment or next((env for env in environments if env.get("is_default")), {})
+            base_url = environment.get("base_url") or item["base_url"]
+            expect(head.locator(".sub")).to_have_text(f'{base_url} · 页面 {item["cases"]["ui"]} · 接口 {item["cases"]["api"]}')
         expect(title).to_be_visible()
         expect(self.page.get_by_role("button", name=edited, exact=True)).to_have_count(0)
 

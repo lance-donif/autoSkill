@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills/autoskill/app"))
 
-from autoskill import builder, cli, db, failure_archive, paths, projects, runner, share, sync_conflicts, sync_import
+from autoskill import builder, cli, db, failure_archive, knowledge, paths, projects, runner, share, sync_conflicts, sync_import
 from autoskill.core import store
 from autoskill.server.app import create_app
 
@@ -61,6 +61,51 @@ class SyncPackAndDeferralTests(unittest.TestCase):
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
         self.base_url = f"http://127.0.0.1:{self.server.server_port}"
+
+    def test_single_zip_restores_markdown_and_readonly_raw_with_no_cases(self):
+        pid = "documents"
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.dev_ws)}):
+            projects.create("文档项目", project_id=pid)
+            content = "# 退款\n人工核对原付款方式。\n"
+            knowledge.write(pid, "订单/退款.md", content)
+            original = b"\x00\x01\xff"
+            (projects.path(pid) / "knowledge/raw/需求.bin").write_bytes(original)
+            packed = share.pack_sync([pid], out=str(self.root / "out"))
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.center_ws)}):
+            db.init()
+            receipt = sync_import.import_file(packed["file"])
+            self.assertEqual(receipt["status"], "imported", receipt)
+            folder = projects.path(pid) / "knowledge"
+            self.assertEqual((folder / "订单/退款.md").read_text(encoding="utf-8"), content)
+            self.assertEqual((folder / "raw/需求.bin").read_bytes(), original)
+            self.assertEqual(knowledge.search(pid, "原付款方式")["matches"][0]["path"], "订单/退款.md")
+            (folder / "订单/退款.md").write_text("中心的人工核对记录。", encoding="utf-8")
+            conflict = sync_import.import_file(packed["file"])
+            sibling = folder / conflict["knowledge_copies"][pid][0]
+            self.assertEqual(sibling.read_text(encoding="utf-8"), content)
+            self.assertEqual((folder / "订单/退款.md").read_text(encoding="utf-8"), "中心的人工核对记录。")
+
+    def test_center_accepts_lan_run_load_and_schedule_with_same_origin(self):
+        with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.center_ws)}):
+            db.init()
+            pid = projects.create("内网执行", self.base_url, project_id="lan")["id"]
+            case = builder.api_case("TC-API-001", "状态", "GET", "/ok", {"status": 200, "json_equals": {"/ok": True}})
+            projects.save_cases(pid, [case])
+            origin = "http://autoskill.lan:8787"
+            with TestClient(create_app(start_worker=False), base_url=origin) as dev:
+                self.assertEqual(dev.get("/api/status").status_code, 403)
+            with TestClient(create_app(start_worker=False, role="center"), base_url=origin) as client:
+                self.assertEqual(client.get("/api/status").json()["role"], "center")
+                spec = {"project_id": pid, "case_ids": [case["id"]]}
+                with patch("autoskill.server.jobs.ensure_worker", return_value={"status": "test"}):
+                    run = client.post("/api/runs", json=spec, headers={"Origin": origin})
+                    load = client.post("/api/load-tests", json={"items": [spec], "iterations": 1}, headers={"Origin": origin})
+                    schedule = client.post("/api/tasks", json={**spec, "title": "巡检", "rule": {"kind": "interval", "minutes": 5}},
+                                           headers={"Origin": origin})
+                for response in (run, load, schedule):
+                    self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(client.post("/api/runs", json=spec, headers={"Origin": "http://other.lan:8787"}).status_code, 403)
+                self.assertEqual(client.post("/api/bridge", json={}).status_code, 403)
 
     def test_pack_sync_exports_only_passing_cases_with_closure_envs_and_plaintext_accounts(self):
         with patch.dict(os.environ, {"AUTOSKILL_WORKSPACE": str(self.dev_ws), "AUTOSKILL_BRIDGE": "off", "AUTOSKILL_HEADED": "0"}):

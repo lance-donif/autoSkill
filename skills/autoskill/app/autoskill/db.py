@@ -161,7 +161,9 @@ def init() -> None:
 
 def install_state_triggers(connection) -> None:
     """Increment one committed workspace revision only for real business-row changes."""
-    tables = [row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'state_revision'")]
+    tables = [row[0] for row in connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+        "AND name NOT IN ('state_revision', 'kb_files', 'kb_fts') AND name NOT GLOB 'kb_fts_*'")]
     for table in tables:
         quoted = '"' + table.replace('"', '""') + '"'
         columns = [row[1] for row in connection.execute(f"PRAGMA table_info({quoted})")]

@@ -26,6 +26,8 @@
 | `cases <项目> --case <编号>` | 完整用例定义及内容版本，包含断言和需求关联；不是仪表盘展示投影 |
 | `knowledge list <项目> [--limit 数量] [--cursor 游标] [--query] [--all]` | 知识文件索引、字节数、内容版本；不默认读取每份正文 |
 | `knowledge read <项目> <knowledge/文件> [--offset 字符偏移] [--length 12000] [--revision 内容版本] [--all]` | 按 Unicode 字符读取正文，返回 `next_offset/total_length/has_more`；传 revision 可防止混读新旧版本 |
+| `knowledge search <项目> <关键词> [--limit 50]` | 离线搜索当前项目的 Markdown 文件，返回路径、标题和摘要 |
+| `knowledge write <项目> <相对路径> --file <Markdown文件> [--revision 内容版本]` | 新建或更新 Markdown。使用 `--file -` 从标准输入读取 |
 | `knowledge search <项目> --query <文字> [--team] [--limit 50] [--cursor 游标]` | 按标题/正文检索知识条目及旧文件；返回 `entries/page/pagination/scope_note`，四类状态分别判断，正文按需读取 |
 | `knowledge get <项目> <条目ID> --revision <版本>` | 读取指定不可变版本和当前证据、适用性投影；跨项目命中使用结果中的 `owner_project_id` |
 | `knowledge settings <项目> [--from-file <JSON>]` | 读取或条件更新团队/业务范围；写入 `{expected_hash,team_id,business_scope}`，二者同时非空或同时为 null |
@@ -250,7 +252,7 @@ HTTP 同样调用公共删除服务：`DELETE /api/projects/{project_id}/cases/{
 
 | 命令 | 说明 |
 | --- | --- |
-| `dashboard [--port 8787]` | 启动仪表盘（只监听本机）；已启用的后台队列驱动也可独立处理定时任务 |
+| `dashboard [--role dev\|center] [--host 地址] [--port 8787]` | 启动仪表盘。开发端默认监听 127.0.0.1，执行中心默认监听 0.0.0.0。也可用 `AUTOSKILL_ROLE`、`AUTOSKILL_HOST`、`AUTOSKILL_PORT` 设置 |
 | `demo` | 安装示例项目「示例工单系统」；启动仪表盘时会同时启动示例站点 |
 | `doctor [--launch]` | 检查运行时；`--launch` 真实启动一次浏览器 |
 | `verify` | 按清单校验随包运行时文件（完整离线包） |

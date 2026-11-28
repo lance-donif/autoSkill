@@ -7,6 +7,7 @@ import os
 import platform
 import shutil
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parents[2]
@@ -56,7 +57,13 @@ def default_workspace() -> Path:
 def workspace() -> Path:
     """Resolve the selected data directory; initialization belongs to explicit startup."""
     selected = os.environ.get("AUTOSKILL_WORKSPACE")
-    return Path(selected).expanduser().resolve() if selected else default_workspace()
+    return _workspace_selection(selected).expanduser().resolve() if selected else default_workspace()
+
+
+@lru_cache(maxsize=64)
+def _workspace_selection(selected: str) -> Path:
+    """Reuse parsed path components while resolving the current directory and symlinks on each access."""
+    return Path(selected)
 
 
 def local() -> Path:

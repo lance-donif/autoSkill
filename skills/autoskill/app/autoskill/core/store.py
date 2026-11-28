@@ -259,6 +259,15 @@ def _validate_api_contract(c, cid, errors, jsonschema):
     errors.extend(f"{cid}: 非法 JSON Pointer" for ptr in a.get("json_equals", {}) if not valid_pointer(ptr))
 
 
+def _validate_business_assertions(byid, errors):
+    for case in byid.values():
+        if case["kind"] != "api":
+            continue
+        assertions = case["assertions"]
+        if assertions["status"] < 400 and not (has_real_assertion(assertions) or case.get("extensions", {}).get("postconditions")):
+            errors.append(f'{case["id"]}: 仅校验响应状态码，缺少业务断言')
+
+
 def _validate_case_catalog(case_lists, req_ids, schema, errors, jsonschema):
     byid = {}
     for kind, items in case_lists.items():
@@ -344,6 +353,8 @@ def validate(p, check_results=True):
     req_ids = _validation_requirement_ids(reqs, errors)
     schema = read(ROOT / "references/case.schema.json")
     byid = _validate_case_catalog(case_lists, req_ids, schema, errors, jsonschema)
+    if check_results:
+        _validate_business_assertions(byid, errors)
     seen = set()
     result_schema = read(ROOT / "references/result.schema.json")
     _validate_result_catalog(p, result_lists, result_schema, byid, errors, jsonschema, seen)
@@ -402,17 +413,11 @@ def init(p):
         "# 项目测试规范\n\n待需求分析后补充业务规则、适用场景、来源及待确认项。主控须主动读取。\n",
         encoding="utf-8",
     )
-    for k in [
-        "business-rules",
-        "user-roles",
-        "data-dictionary",
-        "test-accounts",
-        "test-data-rules",
-        "historical-defects",
-    ]:
-        (p / "knowledge" / f"{k}.md").write_text(
-            f"# {k}\n\n待补充；未提供不代表不存在。凭据仅存环境变量名称。\n", encoding="utf-8"
-        )
+    from ..knowledge import STARTER_FILES
+
+    (p / "knowledge" / "raw").mkdir(exist_ok=True)
+    for name, content in STARTER_FILES.items():
+        (p / "knowledge" / name).write_text(content, encoding="utf-8")
 
 
 def coverage(p):

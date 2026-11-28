@@ -143,7 +143,10 @@ class ResultsUxTests(unittest.TestCase):
         self.run["test_report"] = {"status": "failed", "error": "原工作簿校验失败"}
         self.open()
         report = self.page.locator(".report-summary")
-        expect(report.get_by_role("link")).to_have_count(0)
+        expect(report.get_by_role("link")).to_have_count(1)
+        expect(report.get_by_role("link", name="下载错误包 ZIP", exact=True)).to_have_attribute(
+            "href", "/api/runs/run-report/error-pack"
+        )
         expect(report.get_by_role("button")).to_have_count(1)
         with self.page.expect_download() as download:
             report.get_by_role("button", name="下载 HTML 报告", exact=True).click()

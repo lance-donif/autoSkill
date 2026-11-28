@@ -134,6 +134,13 @@ class FeatureDashboardTests(DashboardWorkspace):
         expect(dialog).not_to_be_visible()
         knowledge = projects.path(self.pid) / "knowledge/订单/退款规则.md"
         self.assertEqual(knowledge.read_text(), "退款按原支付渠道退回。")
+        expect(self.page.get_by_role("row").filter(has_text="订单/退款规则.md")).to_be_visible()
+        self.page.get_by_role("searchbox", name="搜索知识", exact=True).fill("原支付渠道")
+        with self.page.expect_response(lambda response: "/knowledge-search?" in response.url) as search:
+            self.page.get_by_role("button", name="搜索", exact=True).click()
+        self.assertEqual(search.value.status, 200, search.value.text())
+        self.assertEqual([item["path"] for item in search.value.json()["matches"]], ["订单/退款规则.md"])
+        expect(self.page.get_by_role("row").filter(has_text="index.md")).to_have_count(0)
         self.page.get_by_role("row").filter(has_text="订单/退款规则.md").get_by_role("button", name="查看 / 编辑", exact=True).click()
         edit = self.page.get_by_role("dialog", name="查看与编辑知识", exact=True)
         expect(edit.get_by_label("内容", exact=True)).to_have_value("退款按原支付渠道退回。")

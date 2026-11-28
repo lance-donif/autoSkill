@@ -1,4 +1,4 @@
-"""Loopback-only HTTP API for the dashboard. It shows and runs; it never generates cases."""
+"""HTTP API for the local dashboard and intranet execution center."""
 from __future__ import annotations
 
 import asyncio
@@ -233,7 +233,9 @@ def demo_site(port: int = 8790):
     return server
 
 
-def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
+def create_app(port: int = 8787, start_worker: bool = True, *, role: str = "dev") -> FastAPI:
+    if role not in ("dev", "center"):
+        raise ValueError("仪表盘角色需要是 dev 或 center")
     data_store.ensure_initialized()
     db.init()
     worker = jobs.Worker()
@@ -256,6 +258,7 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
                 state["demo_site"].shutdown()
 
     app = FastAPI(title="autoSkill", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+    app.state.role = role
 
     _register_http_handlers(app, port)
     _register_overview_routes(app)
@@ -293,18 +296,36 @@ def create_app(port: int = 8787, start_worker: bool = True) -> FastAPI:
     return app
 
 
+def _http_origin(value: str) -> tuple[str, str, int] | None:
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username is not None
+                or parsed.path or parsed.query or parsed.fragment or any(character.isspace() for character in value)):
+            return None
+        port = parsed.port
+    except ValueError:
+        return None
+    return parsed.scheme, parsed.hostname, port if port is not None else (443 if parsed.scheme == "https" else 80)
+
+
 def _register_http_handlers(app: FastAPI, port: int) -> None:
     """Register http handlers in their original order."""
     @app.middleware("http")
-    async def local_only(request: Request, call_next):
-        """Refuse DNS-rebinding hosts and cross-site writes; the API is for this machine's dashboard only."""
-        host = urlsplit("http://" + request.headers.get("host", "")).hostname
-        if host not in LOCAL_HOSTS:
+    async def check_request(request: Request, call_next):
+        """Limit development hosts and verify the origin of browser writes."""
+        authority = request.headers.get("host", "")
+        request_origin = _http_origin(f"{request.url.scheme}://{authority}")
+        if request_origin is None:
+            return JSONResponse({"detail": "请求地址无效"}, status_code=400)
+        if app.state.role == "dev" and request_origin[1] not in LOCAL_HOSTS:
             return JSONResponse({"detail": "仅允许本机访问"}, status_code=403)
+        if (app.state.role == "center" and request.url.path.rstrip("/") == "/api/bridge"
+                and (request_origin[1] not in LOCAL_HOSTS or request.client is None or request.client.host not in LOCAL_HOSTS)):
+            return JSONResponse({"detail": "代为执行功能仅允许本机调用"}, status_code=403)
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             origin = request.headers.get("origin")
-            allowed = {f"http://{h}:{port}" for h in ("127.0.0.1", "localhost")}
-            if (origin and origin not in allowed) or request.headers.get("sec-fetch-site") == "cross-site":
+            allowed = {request_origin} if app.state.role == "center" else {("http", host, port) for host in LOCAL_HOSTS}
+            if (origin and _http_origin(origin) not in allowed) or request.headers.get("sec-fetch-site") == "cross-site":
                 return JSONResponse({"detail": "拒绝跨站请求"}, status_code=403)
         from ..workflow import use_binding
 
@@ -361,7 +382,7 @@ def _register_overview_routes(app: FastAPI) -> None:
                             "recorder": bool(paths.agent_browser())},
                 "browser": browser,
                 "skill_path": str(paths.SKILL), "workspace": str(paths.workspace()), "case_skill": str(paths.case_skill()), "bridge": bridge.enabled(),
-                "instance": os.environ.get("AUTOSKILL_INSTANCE_ID")}
+                "instance": os.environ.get("AUTOSKILL_INSTANCE_ID"), "role": app.state.role}
 
     @app.get("/api/state-revision")
     def state_revision(request: Request):
@@ -798,6 +819,8 @@ def _reader_options(request: Request) -> dict:
 
 
 def _register_context_routes(app: FastAPI) -> None:
+    from .. import knowledge as knowledge_files
+
     @app.get("/api/context/{project_id}")
     def context(project_id: str, request: Request):
         return context_service.context(project_id, **_reader_options(request), knowledge_limit=int(request.query_params.get("knowledge_limit", 5)),
@@ -812,9 +835,25 @@ def _register_context_routes(app: FastAPI) -> None:
     def case(project_id: str, case_id: str):
         return case_editing.get(project_id, case_id)
 
+    @app.get("/api/projects/{project_id}/knowledge")
     @app.get("/api/knowledge/{project_id}")
     def knowledge(project_id: str, request: Request):
         return context_service.knowledge(project_id, **_reader_options(request), query=request.query_params.get("query", ""))
+
+    @app.get("/api/projects/{project_id}/knowledge-search")
+    def search_knowledge(project_id: str, q: str, limit: int = 50):
+        return knowledge_files.search(project_id, q, limit=limit)
+
+    @app.get("/api/projects/{project_id}/knowledge/{path:path}")
+    def read_knowledge(project_id: str, path: str, request: Request):
+        query = request.query_params
+        return context_service.read_knowledge(project_id, "knowledge/" + path, offset=int(query.get("offset", 0)),
+                                              length=int(query.get("length", 12000)), content_revision=query.get("revision"),
+                                              all_items=query.get("all") == "1")
+
+    @app.put("/api/projects/{project_id}/knowledge/{path:path}")
+    def write_knowledge(project_id: str, path: str, body: dict):
+        return knowledge_files.write(project_id, path, body.get("content"), body.get("expected_hash"))
 
     @app.get("/api/knowledge/{project_id}/read")
     def read(project_id: str, request: Request):
@@ -1038,15 +1077,24 @@ def _register_unknown_route(app: FastAPI) -> None:
         raise HTTPException(404, "没有这个接口")
 
 
-def serve(port: int = 8787) -> None:
+def serve(port: int | None = None, *, role: str | None = None, host: str | None = None) -> None:
     import uvicorn
 
-    print(f"autoSkill 仪表盘：http://127.0.0.1:{port}  （Ctrl+C 停止）", flush=True)  # noqa: T201  # The interactive server prints its startup address.
-    app = create_app(port)
+    role = role or os.environ.get("AUTOSKILL_ROLE") or "dev"
+    configured_host = os.environ.get("AUTOSKILL_HOST")
+    if configured_host in ("generic", "dsh"):
+        configured_host = None  # These values identify callers in the older bridge protocol.
+    host = host or configured_host or ("0.0.0.0" if role == "center" else "127.0.0.1")
+    port = port if port is not None else int(os.environ.get("AUTOSKILL_PORT") or "8787")
+    if not 1 <= port <= 65535:
+        raise ValueError("仪表盘端口需要在 1 到 65535 之间")
+    app = create_app(port, role=role)
+    address = f"[{host}]" if ":" in host else host
+    print(f"autoSkill 仪表盘：http://{address}:{port}  （Ctrl+C 停止）", flush=True)  # noqa: T201  # The interactive server prints its startup address.
     if os.environ.get("AUTOSKILL_HOST_PIPE") != "1":
-        uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+        uvicorn.run(app, host=host, port=port, log_level="warning", proxy_headers=False)
         return
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", timeout_graceful_shutdown=5))
+    server = uvicorn.Server(uvicorn.Config(app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=5, proxy_headers=False))
 
     def wait_for_host() -> None:
         # A closed pipe also handles a host crash. Avoid a buffered stdin lock at interpreter exit.

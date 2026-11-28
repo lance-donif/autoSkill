@@ -118,6 +118,9 @@ def for_bridge(args, argv: list[str]) -> tuple[list[str], str | None, list[dict]
                 files.update(item["file"] for item in payload.get(collection, []) if isinstance(item, dict) and isinstance(item.get("file"), str))
         if args.command == "asset" and isinstance(payload, dict) and payload.get("source"):
             files.add(payload["source"])
+    elif args.command == "knowledge" and action == "write":
+        stdin_text = sys.stdin.read() if args.file == "-" else Path(resolve_path(args.file, root)).read_text(encoding="utf-8-sig")
+        forwarded = _file_stdin(forwarded, "--file")
     elif args.command == "import":
         files.add(resolve_path(args.file, root))
     if getattr(args, "source", None):

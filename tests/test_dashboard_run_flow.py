@@ -43,7 +43,7 @@ class RunFlowDashboardTests(DashboardWorkspace):
         with deletion.execution_guard(ahead["id"]):
             runner.enqueue(ahead)
             self.open("runs/" + ahead["id"])
-            expect(self.page.locator(".run-summary")).to_contain_text("正在执行")
+            expect(self.page.locator(".run-summary .status").first).to_have_text("执行中")
             first = runner.create(self.pid, [case["id"]], api_only=True, session_id="live-report", inputs={"label": "fixed"})
             run_id = first["id"]
             self.open("runs/" + run_id)

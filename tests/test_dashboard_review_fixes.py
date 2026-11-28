@@ -58,6 +58,8 @@ class DashboardReviewTests(unittest.TestCase):
     def api_response(self, request, path, query):
         if path == "/api/projects":
             return [self.project]
+        if path == "/api/platform-accounts" and request.method == "GET":
+            return {"platforms": [], "accounts": []}
         if path == "/api/settings":
             return {"data_id": "fixture-data", "dashboard": {}, "legacy_dashboard_import_eligible": False}
         if path == "/api/status":

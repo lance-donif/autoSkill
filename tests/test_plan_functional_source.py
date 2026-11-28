@@ -107,7 +107,7 @@ class PlanFunctionalSourceTests(unittest.TestCase):
         self.assertEqual(saved["priority"], "P0")
         self.assertEqual(projects.cases(self.pid), [])
         document = saved["extensions"]["test_case_document"]
-        self.assertEqual(document["priority"], "高")
+        self.assertEqual(document["priority"], "P0")
         for key in ("description", "business_path", "prefix", "author", "remarks"):
             self.assertEqual(document[key], self.row[key])
         self.assertEqual(document["source"]["upstream"], self.row["source"])

@@ -6,14 +6,21 @@ import errno
 import hashlib
 import os
 import threading
+from functools import lru_cache
 from pathlib import Path
 
 _held = threading.local()
 
 
 def gate_path(workspace: Path) -> Path:
-    identity = hashlib.sha256(os.path.normcase(str(workspace.resolve())).encode()).hexdigest()
-    return Path.home() / ".autoskill" / "maintenance" / (identity + ".lock")
+    return _gate_file(Path.home(), os.path.normcase(str(workspace.resolve())))
+
+
+@lru_cache(maxsize=64)
+def _gate_file(home: Path, workspace: str) -> Path:
+    """Reuse lock paths without retaining opened files or unbounded workspace history."""
+    identity = hashlib.sha256(workspace.encode()).hexdigest()
+    return home / ".autoskill" / "maintenance" / (identity + ".lock")
 
 
 @contextlib.contextmanager

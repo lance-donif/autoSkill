@@ -211,15 +211,6 @@ class ApiHttpLifecycleTests(unittest.TestCase):
         target = db.one("SELECT * FROM results WHERE run_id = ? AND case_id = ?", (run["id"], "API-ABSENT"))
         self.assertEqual(target["prerequisite"], 0)
 
-    def test_successful_status_assertion_is_enough_to_publish_without_a_later_check(self):
-        cases, queued, runs = self.execute_lifecycle(include_postcondition=False)
-        self.assertEqual(runs[0]["status"], "Pass")
-        receipt = candidate_publication.receipt(queued["run_id"])
-        self.assertEqual(set(receipt["published_ids"]), {case["id"] for case in cases})
-        row = db.one("SELECT * FROM results WHERE run_id = ? AND case_id = ?", (runs[0]["id"], cases[-2]["id"]))
-        self.assertEqual(row["status"], "Pass")
-        self.assertTrue(execution_inputs.result_evidence(runs[0], row, cases[-2]))
-
     def test_successful_delete_response_with_failed_empty_query_never_publishes_action(self):
         self.server.ignore_delete = True
         cases, queued, runs = self.execute_lifecycle()

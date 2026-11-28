@@ -398,8 +398,9 @@ def _sync_project_entry(
     needed_secrets: set[str],
     referenced_accounts: set[str],
     referenced_platforms: set[str],
+    target: Path,
 ) -> dict | None:
-    from . import sync_conflicts
+    from . import knowledge, sync_conflicts
     from .core import store
 
     with project_lock(project_id):
@@ -410,13 +411,19 @@ def _sync_project_entry(
         auth = projects.auth(project_id)
         all_list = projects.cases(project_id, active_only=False)
         all_cases = {item["id"]: item for item in all_list}
+        documents = [(name, file) for name, file in knowledge.files(project_id)
+                     if (file.suffix.lower() == ".md" or name.startswith("raw/")) and not _pack_artifact(file.resolve(), target)]
         eligible, excluded = _select_sync_cases(project_id, all_list, all_cases, selected_ids, only_passing)
         if not eligible:
             if selected_ids is not None:
                 raise ValueError(f"项目 {project_id} 中所选用例没有处于通过状态的用例")
-            return None
+            if not any(name not in knowledge.STARTER_FILES or file.read_bytes() != knowledge.STARTER_FILES[name].encode("utf-8")
+                       for name, file in documents):
+                return None
 
-        closure_ids = _sync_closure(eligible, all_cases, auth)
+        closure_ids = _sync_closure(eligible, all_cases, auth) if eligible else []
+        if not closure_ids:
+            auth = {}
         seed_prefix = _workspace_seed_prefix()
         ui_cases: list[dict] = []
         api_cases: list[dict] = []
@@ -440,6 +447,10 @@ def _sync_project_entry(
         entries[f"{prefix}/analysis/requirements.json"] = _write_archive_json(archive, f"{prefix}/analysis/requirements.json", requirements)
         entries[f"{prefix}/testcases/functional-cases.json"] = _write_archive_json(archive, f"{prefix}/testcases/functional-cases.json", ui_cases)
         entries[f"{prefix}/testcases/api-cases.json"] = _write_archive_json(archive, f"{prefix}/testcases/api-cases.json", api_cases)
+        for name, file in documents:
+            knowledge.relative_path(name)
+            member = f"{prefix}/knowledge/{name}"
+            entries[member] = _archive_file(archive, file, member)
 
         return {
             "id": project_id,
@@ -513,6 +524,7 @@ def pack_sync(
                     needed_secrets=needed_secrets,
                     referenced_accounts=ref_accounts,
                     referenced_platforms=ref_platforms,
+                    target=destination,
                 )
                 if project_summary is not None:
                     listed.append(project_summary)
@@ -567,8 +579,10 @@ def pack_sync(
 # --- import ---
 def _safe_members(archive: zipfile.ZipFile) -> dict[str, list[zipfile.ZipInfo]]:
     """Group pack entries by project, refusing anything that could escape the project folder."""
+    from . import knowledge
+
     grouped: dict[str, list[zipfile.ZipInfo]] = {}
-    seen = set()
+    seen, knowledge_paths = set(), set()
     for member in archive.infolist():
         name = member.filename
         if name in seen:
@@ -580,6 +594,12 @@ def _safe_members(archive: zipfile.ZipFile) -> dict[str, list[zipfile.ZipInfo]]:
         if (len(parts) < 3 or parts[0] != "projects" or not projects.ID.fullmatch(parts[1]) or "\\" in name
                 or any(part in ("", ".", "..") or ":" in part for part in parts)):
             raise ValueError(f"分享包里有不安全的路径，已拒绝导入：{name[:80]}")
+        if parts[2] == "knowledge":
+            knowledge.relative_path("/".join(parts[3:]))
+            identity = name.casefold()
+            if identity in knowledge_paths:
+                raise ValueError(f"分享包里有重复知识路径：{name[:80]}")
+            knowledge_paths.add(identity)
         grouped.setdefault(parts[1], []).append(member)
     return grouped
 

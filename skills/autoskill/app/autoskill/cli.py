@@ -183,6 +183,11 @@ def _reader_commands(sub) -> None:
     reader.add_argument("--revision", help="上一段返回的 content_revision；变化时明确报错")
     reader.add_argument("--all", action="store_true", dest="all_items")
     _knowledge_commands(knowledge_sub)
+    writer = knowledge_sub.add_parser("write", help="保存项目 Markdown 知识")
+    writer.add_argument("project")
+    writer.add_argument("path")
+    writer.add_argument("--file", required=True, help="Markdown 文件；- 表示标准输入")
+    writer.add_argument("--revision", help="当前文件的内容版本")
     failure = sub.add_parser("failure-context", help="只读冻结的执行失败与证据，不重新运行或生成诊断")
     failure.add_argument("project")
     failure.add_argument("--run", required=True)
@@ -196,7 +201,8 @@ def _knowledge_commands(sub) -> None:
     settings.add_argument("--from-file", dest="file", help="包含 expected_hash、team_id 和 business_scope 的 JSON；- 表示标准输入")
     search = sub.add_parser("search", help="搜索规范知识及旧知识文件")
     search.add_argument("project")
-    search.add_argument("--query", required=True)
+    search.add_argument("keyword", nargs="?", help="Markdown 搜索关键词")
+    search.add_argument("--query")
     search.add_argument("--team", action="store_true", help="按项目配置的相同团队及业务范围查询")
     search.add_argument("--limit", type=int, default=50)
     search.add_argument("--cursor")
@@ -518,7 +524,9 @@ def parser(*, include_run_engines: bool = True) -> argparse.ArgumentParser:
 
     sub.add_parser("demo", help="安装示例项目（示例工单系统）").add_argument("--url", default=demo.DEFAULT_URL)
     dash = sub.add_parser("dashboard", help="启动仪表盘")
-    dash.add_argument("--port", type=int, default=8787)
+    dash.add_argument("--role", choices=("dev", "center"), help="开发端或内网执行中心")
+    dash.add_argument("--host", help="监听地址")
+    dash.add_argument("--port", type=int, help="监听端口")
     dash.add_argument("--headed", action="store_true", help="显示浏览器窗口（默认就是显示）")
     doc = sub.add_parser("doctor", help="检查运行时是否齐全；不联网")
     doc.add_argument("--launch", action="store_true", help="同时真实启动一次浏览器（Playwright 与 Selenium）")
@@ -712,12 +720,21 @@ def _dispatch_delete(args) -> tuple[dict, int]:
 
 def _dispatch_knowledge(args) -> tuple[dict, int]:
     from . import context_service, knowledge_entries, knowledge_transfer
+    from . import knowledge as knowledge_files
 
     if args.action == "read":
         return context_service.read_knowledge(args.project, args.file, offset=args.offset, length=args.length,
                                               content_revision=args.revision, all_items=args.all_items), 0
     if args.action == "list":
         return context_service.knowledge(args.project, limit=args.limit, cursor=args.cursor, all_items=args.all_items, query=args.query), 0
+    if args.action == "write":
+        content = sys.stdin.read() if args.file == "-" else Path(
+            command_input.resolve_path(args.file, command_input.base_directory(args))).read_text(encoding="utf-8-sig")
+        path = args.path.removeprefix("knowledge/")
+        revision = args.revision
+        if revision is None and knowledge_files.file_path(args.project, path).is_file():
+            revision = context_service.read_knowledge(args.project, "knowledge/" + path, length=1)["content_revision"]
+        return knowledge_files.write(args.project, path, content, revision), 0
     if args.action == "settings":
         if args.file is None:
             return knowledge_entries.settings(args.project), 0
@@ -726,6 +743,8 @@ def _dispatch_knowledge(args) -> tuple[dict, int]:
             raise ValueError("知识设置需要是 JSON 对象")
         return knowledge_entries.settings(args.project, payload), 0
     if args.action == "search":
+        if args.query is None:
+            return knowledge_files.search(args.project, args.keyword or "", limit=args.limit), 0
         return knowledge_entries.search(args.project, query=args.query, team=args.team, limit=args.limit, cursor=args.cursor), 0
     if args.action == "get":
         return knowledge_entries.get(args.project, args.entry_id, revision=args.revision), 0
@@ -1061,7 +1080,7 @@ def _dispatch_dashboard(args) -> tuple[dict, int]:
     """Handle the dashboard command without changing its result contract."""
     from .server import app as server
 
-    server.serve(args.port)
+    server.serve(args.port, role=args.role, host=args.host)
     return {"stopped": True}, 0
 
 

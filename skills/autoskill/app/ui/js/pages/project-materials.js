@@ -1,18 +1,10 @@
 // Authoritative project knowledge, case files, reports and portable share packages.
 import { h, icon, replace, api, deleteSelection, scope, go, route, refresh, attempt, toast, fmtNumber } from '../core.js';
-import { drawer, closeOverlay, confirm, filterSelect, empty, errorState, skeletonRows } from '../ui.js';
+import { drawer, closeOverlay, confirm, filterSelect, empty, errorState } from '../ui.js';
 import { refreshShell } from '../shell.js';
 
 const TABS = [['knowledge', '知识库'], ['testcases', '用例文件'], ['reports', '报告'], ['share', '分享与导入']];
 const size = (bytes) => bytes < 1024 ? bytes + ' B' : bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB';
-const KNOWLEDGE_STATES = {
-  lifecycle: { withdrawn: '已撤回' },
-  verification: { hypothesis: '待验证', observed: '已有事实记录', execution_reproduced: '执行已复现（3次）' },
-  applicability: { match: '当前范围一致', changed: '适用条件已变化', unknown: '适用性待确认' },
-  evidence_status: { valid: '证据可核验', missing: '证据缺失', tampered: '证据校验不符', imported_unverified: '导入证据未本地验证' },
-};
-const KNOWLEDGE_KINDS = { observation: '事实观察', procedure: '执行方法', root_cause_hypothesis: '原因假设' };
-
 export async function render(view) {
   let index;
   let data;
@@ -44,76 +36,35 @@ export async function render(view) {
 
 function materialsPanel(data, tab) {
   if (tab !== 'knowledge') return fileList(data, tab);
-  return h('div', {}, knowledgeEntries(data.project.id), fileList(data, tab));
-}
-
-// Only labelled states earn a tag; an active entry and unrecorded fields stay silent.
-function knowledgeStates(entry) {
-  return h('div', { class: 'row wrap' }, Object.entries(KNOWLEDGE_STATES).map(([field, labels]) =>
-    labels[entry[field]] && h('span', { class: 'tag' }, labels[entry[field]])));
-}
-
-function knowledgeEntries(projectId) {
-  const body = h('div', { 'aria-live': 'polite' });
-  const query = h('input', { class: 'input', type: 'search', 'aria-label': '搜索知识条目', placeholder: '搜索标题或正文' });
+  const results = h('div', { 'aria-live': 'polite' }, fileList(data, tab));
+  const query = h('input', { class: 'input', type: 'search', 'aria-label': '搜索知识', placeholder: '搜索标题或正文' });
   const search = h('button', { class: 'btn sm', type: 'submit' }, '搜索');
-  let request = 0;
-  let activeQuery = '';
-  async function load(cursor = '') {
-    const current = ++request;
+  const form = h('form', { class: 'row', onSubmit: async (event) => {
+    event.preventDefault();
+    const keyword = query.value.trim();
+    if (!keyword) {
+      replace(results, fileList(data, tab));
+      return;
+    }
     search.disabled = true;
-    replace(body, skeletonRows(3));
     try {
-      const params = new URLSearchParams({ q: activeQuery, limit: '50' });
-      if (cursor) params.set('cursor', cursor);
-      const result = await api(`/knowledge/${encodeURIComponent(projectId)}/search?${params}`);
-      if (current !== request) return;
-      const entries = result.entries.filter((entry) => !entry.legacy);
-      const page = result.pagination;
-      replace(body, knowledgeTable(projectId, entries),
-        (entries.length > 0 || cursor || page.has_more) && h('div', { class: 'card-body row wrap' },
-          h('span', { class: 'hint grow' }, entries.length > 0 && `本页 ${fmtNumber(entries.length)} 条知识；原始文件在下方维护。`),
-          cursor && h('button', { class: 'btn sm', onClick: () => load() }, '返回首页'),
-          page.has_more && h('button', { class: 'btn sm', onClick: () => load(page.next_cursor) }, '下一页')));
+      const result = await api(`/projects/${encodeURIComponent(data.project.id)}/knowledge-search?q=${encodeURIComponent(keyword)}`);
+      const matches = new Set(result.matches.map((item) => item.path));
+      replace(results, fileList(data, tab, matches));
     } catch (error) {
-      if (current === request) replace(body, errorState(error, () => load()));
-    } finally { if (current === request) search.disabled = false; }
-  }
-  const form = h('form', { class: 'row', onSubmit: (event) => { event.preventDefault(); activeQuery = query.value.trim(); load(); } }, query, search);
-  const panel = h('section', { class: 'card', style: 'margin-top:16px;overflow-x:auto' },
-    h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, '知识条目'),
-      h('p', { class: 'sub' }, '查看已沉淀的经验、适用条件与证据。验证过的历史经验仍需结合当前任务判断。')), form), body);
-  load();
-  return panel;
+      replace(results, errorState(error, () => form.requestSubmit()));
+    } finally {
+      search.disabled = false;
+    }
+  } }, query, search);
+  return h('div', {}, form, results);
 }
 
-function knowledgeTable(projectId, entries) {
-  if (!entries.length) return empty({ glyph: 'folder', title: '本页没有知识条目', text: '完成工作流的知识沉淀或导入知识包后，可以在这里查看；原始知识文件保留在下方。' });
-  return h('table', { class: 'table' },
-    h('thead', {}, h('tr', {}, ['知识', '验证与适用状态', '操作'].map((label) => h('th', {}, label)))),
-    h('tbody', {}, entries.map((entry) => h('tr', {},
-      h('td', {}, h('div', { class: 'title' }, entry.title), h('div', { class: 'sub' }, `${KNOWLEDGE_KINDS[entry.kind] || '知识'} · 版本 ${entry.revision}`)),
-      h('td', {}, knowledgeStates(entry)),
-      h('td', {}, h('button', { class: 'btn sm', onClick: () => viewKnowledgeEntry(projectId, entry) }, '查看详情'))))));
-}
+const rawKnowledge = (item) => item.name.split('/')[0].toLowerCase() === 'raw';
+const markdownKnowledge = (item) => item.name.toLowerCase().endsWith('.md');
 
-async function viewKnowledgeEntry(projectId, summary) {
-  let entry;
-  try {
-    entry = await api(`/knowledge/${encodeURIComponent(projectId)}/entries/${encodeURIComponent(summary.id)}?revision=${summary.revision}`);
-  } catch (error) { toast(error.message, { bad: true }); return; }
-  drawer({ title: entry.title, subtitle: `${KNOWLEDGE_KINDS[entry.kind] || '知识'} · 版本 ${entry.revision}`, wide: true,
-    body: [knowledgeStates(entry),
-      h('p', { class: 'hint' }, '“已有事实记录”只确认所引用的检查；“执行已复现（3次）”表示关联用例已重复验证，不代表原因已证实或在其他场景一定有效。'),
-      h('div', { style: 'white-space:pre-wrap;overflow-wrap:anywhere' }, entry.text),
-      entry.creation_mode === 'import' && entry.source_verification && h('p', { class: 'sub' }, '来源项目验证：' + (KNOWLEDGE_STATES.verification[entry.source_verification] || '待确认') + '。来源结果不替代当前项目验证。'),
-      entry.kind === 'root_cause_hypothesis' && h('p', { class: 'hint' }, '原因假设需要进一步验证，不能仅凭这段描述认定根因。'),
-      entry.lifecycle === 'withdrawn' && h('p', { class: 'hint' }, '此条目已撤回，保留供历史追溯。')],
-    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '关闭')] });
-}
-
-function fileList(data, category) {
-  const files = data.items.filter((item) => item.category === category);
+function fileList(data, category, matches = null) {
+  const files = data.items.filter((item) => item.category === category && (!matches || matches.has(item.name)));
   const title = TABS.find(([key]) => key === category)[1];
   const add = category === 'knowledge' && h('button', { class: 'btn primary sm', onClick: () => editKnowledge(data.project.id) }, icon('plus'), '新建知识');
   const table = files.length ? h('table', { class: 'table' },
@@ -122,11 +73,11 @@ function fileList(data, category) {
       h('td', {}, h('div', { class: 'title' }, item.name), item.historical && h('span', { class: 'tag' }, '历史原件')),
       h('td', { class: 'sub num' }, size(item.bytes)),
       h('td', { class: 'sub mono', title: item.sha256 }, item.sha256.slice(0, 12)),
-      h('td', { class: 'actions' }, category === 'knowledge' && item.text && h('button', { class: 'btn sm', onClick: () => editKnowledge(data.project.id, item) }, '查看 / 编辑'),
+      h('td', { class: 'actions' }, category === 'knowledge' && item.text && h('button', { class: 'btn sm', onClick: () => editKnowledge(data.project.id, item) },
+        rawKnowledge(item) || !markdownKnowledge(item) ? '查看' : '查看 / 编辑'),
         h('a', { class: 'btn sm', href: item.download_url, download: '' }, '下载'),
-        category === 'knowledge' && h('button', { class: 'btn sm danger', onClick: (event) => removeKnowledge(data, item, event.currentTarget) }, '删除'))))))
-    : empty({ glyph: 'folder', title: '还没有' + title, text: category === 'reports' ? '录制、执行或工作流完成后，报告自动保存在项目的 reports 子目录。'
-      : category === 'knowledge' ? '把业务规则、测试经验和参考资料保存到当前项目的知识库。' : '在 DSH 对话中录制用例后，可在此下载用例文件。', actions: add });
+        category === 'knowledge' && !rawKnowledge(item) && h('button', { class: 'btn sm danger', onClick: (event) => removeKnowledge(data, item, event.currentTarget) }, '删除'))))))
+    : empty({ glyph: 'folder', title: matches ? '没有匹配的知识' : '还没有' + title, actions: add });
   return h('section', { class: 'card', style: 'margin-top:16px;overflow-x:auto' },
     h('div', { class: 'card-head' }, h('div', { class: 'grow' }, h('h2', {}, title), files.length > 0 && h('p', { class: 'sub' }, fmtNumber(files.length) + ' 个文件')), files.length > 0 && add), table);
 }
@@ -137,13 +88,15 @@ async function editKnowledge(projectId, item) {
     try { saved = await api(`/project-materials/${encodeURIComponent(projectId)}/knowledge?file=${encodeURIComponent(item.name)}&all=1`); }
     catch (error) { toast(error.message, { bad: true }); return; }
   }
+  const readOnly = item && (rawKnowledge(item) || !markdownKnowledge(item));
   const name = h('input', { class: 'input', id: 'knowledge-name', value: item?.name || '', disabled: !!item, placeholder: '例如：订单/退款规则.md' });
-  const content = h('textarea', { class: 'input mono', id: 'knowledge-content', rows: 20, value: saved?.content || '', style: 'min-height:320px;resize:vertical' });
+  const content = h('textarea', { class: 'input mono', id: 'knowledge-content', readOnly, rows: 20, value: saved?.content || '', style: 'min-height:320px;resize:vertical' });
   const error = h('p', { class: 'error', role: 'alert', hidden: true });
   const save = h('button', { class: 'btn primary', onClick: async () => {
     save.disabled = true;
     error.hidden = true;
     try {
+      if (!markdownKnowledge({ name: name.value })) throw new Error('知识文件名需要以 .md 结尾');
       await api(`/project-materials/${encodeURIComponent(projectId)}/knowledge`, { method: 'PUT', body: {
         file: name.value, content: content.value, expected_hash: saved?.content_revision || null,
       } });
@@ -153,10 +106,10 @@ async function editKnowledge(projectId, item) {
     } catch (problem) { error.textContent = problem.message; error.hidden = false; }
     finally { save.disabled = false; }
   } }, '保存');
-  drawer({ title: item ? '查看与编辑知识' : '新建知识', subtitle: '直接维护项目 knowledge 目录；版本变化时会提示重新读取。', wide: true,
+  drawer({ title: readOnly ? '查看知识' : item ? '查看与编辑知识' : '新建知识', wide: true,
     body: [h('div', { class: 'field' }, h('label', { for: 'knowledge-name' }, '文件名'), name),
       h('div', { class: 'field' }, h('label', { for: 'knowledge-content' }, '内容'), content), error],
-    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, '取消'), save] });
+    foot: [h('button', { class: 'btn', onClick: () => closeOverlay() }, readOnly ? '关闭' : '取消'), !readOnly && save] });
 }
 
 async function removeKnowledge(data, item, button) {

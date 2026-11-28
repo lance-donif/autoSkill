@@ -394,18 +394,6 @@ class LifecycleContractTests(ApiReviewCase):
         self.assertEqual([], self.server.events)
         self.assertEqual([], projects.cases(self.pid))
 
-    def test_undeclared_later_green_check_cannot_verify_status_only_201(self):
-        self.server.delete_status = 201
-        cases = lifecycle(201)
-        cases[-2]["extensions"].pop("postconditions")
-        run, rows = self.execute_candidates(cases)
-        self.assertEqual("Pass", rows[ORDER[5]]["status"])
-        self.assertEqual("Unverified", json.loads(rows[ORDER[5]]["detail"])["business_status"])
-        self.assertEqual("Pass", rows[ORDER[6]]["status"])
-        receipt = self.publish(cases, [run["id"]])
-        self.assertNotIn(ORDER[5], receipt["published_ids"], receipt)
-        self.assertNotIn(ORDER[6], receipt["published_ids"], receipt)
-
     def test_different_inputs_do_not_merge_pass_or_current_scope(self):
         cases = lifecycle()
         first, first_rows = self.execute_candidates(cases, INPUT_A)

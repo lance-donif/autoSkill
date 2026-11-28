@@ -84,16 +84,9 @@ def file_for(project_id: str, identity: str) -> Path:
 
 
 def _knowledge_path(project_id: str, name: str) -> Path:
-    if not isinstance(name, str) or not name.strip() or "\\" in name or "\0" in name:
-        raise ValueError("请提供知识文件的相对路径")
-    relative = Path(name.removeprefix("knowledge/"))
-    if relative.is_absolute() or any(part in ("..", ".") or ":" in part for part in relative.parts) or not relative.parts:
-        raise ValueError("知识文件路径不能离开 knowledge 目录")
-    folder = projects.path(project_id) / "knowledge"
-    file = folder / relative
-    if not file.resolve().is_relative_to(folder.resolve()) or folder.is_symlink():
-        raise ValueError("知识文件路径不能离开 knowledge 目录")
-    return file
+    from . import knowledge
+
+    return knowledge.file_path(project_id, name.removeprefix("knowledge/") if isinstance(name, str) else name)
 
 
 def write_knowledge(project_id: str, name: str, content: str, expected_hash: str | None = None, *, delete: bool = False) -> dict:
@@ -104,6 +97,9 @@ def write_knowledge(project_id: str, name: str, content: str, expected_hash: str
         raise ValueError("知识内容版本无效，请重新读取文件")
     with project_lock(project_id):
         file = _knowledge_path(project_id, name)
+        relative = file.relative_to(projects.path(project_id) / "knowledge")
+        if relative.parts[0].casefold() == "raw":
+            raise ValueError("原始资料只读")
         current = _digest(file) if file.is_file() else None
         if current != expected_hash:
             raise ValueError("知识文件已变化，请重新读取后再保存；原内容未覆盖")
@@ -111,7 +107,7 @@ def write_knowledge(project_id: str, name: str, content: str, expected_hash: str
             if current is None:
                 raise ValueError("知识文件不存在")
             file.unlink()
-            return {"deleted": True, "file": "knowledge/" + file.relative_to(projects.path(project_id) / "knowledge").as_posix()}
+            return {"deleted": True, "file": "knowledge/" + relative.as_posix()}
         file.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=file.parent, prefix=".knowledge-", delete=False) as stream:
             temporary = Path(stream.name)
@@ -120,7 +116,7 @@ def write_knowledge(project_id: str, name: str, content: str, expected_hash: str
             temporary.replace(file)
         finally:
             temporary.unlink(missing_ok=True)
-        return _entry(project_id, "knowledge", file, file.relative_to(projects.path(project_id) / "knowledge").as_posix())
+        return _entry(project_id, "knowledge", file, relative.as_posix())
 
 
 def _export_target(prefix: str) -> tuple[str, Path]:

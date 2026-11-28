@@ -209,6 +209,11 @@ def needs(case_id: str, target: str | None, cases: dict) -> bool:
     return False
 
 
+def _api_assertion(case: dict) -> bool:
+    assertions = case.get("assertions", {})
+    return store.has_real_assertion(assertions) or assertions.get("status", 0) >= 400
+
+
 def validate_postconditions(cases: dict, selected=None) -> None:
     """A postcondition is an explicit downstream API oracle, never an arbitrary later success."""
     for identity in cases if selected is None else selected:
@@ -224,6 +229,8 @@ def validate_postconditions(cases: dict, selected=None) -> None:
             check = cases.get(target)
             if target == identity or not check or check.get("lifecycle") != "active" or check.get("kind") != "api":
                 raise ValueError(f"{identity} 的后置验证 {target} 必须指向另一个存在且启用的 API 用例")
+            if not _api_assertion(check) or check.get("extensions", {}).get("oracle", {}).get("source") == "observation":
+                raise ValueError(f"{identity} 的后置验证 {target} 缺少独立业务断言")
             if not needs(target, identity, cases):
                 raise ValueError(f"{identity} 的后置验证 {target} 必须通过 depends_on 依赖该动作")
 
@@ -702,10 +709,10 @@ def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
     """Apply configured checks, or require a completed record of every configured action."""
     extensions = case.get("extensions", {})
     automation = extensions.get("automation", {})
-    declared = ((store.has_real_assertion(case.get("assertions", {})) or case.get("assertions", {}).get("status", 0) >= 400)
-                if case["kind"] == "api" else
+    declared = (_api_assertion(case) if case["kind"] == "api" else
                 bool(automation.get("assertions") or any("assertion" in step for step in automation.get("actions", []))))
-    trusted = declared and extensions.get("oracle", {}).get("source") != "observation"
+    independent = extensions.get("oracle", {}).get("source") != "observation"
+    trusted = declared and independent
     performance = [row for row in outcome.get("assertions", []) if row.get("scope") == "performance"]
     performance_status = ("Fail" if any(row.get("passed") is False for row in performance) else "Pass") if performance else "Unverified"
     rows = [row for row in outcome.get("assertions", []) if row.get("scope") != "performance"]
@@ -718,7 +725,7 @@ def verification(case: dict, outcome: dict, *, probe: bool = False) -> dict:
                                              and outcome.get("category") == "assertion_failed")) and all(row.get("passed") is True for row in rows):
             business = "Pass"
     complete = not probe and _completed_replay(case, outcome)
-    if complete and not declared:
+    if complete and not declared and independent:
         business = "Pass"
     if extensions.get("postconditions"):
         source = outcome.get("postcondition_source")

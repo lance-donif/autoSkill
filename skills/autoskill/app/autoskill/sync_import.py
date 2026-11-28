@@ -17,7 +17,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from . import db, execution_inputs, file_changes, paths, projects, runtime_identity, share, sync_conflicts
+from . import db, execution_inputs, file_changes, knowledge, paths, projects, runtime_identity, share, sync_conflicts
 from .core import store
 from .locking import named_lock, project_lock
 
@@ -190,7 +190,8 @@ def _cleanup_staging() -> None:
                 shutil.rmtree(work)
 
 
-def _read_staged_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo]) -> dict:
+@contextlib.contextmanager
+def _read_staged_project(archive: zipfile.ZipFile, project_id: str, members: list[zipfile.ZipInfo]):
     """Extract and validate one project from a ZIP into a temporary staging folder."""
     folder = paths.local() / "import"
     folder.mkdir(parents=True, exist_ok=True)
@@ -210,9 +211,47 @@ def _read_staged_project(archive: zipfile.ZipFile, project_id: str, members: lis
         req_file = staging / "analysis" / "requirements.json"
         requirements = store.read(req_file) if req_file.is_file() else None
         cases = store.load_cases(staging)
-        return {"config": cfg, "auth": auth, "requirements": requirements, "cases": cases}
+        yield {"config": cfg, "auth": auth, "requirements": requirements, "cases": cases, "knowledge": staging / "knowledge"}
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def _merge_knowledge(project_id: str, incoming: Path, *, overwrite: bool, versioned: bool) -> tuple[bool, list[str]]:
+    files = [(source, source.relative_to(incoming).as_posix()) for source in sorted(incoming.rglob("*")) if source.is_file()]
+    updates, alternatives = [], []
+    for source, name in files:
+        target = knowledge.file_path(project_id, name)
+        if target.is_dir():
+            raise ValueError(f"知识同步路径是目录：{name}")
+        incoming_hash = _file_digest(source)
+        if target.is_file():
+            local_hash = _file_digest(target)
+            if local_hash == incoming_hash:
+                continue
+            starter = knowledge.STARTER_FILES.get(name)
+            starter_hash = hashlib.sha256(starter.encode("utf-8")).hexdigest() if starter else None
+            if versioned and incoming_hash == starter_hash:
+                continue
+            if not overwrite and (not versioned or local_hash != starter_hash):
+                suffix = f"-同步-{incoming_hash[:12]}"
+                for number in range(1, 1000):
+                    serial = f"-{number}" if number > 1 else ""
+                    alternative = target.with_name(target.stem + suffix + serial + target.suffix)
+                    alternative_name = alternative.relative_to(projects.path(project_id) / "knowledge").as_posix()
+                    alternative = knowledge.file_path(project_id, alternative_name)
+                    if not alternative.exists() or (alternative.is_file() and _file_digest(alternative) == incoming_hash):
+                        target = alternative
+                        break
+                else:
+                    raise ValueError(f"无法为有冲突的知识文件保留同步副本：{name}")
+                alternatives.append(alternative_name)
+                if target.exists():
+                    continue
+        updates.append((source, target))
+    for source, target in updates:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source.replace(target)
+    return bool(updates), alternatives
 
 
 def _import_new_project_accounts(
@@ -301,7 +340,7 @@ def _import_one_zip_project(
     include_envs: bool,
     include_accounts: bool,
     overwrite: bool = False,
-) -> tuple[bool, list[str], dict[str, str], dict | None]:
+) -> tuple[bool, list[str], dict[str, str], dict | None, list[str]]:
     exists = (paths.projects_dir() / project_id / "project.json").is_file()
     if not exists:
         share._import_project(archive, project_id, members, overwrite=False)
@@ -310,24 +349,25 @@ def _import_one_zip_project(
             _import_new_project_accounts(project_id, platform_store, relative, digest, source_type, overwrite=overwrite)
             if (include_accounts and platform_store) else None
         )
-        return True, case_ids, {}, conflict
-    staged = _read_staged_project(archive, project_id, members)
-    merged = sync_conflicts.merge_project_sync(
-        project_id,
-        staged["cases"],
-        source_file=relative,
-        source_type=source_type,
-        source_sha256=digest,
-        incoming_config=staged["config"],
-        incoming_auth=staged["auth"],
-        incoming_requirements=staged["requirements"],
-        incoming_platform_store=platform_store,
-        include_environments=include_envs,
-        include_accounts=include_accounts,
-        overwrite=overwrite,
-    )
-    changed = bool(merged["imported_cases"] or merged["added_environments"] or merged["added_accounts"] or merged.get("updated_auth"))
-    return changed, merged["imported_cases"], merged["renumbered"], merged["conflict"]
+        return True, case_ids, {}, conflict, []
+    with project_lock(project_id), _read_staged_project(archive, project_id, members) as staged:
+        merged = sync_conflicts.merge_project_sync(
+            project_id,
+            staged["cases"],
+            source_file=relative,
+            source_type=source_type,
+            source_sha256=digest,
+            incoming_config=staged["config"],
+            incoming_auth=staged["auth"],
+            incoming_requirements=staged["requirements"],
+            incoming_platform_store=platform_store,
+            include_environments=include_envs,
+            include_accounts=include_accounts,
+            overwrite=overwrite,
+        )
+        knowledge_changed, alternatives = _merge_knowledge(project_id, staged["knowledge"], overwrite=overwrite, versioned=source_type == "sync_zip")
+    changed = bool(knowledge_changed or merged["imported_cases"] or merged["added_environments"] or merged["added_accounts"] or merged.get("updated_auth"))
+    return changed, merged["imported_cases"], merged["renumbered"], merged["conflict"], alternatives
 
 
 def _import_zip(file: Path, relative: str, digest: str, *, overwrite: bool = False) -> dict:
@@ -345,12 +385,13 @@ def _import_zip(file: Path, relative: str, digest: str, *, overwrite: bool = Fal
         imported_projects: list[str] = []
         imported_cases: list[str] = []
         conflicts: list[dict] = []
+        knowledge_copies: dict[str, list[str]] = {}
         renumbered: dict[str, str] = {}
         reasons: list[str] = []
 
         for project_id, members in grouped.items():
             try:
-                changed, case_ids, remapped, conflict = _import_one_zip_project(
+                changed, case_ids, remapped, conflict, alternatives = _import_one_zip_project(
                     archive,
                     project_id,
                     members,
@@ -371,6 +412,8 @@ def _import_zip(file: Path, relative: str, digest: str, *, overwrite: bool = Fal
             renumbered.update(remapped)
             if conflict is not None:
                 conflicts.append(conflict)
+            if alternatives:
+                knowledge_copies[project_id] = alternatives
 
         if reasons and not imported_projects and not conflicts:
             return _zip_error("；".join(reasons)[:500])
@@ -379,6 +422,8 @@ def _import_zip(file: Path, relative: str, digest: str, *, overwrite: bool = Fal
             reasons.append(f"发现 {len(conflicts)} 项冲突，已保留本地配置与修改，请前往处理")
         elif status_value == "skipped" and not reasons:
             reasons.append("没有需要更新的新内容")
+        if knowledge_copies:
+            reasons.append("同名知识文件内容不同，已保留本地内容与同步副本")
         result = {
             "status": status_value,
             "projects": list(dict.fromkeys(imported_projects)),
@@ -387,6 +432,7 @@ def _import_zip(file: Path, relative: str, digest: str, *, overwrite: bool = Fal
             "renumbered": renumbered,
             "conflict_id": conflicts[0]["id"] if conflicts else None,
             "conflict_ids": [item["id"] for item in conflicts],
+            "knowledge_copies": knowledge_copies,
             "reason": "；".join(reasons)[:500],
         }
         if len(grouped) == 1:

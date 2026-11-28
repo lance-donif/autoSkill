@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "skills/autoskill/app"
 sys.path.insert(0, str(APP))
 
-from autoskill import bridge, builder, cli, command_input, context_service, paging, paths, plan, projects
+from autoskill import bridge, builder, cli, command_input, context_service, db, paging, paths, plan, projects
 from autoskill.server.app import create_app
 
 
@@ -72,15 +72,45 @@ class AgentReadTests(unittest.TestCase):
         text = "工单🙂甲\r\n" * 1000
         (folder / "rules.md").write_bytes(text.encode("utf-8"))
         first = context_service.knowledge(self.pid)
-        self.assertNotIn("content", first["knowledge"][0])
-        revision = first["knowledge"][0]["content_revision"]
+        entry = next(row for row in first["knowledge"] if row["file"] == "knowledge/rules.md")
+        self.assertNotIn("content", entry)
+        revision = entry["content_revision"]
         part = context_service.read_knowledge(self.pid, "knowledge/rules.md", offset=3, length=17, content_revision=revision)
         self.assertEqual(part["content"], text[3:20])
         self.assertEqual(part["total_length"], len(text))
-        self.assertEqual(len(cli.knowledge(self.pid, limit=23)[0]["content"]), 23)
+        preview = next(row for row in cli.knowledge(self.pid, limit=23) if row["file"] == "knowledge/rules.md")
+        self.assertEqual(len(preview["content"]), 23)
         (folder / "rules.md").write_text("changed", encoding="utf-8")
         with self.assertRaises(paging.PageError):
             context_service.read_knowledge(self.pid, "rules.md", content_revision=revision)
+
+    def test_markdown_cli_and_http_search_share_a_rebuildable_index(self):
+        self.assertEqual(self.command("knowledge", "write", self.pid, "订单/规则.md", "--file", "-",
+                                      stdin="# 退款流程\n退款原路退回。")[0], 0)
+        other = projects.create("其他项目", project_id="other")["id"]
+        (projects.path(other) / "knowledge/rules.md").write_text("退款原路退回。", encoding="utf-8")
+        self.assertEqual([item["path"] for item in self.command("knowledge", "search", self.pid, "原路退回")[1]["matches"]],
+                         ["订单/规则.md"])
+        folder = projects.path(self.pid) / "knowledge"
+        source = folder / "订单/规则.md"
+        endpoint = "/api/projects/" + self.pid
+        with TestClient(create_app(start_worker=False), base_url="http://127.0.0.1:8787") as client:
+            revision = client.get(endpoint + "/knowledge/订单/规则.md").json()["content_revision"]
+            response = client.put(endpoint + "/knowledge/订单/规则.md",
+                                  json={"content": "退回至余额。", "expected_hash": revision})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(client.get(endpoint + "/knowledge-search", params={"q": "原路退回"}).json()["matches"], [])
+            self.assertEqual(client.get(endpoint + "/knowledge-search", params={"q": "余额"}).json()["matches"][0]["path"], "订单/规则.md")
+            self.assertEqual(client.put(endpoint + "/knowledge/raw/需求.md", json={"content": "禁止写入"}).status_code, 400)
+            source.write_text("人工编辑后改为银行卡。", encoding="utf-8")
+            before = db.one("SELECT revision FROM state_revision WHERE id=1")["revision"]
+            self.assertEqual(len(client.get(endpoint + "/knowledge-search", params={"q": "银行卡"}).json()["matches"]), 1)
+            self.assertEqual(db.one("SELECT revision FROM state_revision WHERE id=1")["revision"], before)
+            with db.connect() as conn:
+                conn.execute("DROP TABLE kb_fts")
+            self.assertEqual(len(client.get(endpoint + "/knowledge-search", params={"q": "银行卡"}).json()["matches"]), 1)
+            source.unlink()
+            self.assertEqual(client.get(endpoint + "/knowledge-search", params={"q": "银行卡"}).json()["matches"], [])
 
     def test_http_and_cli_share_case_pages_and_preserve_request_session(self):
         self.make_cases(3)
