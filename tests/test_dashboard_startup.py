@@ -13,12 +13,16 @@ class DashboardStartupTests(unittest.TestCase):
 
     def setUp(self):
         fixtures.DashboardReviewTests.setUp(self)
+        self.preflights = []
         self.started = []
 
     def api_response(self, request, path, query):
         if path == '/api/settings':
             return {'data_id': 'startup-fixture', 'dashboard': {'engine': 'selenium', 'headed': False},
                     'legacy_dashboard_import_eligible': False}
+        if path == '/api/projects/review/preflight' and request.method == 'POST':
+            self.preflights.append(request.post_data_json)
+            return {'ok': True}
         if path == '/api/runs' and request.method == 'POST':
             self.started.append(request.post_data_json)
             return {'runs': [{'id': 'run-1', 'project_id': 'review'}], 'skipped': []}
@@ -118,9 +122,11 @@ class DashboardStartupTests(unittest.TestCase):
         self.open_cases()
         self.page.get_by_role('button', name='运行', exact=True).click()
         expect(self.page.get_by_role('button', name='正在启动', exact=True)).to_be_disabled()
+        self.assertEqual(self.preflights, [])
         self.assertEqual(self.started, [])
         self.page.evaluate('window.releaseRequest()')
         expect(self.page).to_have_url('http://127.0.0.1:8787/#/runs/run-1?range=all')
+        self.assertEqual(self.preflights, [{'case_ids': ['TC-UI-001']}])
         self.assertEqual(self.started, [{'items': [{'project_id': 'review', 'case_ids': ['TC-UI-001']}],
                                        'engine': 'selenium', 'headed': False}])
 
